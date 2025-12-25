@@ -1,0 +1,25 @@
+{
+  "name": "csaas-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Csaas - AI驱动的IT咨询成熟度评估平台",
+  "scripts": {
+    "prepare": "husky",
+    "frontend:dev": "cd frontend && npm run dev",
+    "backend:dev": "cd backend && npm run start:dev",
+    "frontend:build": "cd frontend && npm run build",
+    "backend:build": "cd backend && npm run build",
+    "lint": "npm run lint --workspaces",
+    "format": "npm run format --workspaces",
+    "test": "npm run test --workspaces"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "devDependencies": {
+    "husky": "^9.0.0",
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0"
+  }
+}
