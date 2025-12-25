@@ -20,20 +20,13 @@ export enum AITaskType {
   ACTION_PLAN = 'action_plan', // 落地措施
 }
 
-export enum AITaskStatus {
+export enum TaskStatus {
   PENDING = 'pending',
-  RUNNING = 'running',
+  PROCESSING = 'processing',
   COMPLETED = 'completed',
   FAILED = 'failed',
   MANUAL_MODE = 'manual_mode', // Level 4降级
   LOW_CONFIDENCE = 'low_confidence', // Level 3降级
-}
-
-export enum TaskPriority {
-  LOW = 'low',
-  NORMAL = 'normal',
-  HIGH = 'high',
-  URGENT = 'urgent',
 }
 
 @Entity('ai_tasks')
@@ -56,20 +49,16 @@ export class AITask {
 
   @Column({
     type: 'enum',
-    enum: AITaskStatus,
-    default: AITaskStatus.PENDING,
+    enum: TaskStatus,
+    default: TaskStatus.PENDING,
   })
-  status: AITaskStatus
+  status: TaskStatus
 
-  @Column({
-    type: 'enum',
-    enum: TaskPriority,
-    default: TaskPriority.NORMAL,
-  })
-  priority: TaskPriority
+  @Column({ type: 'integer', default: 1 })
+  priority: number
 
-  @Column({ type: 'text', nullable: true })
-  input: string
+  @Column({ type: 'jsonb' })
+  input: Record<string, any>
 
   @Column({ type: 'jsonb', nullable: true })
   result: Record<string, any>
