@@ -8,6 +8,7 @@ import { AITaskJobData, AITaskJobResult } from '../interfaces/queue-job.interfac
 import { AITask, TaskStatus } from '../../../database/entities/ai-task.entity'
 import { AIGenerationEvent } from '../../../database/entities/ai-generation-event.entity'
 import { AICostTracking } from '../../../database/entities/ai-cost-tracking.entity'
+import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
 
 @Processor(AI_TASK_QUEUE, {
   concurrency: 5,
@@ -26,6 +27,7 @@ export class AITaskProcessor extends WorkerHost {
     private readonly eventRepo: Repository<AIGenerationEvent>,
     @InjectRepository(AICostTracking)
     private readonly costRepo: Repository<AICostTracking>,
+    private readonly aiOrchestrator: AIOrchestrator,
   ) {
     super()
   }
@@ -50,45 +52,50 @@ export class AITaskProcessor extends WorkerHost {
       })
       await this.eventRepo.save(event)
 
-      // TODO: 实际调用AI API（下一步实现）
-      // 这里先模拟一个简单的处理
-      const mockOutput = {
-        result: `Mock AI response for ${type}`,
-        timestamp: new Date().toISOString(),
-      }
-      const mockTokens = 1000
-      const mockCost = 0.02
+      // 调用AI Orchestrator生成响应
+      const prompt = this.buildPrompt(type, input)
+      const aiResponse = await this.aiOrchestrator.generate(
+        {
+          prompt: prompt.prompt,
+          systemPrompt: prompt.systemPrompt,
+          temperature: 0.7,
+          maxTokens: 2000,
+        },
+        model,
+      )
 
       const executionTimeMs = Date.now() - startTime
 
       // 更新生成事件 - 完成
       await this.eventRepo.update(event.id, {
-        output: mockOutput as any,
+        output: { content: aiResponse.content, metadata: aiResponse.metadata } as any,
         executionTimeMs,
       })
 
       // 记录成本
       await this.costRepo.save({
         taskId,
-        model,
-        tokens: mockTokens,
-        cost: mockCost,
+        model: aiResponse.model as any,
+        tokens: aiResponse.tokens.total,
+        cost: aiResponse.cost,
       } as any)
 
       // 更新任务状态为 COMPLETED
       await this.aiTaskRepo.update(taskId, {
         status: TaskStatus.COMPLETED,
-        result: mockOutput as any,
+        result: { content: aiResponse.content } as any,
         completedAt: new Date(),
       })
 
-      this.logger.log(`AI task ${taskId} completed in ${executionTimeMs}ms`)
+      this.logger.log(
+        `AI task ${taskId} completed in ${executionTimeMs}ms, tokens: ${aiResponse.tokens.total}, cost: $${aiResponse.cost.toFixed(4)}`,
+      )
 
       return {
         taskId,
-        output: mockOutput,
-        tokens: mockTokens,
-        cost: mockCost,
+        output: { content: aiResponse.content },
+        tokens: aiResponse.tokens.total,
+        cost: aiResponse.cost,
         executionTimeMs,
       }
     } catch (error) {
@@ -126,5 +133,55 @@ export class AITaskProcessor extends WorkerHost {
   @OnWorkerEvent('failed')
   onFailed(job: Job, error: Error) {
     this.logger.error(`Job ${job.id} failed with error: ${error.message}`)
+  }
+
+  /**
+   * Build prompt based on task type
+   */
+  private buildPrompt(
+    type: string,
+    input: Record<string, any>,
+  ): { prompt: string; systemPrompt: string } {
+    switch (type) {
+      case 'summary':
+        return {
+          systemPrompt:
+            'You are an expert at creating concise, accurate summaries. Focus on key points and main ideas.',
+          prompt: `Please summarize the following text:\n\n${input.text}`,
+        }
+
+      case 'code_generation':
+        return {
+          systemPrompt:
+            'You are an expert software developer. Write clean, efficient, well-documented code following best practices.',
+          prompt: `Generate code based on the following requirements:\n\n${input.requirements}`,
+        }
+
+      case 'code_review':
+        return {
+          systemPrompt:
+            'You are an experienced code reviewer. Provide constructive feedback on code quality, potential bugs, and improvements.',
+          prompt: `Review the following code:\n\n${input.code}`,
+        }
+
+      case 'translation':
+        return {
+          systemPrompt: `You are a professional translator. Translate accurately while preserving meaning and tone.`,
+          prompt: `Translate the following text to ${input.targetLanguage}:\n\n${input.text}`,
+        }
+
+      case 'analysis':
+        return {
+          systemPrompt:
+            'You are a data analyst. Provide insightful analysis with clear reasoning.',
+          prompt: `Analyze the following data:\n\n${JSON.stringify(input.data, null, 2)}`,
+        }
+
+      default:
+        return {
+          systemPrompt: 'You are a helpful AI assistant.',
+          prompt: input.prompt || JSON.stringify(input),
+        }
+    }
   }
 }

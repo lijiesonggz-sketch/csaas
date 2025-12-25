@@ -8,6 +8,7 @@ import { AITask } from '../../database/entities/ai-task.entity'
 import { AIGenerationEvent } from '../../database/entities/ai-generation-event.entity'
 import { AICostTracking } from '../../database/entities/ai-cost-tracking.entity'
 import { AI_TASK_QUEUE } from './constants/queue.constants'
+import { AIClientsModule } from '../ai-clients/ai-clients.module'
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AI_TASK_QUEUE } from './constants/queue.constants'
     BullModule.registerQueue({
       name: AI_TASK_QUEUE,
     }),
+    AIClientsModule,
   ],
   controllers: [AITasksController],
   providers: [AITasksService, AITaskProcessor],
