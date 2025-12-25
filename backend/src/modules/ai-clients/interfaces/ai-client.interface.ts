@@ -4,6 +4,7 @@ export interface AIClientRequest {
   temperature?: number
   maxTokens?: number
   model?: string
+  responseFormat?: { type: 'json_object' | 'text' } // 强制JSON输出
 }
 
 export interface AIClientResponse {

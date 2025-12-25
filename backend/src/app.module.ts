@@ -8,6 +8,9 @@ import { databaseConfig } from './config/database.config'
 import { AuthModule } from './modules/auth/auth.module'
 import { AITasksModule } from './modules/ai-tasks/ai-tasks.module'
 import { HealthModule } from './modules/health/health.module'
+import { QualityValidationModule } from './modules/quality-validation/quality-validation.module'
+import { ResultAggregationModule } from './modules/result-aggregation/result-aggregation.module'
+import { AIGenerationModule } from './modules/ai-generation/ai-generation.module'
 
 @Module({
   imports: [
@@ -42,6 +45,9 @@ import { HealthModule } from './modules/health/health.module'
     AuthModule,
     AITasksModule,
     HealthModule,
+    QualityValidationModule,
+    ResultAggregationModule,
+    AIGenerationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
