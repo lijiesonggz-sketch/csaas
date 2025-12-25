@@ -7,6 +7,7 @@ import { AppService } from './app.service'
 import { databaseConfig } from './config/database.config'
 import { AuthModule } from './modules/auth/auth.module'
 import { AITasksModule } from './modules/ai-tasks/ai-tasks.module'
+import { HealthModule } from './modules/health/health.module'
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { AITasksModule } from './modules/ai-tasks/ai-tasks.module'
     }),
     AuthModule,
     AITasksModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -36,6 +36,7 @@ export class AITasksService {
     // 添加到队列
     const jobData: AITaskJobData = {
       taskId: task.id,
+      projectId: dto.projectId,
       type: dto.type,
       input: dto.input,
       model: dto.model || AIModel.GPT4,
@@ -94,6 +95,7 @@ export class AITasksService {
     // 重新添加到队列
     const jobData: AITaskJobData = {
       taskId: task.id,
+      projectId: task.projectId,
       type: task.type,
       input: task.input,
       model: AIModel.GPT4, // TODO: 从任务历史中获取上次使用的模型

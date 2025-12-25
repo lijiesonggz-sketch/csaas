@@ -115,6 +115,8 @@ export class TongyiClient implements IAIClient {
   /**
    * Calculate cost based on Tongyi pricing (in RMB)
    * Prices as of Dec 2025 (approximate)
+   *
+   * NOTE: 新模型定价会不断更新，如果遇到未知模型会使用默认定价并记录警告
    */
   private calculateCost(
     model: string,
@@ -127,9 +129,21 @@ export class TongyiClient implements IAIClient {
       'qwen-turbo': { prompt: 0.002 / 1000, completion: 0.006 / 1000 },
       'qwen-max': { prompt: 0.02 / 1000, completion: 0.06 / 1000 },
       'qwen-long': { prompt: 0.0005 / 1000, completion: 0.002 / 1000 },
+      'qwen2.5-72b-instruct': { prompt: 0.004 / 1000, completion: 0.004 / 1000 },
     }
 
-    const modelPricing = pricing[model] || pricing['qwen-plus']
+    const modelPricing = pricing[model]
+
+    if (!modelPricing) {
+      this.logger.warn(
+        `Unknown Tongyi model: ${model}. Using default pricing (qwen-plus). ` +
+        `Please update pricing table in tongyi.client.ts`,
+      )
+      return (
+        promptTokens * pricing['qwen-plus'].prompt +
+        completionTokens * pricing['qwen-plus'].completion
+      )
+    }
 
     return (
       promptTokens * modelPricing.prompt +

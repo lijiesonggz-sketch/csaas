@@ -9,6 +9,8 @@ import { AITask, TaskStatus } from '../../../database/entities/ai-task.entity'
 import { AIGenerationEvent } from '../../../database/entities/ai-generation-event.entity'
 import { AICostTracking } from '../../../database/entities/ai-cost-tracking.entity'
 import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
+import { TasksGateway } from '../gateways/tasks.gateway'
+import { CostMonitoringService } from '../services/cost-monitoring.service'
 
 @Processor(AI_TASK_QUEUE, {
   concurrency: 5,
@@ -28,6 +30,8 @@ export class AITaskProcessor extends WorkerHost {
     @InjectRepository(AICostTracking)
     private readonly costRepo: Repository<AICostTracking>,
     private readonly aiOrchestrator: AIOrchestrator,
+    private readonly tasksGateway: TasksGateway,
+    private readonly costMonitoring: CostMonitoringService,
   ) {
     super()
   }
@@ -39,9 +43,25 @@ export class AITaskProcessor extends WorkerHost {
     const startTime = Date.now()
 
     try {
+      // 发送进度：0% - 任务开始
+      this.tasksGateway.emitTaskProgress({
+        taskId,
+        progress: 0,
+        message: '任务已开始处理',
+        currentStep: 'initializing',
+      })
+
       // 更新任务状态为 PROCESSING
       await this.aiTaskRepo.update(taskId, {
         status: TaskStatus.PROCESSING,
+      })
+
+      // 发送进度：10% - 准备调用AI
+      this.tasksGateway.emitTaskProgress({
+        taskId,
+        progress: 10,
+        message: '正在准备AI请求',
+        currentStep: 'preparing',
       })
 
       // 记录生成事件 - 开始
@@ -51,6 +71,15 @@ export class AITaskProcessor extends WorkerHost {
         input,
       })
       await this.eventRepo.save(event)
+
+      // 发送进度：30% - 调用AI中
+      this.tasksGateway.emitTaskProgress({
+        taskId,
+        progress: 30,
+        message: `正在调用${model}模型生成内容`,
+        currentStep: 'generating',
+        estimatedTimeMs: 20000, // 预估20秒
+      })
 
       // 调用AI Orchestrator生成响应
       const prompt = this.buildPrompt(type, input)
@@ -66,6 +95,14 @@ export class AITaskProcessor extends WorkerHost {
 
       const executionTimeMs = Date.now() - startTime
 
+      // 发送进度：70% - AI生成完成，保存结果
+      this.tasksGateway.emitTaskProgress({
+        taskId,
+        progress: 70,
+        message: 'AI生成完成，正在保存结果',
+        currentStep: 'saving',
+      })
+
       // 更新生成事件 - 完成
       await this.eventRepo.update(event.id, {
         output: { content: aiResponse.content, metadata: aiResponse.metadata } as any,
@@ -80,6 +117,14 @@ export class AITaskProcessor extends WorkerHost {
         cost: aiResponse.cost,
       } as any)
 
+      // 发送进度：90% - 更新任务状态
+      this.tasksGateway.emitTaskProgress({
+        taskId,
+        progress: 90,
+        message: '正在更新任务状态',
+        currentStep: 'finalizing',
+      })
+
       // 更新任务状态为 COMPLETED
       await this.aiTaskRepo.update(taskId, {
         status: TaskStatus.COMPLETED,
@@ -90,6 +135,40 @@ export class AITaskProcessor extends WorkerHost {
       this.logger.log(
         `AI task ${taskId} completed in ${executionTimeMs}ms, tokens: ${aiResponse.tokens.total}, cost: $${aiResponse.cost.toFixed(4)}`,
       )
+
+      // 检查成本告警
+      try {
+        // 检查任务成本是否异常
+        const taskAlert = await this.costMonitoring.checkTaskCostAlert(
+          taskId,
+          job.data.projectId || 'unknown',
+        )
+        if (taskAlert) {
+          await this.costMonitoring.sendCostAlert(taskAlert)
+        }
+
+        // 检查项目总成本是否超过阈值
+        if (job.data.projectId) {
+          const projectAlert =
+            await this.costMonitoring.checkProjectCostAlert(job.data.projectId)
+          if (projectAlert) {
+            await this.costMonitoring.sendCostAlert(projectAlert)
+          }
+        }
+      } catch (alertError) {
+        // 告警失败不应该影响任务完成
+        this.logger.error(
+          `Cost alert check failed for task ${taskId}: ${alertError.message}`,
+        )
+      }
+
+      // 发送完成事件：100%
+      this.tasksGateway.emitTaskCompleted({
+        taskId,
+        result: { content: aiResponse.content },
+        executionTimeMs,
+        cost: aiResponse.cost,
+      })
 
       return {
         taskId,
@@ -114,6 +193,13 @@ export class AITaskProcessor extends WorkerHost {
         input,
         errorMessage: error.message,
         executionTimeMs: Date.now() - startTime,
+      })
+
+      // 发送失败事件
+      this.tasksGateway.emitTaskFailed({
+        taskId,
+        error: error.message,
+        failedAt: new Date(),
       })
 
       throw error

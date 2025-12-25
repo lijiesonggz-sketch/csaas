@@ -15,9 +15,11 @@ export class AnthropicClient implements IAIClient {
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY')
+    const baseURL = this.configService.get<string>('ANTHROPIC_BASE_URL')
 
     this.client = new Anthropic({
       apiKey: apiKey || 'dummy-key',
+      baseURL,
     })
 
     this.defaultModel =
@@ -46,6 +48,12 @@ export class AnthropicClient implements IAIClient {
             content: request.prompt,
           },
         ],
+        // 禁用 Extended Thinking 功能（针对 Sonnet 4.5+）
+        // @ts-ignore - thinking 是新功能，TypeScript类型定义可能未更新
+        thinking: {
+          type: 'disabled',
+          budget_tokens: 0,
+        },
       })
 
       const executionTime = Date.now() - startTime
@@ -98,6 +106,8 @@ export class AnthropicClient implements IAIClient {
   /**
    * Calculate cost based on Anthropic pricing
    * Prices as of Dec 2025 (approximate)
+   *
+   * NOTE: 新模型定价会不断更新，如果遇到未知模型会使用默认定价并记录警告
    */
   private calculateCost(
     model: string,
@@ -105,22 +115,40 @@ export class AnthropicClient implements IAIClient {
     completionTokens: number,
   ): number {
     const pricing: Record<string, { prompt: number; completion: number }> = {
+      // Claude Sonnet 4.5 (2025-01)
+      'claude-sonnet-4-5-20250929': {
+        prompt: 0.003 / 1000,
+        completion: 0.015 / 1000,
+      },
+      // Claude 3.5 Sonnet
       'claude-3-5-sonnet-20241022': {
         prompt: 0.003 / 1000,
         completion: 0.015 / 1000,
       },
+      // Claude 3.5 Haiku
       'claude-3-5-haiku-20241022': {
         prompt: 0.001 / 1000,
         completion: 0.005 / 1000,
       },
+      // Claude 3 Opus
       'claude-3-opus-20240229': {
         prompt: 0.015 / 1000,
         completion: 0.075 / 1000,
       },
     }
 
-    const modelPricing =
-      pricing[model] || pricing['claude-3-5-sonnet-20241022']
+    const modelPricing = pricing[model]
+
+    if (!modelPricing) {
+      this.logger.warn(
+        `Unknown Anthropic model: ${model}. Using default pricing (Sonnet 3.5). ` +
+        `Please update pricing table in anthropic.client.ts`,
+      )
+      return (
+        promptTokens * pricing['claude-3-5-sonnet-20241022'].prompt +
+        completionTokens * pricing['claude-3-5-sonnet-20241022'].completion
+      )
+    }
 
     return (
       promptTokens * modelPricing.prompt +

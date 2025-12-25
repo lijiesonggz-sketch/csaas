@@ -2,6 +2,7 @@ import { AIModel } from '../../../database/entities/ai-generation-event.entity'
 
 export interface AITaskJobData {
   taskId: string
+  projectId: string
   type: string
   input: Record<string, any>
   model: AIModel

@@ -109,6 +109,8 @@ export class OpenAIClient implements IAIClient {
   /**
    * Calculate cost based on OpenAI pricing
    * Prices as of Dec 2025 (approximate)
+   *
+   * NOTE: 新模型定价会不断更新，如果遇到未知模型会使用默认定价并记录警告
    */
   private calculateCost(
     model: string,
@@ -119,11 +121,24 @@ export class OpenAIClient implements IAIClient {
       'gpt-4': { prompt: 0.03 / 1000, completion: 0.06 / 1000 },
       'gpt-4-turbo': { prompt: 0.01 / 1000, completion: 0.03 / 1000 },
       'gpt-4o': { prompt: 0.005 / 1000, completion: 0.015 / 1000 },
+      'gpt-4o-mini': { prompt: 0.00015 / 1000, completion: 0.0006 / 1000 },
       'gpt-3.5-turbo': { prompt: 0.0005 / 1000, completion: 0.0015 / 1000 },
+      'o1-preview': { prompt: 0.015 / 1000, completion: 0.06 / 1000 },
+      'o1-mini': { prompt: 0.003 / 1000, completion: 0.012 / 1000 },
     }
 
-    const modelPricing =
-      pricing[model] || pricing['gpt-4'] // Default to gpt-4 pricing
+    const modelPricing = pricing[model]
+
+    if (!modelPricing) {
+      this.logger.warn(
+        `Unknown OpenAI model: ${model}. Using default pricing (GPT-4). ` +
+        `Please update pricing table in openai.client.ts`,
+      )
+      return (
+        promptTokens * pricing['gpt-4'].prompt +
+        completionTokens * pricing['gpt-4'].completion
+      )
+    }
 
     return (
       promptTokens * modelPricing.prompt +
