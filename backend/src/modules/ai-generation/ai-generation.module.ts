@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { AIGenerationService } from './ai-generation.service'
+import { AIGenerationController } from './ai-generation.controller'
 import { SummaryGenerator } from './generators/summary.generator'
 import { AIClientsModule } from '../ai-clients/ai-clients.module'
 import { QualityValidationModule } from '../quality-validation/quality-validation.module'
@@ -15,6 +16,7 @@ import { ResultAggregationModule } from '../result-aggregation/result-aggregatio
     QualityValidationModule,
     ResultAggregationModule,
   ],
+  controllers: [AIGenerationController],
   providers: [
     AIGenerationService,
     SummaryGenerator,
