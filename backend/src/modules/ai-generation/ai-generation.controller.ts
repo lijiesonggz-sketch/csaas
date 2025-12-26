@@ -17,7 +17,7 @@ import {
 } from 'class-validator'
 import { Type } from 'class-transformer'
 import { AIGenerationService } from './ai-generation.service'
-import { ResultAggregatorService } from '../result-aggregation/result-aggregation.service'
+import { ResultAggregatorService } from '../result-aggregation/result-aggregator.service'
 import { AITaskType } from '../../database/entities/ai-task.entity'
 
 export class GenerateSummaryDto {
