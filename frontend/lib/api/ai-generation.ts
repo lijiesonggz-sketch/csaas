@@ -13,6 +13,19 @@ export interface GenerateSummaryRequest {
   maxTokens?: number
 }
 
+export interface StandardDocument {
+  id: string
+  name: string
+  content: string
+}
+
+export interface GenerateClusteringRequest {
+  taskId: string
+  documents: StandardDocument[]
+  temperature?: number
+  maxTokens?: number
+}
+
 export class AIGenerationAPI {
   /**
    * 生成综述
@@ -29,6 +42,26 @@ export class AIGenerationAPI {
     if (!response.ok) {
       const error = await response.json()
       throw new Error(error.error || 'Failed to generate summary')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * 生成聚类（多文档合并）
+   */
+  static async generateClustering(request: GenerateClusteringRequest): Promise<GenerateResponse> {
+    const response = await fetch(`${API_BASE_URL}/ai-generation/clustering`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to generate clustering')
     }
 
     return response.json()
