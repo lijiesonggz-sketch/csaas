@@ -92,6 +92,8 @@ export default function DocumentUploader({ onDocumentChange, disabled }: Documen
           beforeUpload={handleFileUpload}
           disabled={disabled}
           maxCount={1}
+          fileList={[]}
+          showUploadList={false}
         >
           <p className="ant-upload-drag-icon">
             <InboxOutlined />

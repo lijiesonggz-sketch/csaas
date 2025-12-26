@@ -49,12 +49,84 @@ export class SimilarityCalculator {
 
       return similarity
     } catch (error) {
-      this.logger.error(
-        `Failed to calculate similarity: ${error.message}`,
-        error.stack,
+      this.logger.warn(
+        `OpenAI Embedding API unavailable, falling back to text-based similarity: ${error.message}`,
       )
-      throw new Error(`Similarity calculation failed: ${error.message}`)
+
+      // 降级：使用简单的文本相似度算法
+      const fallbackSimilarity = this.calculateTextSimilarity(text1, text2)
+
+      this.logger.debug(
+        `Fallback similarity: ${fallbackSimilarity.toFixed(4)} (text-based)`,
+      )
+
+      return fallbackSimilarity
     }
+  }
+
+  /**
+   * 基于文本的简单相似度计算（降级方案）
+   * 使用Jaccard相似度 + 字符级别的相似度
+   */
+  private calculateTextSimilarity(text1: string, text2: string): number {
+    // 1. Jaccard相似度（基于词）
+    const words1 = new Set(text1.toLowerCase().split(/\s+/))
+    const words2 = new Set(text2.toLowerCase().split(/\s+/))
+
+    const intersection = new Set([...words1].filter((x) => words2.has(x)))
+    const union = new Set([...words1, ...words2])
+
+    const jaccardSimilarity =
+      union.size > 0 ? intersection.size / union.size : 0
+
+    // 2. 字符级相似度（Levenshtein距离归一化）
+    const maxLength = Math.max(text1.length, text2.length)
+    const levenshteinDistance = this.levenshtein(text1, text2)
+    const charSimilarity =
+      maxLength > 0 ? 1 - levenshteinDistance / maxLength : 0
+
+    // 3. 长度相似度
+    const lengthSimilarity =
+      1 - Math.abs(text1.length - text2.length) / Math.max(text1.length, text2.length, 1)
+
+    // 加权平均（Jaccard 50%, 字符相似度 30%, 长度相似度 20%）
+    const finalSimilarity =
+      jaccardSimilarity * 0.5 +
+      charSimilarity * 0.3 +
+      lengthSimilarity * 0.2
+
+    return finalSimilarity
+  }
+
+  /**
+   * 计算Levenshtein距离（编辑距离）
+   */
+  private levenshtein(str1: string, str2: string): number {
+    const len1 = str1.length
+    const len2 = str2.length
+
+    // 创建距离矩阵
+    const matrix: number[][] = Array(len1 + 1)
+      .fill(null)
+      .map(() => Array(len2 + 1).fill(0))
+
+    // 初始化第一行和第一列
+    for (let i = 0; i <= len1; i++) matrix[i][0] = i
+    for (let j = 0; j <= len2; j++) matrix[0][j] = j
+
+    // 动态规划填充矩阵
+    for (let i = 1; i <= len1; i++) {
+      for (let j = 1; j <= len2; j++) {
+        const cost = str1[i - 1] === str2[j - 1] ? 0 : 1
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1, // 删除
+          matrix[i][j - 1] + 1, // 插入
+          matrix[i - 1][j - 1] + cost, // 替换
+        )
+      }
+    }
+
+    return matrix[len1][len2]
   }
 
   /**

@@ -49,10 +49,10 @@ export class AnthropicClient implements IAIClient {
           },
         ],
         // 禁用 Extended Thinking 功能（针对 Sonnet 4.5+）
+        // 当type为disabled时，不需要传budget_tokens参数
         // @ts-ignore - thinking 是新功能，TypeScript类型定义可能未更新
         thinking: {
           type: 'disabled',
-          budget_tokens: 0,
         },
       })
 
