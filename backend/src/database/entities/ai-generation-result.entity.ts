@@ -70,12 +70,14 @@ export class AIGenerationResult {
   consistencyReport: {
     agreements?: string[] // 一致的地方
     disagreements?: string[] // 分歧点
+    highRiskDisagreements?: string[] // 高风险差异点
   }
 
   @Column({ type: 'jsonb', nullable: true, name: 'coverage_report' })
   coverageReport: {
-    covered?: string[] // 已覆盖的条款ID
-    missing?: string[] // 遗漏的条款ID
+    totalClauses?: number // 总条款数
+    coveredClauses?: string[] // 已覆盖的条款ID
+    missingClauses?: string[] // 遗漏的条款ID
     coverageRate?: number // 覆盖率 0-1
   }
 

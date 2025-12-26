@@ -22,7 +22,10 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
   const [reviewModalVisible, setReviewModalVisible] = useState(false)
   const [isReviewing, setIsReviewing] = useState(false)
 
-  const summaryResult = result.selectedResult as SummaryResult
+  // Parse selectedResult if it's a string (defensive programming)
+  const summaryResult: SummaryResult = typeof result.selectedResult === 'string'
+    ? JSON.parse(result.selectedResult)
+    : result.selectedResult as SummaryResult
 
   // 置信度颜色映射
   const getConfidenceColor = (level: ConfidenceLevel) => {

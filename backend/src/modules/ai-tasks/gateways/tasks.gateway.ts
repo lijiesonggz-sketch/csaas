@@ -23,7 +23,9 @@ export interface TaskProgressEvent {
 
 export interface TaskCompletedEvent {
   taskId: string
-  result: any
+  status: 'completed' | 'failed'
+  message: string
+  result?: any
   executionTimeMs: number
   cost: number
 }

@@ -1,8 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
 import { SummaryGenerator, SummaryGenerationInput } from './generators/summary.generator'
 import { QualityValidationService } from '../quality-validation/quality-validation.service'
 import { ResultAggregatorService } from '../result-aggregation/result-aggregator.service'
-import { AITaskType } from '../../database/entities/ai-task.entity'
+import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
+import { AITask, AITaskType, TaskStatus } from '../../database/entities/ai-task.entity'
+import { Project, ProjectStatus } from '../../database/entities/project.entity'
+import { User, UserRole } from '../../database/entities/user.entity'
 
 export interface GenerationRequest {
   taskId: string
@@ -31,9 +36,16 @@ export class AIGenerationService {
   private readonly logger = new Logger(AIGenerationService.name)
 
   constructor(
+    @InjectRepository(AITask)
+    private readonly aiTaskRepository: Repository<AITask>,
+    @InjectRepository(Project)
+    private readonly projectRepository: Repository<Project>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly summaryGenerator: SummaryGenerator,
     private readonly qualityValidation: QualityValidationService,
     private readonly resultAggregator: ResultAggregatorService,
+    private readonly tasksGateway: TasksGateway,
   ) {}
 
   /**
@@ -72,41 +84,99 @@ export class AIGenerationService {
    */
   private async generateSummary(request: GenerationRequest): Promise<GenerationResponse> {
     const input = request.input as SummaryGenerationInput
+    const startTime = Date.now()
 
-    // 1. 调用三模型生成
-    const { gpt4, claude, domestic } = await this.summaryGenerator.generate(input)
+    try {
+      // 0. 确保AITask存在（创建或查找）
+      await this.ensureTaskExists(request.taskId, request.generationType, input)
 
-    // 2. 质量验证
-    const validationReport = await this.qualityValidation.validateQuality({
-      gpt4,
-      claude,
-      domestic,
-    })
+      // 发送初始进度
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 0,
+        message: '任务已创建，准备开始生成...',
+        currentStep: '初始化',
+      })
 
-    // 3. 结果聚合
-    const aggregationOutput = await this.resultAggregator.aggregate({
-      taskId: request.taskId,
-      generationType: request.generationType,
-      gpt4Result: gpt4,
-      claudeResult: claude,
-      domesticResult: domestic,
-      validationReport,
-    })
+      // 1. 调用三模型生成
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 10,
+        message: '正在调用三个AI模型并行生成综述...',
+        currentStep: '模型生成',
+      })
 
-    // 4. 构建响应
-    const response: GenerationResponse = {
-      taskId: request.taskId,
-      selectedResult: aggregationOutput.selectedResult,
-      selectedModel: aggregationOutput.selectedModel,
-      confidenceLevel: aggregationOutput.confidenceLevel,
-      qualityScores: aggregationOutput.qualityScores,
+      const { gpt4, claude, domestic } = await this.summaryGenerator.generate(input)
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 60,
+        message: '三模型生成完成，开始质量验证...',
+        currentStep: '质量验证',
+      })
+
+      // 2. 质量验证
+      const validationReport = await this.qualityValidation.validateQuality({
+        gpt4,
+        claude,
+        domestic,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 80,
+        message: '质量验证完成，开始结果聚合...',
+        currentStep: '结果聚合',
+      })
+
+      // 3. 结果聚合
+      const aggregationOutput = await this.resultAggregator.aggregate({
+        taskId: request.taskId,
+        generationType: request.generationType,
+        gpt4Result: gpt4,
+        claudeResult: claude,
+        domesticResult: domestic,
+        validationReport,
+      })
+
+      // 4. 构建响应
+      const response: GenerationResponse = {
+        taskId: request.taskId,
+        selectedResult: aggregationOutput.selectedResult,
+        selectedModel: aggregationOutput.selectedModel,
+        confidenceLevel: aggregationOutput.confidenceLevel,
+        qualityScores: aggregationOutput.qualityScores,
+      }
+
+      this.logger.log(
+        `Summary generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}`,
+      )
+
+      // 发送完成事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'completed',
+        message: '综述生成完成！',
+        result: response,
+        executionTimeMs: executionTime,
+        cost: 0, // TODO: 从cost tracking获取实际成本
+      })
+
+      return response
+    } catch (error) {
+      // 发送失败事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'failed',
+        message: `生成失败: ${error.message}`,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      throw error
     }
-
-    this.logger.log(
-      `Summary generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}`,
-    )
-
-    return response
   }
 
   /**
@@ -114,5 +184,66 @@ export class AIGenerationService {
    */
   async getFinalResult(taskId: string): Promise<Record<string, any> | null> {
     return this.resultAggregator.getFinalResult(taskId)
+  }
+
+  /**
+   * 确保AITask存在，如果不存在则创建
+   */
+  private async ensureTaskExists(
+    taskId: string,
+    taskType: AITaskType,
+    input: any,
+  ): Promise<void> {
+    // 1. 检查task是否已存在
+    const existingTask = await this.aiTaskRepository.findOne({ where: { id: taskId } })
+    if (existingTask) {
+      this.logger.debug(`AITask ${taskId} already exists, skipping creation`)
+      return
+    }
+
+    // 2. 确保有系统用户
+    let systemUser = await this.userRepository.findOne({
+      where: { email: 'system@csaas.local' },
+    })
+
+    if (!systemUser) {
+      this.logger.log('Creating system user for AI tasks')
+      systemUser = this.userRepository.create({
+        email: 'system@csaas.local',
+        passwordHash: 'N/A',
+        name: 'System',
+        role: UserRole.CONSULTANT,
+      })
+      await this.userRepository.save(systemUser)
+    }
+
+    // 3. 确保有默认project（或创建一个）
+    let defaultProject = await this.projectRepository.findOne({
+      where: { name: 'Default Project' },
+    })
+
+    if (!defaultProject) {
+      this.logger.log('Creating default project for AI tasks')
+      defaultProject = this.projectRepository.create({
+        name: 'Default Project',
+        description: 'Auto-created default project for AI generation tasks',
+        status: ProjectStatus.ACTIVE,
+        ownerId: systemUser.id,
+      })
+      await this.projectRepository.save(defaultProject)
+    }
+
+    // 4. 创建AITask
+    this.logger.log(`Creating AITask ${taskId} with type ${taskType}`)
+    const newTask = this.aiTaskRepository.create({
+      id: taskId,
+      projectId: defaultProject.id,
+      type: taskType,
+      status: TaskStatus.PROCESSING,
+      input,
+      priority: 1,
+      progress: 0,
+    })
+    await this.aiTaskRepository.save(newTask)
   }
 }

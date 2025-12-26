@@ -190,7 +190,10 @@ export default function SummaryGenerationPage() {
               <Button
                 type="primary"
                 onClick={() => {
-                  const dataStr = JSON.stringify(result.selectedResult, null, 2)
+                  const selectedResult = typeof result.selectedResult === 'string'
+                    ? JSON.parse(result.selectedResult)
+                    : result.selectedResult
+                  const dataStr = JSON.stringify(selectedResult, null, 2)
                   const dataBlob = new Blob([dataStr], { type: 'application/json' })
                   const url = URL.createObjectURL(dataBlob)
                   const link = document.createElement('a')
@@ -205,7 +208,9 @@ export default function SummaryGenerationPage() {
               </Button>
               <Button
                 onClick={() => {
-                  const summaryResult = result.selectedResult as any
+                  const summaryResult = (typeof result.selectedResult === 'string'
+                    ? JSON.parse(result.selectedResult)
+                    : result.selectedResult) as any
                   let markdown = `# ${summaryResult.title}\n\n`
                   markdown += `## 概述\n\n${summaryResult.overview}\n\n`
                   markdown += `## 关键领域\n\n`
@@ -233,7 +238,9 @@ export default function SummaryGenerationPage() {
               </Button>
               <Button
                 onClick={() => {
-                  const summaryResult = result.selectedResult as any
+                  const summaryResult = (typeof result.selectedResult === 'string'
+                    ? JSON.parse(result.selectedResult)
+                    : result.selectedResult) as any
                   let text = `${summaryResult.title}\n\n`
                   text += `概述：\n${summaryResult.overview}\n\n`
                   text += `关键领域：\n`

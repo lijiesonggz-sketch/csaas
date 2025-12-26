@@ -7,6 +7,8 @@ export const SUMMARY_GENERATION_PROMPT = `
 **输入标准文档**：
 {{STANDARD_DOCUMENT}}
 
+**CRITICAL: 你必须直接输出纯JSON格式，不要包含任何解释、注释、markdown代码块或其他文本。只输出JSON对象本身。**
+
 **输出要求**：
 1. **结构要求**：必须输出JSON格式，包含以下字段：
    {
@@ -45,7 +47,12 @@ export const SUMMARY_GENERATION_PROMPT = `
    - 保持中立客观，不加主观评价
    - 使用中文输出
 
-**注意**：请严格输出JSON格式，不要包含任何额外的解释、注释或markdown代码块标记。
+**注意**：
+- 直接输出JSON对象，不要使用markdown代码块标记
+- 不要在JSON前后添加任何解释性文字
+- 不要说"好的，我来生成JSON"或"抱歉"等开场白
+- 第一个字符必须是左花括号，最后一个字符必须是右花括号
+- 确保JSON格式完全正确，可以被标准JSON解析器解析
 `.trim()
 
 /**

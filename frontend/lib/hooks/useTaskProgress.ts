@@ -34,15 +34,15 @@ export function useTaskProgress(taskId: string | null) {
   useEffect(() => {
     if (!taskId) return
 
-    // 创建Socket连接
-    const newSocket = io(SOCKET_URL, {
+    // 创建Socket连接（连接到 /tasks namespace）
+    const newSocket = io(SOCKET_URL + '/tasks', {
       transports: ['websocket', 'polling'],
     })
 
     newSocket.on('connect', () => {
-      console.log('WebSocket connected')
+      console.log('WebSocket connected to /tasks namespace')
       // 订阅任务进度
-      newSocket.emit('subscribe', { taskId })
+      newSocket.emit('subscribe:task', { taskId })
     })
 
     newSocket.on('disconnect', () => {
@@ -80,7 +80,7 @@ export function useTaskProgress(taskId: string | null) {
 
     return () => {
       if (newSocket) {
-        newSocket.emit('unsubscribe', { taskId })
+        newSocket.emit('unsubscribe:task', { taskId })
         newSocket.disconnect()
       }
     }

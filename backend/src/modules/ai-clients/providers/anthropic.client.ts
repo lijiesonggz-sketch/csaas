@@ -37,7 +37,7 @@ export class AnthropicClient implements IAIClient {
         `Calling Anthropic API with model ${model}, prompt length: ${request.prompt.length}`,
       )
 
-      const response = await this.client.messages.create({
+      const createParams: any = {
         model,
         max_tokens: request.maxTokens ?? 2000,
         temperature: request.temperature ?? 0.7,
@@ -49,12 +49,22 @@ export class AnthropicClient implements IAIClient {
           },
         ],
         // 禁用 Extended Thinking 功能（针对 Sonnet 4.5+）
-        // 当type为disabled时，不需要传budget_tokens参数
-        // @ts-ignore - thinking 是新功能，TypeScript类型定义可能未更新
         thinking: {
           type: 'disabled',
         },
-      })
+      }
+
+      // 如果需要JSON输出，添加系统提示强制JSON格式
+      // 注意：Anthropic不支持response_format参数，需要在提示词中明确要求
+      if (request.responseFormat?.type === 'json_object') {
+        if (createParams.system) {
+          createParams.system += '\n\nIMPORTANT: You must respond with valid JSON only. Do not include any explanations, comments, or markdown code blocks. Output pure JSON.'
+        } else {
+          createParams.system = 'IMPORTANT: You must respond with valid JSON only. Do not include any explanations, comments, or markdown code blocks. Output pure JSON.'
+        }
+      }
+
+      const response = await this.client.messages.create(createParams)
 
       const executionTime = Date.now() - startTime
 

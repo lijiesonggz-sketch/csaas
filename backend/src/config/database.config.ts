@@ -4,6 +4,7 @@ import {
   Project,
   AITask,
   AIGenerationEvent,
+  AIGenerationResult,
   AICostTracking,
   AuditLog,
 } from '../database/entities'
@@ -15,7 +16,7 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_DATABASE || 'csaas',
-  entities: [User, Project, AITask, AIGenerationEvent, AICostTracking, AuditLog],
+  entities: [User, Project, AITask, AIGenerationEvent, AIGenerationResult, AICostTracking, AuditLog],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false, // Use migrations for schema changes
   logging: process.env.NODE_ENV === 'development',

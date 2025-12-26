@@ -55,6 +55,7 @@ export class OpenAIClient implements IAIClient {
         messages,
         temperature: request.temperature ?? 0.7,
         max_tokens: request.maxTokens ?? 2000,
+        ...(request.responseFormat && { response_format: request.responseFormat }),
       })
 
       const executionTime = Date.now() - startTime

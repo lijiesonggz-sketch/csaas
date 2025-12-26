@@ -99,17 +99,25 @@ export class SummaryGenerator {
    */
   private parseJsonResponse(content: string): SummaryGenerationOutput {
     try {
-      // 尝试直接解析JSON
-      const parsed = JSON.parse(content)
+      // 1. 移除markdown代码块标记（如果存在）
+      let cleanedContent = content.trim()
 
-      // 验证必需字段
+      // 移除 ```json 和 ``` 标记
+      if (cleanedContent.startsWith('```')) {
+        cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
+      }
+
+      // 2. 尝试直接解析清理后的JSON
+      const parsed = JSON.parse(cleanedContent)
+
+      // 3. 验证必需字段
       this.validateSummaryOutput(parsed)
 
       return parsed as SummaryGenerationOutput
     } catch (error) {
       this.logger.error(`Failed to parse JSON response: ${error.message}`)
 
-      // 尝试提取JSON（处理AI可能在JSON前后添加文本的情况）
+      // 4. 最后尝试：提取大括号之间的内容
       const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         try {
@@ -117,11 +125,11 @@ export class SummaryGenerator {
           this.validateSummaryOutput(parsed)
           return parsed as SummaryGenerationOutput
         } catch (e) {
-          // 继续抛出原始错误
+          this.logger.error(`Failed to extract and parse JSON: ${e.message}`)
         }
       }
 
-      throw new Error(`Invalid JSON response: ${error.message}`)
+      throw new Error(`Invalid JSON response: ${error.message}. Content preview: ${content.substring(0, 100)}...`)
     }
   }
 

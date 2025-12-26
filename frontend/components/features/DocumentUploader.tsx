@@ -8,6 +8,7 @@
 import { useState, useCallback } from 'react'
 import { Upload, message, Input } from 'antd'
 import { InboxOutlined } from '@ant-design/icons'
+import mammoth from 'mammoth'
 
 const { Dragger } = Upload
 const { TextArea } = Input
@@ -25,13 +26,39 @@ export default function DocumentUploader({ onDocumentChange, disabled }: Documen
   const handleFileUpload = useCallback(
     async (file: File) => {
       try {
-        const text = await file.text()
+        // 检查文件类型
+        const ext = file.name.toLowerCase().split('.').pop()
+        let text = ''
+
+        if (ext === 'docx') {
+          // 使用 mammoth 解析 .docx 文件
+          const arrayBuffer = await file.arrayBuffer()
+          const result = await mammoth.extractRawText({ arrayBuffer })
+          text = result.value
+
+          if (result.messages.length > 0) {
+            console.warn('Mammoth 解析警告:', result.messages)
+          }
+        } else if (['txt', 'md'].includes(ext || '')) {
+          // 纯文本文件直接读取
+          text = await file.text()
+        } else {
+          message.error('暂时只支持 .txt、.md 和 .docx 文件，.pdf 支持即将推出')
+          return false
+        }
+
+        if (!text || text.trim().length === 0) {
+          message.error('文件内容为空，请检查文件')
+          return false
+        }
+
         setUploadedFileName(file.name)
         onDocumentChange(text)
         message.success(`文件 ${file.name} 上传成功（${text.length} 字符）`)
         return false // 阻止自动上传
       } catch (error) {
-        message.error('文件读取失败')
+        console.error('文件读取失败:', error)
+        message.error(`文件读取失败: ${error instanceof Error ? error.message : '未知错误'}`)
         return false
       }
     },
@@ -88,7 +115,7 @@ export default function DocumentUploader({ onDocumentChange, disabled }: Documen
         />
       ) : (
         <Dragger
-          accept=".txt,.md,.doc,.docx,.pdf"
+          accept=".txt,.md,.docx"
           beforeUpload={handleFileUpload}
           disabled={disabled}
           maxCount={1}
@@ -100,9 +127,11 @@ export default function DocumentUploader({ onDocumentChange, disabled }: Documen
           </p>
           <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
           <p className="ant-upload-hint">
-            支持格式：.txt, .md, .doc, .docx, .pdf
+            支持格式：.txt, .md, .docx
             <br />
             最大文件大小：10MB
+            <br />
+            <span className="text-orange-600">💡 .pdf 支持即将推出</span>
           </p>
         </Dragger>
       )}

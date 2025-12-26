@@ -165,6 +165,8 @@ export class AITaskProcessor extends WorkerHost {
       // 发送完成事件：100%
       this.tasksGateway.emitTaskCompleted({
         taskId,
+        status: 'completed',
+        message: 'AI任务处理完成',
         result: { content: aiResponse.content },
         executionTimeMs,
         cost: aiResponse.cost,
