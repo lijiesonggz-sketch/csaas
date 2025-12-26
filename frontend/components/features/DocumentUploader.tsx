@@ -19,13 +19,16 @@ interface DocumentUploaderProps {
 
 export default function DocumentUploader({ onDocumentChange, disabled }: DocumentUploaderProps) {
   const [uploadMode, setUploadMode] = useState<'file' | 'text'>('text')
+  const [uploadedFileName, setUploadedFileName] = useState<string>()
+  const [textContent, setTextContent] = useState<string>('')
 
   const handleFileUpload = useCallback(
     async (file: File) => {
       try {
         const text = await file.text()
+        setUploadedFileName(file.name)
         onDocumentChange(text)
-        message.success(`文件 ${file.name} 上传成功`)
+        message.success(`文件 ${file.name} 上传成功（${text.length} 字符）`)
         return false // 阻止自动上传
       } catch (error) {
         message.error('文件读取失败')
@@ -37,7 +40,10 @@ export default function DocumentUploader({ onDocumentChange, disabled }: Documen
 
   const handleTextChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      onDocumentChange(e.target.value)
+      const value = e.target.value
+      setTextContent(value)
+      onDocumentChange(value)
+      setUploadedFileName(undefined) // 清除文件名
     },
     [onDocumentChange]
   )
@@ -76,6 +82,7 @@ export default function DocumentUploader({ onDocumentChange, disabled }: Documen
           rows={20}
           placeholder="请粘贴标准文档内容...&#10;&#10;示例：&#10;ISO/IEC 27001:2013 信息安全管理体系要求&#10;&#10;1. 范围&#10;本标准规定了建立、实施、维护和持续改进信息安全管理体系（ISMS）的要求..."
           onChange={handleTextChange}
+          value={textContent}
           disabled={disabled}
           className="font-mono"
         />
@@ -96,6 +103,16 @@ export default function DocumentUploader({ onDocumentChange, disabled }: Documen
             最大文件大小：10MB
           </p>
         </Dragger>
+      )}
+
+      {/* 上传文件名显示 */}
+      {uploadedFileName && (
+        <div className="bg-blue-50 border border-blue-200 rounded px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="text-blue-600 font-medium">📄 已上传文件：</span>
+            <span className="text-blue-800">{uploadedFileName}</span>
+          </div>
+        </div>
       )}
 
       <div className="text-sm text-gray-500">
