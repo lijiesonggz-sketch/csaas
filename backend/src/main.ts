@@ -29,13 +29,12 @@ async function bootstrap() {
     credentials: true,
   })
 
-  const port = process.env.PORT || 3001
+  const port = process.env.PORT || 3000
   await app.listen(port)
 
-  const logger = app.get('Logger')
-  logger.log(`🚀 Backend server running on http://localhost:${port}`)
-  logger.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
-  logger.log(`✅ Health check: http://localhost:${port}/health`)
+  console.log(`🚀 Backend server running on http://localhost:${port}`)
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
+  console.log(`✅ Health check: http://localhost:${port}/health`)
 }
 
 bootstrap().catch((error) => {

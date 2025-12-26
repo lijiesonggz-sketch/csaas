@@ -7,14 +7,25 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common'
+import { IsString, IsNumber, IsOptional, MinLength } from 'class-validator'
 import { AIGenerationService } from './ai-generation.service'
 import { ResultAggregatorService } from '../result-aggregation/result-aggregator.service'
 import { AITaskType } from '../../database/entities/ai-task.entity'
 
 export class GenerateSummaryDto {
+  @IsString()
   taskId: string
+
+  @IsString()
+  @MinLength(100, { message: 'Standard document must be at least 100 characters' })
   standardDocument: string
+
+  @IsOptional()
+  @IsNumber()
   temperature?: number
+
+  @IsOptional()
+  @IsNumber()
   maxTokens?: number
 }
 
