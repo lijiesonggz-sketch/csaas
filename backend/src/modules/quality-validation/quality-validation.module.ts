@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config'
 import { SimilarityCalculator } from './validators/similarity.calculator'
 import { ConsistencyValidator } from './validators/consistency.validator'
 import { CoverageChecker } from './validators/coverage.checker'
+import { HighRiskClauseIdentifier } from './validators/high-risk-clause.identifier'
 import { QualityValidationService } from './quality-validation.service'
 
 /**
@@ -15,12 +16,14 @@ import { QualityValidationService } from './quality-validation.service'
     SimilarityCalculator,
     ConsistencyValidator,
     CoverageChecker,
+    HighRiskClauseIdentifier,
     QualityValidationService,
   ],
   exports: [
     SimilarityCalculator,
     ConsistencyValidator,
     CoverageChecker,
+    HighRiskClauseIdentifier,
     QualityValidationService,
   ],
 })

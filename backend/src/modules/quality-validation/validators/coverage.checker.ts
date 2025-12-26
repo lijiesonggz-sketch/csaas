@@ -17,8 +17,22 @@ export interface ClusteringResult {
       clause_id: string
       clause_text: string
       rationale?: string
+      source_document_id?: string // 可选：用于多文档聚类
     }>
   }>
+}
+
+/**
+ * 多文档覆盖率报告
+ */
+export interface MultiDocumentCoverageReport {
+  by_document: Record<string, CoverageReport>
+  overall: {
+    total_clauses: number
+    covered_clauses: number
+    missing_clauses: number
+    coverage_rate: number
+  }
 }
 
 /**
@@ -279,6 +293,125 @@ export class CoverageChecker {
     if (report.semanticallyCoveredClauses && report.semanticallyCoveredClauses.length > 0) {
       lines.push(`\nSemantically Covered (not explicitly listed):`)
       report.semanticallyCoveredClauses.forEach((id) => lines.push(`  - ${id}`))
+    }
+
+    return lines.join('\n')
+  }
+
+  /**
+   * 检查多文档聚类的覆盖率
+   * @param documents 多个标准文档
+   * @param clusteringResult 聚类结果（包含source_document_id）
+   * @returns 多文档覆盖率报告
+   */
+  async checkMultiDocumentCoverage(
+    documents: Array<{ id: string; name: string; content: string }>,
+    clusteringResult: ClusteringResult,
+  ): Promise<MultiDocumentCoverageReport> {
+    this.logger.log(
+      `Starting multi-document coverage check for ${documents.length} documents...`,
+    )
+
+    const by_document: Record<string, CoverageReport> = {}
+    let totalClausesOverall = 0
+    let coveredClausesOverall = 0
+    let missingClausesOverall = 0
+
+    // 为每个文档单独检查覆盖率
+    for (const doc of documents) {
+      // 从聚类结果中筛选属于该文档的条款
+      const docSpecificClustering = this.filterClusteringByDocument(
+        clusteringResult,
+        doc.id,
+      )
+
+      // 检查该文档的覆盖率
+      const docReport = await this.checkCoverage(doc.content, docSpecificClustering)
+
+      by_document[doc.id] = docReport
+
+      // 累加总体统计
+      totalClausesOverall += docReport.totalClauses
+      coveredClausesOverall += docReport.coveredClauses.length
+      missingClausesOverall += docReport.missingClauses.length
+
+      this.logger.debug(
+        `Document ${doc.id} coverage: ${(docReport.coverageRate * 100).toFixed(2)}%`,
+      )
+    }
+
+    // 计算总体覆盖率
+    const overall = {
+      total_clauses: totalClausesOverall,
+      covered_clauses: coveredClausesOverall,
+      missing_clauses: missingClausesOverall,
+      coverage_rate:
+        totalClausesOverall > 0 ? coveredClausesOverall / totalClausesOverall : 0,
+    }
+
+    this.logger.log(
+      `Multi-document coverage check completed: overall=${(overall.coverage_rate * 100).toFixed(2)}%`,
+    )
+
+    return {
+      by_document,
+      overall,
+    }
+  }
+
+  /**
+   * 从聚类结果中筛选特定文档的条款
+   * @param clusteringResult 完整聚类结果
+   * @param documentId 文档ID
+   * @returns 仅包含该文档条款的聚类结果
+   */
+  private filterClusteringByDocument(
+    clusteringResult: ClusteringResult,
+    documentId: string,
+  ): ClusteringResult {
+    const filteredClusters = clusteringResult.clusters
+      .map((cluster) => ({
+        ...cluster,
+        clauses: cluster.clauses.filter(
+          (clause) => clause.source_document_id === documentId,
+        ),
+      }))
+      .filter((cluster) => cluster.clauses.length > 0) // 移除空聚类
+
+    return {
+      clusters: filteredClusters,
+    }
+  }
+
+  /**
+   * 生成多文档覆盖率详细报告
+   */
+  generateMultiDocumentDetailedReport(report: MultiDocumentCoverageReport): string {
+    const lines: string[] = []
+
+    lines.push(`=== Multi-Document Coverage Report ===\n`)
+
+    // 总体统计
+    lines.push(`Overall Statistics:`)
+    lines.push(`  Total Clauses: ${report.overall.total_clauses}`)
+    lines.push(
+      `  Covered Clauses: ${report.overall.covered_clauses} (${(report.overall.coverage_rate * 100).toFixed(2)}%)`,
+    )
+    lines.push(`  Missing Clauses: ${report.overall.missing_clauses}\n`)
+
+    // 按文档统计
+    lines.push(`By Document:`)
+    for (const [docId, docReport] of Object.entries(report.by_document)) {
+      lines.push(`\n  Document: ${docId}`)
+      lines.push(`    Total: ${docReport.totalClauses}`)
+      lines.push(
+        `    Covered: ${docReport.coveredClauses.length} (${(docReport.coverageRate * 100).toFixed(2)}%)`,
+      )
+      lines.push(`    Missing: ${docReport.missingClauses.length}`)
+
+      if (docReport.missingClauses.length > 0) {
+        lines.push(`    Missing IDs: ${docReport.missingClauses.join(', ')}`)
+      }
     }
 
     return lines.join('\n')

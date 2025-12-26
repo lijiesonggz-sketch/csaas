@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 import { AIGenerationService } from './ai-generation.service'
 import { AIGenerationController } from './ai-generation.controller'
 import { SummaryGenerator } from './generators/summary.generator'
+import { ClusteringGenerator } from './generators/clustering.generator'
 import { AIClientsModule } from '../ai-clients/ai-clients.module'
 import { QualityValidationModule } from '../quality-validation/quality-validation.module'
 import { ResultAggregationModule } from '../result-aggregation/result-aggregation.module'
@@ -27,8 +28,8 @@ import { User } from '../../database/entities/user.entity'
   providers: [
     AIGenerationService,
     SummaryGenerator,
+    ClusteringGenerator,
     // TODO: 添加其他生成器
-    // ClusteringGenerator,
     // MatrixGenerator,
     // QuestionnaireGenerator,
     // ActionPlanGenerator,

@@ -7,9 +7,17 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common'
-import { IsString, IsNumber, IsOptional, MinLength } from 'class-validator'
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  MinLength,
+  IsArray,
+  ValidateNested,
+} from 'class-validator'
+import { Type } from 'class-transformer'
 import { AIGenerationService } from './ai-generation.service'
-import { ResultAggregatorService } from '../result-aggregation/result-aggregator.service'
+import { ResultAggregatorService } from '../result-aggregation/result-aggregation.service'
 import { AITaskType } from '../../database/entities/ai-task.entity'
 
 export class GenerateSummaryDto {
@@ -19,6 +27,42 @@ export class GenerateSummaryDto {
   @IsString()
   @MinLength(100, { message: 'Standard document must be at least 100 characters' })
   standardDocument: string
+
+  @IsOptional()
+  @IsNumber()
+  temperature?: number
+
+  @IsOptional()
+  @IsNumber()
+  maxTokens?: number
+}
+
+/**
+ * 标准文档DTO（用于聚类）
+ */
+export class StandardDocumentDto {
+  @IsString()
+  id: string
+
+  @IsString()
+  name: string
+
+  @IsString()
+  @MinLength(100, { message: 'Document content must be at least 100 characters' })
+  content: string
+}
+
+/**
+ * 生成聚类DTO
+ */
+export class GenerateClusteringDto {
+  @IsString()
+  taskId: string
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StandardDocumentDto)
+  documents: StandardDocumentDto[]
 
   @IsOptional()
   @IsNumber()
@@ -52,6 +96,38 @@ export class AIGenerationController {
         generationType: AITaskType.SUMMARY,
         input: {
           standardDocument: dto.standardDocument,
+          temperature: dto.temperature,
+          maxTokens: dto.maxTokens,
+        },
+      })
+
+      return {
+        success: true,
+        data: result,
+      }
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      )
+    }
+  }
+
+  /**
+   * 生成聚类（多文档合并）
+   * POST /api/ai-generation/clustering
+   */
+  @Post('clustering')
+  async generateClustering(@Body() dto: GenerateClusteringDto) {
+    try {
+      const result = await this.aiGenerationService.generateContent({
+        taskId: dto.taskId,
+        generationType: AITaskType.CLUSTERING,
+        input: {
+          documents: dto.documents,
           temperature: dto.temperature,
           maxTokens: dto.maxTokens,
         },

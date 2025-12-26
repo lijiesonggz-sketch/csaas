@@ -2,6 +2,10 @@ import { Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { SummaryGenerator, SummaryGenerationInput } from './generators/summary.generator'
+import {
+  ClusteringGenerator,
+  ClusteringGenerationInput,
+} from './generators/clustering.generator'
 import { QualityValidationService } from '../quality-validation/quality-validation.service'
 import { ResultAggregatorService } from '../result-aggregation/result-aggregator.service'
 import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
@@ -43,6 +47,7 @@ export class AIGenerationService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly summaryGenerator: SummaryGenerator,
+    private readonly clusteringGenerator: ClusteringGenerator,
     private readonly qualityValidation: QualityValidationService,
     private readonly resultAggregator: ResultAggregatorService,
     private readonly tasksGateway: TasksGateway,
@@ -63,7 +68,7 @@ export class AIGenerationService {
         return this.generateSummary(request)
 
       case AITaskType.CLUSTERING:
-        throw new Error('Clustering generation not yet implemented')
+        return this.generateClustering(request)
 
       case AITaskType.MATRIX:
         throw new Error('Matrix generation not yet implemented')
@@ -171,6 +176,106 @@ export class AIGenerationService {
         taskId: request.taskId,
         status: 'failed',
         message: `生成失败: ${error.message}`,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      throw error
+    }
+  }
+
+  /**
+   * 生成聚类
+   */
+  private async generateClustering(request: GenerationRequest): Promise<GenerationResponse> {
+    const input = request.input as ClusteringGenerationInput
+    const startTime = Date.now()
+
+    try {
+      // 0. 确保AITask存在
+      await this.ensureTaskExists(request.taskId, request.generationType, input)
+
+      // 发送初始进度
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 0,
+        message: `任务已创建，准备对${input.documents.length}个文档进行聚类...`,
+        currentStep: '初始化',
+      })
+
+      // 1. 调用三模型生成
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 10,
+        message: '正在调用三个AI模型并行生成聚类...',
+        currentStep: '模型生成',
+      })
+
+      const { gpt4, claude, domestic } = await this.clusteringGenerator.generate(input)
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 60,
+        message: '三模型生成完成，开始质量验证...',
+        currentStep: '质量验证',
+      })
+
+      // 2. 质量验证
+      const validationReport = await this.qualityValidation.validateQuality({
+        gpt4,
+        claude,
+        domestic,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 80,
+        message: '质量验证完成，开始结果聚合...',
+        currentStep: '结果聚合',
+      })
+
+      // 3. 结果聚合
+      const aggregationOutput = await this.resultAggregator.aggregate({
+        taskId: request.taskId,
+        generationType: request.generationType,
+        gpt4Result: gpt4,
+        claudeResult: claude,
+        domesticResult: domestic,
+        validationReport,
+      })
+
+      // 4. 构建响应
+      const response: GenerationResponse = {
+        taskId: request.taskId,
+        selectedResult: aggregationOutput.selectedResult,
+        selectedModel: aggregationOutput.selectedModel,
+        confidenceLevel: aggregationOutput.confidenceLevel,
+        qualityScores: aggregationOutput.qualityScores,
+      }
+
+      this.logger.log(
+        `Clustering generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, clusters=${response.selectedResult.clusters?.length || 0}`,
+      )
+
+      // 发送完成事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'completed',
+        message: '聚类生成完成！',
+        result: response,
+        executionTimeMs: executionTime,
+        cost: 0, // TODO: 从cost tracking获取实际成本
+      })
+
+      return response
+    } catch (error) {
+      // 发送失败事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'failed',
+        message: `聚类生成失败: ${error.message}`,
         executionTimeMs: executionTime,
         cost: 0,
       })
