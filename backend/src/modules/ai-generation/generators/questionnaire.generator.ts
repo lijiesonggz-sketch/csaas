@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common'
 import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
 import { AIClientRequest } from '../../ai-clients/interfaces/ai-client.interface'
 import { AIModel } from '../../../database/entities/ai-generation-event.entity'
-import { fillQuestionnairePrompt } from '../prompts/questionnaire.prompts'
+import {
+  fillQuestionnairePrompt,
+  fillSingleClusterQuestionnairePrompt,
+} from '../prompts/questionnaire.prompts'
 import { MatrixGenerationOutput } from './matrix.generator'
 
 /**
@@ -23,6 +26,7 @@ export interface Question {
   question_id: string // "Q001", "Q002", ...
   cluster_id: string // 对应的聚类ID
   cluster_name: string // 聚类名称
+  dimension?: string // 题目维度（用于交叉验证）："政策与制度层面"、"执行与实施层面"等
   question_text: string // 题目文本
   question_type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'RATING' // 题目类型
   options: QuestionOption[] // 选项列表
@@ -67,7 +71,7 @@ export class QuestionnaireGenerator {
   constructor(private readonly aiOrchestrator: AIOrchestrator) {}
 
   /**
-   * 生成调研问卷
+   * 生成调研问卷（分批次优化）
    * @param input 生成输入
    * @returns 生成输出（三模型结果）
    */
@@ -76,9 +80,9 @@ export class QuestionnaireGenerator {
     claude: QuestionnaireGenerationOutput
     domestic: QuestionnaireGenerationOutput
   }> {
-    this.logger.log('Starting questionnaire generation...')
+    this.logger.log('Starting questionnaire generation with batch optimization...')
 
-    const { matrixResult, temperature = 0.7, maxTokens = 20000 } = input
+    const { matrixResult, temperature = 0.7, maxTokens = 8000 } = input
 
     // 验证输入
     if (!matrixResult || !matrixResult.matrix) {
@@ -87,17 +91,117 @@ export class QuestionnaireGenerator {
 
     const totalClusters = matrixResult.matrix.length
 
-    this.logger.log(`Generating questionnaire for ${totalClusters} clusters...`)
+    this.logger.log(
+      `Generating questionnaire for ${totalClusters} clusters (5 questions per cluster, batch by batch)...`,
+    )
 
-    // 填充Prompt模板
-    const prompt = fillQuestionnairePrompt(matrixResult)
+    // 初始化三个模型的题目数组
+    const gpt4Questions: Question[] = []
+    const claudeQuestions: Question[] = []
+    const domesticQuestions: Question[] = []
+
+    let questionCounter = 1 // 全局question_id计数器
+
+    // 逐个聚类生成问卷（分批次）
+    for (let i = 0; i < matrixResult.matrix.length; i++) {
+      const cluster = matrixResult.matrix[i]
+      this.logger.log(`Processing cluster ${i + 1}/${totalClusters}: ${cluster.cluster_name}`)
+
+      try {
+        // 调用单聚类生成方法（固定生成5题）
+        const singleResult = await this.generateSingleCluster(
+          cluster,
+          i,
+          questionCounter,
+          temperature,
+          maxTokens,
+        )
+
+        // 将结果添加到各模型的数组中
+        gpt4Questions.push(...singleResult.gpt4)
+        claudeQuestions.push(...singleResult.claude)
+        domesticQuestions.push(...singleResult.domestic)
+
+        // 更新question_id计数器（每个聚类5题）
+        questionCounter += 5
+
+        this.logger.log(`Completed cluster ${i + 1}/${totalClusters}, generated 5 questions`)
+      } catch (error) {
+        this.logger.error(
+          `Failed to generate questions for cluster ${cluster.cluster_name}: ${error.message}`,
+        )
+        // 跳过失败的聚类，继续处理下一个
+      }
+    }
+
+    // 检查是否有成功的结果
+    if (gpt4Questions.length === 0 && claudeQuestions.length === 0 && domesticQuestions.length === 0) {
+      throw new Error('Failed to generate questions for all clusters')
+    }
+
+    // 生成元数据
+    const gpt4Metadata = this.generateMetadata(gpt4Questions)
+    const claudeMetadata = this.generateMetadata(claudeQuestions)
+    const domesticMetadata = this.generateMetadata(domesticQuestions)
+
+    // 构建最终输出
+    const gpt4Result: QuestionnaireGenerationOutput = {
+      questionnaire: gpt4Questions,
+      questionnaire_metadata: gpt4Metadata,
+    }
+
+    const claudeResult: QuestionnaireGenerationOutput = {
+      questionnaire: claudeQuestions,
+      questionnaire_metadata: claudeMetadata,
+    }
+
+    const domesticResult: QuestionnaireGenerationOutput = {
+      questionnaire: domesticQuestions,
+      questionnaire_metadata: domesticMetadata,
+    }
+
+    this.logger.log(
+      `Questionnaire generation completed: GPT-4(${gpt4Questions.length}), Claude(${claudeQuestions.length}), Domestic(${domesticQuestions.length})`,
+    )
+
+    return {
+      gpt4: gpt4Result,
+      claude: claudeResult,
+      domestic: domesticResult,
+    }
+  }
+
+  /**
+   * 生成单个聚类的问卷（固定5题）
+   * @param cluster 单个聚类（包含成熟度级别）
+   * @param clusterIndex 聚类索引
+   * @param startQuestionId 起始question_id编号
+   * @param temperature 温度参数
+   * @param maxTokens 最大token数
+   * @returns 5个问题（三模型结果）
+   */
+  async generateSingleCluster(
+    cluster: any,
+    clusterIndex: number,
+    startQuestionId: number,
+    temperature = 0.7,
+    maxTokens = 8000,
+  ): Promise<{
+    gpt4: Question[]
+    claude: Question[]
+    domestic: Question[]
+  }> {
+    this.logger.log(`Generating 5 questions for cluster: ${cluster.cluster_name}`)
+
+    // 填充单聚类Prompt模板
+    const prompt = fillSingleClusterQuestionnairePrompt(cluster, clusterIndex)
 
     // 构建AI请求
     const aiRequest: AIClientRequest = {
       prompt,
       temperature,
       maxTokens,
-      responseFormat: { type: 'json_object' }, // 强制JSON输出
+      responseFormat: { type: 'json_object' },
     }
 
     // 并行调用三模型生成
@@ -107,43 +211,148 @@ export class QuestionnaireGenerator {
       this.generateWithModel(aiRequest, AIModel.DOMESTIC),
     ])
 
-    // 解析JSON结果 - 使用容错机制
-    let gpt4Result: QuestionnaireGenerationOutput | null = null
-    let claudeResult: QuestionnaireGenerationOutput | null = null
-    let domesticResult: QuestionnaireGenerationOutput | null = null
+    // 解析JSON结果
+    let gpt4Questions: Question[] | null = null
+    let claudeQuestions: Question[] | null = null
+    let domesticQuestions: Question[] | null = null
 
     try {
-      gpt4Result = this.parseJsonResponse(gpt4Response.content, totalClusters)
+      gpt4Questions = this.parseSingleClusterResponse(gpt4Response.content, cluster, startQuestionId)
     } catch (error) {
-      this.logger.error(`Failed to parse GPT-4 response: ${error.message}`)
+      this.logger.error(`Failed to parse GPT-4 single cluster response: ${error.message}`)
     }
 
     try {
-      claudeResult = this.parseJsonResponse(claudeResponse.content, totalClusters)
+      claudeQuestions = this.parseSingleClusterResponse(
+        claudeResponse.content,
+        cluster,
+        startQuestionId,
+      )
     } catch (error) {
-      this.logger.error(`Failed to parse Claude response: ${error.message}`)
+      this.logger.error(`Failed to parse Claude single cluster response: ${error.message}`)
     }
 
     try {
-      domesticResult = this.parseJsonResponse(domesticResponse.content, totalClusters)
+      domesticQuestions = this.parseSingleClusterResponse(
+        domesticResponse.content,
+        cluster,
+        startQuestionId,
+      )
     } catch (error) {
-      this.logger.error(`Failed to parse Domestic model response: ${error.message}`)
+      this.logger.error(`Failed to parse Domestic model single cluster response: ${error.message}`)
     }
 
     // 如果所有模型都失败，抛出错误
-    if (!gpt4Result && !claudeResult && !domesticResult) {
-      throw new Error('All three models failed to generate valid questionnaire results')
+    if (!gpt4Questions && !claudeQuestions && !domesticQuestions) {
+      throw new Error(`All three models failed to generate questions for cluster: ${cluster.cluster_name}`)
     }
 
-    // 使用成功的结果填充失败的模型（优先使用Claude，然后GPT-4，最后Domestic）
-    const fallbackResult = claudeResult || gpt4Result || domesticResult
-
-    this.logger.log('Questionnaire generation completed for all three models')
+    // 使用成功的结果填充失败的模型
+    const fallbackQuestions = claudeQuestions || gpt4Questions || domesticQuestions
 
     return {
-      gpt4: gpt4Result || fallbackResult,
-      claude: claudeResult || fallbackResult,
-      domestic: domesticResult || fallbackResult,
+      gpt4: gpt4Questions || fallbackQuestions,
+      claude: claudeQuestions || fallbackQuestions,
+      domestic: domesticQuestions || fallbackQuestions,
+    }
+  }
+
+  /**
+   * 解析单聚类响应（固定5题）
+   */
+  private parseSingleClusterResponse(
+    content: string,
+    cluster: any,
+    startQuestionId: number,
+  ): Question[] {
+    try {
+      // 1. 移除markdown代码块标记
+      let cleanedContent = content.trim()
+
+      if (cleanedContent.startsWith('```')) {
+        cleanedContent = cleanedContent
+          .replace(/^```(?:json)?\s*\n?/, '')
+          .replace(/\n?```\s*$/, '')
+      }
+
+      // 2. 修复常见的JSON格式问题
+      cleanedContent = this.sanitizeJsonString(cleanedContent)
+
+      // 3. 尝试直接解析
+      let parsed = JSON.parse(cleanedContent)
+
+      // 4. 修复过度转义的嵌套数组
+      parsed = this.fixEscapedArrays(parsed)
+
+      // 5. 提取questions数组
+      if (!parsed.questions || !Array.isArray(parsed.questions)) {
+        throw new Error('Missing or invalid questions array')
+      }
+
+      const questions = parsed.questions
+
+      // 6. 验证题目数量（必须是5题）
+      if (questions.length !== 5) {
+        this.logger.warn(
+          `Expected 5 questions for cluster ${cluster.cluster_name}, got ${questions.length}`,
+        )
+      }
+
+      // 7. 标准化question_id
+      questions.forEach((q: any, index: number) => {
+        const questionNum = startQuestionId + index
+        q.question_id = `Q${questionNum.toString().padStart(3, '0')}`
+      })
+
+      return questions as Question[]
+    } catch (error) {
+      this.logger.error(`Failed to parse single cluster JSON: ${error.message}`)
+
+      // 最后尝试：提取大括号内容
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try {
+          let extractedContent = jsonMatch[0]
+          extractedContent = this.sanitizeJsonString(extractedContent)
+          let parsed = JSON.parse(extractedContent)
+          parsed = this.fixEscapedArrays(parsed)
+
+          if (parsed.questions && Array.isArray(parsed.questions)) {
+            const questions = parsed.questions
+            questions.forEach((q: any, index: number) => {
+              const questionNum = startQuestionId + index
+              q.question_id = `Q${questionNum.toString().padStart(3, '0')}`
+            })
+            return questions as Question[]
+          }
+        } catch (e) {
+          this.logger.error(`Failed to extract and parse: ${e.message}`)
+        }
+      }
+
+      throw new Error(`Invalid single cluster JSON: ${error.message}`)
+    }
+  }
+
+  /**
+   * 生成元数据
+   */
+  private generateMetadata(questions: Question[]): QuestionnaireMetadata {
+    const coverageMap: Record<string, number> = {}
+
+    for (const question of questions) {
+      if (question.cluster_id) {
+        if (!coverageMap[question.cluster_id]) {
+          coverageMap[question.cluster_id] = 0
+        }
+        coverageMap[question.cluster_id]++
+      }
+    }
+
+    return {
+      total_questions: questions.length,
+      estimated_time_minutes: Math.ceil(questions.length * 0.5), // 每题30秒
+      coverage_map: coverageMap,
     }
   }
 

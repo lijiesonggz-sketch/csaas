@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
 import { AIClientRequest } from '../../ai-clients/interfaces/ai-client.interface'
 import { AIModel } from '../../../database/entities/ai-generation-event.entity'
-import { fillMatrixPrompt } from '../prompts/matrix.prompts'
+import { fillMatrixPrompt, fillSingleClusterMatrixPrompt } from '../prompts/matrix.prompts'
 import { ClusteringGenerationOutput } from './clustering.generator'
 
 /**
@@ -57,7 +57,7 @@ export class MatrixGenerator {
   constructor(private readonly aiOrchestrator: AIOrchestrator) {}
 
   /**
-   * 生成成熟度矩阵
+   * 生成成熟度矩阵（分批次优化）
    * @param input 生成输入
    * @returns 生成输出（三模型结果）
    */
@@ -66,32 +66,116 @@ export class MatrixGenerator {
     claude: MatrixGenerationOutput
     domestic: MatrixGenerationOutput
   }> {
-    this.logger.log('Starting matrix generation...')
+    this.logger.log('Starting matrix generation with batch optimization...')
 
-    const { clusteringResult, temperature = 0.7, maxTokens = 16000 } = input
+    const { clusteringResult, temperature = 0.7, maxTokens = 8000 } = input
 
     // 验证输入
     if (!clusteringResult || !clusteringResult.categories) {
       throw new Error('Valid clustering result is required for matrix generation')
     }
 
-    // 统计聚类数量
-    const totalClusters = clusteringResult.categories.reduce(
-      (sum, cat) => sum + (cat.clusters?.length || 0),
-      0,
+    // 提取所有聚类
+    const allClusters = []
+    for (const category of clusteringResult.categories) {
+      if (category.clusters && Array.isArray(category.clusters)) {
+        allClusters.push(...category.clusters)
+      }
+    }
+
+    const totalClusters = allClusters.length
+    this.logger.log(`Generating matrix for ${totalClusters} clusters (batch by batch)...`)
+
+    // 初始化三个模型的结果数组
+    const gpt4Rows: MatrixRow[] = []
+    const claudeRows: MatrixRow[] = []
+    const domesticRows: MatrixRow[] = []
+
+    // 逐个聚类生成成熟度（分批次）
+    for (let i = 0; i < allClusters.length; i++) {
+      const cluster = allClusters[i]
+      this.logger.log(`Processing cluster ${i + 1}/${totalClusters}: ${cluster.name}`)
+
+      try {
+        // 调用单聚类生成方法
+        const singleResult = await this.generateSingleCluster(cluster, temperature, maxTokens)
+
+        // 将结果添加到各模型的数组中
+        gpt4Rows.push(singleResult.gpt4)
+        claudeRows.push(singleResult.claude)
+        domesticRows.push(singleResult.domestic)
+
+        this.logger.log(`Completed cluster ${i + 1}/${totalClusters}`)
+      } catch (error) {
+        this.logger.error(
+          `Failed to generate maturity for cluster ${cluster.name}: ${error.message}`,
+        )
+        // 跳过失败的聚类，继续处理下一个
+      }
+    }
+
+    // 检查是否有成功的结果
+    if (gpt4Rows.length === 0 && claudeRows.length === 0 && domesticRows.length === 0) {
+      throw new Error('Failed to generate maturity for all clusters')
+    }
+
+    // 构建最终输出
+    const maturityModelDescription =
+      '本成熟度模型基于CMMI（能力成熟度模型集成）的5级成熟度理念，结合IT安全管理最佳实践设计。模型从初始级的临时性管理逐步提升至优化级的持续改进，帮助组织系统化提升IT安全管理能力。每个聚类的成熟度定义均基于原始标准文档条目的明确要求，确保可操作性和可验证性。'
+
+    const gpt4Result: MatrixGenerationOutput = {
+      matrix: gpt4Rows,
+      maturity_model_description: maturityModelDescription,
+    }
+
+    const claudeResult: MatrixGenerationOutput = {
+      matrix: claudeRows,
+      maturity_model_description: maturityModelDescription,
+    }
+
+    const domesticResult: MatrixGenerationOutput = {
+      matrix: domesticRows,
+      maturity_model_description: maturityModelDescription,
+    }
+
+    this.logger.log(
+      `Matrix generation completed: GPT-4(${gpt4Rows.length}), Claude(${claudeRows.length}), Domestic(${domesticRows.length})`,
     )
 
-    this.logger.log(`Generating matrix for ${totalClusters} clusters...`)
+    return {
+      gpt4: gpt4Result,
+      claude: claudeResult,
+      domestic: domesticResult,
+    }
+  }
 
-    // 填充Prompt模板
-    const prompt = fillMatrixPrompt(clusteringResult)
+  /**
+   * 生成单个聚类的成熟度（分批次优化）
+   * @param cluster 单个聚类（包含clauses原始条目）
+   * @param temperature 温度参数
+   * @param maxTokens 最大token数
+   * @returns 单个聚类的成熟度行（三模型结果）
+   */
+  async generateSingleCluster(
+    cluster: any,
+    temperature = 0.7,
+    maxTokens = 8000,
+  ): Promise<{
+    gpt4: MatrixRow
+    claude: MatrixRow
+    domestic: MatrixRow
+  }> {
+    this.logger.log(`Generating maturity levels for cluster: ${cluster.name}`)
+
+    // 填充单聚类Prompt模板
+    const prompt = fillSingleClusterMatrixPrompt(cluster)
 
     // 构建AI请求
     const aiRequest: AIClientRequest = {
       prompt,
       temperature,
       maxTokens,
-      responseFormat: { type: 'json_object' }, // 强制JSON输出
+      responseFormat: { type: 'json_object' },
     }
 
     // 并行调用三模型生成
@@ -101,44 +185,126 @@ export class MatrixGenerator {
       this.generateWithModel(aiRequest, AIModel.DOMESTIC),
     ])
 
-    // 解析JSON结果 - 使用容错机制
-    let gpt4Result: MatrixGenerationOutput | null = null
-    let claudeResult: MatrixGenerationOutput | null = null
-    let domesticResult: MatrixGenerationOutput | null = null
+    // 解析JSON结果
+    let gpt4Row: MatrixRow | null = null
+    let claudeRow: MatrixRow | null = null
+    let domesticRow: MatrixRow | null = null
 
     try {
-      gpt4Result = this.parseJsonResponse(gpt4Response.content, totalClusters)
+      const parsed = this.parseSingleClusterResponse(gpt4Response.content, cluster)
+      gpt4Row = parsed
     } catch (error) {
-      this.logger.error(`Failed to parse GPT-4 response: ${error.message}`)
+      this.logger.error(`Failed to parse GPT-4 single cluster response: ${error.message}`)
     }
 
     try {
-      claudeResult = this.parseJsonResponse(claudeResponse.content, totalClusters)
+      const parsed = this.parseSingleClusterResponse(claudeResponse.content, cluster)
+      claudeRow = parsed
     } catch (error) {
-      this.logger.error(`Failed to parse Claude response: ${error.message}`)
+      this.logger.error(`Failed to parse Claude single cluster response: ${error.message}`)
     }
 
     try {
-      domesticResult = this.parseJsonResponse(domesticResponse.content, totalClusters)
+      const parsed = this.parseSingleClusterResponse(domesticResponse.content, cluster)
+      domesticRow = parsed
     } catch (error) {
-      this.logger.error(`Failed to parse Domestic model response: ${error.message}`)
+      this.logger.error(`Failed to parse Domestic model single cluster response: ${error.message}`)
     }
 
     // 如果所有模型都失败，抛出错误
-    if (!gpt4Result && !claudeResult && !domesticResult) {
-      throw new Error('All three models failed to generate valid matrix results')
+    if (!gpt4Row && !claudeRow && !domesticRow) {
+      throw new Error(`All three models failed to generate maturity for cluster: ${cluster.name}`)
     }
 
-    // 使用成功的结果填充失败的模型（优先使用Claude，然后GPT-4，最后Domestic）
-    const fallbackResult = claudeResult || gpt4Result || domesticResult
-
-    this.logger.log('Matrix generation completed for all three models')
+    // 使用成功的结果填充失败的模型
+    const fallbackRow = claudeRow || gpt4Row || domesticRow
 
     return {
-      gpt4: gpt4Result || fallbackResult,
-      claude: claudeResult || fallbackResult,
-      domestic: domesticResult || fallbackResult,
+      gpt4: gpt4Row || fallbackRow,
+      claude: claudeRow || fallbackRow,
+      domestic: domesticRow || fallbackRow,
     }
+  }
+
+  /**
+   * 解析单聚类响应
+   */
+  private parseSingleClusterResponse(content: string, cluster: any): MatrixRow {
+    try {
+      // 1. 移除markdown代码块标记
+      let cleanedContent = content.trim()
+
+      if (cleanedContent.startsWith('```')) {
+        cleanedContent = cleanedContent
+          .replace(/^```(?:json)?\s*\n?/, '')
+          .replace(/\n?```\s*$/, '')
+      }
+
+      // 2. 修复常见的JSON格式问题
+      cleanedContent = this.sanitizeJsonString(cleanedContent)
+
+      // 3. 尝试直接解析
+      let parsed = JSON.parse(cleanedContent)
+
+      // 4. 修复过度转义的嵌套数组
+      parsed = this.fixEscapedArrays(parsed)
+
+      // 5. 验证单聚类行结构
+      this.validateMatrixRow(parsed, cluster)
+
+      return parsed as MatrixRow
+    } catch (error) {
+      this.logger.error(`Failed to parse single cluster JSON: ${error.message}`)
+
+      // 最后尝试：提取大括号内容
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        try {
+          let extractedContent = jsonMatch[0]
+          extractedContent = this.sanitizeJsonString(extractedContent)
+          let parsed = JSON.parse(extractedContent)
+          parsed = this.fixEscapedArrays(parsed)
+          this.validateMatrixRow(parsed, cluster)
+          return parsed as MatrixRow
+        } catch (e) {
+          this.logger.error(`Failed to extract and parse: ${e.message}`)
+        }
+      }
+
+      throw new Error(`Invalid single cluster JSON: ${error.message}`)
+    }
+  }
+
+  /**
+   * 验证单个矩阵行的结构
+   */
+  private validateMatrixRow(row: any, cluster: any): void {
+    // 检查必需字段
+    if (!row.cluster_id || !row.cluster_name || !row.levels) {
+      throw new Error('Missing required fields: cluster_id, cluster_name, or levels')
+    }
+
+    // 检查5个级别的完整性
+    const requiredLevels = ['level_1', 'level_2', 'level_3', 'level_4', 'level_5']
+    for (const levelKey of requiredLevels) {
+      if (!row.levels[levelKey]) {
+        throw new Error(`Missing ${levelKey}`)
+      }
+
+      const level = row.levels[levelKey]
+
+      // 验证级别的必需字段
+      if (!level.name || !level.description || !Array.isArray(level.key_practices)) {
+        throw new Error(`Invalid ${levelKey}: missing name, description, or key_practices`)
+      }
+
+      // 检查key_practices数量
+      if (level.key_practices.length < 1) {
+        this.logger.warn(`${levelKey} has no key_practices`)
+      }
+    }
+
+    this.logger.log(`Validated single cluster row: ${row.cluster_name}`)
   }
 
   /**

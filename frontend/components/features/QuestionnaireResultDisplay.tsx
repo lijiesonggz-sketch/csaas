@@ -18,6 +18,7 @@ import {
   Radio,
   Checkbox,
   Progress,
+  Alert,
 } from 'antd'
 import {
   EditOutlined,
@@ -25,6 +26,7 @@ import {
   CloseOutlined,
   PieChartOutlined,
   QuestionCircleOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons'
 import type { GenerationResult } from '@/lib/types/ai-generation'
 
@@ -114,6 +116,67 @@ export default function QuestionnaireResultDisplay({
     setEditedQuestions((prev) =>
       prev.map((q) => (q.question_id === questionId ? { ...q, guidance: newGuidance } : q))
     )
+  }
+
+  // 导出CSV
+  const handleExportCSV = () => {
+    try {
+      const csvRows: string[] = []
+      // CSV表头
+      csvRows.push(
+        'Question ID,Cluster ID,Cluster Name,Dimension,Question Type,Question Text,Required,Guidance,Option ID,Option Text,Score,Level,Description'
+      )
+
+      // 遍历所有题目和选项
+      questions.forEach((question) => {
+        question.options.forEach((option) => {
+          const row = [
+            question.question_id,
+            question.cluster_id,
+            `"${question.cluster_name.replace(/"/g, '""')}"`,
+            `"${question.dimension || ''}"`,
+            question.question_type,
+            `"${question.question_text.replace(/"/g, '""')}"`,
+            question.required ? 'Yes' : 'No',
+            `"${question.guidance.replace(/"/g, '""')}"`,
+            option.option_id,
+            `"${option.text.replace(/"/g, '""')}"`,
+            option.score,
+            option.level || '',
+            `"${option.description?.replace(/"/g, '""') || ''}"`,
+          ]
+          csvRows.push(row.join(','))
+        })
+      })
+
+      const csvContent = csvRows.join('\n')
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `questionnaire_${result.taskId}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+      message.success('问卷已导出为CSV文件！')
+    } catch (error) {
+      message.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
+    }
+  }
+
+  // 复制任务ID
+  const handleCopyTaskId = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard
+        .writeText(result.taskId)
+        .then(() => {
+          message.success('任务ID已复制到剪贴板！')
+        })
+        .catch(() => {
+          message.error('复制失败，请手动复制')
+        })
+    } else {
+      message.warning('您的浏览器不支持自动复制，请手动复制任务ID')
+    }
   }
 
   // 渲染题目类型图标
@@ -340,6 +403,46 @@ export default function QuestionnaireResultDisplay({
 
   return (
     <div className="space-y-6">
+      {/* 成功提示和导出 */}
+      <Alert
+        message={
+          <div>
+            <strong>✅ 问卷生成完成！</strong>
+          </div>
+        }
+        description={
+          <div className="space-y-3">
+            <div>
+              <span className="text-sm text-gray-600">任务ID：</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="bg-gray-100 px-3 py-2 rounded font-mono text-sm flex-1 select-all">
+                {result.taskId}
+              </code>
+              <Button
+                onClick={handleCopyTaskId}
+                size="small"
+                className="whitespace-nowrap"
+              >
+                复制ID
+              </Button>
+            </div>
+            <div>
+              <Button
+                type="primary"
+                onClick={handleExportCSV}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                📊 导出CSV
+              </Button>
+            </div>
+          </div>
+        }
+        type="success"
+        showIcon
+        icon={<CheckCircleOutlined />}
+      />
+
       {/* 元数据信息 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card size="small">
