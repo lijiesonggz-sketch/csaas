@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3001",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p 3001",
     "lint": "next lint",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\""
   },
@@ -16,6 +16,7 @@
     "mammoth": "^1.11.0",
     "next": "^14.2.0",
     "next-auth": "^4.24.0",
+    "pdfjs-dist": "^5.4.449",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "recharts": "^2.13.0",
