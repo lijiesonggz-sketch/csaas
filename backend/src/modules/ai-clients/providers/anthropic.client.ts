@@ -20,6 +20,8 @@ export class AnthropicClient implements IAIClient {
     this.client = new Anthropic({
       apiKey: apiKey || 'dummy-key',
       baseURL,
+      timeout: 360000, // 6分钟超时（360秒 = 360000ms）
+      maxRetries: 0, // 不重试，只调用一次
     })
 
     this.defaultModel =
@@ -37,9 +39,12 @@ export class AnthropicClient implements IAIClient {
         `Calling Anthropic API with model ${model}, prompt length: ${request.prompt.length}`,
       )
 
+      // Claude Sonnet 4.5 最大输出 token 限制为 64000
+      const maxTokens = Math.min(request.maxTokens ?? 2000, 64000)
+
       const createParams: any = {
         model,
-        max_tokens: request.maxTokens ?? 2000,
+        max_tokens: maxTokens,
         temperature: request.temperature ?? 0.7,
         system: request.systemPrompt,
         messages: [
@@ -67,6 +72,11 @@ export class AnthropicClient implements IAIClient {
       const response = await this.client.messages.create(createParams)
 
       const executionTime = Date.now() - startTime
+
+      // 验证响应内容数组
+      if (!response.content || response.content.length === 0) {
+        throw new Error('Anthropic returned empty or missing content array')
+      }
 
       const content = response.content[0]
       if (content.type !== 'text') {

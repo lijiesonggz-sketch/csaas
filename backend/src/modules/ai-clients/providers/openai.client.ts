@@ -20,6 +20,8 @@ export class OpenAIClient implements IAIClient {
     this.client = new OpenAI({
       apiKey: apiKey || 'dummy-key',
       baseURL,
+      timeout: 900000, // 15分钟超时（900秒 = 900000ms）- 智谱GLM需要更长时间处理大型Prompt
+      maxRetries: 0, // 不重试，只调用一次
     })
 
     this.defaultModel =

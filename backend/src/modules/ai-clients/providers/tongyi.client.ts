@@ -26,6 +26,8 @@ export class TongyiClient implements IAIClient {
       baseURL:
         this.configService.get<string>('TONGYI_BASE_URL') ||
         'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      timeout: 360000, // 6分钟超时（360秒 = 360000ms）
+      maxRetries: 0, // 不重试，只调用一次
     })
 
     this.defaultModel =
@@ -52,15 +54,23 @@ export class TongyiClient implements IAIClient {
 
       const model = request.model || this.defaultModel
 
+      // 根据模型设置最大 token 限制
+      // qwen-long: 输出最大 32768
+      // qwen-max: 输出最大 8192
+      // qwen-plus/turbo: 输出最大 6144
+      const modelMaxTokens = model === 'qwen-long' ? 32768 :
+                            model === 'qwen-max' ? 8192 : 6144
+      const maxTokens = Math.min(request.maxTokens ?? 2000, modelMaxTokens)
+
       this.logger.debug(
-        `Calling Tongyi API with model ${model}, prompt length: ${request.prompt.length}`,
+        `Calling Tongyi API with model ${model}, prompt length: ${request.prompt.length}, maxTokens: ${maxTokens}`,
       )
 
       const completion = await this.client.chat.completions.create({
         model,
         messages,
         temperature: request.temperature ?? 0.7,
-        max_tokens: request.maxTokens ?? 2000,
+        max_tokens: maxTokens,
         ...(request.responseFormat && { response_format: request.responseFormat }),
       })
 
@@ -124,12 +134,13 @@ export class TongyiClient implements IAIClient {
     promptTokens: number,
     completionTokens: number,
   ): number {
-    // Pricing in RMB per 1000 tokens
+    // Pricing in RMB per token (2025年最新定价)
+    // 官方定价是每1000 tokens的价格，这里转换为每个token的价格
     const pricing: Record<string, { prompt: number; completion: number }> = {
-      'qwen-plus': { prompt: 0.004 / 1000, completion: 0.012 / 1000 },
-      'qwen-turbo': { prompt: 0.002 / 1000, completion: 0.006 / 1000 },
-      'qwen-max': { prompt: 0.02 / 1000, completion: 0.06 / 1000 },
-      'qwen-long': { prompt: 0.0005 / 1000, completion: 0.002 / 1000 },
+      'qwen-plus': { prompt: 0.004 / 1000, completion: 0.012 / 1000 },          // 普通版
+      'qwen-turbo': { prompt: 0.002 / 1000, completion: 0.006 / 1000 },         // 快速版
+      'qwen-max': { prompt: 0.02 / 1000, completion: 0.06 / 1000 },             // 旗舰版
+      'qwen-long': { prompt: 0.0005 / 1000, completion: 0.002 / 1000 },         // 长文本版 (输入1000万tokens/输出32768tokens)
       'qwen2.5-72b-instruct': { prompt: 0.004 / 1000, completion: 0.004 / 1000 },
     }
 
