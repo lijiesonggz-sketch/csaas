@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Form, Input, Button, Card, message } from 'antd'
+import { Form, Input, Button, message } from 'antd'
+import { Card } from 'antd'
 import { MailOutlined, LockOutlined } from '@ant-design/icons'
 
 export default function LoginPage() {

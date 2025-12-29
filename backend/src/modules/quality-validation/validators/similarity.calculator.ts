@@ -100,12 +100,31 @@ export class SimilarityCalculator {
 
   /**
    * 计算Levenshtein距离（编辑距离）
+   * 注意：为防止内存溢出，对大文本仅计算前N个字符的编辑距离
    */
   private levenshtein(str1: string, str2: string): number {
-    const len1 = str1.length
-    const len2 = str2.length
+    // 🔥 关键优化：限制最大长度以防止内存溢出
+    // Levenshtein矩阵复杂度为 O(len1 * len2) 空间
+    // 对于50,000字符的文档，会创建25亿个数字 → OOM
+    const MAX_LENGTH = 1000 // 限制每个字符串最多1000字符
 
-    // 创建距离矩阵
+    let s1 = str1
+    let s2 = str2
+
+    // 如果文本过长，只比较前N个字符（代表性采样）
+    if (s1.length > MAX_LENGTH) {
+      s1 = s1.substring(0, MAX_LENGTH)
+      this.logger.debug(`Truncating str1 from ${str1.length} to ${MAX_LENGTH} chars for Levenshtein`)
+    }
+    if (s2.length > MAX_LENGTH) {
+      s2 = s2.substring(0, MAX_LENGTH)
+      this.logger.debug(`Truncating str2 from ${str2.length} to ${MAX_LENGTH} chars for Levenshtein`)
+    }
+
+    const len1 = s1.length
+    const len2 = s2.length
+
+    // 创建距离矩阵（现在受限于MAX_LENGTH）
     const matrix: number[][] = Array(len1 + 1)
       .fill(null)
       .map(() => Array(len2 + 1).fill(0))
@@ -117,7 +136,7 @@ export class SimilarityCalculator {
     // 动态规划填充矩阵
     for (let i = 1; i <= len1; i++) {
       for (let j = 1; j <= len2; j++) {
-        const cost = str1[i - 1] === str2[j - 1] ? 0 : 1
+        const cost = s1[i - 1] === s2[j - 1] ? 0 : 1
         matrix[i][j] = Math.min(
           matrix[i - 1][j] + 1, // 删除
           matrix[i][j - 1] + 1, // 插入
