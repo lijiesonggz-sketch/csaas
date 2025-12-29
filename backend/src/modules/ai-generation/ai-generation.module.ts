@@ -4,6 +4,8 @@ import { AIGenerationService } from './ai-generation.service'
 import { AIGenerationController } from './ai-generation.controller'
 import { SummaryGenerator } from './generators/summary.generator'
 import { ClusteringGenerator } from './generators/clustering.generator'
+import { MatrixGenerator } from './generators/matrix.generator'
+import { QuestionnaireGenerator } from './generators/questionnaire.generator'
 import { AIClientsModule } from '../ai-clients/ai-clients.module'
 import { QualityValidationModule } from '../quality-validation/quality-validation.module'
 import { ResultAggregationModule } from '../result-aggregation/result-aggregation.module'
@@ -29,9 +31,9 @@ import { User } from '../../database/entities/user.entity'
     AIGenerationService,
     SummaryGenerator,
     ClusteringGenerator,
-    // TODO: 添加其他生成器
-    // MatrixGenerator,
-    // QuestionnaireGenerator,
+    MatrixGenerator,
+    QuestionnaireGenerator,
+    // TODO: Week 8
     // ActionPlanGenerator,
   ],
   exports: [AIGenerationService],

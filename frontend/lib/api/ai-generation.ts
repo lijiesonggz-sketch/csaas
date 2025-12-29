@@ -26,6 +26,20 @@ export interface GenerateClusteringRequest {
   maxTokens?: number
 }
 
+export interface GenerateMatrixRequest {
+  taskId: string
+  clusteringResult: any // ClusteringGenerationOutput from backend
+  temperature?: number
+  maxTokens?: number
+}
+
+export interface GenerateQuestionnaireRequest {
+  taskId: string
+  matrixResult: any // MatrixGenerationOutput from backend
+  temperature?: number
+  maxTokens?: number
+}
+
 export class AIGenerationAPI {
   /**
    * 生成综述
@@ -100,6 +114,46 @@ export class AIGenerationAPI {
     if (!response.ok) {
       const error = await response.json()
       throw new Error(error.error || 'Failed to get final result')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * 生成成熟度矩阵
+   */
+  static async generateMatrix(request: GenerateMatrixRequest): Promise<GenerateResponse> {
+    const response = await fetch(`${API_BASE_URL}/ai-generation/matrix`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to generate matrix')
+    }
+
+    return response.json()
+  }
+
+  /**
+   * 生成调研问卷
+   */
+  static async generateQuestionnaire(request: GenerateQuestionnaireRequest): Promise<GenerateResponse> {
+    const response = await fetch(`${API_BASE_URL}/ai-generation/questionnaire`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to generate questionnaire')
     }
 
     return response.json()

@@ -74,6 +74,44 @@ export class GenerateClusteringDto {
 }
 
 /**
+ * 生成矩阵DTO
+ */
+export class GenerateMatrixDto {
+  @IsString()
+  taskId: string
+
+  @IsOptional()
+  clusteringResult: any // ClusteringGenerationOutput
+
+  @IsOptional()
+  @IsNumber()
+  temperature?: number
+
+  @IsOptional()
+  @IsNumber()
+  maxTokens?: number
+}
+
+/**
+ * 生成问卷DTO
+ */
+export class GenerateQuestionnaireDto {
+  @IsString()
+  taskId: string
+
+  @IsOptional()
+  matrixResult: any // MatrixGenerationOutput
+
+  @IsOptional()
+  @IsNumber()
+  temperature?: number
+
+  @IsOptional()
+  @IsNumber()
+  maxTokens?: number
+}
+
+/**
  * AI生成Controller
  * 提供AI生成功能的HTTP API接口
  */
@@ -225,6 +263,70 @@ export class AIGenerationController {
       if (error instanceof HttpException) {
         throw error
       }
+      throw new HttpException(
+        {
+          success: false,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      )
+    }
+  }
+
+  /**
+   * 生成成熟度矩阵
+   * POST /api/ai-generation/matrix
+   */
+  @Post('matrix')
+  async generateMatrix(@Body() dto: GenerateMatrixDto) {
+    try {
+      const result = await this.aiGenerationService.generateContent({
+        taskId: dto.taskId,
+        generationType: AITaskType.MATRIX,
+        input: {
+          clusteringResult: dto.clusteringResult,
+          temperature: dto.temperature,
+          maxTokens: dto.maxTokens,
+        },
+      })
+
+      return {
+        success: true,
+        data: result,
+      }
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      )
+    }
+  }
+
+  /**
+   * 生成调研问卷
+   * POST /api/ai-generation/questionnaire
+   */
+  @Post('questionnaire')
+  async generateQuestionnaire(@Body() dto: GenerateQuestionnaireDto) {
+    try {
+      const result = await this.aiGenerationService.generateContent({
+        taskId: dto.taskId,
+        generationType: AITaskType.QUESTIONNAIRE,
+        input: {
+          matrixResult: dto.matrixResult,
+          temperature: dto.temperature,
+          maxTokens: dto.maxTokens,
+        },
+      })
+
+      return {
+        success: true,
+        data: result,
+      }
+    } catch (error) {
       throw new HttpException(
         {
           success: false,

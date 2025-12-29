@@ -6,6 +6,11 @@ import {
   ClusteringGenerator,
   ClusteringGenerationInput,
 } from './generators/clustering.generator'
+import { MatrixGenerator, MatrixGenerationInput } from './generators/matrix.generator'
+import {
+  QuestionnaireGenerator,
+  QuestionnaireGenerationInput,
+} from './generators/questionnaire.generator'
 import { QualityValidationService } from '../quality-validation/quality-validation.service'
 import { ResultAggregatorService } from '../result-aggregation/result-aggregator.service'
 import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
@@ -48,6 +53,8 @@ export class AIGenerationService {
     private readonly userRepository: Repository<User>,
     private readonly summaryGenerator: SummaryGenerator,
     private readonly clusteringGenerator: ClusteringGenerator,
+    private readonly matrixGenerator: MatrixGenerator,
+    private readonly questionnaireGenerator: QuestionnaireGenerator,
     private readonly qualityValidation: QualityValidationService,
     private readonly resultAggregator: ResultAggregatorService,
     private readonly tasksGateway: TasksGateway,
@@ -71,10 +78,10 @@ export class AIGenerationService {
         return this.generateClustering(request)
 
       case AITaskType.MATRIX:
-        throw new Error('Matrix generation not yet implemented')
+        return this.generateMatrix(request)
 
       case AITaskType.QUESTIONNAIRE:
-        throw new Error('Questionnaire generation not yet implemented')
+        return this.generateQuestionnaire(request)
 
       case AITaskType.ACTION_PLAN:
         throw new Error('Action plan generation not yet implemented')
@@ -276,6 +283,206 @@ export class AIGenerationService {
         taskId: request.taskId,
         status: 'failed',
         message: `聚类生成失败: ${error.message}`,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      throw error
+    }
+  }
+
+  /**
+   * 生成成熟度矩阵
+   */
+  private async generateMatrix(request: GenerationRequest): Promise<GenerationResponse> {
+    const input = request.input as MatrixGenerationInput
+    const startTime = Date.now()
+
+    try {
+      // 0. 确保AITask存在
+      await this.ensureTaskExists(request.taskId, request.generationType, input)
+
+      // 发送初始进度
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 0,
+        message: '任务已创建，准备生成成熟度矩阵...',
+        currentStep: '初始化',
+      })
+
+      // 1. 调用三模型生成
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 10,
+        message: '正在调用三个AI模型并行生成成熟度矩阵...',
+        currentStep: '模型生成',
+      })
+
+      const { gpt4, claude, domestic } = await this.matrixGenerator.generate(input)
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 60,
+        message: '三模型生成完成，开始质量验证...',
+        currentStep: '质量验证',
+      })
+
+      // 2. 质量验证
+      const validationReport = await this.qualityValidation.validateQuality({
+        gpt4,
+        claude,
+        domestic,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 80,
+        message: '质量验证完成，开始结果聚合...',
+        currentStep: '结果聚合',
+      })
+
+      // 3. 结果聚合
+      const aggregationOutput = await this.resultAggregator.aggregate({
+        taskId: request.taskId,
+        generationType: request.generationType,
+        gpt4Result: gpt4,
+        claudeResult: claude,
+        domesticResult: domestic,
+        validationReport,
+      })
+
+      // 4. 构建响应
+      const response: GenerationResponse = {
+        taskId: request.taskId,
+        selectedResult: aggregationOutput.selectedResult,
+        selectedModel: aggregationOutput.selectedModel,
+        confidenceLevel: aggregationOutput.confidenceLevel,
+        qualityScores: aggregationOutput.qualityScores,
+      }
+
+      this.logger.log(
+        `Matrix generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, rows=${response.selectedResult.matrix?.length || 0}`,
+      )
+
+      // 发送完成事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'completed',
+        message: '成熟度矩阵生成完成！',
+        result: response,
+        executionTimeMs: executionTime,
+        cost: 0, // TODO: 从cost tracking获取实际成本
+      })
+
+      return response
+    } catch (error) {
+      // 发送失败事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'failed',
+        message: `矩阵生成失败: ${error.message}`,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      throw error
+    }
+  }
+
+  /**
+   * 生成调研问卷
+   */
+  private async generateQuestionnaire(request: GenerationRequest): Promise<GenerationResponse> {
+    const input = request.input as QuestionnaireGenerationInput
+    const startTime = Date.now()
+
+    try {
+      // 0. 确保AITask存在
+      await this.ensureTaskExists(request.taskId, request.generationType, input)
+
+      // 发送初始进度
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 0,
+        message: '任务已创建，准备生成调研问卷...',
+        currentStep: '初始化',
+      })
+
+      // 1. 调用三模型生成
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 10,
+        message: '正在调用三个AI模型并行生成问卷...',
+        currentStep: '模型生成',
+      })
+
+      const { gpt4, claude, domestic } = await this.questionnaireGenerator.generate(input)
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 60,
+        message: '三模型生成完成，开始质量验证...',
+        currentStep: '质量验证',
+      })
+
+      // 2. 质量验证
+      const validationReport = await this.qualityValidation.validateQuality({
+        gpt4,
+        claude,
+        domestic,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 80,
+        message: '质量验证完成，开始结果聚合...',
+        currentStep: '结果聚合',
+      })
+
+      // 3. 结果聚合
+      const aggregationOutput = await this.resultAggregator.aggregate({
+        taskId: request.taskId,
+        generationType: request.generationType,
+        gpt4Result: gpt4,
+        claudeResult: claude,
+        domesticResult: domestic,
+        validationReport,
+      })
+
+      // 4. 构建响应
+      const response: GenerationResponse = {
+        taskId: request.taskId,
+        selectedResult: aggregationOutput.selectedResult,
+        selectedModel: aggregationOutput.selectedModel,
+        confidenceLevel: aggregationOutput.confidenceLevel,
+        qualityScores: aggregationOutput.qualityScores,
+      }
+
+      this.logger.log(
+        `Questionnaire generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, questions=${response.selectedResult.questionnaire?.length || 0}`,
+      )
+
+      // 发送完成事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'completed',
+        message: '调研问卷生成完成！',
+        result: response,
+        executionTimeMs: executionTime,
+        cost: 0, // TODO: 从cost tracking获取实际成本
+      })
+
+      return response
+    } catch (error) {
+      // 发送失败事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'failed',
+        message: `问卷生成失败: ${error.message}`,
         executionTimeMs: executionTime,
         cost: 0,
       })

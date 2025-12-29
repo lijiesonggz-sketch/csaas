@@ -40,8 +40,15 @@ interface Cluster {
   risk_level: 'HIGH' | 'MEDIUM' | 'LOW'
 }
 
-interface ClusteringResult {
+interface Category {
+  id: string
+  name: string
+  description: string
   clusters: Cluster[]
+}
+
+interface ClusteringResult {
+  categories: Category[] // 第一层：大归类
   clustering_logic: string
   coverage_summary: {
     by_document: Record<
@@ -72,7 +79,7 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
       ? JSON.parse(result.selectedResult)
       : result.selectedResult
 
-  const { clusters, clustering_logic, coverage_summary } = clusteringResult
+  const { categories, clustering_logic, coverage_summary } = clusteringResult
 
   // 风险级别颜色映射
   const riskColorMap = {
@@ -88,23 +95,77 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
     LOW: 'default',
   }
 
+  // 从三层结构中提取所有聚类
+  const allClusters = categories.flatMap((cat) => cat.clusters)
+  const totalClusters = allClusters.length
+
   // 统计高风险聚类
-  const highRiskClusters = clusters.filter((c) => c.risk_level === 'HIGH')
+  const highRiskClusters = allClusters.filter((c) => c.risk_level === 'HIGH')
+
+  // 复制任务ID到剪贴板
+  const handleCopyTaskId = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(result.taskId)
+      // 这里应该使用message.success，但需要先导入
+      alert('任务ID已复制到剪贴板！')
+    }
+  }
 
   return (
     <div className="space-y-6">
+      {/* 任务ID显示（重要：用于下一步矩阵生成） */}
+      <Alert
+        message={
+          <div>
+            <strong>✅ 聚类任务完成！下一步：生成成熟度矩阵</strong>
+          </div>
+        }
+        description={
+          <div className="space-y-2">
+            <div>
+              <span className="text-sm text-gray-600">请复制以下任务ID，用于生成成熟度矩阵：</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="bg-gray-100 px-3 py-2 rounded font-mono text-sm flex-1 select-all">
+                {result.taskId}
+              </code>
+              <button
+                onClick={handleCopyTaskId}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+              >
+                复制ID
+              </button>
+            </div>
+            <div className="text-xs text-gray-500">
+              💡 提示：访问 <a href="/ai-generation/matrix" className="text-blue-600 underline">/ai-generation/matrix</a> 页面，粘贴此ID开始生成成熟度矩阵
+            </div>
+          </div>
+        }
+        type="success"
+        showIcon
+        icon={<CheckCircleOutlined />}
+      />
+
       {/* 基本信息 */}
       <Card>
         <Row gutter={16}>
-          <Col span={6}>
+          <Col span={4}>
+            <Statistic
+              title="大类数量"
+              value={categories.length}
+              prefix={<FileTextOutlined />}
+              suffix="个"
+            />
+          </Col>
+          <Col span={5}>
             <Statistic
               title="聚类数量"
-              value={clusters.length}
+              value={totalClusters}
               prefix={<ClusterOutlined />}
               suffix="个"
             />
           </Col>
-          <Col span={6}>
+          <Col span={5}>
             <Statistic
               title="覆盖率"
               value={(coverage_summary.overall.coverage_rate * 100).toFixed(1)}
@@ -113,7 +174,7 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
               valueStyle={{ color: coverage_summary.overall.coverage_rate >= 0.95 ? '#3f8600' : '#faad14' }}
             />
           </Col>
-          <Col span={6}>
+          <Col span={5}>
             <Statistic
               title="高风险聚类"
               value={highRiskClusters.length}
@@ -121,7 +182,7 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
               valueStyle={{ color: '#cf1322' }}
             />
           </Col>
-          <Col span={6}>
+          <Col span={5}>
             <Statistic
               title="选中模型"
               value={result.selectedModel}
@@ -224,90 +285,127 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
         <p className="text-sm text-gray-700 whitespace-pre-wrap">{clustering_logic}</p>
       </Card>
 
-      {/* 聚类详情 */}
+      {/* 聚类详情（三层结构展示）*/}
       <Card
         title={
           <Space>
-            <span>聚类详情</span>
-            <Tag color="blue">{clusters.length}个聚类</Tag>
+            <span>聚类详情（三层结构）</span>
+            <Tag color="purple">{categories.length}个大类</Tag>
+            <Tag color="blue">{totalClusters}个聚类</Tag>
           </Space>
         }
       >
-        <Collapse accordion>
-          {clusters.map((cluster, index) => (
+        <Collapse accordion defaultActiveKey={categories[0]?.id}>
+          {categories.map((category, categoryIndex) => (
             <Panel
-              key={cluster.id}
+              key={category.id}
               header={
                 <div className="flex items-center justify-between w-full pr-4">
                   <Space>
-                    <Badge count={index + 1} style={{ backgroundColor: '#52c41a' }} />
-                    <span className="font-semibold">{cluster.name}</span>
-                    <Tag color={importanceColorMap[cluster.importance]}>
-                      {cluster.importance}
-                    </Tag>
-                    <Tag
-                      color={riskColorMap[cluster.risk_level]}
-                      icon={cluster.risk_level === 'HIGH' ? <WarningOutlined /> : null}
-                    >
-                      风险: {cluster.risk_level}
-                    </Tag>
+                    <Badge
+                      count={categoryIndex + 1}
+                      style={{ backgroundColor: '#722ed1' }}
+                    />
+                    <span className="font-bold text-lg">{category.name}</span>
+                    <Tag color="purple">大类</Tag>
                   </Space>
-                  <Tag>{cluster.clauses.length}个条款</Tag>
+                  <Tag color="blue">{category.clusters.length}个聚类</Tag>
                 </div>
               }
             >
               <div className="space-y-4">
-                {/* 聚类描述 */}
+                {/* 大类描述 */}
                 <Alert
-                  message="聚类描述"
-                  description={cluster.description}
+                  message="大类描述"
+                  description={category.description}
                   type="info"
                   showIcon
+                  className="mb-4"
                 />
 
-                {/* 条款列表 */}
-                <div className="space-y-3">
-                  <h4 className="font-semibold text-gray-700">包含条款：</h4>
-                  {cluster.clauses.map((clause) => (
-                    <Card
-                      key={`${clause.source_document_id}-${clause.clause_id}`}
-                      size="small"
-                      className={
-                        cluster.risk_level === 'HIGH'
-                          ? 'border-red-300 bg-red-50'
-                          : cluster.risk_level === 'MEDIUM'
-                          ? 'border-orange-300 bg-orange-50'
-                          : 'border-gray-200'
+                {/* 该大类下的所有聚类 */}
+                <Collapse accordion>
+                  {category.clusters.map((cluster, clusterIndex) => (
+                    <Panel
+                      key={cluster.id}
+                      header={
+                        <div className="flex items-center justify-between w-full pr-4">
+                          <Space>
+                            <Badge
+                              count={clusterIndex + 1}
+                              style={{ backgroundColor: '#52c41a' }}
+                            />
+                            <span className="font-semibold">{cluster.name}</span>
+                            <Tag color={importanceColorMap[cluster.importance]}>
+                              {cluster.importance}
+                            </Tag>
+                            <Tag
+                              color={riskColorMap[cluster.risk_level]}
+                              icon={cluster.risk_level === 'HIGH' ? <WarningOutlined /> : null}
+                            >
+                              风险: {cluster.risk_level}
+                            </Tag>
+                          </Space>
+                          <Tag>{cluster.clauses.length}个条款</Tag>
+                        </div>
                       }
                     >
-                      <div className="space-y-2">
-                        {/* 条款头部 */}
-                        <div className="flex items-start justify-between">
-                          <Space>
-                            <Tag color="blue">{clause.source_document_name}</Tag>
-                            <span className="font-mono text-sm font-semibold">
-                              {clause.clause_id}
-                            </span>
-                          </Space>
-                          {cluster.risk_level === 'HIGH' && (
-                            <Tag color="red" icon={<WarningOutlined />}>
-                              高风险
-                            </Tag>
-                          )}
-                        </div>
+                      <div className="space-y-4">
+                        {/* 聚类描述 */}
+                        <Alert
+                          message="聚类描述"
+                          description={cluster.description}
+                          type="success"
+                          showIcon
+                        />
 
-                        {/* 条款内容 */}
-                        <p className="text-sm text-gray-700">{clause.clause_text}</p>
+                        {/* 条款列表 */}
+                        <div className="space-y-3">
+                          <h4 className="font-semibold text-gray-700">包含条款：</h4>
+                          {cluster.clauses.map((clause) => (
+                            <Card
+                              key={`${clause.source_document_id}-${clause.clause_id}`}
+                              size="small"
+                              className={
+                                cluster.risk_level === 'HIGH'
+                                  ? 'border-red-300 bg-red-50'
+                                  : cluster.risk_level === 'MEDIUM'
+                                  ? 'border-orange-300 bg-orange-50'
+                                  : 'border-gray-200'
+                              }
+                            >
+                              <div className="space-y-2">
+                                {/* 条款头部 */}
+                                <div className="flex items-start justify-between">
+                                  <Space>
+                                    <Tag color="blue">{clause.source_document_name}</Tag>
+                                    <span className="font-mono text-sm font-semibold">
+                                      {clause.clause_id}
+                                    </span>
+                                  </Space>
+                                  {cluster.risk_level === 'HIGH' && (
+                                    <Tag color="red" icon={<WarningOutlined />}>
+                                      高风险
+                                    </Tag>
+                                  )}
+                                </div>
 
-                        {/* 归类理由 */}
-                        <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
-                          <strong>归类理由：</strong>
-                          {clause.rationale}
+                                {/* 条款内容 */}
+                                <p className="text-sm text-gray-700">{clause.clause_text}</p>
+
+                                {/* 归类理由 */}
+                                <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
+                                  <strong>归类理由：</strong>
+                                  {clause.rationale}
+                                </div>
+                              </div>
+                            </Card>
+                          ))}
                         </div>
                       </div>
-                    </Card>
+                    </Panel>
                   ))}
-                </div>
+                </Collapse>
               </div>
             </Panel>
           ))}
