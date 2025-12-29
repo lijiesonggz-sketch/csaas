@@ -34,15 +34,26 @@ export interface ClusterClause {
 }
 
 /**
- * 聚类接口
+ * 聚类接口（第二层：具体的控制要求合并）
  */
 export interface Cluster {
   id: string
   name: string
-  description: string
+  description: string // 详细描述该聚类合并的条款要求（后续用于生成问卷、成熟度矩阵）
   clauses: ClusterClause[]
   importance: 'HIGH' | 'MEDIUM' | 'LOW'
   risk_level: 'HIGH' | 'MEDIUM' | 'LOW'
+}
+
+/**
+ * 大归类接口（第一层：领域/类别）
+ * 例如："安全管理"、"技术控制"、"组织管理"
+ */
+export interface Category {
+  id: string
+  name: string
+  description: string // 该领域的范围说明
+  clusters: Cluster[] // 该领域下的所有聚类条目
 }
 
 /**
@@ -67,10 +78,10 @@ export interface CoverageSummary {
 }
 
 /**
- * 聚类生成输出
+ * 聚类生成输出（三层结构）
  */
 export interface ClusteringGenerationOutput {
-  clusters: Cluster[]
+  categories: Category[] // 第一层：大归类
   clustering_logic: string
   coverage_summary: CoverageSummary
 }
@@ -124,17 +135,43 @@ export class ClusteringGenerator {
       this.generateWithModel(aiRequest, AIModel.DOMESTIC),
     ])
 
-    // 解析JSON结果
-    const gpt4Result = this.parseJsonResponse(gpt4Response.content, documents)
-    const claudeResult = this.parseJsonResponse(claudeResponse.content, documents)
-    const domesticResult = this.parseJsonResponse(domesticResponse.content, documents)
+    // 解析JSON结果 - 使用容错机制
+    let gpt4Result: ClusteringGenerationOutput | null = null
+    let claudeResult: ClusteringGenerationOutput | null = null
+    let domesticResult: ClusteringGenerationOutput | null = null
+
+    try {
+      gpt4Result = this.parseJsonResponse(gpt4Response.content, documents)
+    } catch (error) {
+      this.logger.error(`Failed to parse GPT-4 response: ${error.message}`)
+    }
+
+    try {
+      claudeResult = this.parseJsonResponse(claudeResponse.content, documents)
+    } catch (error) {
+      this.logger.error(`Failed to parse Claude response: ${error.message}`)
+    }
+
+    try {
+      domesticResult = this.parseJsonResponse(domesticResponse.content, documents)
+    } catch (error) {
+      this.logger.error(`Failed to parse Domestic model response: ${error.message}`)
+    }
+
+    // 如果所有模型都失败，抛出错误
+    if (!gpt4Result && !claudeResult && !domesticResult) {
+      throw new Error('All three models failed to generate valid clustering results')
+    }
+
+    // 使用成功的结果填充失败的模型（优先使用Claude，然后GPT-4，最后Domestic）
+    const fallbackResult = claudeResult || gpt4Result || domesticResult
 
     this.logger.log('Clustering generation completed for all three models')
 
     return {
-      gpt4: gpt4Result,
-      claude: claudeResult,
-      domestic: domesticResult,
+      gpt4: gpt4Result || fallbackResult,
+      claude: claudeResult || fallbackResult,
+      domestic: domesticResult || fallbackResult,
     }
   }
 
@@ -170,6 +207,9 @@ export class ClusteringGenerator {
           .replace(/\n?```\s*$/, '')
       }
 
+      // 1.5. 修复常见的JSON格式问题
+      cleanedContent = this.sanitizeJsonString(cleanedContent)
+
       // 2. 尝试直接解析清理后的JSON
       let parsed = JSON.parse(cleanedContent)
 
@@ -183,16 +223,30 @@ export class ClusteringGenerator {
     } catch (error) {
       this.logger.error(`Failed to parse JSON response: ${error.message}`)
 
-      // 5. 最后尝试：提取大括号之间的内容
+      // 记录更多调试信息
+      this.logger.debug(`Content length: ${content.length} characters`)
+      this.logger.debug(`Content preview (first 500 chars): ${content.substring(0, 500)}`)
+      this.logger.debug(`Content preview (last 500 chars): ${content.substring(Math.max(0, content.length - 500))}`)
+
+      // 5. 最后尝试：提取大括号之间的内容并修复
       const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         try {
-          let parsed = JSON.parse(jsonMatch[0])
+          this.logger.log('Attempting to extract and repair JSON from braces match...')
+          let extractedContent = jsonMatch[0]
+
+          // 对提取的内容也应用清理
+          extractedContent = this.sanitizeJsonString(extractedContent)
+
+          let parsed = JSON.parse(extractedContent)
           parsed = this.fixEscapedArrays(parsed)
           this.validateClusteringOutput(parsed, documents)
+
+          this.logger.log('Successfully parsed JSON after extraction and repair')
           return parsed as ClusteringGenerationOutput
         } catch (e) {
           this.logger.error(`Failed to extract and parse JSON: ${e.message}`)
+          this.logger.debug(`Extracted content length: ${jsonMatch[0].length}`)
         }
       }
 
@@ -200,6 +254,94 @@ export class ClusteringGenerator {
         `Invalid JSON response: ${error.message}. Content preview: ${content.substring(0, 200)}...`,
       )
     }
+  }
+
+  /**
+   * 清理JSON字符串，修复常见格式问题
+   * 使用字符扫描方式处理未转义的控制字符和未终止的字符串
+   */
+  private sanitizeJsonString(jsonStr: string): string {
+    // 1. 移除BOM
+    let input = jsonStr
+    if (input.charCodeAt(0) === 0xfeff) {
+      input = input.substring(1)
+    }
+
+    // 2. 移除尾部逗号
+    input = input.replace(/,(\s*[}\]])/g, '$1')
+
+    // 3. 逐字符扫描，修复字符串值中的控制字符
+    const output = []
+    let inString = false
+    let escaped = false
+    let stringStartPos = -1 // 记录字符串开始位置，用于检测未终止字符串
+
+    for (let i = 0; i < input.length; i++) {
+      const char = input[i]
+
+      if (escaped) {
+        // 前一个字符是反斜杠，当前字符已被转义
+        output.push(char)
+        escaped = false
+        continue
+      }
+
+      if (char === '\\') {
+        // 反斜杠：标记下一个字符被转义
+        output.push(char)
+        escaped = true
+        continue
+      }
+
+      if (char === '"') {
+        // 双引号：切换字符串内外状态
+        output.push(char)
+        if (!inString) {
+          // 进入字符串
+          stringStartPos = i
+          inString = true
+        } else {
+          // 退出字符串
+          stringStartPos = -1
+          inString = false
+        }
+        continue
+      }
+
+      if (!inString) {
+        // 在字符串外部，直接输出
+        output.push(char)
+        continue
+      }
+
+      // 在字符串内部，检查并转义控制字符
+      // 同时检测可能导致字符串未终止的问题字符
+      if (char === '\n') {
+        output.push('\\', 'n')
+      } else if (char === '\r') {
+        output.push('\\', 'r')
+      } else if (char === '\t') {
+        output.push('\\', 't')
+      } else if (char === '\b') {
+        output.push('\\', 'b')
+      } else if (char === '\f') {
+        output.push('\\', 'f')
+      } else {
+        output.push(char)
+      }
+    }
+
+    // 4. 检测未终止的字符串
+    if (inString && stringStartPos !== -1) {
+      this.logger.warn(
+        `Detected unterminated string starting at position ${stringStartPos}. ` +
+        `Adding closing quote. Context: ...${input.substring(Math.max(0, stringStartPos - 50), Math.min(input.length, stringStartPos + 100))}...`
+      )
+      // 添加缺失的结束引号
+      output.push('"')
+    }
+
+    return output.join('')
   }
 
   /**
@@ -252,92 +394,119 @@ export class ClusteringGenerator {
   }
 
   /**
-   * 验证聚类输出的结构
+   * 验证聚类输出的结构（三层结构）
    */
   private validateClusteringOutput(output: any, documents: StandardDocument[]): void {
     // 验证并填充缺失的顶层字段
-    if (!output.clusters) {
-      throw new Error('Missing required field: clusters')
+    if (!output.categories) {
+      throw new Error('Missing required field: categories (三层结构要求)')
     }
 
     // 如果缺少clustering_logic，使用默认值
     if (!output.clustering_logic) {
       this.logger.warn('Missing clustering_logic, using default value')
-      output.clustering_logic = 'AI模型基于语义相似度和控制目标对条款进行智能分类和合并'
+      output.clustering_logic = 'AI模型基于语义相似度和控制目标对条款进行三层智能分类和合并：第一层按安全领域划分大类，第二层在每个大类中合并相似要求，第三层保留原始条款溯源'
     }
+
+    // 验证categories数组
+    if (!Array.isArray(output.categories) || output.categories.length === 0) {
+      throw new Error('categories must be a non-empty array')
+    }
+
+    // 过滤并修复每个大类和聚类的结构
+    const validCategories = []
+    let totalClusters = 0
+
+    for (const category of output.categories) {
+      // 检查必需字段
+      if (!category.id || !category.name || !category.description) {
+        this.logger.warn(`Skipping category with missing basic fields: ${JSON.stringify(category).substring(0, 100)}`)
+        continue
+      }
+
+      // 检查clusters字段
+      if (!Array.isArray(category.clusters)) {
+        this.logger.warn(`Category ${category.id} has invalid clusters field, initializing as empty array`)
+        category.clusters = []
+      }
+
+      // 过滤并验证每个聚类
+      const validClusters = []
+
+      for (const cluster of category.clusters) {
+        // 检查必需字段
+        if (!cluster.id || !cluster.name || !cluster.description) {
+          this.logger.warn(`Skipping cluster with missing basic fields in category ${category.id}`)
+          continue
+        }
+
+        // 检查clauses字段
+        if (!Array.isArray(cluster.clauses)) {
+          this.logger.warn(`Cluster ${cluster.id} has invalid clauses field, initializing as empty array`)
+          cluster.clauses = []
+        }
+
+        // 过滤有效的条款
+        const validClauses = cluster.clauses.filter((clause: any) => {
+          if (
+            !clause.source_document_id ||
+            !clause.source_document_name ||
+            !clause.clause_id ||
+            !clause.clause_text ||
+            !clause.rationale
+          ) {
+            this.logger.warn(`Skipping invalid clause in cluster ${cluster.id}`)
+            return false
+          }
+          return true
+        })
+
+        cluster.clauses = validClauses
+
+        // 只保留有有效条款的聚类
+        if (validClauses.length > 0) {
+          validClusters.push(cluster)
+        } else {
+          this.logger.warn(`Skipping cluster ${cluster.id} - no valid clauses`)
+        }
+      }
+
+      // 更新category中的clusters为过滤后的有效clusters
+      category.clusters = validClusters
+
+      // 只保留有有效聚类的大类
+      if (validClusters.length > 0) {
+        validCategories.push(category)
+        totalClusters += validClusters.length
+      } else {
+        this.logger.warn(`Skipping category ${category.id} - no valid clusters`)
+      }
+    }
+
+    // 更新output中的categories为过滤后的有效categories
+    output.categories = validCategories
+
+    // 验证至少有一些有效的大类和聚类
+    if (validCategories.length === 0) {
+      throw new Error('No valid categories found in AI response')
+    }
+
+    // 记录聚类统计信息（不再限制数量）
+    this.logger.log(
+      `Validated ${validCategories.length} categories with ${totalClusters} total clusters`,
+    )
 
     // 如果缺少coverage_summary，使用默认值
     if (!output.coverage_summary) {
       this.logger.warn('Missing coverage_summary, generating default coverage')
-      output.coverage_summary = this.generateDefaultCoverage(output.clusters, documents)
-    }
-
-    // 验证clusters数组
-    if (!Array.isArray(output.clusters) || output.clusters.length === 0) {
-      throw new Error('clusters must be a non-empty array')
-    }
-
-    // 过滤并修复每个聚类的结构（而不是抛出错误）
-    const validClusters = []
-
-    for (const cluster of output.clusters) {
-      // 检查必需字段
-      if (!cluster.id || !cluster.name || !cluster.description) {
-        this.logger.warn(`Skipping cluster with missing basic fields: ${JSON.stringify(cluster).substring(0, 100)}`)
-        continue
-      }
-
-      // 检查clauses字段
-      if (!Array.isArray(cluster.clauses)) {
-        this.logger.warn(`Cluster ${cluster.id} has invalid clauses field, initializing as empty array`)
-        cluster.clauses = []
-      }
-
-      // 过滤有效的条款
-      const validClauses = cluster.clauses.filter((clause: any) => {
-        if (
-          !clause.source_document_id ||
-          !clause.source_document_name ||
-          !clause.clause_id ||
-          !clause.clause_text ||
-          !clause.rationale
-        ) {
-          this.logger.warn(`Skipping invalid clause in cluster ${cluster.id}`)
-          return false
-        }
-        return true
-      })
-
-      cluster.clauses = validClauses
-
-      // 只保留有有效条款的聚类
-      if (validClauses.length > 0) {
-        validClusters.push(cluster)
-      } else {
-        this.logger.warn(`Skipping cluster ${cluster.id} - no valid clauses`)
-      }
-    }
-
-    // 更新output中的clusters为过滤后的有效clusters
-    output.clusters = validClusters
-
-    // 验证至少有一些有效的聚类
-    if (validClusters.length === 0) {
-      throw new Error('No valid clusters found in AI response')
-    }
-
-    // 验证聚类数量（12-15个为推荐，但不强制）
-    if (validClusters.length < 12 || validClusters.length > 15) {
-      this.logger.warn(
-        `Clustering count ${validClusters.length} is outside recommended range (12-15)`,
-      )
+      output.coverage_summary = this.generateDefaultCoverage(output.categories, documents)
     }
 
     // 验证覆盖率摘要（此时已经填充了默认值，所以只需要验证结构）
     if (output.coverage_summary) {
       if (!output.coverage_summary.by_document || !output.coverage_summary.overall) {
         this.logger.warn('Invalid coverage_summary structure, regenerating')
-        output.coverage_summary = this.generateDefaultCoverage(output.clusters, documents)
+        output.coverage_summary = this.generateDefaultCoverage(output.categories, documents)
       }
 
       // 验证每个文档的覆盖率统计
@@ -353,7 +522,7 @@ export class ClusteringGenerator {
    * 生成默认覆盖率摘要（当AI未返回时）
    */
   private generateDefaultCoverage(
-    clusters: any[],
+    categories: Category[],
     documents: StandardDocument[],
   ): CoverageSummary {
     const byDocument: Record<string, DocumentCoverage> = {}
@@ -361,8 +530,10 @@ export class ClusteringGenerator {
     let clusteredClauses = 0
 
     for (const doc of documents) {
-      const docClauses = clusters
-        .flatMap((c) => c.clauses || [])
+      // 从三层结构中提取条款：categories → clusters → clauses
+      const docClauses = categories
+        .flatMap((category) => category.clusters || [])
+        .flatMap((cluster) => cluster.clauses || [])
         .filter((clause: any) => clause.source_document_id === doc.id)
 
       byDocument[doc.id] = {
@@ -389,8 +560,9 @@ export class ClusteringGenerator {
    * 生成聚类摘要（用于日志和预览）
    */
   generateSummary(output: ClusteringGenerationOutput): string {
-    const { clusters, coverage_summary } = output
-    const clusterNames = clusters.map((c) => c.name).join(', ')
-    return `Generated ${clusters.length} clusters: ${clusterNames}\nOverall coverage: ${(coverage_summary.overall.coverage_rate * 100).toFixed(1)}%`
+    const { categories, coverage_summary } = output
+    const totalClusters = categories.reduce((sum, cat) => sum + cat.clusters.length, 0)
+    const categoryNames = categories.map((c) => c.name).join(', ')
+    return `Generated ${categories.length} categories with ${totalClusters} total clusters: ${categoryNames}\nOverall coverage: ${(coverage_summary.overall.coverage_rate * 100).toFixed(1)}%`
   }
 }

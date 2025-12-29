@@ -20,6 +20,7 @@ import ClusteringResultDisplay from '@/components/features/ClusteringResultDispl
 import { AIGenerationAPI } from '@/lib/api/ai-generation'
 import type { GenerationResult } from '@/lib/types/ai-generation'
 import { v4 as uuidv4 } from 'uuid'
+import { parseFile, SUPPORTED_FILE_EXTENSIONS } from '@/lib/utils/fileParser'
 
 interface StandardDocument {
   id: string
@@ -38,7 +39,8 @@ export default function ClusteringGenerationPage() {
   // 处理文件上传
   const handleFileUpload = async (file: File) => {
     try {
-      const content = await file.text()
+      // 使用通用文件解析器（支持TXT, MD, PDF, DOCX, DOC）
+      const content = await parseFile(file)
 
       if (content.length < 100) {
         message.error(`文件 ${file.name} 内容太短，至少需要100字符`)
@@ -47,15 +49,16 @@ export default function ClusteringGenerationPage() {
 
       const newDoc: StandardDocument = {
         id: `doc_${uuidv4()}`,
-        name: file.name.replace(/\.(txt|md)$/, ''),
+        name: file.name.replace(/\.(txt|md|pdf|docx|doc)$/i, ''),
         content,
       }
 
       setDocuments((prev) => [...prev, newDoc])
       message.success(`文件 ${file.name} 已加载`)
       return false // 阻止自动上传
-    } catch {
-      message.error(`读取文件 ${file.name} 失败`)
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '未知错误'
+      message.error(`读取文件 ${file.name} 失败: ${errorMsg}`)
       return false
     }
   }
@@ -83,7 +86,7 @@ export default function ClusteringGenerationPage() {
         taskId: newTaskId,
         documents,
         temperature: 0.7,
-        maxTokens: 16000,
+        maxTokens: 60000, // GLM-4.7支持长文本输出
       })
 
       if (response.success) {
@@ -173,7 +176,7 @@ export default function ClusteringGenerationPage() {
               beforeUpload={handleFileUpload}
               fileList={fileList}
               onRemove={(file) => handleRemoveDocument(file.uid)}
-              accept=".txt,.md"
+              accept={SUPPORTED_FILE_EXTENSIONS}
               multiple
             >
               <Button icon={<UploadOutlined />} disabled={isGenerating}>
@@ -181,7 +184,7 @@ export default function ClusteringGenerationPage() {
               </Button>
             </Upload>
             <p className="text-sm text-gray-500 mt-2">
-              支持 .txt 和 .md 文件，每个文件至少100字符。建议上传2-5个标准文档。
+              支持 .txt、.md、.pdf、.docx、.doc 文件，每个文件至少100字符。建议上传2-5个标准文档。
             </p>
           </div>
 
