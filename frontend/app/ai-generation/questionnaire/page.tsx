@@ -5,7 +5,7 @@
  * 基于成熟度矩阵生成50-100题调研问卷
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, Button, message, Steps } from 'antd'
 import {
   FormOutlined,
@@ -25,6 +25,17 @@ export default function QuestionnaireGenerationPage() {
   const [taskId, setTaskId] = useState<string | null>(null)
   const [result, setResult] = useState<GenerationResult | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+
+  // 从URL参数获取taskId
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const urlTaskId = urlParams.get('taskId')
+      if (urlTaskId) {
+        setMatrixTaskId(urlTaskId)
+      }
+    }
+  }, [])
 
   // 开始生成问卷
   const handleStartGeneration = async () => {

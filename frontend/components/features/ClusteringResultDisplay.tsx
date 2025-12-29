@@ -106,9 +106,58 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
   const handleCopyTaskId = () => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(result.taskId)
-      // 这里应该使用message.success，但需要先导入
       alert('任务ID已复制到剪贴板！')
     }
+  }
+
+  // 导出聚类结果为CSV
+  const handleExportCSV = () => {
+    try {
+      const csvRows: string[] = []
+
+      // CSV Header
+      csvRows.push('Category ID,Category Name,Cluster ID,Cluster Name,Importance,Risk Level,Clause ID,Source Document,Clause Text,Rationale')
+
+      // 遍历三层结构导出数据
+      categories.forEach((category) => {
+        category.clusters.forEach((cluster) => {
+          cluster.clauses.forEach((clause) => {
+            const row = [
+              category.id,
+              category.name,
+              cluster.id,
+              cluster.name,
+              cluster.importance,
+              cluster.risk_level,
+              clause.clause_id,
+              clause.source_document_name,
+              `"${clause.clause_text.replace(/"/g, '""')}"`, // 转义双引号
+              `"${clause.rationale.replace(/"/g, '""')}"`,
+            ]
+            csvRows.push(row.join(','))
+          })
+        })
+      })
+
+      // 创建下载
+      const csvContent = csvRows.join('\n')
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `clustering_result_${result.taskId}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+
+      alert('聚类结果已导出为CSV文件！')
+    } catch (error) {
+      alert('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
+    }
+  }
+
+  // 跳转到矩阵生成页面
+  const handleGenerateMatrix = () => {
+    window.location.href = `/ai-generation/matrix?taskId=${result.taskId}`
   }
 
   return (
@@ -121,9 +170,9 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
           </div>
         }
         description={
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div>
-              <span className="text-sm text-gray-600">请复制以下任务ID，用于生成成熟度矩阵：</span>
+              <span className="text-sm text-gray-600">任务ID：</span>
             </div>
             <div className="flex items-center gap-2">
               <code className="bg-gray-100 px-3 py-2 rounded font-mono text-sm flex-1 select-all">
@@ -131,13 +180,24 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
               </code>
               <button
                 onClick={handleCopyTaskId}
-                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm whitespace-nowrap"
               >
                 复制ID
               </button>
             </div>
-            <div className="text-xs text-gray-500">
-              💡 提示：访问 <a href="/ai-generation/matrix" className="text-blue-600 underline">/ai-generation/matrix</a> 页面，粘贴此ID开始生成成熟度矩阵
+            <div className="flex gap-2">
+              <button
+                onClick={handleGenerateMatrix}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+              >
+                🎯 生成成熟度矩阵
+              </button>
+              <button
+                onClick={handleExportCSV}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 whitespace-nowrap"
+              >
+                📊 导出CSV
+              </button>
             </div>
           </div>
         }

@@ -5,7 +5,7 @@
  * 基于聚类结果生成5级成熟度矩阵
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, Button, message, Steps } from 'antd'
 import {
   TableOutlined,
@@ -25,6 +25,17 @@ export default function MatrixGenerationPage() {
   const [taskId, setTaskId] = useState<string | null>(null)
   const [result, setResult] = useState<GenerationResult | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+
+  // 从URL参数获取taskId
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const urlTaskId = urlParams.get('taskId')
+      if (urlTaskId) {
+        setClusteringTaskId(urlTaskId)
+      }
+    }
+  }, [])
 
   // 开始生成矩阵
   const handleStartGeneration = async () => {

@@ -6,8 +6,8 @@
  */
 
 import { useState } from 'react'
-import { Card, Table, Tag, Collapse, Button, Modal, Input, message } from 'antd'
-import { EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons'
+import { Card, Table, Tag, Collapse, Button, Modal, Input, message, Alert } from 'antd'
+import { EditOutlined, SaveOutlined, CloseOutlined, CheckCircleOutlined } from '@ant-design/icons'
 import type { GenerationResult } from '@/lib/types/ai-generation'
 
 const { Panel } = Collapse
@@ -50,6 +50,55 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
       navigator.clipboard.writeText(result.taskId)
       alert('任务ID已复制到剪贴板！')
     }
+  }
+
+  // 导出成熟度矩阵为CSV
+  const handleExportCSV = () => {
+    try {
+      const csvRows: string[] = []
+
+      // CSV Header
+      csvRows.push('Cluster ID,Cluster Name,Level,Level Name,Description,Key Practices')
+
+      // 遍历矩阵数据
+      matrixData.forEach((row) => {
+        // 遍历5个级别
+        ;['level_1', 'level_2', 'level_3', 'level_4', 'level_5'].forEach((levelKey, index) => {
+          const level = row.levels[levelKey as keyof typeof row.levels]
+          if (level) {
+            const practices = level.key_practices.join('; ')
+            const csvRow = [
+              row.cluster_id,
+              row.cluster_name,
+              `Level ${index + 1}`,
+              level.name,
+              `"${level.description.replace(/"/g, '""')}"`,
+              `"${practices.replace(/"/g, '""')}"`,
+            ]
+            csvRows.push(csvRow.join(','))
+          }
+        })
+      })
+
+      // 创建下载
+      const csvContent = csvRows.join('\n')
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `maturity_matrix_${result.taskId}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+
+      alert('成熟度矩阵已导出为CSV文件！')
+    } catch (error) {
+      alert('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
+    }
+  }
+
+  // 跳转到问卷生成页面
+  const handleGenerateQuestionnaire = () => {
+    window.location.href = `/ai-generation/questionnaire?taskId=${result.taskId}`
   }
 
   // 编辑单元格
@@ -247,34 +296,48 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
   return (
     <div className="space-y-6">
       {/* 任务ID显示（重要：用于下一步问卷生成） */}
-      <Card className="bg-green-50 border-green-200">
-        <div className="space-y-2">
+      <Alert
+        message={
           <div>
-            <strong className="text-green-700">✅ 矩阵生成完成！下一步：生成调研问卷</strong>
+            <strong>✅ 矩阵生成完成！下一步：生成调研问卷</strong>
           </div>
-          <div>
-            <span className="text-sm text-gray-600">请复制以下任务ID，用于生成调研问卷：</span>
+        }
+        description={
+          <div className="space-y-3">
+            <div>
+              <span className="text-sm text-gray-600">任务ID：</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="bg-gray-100 px-3 py-2 rounded font-mono text-sm flex-1 select-all">
+                {result.taskId}
+              </code>
+              <button
+                onClick={handleCopyTaskId}
+                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm whitespace-nowrap"
+              >
+                复制ID
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleGenerateQuestionnaire}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
+              >
+                🎯 生成调研问卷
+              </button>
+              <button
+                onClick={handleExportCSV}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 whitespace-nowrap"
+              >
+                📊 导出CSV
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <code className="bg-white px-3 py-2 rounded border border-gray-300 font-mono text-sm flex-1 select-all">
-              {result.taskId}
-            </code>
-            <button
-              onClick={handleCopyTaskId}
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm whitespace-nowrap"
-            >
-              复制ID
-            </button>
-          </div>
-          <div className="text-xs text-gray-500">
-            💡 提示：访问{' '}
-            <a href="/ai-generation/questionnaire" className="text-blue-600 underline">
-              /ai-generation/questionnaire
-            </a>{' '}
-            页面，粘贴此ID开始生成调研问卷
-          </div>
-        </div>
-      </Card>
+        }
+        type="success"
+        showIcon
+        icon={<CheckCircleOutlined />}
+      />
 
       {/* 元数据信息 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
