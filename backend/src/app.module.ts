@@ -11,6 +11,7 @@ import { HealthModule } from './modules/health/health.module'
 import { QualityValidationModule } from './modules/quality-validation/quality-validation.module'
 import { ResultAggregationModule } from './modules/result-aggregation/result-aggregation.module'
 import { AIGenerationModule } from './modules/ai-generation/ai-generation.module'
+import { SurveyModule } from './modules/survey/survey.module'
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { AIGenerationModule } from './modules/ai-generation/ai-generation.module
     QualityValidationModule,
     ResultAggregationModule,
     AIGenerationModule,
+    SurveyModule,
   ],
   controllers: [AppController],
   providers: [AppService],
