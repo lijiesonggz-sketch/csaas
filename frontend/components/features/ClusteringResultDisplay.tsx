@@ -5,6 +5,7 @@
  * 显示聚类树形结构、覆盖率统计和高风险条款
  */
 
+import React, { useState } from 'react'
 import { Card, Collapse, Tag, Progress, Badge, Space, Statistic, Row, Col, Alert } from 'antd'
 import {
   ClusterOutlined,
@@ -12,8 +13,10 @@ import {
   ExclamationCircleOutlined,
   CheckCircleOutlined,
   WarningOutlined,
+  RobotOutlined,
 } from '@ant-design/icons'
 import type { GenerationResult } from '@/lib/types/ai-generation'
+import MissingClausesHandler from './MissingClausesHandler'
 
 const { Panel } = Collapse
 
@@ -69,17 +72,98 @@ interface ClusteringResult {
 
 interface Props {
   result: GenerationResult
-  documents: StandardDocument[]
+  documents?: StandardDocument[] // 添加可选标记
 }
 
-export default function ClusteringResultDisplay({ result, documents }: Props) {
-  // 解析聚类结果
-  const clusteringResult: ClusteringResult =
-    typeof result.selectedResult === 'string'
-      ? JSON.parse(result.selectedResult)
-      : result.selectedResult
+export default function ClusteringResultDisplay({ result, documents = [] }: Props) {
+  // 解析聚类结果 - 支持新旧两种数据格式
+  let clusteringResult: ClusteringResult
 
-  const { categories, clustering_logic, coverage_summary } = clusteringResult
+  try {
+    // 新格式：result.content 包含 JSON 字符串
+    if (result.content) {
+      if (typeof result.content === 'string') {
+        console.log('📦 Parsing content string, length:', result.content.length)
+        clusteringResult = JSON.parse(result.content)
+      } else {
+        clusteringResult = result.content
+      }
+    }
+    // 旧格式：result.selectedResult
+    else if (result.selectedResult) {
+      if (typeof result.selectedResult === 'string') {
+        clusteringResult = JSON.parse(result.selectedResult)
+      } else {
+        clusteringResult = result.selectedResult
+      }
+    }
+    // 直接就是聚类结果
+    else {
+      clusteringResult = result as any
+    }
+  } catch (parseError) {
+    console.error('❌ Failed to parse clustering result:', parseError)
+    console.log('📄 Raw result:', result)
+    return (
+      <Alert
+        message="数据解析失败"
+        description={
+          <div>
+            <p>无法解析聚类结果数据</p>
+            <p>错误: {parseError.message}</p>
+            <details>
+              <summary>查看原始数据</summary>
+              <pre style={{ maxHeight: '300px', overflow: 'auto' }}>
+                {JSON.stringify(result, null, 2)}
+              </pre>
+            </details>
+          </div>
+        }
+        type="error"
+        showIcon
+      />
+    )
+  }
+
+  // 检查数据有效性
+  if (!clusteringResult) {
+    return (
+      <Alert
+        message="数据为空"
+        description="聚类结果数据为空"
+        type="error"
+        showIcon
+      />
+    )
+  }
+
+  if (!clusteringResult.categories) {
+    console.warn('⚠️ Missing categories in clustering result')
+    console.log('📦 Available keys:', Object.keys(clusteringResult))
+    return (
+      <Alert
+        message="数据格式错误"
+        description={
+          <div>
+            <p>聚类结果数据格式不正确，缺少 categories 字段</p>
+            <p>可用字段: {Object.keys(clusteringResult).join(', ')}</p>
+            <details>
+              <summary>查看完整数据</summary>
+              <pre style={{ maxHeight: '400px', overflow: 'auto' }}>
+                {JSON.stringify(clusteringResult, null, 2)}
+              </pre>
+            </details>
+          </div>
+        }
+        type="error"
+        showIcon
+      />
+    )
+  }
+
+  const { clustering_logic, coverage_summary: initialCoverage } = clusteringResult
+  const [categories, setCategories] = useState<Category[]>(clusteringResult.categories)
+  const [coverageSummary, setCoverageSummary] = useState(initialCoverage)
 
   // 风险级别颜色映射
   const riskColorMap = {
@@ -160,6 +244,69 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
     window.location.href = `/ai-generation/matrix?taskId=${result.taskId}`
   }
 
+  // 处理聚类更新（当用户添加缺失条款时）
+  const handleUpdateClustering = (updatedCategories: Category[]) => {
+    setCategories(updatedCategories)
+
+    // 重新计算覆盖率摘要
+    const newCoverageSummary = recalculateCoverage(updatedCategories, documents)
+    setCoverageSummary(newCoverageSummary)
+  }
+
+  // 重新计算覆盖率
+  const recalculateCoverage = (
+    cats: Category[],
+    docs: StandardDocument[],
+  ): ClusteringResult['coverage_summary'] => {
+    const byDocument: Record<string, any> = {}
+
+    docs.forEach((doc) => {
+      // 从聚类中提取该文档的所有条款
+      const docClauses = cats
+        .flatMap((cat) => cat.clusters || [])
+        .flatMap((cluster) => cluster.clauses || [])
+        .filter((clause: any) => clause.source_document_id === doc.id)
+
+      // ✅ 修复：统计文档实际条款数（去重）
+      const allClauseMatches = doc.content.match(/第[一二三四五六七八九十百千]+条/g) || []
+      const allClauseIds = [...new Set(allClauseMatches)] // 去重
+      const actualClauseCount = allClauseIds.length
+
+      // 统计唯一提取的条款（从聚类中）
+      const uniqueClusteredIds = new Set<string>()
+      docClauses.forEach((clause: any) => {
+        uniqueClusteredIds.add(clause.clause_id)
+      })
+
+      // ✅ 修复：过滤掉AI生成的、文档中不存在的条款
+      const validClusteredIds = Array.from(uniqueClusteredIds).filter(id =>
+        allClauseIds.includes(id)
+      )
+      const finalClusteredCount = validClusteredIds.length
+
+      // 找出缺失的条款
+      const missingClauseIds = allClauseIds.filter((id) => !uniqueClusteredIds.has(id))
+
+      byDocument[doc.id] = {
+        total_clauses: actualClauseCount, // ✅ 使用去重后的条款数
+        clustered_clauses: finalClusteredCount, // ✅ 确保不超过total_clauses
+        missing_clause_ids: missingClauseIds,
+      }
+    })
+
+    const totalClauses = Object.values(byDocument).reduce((sum: number, doc: any) => sum + doc.total_clauses, 0)
+    const clusteredClauses = Object.values(byDocument).reduce((sum: number, doc: any) => sum + doc.clustered_clauses, 0)
+
+    return {
+      by_document: byDocument,
+      overall: {
+        total_clauses: totalClauses,
+        clustered_clauses: clusteredClauses,
+        coverage_rate: totalClauses > 0 ? clusteredClauses / totalClauses : 0,
+      },
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* 任务ID显示（重要：用于下一步矩阵生成） */}
@@ -228,10 +375,10 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
           <Col span={5}>
             <Statistic
               title="覆盖率"
-              value={(coverage_summary.overall.coverage_rate * 100).toFixed(1)}
+              value={coverageSummary?.overall?.coverage_rate ? (coverageSummary.overall.coverage_rate * 100).toFixed(1) : '0.0'}
               suffix="%"
               prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: coverage_summary.overall.coverage_rate >= 0.95 ? '#3f8600' : '#faad14' }}
+              valueStyle={{ color: coverageSummary?.overall?.coverage_rate && coverageSummary.overall.coverage_rate >= 0.95 ? '#3f8600' : '#faad14' }}
             />
           </Col>
           <Col span={5}>
@@ -244,52 +391,54 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
           </Col>
           <Col span={5}>
             <Statistic
-              title="选中模型"
-              value={result.selectedModel}
-              prefix={<FileTextOutlined />}
+              title="AI模型"
+              value={(result as any).selectedModel || 'GPT4'}
+              prefix={<RobotOutlined />}
             />
           </Col>
         </Row>
       </Card>
 
-      {/* 质量分数 */}
-      <Card title="质量评分" size="small">
-        <Row gutter={16}>
-          <Col span={8}>
-            <div className="text-center">
-              <p className="text-sm text-gray-600 mb-2">结构一致性</p>
-              <Progress
-                type="circle"
-                percent={(result.qualityScores.structural * 100).toFixed(1) as any}
-                size={80}
-                strokeColor="#52c41a"
-              />
-            </div>
-          </Col>
-          <Col span={8}>
-            <div className="text-center">
-              <p className="text-sm text-gray-600 mb-2">语义一致性</p>
-              <Progress
-                type="circle"
-                percent={(result.qualityScores.semantic * 100).toFixed(1) as any}
-                size={80}
-                strokeColor="#1890ff"
-              />
-            </div>
-          </Col>
-          <Col span={8}>
-            <div className="text-center">
-              <p className="text-sm text-gray-600 mb-2">细节一致性</p>
-              <Progress
-                type="circle"
-                percent={(result.qualityScores.detail * 100).toFixed(1) as any}
-                size={80}
-                strokeColor="#722ed1"
-              />
-            </div>
-          </Col>
-        </Row>
-      </Card>
+      {/* 质量分数 - 仅在存在时显示 */}
+      {result.qualityScores && (
+        <Card title="质量评分" size="small">
+          <Row gutter={16}>
+            <Col span={8}>
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-2">结构一致性</p>
+                <Progress
+                  type="circle"
+                  percent={(result.qualityScores.structural * 100).toFixed(1) as any}
+                  size={80}
+                  strokeColor="#52c41a"
+                />
+              </div>
+            </Col>
+            <Col span={8}>
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-2">语义一致性</p>
+                <Progress
+                  type="circle"
+                  percent={(result.qualityScores.semantic * 100).toFixed(1) as any}
+                  size={80}
+                  strokeColor="#1890ff"
+                />
+              </div>
+            </Col>
+            <Col span={8}>
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-2">细节一致性</p>
+                <Progress
+                  type="circle"
+                  percent={(result.qualityScores.detail * 100).toFixed(1) as any}
+                  size={80}
+                  strokeColor="#722ed1"
+                />
+              </div>
+            </Col>
+          </Row>
+        </Card>
+      )}
 
       {/* 覆盖率统计 */}
       <Card title="覆盖率统计">
@@ -298,16 +447,16 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
           <div>
             <h4 className="font-semibold mb-2">总体覆盖率</h4>
             <Progress
-              percent={(coverage_summary.overall.coverage_rate * 100).toFixed(1) as any}
-              status={coverage_summary.overall.coverage_rate >= 0.95 ? 'success' : 'normal'}
-              format={(percent) => `${percent}% (${coverage_summary.overall.clustered_clauses}/${coverage_summary.overall.total_clauses})`}
+              percent={coverageSummary?.overall?.coverage_rate ? (coverageSummary.overall.coverage_rate * 100).toFixed(1) as any : 0}
+              status={coverageSummary?.overall?.coverage_rate && coverageSummary.overall.coverage_rate >= 0.95 ? 'success' : 'normal'}
+              format={(percent) => `${percent}% (${coverageSummary?.overall?.clustered_clauses || 0}/${coverageSummary?.overall?.total_clauses || 0})`}
             />
           </div>
 
           {/* 按文档覆盖率 */}
           <div>
             <h4 className="font-semibold mb-2">各文档覆盖率</h4>
-            {Object.entries(coverage_summary.by_document).map(([docId, stats]) => {
+            {coverageSummary?.by_document && Object.entries(coverageSummary.by_document).map(([docId, stats]) => {
               const doc = documents.find((d) => d.id === docId)
               const coverageRate = stats.total_clauses > 0
                 ? (stats.clustered_clauses / stats.total_clauses) * 100
@@ -328,7 +477,7 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
                     size="small"
                     status={coverageRate >= 95 ? 'success' : 'normal'}
                   />
-                  {stats.missing_clause_ids.length > 0 && (
+                  {stats.missing_clause_ids?.length > 0 && (
                     <p className="text-xs text-red-500 mt-1">
                       遗漏条款: {stats.missing_clause_ids.join(', ')}
                     </p>
@@ -480,6 +629,17 @@ export default function ClusteringResultDisplay({ result, documents }: Props) {
           type="warning"
           showIcon
           icon={<WarningOutlined />}
+        />
+      )}
+
+      {/* 缺失条款处理 */}
+      {documents && documents.length > 0 && coverageSummary?.by_document && (
+        <MissingClausesHandler
+          taskId={result.taskId}
+          coverageByDocument={coverageSummary.by_document}
+          documents={documents}
+          categories={categories}
+          onUpdateClustering={handleUpdateClustering}
         />
       )}
     </div>

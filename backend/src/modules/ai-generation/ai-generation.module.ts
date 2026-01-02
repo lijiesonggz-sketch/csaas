@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common'
+import { Module, forwardRef } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { AIGenerationService } from './ai-generation.service'
 import { AIGenerationController } from './ai-generation.controller'
@@ -6,6 +6,7 @@ import { SummaryGenerator } from './generators/summary.generator'
 import { ClusteringGenerator } from './generators/clustering.generator'
 import { MatrixGenerator } from './generators/matrix.generator'
 import { QuestionnaireGenerator } from './generators/questionnaire.generator'
+import { ActionPlanGenerator } from './generators/action-plan.generator'
 import { AIClientsModule } from '../ai-clients/ai-clients.module'
 import { QualityValidationModule } from '../quality-validation/quality-validation.module'
 import { ResultAggregationModule } from '../result-aggregation/result-aggregation.module'
@@ -13,6 +14,7 @@ import { AITasksModule } from '../ai-tasks/ai-tasks.module'
 import { AITask } from '../../database/entities/ai-task.entity'
 import { Project } from '../../database/entities/project.entity'
 import { User } from '../../database/entities/user.entity'
+import { SurveyResponse } from '../../database/entities/survey-response.entity'
 
 /**
  * AI生成模块
@@ -20,11 +22,11 @@ import { User } from '../../database/entities/user.entity'
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AITask, Project, User]),
+    TypeOrmModule.forFeature([AITask, Project, User, SurveyResponse]),
     AIClientsModule,
     QualityValidationModule,
     ResultAggregationModule,
-    AITasksModule,
+    forwardRef(() => AITasksModule),
   ],
   controllers: [AIGenerationController],
   providers: [
@@ -33,9 +35,8 @@ import { User } from '../../database/entities/user.entity'
     ClusteringGenerator,
     MatrixGenerator,
     QuestionnaireGenerator,
-    // TODO: Week 8
-    // ActionPlanGenerator,
+    ActionPlanGenerator,
   ],
-  exports: [AIGenerationService],
+  exports: [AIGenerationService, ClusteringGenerator],
 })
 export class AIGenerationModule {}
