@@ -8,6 +8,7 @@ import { AIOrchestrator } from '../ai-clients/ai-orchestrator.service'
 import { AIModel } from '../../database/entities/ai-generation-event.entity'
 import { AIClientRequest } from '../ai-clients/interfaces/ai-client.interface'
 import { generateClusterMeasurePrompt } from '../ai-generation/prompts/action-plan.prompts'
+import JSON5 from 'json5'
 
 /**
  * 落地措施生成服务
@@ -208,9 +209,8 @@ export class ActionPlanGenerationService {
     const prompt = generateClusterMeasurePrompt(promptData)
 
     // 调用AI模型生成措施
-    // 使用 GPT4 (智谱AI) 因为其他提供商不可用
-    // TODO: 实现三模型并行生成和一致性验证
-    const selectedResult = await this.generateWithAI(prompt, AIModel.GPT4)
+    // 使用通义千问（Tongyi/阿里云）
+    const selectedResult = await this.generateWithAI(prompt, AIModel.DOMESTIC)
 
     // 转换为ActionPlanMeasure实体
     const measures: ActionPlanMeasure[] = selectedResult.measures.map((m: any, index: number) => {
@@ -280,13 +280,34 @@ export class ActionPlanGenerationService {
 
       this.logger.debug(`After JSON fix: ${cleanedContent.substring(0, 200)}...`)
 
-      const parsed = JSON.parse(cleanedContent)
+      // 尝试多层解析策略
+      let parsed
+      let parseMethod = 'standard'
+
+      try {
+        // 方法1: 标准JSON.parse
+        parsed = JSON.parse(cleanedContent)
+        this.logger.debug(`Parsed with standard JSON.parse`)
+      } catch (standardError) {
+        this.logger.warn(`Standard JSON.parse failed: ${standardError.message}`)
+
+        try {
+          // 方法2: 使用JSON5 (更宽松的解析器)
+          parsed = JSON5.parse(cleanedContent)
+          parseMethod = 'json5'
+          this.logger.log(`Successfully parsed with JSON5 (more forgiving parser)`)
+        } catch (json5Error) {
+          // 两种方法都失败，抛出原始错误
+          this.logger.error(`JSON5.parse also failed: ${json5Error.message}`)
+          throw standardError
+        }
+      }
 
       if (!Array.isArray(parsed.measures)) {
         throw new Error('Invalid response: measures field is not an array')
       }
 
-      this.logger.debug(`AI model ${model} generated ${parsed.measures.length} measures`)
+      this.logger.log(`✅ AI model ${model} generated ${parsed.measures.length} measures (parsed with ${parseMethod})`)
 
       return parsed
     } catch (error) {
@@ -392,21 +413,27 @@ export class ActionPlanGenerationService {
     // 1. 移除BOM标记
     fixed = fixed.replace(/^\uFEFF/, '')
 
-    // 2. 修复未加引号的属性名（如 {name: "value"} -> {"name": "value"}）
+    // 2. 处理双引号字符串内部的单引号（防止破坏JSON结构）
+    // 移除双引号字符串内的所有单引号
+    fixed = fixed.replace(/"([^"]*)"/g, (match, content) => {
+      return '"' + content.replace(/'/g, '') + '"'
+    })
+
+    // 3. 修复未加引号的属性名（如 {name: "value"} -> {"name": "value"}）
     // 但要小心不要破坏字符串内容
     fixed = fixed.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
 
-    // 3. 修复单引号字符串（如 {'name': 'value'} -> {"name": "value"}）
+    // 4. 修复单引号字符串（如 {'name': 'value'} -> {"name": "value"}）
     fixed = fixed.replace(/'([^']*)'/g, '"$1"')
 
-    // 4. 移除注释（如 // ... 或 /* ... */）
+    // 5. 移除注释（如 // ... 或 /* ... */）
     fixed = fixed.replace(/\/\/.*$/gm, '')
     fixed = fixed.replace(/\/\*[\s\S]*?\*\//g, '')
 
-    // 5. 修复尾随逗号（如 {"a": 1,} -> {"a": 1}）
+    // 6. 修复尾随逗号（如 {"a": 1,} -> {"a": 1}）
     fixed = fixed.replace(/,\s*([}\]])/g, '$1')
 
-    // 6. 修复未引用的布尔值和null
+    // 7. 修复未引用的布尔值和null
     fixed = fixed.replace(/\:\s*(true|false|null)\s*([,}])/g, ': $1$2')
 
     return fixed

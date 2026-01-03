@@ -78,9 +78,9 @@ make dev-backend
 ```
 
 访问:
-- 前端: http://localhost:3000
-- 后端: http://localhost:3001
-- 健康检查: http://localhost:3001/health
+- 前端: http://localhost:3001
+- 后端: http://localhost:3000
+- 健康检查: http://localhost:3000/health
 
 ## 项目结构
 

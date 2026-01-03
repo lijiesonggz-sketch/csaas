@@ -1,0 +1,89 @@
+{
+  "measures": [
+    {
+      "title": "建立数据安全风险管理体系",
+      "description": "针对Q1得分仅1分的问题，组织缺乏顶层设计。本措施旨在建立正式的数据安全风险管理体系，明确管理职责、流程和制度，将数据安全风险纳入组织整体风险管理框架，解决管理缺失问题。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "成立风险管理组织",
+          "description": "成立由高层领导挂帅的数据安全风险管理委员会，明确数据安全部、IT部及业务部门的职责分工。制定体系建设路线图，确保资源投入。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "制定风险管理制度",
+          "description": "起草《数据安全风险管理办法》，明确风险评估的周期、触发条件、响应流程及责任追究机制。确保制度符合法律法规及行业监管要求。",
+          "duration": "3-4周"
+        },
+        {
+          "stepNumber": 3,
+          "title": "发布并宣贯制度",
+          "description": "正式发布风险管理制度，组织全员培训。重点培训管理层和关键岗位人员，确保理解风险管理的重要性及各自职责。",
+          "duration": "2周"
+        }
+      ],
+      "timeline": "2个月",
+      "responsible_department": "数据安全部(牵头)、IT部门、法务部",
+      "expected_improvement": 0.3,
+      "resources_needed": {
+        "budget": "5-10万元(主要为制度咨询及培训成本)",
+        "personnel": ["数据安全经理", "合规专员"],
+        "technology": ["文档管理系统"],
+        "training": "全员数据安全风险管理意识培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": [],
+        "externalDependencies": ["获得管理层批准"]
+      },
+      "risks": [
+        {
+          "risk": "部门职责划分不清，推诿扯皮",
+          "mitigation": "由最高管理层签发职责文件，明确各部门的权责边界"
+        },
+        {
+          "risk": "制度流于形式，无法落地",
+          "mitigation": "在制定阶段充分征求业务部门意见，确保制度具备可操作性"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "风险管理制度发布率",
+          "target": "100%",
+          "measurementMethod": "检查制度发布的正式文件"
+        },
+        {
+          "metric": "关键岗位人员培训覆盖率",
+          "target": "100%",
+          "measurementMethod": "统计参加培训并考核通过的人员比例"
+        }
+      ]
+    },
+    {
+      "title": "制定风险评估标准与方法",
+      "description": "针对Q2和Q3的低分现状，组织缺乏具体的执行标准。本措施将制定详细的数据风险评估方法论和操作指南，定义风险计算模型、定级标准及评估流程，为后续评估工作提供统一依据。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "调研评估标准",
+          "description": "研究GB/T 20984等国家标准及行业最佳实践，结合组织业务特点，确定适合本组织的风险评估模型（如资产-威胁-脆弱性模型）。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "制定作业指导书",
+          "description": "编写《数据安全风险评估实施指南》，详细说明评估准备、资产识别、威胁分析、风险计算、报告撰写的具体步骤和模板。",
+          "duration": "3周"
+        },
+        {
+          "stepNumber": 3,
+          "title": "评审与定稿",
+          "description": "组织内部专家及外部顾问对评估标准进行评审，验证模型的科学性和可行性。根据评审意见修改后正式定稿。",
+          "duration": "2周"
+        }
+      ],
+      "timeline": "2个月",
+      "responsible_department": "数据安全部",
+      "expected_improvement": 0.3,
+      "resources_needed": {
+        "budget": "10-15万元(可能需购买

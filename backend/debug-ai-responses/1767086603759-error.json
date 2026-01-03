@@ -1,0 +1,444 @@
+{
+  "measures": [
+    {
+      "title": "建立数据安全风险管理体系框架",
+      "description": "针对问题1中'未建立正式体系'的现状，本措施旨在构建顶层设计，明确数据安全风险管理的组织架构、职责分工及总体方针，将数据安全风险纳入企业全面风险管理体系，解决管理无序、职责不清的问题。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "成立数据安全风险管理委员会",
+          "description": "由高层领导牵头，组建包含安全、法务、业务及IT部门的跨部门委员会，明确各部门在风险管理中的职责与协作机制。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "制定风险管理总体方针",
+          "description": "起草并发布《数据安全风险管理总体方针》，明确风险管理的目标、原则、适用范围及合规要求，确保与业务目标一致。",
+          "duration": "3周"
+        },
+        {
+          "stepNumber": 3,
+          "title": "发布配套管理制度与流程",
+          "description": "依据总体方针，编制风险评估、监测、处置等专项管理制度，规范管理流程，形成正式的体系文件。",
+          "duration": "1个月"
+        }
+      ],
+      "timeline": "2个月",
+      "responsible_department": "数据安全部(牵头)、法务部、IT部门",
+      "expected_improvement": 0.3,
+      "resources_needed": {
+        "budget": "5-10万元(含外部咨询、文档编制)",
+        "personnel": ["数据安全负责人", "合规专员", "行政人员"],
+        "technology": ["文档管理系统"],
+        "training": "对管理层进行数据安全治理意识培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": [],
+        "externalDependencies": ["需获得董事会或最高管理层的正式批准"]
+      },
+      "risks": [
+        {
+          "risk": "各部门职责划分不清，推诿扯皮",
+          "mitigation": "由高层领导亲自协调，签署责任书，明确考核指标"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "体系文件发布完成率",
+          "target": "100%",
+          "measurementMethod": "检查已发布的正式制度文件数量"
+        },
+        {
+          "metric": "管理层审批通过率",
+          "target": "100%",
+          "measurementMethod": "统计获得签字发布的制度比例"
+        }
+      ]
+    },
+    {
+      "title": "制定风险评估标准与方法论",
+      "description": "针对问题2'未落实评估措施'，解决'如何评'的问题。本措施将建立统一的数据安全风险评估标准、方法论及操作指南，确保评估过程有章可循，结果客观一致。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "调研并确定风险评估模型",
+          "description": "参考GB/T 20984等国家标准，结合行业特点，选择适合的风险评估模型（如资产-威胁-脆弱性模型）。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "定义风险计算准则与等级",
+          "description": "详细规定风险发生的可能性、影响程度的赋值标准，以及风险等级划分标准（如高、中、低），确保量化依据。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 3,
+          "title": "编制风险评估操作指南",
+          "description": "编写具体的操作手册，包含评估准备、资产识别、威胁分析、脆弱性识别、风险计算及报告撰写的详细步骤。",
+          "duration": "3周"
+        }
+      ],
+      "timeline": "2个月",
+      "responsible_department": "数据安全部",
+      "expected_improvement": 0.3,
+      "resources_needed": {
+        "budget": "5万元以内",
+        "personnel": ["数据安全架构师", "风险评估专家"],
+        "technology": ["办公软件"],
+        "training": "对评估小组进行方法论培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": ["建立数据安全风险管理体系框架"],
+        "externalDependencies": []
+      },
+      "risks": [
+        {
+          "risk": "模型过于复杂，难以落地执行",
+          "mitigation": "采用简化的定性+定量结合模型，先试点后推广"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "评估标准文档完整性",
+          "target": "100%",
+          "measurementMethod": "专家评审检查"
+        },
+        {
+          "metric": "评估人员对方法论掌握度",
+          "target": "≥90%",
+          "measurementMethod": "通过笔试或模拟测试评估"
+        }
+      ]
+    },
+    {
+      "title": "开展首次全面数据安全风险评估",
+      "description": "针对问题2'以上都没有落实'，这是从无到有的关键一步。通过执行首次全面评估，识别核心数据资产的潜在风险，摸清家底，为后续监测和整改提供基准数据。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "评估范围界定与资产盘点",
+          "description": "确定评估的业务范围和系统边界，梳理核心数据资产清单，包括数据存储位置、流转路径及责任人。",
+          "duration": "3周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "执行威胁与脆弱性识别",
+          "description": "通过访谈、扫描、审计等方式，识别数据面临的内外部威胁及自身存在的安全脆弱性（如弱口令、未加密）。",
+          "duration": "1个月"
+        },
+        {
+          "stepNumber": 3,
+          "title": "风险分析与报告编制",
+          "description": "依据既定标准计算风险值，形成《数据安全风险评估报告》，列出高风险项清单及整改建议。",
+          "duration": "2周"
+        }
+      ],
+      "timeline": "3个月",
+      "responsible_department": "数据安全部(牵头)、各业务部门配合",
+      "expected_improvement": 0.4,
+      "resources_needed": {
+        "budget": "10-20万元(可能含漏洞扫描工具或外部服务)",
+        "personnel": ["风险评估小组", "IT系统管理员", "业务接口人"],
+        "technology": ["漏洞扫描工具", "数据库审计系统"],
+        "training": "评估前的沟通与协作培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": ["制定风险评估标准与方法论"],
+        "externalDependencies": []
+      },
+      "risks": [
+        {
+          "risk": "业务部门不配合，资产盘点不全",
+          "mitigation": "提前召开启动会，由管理层下达指令，将配合度纳入绩效"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "核心数据资产覆盖率",
+          "target": "≥90%",
+          "measurementMethod": "统计已评估资产占总核心资产的比例"
+        },
+        {
+          "metric": "高风险项识别准确率",
+          "target": "≥95%",
+          "measurementMethod": "抽样复核或外部专家评审"
+        }
+      ]
+    },
+    {
+      "title": "建立基础监测指标与定期审计机制",
+      "description": "针对问题3'依赖人工临时检查'，解决监测无固定指标的问题。本措施旨在建立常态化的监测指标体系和定期审计机制，实现从临时检查向固定周期监测的转变。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "定义基础安全监测指标",
+          "description": "制定数据安全基础指标，如异常登录次数、敏感数据访问频率、权限变更记录、数据导出量等。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "建立定期人工审计流程",
+          "description": "在自动化工具部署前，先建立周/月度的人工审计流程，定期检查系统日志和业务操作记录，形成监测报表。",
+          "duration": "1个月"
+        },
+        {
+          "stepNumber": 3,
+          "title": "设立风险预警阈值",
+          "description": "为关键指标设定预警阈值（如登录失败超过5次），一旦触达阈值，立即触发人工核查流程。",
+          "duration": "2周"
+        }
+      ],
+      "timeline": "2个月",
+      "responsible_department": "IT运维部、数据安全部",
+      "expected_improvement": 0.3,
+      "resources_needed": {
+        "budget": "5万元以内",
+        "personnel": ["安全分析师", "系统管理员"],
+        "technology": ["日志收集平台", "SIEM(如有)"],
+        "training": "日志分析与审计技能培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": ["开展首次全面数据安全风险评估"],
+        "externalDependencies": []
+      },
+      "risks": [
+        {
+          "risk": "日志数据缺失或质量差",
+          "mitigation": "提前检查并配置系统日志策略，确保关键日志开启"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "监测指标定义数量",
+          "target": "≥10个",
+          "measurementMethod": "统计已文档化的指标数量"
+        },
+        {
+          "metric": "定期审计执行率",
+          "target": "100%",
+          "measurementMethod": "按月检查审计报告是否按时产出"
+        }
+      ]
+    },
+    {
+      "title": "实施风险评估记录全生命周期管理",
+      "description": "针对问题5'以上都没有留存'，解决合规与追溯问题。本措施将建立规范的记录留存机制，确保评估过程、监测数据、整改结果等关键信息完整可查，满足审计要求。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "设计记录模板与归档标准",
+          "description": "设计风险评估表、监测日报、整改报告等标准化模板，规定各类记录的格式、必填项及归档要求。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "建立集中化记录存储库",
+          "description": "在文档管理系统或安全平台中建立专用文件夹，按年份、项目分类存储所有风险评估与监测相关记录。",
+          "duration": "1周"
+        },
+        {
+          "stepNumber": 3,
+          "title": "制定记录留存与销毁策略",
+          "description": "依据法规要求，明确不同类型记录的最低保存年限（如至少3年）及到期后的销毁审批流程。",
+          "duration": "1周"
+        }
+      ],
+      "timeline": "1个月",
+      "responsible_department": "数据安全部、合规部",
+      "expected_improvement": 0.3,
+      "resources_needed": {
+        "budget": "预算极少",
+        "personnel": ["文档管理员", "合规专员"],
+        "technology": ["文档管理系统(DMS)", "加密存储介质"],
+        "training": "文档规范管理培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": ["开展首次全面数据安全风险评估"],
+        "externalDependencies": []
+      },
+      "risks": [
+        {
+          "risk": "记录更新不及时，形成'死数据'",
+          "mitigation": "将记录更新纳入工作流，定期进行归档检查"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "记录留存完整率",
+          "target": "100%",
+          "measurementMethod": "抽查过往评估活动，确认记录是否齐全"
+        },
+        {
+          "metric": "记录检索时间",
+          "target": "<30分钟",
+          "measurementMethod": "测试查找特定历史记录所需时间"
+        }
+      ]
+    },
+    {
+      "title": "建立常态化风险评估调度机制",
+      "description": "为持续提升成熟度，需将风险评估从'一次性项目'转变为'常态化工作'。本措施通过建立定期的评估调度机制，确保风险管理工作持续运行，形成闭环。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "制定年度风险评估计划",
+          "description": "在每年初制定全年的风险评估计划，明确各业务系统的评估频次（如核心系统每年1次，一般系统每2年1次）。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "建立风险状态跟踪看板",
+          "description": "建立可视化的风险看板，实时跟踪已发现风险的处置状态、新增风险情况及整改完成率。",
+          "duration": "3周"
+        },
+        {
+          "stepNumber": 3,
+          "title": "实施定期风险汇报制度",
+          "description": "建立月度或季度汇报机制，向风险管理委员会汇报当前风险态势、评估进展及整改情况。",
+          "duration": "持续进行"
+        }
+      ],
+      "timeline": "3个月（建立机制）",
+      "responsible_department": "数据安全部",
+      "expected_improvement": 0.3,
+      "resources_needed": {
+        "budget": "5万元",
+        "personnel": ["项目经理", "数据安全分析师"],
+        "technology": ["项目管理工具", "BI可视化工具"],
+        "training": "项目管理与汇报技巧培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": ["建立数据安全风险管理体系框架", "开展首次全面数据安全风险评估"],
+        "externalDependencies": []
+      },
+      "risks": [
+        {
+          "risk": "业务变动导致计划难以执行",
+          "mitigation": "计划保持一定弹性，每季度进行一次滚动修订"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "计划执行按时率",
+          "target": "≥90%",
+          "measurementMethod": "统计按时完成评估任务的比例"
+        },
+        {
+          "metric": "风险整改闭环率",
+          "target": "≥80%",
+          "measurementMethod": "统计已整改完成的风险占总发现风险的比例"
+        }
+      ]
+    },
+    {
+      "title": "部署自动化风险评估与监测工具",
+      "description": "针对问题3'依赖人工'及目标成熟度4.0的要求，必须引入技术手段。本措施通过采购或部署自动化工具，实现数据资产发现、漏洞扫描及合规检查的自动化，提升监测效率与覆盖面。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "自动化风险评估工具选型",
+          "description": "调研市场上的数据安全风险评估平台、数据分类分级工具，进行POC测试，选择符合组织需求的工具。",
+          "duration": "1个月"
+        },
+        {
+          "stepNumber": 2,
+          "title": "工具部署与策略配置",
+          "description": "在测试环境及生产环境部署工具，配置扫描策略、资产发现规则及监测阈值，确保不影响业务正常运行。",
+          "duration": "1个月"
+        },
+        {
+          "stepNumber": 3,
+          "title": "系统集成与报表自动化",
+          "description": "将工具与现有SIEM或运维平台集成，实现自动生成风险评估报告和异常告警，减少人工统计工作量。",
+          "duration": "1个月"
+        }
+      ],
+      "timeline": "3-4个月",
+      "responsible_department": "IT部门、数据安全部",
+      "expected_improvement": 0.3,
+      "resources_needed": {
+        "budget": "30-50万元(软件授权/服务费)",
+        "personnel": ["安全运维工程师", "系统集成商"],
+        "technology": ["数据安全治理平台(DSG)", "漏洞扫描器"],
+        "training": "工具操作与维护培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": ["建立基础监测指标与定期审计机制", "开展首次全面数据安全风险评估"],
+        "externalDependencies": ["供应商技术支持"]
+      },
+      "risks": [
+        {
+          "risk": "工具误报率高，影响业务",
+          "mitigation": "在非业务高峰期进行扫描，设置白名单，逐步调优策略"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "自动化监测覆盖率",
+          "target": "≥80%",
+          "measurementMethod": "统计由工具自动监测的资产比例"
+        },
+        {
+          "metric": "报告生成效率提升",
+          "target": "提升50%",
+          "measurementMethod": "对比工具上线前后生成报告的平均耗时"
+        }
+      ]
+    },
+    {
+      "title": "整合威胁情报与动态风险模型优化",
+      "description": "基于问题4'主动收集威胁情报'的5分基础，将孤立的情报能力整合进风险管理体系。通过建立威胁情报源，实现基于外部威胁和内部数据的动态风险模型优化，达到Level 4的成熟度。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "对接外部威胁情报源",
+          "description": "采购或接入专业的威胁情报服务（如CVE库、暗网监测），确保能及时获取最新的行业威胁态势。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "建立内外部数据关联分析机制",
+          "description": "将外部情报与内部监测日志、资产脆弱性数据进行关联分析，识别潜在的针对性攻击风险。",
+          "duration": "1个月"
+        },
+        {
+          "stepNumber": 3,
+          "title": "实施风险模型动态调优",
+          "description": "定期（如每季度）根据新出现的威胁类型和历史事件，调整风险评估模型的权重和参数，保持模型的有效性。",
+          "duration": "持续进行"
+        }
+      ],
+      "timeline": "3个月",
+      "responsible_department": "数据安全部、安全运营中心(SOC)",
+      "expected_improvement": 0.4,
+      "resources_needed": {
+        "budget": "15-25万元(威胁情报订阅费)",
+        "personnel": ["威胁情报分析师", "数据建模专家"],
+        "technology": ["威胁情报平台(TIP)", "大数据分析平台"],
+        "training": "威胁情报分析与建模培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": ["部署自动化风险评估与监测工具"],
+        "externalDependencies": ["威胁情报供应商"]
+      },
+      "risks": [
+        {
+          "risk": "情报数据过载，难以处理",
+          "mitigation": "设置高精度的情报过滤规则，只推送与本组织资产相关的情报"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "威胁情报有效利用率",
+          "target": "≥60%",
+          "measurementMethod": "统计触发实际响应或分析的情报比例"
+        },
+        {
+          "metric": "风险模型更新频次",
+          "target": "≥1次/季度",
+          "measurementMethod": "检查模型版本更新记录"
+        }
+      ]
+    }
+  ]
+}

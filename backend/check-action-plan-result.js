@@ -1,0 +1,30 @@
+const { Client } = require('pg');
+const client = new Client({
+  host: 'localhost',
+  port: 5432,
+  database: 'csaas',
+  user: 'postgres',
+  password: 'postgres'
+});
+
+async function check() {
+  await client.connect();
+  const result = await client.query(`
+    SELECT id, type, result
+    FROM ai_tasks
+    WHERE type = 'action_plan' AND status = 'completed'
+    ORDER BY created_at DESC
+    LIMIT 1
+  `);
+
+  if (result.rows.length > 0) {
+    console.log('Action Plan Task Found:');
+    console.log('Result keys:', Object.keys(result.rows[0].result || {}));
+    console.log('Result:', JSON.stringify(result.rows[0].result, null, 2));
+  } else {
+    console.log('No completed action_plan task found');
+  }
+  await client.end();
+}
+
+check().catch(console.error);

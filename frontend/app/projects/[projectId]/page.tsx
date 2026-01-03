@@ -47,6 +47,9 @@ export default function ProjectWorkbenchPage() {
     try {
       const tasks = await AITasksAPI.getTasksByProject(projectId)
 
+      console.log('📊 [ProjectPage] 获取到的所有任务:', tasks.length, '个')
+      console.log('📋 [ProjectPage] 任务详情:', tasks.map(t => ({ id: t.id, type: t.type, status: t.status })))
+
       // 定义步骤ID到任务类型的映射
       const stepToTaskType: Record<string, string[]> = {
         summary: ['summary'],
@@ -64,8 +67,11 @@ export default function ProjectWorkbenchPage() {
         // 找到该步骤相关的所有任务
         const relatedTasks = tasks.filter(task => taskTypes.includes(task.type))
 
+        console.log(`🔍 [ProjectPage] 步骤 "${stepId}" 相关任务:`, relatedTasks.length, '个', taskTypes)
+
         if (relatedTasks.length === 0) {
           statuses[stepId] = 'pending'
+          console.log(`  ⚠️  未找到相关任务，状态设为 pending`)
           return
         }
 
@@ -73,6 +79,8 @@ export default function ProjectWorkbenchPage() {
         const latestTask = relatedTasks.sort((a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         )[0]
+
+        console.log(`  ✅ 最新任务:`, latestTask.id, '状态:', latestTask.status)
 
         // 根据任务状态确定步骤状态
         if (latestTask.status === 'completed') {
@@ -86,9 +94,10 @@ export default function ProjectWorkbenchPage() {
         }
       })
 
+      console.log('🎯 [ProjectPage] 最终状态映射:', statuses)
       setTaskStatuses(statuses)
     } catch (error) {
-      console.error('Failed to load task statuses:', error)
+      console.error('❌ Failed to load task statuses:', error)
     }
   }
 
@@ -98,7 +107,11 @@ export default function ProjectWorkbenchPage() {
       name: '上传文档',
       icon: <CloudUpload />,
       route: `/projects/${projectId}/upload`,
-      status: 'pending' as const,
+      status: (() => {
+        // 检查是否有已上传的文档
+        const uploadedDocs = (project?.metadata as any)?.uploadedDocuments
+        return uploadedDocs && uploadedDocs.length > 0 ? 'completed' as const : 'pending' as const
+      })(),
       description: '上传合规文档，支持PDF、Word、Excel等格式',
     },
     {

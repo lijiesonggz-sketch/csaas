@@ -1,29 +1,33 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import OpenAI from 'openai'
 
 /**
  * 相似度计算器
- * 使用OpenAI Embedding API计算文本语义相似度
+ * 使用通义千问 DashScope Embedding API计算文本语义相似度
  */
 @Injectable()
 export class SimilarityCalculator {
   private readonly logger = new Logger(SimilarityCalculator.name)
-  private readonly openai: OpenAI
+  private readonly apiKey: string
+  private readonly apiBase: string
   private readonly embeddingModel: string
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY')
-    const baseURL = this.configService.get<string>('OPENAI_BASE_URL')
+    // 优先使用 DASHSCOPE_API_KEY，降级到 TONGYI_API_KEY
+    this.apiKey =
+      this.configService.get<string>('DASHSCOPE_API_KEY') ||
+      this.configService.get<string>('TONGYI_API_KEY') ||
+      ''
 
-    this.openai = new OpenAI({
-      apiKey: apiKey || 'dummy-key',
-      baseURL,
-    })
+    this.apiBase = 'https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding'
 
     this.embeddingModel =
-      this.configService.get<string>('OPENAI_EMBEDDING_MODEL') ||
-      'text-embedding-3-small'
+      this.configService.get<string>('DASHSCOPE_EMBEDDING_MODEL') ||
+      'text-embedding-v2'
+
+    if (!this.apiKey) {
+      this.logger.warn('DASHSCOPE_API_KEY and TONGYI_API_KEY are not configured, embedding similarity will be disabled')
+    }
   }
 
   /**
@@ -33,6 +37,11 @@ export class SimilarityCalculator {
    * @returns 相似度分数 (0-1)
    */
   async calculateSimilarity(text1: string, text2: string): Promise<number> {
+    if (!this.apiKey) {
+      this.logger.warn('DashScope API key not configured, using fallback similarity')
+      return this.calculateTextSimilarity(text1, text2)
+    }
+
     try {
       // 获取两段文本的embedding
       const [embedding1, embedding2] = await Promise.all([
@@ -50,7 +59,7 @@ export class SimilarityCalculator {
       return similarity
     } catch (error) {
       this.logger.warn(
-        `OpenAI Embedding API unavailable, falling back to text-based similarity: ${error.message}`,
+        `DashScope Embedding API unavailable, falling back to text-based similarity: ${error.message}`,
       )
 
       // 降级：使用简单的文本相似度算法
@@ -215,18 +224,33 @@ export class SimilarityCalculator {
   }
 
   /**
-   * 获取文本的embedding向量
+   * 获取文本的embedding向量（使用 DashScope API）
    * @param text 文本内容
    * @returns embedding向量
    */
   private async getEmbedding(text: string): Promise<number[]> {
-    const response = await this.openai.embeddings.create({
-      model: this.embeddingModel,
-      input: text,
-      encoding_format: 'float',
+    const response = await fetch(this.apiBase, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: this.embeddingModel,
+        input: {
+          texts: [text],
+        },
+      }),
     })
 
-    return response.data[0].embedding
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`DashScope API error ${response.status}: ${errorText}`)
+    }
+
+    const data = await response.json()
+
+    return data.output.embeddings[0].embedding
   }
 
   /**

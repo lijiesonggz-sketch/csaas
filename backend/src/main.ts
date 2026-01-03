@@ -12,7 +12,12 @@ async function bootstrap() {
   // 创建应用实例，使用Winston日志
   const app = await NestFactory.create(AppModule, {
     logger: loggerConfig(),
+    bodyParser: true,
   })
+
+  // 增加请求体大小限制（解决矩阵数据传递问题）
+  app.use(require('express').json({ limit: '50mb' }))
+  app.use(require('express').urlencoded({ limit: '50mb', extended: true }))
 
   // 全局验证管道
   app.useGlobalPipes(
@@ -25,7 +30,11 @@ async function bootstrap() {
 
   // CORS配置
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      process.env.FRONTEND_URL || 'http://localhost:3001',
+    ].filter(Boolean),
     credentials: true,
   })
 

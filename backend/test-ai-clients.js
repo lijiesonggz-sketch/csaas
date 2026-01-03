@@ -1,167 +1,186 @@
 /**
- * AI Clients 功能测试脚本
- * 测试：1. 检查API配置状态
- *      2. 测试AI调用（如果有API key）
- *      3. 测试fallback机制
+ * AI 客户端测试脚本
+ * 测试 OpenAI, Anthropic, 通义千问 三个模型的调用情况
  */
 
-const { OpenAI } = require('openai');
-const Anthropic = require('@anthropic-ai/sdk').default;
+const OpenAI = require('openai');
+const Anthropic = require('@anthropic-ai/sdk');
+require('dotenv').config({ path: './.env.development' });
 
-// 从环境变量读取配置
-require('dotenv').config({ path: '.env.development' });
+// 测试提示词
+const TEST_PROMPT = '请用一句话介绍什么是人工智能。';
 
-console.log('=== AI Clients 配置检查 ===\n');
+// 颜色输出
+const colors = {
+  reset: '\x1b[0m',
+  green: '\x1b[32m',
+  red: '\x1b[31m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  cyan: '\x1b[36m',
+};
 
-// 1. 检查OpenAI配置
-const openaiKey = process.env.OPENAI_API_KEY;
-const openaiAvailable = openaiKey && openaiKey !== 'sk-your-openai-api-key-here' && openaiKey !== 'dummy-key';
-console.log(`OpenAI: ${openaiAvailable ? '✅ 已配置' : '❌ 未配置'}`);
-if (openaiAvailable) {
-  console.log(`  - Model: ${process.env.OPENAI_MODEL || 'gpt-4'}`);
-  console.log(`  - Base URL: ${process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'}`);
+function log(color, ...args) {
+  console.log(color, ...args, colors.reset);
 }
 
-// 2. 检查Anthropic配置
-const anthropicKey = process.env.ANTHROPIC_API_KEY;
-const anthropicAvailable = anthropicKey && anthropicKey !== 'sk-ant-your-anthropic-api-key-here' && anthropicKey !== 'dummy-key';
-console.log(`\nAnthropic: ${anthropicAvailable ? '✅ 已配置' : '❌ 未配置'}`);
-if (anthropicAvailable) {
-  console.log(`  - Model: ${process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022'}`);
-}
+// 测试 OpenAI
+async function testOpenAI() {
+  log(colors.cyan, '\n=== 测试 OpenAI ===');
+  log(colors.blue, `API Key: ${process.env.OPENAI_API_KEY?.substring(0, 20)}...`);
+  log(colors.blue, `Base URL: ${process.env.OPENAI_BASE_URL}`);
+  log(colors.blue, `Model: ${process.env.OPENAI_MODEL}`);
 
-// 3. 检查Tongyi配置
-const tongyiKey = process.env.TONGYI_API_KEY;
-const tongyiAvailable = tongyiKey && tongyiKey !== 'your-tongyi-api-key-here' && tongyiKey !== 'dummy-key';
-console.log(`\nTongyi (通义千问): ${tongyiAvailable ? '✅ 已配置' : '❌ 未配置'}`);
-if (tongyiAvailable) {
-  console.log(`  - Model: ${process.env.TONGYI_MODEL || 'qwen-plus'}`);
-  console.log(`  - Base URL: ${process.env.TONGYI_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1'}`);
-}
+  try {
+    const client = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      baseURL: process.env.OPENAI_BASE_URL,
+    });
 
-console.log('\n=== 可测试功能 ===\n');
+    const startTime = Date.now();
+    const response = await client.chat.completions.create({
+      model: process.env.OPENAI_MODEL,
+      messages: [{ role: 'user', content: TEST_PROMPT }],
+      max_tokens: 100,
+    });
 
-const availableCount = [openaiAvailable, anthropicAvailable, tongyiAvailable].filter(Boolean).length;
+    const duration = Date.now() - startTime;
+    const result = response.choices[0].message.content;
 
-if (availableCount === 0) {
-  console.log('❌ 没有配置任何API key');
-  console.log('\n请在 .env.development 文件中配置至少一个AI API key：');
-  console.log('  - OPENAI_API_KEY=sk-...');
-  console.log('  - ANTHROPIC_API_KEY=sk-ant-...');
-  console.log('  - TONGYI_API_KEY=sk-...');
-} else if (availableCount === 1) {
-  console.log(`✅ 已配置 ${availableCount} 个API`);
-  console.log('\n可测试功能：');
-  console.log('  ✅ 基础AI调用');
-  console.log('  ✅ 任务队列处理');
-  console.log('  ✅ 成本追踪');
-  console.log('  ⚠️  Fallback机制（建议配置第2个API）');
-} else {
-  console.log(`✅ 已配置 ${availableCount} 个API`);
-  console.log('\n可测试所有功能：');
-  console.log('  ✅ 基础AI调用');
-  console.log('  ✅ 任务队列处理');
-  console.log('  ✅ 成本追踪');
-  console.log('  ✅ Fallback机制');
-  console.log('  ✅ 多提供商成本对比');
-}
+    log(colors.green, '✓ OpenAI 调用成功');
+    log(colors.blue, `耗时: ${duration}ms`);
+    log(colors.blue, `Tokens: ${response.usage.total_tokens}`);
+    log(colors.blue, `响应: ${result}`);
 
-console.log('\n=== 推荐配置组合 ===\n');
-console.log('方案1（推荐）: OpenAI + Tongyi');
-console.log('  - OpenAI: 质量最好');
-console.log('  - Tongyi: 国内稳定，成本低');
-console.log('\n方案2: Anthropic + Tongyi');
-console.log('  - Anthropic: 代码能力强');
-console.log('  - Tongyi: 国内备选');
-console.log('\n方案3: OpenAI + Anthropic');
-console.log('  - 两个顶级国际模型');
-console.log('  - 需要稳定国际网络');
-
-// 测试API调用（如果有配置）
-async function testAPICalls() {
-  console.log('\n=== API调用测试 ===\n');
-
-  if (openaiAvailable) {
-    try {
-      console.log('测试 OpenAI...');
-      const openai = new OpenAI({
-        apiKey: openaiKey,
-        baseURL: process.env.OPENAI_BASE_URL,
-        timeout: 10000,
-      });
-
-      const response = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4',
-        messages: [{ role: 'user', content: '请用一句话介绍你自己' }],
-        max_tokens: 50,
-      });
-
-      console.log(`✅ OpenAI 调用成功`);
-      console.log(`   响应: ${response.choices[0].message.content}`);
-      console.log(`   Tokens: ${response.usage.total_tokens}`);
-    } catch (error) {
-      console.log(`❌ OpenAI 调用失败: ${error.message}`);
+    return { success: true, duration, tokens: response.usage.total_tokens };
+  } catch (error) {
+    log(colors.red, '✗ OpenAI 调用失败');
+    log(colors.red, `错误类型: ${error.constructor.name}`);
+    log(colors.red, `错误信息: ${error.message}`);
+    if (error.cause) {
+      log(colors.red, `根本原因: ${error.cause.message}`);
     }
-  }
-
-  if (anthropicAvailable) {
-    try {
-      console.log('\n测试 Anthropic...');
-      const anthropic = new Anthropic({
-        apiKey: anthropicKey,
-        timeout: 10000,
-      });
-
-      const response = await anthropic.messages.create({
-        model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-20241022',
-        max_tokens: 50,
-        messages: [{ role: 'user', content: '请用一句话介绍你自己' }],
-      });
-
-      console.log(`✅ Anthropic 调用成功`);
-      console.log(`   响应: ${response.content[0].text}`);
-      console.log(`   Tokens: ${response.usage.input_tokens + response.usage.output_tokens}`);
-    } catch (error) {
-      console.log(`❌ Anthropic 调用失败: ${error.message}`);
-    }
-  }
-
-  if (tongyiAvailable) {
-    try {
-      console.log('\n测试 Tongyi (通义千问)...');
-      const tongyi = new OpenAI({
-        apiKey: tongyiKey,
-        baseURL: process.env.TONGYI_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-        timeout: 10000,
-      });
-
-      const response = await tongyi.chat.completions.create({
-        model: process.env.TONGYI_MODEL || 'qwen-plus',
-        messages: [{ role: 'user', content: '请用一句话介绍你自己' }],
-        max_tokens: 50,
-      });
-
-      console.log(`✅ Tongyi 调用成功`);
-      console.log(`   响应: ${response.choices[0].message.content}`);
-      console.log(`   Tokens: ${response.usage.total_tokens}`);
-    } catch (error) {
-      console.log(`❌ Tongyi 调用失败: ${error.message}`);
-    }
+    return { success: false, error: error.message };
   }
 }
 
-// 如果有任何API配置，运行测试
-if (availableCount > 0) {
-  console.log('\n=== 开始API连接测试 ===');
-  console.log('(这将实际调用AI API，会产生少量费用)\n');
+// 测试 Anthropic (Claude)
+async function testAnthropic() {
+  log(colors.cyan, '\n=== 测试 Anthropic (Claude) ===');
+  log(colors.blue, `API Key: ${process.env.ANTHROPIC_API_KEY?.substring(0, 20)}...`);
+  log(colors.blue, `Base URL: ${process.env.ANTHROPIC_BASE_URL}`);
+  log(colors.blue, `Model: ${process.env.ANTHROPIC_MODEL}`);
 
-  testAPICalls().then(() => {
-    console.log('\n=== 测试完成 ===\n');
-    process.exit(0);
-  }).catch(error => {
-    console.error('\n测试出错:', error);
-    process.exit(1);
-  });
-} else {
-  process.exit(0);
+  try {
+    const client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      baseURL: process.env.ANTHROPIC_BASE_URL,
+    });
+
+    const startTime = Date.now();
+    const response = await client.messages.create({
+      model: process.env.ANTHROPIC_MODEL,
+      max_tokens: 100,
+      messages: [{ role: 'user', content: TEST_PROMPT }],
+    });
+
+    const duration = Date.now() - startTime;
+    const result = response.content[0].text;
+
+    log(colors.green, '✓ Anthropic 调用成功');
+    log(colors.blue, `耗时: ${duration}ms`);
+    log(colors.blue, `Tokens: input=${response.usage.input_tokens}, output=${response.usage.output_tokens}`);
+    log(colors.blue, `响应: ${result}`);
+
+    return {
+      success: true,
+      duration,
+      tokens: response.usage.input_tokens + response.usage.output_tokens
+    };
+  } catch (error) {
+    log(colors.red, '✗ Anthropic 调用失败');
+    log(colors.red, `错误类型: ${error.constructor.name}`);
+    log(colors.red, `错误信息: ${error.message}`);
+    if (error.cause) {
+      log(colors.red, `根本原因: ${error.cause.message}`);
+    }
+    return { success: false, error: error.message };
+  }
 }
+
+// 测试通义千问
+async function testTongyi() {
+  log(colors.cyan, '\n=== 测试通义千问 ===');
+  log(colors.blue, `API Key: ${process.env.TONGYI_API_KEY?.substring(0, 20)}...`);
+  log(colors.blue, `Base URL: ${process.env.TONGYI_BASE_URL}`);
+  log(colors.blue, `Model: ${process.env.TONGYI_MODEL}`);
+
+  try {
+    // 通义千问使用 OpenAI 兼容接口
+    const client = new OpenAI({
+      apiKey: process.env.TONGYI_API_KEY,
+      baseURL: process.env.TONGYI_BASE_URL,
+    });
+
+    const startTime = Date.now();
+    const response = await client.chat.completions.create({
+      model: process.env.TONGYI_MODEL,
+      messages: [{ role: 'user', content: TEST_PROMPT }],
+      max_tokens: 100,
+    });
+
+    const duration = Date.now() - startTime;
+    const result = response.choices[0].message.content;
+
+    log(colors.green, '✓ 通义千问 调用成功');
+    log(colors.blue, `耗时: ${duration}ms`);
+    log(colors.blue, `Tokens: ${response.usage.total_tokens}`);
+    log(colors.blue, `响应: ${result}`);
+
+    return { success: true, duration, tokens: response.usage.total_tokens };
+  } catch (error) {
+    log(colors.red, '✗ 通义千问 调用失败');
+    log(colors.red, `错误类型: ${error.constructor.name}`);
+    log(colors.red, `错误信息: ${error.message}`);
+    if (error.cause) {
+      log(colors.red, `根本原因: ${error.cause.message}`);
+    }
+    return { success: false, error: error.message };
+  }
+}
+
+// 主测试函数
+async function runTests() {
+  log(colors.yellow, '╔═══════════════════════════════════════╗');
+  log(colors.yellow, '║    AI 模型调用测试                    ║');
+  log(colors.yellow, '╚═══════════════════════════════════════╝');
+
+  const results = {
+    openai: await testOpenAI(),
+    anthropic: await testAnthropic(),
+    tongyi: await testTongyi(),
+  };
+
+  // 汇总结果
+  log(colors.cyan, '\n=== 测试结果汇总 ===');
+  const successCount = Object.values(results).filter(r => r.success).length;
+  const totalCount = Object.keys(results).length;
+
+  log(colors.blue, `成功: ${successCount}/${totalCount}`);
+
+  log(colors.blue, '\n详细结果:');
+  log(results.openai.success ? colors.green : colors.red,
+    `  OpenAI:     ${results.openai.success ? '✓ 成功' : '✗ 失败'} ${results.openai.success ? `(${results.openai.duration}ms, ${results.openai.tokens} tokens)` : `- ${results.openai.error}`}`);
+  log(results.anthropic.success ? colors.green : colors.red,
+    `  Anthropic:  ${results.anthropic.success ? '✓ 成功' : '✗ 失败'} ${results.anthropic.success ? `(${results.anthropic.duration}ms, ${results.anthropic.tokens} tokens)` : `- ${results.anthropic.error}`}`);
+  log(results.tongyi.success ? colors.green : colors.red,
+    `  通义千问:    ${results.tongyi.success ? '✓ 成功' : '✗ 失败'} ${results.tongyi.success ? `(${results.tongyi.duration}ms, ${results.tongyi.tokens} tokens)` : `- ${results.tongyi.error}`}`);
+
+  log(colors.yellow, '\n测试完成！\n');
+}
+
+// 运行测试
+runTests().catch(error => {
+  log(colors.red, '测试执行出错:', error);
+  process.exit(1);
+});

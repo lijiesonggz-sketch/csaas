@@ -8,6 +8,10 @@ import {
   AIGenerationResult,
   AICostTracking,
   AuditLog,
+  SurveyResponse,
+  ActionPlanMeasure,
+  ProjectMember,
+  SystemUser,
 } from '../database/entities'
 
 // Load environment variables
@@ -20,7 +24,19 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_DATABASE || 'csaas',
-  entities: [User, Project, AITask, AIGenerationEvent, AIGenerationResult, AICostTracking, AuditLog],
+  entities: [
+    User,
+    Project,
+    AITask,
+    AIGenerationEvent,
+    AIGenerationResult,
+    AICostTracking,
+    AuditLog,
+    SurveyResponse,
+    ActionPlanMeasure,
+    ProjectMember,
+    SystemUser,
+  ],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false, // Migrations will handle schema changes
   logging: true,

@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Param,
   Body,
   HttpException,
@@ -16,9 +17,12 @@ import {
   ValidateNested,
 } from 'class-validator'
 import { Type } from 'class-transformer'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
 import { AIGenerationService } from './ai-generation.service'
 import { ResultAggregatorService } from '../result-aggregation/result-aggregator.service'
 import { AITaskType } from '../../database/entities/ai-task.entity'
+import { AITask } from '../../database/entities/ai-task.entity'
 
 export class GenerateSummaryDto {
   @IsString()
@@ -65,6 +69,10 @@ export class GenerateClusteringDto {
   documents: StandardDocumentDto[]
 
   @IsOptional()
+  @IsString()
+  projectId?: string
+
+  @IsOptional()
   @IsNumber()
   temperature?: number
 
@@ -99,8 +107,30 @@ export class GenerateQuestionnaireDto {
   @IsString()
   taskId: string
 
+  @IsString()
+  matrixTaskId: string // 矩阵任务ID（从数据库获取矩阵结果，避免HTTP请求体过大）
+
   @IsOptional()
-  matrixResult: any // MatrixGenerationOutput
+  @IsNumber()
+  temperature?: number
+
+  @IsOptional()
+  @IsNumber()
+  maxTokens?: number
+}
+
+/**
+ * 生成落地措施DTO
+ */
+export class GenerateActionPlanDto {
+  @IsString()
+  taskId: string
+
+  @IsString()
+  matrixTaskId: string // 矩阵任务ID
+
+  @IsString()
+  surveyResponseId: string // 问卷填写记录ID（包含用户答案）
 
   @IsOptional()
   @IsNumber()
@@ -120,6 +150,8 @@ export class AIGenerationController {
   constructor(
     private readonly aiGenerationService: AIGenerationService,
     private readonly resultAggregator: ResultAggregatorService,
+    @InjectRepository(AITask)
+    private readonly aiTaskRepository: Repository<AITask>,
   ) {}
 
   /**
@@ -164,6 +196,7 @@ export class AIGenerationController {
       const result = await this.aiGenerationService.generateContent({
         taskId: dto.taskId,
         generationType: AITaskType.CLUSTERING,
+        projectId: dto.projectId, // 传递projectId
         input: {
           documents: dto.documents,
           temperature: dto.temperature,
@@ -195,14 +228,61 @@ export class AIGenerationController {
     try {
       const result = await this.resultAggregator.getResultByTaskId(taskId)
 
+      // ✅ 如果在 ai_generation_results 表中找不到，尝试从 ai_tasks 表读取（兼容旧任务）
       if (!result) {
-        throw new HttpException(
-          {
-            success: false,
-            error: 'Result not found',
+        console.log(`Result not found in ai_generation_results for task ${taskId}, trying ai_tasks table...`)
+
+        // 从 ai_tasks 表读取
+        const task = await this.aiTaskRepository.findOne({
+          where: { id: taskId },
+        })
+
+        if (!task || !task.result) {
+          throw new HttpException(
+            {
+              success: false,
+              error: 'Result not found',
+            },
+            HttpStatus.NOT_FOUND,
+          )
+        }
+
+        // 解析 result 字段（可能是 JSON 字符串）
+        let resultData: any
+        if (typeof task.result === 'string') {
+          resultData = JSON.parse(task.result)
+        } else {
+          resultData = task.result
+        }
+
+        // 构造兼容旧格式的响应
+        return {
+          success: true,
+          data: {
+            id: task.id,
+            taskId: task.id, // ✅ 添加 taskId
+            projectId: task.projectId, // ✅ 添加 projectId
+            generationType: task.type,
+            content: resultData.content || resultData, // ✅ 保留 content 字段
+            selectedResult: resultData,
+            selectedModel: resultData.selectedModel || 'gpt4',
+            confidenceLevel: resultData.confidenceLevel || 'MEDIUM',
+            qualityScores: resultData.qualityScores || {
+              structural: 0.8,
+              semantic: 0.8,
+              detail: 0.8,
+            },
+            consistencyReport: resultData.consistencyReport || {
+              agreements: [],
+              disagreements: [],
+              highRiskDisagreements: [],
+            },
+            coverageReport: resultData.coverageReport,
+            reviewStatus: 'PENDING' as any,
+            version: 1,
+            createdAt: task.createdAt,
           },
-          HttpStatus.NOT_FOUND,
-        )
+        }
       }
 
       return {
@@ -210,6 +290,7 @@ export class AIGenerationController {
         data: {
           id: result.id,
           taskId: result.taskId,
+          projectId: result.task.projectId, // 添加projectId用于跳转到项目工作台
           generationType: result.generationType,
           selectedResult: result.selectedResult,
           selectedModel: result.selectedModel,
@@ -316,7 +397,7 @@ export class AIGenerationController {
         taskId: dto.taskId,
         generationType: AITaskType.QUESTIONNAIRE,
         input: {
-          matrixResult: dto.matrixResult,
+          matrixTaskId: dto.matrixTaskId, // 传递矩阵任务ID，由service层从数据库获取
           temperature: dto.temperature,
           maxTokens: dto.maxTokens,
         },
@@ -325,6 +406,69 @@ export class AIGenerationController {
       return {
         success: true,
         data: result,
+      }
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      )
+    }
+  }
+
+  /**
+   * 生成落地措施
+   * POST /api/ai-generation/action-plan
+   */
+  @Post('action-plan')
+  async generateActionPlan(@Body() dto: GenerateActionPlanDto) {
+    try {
+      const result = await this.aiGenerationService.generateContent({
+        taskId: dto.taskId,
+        generationType: AITaskType.ACTION_PLAN,
+        input: {
+          matrixTaskId: dto.matrixTaskId,
+          surveyResponseId: dto.surveyResponseId,
+          temperature: dto.temperature,
+          maxTokens: dto.maxTokens,
+        },
+      })
+
+      return {
+        success: true,
+        data: result,
+      }
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      )
+    }
+  }
+
+  /**
+   * 更新聚类结果（用户手工添加缺失条款）
+   * PATCH /api/ai-generation/clustering/:taskId
+   */
+  @Patch('clustering/:taskId')
+  async updateClusteringResult(
+    @Param('taskId') taskId: string,
+    @Body()
+    body: {
+      categories: any[] // 更新后的categories（包含用户手工添加的条款）
+    },
+  ) {
+    try {
+      await this.aiGenerationService.updateClusteringResult(taskId, body.categories)
+
+      return {
+        success: true,
+        message: 'Clustering result updated successfully',
       }
     } catch (error) {
       throw new HttpException(

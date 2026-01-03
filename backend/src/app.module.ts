@@ -12,6 +12,7 @@ import { QualityValidationModule } from './modules/quality-validation/quality-va
 import { ResultAggregationModule } from './modules/result-aggregation/result-aggregation.module'
 import { AIGenerationModule } from './modules/ai-generation/ai-generation.module'
 import { SurveyModule } from './modules/survey/survey.module'
+import { ProjectsModule } from './modules/projects/projects.module'
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { SurveyModule } from './modules/survey/survey.module'
     ResultAggregationModule,
     AIGenerationModule,
     SurveyModule,
+    ProjectsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

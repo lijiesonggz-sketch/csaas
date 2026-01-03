@@ -37,6 +37,6 @@ import { SurveyResponse } from '../../database/entities/survey-response.entity'
     QuestionnaireGenerator,
     ActionPlanGenerator,
   ],
-  exports: [AIGenerationService, ClusteringGenerator],
+  exports: [AIGenerationService, ClusteringGenerator, MatrixGenerator, QuestionnaireGenerator],
 })
 export class AIGenerationModule {}

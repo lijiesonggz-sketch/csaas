@@ -1,0 +1,214 @@
+{
+  "measures": [
+    {
+      "title": "全面实施API安全标准",
+      "description": "针对问题2中实际操作落实不彻底的情况，当前虽然维护了API清单，但在传输加密强制性和接口防护手段上存在不足。本措施旨在通过部署API网关和强制加密标准，确保所有第三方接口和传输链路均符合安全基线，解决操作层面的合规性问题。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "制定API安全技术基线",
+          "description": "明确所有外部接口必须使用TLS 1.2及以上加密协议，定义API网关的认证、限流和脱敏规则，并形成正式技术文档。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "部署或升级API网关",
+          "description": "在DMZ区部署统一API网关，将现有第三方接口流量逐步切至网关，强制执行安全基线，阻断不合规的加密请求。",
+          "duration": "1个月"
+        },
+        {
+          "stepNumber": 3,
+          "title": "开展接口合规性扫描",
+          "description": "使用自动化工具对全量接口进行深度扫描，检测弱加密算法、未授权访问等漏洞，并限期完成整改。",
+          "duration": "3周"
+        },
+        {
+          "stepNumber": 4,
+          "title": "实施接口变更安全管控",
+          "description": "将API安全测试嵌入CI/CD流程，确保新增或变更接口在上线前必须通过自动化安全检测。",
+          "duration": "1个月"
+        }
+      ],
+      "timeline": "3-4个月",
+      "responsible_department": "IT技术部（牵头）、数据安全部",
+      "expected_improvement": 0.4,
+      "resources_needed": {
+        "budget": "30-50万元（含API网关授权费、扫描工具采购）",
+        "personnel": ["系统架构师", "网络安全工程师", "开发人员"],
+        "technology": ["API安全网关", "接口自动化测试工具"],
+        "training": "对开发人员进行API安全开发规范培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": [],
+        "externalDependencies": ["需业务部门配合配合进行流量切换"]
+      },
+      "risks": [
+        {
+          "risk": "API网关上线可能影响业务性能或兼容性",
+          "mitigation": "先在非生产环境进行充分压力测试和兼容性测试，采用灰度发布策略"
+        },
+        {
+          "risk": "老旧系统改造困难，无法支持强加密",
+          "mitigation": "对老旧系统建立专项改造计划，或部署专用加密机作为过渡方案"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "外部接口加密覆盖率",
+          "target": "100%",
+          "measurementMethod": "通过API网关统计或漏洞扫描工具验证"
+        },
+        {
+          "metric": "API网关流量接管比例",
+          "target": "≥95%",
+          "measurementMethod": "网络流量监控统计"
+        },
+        {
+          "metric": "接口高危漏洞修复率",
+          "target": "100%",
+          "measurementMethod": "漏洞扫描报告跟踪"
+        }
+      ]
+    },
+    {
+      "title": "建立传输数据审计分析",
+      "description": "针对问题5中审计证据保留被动且缺乏分析的问题，当前仅保留了日志但缺乏有效的利用。本措施旨在引入日志分析与异常检测机制，从被动记录转向主动监控，及时发现第三方接口的异常访问行为，提升风险感知能力。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "集成日志至统一分析平台",
+          "description": "将API网关、WAF及外联平台的访问日志和权限审批日志集中接入SIEM或日志审计系统，实现标准化存储。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "定义异常行为检测规则",
+          "description": "基于历史流量基线，制定异常访问规则，如深夜高频访问、异常地理位置访问、单次下载量激增等。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 3,
+          "title": "配置自动化告警响应",
+          "description": "当检测到触发规则的异常行为时，自动发送告警给安全运营人员，并配置临时阻断策略。",
+          "duration": "3周"
+        },
+        {
+          "stepNumber": 4,
+          "title": "定期生成审计分析报告",
+          "description": "每月生成第三方接口安全审计报告，分析访问趋势和风险事件，为管理层提供决策依据。",
+          "duration": "持续进行"
+        }
+      ],
+      "timeline": "2-3个月",
+      "responsible_department": "数据安全部（牵头）、IT运维部",
+      "expected_improvement": 0.4,
+      "resources_needed": {
+        "budget": "15-25万元（含日志分析软件授权或扩容）",
+        "personnel": ["安全分析师", "日志审计专员"],
+        "technology": ["SIEM平台", "UEBA（用户实体行为分析）模块"],
+        "training": "安全分析师日志分析与规则编写培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": ["全面实施API安全标准"],
+        "externalDependencies": []
+      },
+      "risks": [
+        {
+          "risk": "告警规则过于敏感导致误报率高",
+          "mitigation": "设置2-4周的调优期，根据实际反馈不断调整检测阈值和规则逻辑"
+        },
+        {
+          "risk": "日志量过大导致存储成本飙升",
+          "mitigation": "实施日志分级存储策略，全量数据保留3个月，摘要数据保留1年"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "异常行为告警准确率",
+          "target": "≥85%",
+          "measurementMethod": "统计有效告警数占总告警数的比例"
+        },
+        {
+          "metric": "安全事件平均响应时间(MTTD)",
+          "target": "<1小时",
+          "measurementMethod": "从告警产生到分析师确认的时间差统计"
+        },
+        {
+          "metric": "日志审计完整率",
+          "target": "100%",
+          "measurementMethod": "定期抽查关键接口日志的连续性和完整性"
+        }
+      ]
+    },
+    {
+      "title": "优化接口安全评审机制",
+      "description": "针对问题4中评审周期较长且缺乏动态调整的问题，当前仅依靠定期评审难以及时应对快速变化的业务风险。本措施旨在建立'定期+事件驱动'的双模评审机制，确保安全策略与业务发展保持同步。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "修订安全评审管理制度",
+          "description": "更新《第三方接口安全管理规范》，明确新增业务上线、重大漏洞修复后必须触发即时安全评审。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "建立自动化合规检查清单",
+          "description": "将安全策略转化为自动化检查脚本，在评审时自动比对实际配置与策略要求的差异，减少人工检查疏漏。",
+          "duration": "3周"
+        },
+        {
+          "stepNumber": 3,
+          "title": "实施跨部门联合评审",
+          "description": "每季度组织业务、法务、安全部门召开联合评审会，重点审查高权限接口的使用合理性和必要性。",
+          "duration": "1天（每季度）"
+        },
+        {
+          "stepNumber": 4,
+          "title": "跟踪评审闭环整改",
+          "description": "建立评审问题跟踪台账，明确整改责任人和截止日期，确保所有评审发现的问题在规定时间内解决。",
+          "duration": "持续进行"
+        }
+      ],
+      "timeline": "3-6个月",
+      "responsible_department": "数据安全部（牵头）、法务部、业务部门",
+      "expected_improvement": 0.3,
+      "resources_needed": {
+        "budget": "5万元以下（主要为流程建设与沟通成本）",
+        "personnel": ["安全合规经理", "业务接口人", "法务专员"],
+        "technology": ["GRC（治理、风险与合规）管理平台", "流程协作工具"],
+        "training": "全员宣贯新修订的评审制度"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": ["建立传输数据审计分析"],
+        "externalDependencies": ["需管理层批准制度更新"]
+      },
+      "risks": [
+        {
+          "risk": "业务部门认为评审流程繁琐，影响效率",
+          "mitigation": "推广自动化检查工具，减少人工填报工作量；将评审前置到需求阶段"
+        },
+        {
+          "risk": "评审发现的问题整改不到位",
+          "mitigation": "将整改完成情况纳入各部门年度安全绩效考核指标"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "评审问题整改完成率",
+          "target": "100%",
+          "measurementMethod": "根据评审台账统计按期关闭的问题比例"
+        },
+        {
+          "metric": "安全策略更新及时性",
+          "target": "<1个月",
+          "measurementMethod": "从新风险出现到策略发布修订版的时间间隔"
+        },
+        {
+          "metric": "评审覆盖率",
+          "target": "100%",
+          "measurementMethod": "统计已评审接口占活跃接口总数的比例"
+        }
+      ]
+    }
+  ]
+}

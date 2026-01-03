@@ -2,7 +2,8 @@ import { Controller, Post, Get, Put, Delete, Body, Param, HttpCode, HttpStatus, 
 import { SurveyService } from './survey.service'
 import { MaturityAnalysisService } from './maturity-analysis.service'
 import { ActionPlanGenerationService } from './action-plan-generation.service'
-import { CreateSurveyDto, SaveDraftDto, SubmitSurveyDto } from './dto'
+import { CreateSurveyDto, SaveDraftDto, SubmitSurveyDto, UploadAndAnalyzeDto } from './dto'
+import { AITaskType, TaskStatus } from '../../database/entities/ai-task.entity'
 
 @Controller('survey')
 export class SurveyController {
@@ -192,6 +193,79 @@ export class SurveyController {
       return {
         success: false,
         message: error.message || '获取落地措施失败',
+      }
+    }
+  }
+
+  /**
+   * 上传并分析问卷答案（用于差距分析）
+   * POST /survey/upload-and-analyze
+   */
+  @Post('upload-and-analyze')
+  async uploadAndAnalyze(@Body() dto: UploadAndAnalyzeDto) {
+    try {
+      console.log('[SurveyController] 收到上传并分析请求:', dto.projectId)
+
+      // 1. 获取项目的问卷任务
+      const questionnaireTasks = await this.surveyService['aiTaskRepository'].find({
+        where: {
+          projectId: dto.projectId,
+          type: AITaskType.QUESTIONNAIRE,
+          status: TaskStatus.COMPLETED,
+        },
+        order: {
+          createdAt: 'DESC',
+        },
+        take: 1,
+      })
+
+      if (!questionnaireTasks || questionnaireTasks.length === 0) {
+        return {
+          success: false,
+          message: '未找到已完成的问卷任务，请先完成问卷生成',
+        }
+      }
+
+      const questionnaireTaskId = questionnaireTasks[0].id
+      console.log('[SurveyController] 使用问卷任务:', questionnaireTaskId)
+
+      // 2. 创建问卷填写记录
+      const createSurveyDto: CreateSurveyDto = {
+        questionnaireTaskId,
+        respondentName: dto.questionnaireData.respondentInfo.name,
+        respondentDepartment: dto.questionnaireData.respondentInfo.department,
+        respondentPosition: dto.questionnaireData.respondentInfo.position,
+      }
+
+      const survey = await this.surveyService.createSurvey(createSurveyDto)
+
+      // 3. 提交问卷
+      const submitSurveyDto: SubmitSurveyDto = {
+        answers: dto.questionnaireData.answers,
+        totalScore: dto.questionnaireData.totalScore,
+        maxScore: dto.questionnaireData.maxScore,
+      }
+
+      await this.surveyService.submitSurvey(survey.id, submitSurveyDto)
+
+      // 4. 进行成熟度分析
+      const analysis = await this.maturityAnalysisService.analyzeSurvey(survey.id)
+
+      console.log('[SurveyController] 上传并分析完成, survey ID:', survey.id)
+
+      return {
+        success: true,
+        data: {
+          ...analysis,
+          surveyResponseId: survey.id,
+        },
+        message: '差距分析完成',
+      }
+    } catch (error) {
+      console.error('[SurveyController] 上传并分析失败:', error.message, error.stack)
+      return {
+        success: false,
+        message: error.message || '上传并分析失败',
       }
     }
   }

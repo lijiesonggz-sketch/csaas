@@ -42,15 +42,44 @@ export class ConsistencyValidator {
   constructor(private readonly similarityCalculator: SimilarityCalculator) {}
 
   /**
-   * 验证三模型输出的一致性
+   * 验证三模型输出的一致性（支持动态质量验证）
    * @param results 三模型的输出结果
    * @returns 一致性报告
    */
   async validate(results: ValidationResult): Promise<ConsistencyReport> {
-    this.logger.log('Starting consistency validation...')
-
     const { gpt4, claude, domestic } = results
 
+    // 统计成功的模型数量
+    const successfulModels = [gpt4, claude, domestic].filter((r) => r !== null)
+    const successfulCount = successfulModels.length
+
+    this.logger.log(
+      `Starting consistency validation with ${successfulCount}/3 successful models`,
+    )
+
+    // ⭐ 动态质量验证：根据成功数量调整验证策略
+    if (successfulCount === 0) {
+      throw new Error('No successful model results to validate')
+    }
+
+    if (successfulCount === 1) {
+      // ⭐ 只有1个模型成功：跳过一致性验证，给满分
+      this.logger.warn(
+        'Only 1 model succeeded, skipping consistency validation, assigning perfect scores',
+      )
+
+      return {
+        structuralScore: 1,
+        semanticScore: 1,
+        detailScore: 1,
+        overallScore: 1,
+        agreements: ['Single model result - no comparison possible'],
+        disagreements: [],
+        highRiskDisagreements: [],
+      }
+    }
+
+    // ⭐ 2-3个模型成功：正常进行一致性验证
     // Layer 1: 结构一致性验证（JSON Schema结构）
     const structuralScore = this.validateStructuralConsistency(
       gpt4,
@@ -298,9 +327,25 @@ export class ConsistencyValidator {
   }
 
   /**
-   * 获取置信度等级
+   * 获取置信度等级（根据成功模型数量）
+   * @param overallScore 总体分数
+   * @param successfulCount 成功模型数量
+   * @returns 置信度等级
    */
-  getConfidenceLevel(overallScore: number): 'HIGH' | 'MEDIUM' | 'LOW' {
+  getConfidenceLevel(
+    overallScore: number,
+    successfulCount?: number,
+  ): 'HIGH' | 'MEDIUM' | 'LOW' {
+    // ⭐ 动态置信度：根据成功模型数量调整
+    if (successfulCount === 1) {
+      return 'LOW' // 单模型结果，低置信度
+    }
+
+    if (successfulCount === 2) {
+      return overallScore >= 0.75 ? 'MEDIUM' : 'LOW' // 2模型对比，中等置信度
+    }
+
+    // 3模型对比
     if (overallScore >= 0.85) return 'HIGH'
     if (overallScore >= 0.75) return 'MEDIUM'
     return 'LOW'

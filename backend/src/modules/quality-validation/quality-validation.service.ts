@@ -50,6 +50,13 @@ export class QualityValidationService {
   async validateQuality(results: ValidationResult): Promise<FullValidationReport> {
     this.logger.log('Starting full quality validation...')
 
+    // 统计成功模型数量
+    const successfulCount = [results.gpt4, results.claude, results.domestic].filter(
+      (r) => r !== null,
+    ).length
+
+    this.logger.log(`Successful models: ${successfulCount}/3`)
+
     // 一致性验证
     const consistencyReport = await this.consistencyValidator.validate(results)
 
@@ -60,9 +67,12 @@ export class QualityValidationService {
       detail: consistencyReport.detailScore,
     }
 
-    // 总体分数和置信度
+    // 总体分数和置信度（传递成功模型数量）
     const overallScore = consistencyReport.overallScore
-    const confidenceLevel = this.consistencyValidator.getConfidenceLevel(overallScore)
+    const confidenceLevel = this.consistencyValidator.getConfidenceLevel(
+      overallScore,
+      successfulCount,
+    )
 
     // 判断是否通过
     const passed = this.consistencyValidator.isPassed(consistencyReport)

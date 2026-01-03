@@ -131,11 +131,24 @@ export class ProjectsService {
   }
 
   async calculateProgress(projectId: string): Promise<number> {
+    const project = await this.projectRepo.findOne({
+      where: { id: projectId },
+    })
+
+    if (!project) {
+      return 0
+    }
+
     const tasks = await this.aiTaskRepo.find({
       where: { projectId },
     })
 
     if (tasks.length === 0) {
+      // 如果没有任何任务，但有上传文档，进度为20% (1/5步骤完成)
+      const uploadedDocs = (project.metadata as any)?.uploadedDocuments
+      if (uploadedDocs && uploadedDocs.length > 0) {
+        return Math.round((1 / 6) * 100) // 上传文档占1/6
+      }
       return 0
     }
 
@@ -154,7 +167,15 @@ export class ProjectsService {
       completedTasks.some((task) => task.type === type),
     ).length
 
-    return Math.round((completedSteps / stepTypes.length) * 100)
+    // 检查是否上传了文档
+    const uploadedDocs = (project.metadata as any)?.uploadedDocuments
+    const hasUploadedDocs = uploadedDocs && uploadedDocs.length > 0
+
+    // 总步骤数 = 上传文档(1) + 5个AI任务步骤 = 6
+    const totalSteps = 6
+    const completedCount = completedSteps + (hasUploadedDocs ? 1 : 0)
+
+    return Math.round((completedCount / totalSteps) * 100)
   }
 
   async autoUpdateStatus(projectId: string): Promise<void> {

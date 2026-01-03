@@ -48,7 +48,28 @@
       "Bash(timeout /t 30 /nobreak)",
       "Bash(PORT=3002 npm run dev:*)",
       "Bash(dir:*)",
-      "Bash(timeout /t 10 /nobreak)"
+      "Bash(timeout /t 10 /nobreak)",
+      "Bash(node:*)",
+      "WebSearch",
+      "Bash(timeout /t 60)",
+      "Bash(git status:*)",
+      "Bash(timeout /t 15 /nobreak)",
+      "Bash(PORT=3001 npm run dev:*)",
+      "Bash(set PORT=3001)",
+      "Bash(npx ts-node:*)",
+      "Bash(python -m json.tool:*)",
+      "Bash(cd:*)",
+      "Bash(python:*)",
+      "Bash(timeout 10 npm run start:dev:*)",
+      "Bash(del:*)",
+      "Bash(timeout:*)",
+      "Bash(PORT=3000 npm run start:*)",
+      "Bash(git checkout:*)",
+      "Bash(set:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git diff:*)",
+      "Bash(select-string:*)",
+      "Bash(Select-Object:*)"
     ]
   }
 }

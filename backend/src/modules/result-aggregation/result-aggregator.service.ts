@@ -5,6 +5,7 @@ import {
   AIGenerationResult,
   ConfidenceLevel,
   SelectedModel,
+  ReviewStatus,
 } from '../../database/entities/ai-generation-result.entity'
 import { AITask, AITaskType } from '../../database/entities/ai-task.entity'
 import { FullValidationReport } from '../quality-validation/quality-validation.service'
@@ -266,5 +267,33 @@ export class ResultAggregatorService {
 
     // 否则返回AI选择的结果
     return result.selectedResult
+  }
+
+  /**
+   * 更新生成结果的内容（用户手工修改）
+   * @param resultId 结果ID
+   * @param updatedContent 更新后的内容（JSON字符串）
+   * @param reviewStatus 审核状态（MODIFIED/APPROVED）
+   */
+  async updateResultContent(
+    resultId: string,
+    updatedContent: string,
+    reviewStatus: ReviewStatus = ReviewStatus.MODIFIED,
+  ): Promise<void> {
+    this.logger.log(`Updating result content for result ${resultId}`)
+
+    // 解析更新后的内容
+    const updatedResult = JSON.parse(updatedContent)
+
+    // 更新数据库记录
+    await this.generationResultRepository.update(resultId, {
+      selectedResult: updatedContent as any, // 类型转换，存储JSON字符串
+      modifiedResult: updatedResult, // 同时保存到modifiedResult
+      reviewStatus: reviewStatus,
+      version: () => 'version + 1', // 版本号+1
+      updatedAt: new Date(),
+    })
+
+    this.logger.log(`Result content updated successfully for result ${resultId}`)
   }
 }

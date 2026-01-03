@@ -146,18 +146,20 @@ export class ActionPlanService {
    * @returns 建议的措施数量
    */
   private calculateMeasureCount(gap: number, currentLevel: number): number {
-    // 基础规则：每0.5分差距生成1-2条措施
-    let baseCount = Math.ceil(gap / 0.5)
+    // 基础规则：每0.5分差距生成2-3条措施（提高颗粒度）
+    let baseCount = Math.ceil(gap / 0.5 * 2)
 
     // 调整因子：基础薄弱的领域需要更多措施
     if (currentLevel < 1.5) {
       baseCount = Math.ceil(baseCount * 1.5) // 增加50%
     } else if (currentLevel < 2.5) {
-      baseCount = Math.ceil(baseCount * 1.2) // 增加20%
+      baseCount = Math.ceil(baseCount * 1.3) // 增加30%（从20%提高到30%）
+    } else if (currentLevel < 3.5) {
+      baseCount = Math.ceil(baseCount * 1.1) // 增加10%
     }
 
-    // 限制范围：每个聚类最少2条，最多8条
-    return Math.max(2, Math.min(8, baseCount))
+    // 限制范围：每个聚类最少3条，最多10条（提高上限）
+    return Math.max(3, Math.min(10, baseCount))
   }
 
   /**

@@ -15,6 +15,8 @@ import { CostMonitoringService } from '../services/cost-monitoring.service'
 import { generateActionPlanPrompt } from '../prompts/action-plan.prompt'
 import { AIModel } from '../../../database/entities/ai-generation-event.entity'
 import { ClusteringGenerator } from '../../ai-generation/generators/clustering.generator'
+import { MatrixGenerator } from '../../ai-generation/generators/matrix.generator'
+import { QuestionnaireGenerator } from '../../ai-generation/generators/questionnaire.generator'
 import { QualityValidationService } from '../../quality-validation/quality-validation.service'
 import { ResultAggregatorService } from '../../result-aggregation/result-aggregator.service'
 
@@ -57,6 +59,8 @@ export class AITaskProcessor extends WorkerHost {
     private readonly tasksGateway: TasksGateway,
     private readonly costMonitoring: CostMonitoringService,
     private readonly clusteringGenerator: ClusteringGenerator,
+    private readonly matrixGenerator: MatrixGenerator,
+    private readonly questionnaireGenerator: QuestionnaireGenerator,
     private readonly qualityValidation: QualityValidationService,
     private readonly resultAggregator: ResultAggregatorService,
   ) {
@@ -243,6 +247,8 @@ export class AITaskProcessor extends WorkerHost {
         // 构造响应（只返回聚合后的最佳结果）
         const finalResult = {
           ...aggregationOutput.selectedResult,
+          // 添加taskId供后续使用（如生成矩阵）
+          taskId,
           // 添加质量分数和置信度信息
           qualityScores: aggregationOutput.qualityScores,
           confidenceLevel: aggregationOutput.confidenceLevel,
@@ -276,6 +282,304 @@ export class AITaskProcessor extends WorkerHost {
         this.logger.log(
           `Clustering workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${aggregationOutput.selectedModel}`,
         )
+      } else if (type === 'matrix') {
+        // ✅ 特殊处理：matrix类型使用MatrixGenerator（三模型并行）
+        this.logger.log(`Using MatrixGenerator for three-model parallel processing`)
+
+        // 检查是否提供了clusteringTaskId
+        if (!processedInput.clusteringTaskId) {
+          throw new Error('clusteringTaskId is required for matrix generation')
+        }
+
+        // 从数据库获取聚类结果
+        this.logger.log(`Fetching clustering result: ${processedInput.clusteringTaskId}`)
+        const clusteringTask = await this.aiTaskRepo.findOne({
+          where: { id: processedInput.clusteringTaskId },
+        })
+
+        if (!clusteringTask || !clusteringTask.result) {
+          throw new Error(`Clustering task ${processedInput.clusteringTaskId} not found or has no result`)
+        }
+
+        // 解析聚类结果
+        let clusteringResult: any
+        if (typeof clusteringTask.result === 'string') {
+          // 如果 result 是 JSON 字符串，先解析
+          const parsed = JSON.parse(clusteringTask.result)
+          // parsed.content 可能是 JSON 字符串，需要再次解析
+          if (typeof parsed.content === 'string') {
+            clusteringResult = JSON.parse(parsed.content)
+          } else {
+            clusteringResult = parsed.content || parsed
+          }
+        } else {
+          // result 已经是对象
+          const resultObj = clusteringTask.result as any
+          if (resultObj.content) {
+            // result.content 可能是 JSON 字符串或对象
+            if (typeof resultObj.content === 'string') {
+              clusteringResult = JSON.parse(resultObj.content)
+            } else {
+              clusteringResult = resultObj.content
+            }
+          } else {
+            // 没有 content 字段，直接使用 result
+            clusteringResult = resultObj
+          }
+        }
+        this.logger.log(`Loaded clustering result with ${clusteringResult.categories?.length || 0} categories`)
+
+        // 准备输入
+        const matrixInput = {
+          clusteringResult,
+          temperature: 0.7,
+          maxTokens: 60000,
+        }
+
+        // 调用MatrixGenerator.generate()（三模型并行）
+        this.logger.log(`Step 1/3: Generating matrix results with 3 models...`)
+        const matrixResults = await this.matrixGenerator.generate(matrixInput)
+
+        // Step 2: 质量验证
+        this.logger.log(`Step 2/3: Validating quality of 3 models...`)
+        const validationReport = await this.qualityValidation.validateQuality({
+          gpt4: matrixResults.gpt4,
+          claude: matrixResults.claude,
+          domestic: matrixResults.domestic,
+        })
+
+        this.logger.log(
+          `Quality validation completed: overall=${validationReport.overallScore.toFixed(4)}, confidence=${validationReport.confidenceLevel}, passed=${validationReport.passed}`,
+        )
+
+        // Step 3: 结果聚合
+        this.logger.log(`Step 3/3: Aggregating best result from 3 models...`)
+        const aggregationOutput = await this.resultAggregator.aggregate({
+          taskId,
+          generationType: AITaskType.MATRIX,
+          gpt4Result: matrixResults.gpt4,
+          claudeResult: matrixResults.claude,
+          domesticResult: matrixResults.domestic,
+          validationReport,
+        })
+
+        this.logger.log(
+          `Aggregation completed: selected=${aggregationOutput.selectedModel}, confidence=${aggregationOutput.confidenceLevel}`,
+        )
+
+        executionTimeMs = Date.now() - startTime
+
+        // 更新进度：所有三个模型都完成
+        const modelProgress: any = {
+          gpt4: {
+            status: 'completed',
+            message: '✅ 完成',
+            tokens: 0,
+            cost: 0,
+          },
+          claude: {
+            status: 'completed',
+            message: '✅ 完成',
+            tokens: 0,
+            cost: 0,
+          },
+          domestic: {
+            status: 'completed',
+            message: '✅ 完成',
+            tokens: 0,
+            cost: 0,
+          },
+        }
+
+        await this.aiTaskRepo.update(taskId, {
+          generationStage: GenerationStage.COMPLETED,
+          progressDetails: modelProgress,
+        })
+
+        // 构造响应（只返回聚合后的最佳结果）
+        const finalResult = {
+          ...aggregationOutput.selectedResult,
+          taskId,
+          qualityScores: aggregationOutput.qualityScores,
+          confidenceLevel: aggregationOutput.confidenceLevel,
+          selectedModel: aggregationOutput.selectedModel,
+          consistencyReport: aggregationOutput.consistencyReport,
+        }
+
+        aiResponse = {
+          content: JSON.stringify(finalResult),
+          metadata: {
+            type: 'matrix',
+            selectedModel: aggregationOutput.selectedModel,
+            confidenceLevel: aggregationOutput.confidenceLevel,
+            models: ['gpt4', 'claude', 'domestic'],
+            timestamp: new Date().toISOString(),
+          },
+          tokens: { total: 0 },
+          cost: 0,
+        }
+
+        // 记录聚合后的事件
+        await this.eventRepo.save({
+          taskId,
+          model: aggregationOutput.selectedModel as any,
+          input: matrixInput,
+          output: { content: JSON.stringify(finalResult) } as any,
+          executionTimeMs,
+        })
+
+        this.logger.log(
+          `Matrix workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${aggregationOutput.selectedModel}`,
+        )
+      } else if (type === 'questionnaire') {
+        // ✅ 特殊处理：questionnaire类型使用QuestionnaireGenerator（三模型并行）
+        this.logger.log(`Using QuestionnaireGenerator for three-model parallel processing`)
+
+        // 检查是否提供了matrixTaskId
+        if (!processedInput.matrixTaskId) {
+          throw new Error('matrixTaskId is required for questionnaire generation')
+        }
+
+        // 从数据库获取矩阵结果
+        this.logger.log(`Fetching matrix result: ${processedInput.matrixTaskId}`)
+        const matrixTask = await this.aiTaskRepo.findOne({
+          where: { id: processedInput.matrixTaskId },
+        })
+
+        if (!matrixTask || !matrixTask.result) {
+          throw new Error(`Matrix task ${processedInput.matrixTaskId} not found or has no result`)
+        }
+
+        // 解析矩阵结果
+        let matrixResult: any
+        if (typeof matrixTask.result === 'string') {
+          // 如果 result 是 JSON 字符串，先解析
+          const parsed = JSON.parse(matrixTask.result)
+          // parsed.content 可能是 JSON 字符串，需要再次解析
+          if (typeof parsed.content === 'string') {
+            matrixResult = JSON.parse(parsed.content)
+          } else {
+            matrixResult = parsed.content || parsed
+          }
+        } else {
+          // result 已经是对象
+          const resultObj = matrixTask.result as any
+          if (resultObj.content) {
+            // result.content 可能是 JSON 字符串或对象
+            if (typeof resultObj.content === 'string') {
+              matrixResult = JSON.parse(resultObj.content)
+            } else {
+              matrixResult = resultObj.content
+            }
+          } else {
+            // 没有 content 字段，直接使用 result
+            matrixResult = resultObj
+          }
+        }
+        this.logger.log(`Loaded matrix result with ${matrixResult.matrix?.length || 0} clusters`)
+
+        // 准备输入
+        const questionnaireInput = {
+          matrixResult,
+          temperature: 0.7,
+          maxTokens: 8000,
+        }
+
+        // 调用QuestionnaireGenerator.generate()（三模型并行）
+        this.logger.log(`Step 1/3: Generating questionnaire results with 3 models...`)
+        const questionnaireResults = await this.questionnaireGenerator.generate(questionnaireInput)
+
+        // Step 2: 质量验证
+        this.logger.log(`Step 2/3: Validating quality of 3 models...`)
+        const validationReport = await this.qualityValidation.validateQuality({
+          gpt4: questionnaireResults.gpt4,
+          claude: questionnaireResults.claude,
+          domestic: questionnaireResults.domestic,
+        })
+
+        this.logger.log(
+          `Quality validation completed: overall=${validationReport.overallScore.toFixed(4)}, confidence=${validationReport.confidenceLevel}, passed=${validationReport.passed}`,
+        )
+
+        // Step 3: 结果聚合
+        this.logger.log(`Step 3/3: Aggregating best result from 3 models...`)
+        const aggregationOutput = await this.resultAggregator.aggregate({
+          taskId,
+          generationType: AITaskType.QUESTIONNAIRE,
+          gpt4Result: questionnaireResults.gpt4,
+          claudeResult: questionnaireResults.claude,
+          domesticResult: questionnaireResults.domestic,
+          validationReport,
+        })
+
+        this.logger.log(
+          `Aggregation completed: selected=${aggregationOutput.selectedModel}, confidence=${aggregationOutput.confidenceLevel}`,
+        )
+
+        executionTimeMs = Date.now() - startTime
+
+        // 更新进度：所有三个模型都完成
+        const modelProgress: any = {
+          gpt4: {
+            status: 'completed',
+            message: '✅ 完成',
+            tokens: 0,
+            cost: 0,
+          },
+          claude: {
+            status: 'completed',
+            message: '✅ 完成',
+            tokens: 0,
+            cost: 0,
+          },
+          domestic: {
+            status: 'completed',
+            message: '✅ 完成',
+            tokens: 0,
+            cost: 0,
+          },
+        }
+
+        await this.aiTaskRepo.update(taskId, {
+          generationStage: GenerationStage.COMPLETED,
+          progressDetails: modelProgress,
+        })
+
+        // 构造响应（只返回聚合后的最佳结果）
+        const finalResult = {
+          ...aggregationOutput.selectedResult,
+          taskId,
+          qualityScores: aggregationOutput.qualityScores,
+          confidenceLevel: aggregationOutput.confidenceLevel,
+          selectedModel: aggregationOutput.selectedModel,
+          consistencyReport: aggregationOutput.consistencyReport,
+        }
+
+        aiResponse = {
+          content: JSON.stringify(finalResult),
+          metadata: {
+            type: 'questionnaire',
+            selectedModel: aggregationOutput.selectedModel,
+            confidenceLevel: aggregationOutput.confidenceLevel,
+            models: ['gpt4', 'claude', 'domestic'],
+            timestamp: new Date().toISOString(),
+          },
+          tokens: { total: 0 },
+          cost: 0,
+        }
+
+        // 记录聚合后的事件
+        await this.eventRepo.save({
+          taskId,
+          model: aggregationOutput.selectedModel as any,
+          input: questionnaireInput,
+          output: { content: JSON.stringify(finalResult) } as any,
+          executionTimeMs,
+        })
+
+        this.logger.log(
+          `Questionnaire workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${aggregationOutput.selectedModel}`,
+        )
       } else {
         // 其他类型：使用原有的单模型逻辑
         const prompt = this.buildPrompt(type, processedInput)
@@ -300,8 +604,8 @@ export class AITaskProcessor extends WorkerHost {
         currentStep: 'saving',
       })
 
-      // ✅ clustering类型已经在前面记录了三个模型的事件，这里跳过
-      if (type !== 'clustering') {
+      // ✅ clustering/matrix/questionnaire类型已经在前面记录了三个模型的事件，这里跳过
+      if (type !== 'clustering' && type !== 'matrix' && type !== 'questionnaire') {
         // 更新生成事件 - 完成
         await this.eventRepo.update(event.id, {
           output: { content: aiResponse.content, metadata: aiResponse.metadata } as any,
@@ -328,8 +632,8 @@ export class AITaskProcessor extends WorkerHost {
       // 更新任务状态为 COMPLETED
       let completedProgress: any
 
-      if (type === 'clustering') {
-        // clustering类型：保留三模型进度信息
+      if (type === 'clustering' || type === 'matrix' || type === 'questionnaire') {
+        // clustering/matrix/questionnaire类型：保留三模型进度信息
         completedProgress = {
           gpt4: { status: 'completed', message: '✅ 完成' },
           claude: { status: 'completed', message: '✅ 完成' },
@@ -356,9 +660,9 @@ export class AITaskProcessor extends WorkerHost {
       })
 
       // ✅ 根据任务类型输出不同的日志
-      if (type === 'clustering') {
+      if (type === 'clustering' || type === 'matrix' || type === 'questionnaire') {
         this.logger.log(
-          `AI task ${taskId} (clustering) completed in ${executionTimeMs}ms with 3 models (GPT-4, Claude, Domestic)`,
+          `AI task ${taskId} (${type}) completed in ${executionTimeMs}ms with 3 models (GPT-4, Claude, Domestic)`,
         )
       } else {
         this.logger.log(

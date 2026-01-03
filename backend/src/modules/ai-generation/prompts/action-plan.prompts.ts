@@ -224,6 +224,17 @@ ${clusterGapData.question_details
 6. expected_improvement的总和应接近差距值(${clusterGapData.gap.toFixed(2)})
 7. 措施之间要有逻辑顺序,基础措施排在前面,高级措施排在后面
 8. 确保JSON格式完全合法,不要有尾随逗号、未引号的属性名等常见错误
+9. **特别注意**：
+   - risks 必须是数组: "risks": [{"risk": "...", "mitigation": "..."}]
+   - kpi_metrics 必须是数组: "kpi_metrics": [{"metric": "...", "target": "...", "measurementMethod": "..."}]
+   - 不要忘记写 "risks": 和 "kpi_metrics": 这些键名
+   - 每个数组元素之间用逗号分隔,最后一个元素后面不要有逗号
+10. **输出前请检查**：
+    - 所有 { 都有对应的 }
+    - 所有 [ 都有对应的 ]
+    - 所有字符串都用双引号
+    - 所有对象字段之间用逗号分隔
+    - 数组的最后一个元素后面不要有逗号
 
 现在请开始生成 **${clusterGapData.suggested_measure_count}条** 改进措施,输出纯JSON(不要有任何其他文字):
 `

@@ -1,0 +1,187 @@
+{
+  "measures": [
+    {
+      "title": "建立量化响应评估指标体系",
+      "description": "针对问题3'监控应急响应过程和评估处置效果'得分仅为3分的情况，目前仅检查时限合规性较为单一。本措施将引入MTTR（平均响应时间）、MTTD（平均检测时间）等量化指标，建立多维度的应急响应效能评估仪表盘，从而提升监控与评估的成熟度。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "定义关键效能指标",
+          "description": "结合行业最佳实践，定义MTTD、MTTR、遏制成功率、恢复成功率等核心指标，并设定各指标的基线值和目标值。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "部署效能评估看板",
+          "description": "利用现有的SIEM或运维管理平台，开发或配置应急响应效能可视化看板，实时展示各关键指标数据。",
+          "duration": "1个月"
+        },
+        {
+          "stepNumber": 3,
+          "title": "建立定期复盘机制",
+          "description": "每月基于效能看板数据召开应急响应复盘会议，分析指标波动原因，识别处置流程中的瓶颈并制定改进计划。",
+          "duration": "持续进行"
+        }
+      ],
+      "timeline": "2-3个月",
+      "responsible_department": "数据安全部、IT运维部",
+      "expected_improvement": 0.3,
+      "resources_needed": {
+        "budget": "5-10万元（可能需要可视化组件开发或采购）",
+        "personnel": ["数据安全分析师", "运维工程师"],
+        "technology": ["SIEM平台", "数据可视化工具（如Grafana）"],
+        "training": "指标定义与数据分析方法培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": [],
+        "externalDependencies": []
+      },
+      "risks": [
+        {
+          "risk": "指标定义不合理，无法真实反映处置效果",
+          "mitigation": "在初期广泛征求一线处置人员意见，采用试点运行方式验证指标有效性"
+        },
+        {
+          "risk": "数据采集不全，导致计算偏差",
+          "mitigation": "打通安全设备与工单系统的数据接口，确保关键节点数据自动记录"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "MTTR（平均响应时间）",
+          "target": "< 4小时",
+          "measurementMethod": "计算从事件确认到事件根除的平均时间间隔"
+        },
+        {
+          "metric": "效能评估覆盖率",
+          "target": "100%",
+          "measurementMethod": "统计已纳入量化评估的事件占所有应急事件的比例"
+        }
+      ]
+    },
+    {
+      "title": "构建全链路证据留存体系",
+      "description": "针对问题5'留存应急响应记录和证据'得分仅为3分的问题，当前依赖人工存档口头及书面记录，存在证据不完整或篡改风险。本措施通过部署自动化日志审计与证据留存系统，实现从事件发生到处置结束的全链路、防篡改记录，满足审计与取证的高标准要求。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "梳理证据留存清单",
+          "description": "依据法律法规和审计要求，详细梳理各阶段（发现、研判、处置、恢复）必须留存的证据类型和格式标准。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 2,
+          "title": "部署日志留存系统",
+          "description": "引入或升级日志审计系统，配置关键业务系统、安全设备的日志全量采集策略，并开启防篡改和WORM（写一次读多次）存储功能。",
+          "duration": "1个月"
+        },
+        {
+          "stepNumber": 3,
+          "title": "集成证据归档流程",
+          "description": "将证据自动打包归档功能集成到应急响应工单流程中，确保事件结案时自动生成完整的证据包。",
+          "duration": "3周"
+        }
+      ],
+      "timeline": "3-4个月",
+      "responsible_department": "数据安全部、IT基础架构部",
+      "expected_improvement": 0.3,
+      "resources_needed": {
+        "budget": "15-25万元（日志审计存储扩容及软件授权）",
+        "personnel": ["日志审计工程师", "合规专员"],
+        "technology": ["日志审计系统", "对象存储服务"],
+        "training": "电子证据取证与保全培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": [],
+        "externalDependencies": ["法务部确认证据留存合规性要求"]
+      },
+      "risks": [
+        {
+          "risk": "日志量过大导致存储成本激增",
+          "mitigation": "制定合理的日志分级留存策略，冷数据使用低成本存储介质"
+        },
+        {
+          "risk": "关键设备日志未覆盖",
+          "mitigation": "进行全面资产盘点，确保无死角接入日志采集网络"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "证据留存完整率",
+          "target": "100%",
+          "measurementMethod": "抽查历史事件，验证关键证据节点的日志留存情况"
+        },
+        {
+          "metric": "证据检索时效",
+          "target": "< 30分钟",
+          "measurementMethod": "测试从海量日志中检索特定事件证据所需的时间"
+        }
+      ]
+    },
+    {
+      "title": "实施实战化演练与闭环改进",
+      "description": "针对问题2'实际处置措施'和问题4'机制优化'得分均为3分的情况，目前演练较为常规，优化依赖事后总结。本措施引入攻防对抗性质的实战演练，并建立基于RCA（根因分析）的闭环改进机制，确保每次演练和事件都能转化为具体的安全能力提升。",
+      "implementation_steps": [
+        {
+          "stepNumber": 1,
+          "title": "设计实战化演练场景",
+          "description": "不再使用脚本式演练，而是模拟真实的高级持续性威胁（APT）或内部攻击场景，引入红队进行不通知的突击测试。",
+          "duration": "1个月"
+        },
+        {
+          "stepNumber": 2,
+          "title": "执行实战攻防演练",
+          "description": "组织红蓝对抗演练，重点检测在高压环境下团队的协同能力、决策速度以及预案的可执行性，全程录制演练过程。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 3,
+          "title": "开展根因分析（RCA）",
+          "description": "演练结束后，不仅关注结果，更深入分析演练中暴露的流程漏洞、技术短板和人员技能缺陷，形成详细的RCA报告。",
+          "duration": "2周"
+        },
+        {
+          "stepNumber": 4,
+          "title": "落实整改与预案更新",
+          "description": "将RCA报告中的改进点转化为具体的整改任务（如修补漏洞、优化策略），并据此修订应急预案，形成'演练-发现-整改-验证'的闭环。",
+          "duration": "1个月"
+        }
+      ],
+      "timeline": "4-6个月",
+      "responsible_department": "数据安全部（牵头）、各业务部门",
+      "expected_improvement": 0.5,
+      "resources_needed": {
+        "budget": "20-30万元（外部红队服务、演练平台）",
+        "personnel": ["应急响应小组", "红队成员（外部或内部）"],
+        "technology": ["靶场环境", "攻击模拟工具"],
+        "training": "RCA分析方法培训、实战攻防技巧培训"
+      },
+      "dependencies": {
+        "prerequisiteMeasures": ["建立量化响应评估指标体系"],
+        "externalDependencies": ["管理层批准实战演练可能带来的业务风险"]
+      },
+      "risks": [
+        {
+          "risk": "实战演练可能影响业务连续性",
+          "mitigation": "严格划定演练范围和时间窗口，准备完善的回滚方案和熔断机制"
+        },
+        {
+          "risk": "整改任务难以落地",
+          "mitigation": "将演练整改任务纳入各部门的年度安全绩效考核，设置明确的完成期限"
+        }
+      ],
+      "kpi_metrics": [
+        {
+          "metric": "演练发现问题整改完成率",
+          "target": "≥ 95%",
+          "measurementMethod": "统计规定时间内完成的整改任务数占总任务数的比例"
+        },
+        {
+          "metric": "实战演练覆盖率",
+          "target": "每年至少2次",
+          "measurementMethod": "统计年度内开展的实战化演练频次"
+        }
+      ]
+    }
+  ]
+}

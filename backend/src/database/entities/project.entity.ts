@@ -11,6 +11,7 @@ import {
 } from 'typeorm'
 import { User } from './user.entity'
 import { AITask } from './ai-task.entity'
+import { ProjectMember } from './project-member.entity'
 
 export enum ProjectStatus {
   DRAFT = 'draft',
@@ -29,6 +30,12 @@ export class Project {
 
   @Column({ type: 'text', nullable: true })
   description: string
+
+  @Column({ name: 'client_name', nullable: true })
+  clientName: string
+
+  @Column({ name: 'standard_name', nullable: true })
+  standardName: string
 
   @Column({ name: 'tenant_id', nullable: true })
   tenantId: string
@@ -61,4 +68,7 @@ export class Project {
 
   @OneToMany(() => AITask, (task) => task.project)
   tasks: AITask[]
+
+  @OneToMany(() => ProjectMember, (member) => member.project)
+  members: ProjectMember[]
 }

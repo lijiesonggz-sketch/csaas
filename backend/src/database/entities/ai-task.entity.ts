@@ -29,6 +29,36 @@ export enum TaskStatus {
   LOW_CONFIDENCE = 'low_confidence', // Level 3降级
 }
 
+export enum GenerationStage {
+  PENDING = 'pending',
+  GENERATING_MODELS = 'generating_models', // 模型生成中
+  QUALITY_VALIDATION = 'quality_validation', // 质量校验中
+  AGGREGATING = 'aggregating', // 结果聚合中
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+}
+
+export interface ModelProgress {
+  status: 'pending' | 'generating' | 'completed' | 'failed'
+  started_at?: string
+  completed_at?: string
+  error?: string
+  tokens?: number
+  cost?: number
+  duration_ms?: number
+}
+
+export interface TaskProgressDetails {
+  gpt4?: ModelProgress
+  claude?: ModelProgress
+  domestic?: ModelProgress
+  current?: ModelProgress // 新的单模型进度字段（用于新任务系统）
+  validation_stage?: 'pending' | 'validating' | 'completed' | 'failed'
+  aggregation_stage?: 'pending' | 'aggregating' | 'completed' | 'failed'
+  current_model?: 'gpt4' | 'claude' | 'domestic'
+  total_elapsed_ms?: number
+}
+
 @Entity('ai_tasks')
 export class AITask {
   @PrimaryGeneratedColumn('uuid')
@@ -54,6 +84,17 @@ export class AITask {
   })
   status: TaskStatus
 
+  @Column({
+    type: 'enum',
+    enum: GenerationStage,
+    default: GenerationStage.PENDING,
+    name: 'generation_stage',
+  })
+  generationStage: GenerationStage
+
+  @Column({ type: 'jsonb', nullable: true, name: 'progress_details' })
+  progressDetails: TaskProgressDetails
+
   @Column({ type: 'integer', default: 1 })
   priority: number
 
@@ -62,6 +103,12 @@ export class AITask {
 
   @Column({ type: 'jsonb', nullable: true })
   result: Record<string, any>
+
+  @Column({ name: 'backup_result', type: 'jsonb', nullable: true })
+  backupResult: Record<string, any>
+
+  @Column({ name: 'backup_created_at', type: 'timestamp', nullable: true })
+  backupCreatedAt: Date
 
   @Column({ type: 'float', default: 0 })
   progress: number

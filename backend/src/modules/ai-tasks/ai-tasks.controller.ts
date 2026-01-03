@@ -22,17 +22,38 @@ export class AITasksController {
   async createTask(@Body() dto: CreateAITaskDto) {
     // TODO: Add JWT authentication back later
     const userId = 'system'
-    return this.aiTasksService.createTask(dto, userId)
+    const task = await this.aiTasksService.createTask(dto, userId)
+    return {
+      success: true,
+      data: task,
+    }
   }
 
   @Get(':id')
   async getTask(@Param('id') id: string) {
-    return this.aiTasksService.getTask(id)
+    const task = await this.aiTasksService.getTask(id)
+    return {
+      success: true,
+      data: task,
+    }
+  }
+
+  @Get(':id/status')
+  async getTaskStatus(@Param('id') id: string) {
+    const status = await this.aiTasksService.getTaskStatus(id)
+    return {
+      success: true,
+      data: status,
+    }
   }
 
   @Get('project/:projectId')
   async getTasksByProject(@Param('projectId') projectId: string) {
-    return this.aiTasksService.getTasksByProject(projectId)
+    const tasks = await this.aiTasksService.getTasksByProject(projectId)
+    return {
+      success: true,
+      data: tasks,
+    }
   }
 
   @Post(':id/retry')
@@ -81,5 +102,18 @@ export class AITasksController {
   @Get('cost/alert/:projectId')
   async checkProjectAlert(@Param('projectId') projectId: string) {
     return this.costMonitoring.checkProjectCostAlert(projectId)
+  }
+
+  /**
+   * 获取改进措施的详细列表（从 action_plan_measures 表）
+   * GET /ai-tasks/:id/measures
+   */
+  @Get(':id/measures')
+  async getActionPlanMeasures(@Param('id') id: string) {
+    const measures = await this.aiTasksService.getActionPlanMeasures(id)
+    return {
+      success: true,
+      data: measures,
+    }
   }
 }
