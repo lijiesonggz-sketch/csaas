@@ -30,7 +30,30 @@ export default function SummaryPage() {
           const { AITasksAPI } = await import('@/lib/api/ai-tasks')
           const task = await AITasksAPI.getTask(taskId!)
           if (task && task.result) {
-            setGenerationResult(task.result)
+            // 处理result结构：兼容旧格式(content)和新格式(三模型)
+            let displayResult = task.result
+
+            // 如果result有content字段，说明是旧格式，需要解析
+            if (task.result.content) {
+              try {
+                const parsedContent = typeof task.result.content === 'string'
+                  ? JSON.parse(task.result.content)
+                  : task.result.content
+
+                // 包装成前端期望的格式（临时方案）
+                displayResult = {
+                  gpt4: parsedContent,
+                  claude: parsedContent,
+                  domestic: parsedContent
+                }
+              } catch (e) {
+                console.error('Failed to parse result.content:', e)
+                // 如果解析失败，直接使用content
+                displayResult = task.result
+              }
+            }
+
+            setGenerationResult(displayResult)
             setLoading(false)
           }
         } catch (err) {
@@ -69,7 +92,31 @@ export default function SummaryPage() {
           const task = await AITasksAPI.getTask(savedTaskId)
           if (task && task.status === 'completed' && task.result) {
             console.log('✅ [Summary] 任务已完成，加载结果')
-            setGenerationResult(task.result)
+
+            // 处理result结构：兼容旧格式(content)和新格式(三模型)
+            let displayResult = task.result
+
+            // 如果result有content字段，说明是旧格式，需要解析
+            if (task.result.content) {
+              try {
+                const parsedContent = typeof task.result.content === 'string'
+                  ? JSON.parse(task.result.content)
+                  : task.result.content
+
+                // 包装成前端期望的格式（临时方案）
+                displayResult = {
+                  gpt4: parsedContent,
+                  claude: parsedContent,
+                  domestic: parsedContent
+                }
+              } catch (e) {
+                console.error('Failed to parse result.content:', e)
+                // 如果解析失败，直接使用content
+                displayResult = task.result
+              }
+            }
+
+            setGenerationResult(displayResult)
             setLoading(false)
           } else {
             console.log('⏳ [Summary] 任务未完成，检查任务状态')
@@ -99,7 +146,30 @@ export default function SummaryPage() {
                   const { AITasksAPI } = await import('@/lib/api/ai-tasks')
                   const task = await AITasksAPI.getTask(savedTaskId)
                   if (task && task.result) {
-                    setGenerationResult(task.result)
+                    // 处理result结构：兼容旧格式(content)和新格式(三模型)
+                    let displayResult = task.result
+
+                    // 如果result有content字段，说明是旧格式，需要解析
+                    if (task.result.content) {
+                      try {
+                        const parsedContent = typeof task.result.content === 'string'
+                          ? JSON.parse(task.result.content)
+                          : task.result.content
+
+                        // 包装成前端期望的格式（临时方案）
+                        displayResult = {
+                          gpt4: parsedContent,
+                          claude: parsedContent,
+                          domestic: parsedContent
+                        }
+                      } catch (e) {
+                        console.error('Failed to parse result.content:', e)
+                        // 如果解析失败，直接使用content
+                        displayResult = task.result
+                      }
+                    }
+
+                    setGenerationResult(displayResult)
                     setLoading(false)
                   }
                 } catch (retryErr) {
