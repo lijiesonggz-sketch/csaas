@@ -7,7 +7,7 @@
 
 import { useState } from 'react'
 import { Card, Descriptions, Tag, Progress, Collapse, Button, Space, Modal, message } from 'antd'
-import { CheckCircleOutlined, WarningOutlined, InfoCircleOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, WarningOutlined, InfoCircleOutlined, DownloadOutlined } from '@ant-design/icons'
 import type { SummaryResult, GenerationResult, ConfidenceLevel, SelectedModel } from '@/lib/types/ai-generation'
 import { AIGenerationAPI } from '@/lib/api/ai-generation'
 
@@ -82,8 +82,87 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
     }
   }
 
+  // 导出为Word
+  const handleExportWord = () => {
+    try {
+      let htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${summaryResult.title}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 40px; line-height: 1.6; }
+            h1 { color: #1890ff; }
+            h2 { color: #262626; margin-top: 30px; border-bottom: 2px solid #1890ff; padding-bottom: 10px; }
+            h3 { color: #595959; margin-top: 20px; }
+            h4 { color: #8c8c8c; }
+            .key-area { background-color: #f5f5f5; padding: 15px; margin: 10px 0; border-left: 4px solid #1890ff; }
+            .meta-info { background-color: #fafafa; padding: 20px; margin: 20px 0; }
+          </style>
+        </head>
+        <body>
+          <h1>${summaryResult.title}</h1>
+
+          <div class="meta-info">
+            <p><strong>生成时间：</strong>${new Date(result.createdAt).toLocaleString('zh-CN')}</p>
+            <p><strong>合规级别：</strong>${summaryResult.compliance_level}</p>
+          </div>
+
+          <h2>概述</h2>
+          <p>${summaryResult.overview}</p>
+
+          <h2>关键领域</h2>
+          ${summaryResult.key_areas.map(area => `
+            <div class="key-area">
+              <h4>${area.name} (${area.importance === 'HIGH' ? '高重要性' : area.importance === 'MEDIUM' ? '中重要性' : '低重要性'})</h4>
+              <p>${area.description}</p>
+            </div>
+          `).join('')}
+
+          <h2>适用范围</h2>
+          <p>${summaryResult.scope}</p>
+
+          <h2>关键要求</h2>
+          <ul>
+            ${summaryResult.key_requirements.map(req => `<li>${req}</li>`).join('')}
+          </ul>
+
+          <div class="meta-info">
+            <h2>质量评分</h2>
+            <p>结构一致性：${((result.qualityScores.structural || 0) * 100).toFixed(1)}%</p>
+            <p>语义一致性：${((result.qualityScores.semantic || 0) * 100).toFixed(1)}%</p>
+            <p>细节一致性：${((result.qualityScores.detail || 0) * 100).toFixed(1)}%</p>
+          </div>
+        </body>
+        </html>
+      `
+
+      const blob = new Blob([htmlContent], { type: 'application/msword' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `summary_${result.taskId}.doc`
+      link.click()
+      URL.revokeObjectURL(url)
+
+      message.success('综述已导出为Word文件！')
+    } catch (error) {
+      message.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* 导出按钮 */}
+      <Card size="small">
+        <Space>
+          <Button icon={<DownloadOutlined />} onClick={handleExportWord}>
+            导出Word
+          </Button>
+        </Space>
+      </Card>
+
       {/* 头部信息卡片 */}
       <Card title="生成信息" size="small">
         <Descriptions column={2} size="small">

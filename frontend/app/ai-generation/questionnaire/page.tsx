@@ -50,19 +50,19 @@ export default function QuestionnaireGenerationPage() {
     setCurrentStep(1)
 
     try {
-      // 获取矩阵结果
-      const matrixResult = await AIGenerationAPI.getFinalResult(matrixTaskId)
+      // 验证矩阵任务ID是否有效（检查是否存在）
+      const matrixCheck = await AIGenerationAPI.getFinalResult(matrixTaskId)
 
-      if (!matrixResult || !matrixResult.data) {
+      if (!matrixCheck || !matrixCheck.data) {
         throw new Error('无法获取矩阵结果，请检查任务ID是否正确')
       }
 
-      // 启动问卷生成
+      // 启动问卷生成（只传递矩阵任务ID，由后端从数据库获取，避免HTTP请求体过大）
       const response = await AIGenerationAPI.generateQuestionnaire({
         taskId: newTaskId,
-        matrixResult: matrixResult.data,
+        matrixTaskId: matrixTaskId, // 只传ID，不传完整数据
         temperature: 0.7,
-        maxTokens: 20000,
+        maxTokens: 8000,
       })
 
       if (response.success) {
@@ -159,7 +159,7 @@ export default function QuestionnaireGenerationPage() {
               disabled={isGenerating}
             />
             <p className="text-sm text-gray-500 mt-2">
-              请先在"成熟度矩阵"页面完成矩阵生成，然后将任务ID复制到此处
+              请先在&ldquo;成熟度矩阵&rdquo;页面完成矩阵生成，然后将任务ID复制到此处
             </p>
           </div>
 

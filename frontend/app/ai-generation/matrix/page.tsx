@@ -62,7 +62,7 @@ export default function MatrixGenerationPage() {
         taskId: newTaskId,
         clusteringResult: clusteringResult.data,
         temperature: 0.7,
-        maxTokens: 16000,
+        maxTokens: 8000,
       })
 
       if (response.success) {
@@ -159,7 +159,7 @@ export default function MatrixGenerationPage() {
               disabled={isGenerating}
             />
             <p className="text-sm text-gray-500 mt-2">
-              请先在"聚类分析"页面完成聚类任务，然后将任务ID复制到此处
+              请先在&ldquo;聚类分析&rdquo;页面完成聚类任务，然后将任务ID复制到此处
             </p>
           </div>
 

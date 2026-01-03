@@ -45,7 +45,9 @@ export interface SummaryResult {
 export interface GenerationResult {
   id: string
   taskId: string
+  projectId?: string // 可选的项目ID，用于跳转到项目工作台
   generationType: GenerationType
+  content?: any // 生成的内容（JSON字符串或对象）
   selectedResult: Record<string, any>
   selectedModel: SelectedModel
   confidenceLevel: ConfidenceLevel

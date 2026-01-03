@@ -98,7 +98,13 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
 
   // 跳转到问卷生成页面
   const handleGenerateQuestionnaire = () => {
-    window.location.href = `/ai-generation/questionnaire?taskId=${result.taskId}`
+    // ✅ 跳转到项目工作台的问卷生成页面，传递 matrixTaskId 和 projectId
+    if (result.projectId) {
+      window.location.href = `/projects/${result.projectId}/questionnaire?matrixTaskId=${result.taskId}`
+    } else {
+      // 兼容旧数据：如果没有 projectId，跳转到独立页面
+      window.location.href = `/ai-generation/questionnaire?taskId=${result.taskId}`
+    }
   }
 
   // 编辑单元格

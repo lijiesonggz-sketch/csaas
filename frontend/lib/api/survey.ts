@@ -179,4 +179,37 @@ export class SurveyAPI {
 
     return response.json()
   }
+
+  /**
+   * 上传并分析问卷答案（用于差距分析）
+   */
+  static async uploadAndAnalyze(request: {
+    projectId: string
+    questionnaireData: {
+      respondentInfo: {
+        name: string
+        department?: string
+        position?: string
+        submittedAt: string
+      }
+      answers: Record<string, string>
+      totalScore: number
+      maxScore: number
+    }
+  }): Promise<{ success: boolean; data: any; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/survey/upload-and-analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to upload and analyze')
+    }
+
+    return response.json()
+  }
 }

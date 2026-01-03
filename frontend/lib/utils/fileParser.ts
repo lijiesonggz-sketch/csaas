@@ -47,6 +47,7 @@ async function parsePdfFile(file: File): Promise<string> {
 
 /**
  * 解析DOCX文件
+ * 使用mammoth的convertToHtml方法来保留Word的自动编号和格式
  */
 async function parseDocxFile(file: File): Promise<string> {
   try {
@@ -54,13 +55,73 @@ async function parseDocxFile(file: File): Promise<string> {
     const mammoth = await import('mammoth')
 
     const arrayBuffer = await file.arrayBuffer()
-    const result = await mammoth.default.extractRawText({ arrayBuffer })
+
+    // ✅ 改用convertToHtml来保留Word的自动编号、列表等格式
+    const result = await mammoth.default.convertToHtml({
+      arrayBuffer,
+      // 保留样式信息，帮助识别编号
+      styleMap: [
+        // 保留段落样式
+        "p[style-name='Title'] => h1:fresh",
+        "p[style-name='Heading 1'] => h2:fresh",
+        "p[style-name='Heading 2'] => h3:fresh",
+      ]
+    })
 
     if (result.messages.length > 0) {
       console.warn('DOCX解析警告:', result.messages)
     }
 
-    return result.value.trim()
+    // 从HTML中提取文本，同时保留结构
+    const html = result.value
+
+    // 处理HTML，保留文本内容和基本结构
+    let text = html
+
+    // 保留列表项的编号（<ol><li>会转换为"1. "格式）
+    text = text.replace(/<ol[^>]*>/gi, '')
+    text = text.replace(/<\/ol>/gi, '\n')
+    text = text.replace(/<ul[^>]*>/gi, '')
+    text = text.replace(/<\/ul>/gi, '\n')
+    text = text.replace(/<li[^>]*>/gi, '\n• ')
+    text = text.replace(/<\/li>/gi, '\n')
+
+    // 保留标题
+    text = text.replace(/<h1[^>]*>/gi, '\n\n')
+    text = text.replace(/<\/h1>/gi, '\n\n')
+    text = text.replace(/<h2[^>]*>/gi, '\n\n')
+    text = text.replace(/<\/h2>/gi, '\n\n')
+    text = text.replace(/<h3[^>]*>/gi, '\n\n')
+    text = text.replace(/<\/h3>/gi, '\n\n')
+
+    // 移除其他HTML标签但保留文本
+    text = text.replace(/<p[^>]*>/gi, '\n')
+    text = text.replace(/<\/p>/gi, '\n')
+    text = text.replace(/<div[^>]*>/gi, '\n')
+    text = text.replace(/<\/div>/gi, '\n')
+    text = text.replace(/<span[^>]*>/gi, '')
+    text = text.replace(/<\/span>/gi, '')
+    text = text.replace(/<strong[^>]*>/gi, '')
+    text = text.replace(/<\/strong>/gi, '')
+    text = text.replace(/<b[^>]*>/gi, '')
+    text = text.replace(/<\/b>/gi, '')
+    text = text.replace(/<em[^>]*>/gi, '')
+    text = text.replace(/<\/em>/gi, '')
+    text = text.replace(/<i[^>]*>/gi, '')
+    text = text.replace(/<\/i>/gi, '')
+
+    // 移除剩余的所有HTML标签
+    text = text.replace(/<[^>]+>/g, '')
+
+    // 清理多余的空白字符
+    text = text.replace(/&nbsp;/gi, ' ')
+    text = text.replace(/&amp;/gi, '&')
+    text = text.replace(/&lt;/gi, '<')
+    text = text.replace(/&gt;/gi, '>')
+    text = text.replace(/&quot;/gi, '"')
+    text = text.replace(/\n{3,}/g, '\n\n') // 多个连续换行压缩为两个
+
+    return text.trim()
   } catch (error) {
     throw new Error(`DOCX解析失败: ${error instanceof Error ? error.message : '未知错误'}`)
   }

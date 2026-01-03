@@ -76,6 +76,12 @@ interface Props {
 }
 
 export default function ClusteringResultDisplay({ result, documents = [] }: Props) {
+  // 🔍 调试：打印result对象的结构
+  console.log('🔍 ClusteringResultDisplay received result:', result)
+  console.log('🔍 result.taskId:', result.taskId)
+  console.log('🔍 result.content exists:', !!result.content)
+  console.log('🔍 result.selectedResult exists:', !!result.selectedResult)
+
   // 解析聚类结果 - 支持新旧两种数据格式
   let clusteringResult: ClusteringResult
 
@@ -240,8 +246,88 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
   }
 
   // 跳转到矩阵生成页面
-  const handleGenerateMatrix = () => {
-    window.location.href = `/ai-generation/matrix?taskId=${result.taskId}`
+  const handleGenerateMatrix = async () => {
+    console.log('🚀 handleGenerateMatrix called')
+    console.log('🔍 result:', result)
+    console.log('🔍 result.taskId:', result.taskId)
+    console.log('🔍 result.projectId:', result.projectId)
+
+    // 直接使用 result.taskId
+    let effectiveTaskId = result.taskId
+    let projectId = result.projectId
+    console.log('🔍 effectiveTaskId:', effectiveTaskId)
+    console.log('🔍 projectId:', projectId)
+
+    // ✅ 如果taskId缺失，强制从API刷新数据
+    console.log('🔍 Checking conditions for refresh:')
+    console.log('  - !effectiveTaskId:', !effectiveTaskId)
+    console.log('  - result.generationType:', result.generationType)
+    console.log('  - result.id:', result.id)
+    console.log('  - result keys:', Object.keys(result))
+
+    if (!effectiveTaskId) {
+      console.log('⚠️ taskId is missing, forcing API refresh...')
+
+      try {
+        // 从result.content解析聚类任务ID
+        let clusteringTaskId: string | null = null
+
+        if (result.content) {
+          // 尝试从content中提取taskId
+          const contentData = typeof result.content === 'string'
+            ? JSON.parse(result.content)
+            : result.content
+
+          console.log('📦 contentData keys:', Object.keys(contentData))
+          console.log('📦 contentData.taskId:', contentData.taskId)
+          console.log('📦 result.id:', result.id)
+
+          // 尝试从多个可能的字段获取taskId
+          clusteringTaskId = contentData.taskId || result.id || result.taskId || (result as any).clusteringTaskId
+          console.log('📝 Extracted clusteringTaskId:', clusteringTaskId)
+        } else {
+          // 如果没有content，直接使用result.id
+          clusteringTaskId = result.id || result.taskId
+          console.log('📝 Using result.id as clusteringTaskId:', clusteringTaskId)
+        }
+
+        if (clusteringTaskId) {
+          console.log('🔄 Fetching latest result from API for taskId:', clusteringTaskId)
+
+          // 强制从API获取最新数据
+          const response = await fetch(`/api/ai-generation/result/${clusteringTaskId}`)
+          const data = await response.json()
+
+          console.log('📦 API response:', data)
+
+          if (data.success && data.data) {
+            effectiveTaskId = data.data.taskId
+            projectId = data.data.projectId
+            console.log('✅ API returned taskId:', effectiveTaskId, 'projectId:', projectId)
+          } else {
+            console.error('❌ API request failed:', data)
+          }
+        } else {
+          console.error('❌ Could not determine clusteringTaskId from result')
+          console.log('📄 Full result object:', JSON.stringify(result, null, 2))
+        }
+      } catch (error) {
+        console.error('❌ Failed to refresh data from API:', error)
+      }
+    }
+
+    if (!effectiveTaskId) {
+      alert('错误：无法获取任务ID，请刷新页面重试')
+      return
+    }
+
+    // 如果有projectId，跳转到新的项目工作台页面
+    if (projectId) {
+      window.location.href = `/projects/${projectId}/matrix?clusteringTaskId=${effectiveTaskId}`
+    } else {
+      // 否则跳转到旧的独立页面
+      window.location.href = `/ai-generation/matrix?taskId=${effectiveTaskId}`
+    }
   }
 
   // 处理聚类更新（当用户添加缺失条款时）
