@@ -770,7 +770,7 @@ export class AITaskProcessor extends WorkerHost {
         return {
           systemPrompt: '你是一名资深IT咨询师，专注于IT标准的成熟度评估。请对以下IT标准文档进行综述（2-3页摘要）。',
           prompt: `**输入标准文档**：
-${input.text || ''}
+${input.standardDocument || input.text || ''}
 
 **CRITICAL: 你必须直接输出纯JSON格式，不要包含任何解释、注释、markdown代码块或其他文本。只输出JSON对象本身。**
 
