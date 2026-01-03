@@ -188,45 +188,46 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
         </Descriptions>
       </Card>
 
-      {/* 质量评分卡片 */}
-      <Card title="质量评分" size="small">
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
-          <div>
-            <div className="flex justify-between mb-2">
-              <span>结构一致性 (要求 ≥90%)</span>
-              <span className="font-semibold">
-                {((result.qualityScores.structural || 0) * 100).toFixed(1)}%
-              </span>
+      {/* 质量评分卡片 - 只在有qualityScores时显示 */}
+      {result.qualityScores && (
+        <Card title="质量评分" size="small">
+          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <div>
+              <div className="flex justify-between mb-2">
+                <span>结构一致性 (要求 ≥90%)</span>
+                <span className="font-semibold">
+                  {((result.qualityScores?.structural || 0) * 100).toFixed(1)}%
+                </span>
+              </div>
+              <Progress
+                percent={parseFloat(((result.qualityScores?.structural || 0) * 100).toFixed(1))}
+                status={(result.qualityScores?.structural || 0) >= 0.9 ? 'success' : 'exception'}
+                strokeColor={(result.qualityScores?.structural || 0) >= 0.9 ? '#52c41a' : '#faad14'}
+              />
             </div>
-            <Progress
-              percent={parseFloat(((result.qualityScores.structural || 0) * 100).toFixed(1))}
-              status={(result.qualityScores.structural || 0) >= 0.9 ? 'success' : 'exception'}
-              strokeColor={(result.qualityScores.structural || 0) >= 0.9 ? '#52c41a' : '#faad14'}
-            />
-          </div>
 
-          <div>
-            <div className="flex justify-between mb-2">
-              <span>语义一致性 (要求 ≥80%)</span>
-              <span className="font-semibold">
-                {((result.qualityScores.semantic || 0) * 100).toFixed(1)}%
-              </span>
+            <div>
+              <div className="flex justify-between mb-2">
+                <span>语义一致性 (要求 ≥80%)</span>
+                <span className="font-semibold">
+                  {((result.qualityScores?.semantic || 0) * 100).toFixed(1)}%
+                </span>
+              </div>
+              <Progress
+                percent={parseFloat(((result.qualityScores?.semantic || 0) * 100).toFixed(1))}
+                status={(result.qualityScores?.semantic || 0) >= 0.8 ? 'success' : 'exception'}
+                strokeColor={(result.qualityScores?.semantic || 0) >= 0.8 ? '#52c41a' : '#faad14'}
+              />
             </div>
-            <Progress
-              percent={parseFloat(((result.qualityScores.semantic || 0) * 100).toFixed(1))}
-              status={(result.qualityScores.semantic || 0) >= 0.8 ? 'success' : 'exception'}
-              strokeColor={(result.qualityScores.semantic || 0) >= 0.8 ? '#52c41a' : '#faad14'}
-            />
-          </div>
 
-          <div>
-            <div className="flex justify-between mb-2">
-              <span>细节一致性 (要求 ≥60%)</span>
-              <span className="font-semibold">
-                {((result.qualityScores.detail || 0) * 100).toFixed(1)}%
-              </span>
-            </div>
-            <Progress
+            <div>
+              <div className="flex justify-between mb-2">
+                <span>细节一致性 (要求 ≥60%)</span>
+                <span className="font-semibold">
+                  {((result.qualityScores?.detail || 0) * 100).toFixed(1)}%
+                </span>
+              </div>
+              <Progress
               percent={parseFloat(((result.qualityScores.detail || 0) * 100).toFixed(1))}
               status={(result.qualityScores.detail || 0) >= 0.6 ? 'success' : 'exception'}
               strokeColor={(result.qualityScores.detail || 0) >= 0.6 ? '#52c41a' : '#faad14'}
@@ -234,18 +235,20 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
           </div>
         </Space>
       </Card>
+      )}
 
-      {/* 一致性报告卡片 */}
-      <Card title="一致性报告" size="small">
-        <Collapse ghost>
-          <Panel
-            header={
-              <span>
-                <CheckCircleOutlined className="text-green-500 mr-2" />
-                一致点 ({result.consistencyReport.agreements.length})
-              </span>
-            }
-            key="1"
+      {/* 一致性报告卡片 - 只在有consistencyReport时显示 */}
+      {result.consistencyReport && (
+        <Card title="一致性报告" size="small">
+          <Collapse ghost>
+            <Panel
+              header={
+                <span>
+                  <CheckCircleOutlined className="text-green-500 mr-2" />
+                  一致点 ({result.consistencyReport?.agreements?.length || 0})
+                </span>
+              }
+              key="1"
           >
             <ul className="list-disc list-inside text-sm">
               {result.consistencyReport.agreements.map((item, index) => (
