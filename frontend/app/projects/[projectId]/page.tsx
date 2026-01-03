@@ -11,8 +11,10 @@ import {
   Assignment,
   TaskAlt,
   ArrowForward,
+  TrendingUp,
 } from '@mui/icons-material'
 import { ProjectsAPI, Project } from '@/lib/api/projects'
+import { AITasksAPI } from '@/lib/api/ai-tasks'
 import TaskStatusIndicator from '@/components/projects/TaskStatusIndicator'
 
 export default function ProjectWorkbenchPage() {
@@ -22,9 +24,11 @@ export default function ProjectWorkbenchPage() {
 
   const [project, setProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)
+  const [taskStatuses, setTaskStatuses] = useState<Record<string, 'completed' | 'processing' | 'pending' | 'failed'>>({})
 
   useEffect(() => {
     loadProject()
+    loadTaskStatuses()
   }, [projectId])
 
   const loadProject = async () => {
@@ -36,6 +40,55 @@ export default function ProjectWorkbenchPage() {
       console.error('Failed to load project:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadTaskStatuses = async () => {
+    try {
+      const tasks = await AITasksAPI.getTasksByProject(projectId)
+
+      // 定义步骤ID到任务类型的映射
+      const stepToTaskType: Record<string, string[]> = {
+        summary: ['summary'],
+        clustering: ['clustering'],
+        matrix: ['matrix'],
+        questionnaire: ['questionnaire'],
+        'gap-analysis': ['questionnaire'], // 差距分析基于问卷任务
+        'action-plan': ['action_plan'],
+      }
+
+      // 获取每个步骤的最新任务状态
+      const statuses: Record<string, 'completed' | 'processing' | 'pending' | 'failed'> = {}
+
+      Object.entries(stepToTaskType).forEach(([stepId, taskTypes]) => {
+        // 找到该步骤相关的所有任务
+        const relatedTasks = tasks.filter(task => taskTypes.includes(task.type))
+
+        if (relatedTasks.length === 0) {
+          statuses[stepId] = 'pending'
+          return
+        }
+
+        // 按创建时间排序，获取最新任务
+        const latestTask = relatedTasks.sort((a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )[0]
+
+        // 根据任务状态确定步骤状态
+        if (latestTask.status === 'completed') {
+          statuses[stepId] = 'completed'
+        } else if (latestTask.status === 'processing' || latestTask.status === 'pending') {
+          statuses[stepId] = 'processing'
+        } else if (latestTask.status === 'failed') {
+          statuses[stepId] = 'failed'
+        } else {
+          statuses[stepId] = 'pending'
+        }
+      })
+
+      setTaskStatuses(statuses)
+    } catch (error) {
+      console.error('Failed to load task statuses:', error)
     }
   }
 
@@ -53,7 +106,7 @@ export default function ProjectWorkbenchPage() {
       name: '综述生成',
       icon: <Description />,
       route: `/projects/${projectId}/summary`,
-      status: 'pending' as const,
+      status: (taskStatuses['summary'] || 'pending') as 'completed' | 'processing' | 'pending' | 'failed',
       description: 'AI自动生成文档综述，提取关键信息',
     },
     {
@@ -61,7 +114,7 @@ export default function ProjectWorkbenchPage() {
       name: '聚类分析',
       icon: <Category />,
       route: `/projects/${projectId}/clustering`,
-      status: 'pending' as const,
+      status: (taskStatuses['clustering'] || 'pending') as 'completed' | 'processing' | 'pending' | 'failed',
       description: '智能聚类分析，发现文档主题',
     },
     {
@@ -69,7 +122,7 @@ export default function ProjectWorkbenchPage() {
       name: '成熟度矩阵',
       icon: <GridOn />,
       route: `/projects/${projectId}/matrix`,
-      status: 'pending' as const,
+      status: (taskStatuses['matrix'] || 'pending') as 'completed' | 'processing' | 'pending' | 'failed',
       description: '生成成熟度评估矩阵，可视化分析结果',
     },
     {
@@ -77,15 +130,23 @@ export default function ProjectWorkbenchPage() {
       name: '问卷生成',
       icon: <Assignment />,
       route: `/projects/${projectId}/questionnaire`,
-      status: 'pending' as const,
+      status: (taskStatuses['questionnaire'] || 'pending') as 'completed' | 'processing' | 'pending' | 'failed',
       description: '自动生成调研问卷，支持导出和分享',
+    },
+    {
+      id: 'gap-analysis',
+      name: '差距分析',
+      icon: <TrendingUp />,
+      route: `/projects/${projectId}/gap-analysis`,
+      status: (taskStatuses['gap-analysis'] || 'pending') as 'completed' | 'processing' | 'pending' | 'failed',
+      description: '填写问卷并生成差距分析报告',
     },
     {
       id: 'action-plan',
       name: '改进措施',
       icon: <TaskAlt />,
       route: `/projects/${projectId}/action-plan`,
-      status: 'pending' as const,
+      status: (taskStatuses['action-plan'] || 'pending') as 'completed' | 'processing' | 'pending' | 'failed',
       description: '生成改进措施建议和行动计划',
     },
   ]
