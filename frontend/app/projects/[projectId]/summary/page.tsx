@@ -31,26 +31,41 @@ export default function SummaryPage() {
           const task = await AITasksAPI.getTask(taskId!)
           if (task && task.result) {
             // 处理result结构：兼容旧格式(content)和新格式(三模型)
-            let displayResult = task.result
+            let parsedContent
 
             // 如果result有content字段，说明是旧格式，需要解析
             if (task.result.content) {
               try {
-                const parsedContent = typeof task.result.content === 'string'
+                parsedContent = typeof task.result.content === 'string'
                   ? JSON.parse(task.result.content)
                   : task.result.content
-
-                // 包装成前端期望的格式（临时方案）
-                displayResult = {
-                  gpt4: parsedContent,
-                  claude: parsedContent,
-                  domestic: parsedContent
-                }
               } catch (e) {
                 console.error('Failed to parse result.content:', e)
-                // 如果解析失败，直接使用content
-                displayResult = task.result
+                parsedContent = task.result.content
               }
+            } else if (task.result.gpt4 || task.result.claude || task.result.domestic) {
+              // 新格式：三模型结果，使用 gpt4 作为默认选择
+              parsedContent = task.result.gpt4 || task.result.claude || task.result.domestic
+            } else {
+              // 直接使用 result
+              parsedContent = task.result
+            }
+
+            // 包装成 GenerationResult 格式
+            const displayResult = {
+              id: task.id,
+              taskId: task.id,
+              projectId: task.projectId || projectId,
+              type: 'summary' as const,
+              selectedModel: 'gpt4' as const,
+              confidenceLevel: 'HIGH' as const,
+              reviewStatus: 'PENDING' as const,
+              version: 1,
+              createdAt: task.createdAt || new Date().toISOString(),
+              selectedResult: parsedContent,
+              qualityScores: undefined,
+              consistencyReport: undefined,
+              coverageReport: undefined,
             }
 
             setGenerationResult(displayResult)
@@ -94,26 +109,41 @@ export default function SummaryPage() {
             console.log('✅ [Summary] 任务已完成，加载结果')
 
             // 处理result结构：兼容旧格式(content)和新格式(三模型)
-            let displayResult = task.result
+            let parsedContent
 
             // 如果result有content字段，说明是旧格式，需要解析
             if (task.result.content) {
               try {
-                const parsedContent = typeof task.result.content === 'string'
+                parsedContent = typeof task.result.content === 'string'
                   ? JSON.parse(task.result.content)
                   : task.result.content
-
-                // 包装成前端期望的格式（临时方案）
-                displayResult = {
-                  gpt4: parsedContent,
-                  claude: parsedContent,
-                  domestic: parsedContent
-                }
               } catch (e) {
                 console.error('Failed to parse result.content:', e)
-                // 如果解析失败，直接使用content
-                displayResult = task.result
+                parsedContent = task.result.content
               }
+            } else if (task.result.gpt4 || task.result.claude || task.result.domestic) {
+              // 新格式：三模型结果，使用 gpt4 作为默认选择
+              parsedContent = task.result.gpt4 || task.result.claude || task.result.domestic
+            } else {
+              // 直接使用 result
+              parsedContent = task.result
+            }
+
+            // 包装成 GenerationResult 格式
+            const displayResult = {
+              id: task.id,
+              taskId: task.id,
+              projectId: task.projectId || projectId,
+              type: 'summary' as const,
+              selectedModel: 'gpt4' as const,
+              confidenceLevel: 'HIGH' as const,
+              reviewStatus: 'PENDING' as const,
+              version: 1,
+              createdAt: task.createdAt || new Date().toISOString(),
+              selectedResult: parsedContent,
+              qualityScores: undefined,
+              consistencyReport: undefined,
+              coverageReport: undefined,
             }
 
             setGenerationResult(displayResult)
@@ -276,13 +306,16 @@ export default function SummaryPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => {
+              // 清空当前结果和任务ID
               setGenerationResult(null)
               setTaskId(null)
+              // 立即开始生成新任务
+              setTimeout(() => handleGenerate(), 100)
             }}
-            disabled={!generationResult}
+            disabled={!generationResult || loading}
             className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px]"
           >
-            重新生成
+            {loading ? '生成中...' : '重新生成'}
           </button>
         </div>
       </header>

@@ -228,13 +228,13 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
                 </span>
               </div>
               <Progress
-              percent={parseFloat(((result.qualityScores.detail || 0) * 100).toFixed(1))}
-              status={(result.qualityScores.detail || 0) >= 0.6 ? 'success' : 'exception'}
-              strokeColor={(result.qualityScores.detail || 0) >= 0.6 ? '#52c41a' : '#faad14'}
-            />
-          </div>
-        </Space>
-      </Card>
+                percent={parseFloat(((result.qualityScores?.detail || 0) * 100).toFixed(1))}
+                status={(result.qualityScores?.detail || 0) >= 0.6 ? 'success' : 'exception'}
+                strokeColor={(result.qualityScores?.detail || 0) >= 0.6 ? '#52c41a' : '#faad14'}
+              />
+            </div>
+          </Space>
+        </Card>
       )}
 
       {/* 一致性报告卡片 - 只在有consistencyReport时显示 */}
@@ -249,57 +249,58 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
                 </span>
               }
               key="1"
-          >
-            <ul className="list-disc list-inside text-sm">
-              {result.consistencyReport.agreements.map((item, index) => (
-                <li key={index} className="mb-1">
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </Panel>
-
-          {result.consistencyReport.disagreements.length > 0 && (
-            <Panel
-              header={
-                <span>
-                  <InfoCircleOutlined className="text-blue-500 mr-2" />
-                  差异点 ({result.consistencyReport.disagreements.length})
-                </span>
-              }
-              key="2"
             >
               <ul className="list-disc list-inside text-sm">
-                {result.consistencyReport.disagreements.map((item, index) => (
+                {result.consistencyReport.agreements.map((item, index) => (
                   <li key={index} className="mb-1">
                     {item}
                   </li>
                 ))}
               </ul>
             </Panel>
-          )}
 
-          {result.consistencyReport.highRiskDisagreements.length > 0 && (
-            <Panel
-              header={
-                <span>
-                  <WarningOutlined className="text-red-500 mr-2" />
-                  高风险差异 ({result.consistencyReport.highRiskDisagreements.length})
-                </span>
-              }
-              key="3"
-            >
-              <ul className="list-disc list-inside text-sm">
-                {result.consistencyReport.highRiskDisagreements.map((item, index) => (
-                  <li key={index} className="mb-1 text-red-600 font-medium">
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </Panel>
-          )}
-        </Collapse>
-      </Card>
+            {result.consistencyReport.disagreements.length > 0 && (
+              <Panel
+                header={
+                  <span>
+                    <InfoCircleOutlined className="text-blue-500 mr-2" />
+                    差异点 ({result.consistencyReport.disagreements.length})
+                  </span>
+                }
+                key="2"
+              >
+                <ul className="list-disc list-inside text-sm">
+                  {result.consistencyReport.disagreements.map((item, index) => (
+                    <li key={index} className="mb-1">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+            )}
+
+            {result.consistencyReport.highRiskDisagreements.length > 0 && (
+              <Panel
+                header={
+                  <span>
+                    <WarningOutlined className="text-red-500 mr-2" />
+                    高风险差异 ({result.consistencyReport.highRiskDisagreements.length})
+                  </span>
+                }
+                key="3"
+              >
+                <ul className="list-disc list-inside text-sm">
+                  {result.consistencyReport.highRiskDisagreements.map((item, index) => (
+                    <li key={index} className="mb-1 text-red-600 font-medium">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+            )}
+          </Collapse>
+        </Card>
+      )}
 
       {/* 覆盖率报告（如果存在） */}
       {result.coverageReport && (
@@ -389,6 +390,59 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
           </div>
         </div>
       </Card>
+
+      {/* 文档对比分析 - 如果有多个文档 */}
+      {summaryResult.document_comparison && (
+        <Card title="文档对比分析" size="small">
+          <div className="space-y-6">
+            {/* 文档关系 */}
+            <div>
+              <h4 className="text-md font-semibold text-gray-800 mb-3">📊 文档关系</h4>
+              <p className="text-gray-600 leading-relaxed">{summaryResult.document_comparison.relationships}</p>
+            </div>
+
+            {/* 冲突和差异 */}
+            {summaryResult.document_comparison.conflicts && summaryResult.document_comparison.conflicts.length > 0 && (
+              <div>
+                <h4 className="text-md font-semibold text-gray-800 mb-3">⚠️ 冲突与差异</h4>
+                <div className="space-y-3">
+                  {summaryResult.document_comparison.conflicts.map((conflict, index) => (
+                    <Card key={index} size="small" className="bg-red-50 border-red-200">
+                      <div className="flex justify-between items-start mb-2">
+                        <h5 className="font-semibold text-gray-800">{conflict.topic}</h5>
+                        <Tag
+                          color={conflict.severity === 'HIGH' ? 'red' : conflict.severity === 'MEDIUM' ? 'orange' : 'blue'}
+                        >
+                          {conflict.severity === 'HIGH' ? '严重冲突' : conflict.severity === 'MEDIUM' ? '差异较大' : '细微差异'}
+                        </Tag>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-2">{conflict.description}</p>
+                      <div className="text-xs text-gray-500">
+                        涉及文档: {conflict.documents_involved.join('、')}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 相似之处 */}
+            {summaryResult.document_comparison.similarities && summaryResult.document_comparison.similarities.length > 0 && (
+              <div>
+                <h4 className="text-md font-semibold text-gray-800 mb-3">✅ 相似之处</h4>
+                <div className="space-y-2">
+                  {summaryResult.document_comparison.similarities.map((similarity, index) => (
+                    <Card key={index} size="small" className="bg-green-50 border-green-200">
+                      <h5 className="font-semibold text-gray-800 mb-1">{similarity.topic}</h5>
+                      <p className="text-sm text-gray-700">{similarity.description}</p>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* 审核操作 */}
       {result.reviewStatus === 'PENDING' && (

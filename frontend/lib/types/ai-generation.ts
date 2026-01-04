@@ -40,6 +40,19 @@ export interface SummaryResult {
   scope: string
   key_requirements: string[]
   compliance_level: string
+  document_comparison?: {
+    relationships: string
+    conflicts: Array<{
+      topic: string
+      description: string
+      severity: 'HIGH' | 'MEDIUM' | 'LOW'
+      documents_involved: string[]
+    }>
+    similarities: Array<{
+      topic: string
+      description: string
+    }>
+  }
 }
 
 export interface GenerationResult {
