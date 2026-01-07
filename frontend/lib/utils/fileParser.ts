@@ -13,34 +13,43 @@ async function parseTextFile(file: File): Promise<string> {
 }
 
 /**
- * 解析PDF文件
+ * 解析PDF文件（使用服务端API）
+ *
+ * 将PDF上传到后端进行解析，避免客户端webpack兼容性问题
  */
 async function parsePdfFile(file: File): Promise<string> {
   try {
-    // 动态导入 pdfjs-dist（仅在客户端）
-    const pdfjsLib = await import('pdfjs-dist')
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
-    // 配置 PDF.js worker
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+    // 创建FormData
+    const formData = new FormData()
+    formData.append('file', file)
 
-    const arrayBuffer = await file.arrayBuffer()
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+    console.log('📤 正在上传PDF到后端解析:', file.name)
 
-    let fullText = ''
+    // 调用后端API
+    const response = await fetch(`${API_BASE_URL}/files/parse-pdf`, {
+      method: 'POST',
+      body: formData,
+      // 不设置Content-Type，让浏览器自动设置multipart/form-data边界
+    })
 
-    // 逐页提取文本
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i)
-      const textContent = await page.getTextContent()
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ')
-
-      fullText += pageText + '\n'
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || `PDF解析失败: ${response.statusText}`)
     }
 
-    return fullText.trim()
+    const result = await response.json()
+
+    if (!result.success || !result.data?.text) {
+      throw new Error('PDF解析返回数据格式错误')
+    }
+
+    console.log('✅ PDF解析成功，提取文本长度:', result.data.text.length)
+
+    return result.data.text
   } catch (error) {
+    console.error('PDF解析错误:', error)
     throw new Error(`PDF解析失败: ${error instanceof Error ? error.message : '未知错误'}`)
   }
 }
@@ -164,7 +173,7 @@ export async function parseFile(file: File): Promise<string> {
       }
 
     default:
-      throw new Error(`不支持的文件格式: .${ext}。支持的格式: .txt, .md, .pdf, .docx, .doc`)
+      throw new Error(`不支持的文件格式: .${ext}。当前支持的格式: .txt, .md, .pdf, .docx, .doc`)
   }
 }
 
@@ -180,3 +189,66 @@ export function isSupportedFileType(filename: string): boolean {
  * 获取支持的文件扩展名列表（用于Upload组件的accept属性）
  */
 export const SUPPORTED_FILE_EXTENSIONS = '.txt,.md,.pdf,.docx,.doc'
+
+/**
+ * 检测文本内容质量（用于识别扫描PDF或解析失败）
+ */
+export function detectTextQuality(text: string): {
+  isValid: boolean
+  quality: 'good' | 'poor' | 'empty'
+  issue?: string
+  suggestion?: string
+} {
+  if (!text || text.length === 0) {
+    return {
+      isValid: false,
+      quality: 'empty',
+      issue: '文档内容为空',
+      suggestion: 'PDF文件可能已损坏或使用特殊编码'
+    }
+  }
+
+  // 检测乱码比例（非可打印字符）
+  const controlChars = text.replace(/[\x20-\x7E\u4E00-\u9FFF\u3000-\u303F]/g, '').length
+  const controlCharRatio = controlChars / text.length
+
+  if (controlCharRatio > 0.3) {
+    return {
+      isValid: false,
+      quality: 'poor',
+      issue: '文档内容包含大量乱码',
+      suggestion: 'PDF文件是扫描件（图片格式），需要使用OCR工具转换为可搜索的PDF'
+    }
+  }
+
+  // 检测是否包含中英文内容
+  const hasChinese = /[\u4E00-\u9FFF]/.test(text)
+  const hasEnglish = /[a-zA-Z]{3,}/.test(text)
+
+  if (!hasChinese && !hasEnglish) {
+    return {
+      isValid: false,
+      quality: 'poor',
+      issue: '文档内容无法识别',
+      suggestion: 'PDF可能是扫描件或使用了特殊编码，建议尝试其他格式的文档'
+    }
+  }
+
+  // 检测有效字符密度
+  const meaningfulChars = text.replace(/\s+/g, '').length
+  const density = meaningfulChars / text.length
+
+  if (density < 0.3) {
+    return {
+      isValid: false,
+      quality: 'poor',
+      issue: '文档内容稀疏',
+      suggestion: 'PDF解析可能不完整，建议检查PDF文件或尝试重新上传'
+    }
+  }
+
+  return {
+    isValid: true,
+    quality: 'good'
+  }
+}

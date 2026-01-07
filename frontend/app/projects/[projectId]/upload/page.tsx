@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Card, Button, message, Upload } from 'antd'
 import { SaveOutlined, CheckCircleOutlined, LoadingOutlined, UploadOutlined, DeleteOutlined, FileTextOutlined } from '@ant-design/icons'
 import type { UploadFile } from 'antd/es/upload/interface'
-import { parseFile, SUPPORTED_FILE_EXTENSIONS } from '@/lib/utils/fileParser'
+import { parseFile, SUPPORTED_FILE_EXTENSIONS, detectTextQuality } from '@/lib/utils/fileParser'
 import { ProjectsAPI } from '@/lib/api/projects'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -57,6 +57,14 @@ export default function UploadPage() {
     try {
       // 使用通用文件解析器（支持TXT, MD, PDF, DOCX, DOC）
       const content = await parseFile(file)
+
+      // 检测内容质量
+      const qualityCheck = detectTextQuality(content)
+
+      if (!qualityCheck.isValid) {
+        message.error(`文件 ${file.name} ${qualityCheck.issue}！\n建议：${qualityCheck.suggestion}`)
+        return false
+      }
 
       if (content.length < 100) {
         message.error(`文件 ${file.name} 内容太短，至少需要100字符`)

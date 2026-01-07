@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { AIGenerationAPI } from '@/lib/api/ai-generation'
+import { detectTextQuality } from '@/lib/utils/fileParser'
 import { ProjectsAPI } from '@/lib/api/projects'
 import SummaryResultDisplay from '@/components/features/SummaryResultDisplay'
 import { FileText, Sparkles, AlertCircle } from 'lucide-react'
@@ -243,6 +244,16 @@ export default function SummaryPage() {
       }
 
       console.log(`📄 [Summary] 找到 ${documents.length} 个文档`)
+
+      // 检测每个文档的内容质量
+      for (const doc of documents) {
+        const qualityCheck = detectTextQuality(doc.content)
+        if (!qualityCheck.isValid) {
+          setError(`文档 "${doc.name}" ${qualityCheck.issue}\n建议：${qualityCheck.suggestion}`)
+          setLoading(false)
+          return
+        }
+      }
 
       // 合并所有文档内容
       const documentsText = documents.map((doc: any) =>
