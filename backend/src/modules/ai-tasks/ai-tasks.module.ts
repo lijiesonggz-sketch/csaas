@@ -21,6 +21,21 @@ import { ResultAggregationModule } from '../result-aggregation/result-aggregatio
     TypeOrmModule.forFeature([AITask, AIGenerationEvent, AICostTracking, Project]),
     BullModule.registerQueue({
       name: AI_TASK_QUEUE,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: {
+          count: 100,
+          age: 24 * 3600, // 24小时
+        },
+        removeOnFail: {
+          count: 500,
+          age: 7 * 24 * 3600, // 7天
+        },
+      },
     }),
     AIClientsModule,
     forwardRef(() => AIGenerationModule),

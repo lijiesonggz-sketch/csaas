@@ -73,9 +73,19 @@ export class QuestionnaireGenerator {
   /**
    * 生成调研问卷（分批次优化）
    * @param input 生成输入
+   * @param progressCallback 进度回调函数（可选）
    * @returns 生成输出（三模型结果）
    */
-  async generate(input: QuestionnaireGenerationInput): Promise<{
+  async generate(
+    input: QuestionnaireGenerationInput,
+    progressCallback?: (progress: {
+      current: number
+      total: number
+      message: string
+      model?: string
+      currentClusterId?: string // ✅ 添加聚类ID
+    }) => void,
+  ): Promise<{
     gpt4: QuestionnaireGenerationOutput
     claude: QuestionnaireGenerationOutput
     domestic: QuestionnaireGenerationOutput
@@ -95,6 +105,15 @@ export class QuestionnaireGenerator {
       `Generating questionnaire for ${totalClusters} clusters (5 questions per cluster, batch by batch)...`,
     )
 
+    // 发送初始进度
+    if (progressCallback) {
+      progressCallback({
+        current: 0,
+        total: totalClusters,
+        message: `开始生成问卷，共${totalClusters}个聚类`,
+      })
+    }
+
     // 初始化三个模型的题目数组
     const gpt4Questions: Question[] = []
     const claudeQuestions: Question[] = []
@@ -106,6 +125,16 @@ export class QuestionnaireGenerator {
     for (let i = 0; i < matrixResult.matrix.length; i++) {
       const cluster = matrixResult.matrix[i]
       this.logger.log(`Processing cluster ${i + 1}/${totalClusters}: ${cluster.cluster_name}`)
+
+      // 发送进度更新
+      if (progressCallback) {
+        progressCallback({
+          current: i + 1,
+          total: totalClusters,
+          currentClusterId: cluster.cluster_id, // ✅ 添加聚类ID
+          message: `正在生成第 ${i + 1}/${totalClusters} 个聚类的问卷: ${cluster.cluster_name}`,
+        })
+      }
 
       try {
         // 调用单聚类生成方法（固定生成5题）
@@ -132,6 +161,15 @@ export class QuestionnaireGenerator {
         )
         // 跳过失败的聚类，继续处理下一个
       }
+    }
+
+    // 发送完成进度
+    if (progressCallback) {
+      progressCallback({
+        current: totalClusters,
+        total: totalClusters,
+        message: '所有聚类问卷生成完成，正在聚合结果...',
+      })
     }
 
     // 检查是否有成功的结果

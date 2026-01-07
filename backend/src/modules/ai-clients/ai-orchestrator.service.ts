@@ -37,8 +37,8 @@ export class AIOrchestrator {
     for (const provider of providers) {
       try {
         if (!provider.client.isAvailable()) {
-          this.logger.debug(
-            `${provider.name} is not available, skipping to next provider`,
+          this.logger.warn(
+            `⚠️ ${provider.name} is not available (isAvailable() returned false), skipping to next provider. Preferred model: ${preferredModel}`,
           )
           continue
         }

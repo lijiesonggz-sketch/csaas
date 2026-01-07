@@ -74,6 +74,13 @@ export class AITaskProcessor extends WorkerHost {
     const startTime = Date.now()
     const modelField = getModelProgressField(model) // 获取对应的进度字段名
 
+    // 更新job进度以防止stalled（每30秒至少更新一次）
+    const keepAliveInterval = setInterval(() => {
+      job.updateProgress(Math.random()).catch(err => {
+        this.logger.warn(`Failed to update job progress: ${err.message}`)
+      })
+    }, 25000) // 25秒更新一次，小于默认的30秒stalledInterval
+
     try {
       // 处理 documentIds - 从项目 metadata 加载完整文档
       let processedInput = { ...input }
@@ -128,20 +135,25 @@ export class AITaskProcessor extends WorkerHost {
         currentStep: 'preparing',
       })
 
-      // 记录生成事件 - 开始
-      const event = this.eventRepo.create({
-        taskId,
-        model,
-        input: processedInput,
-      })
-      await this.eventRepo.save(event)
+      // ✅ 只在 model 存在时记录生成事件（clustering/matrix/questionnaire 的 model 为 undefined）
+      let event
+      if (model) {
+        event = this.eventRepo.create({
+          taskId,
+          model,
+          input: processedInput,
+        })
+        await this.eventRepo.save(event)
+      }
 
       // 更新进度：开始生成
       const generatingProgress: any = {}
-      generatingProgress[modelField] = {
-        status: 'generating',
-        message: `正在调用${model}模型生成内容`,
-        startTime: new Date().toISOString(),
+      if (model) {
+        generatingProgress[modelField] = {
+          status: 'generating',
+          message: `正在调用${model}模型生成内容`,
+          startTime: new Date().toISOString(),
+        }
       }
 
       await this.aiTaskRepo.update(taskId, {
@@ -176,6 +188,7 @@ export class AITaskProcessor extends WorkerHost {
         this.logger.log(`Step 1/3: Generating clustering results with 3 models...`)
         const clusteringResults = await this.clusteringGenerator.generate(
           clusteringInput,
+          taskId, // 传递taskId，用于记录AI生成事件
           (progress) => {
             // 更新任务进度
             this.logger.debug(`Clustering progress: ${JSON.stringify(progress)}`)
@@ -478,6 +491,31 @@ export class AITaskProcessor extends WorkerHost {
         }
         this.logger.log(`Loaded matrix result with ${matrixResult.matrix?.length || 0} clusters`)
 
+        // ✅ 初始化聚类生成状态
+        const totalClusters = matrixResult.matrix.length
+        const clusterStatus = {
+          totalClusters,
+          completedClusters: [] as string[],
+          failedClusters: [] as string[],
+          pendingClusters: matrixResult.matrix.map((c: any) => c.cluster_id),
+          clusterProgress: {} as Record<string, any>,
+        }
+
+        // 初始化所有聚类的状态
+        matrixResult.matrix.forEach((cluster: any) => {
+          clusterStatus.clusterProgress[cluster.cluster_id] = {
+            clusterId: cluster.cluster_id,
+            clusterName: cluster.cluster_name,
+            status: 'pending',
+            questionsGenerated: 0,
+            questionsExpected: 5,
+          }
+        })
+
+        await this.aiTaskRepo.update(taskId, {
+          clusterGenerationStatus: clusterStatus,
+        })
+
         // 准备输入
         const questionnaireInput = {
           matrixResult,
@@ -487,10 +525,71 @@ export class AITaskProcessor extends WorkerHost {
 
         // 调用QuestionnaireGenerator.generate()（三模型并行）
         this.logger.log(`Step 1/3: Generating questionnaire results with 3 models...`)
-        const questionnaireResults = await this.questionnaireGenerator.generate(questionnaireInput)
+        const questionnaireResults = await this.questionnaireGenerator.generate(
+          questionnaireInput,
+          // 传入进度回调函数
+          async (progress) => {
+            this.logger.debug(`Questionnaire progress: ${JSON.stringify(progress)}`)
+            // 计算进度百分比：假设生成占60%，验证占20%，聚合占20%
+            const percentage = 30 + Math.floor((progress.current / progress.total) * 60)
+
+            // ✅ 更新聚类生成状态
+            if (progress.currentClusterId) {
+              const currentCluster = clusterStatus.clusterProgress[progress.currentClusterId]
+              if (currentCluster) {
+                currentCluster.status = 'generating'
+                currentCluster.startedAt = new Date().toISOString()
+              }
+
+              // 更新已完成的聚类
+              if (progress.current > 1) {
+                const prevClusterIndex = progress.current - 2
+                if (prevClusterIndex >= 0 && prevClusterIndex < matrixResult.matrix.length) {
+                  const prevCluster = matrixResult.matrix[prevClusterIndex]
+                  const prevClusterStatus = clusterStatus.clusterProgress[prevCluster.cluster_id]
+                  if (prevClusterStatus && prevClusterStatus.status !== 'completed') {
+                    prevClusterStatus.status = 'completed'
+                    prevClusterStatus.questionsGenerated = 5
+                    prevClusterStatus.completedAt = new Date().toISOString()
+                    clusterStatus.completedClusters.push(prevCluster.cluster_id)
+                  }
+                }
+              }
+
+              await this.aiTaskRepo.update(taskId, {
+                clusterGenerationStatus: clusterStatus,
+              })
+            }
+
+            this.tasksGateway.emitTaskProgress({
+              taskId,
+              progress: percentage,
+              message: progress.message || `正在生成问卷 (${progress.current}/${progress.total})`,
+              currentStep: 'generating',
+            })
+          },
+        )
+
+        // ✅ 标记所有聚类为已完成
+        Object.values(clusterStatus.clusterProgress).forEach((cp: any) => {
+          if (cp.status !== 'completed') {
+            cp.status = 'completed'
+            cp.questionsGenerated = 5
+            cp.completedAt = new Date().toISOString()
+            if (!clusterStatus.completedClusters.includes(cp.clusterId)) {
+              clusterStatus.completedClusters.push(cp.clusterId)
+            }
+          }
+        })
 
         // Step 2: 质量验证
         this.logger.log(`Step 2/3: Validating quality of 3 models...`)
+        this.tasksGateway.emitTaskProgress({
+          taskId,
+          progress: 90,
+          message: '正在进行质量验证...',
+          currentStep: 'validating',
+        })
         const validationReport = await this.qualityValidation.validateQuality({
           gpt4: questionnaireResults.gpt4,
           claude: questionnaireResults.claude,
@@ -503,6 +602,12 @@ export class AITaskProcessor extends WorkerHost {
 
         // Step 3: 结果聚合
         this.logger.log(`Step 3/3: Aggregating best result from 3 models...`)
+        this.tasksGateway.emitTaskProgress({
+          taskId,
+          progress: 95,
+          message: '正在聚合最佳结果...',
+          currentStep: 'aggregating',
+        })
         const aggregationOutput = await this.resultAggregator.aggregate({
           taskId,
           generationType: AITaskType.QUESTIONNAIRE,
@@ -543,6 +648,7 @@ export class AITaskProcessor extends WorkerHost {
         await this.aiTaskRepo.update(taskId, {
           generationStage: GenerationStage.COMPLETED,
           progressDetails: modelProgress,
+          clusterGenerationStatus: clusterStatus, // ✅ 保存最终状态
         })
 
         // 构造响应（只返回聚合后的最佳结果）
@@ -605,7 +711,7 @@ export class AITaskProcessor extends WorkerHost {
       })
 
       // ✅ clustering/matrix/questionnaire类型已经在前面记录了三个模型的事件，这里跳过
-      if (type !== 'clustering' && type !== 'matrix' && type !== 'questionnaire') {
+      if (type !== 'clustering' && type !== 'matrix' && type !== 'questionnaire' && event) {
         // 更新生成事件 - 完成
         await this.eventRepo.update(event.id, {
           output: { content: aiResponse.content, metadata: aiResponse.metadata } as any,
@@ -651,10 +757,20 @@ export class AITaskProcessor extends WorkerHost {
         }
       }
 
+      // 根据任务类型决定如何保存result
+      let resultData: any
+      if (type === 'clustering' || type === 'matrix' || type === 'questionnaire') {
+        // clustering/matrix/questionnaire: content是JSON字符串，需要解析成对象保存
+        resultData = JSON.parse(aiResponse.content as string)
+      } else {
+        // 其他类型: 保持原有格式 {content: "..."}
+        resultData = { content: aiResponse.content }
+      }
+
       await this.aiTaskRepo.update(taskId, {
         status: TaskStatus.COMPLETED,
         generationStage: GenerationStage.COMPLETED,
-        result: { content: aiResponse.content } as any,
+        result: resultData,
         completedAt: new Date(),
         progressDetails: completedProgress,
       })
@@ -722,14 +838,16 @@ export class AITaskProcessor extends WorkerHost {
         errorMessage: error.message,
       })
 
-      // 记录失败事件
-      await this.eventRepo.save({
-        taskId,
-        model,
-        input,
-        errorMessage: error.message,
-        executionTimeMs: Date.now() - startTime,
-      })
+      // 记录失败事件（只在model存在时）
+      if (model) {
+        await this.eventRepo.save({
+          taskId,
+          model,
+          input,
+          errorMessage: error.message,
+          executionTimeMs: Date.now() - startTime,
+        })
+      }
 
       // 发送失败事件
       this.tasksGateway.emitTaskFailed({
@@ -739,6 +857,9 @@ export class AITaskProcessor extends WorkerHost {
       })
 
       throw error
+    } finally {
+      // 清理keep-alive定时器
+      clearInterval(keepAliveInterval)
     }
   }
 

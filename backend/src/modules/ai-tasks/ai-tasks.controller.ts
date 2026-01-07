@@ -116,4 +116,45 @@ export class AITasksController {
       data: measures,
     }
   }
+
+  /**
+   * ✅ 获取问卷任务的聚类生成状态
+   * GET /ai-tasks/:id/cluster-status
+   */
+  @Get(':id/cluster-status')
+  async getClusterGenerationStatus(@Param('id') id: string) {
+    const status = await this.aiTasksService.getClusterGenerationStatus(id)
+    return {
+      success: true,
+      data: status,
+    }
+  }
+
+  /**
+   * ✅ 继续生成问卷（从上次中断的位置）
+   * POST /ai-tasks/:id/resume
+   */
+  @Post(':id/resume')
+  async resumeQuestionnaireGeneration(@Param('id') id: string) {
+    const result = await this.aiTasksService.resumeQuestionnaireGeneration(id)
+    return {
+      success: true,
+      data: result,
+      message: `已创建继续生成任务，剩余 ${result.clustersToGenerate.length} 个聚类`,
+    }
+  }
+
+  /**
+   * ✅ 重新生成单个聚类的问题
+   * POST /ai-tasks/:id/regenerate-cluster
+   */
+  @Post(':id/regenerate-cluster')
+  async regenerateCluster(@Param('id') id: string, @Body() body: { clusterId: string }) {
+    const result = await this.aiTasksService.regenerateCluster(id, body.clusterId)
+    return {
+      success: true,
+      data: result,
+      message: `已创建重新生成任务: ${result.clusterName}`,
+    }
+  }
 }

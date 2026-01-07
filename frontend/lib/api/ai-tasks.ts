@@ -26,6 +26,23 @@ export interface AITask {
   createdAt: string
   updatedAt: string
   completedAt?: string
+  backupResult?: any
+  clusterGenerationStatus?: {
+    totalClusters: number
+    completedClusters: string[]
+    failedClusters: string[]
+    pendingClusters: string[]
+    clusterProgress: Record<string, {
+      clusterId: string
+      clusterName: string
+      status: 'pending' | 'generating' | 'completed' | 'failed'
+      questionsGenerated: number
+      questionsExpected: number
+      startedAt?: string
+      completedAt?: string
+      error?: string
+    }>
+  }
 }
 
 export class AITasksAPI {
@@ -156,5 +173,88 @@ export class AITasksAPI {
     const result = await response.json()
     console.log('✅ [AITasksAPI] 获取到措施数:', result.data?.length || 0)
     return result.data || []
+  }
+
+  /**
+   * ✅ 获取问卷任务的聚类生成状态
+   */
+  static async getClusterGenerationStatus(taskId: string): Promise<{
+    totalClusters: number
+    completedClusters: string[]
+    failedClusters: string[]
+    pendingClusters: string[]
+    clusterProgress: Record<string, {
+      clusterId: string
+      clusterName: string
+      status: 'pending' | 'generating' | 'completed' | 'failed'
+      questionsGenerated: number
+      questionsExpected: number
+      startedAt?: string
+      completedAt?: string
+      error?: string
+    }>
+  }> {
+    const response = await fetch(`${API_BASE_URL}/ai-tasks/${taskId}/cluster-status`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to get cluster generation status')
+    }
+
+    const result = await response.json()
+    return result.data
+  }
+
+  /**
+   * ✅ 继续生成问卷（从上次中断的位置）
+   */
+  static async resumeQuestionnaireGeneration(taskId: string): Promise<{
+    newTaskId: string
+    originalTaskId: string
+    clustersToGenerate: string[]
+    totalClusters: number
+    completedClusters: string[]
+    nextClusterId: string
+    message: string
+  }> {
+    const response = await fetch(`${API_BASE_URL}/ai-tasks/${taskId}/resume`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to resume questionnaire generation')
+    }
+
+    const result = await response.json()
+    return result.data
+  }
+
+  /**
+   * ✅ 重新生成单个聚类的问题
+   */
+  static async regenerateCluster(taskId: string, clusterId: string): Promise<{
+    newTaskId: string
+    originalTaskId: string
+    clusterId: string
+    clusterName: string
+    message: string
+  }> {
+    const response = await fetch(`${API_BASE_URL}/ai-tasks/${taskId}/regenerate-cluster`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ clusterId }),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.message || 'Failed to regenerate cluster')
+    }
+
+    const result = await response.json()
+    return result.data
   }
 }

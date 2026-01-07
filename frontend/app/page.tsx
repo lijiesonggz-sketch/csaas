@@ -1,7 +1,11 @@
-import { Button, Typography } from 'antd'
+import Button from 'antd/es/button'
+import Title from 'antd/es/typography/Title'
+import Paragraph from 'antd/es/typography/Paragraph'
 import Link from 'next/link'
 
-const { Title, Paragraph } = Typography
+// Import antd CSS
+import 'antd/es/button/style'
+import 'antd/es/typography/style'
 
 export default function Home() {
   return (

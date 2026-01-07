@@ -34,12 +34,16 @@ export class AITasksService {
     this.logger.log(`Created AI task ${task.id}`)
 
     // 添加到队列
+    // 对于clustering/matrix/questionnaire类型，不设置model参数（让Processor使用对应的Generator进行三模型并行）
+    // 对于其他类型，使用dto.model或默认的GPT4
+    const isMultiModelTask = ['clustering', 'matrix', 'questionnaire'].includes(dto.type)
+
     const jobData: AITaskJobData = {
       taskId: task.id,
       projectId: dto.projectId,
       type: dto.type,
       input: dto.input,
-      model: dto.model || AIModel.GPT4,
+      model: isMultiModelTask ? undefined : (dto.model || AIModel.GPT4),
       priority: dto.priority,
       userId,
     }
@@ -262,5 +266,162 @@ export class AITasksService {
     })
 
     return measures
+  }
+
+  /**
+   * ✅ 获取问卷任务的聚类生成状态
+   */
+  async getClusterGenerationStatus(taskId: string) {
+    const task = await this.getTask(taskId)
+
+    if (task.type !== 'questionnaire') {
+      throw new Error('该任务不是问卷生成任务')
+    }
+
+    if (!task.clusterGenerationStatus) {
+      // 如果没有状态信息，返回默认状态
+      return {
+        totalClusters: 0,
+        completedClusters: [],
+        failedClusters: [],
+        pendingClusters: [],
+        clusterProgress: {},
+      }
+    }
+
+    return task.clusterGenerationStatus
+  }
+
+  /**
+   * ✅ 继续生成问卷（从上次中断的位置）
+   */
+  async resumeQuestionnaireGeneration(taskId: string) {
+    const task = await this.getTask(taskId)
+
+    if (task.type !== 'questionnaire') {
+      throw new Error('该任务不是问卷生成任务')
+    }
+
+    if (!task.clusterGenerationStatus) {
+      throw new Error('该任务没有聚类生成状态信息，无法继续生成')
+    }
+
+    const status = task.clusterGenerationStatus
+    const pendingClusters = status.pendingClusters || []
+    const failedClusters = status.failedClusters || []
+
+    // ✅ 合并待生成和失败的聚类
+    const clustersToGenerate = [...pendingClusters, ...failedClusters]
+
+    if (clustersToGenerate.length === 0) {
+      throw new Error('所有聚类已生成完成，无需继续')
+    }
+
+    this.logger.log(
+      `Resuming questionnaire generation for task ${taskId}: ${clustersToGenerate.length} clusters remaining (pending: ${pendingClusters.length}, failed: ${failedClusters.length})`,
+    )
+
+    // 创建新的任务来生成剩余的聚类
+    const newTask = this.aiTaskRepo.create({
+      projectId: task.projectId,
+      type: task.type,
+      input: {
+        ...task.input,
+        resumeFromTaskId: taskId, // ✅ 标记这是从某个任务继续的
+        targetClusters: clustersToGenerate, // ✅ 指定只生成这些聚类
+      },
+      status: TaskStatus.PENDING,
+      priority: task.priority + 1, // ✅ 提高优先级
+    })
+
+    await this.aiTaskRepo.save(newTask)
+
+    // 添加到队列
+    const jobData: AITaskJobData = {
+      taskId: newTask.id,
+      projectId: newTask.projectId,
+      type: newTask.type,
+      input: newTask.input,
+      model: undefined, // questionnaire类型使用三模型并行
+      priority: newTask.priority,
+      userId: undefined, // 继续生成不需要userId
+    }
+
+    await this.aiTaskQueue.add(AITaskJobType.PROCESS_TASK, jobData, {
+      priority: newTask.priority,
+      attempts: 3,
+    })
+
+    return {
+      newTaskId: newTask.id,
+      originalTaskId: taskId,
+      clustersToGenerate, // ✅ 返回包括失败聚类的列表
+      totalClusters: status.totalClusters,
+      completedClusters: status.completedClusters,
+      nextClusterId: clustersToGenerate[0],
+      message: `继续生成 ${clustersToGenerate.length} 个聚类`,
+    }
+  }
+
+  /**
+   * ✅ 重新生成单个聚类的问题
+   */
+  async regenerateCluster(taskId: string, clusterId: string) {
+    const task = await this.getTask(taskId)
+
+    if (task.type !== 'questionnaire') {
+      throw new Error('该任务不是问卷生成任务')
+    }
+
+    if (!task.clusterGenerationStatus) {
+      throw new Error('该任务没有聚类生成状态信息')
+    }
+
+    const clusterProgress = task.clusterGenerationStatus.clusterProgress[clusterId]
+    if (!clusterProgress) {
+      throw new Error(`聚类 ${clusterId} 不存在`)
+    }
+
+    this.logger.log(`Regenerating cluster ${clusterId} for task ${taskId}`)
+
+    // 创建新任务来重新生成该聚类
+    const newTask = this.aiTaskRepo.create({
+      projectId: task.projectId,
+      type: task.type,
+      input: {
+        ...task.input,
+        regenerateFromTaskId: taskId, // ✅ 标记这是重新生成
+        targetClusters: [clusterId], // ✅ 只生成这一个聚类
+        replaceMode: true, // ✅ 标记为替换模式
+      },
+      status: TaskStatus.PENDING,
+      priority: task.priority + 2, // ✅ 重新生成优先级更高
+    })
+
+    await this.aiTaskRepo.save(newTask)
+
+    // 添加到队列
+    const jobData: AITaskJobData = {
+      taskId: newTask.id,
+      projectId: newTask.projectId,
+      type: newTask.type,
+      input: newTask.input,
+      model: undefined,
+      priority: newTask.priority,
+      userId: undefined,
+    }
+
+    await this.aiTaskQueue.add(AITaskJobType.PROCESS_TASK, jobData, {
+      priority: newTask.priority,
+      attempts: 3,
+    })
+
+    return {
+      newTaskId: newTask.id,
+      originalTaskId: taskId,
+      clusterId,
+      clusterName: clusterProgress.clusterName,
+      message: `正在重新生成聚类: ${clusterProgress.clusterName}`,
+    }
   }
 }
