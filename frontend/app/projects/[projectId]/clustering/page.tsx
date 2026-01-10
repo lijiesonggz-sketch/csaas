@@ -27,19 +27,29 @@ export default function ClusteringPage() {
     enabled: !!taskId && loading && !generationResult,
     pollingInterval: 5000,
     onComplete: async (status) => {
+      console.log('🎉 [Clustering] 任务完成回调触发，状态:', status.status)
       if (status.status === 'completed') {
         try {
+          console.log('📥 [Clustering] 正在获取结果...')
           const response = await AIGenerationAPI.getResult(taskId!)
+          console.log('📊 [Clustering] API响应:', response)
+
           if (response.success && response.data) {
+            console.log('✅ [Clustering] 结果获取成功，更新UI')
             setGenerationResult(response.data)
+            setLoading(false)
+          } else {
+            console.warn('⚠️ [Clustering] 结果格式异常:', response)
+            setError('结果格式异常，请重试')
             setLoading(false)
           }
         } catch (err) {
-          console.error('Failed to fetch result:', err)
-          setError('获取结果失败')
+          console.error('❌ [Clustering] 获取结果失败:', err)
+          setError('获取结果失败: ' + (err instanceof Error ? err.message : '未知错误'))
           setLoading(false)
         }
       } else if (status.status === 'failed') {
+        console.log('❌ [Clustering] 任务失败:', status.message)
         setError(status.message || '生成失败')
         setLoading(false)
       }
@@ -120,9 +130,30 @@ export default function ClusteringPage() {
                       generationType: task.type,
                     })
                     setLoading(false)
+                  } else {
+                    console.warn('⚠️ [Clustering] 任务已完成但结果为空，尝试通过API获取')
+                    // 尝试通过getResult API获取
+                    try {
+                      const { AIGenerationAPI } = await import('@/lib/api/ai-generation')
+                      const response = await AIGenerationAPI.getResult(savedTaskId)
+                      if (response.success && response.data) {
+                        setGenerationResult(response.data)
+                        setLoading(false)
+                      } else {
+                        console.error('❌ [Clustering] getResult API返回空结果')
+                        setError('结果加载失败，请刷新页面重试')
+                        setLoading(false)
+                      }
+                    } catch (apiErr) {
+                      console.error('❌ [Clustering] getResult API调用失败:', apiErr)
+                      setError('获取结果失败，请刷新页面重试')
+                      setLoading(false)
+                    }
                   }
                 } catch (retryErr) {
-                  console.log('❌ [Clustering] 重试失败:', retryErr)
+                  console.error('❌ [Clustering] 重试失败:', retryErr)
+                  setError('获取结果失败，请刷新页面重试')
+                  setLoading(false)
                 }
               }, 1000)
             }
@@ -155,8 +186,8 @@ export default function ClusteringPage() {
       // 从 metadata.uploadedDocuments 解析文档
       const documents = project.metadata?.uploadedDocuments || []
 
-      if (!Array.isArray(documents) || documents.length < 2) {
-        setError('聚类分析至少需要2个文档，请先上传文档')
+      if (!Array.isArray(documents) || documents.length < 1) {
+        setError('聚类分析至少需要1个文档，请先上传文档')
         setLoading(false)
         return
       }
@@ -221,7 +252,7 @@ export default function ClusteringPage() {
             聚类生成
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            基于多个标准文档生成聚类分析结果
+            基于标准文档生成聚类分析结果
           </p>
         </div>
 

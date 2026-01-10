@@ -19,22 +19,33 @@ export class TongyiClient implements IAIClient {
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.get<string>('TONGYI_API_KEY')
+    const baseURL = this.configService.get<string>('TONGYI_BASE_URL')
+    const model = this.configService.get<string>('TONGYI_MODEL')
+
+    // 🔍 详细日志：诊断环境变量加载问题
+    this.logger.log('🔍 TongyiClient构造函数 - 环境变量检查:')
+    this.logger.log(`  TONGYI_API_KEY: ${apiKey ? apiKey.substring(0, 15) + '...' : '❌ MISSING'}`)
+    this.logger.log(`  TONGYI_BASE_URL: ${baseURL || '❌ MISSING (使用默认值)'}`)
+    this.logger.log(`  TONGYI_MODEL: ${model || '❌ MISSING (使用默认值)'}`)
 
     // Tongyi uses DashScope API with OpenAI-compatible interface
     this.client = new OpenAI({
       apiKey: apiKey || 'dummy-key',
       baseURL:
-        this.configService.get<string>('TONGYI_BASE_URL') ||
+        baseURL ||
         'https://dashscope.aliyuncs.com/compatible-mode/v1',
-      timeout: 360000, // 6分钟超时（360秒 = 360000ms）
+      timeout: 900000, // 15分钟超时（900秒 = 900000ms）- 与GLM保持一致
       maxRetries: 0, // 不重试，只调用一次
     })
 
-    this.defaultModel =
-      this.configService.get<string>('TONGYI_MODEL') || 'qwen-plus'
+    this.defaultModel = model || 'qwen-plus'
+
+    this.logger.log(`✅ TongyiClient初始化完成 - Model: ${this.defaultModel}`)
   }
 
   async generate(request: AIClientRequest): Promise<AIClientResponse> {
+    this.logger.log(`🔵 TongyiClient.generate() called with model: ${this.defaultModel}, maxTokens: ${request.maxTokens}`)
+
     const startTime = Date.now()
 
     try {
@@ -56,9 +67,11 @@ export class TongyiClient implements IAIClient {
 
       // 根据模型设置最大 token 限制
       // qwen-long: 输出最大 32768
+      // qwen3-max: 输出最大 32768（新旗舰模型）
       // qwen-max: 输出最大 8192
       // qwen-plus/turbo: 输出最大 6144
       const modelMaxTokens = model === 'qwen-long' ? 32768 :
+                            model === 'qwen3-max' ? 32768 :
                             model === 'qwen-max' ? 8192 : 6144
       const maxTokens = Math.min(request.maxTokens ?? 2000, modelMaxTokens)
 
@@ -120,7 +133,12 @@ export class TongyiClient implements IAIClient {
 
   isAvailable(): boolean {
     const apiKey = this.configService.get<string>('TONGYI_API_KEY')
-    return !!apiKey && apiKey !== 'dummy-key'
+    const model = this.configService.get<string>('TONGYI_MODEL')
+    const available = !!apiKey && apiKey !== 'dummy-key'
+
+    this.logger.log(`🔍 TongyiClient.isAvailable() = ${available} (API key: ${apiKey ? apiKey.substring(0, 10) + '...' : 'missing'}, model: ${model})`)
+
+    return available
   }
 
   /**
@@ -139,6 +157,7 @@ export class TongyiClient implements IAIClient {
     const pricing: Record<string, { prompt: number; completion: number }> = {
       'qwen-plus': { prompt: 0.004 / 1000, completion: 0.012 / 1000 },          // 普通版
       'qwen-turbo': { prompt: 0.002 / 1000, completion: 0.006 / 1000 },         // 快速版
+      'qwen3-max': { prompt: 0.02 / 1000, completion: 0.06 / 1000 },            // 新旗舰版（与qwen-max定价相同）
       'qwen-max': { prompt: 0.02 / 1000, completion: 0.06 / 1000 },             // 旗舰版
       'qwen-long': { prompt: 0.0005 / 1000, completion: 0.002 / 1000 },         // 长文本版 (输入1000万tokens/输出32768tokens)
       'qwen2.5-72b-instruct': { prompt: 0.004 / 1000, completion: 0.004 / 1000 },

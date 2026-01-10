@@ -13,6 +13,7 @@ import { ResultAggregationModule } from './modules/result-aggregation/result-agg
 import { AIGenerationModule } from './modules/ai-generation/ai-generation.module'
 import { SurveyModule } from './modules/survey/survey.module'
 import { ProjectsModule } from './modules/projects/projects.module'
+import { FilesModule } from './modules/files/files.module'
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { ProjectsModule } from './modules/projects/projects.module'
     AIGenerationModule,
     SurveyModule,
     ProjectsModule,
+    FilesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

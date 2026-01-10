@@ -142,12 +142,15 @@ export function useTaskProgressPolling(options: UseTaskProgressPollingOptions = 
         // 页面隐藏时停止轮询
         stopPolling()
       } else {
-        // 页面可见时恢复轮询
-        if (enabled && taskId && progress?.status === 'processing') {
-          startPolling()
-        } else if (enabled && taskId) {
-          // 如果任务还在进行中，立即刷新一次状态
+        // 页面可见时立即刷新状态并恢复轮询
+        if (enabled && taskId) {
+          // 立即刷新一次状态（可能任务已完成）
           fetchStatus()
+
+          // ✅ 修复：总是恢复轮询，让fetchStatus自然地检测到任务状态
+          // 如果任务已完成，fetchStatus会在下次轮询时检测到并触发onComplete
+          // 如果任务还在进行中，继续轮询
+          startPolling()
         }
       }
     }
@@ -157,7 +160,7 @@ export function useTaskProgressPolling(options: UseTaskProgressPollingOptions = 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [enabled, taskId, progress?.status, startPolling, stopPolling, fetchStatus])
+  }, [enabled, taskId, startPolling, stopPolling, fetchStatus])
 
   return {
     progress,

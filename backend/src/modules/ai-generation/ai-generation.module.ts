@@ -12,6 +12,7 @@ import { QualityValidationModule } from '../quality-validation/quality-validatio
 import { ResultAggregationModule } from '../result-aggregation/result-aggregation.module'
 import { AITasksModule } from '../ai-tasks/ai-tasks.module'
 import { AITask } from '../../database/entities/ai-task.entity'
+import { AIGenerationEvent } from '../../database/entities/ai-generation-event.entity'
 import { Project } from '../../database/entities/project.entity'
 import { User } from '../../database/entities/user.entity'
 import { SurveyResponse } from '../../database/entities/survey-response.entity'
@@ -22,7 +23,7 @@ import { SurveyResponse } from '../../database/entities/survey-response.entity'
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AITask, Project, User, SurveyResponse]),
+    TypeOrmModule.forFeature([AITask, AIGenerationEvent, Project, User, SurveyResponse]),
     AIClientsModule,
     QualityValidationModule,
     ResultAggregationModule,

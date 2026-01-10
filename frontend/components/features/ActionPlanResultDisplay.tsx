@@ -108,7 +108,10 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
   // ========================================
   // 两层导航状态管理
   // ========================================
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null) // 当前展开的一层分类
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null) // 当前展开的一层分类（用于展开其二级导航）
+  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set()) // 展开的二级聚类集合（用于展开其措施列表）
+  const [expandedAllCategories, setExpandedAllCategories] = useState<Set<string>>(new Set()) // 展开所有措施的一级分类集合
+  const [expandedAll, setExpandedAll] = useState(false) // 是否展开所有措施
   const [highlightedCluster, setHighlightedCluster] = useState<string | null>(null) // 当前高亮的二层聚类
 
   // ========================================
@@ -238,18 +241,55 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
   // ========================================
   // 交互处理函数
   // ========================================
-  const handleCategoryClick = (categoryName: string) => {
-    if (selectedCategory === categoryName) {
-      setSelectedCategory(null) // 收起
+  // 处理一级分类点击（展开/收起其二级导航）
+  const handleCategoryExpand = (categoryName: string) => {
+    if (expandedCategory === categoryName) {
+      setExpandedCategory(null) // 收起
     } else {
-      setSelectedCategory(categoryName) // 展开
+      setExpandedCategory(categoryName) // 展开
     }
-    setHighlightedCluster(null) // 清除高亮
   }
 
-  const handleClusterClick = (clusterName: string) => {
+  // 处理展开某一级分类的所有措施
+  const handleExpandAllInCategory = (categoryName: string) => {
+    const newExpanded = new Set(expandedAllCategories)
+    if (newExpanded.has(categoryName)) {
+      newExpanded.delete(categoryName)
+    } else {
+      newExpanded.add(categoryName)
+    }
+    setExpandedAllCategories(newExpanded)
+  }
+
+  // 处理展开/收起所有措施
+  const handleExpandAll = () => {
+    if (expandedAll) {
+      setExpandedAll(false)
+      setExpandedAllCategories(new Set())
+      setExpandedClusters(new Set())
+    } else {
+      setExpandedAll(true)
+      // 展开所有分类的所有措施
+      const allCategories = new Set(categoryHierarchy.map((cat: any) => cat.name))
+      setExpandedAllCategories(allCategories)
+      // 展开所有聚类的措施
+      const allClusters = new Set(detailedMeasures.map((m: any) => m.clusterName))
+      setExpandedClusters(allClusters)
+    }
+  }
+
+  // 处理二级聚类点击（展开/收起其措施列表）
+  const handleClusterExpand = (clusterName: string) => {
+    const newExpanded = new Set(expandedClusters)
+    if (newExpanded.has(clusterName)) {
+      newExpanded.delete(clusterName)
+    } else {
+      newExpanded.add(clusterName)
+    }
+    setExpandedClusters(newExpanded)
+
+    // 高亮该聚类
     setHighlightedCluster(clusterName)
-    setSelectedCategory(null) // 收起导航
 
     // 平滑滚动到措施区域
     setTimeout(() => {
@@ -257,7 +297,25 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
-    }, 300)
+    }, 100)
+  }
+
+  // 判断某个聚类是否应该显示措施
+  const shouldShowClusterMeasures = (clusterName: string, categoryName?: string) => {
+    // 1. 如果展开了所有，返回true
+    if (expandedAll) return true
+
+    // 2. 如果展开了该聚类所在的一级分类的所有措施，返回true
+    if (categoryName && expandedAllCategories.has(categoryName)) {
+      return true
+    }
+
+    // 3. 如果展开了该特定聚类，返回true
+    if (expandedClusters.has(clusterName)) {
+      return true
+    }
+
+    return false
   }
 
   // 导出为 CSV
@@ -711,42 +769,55 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
           <Card bordered={false} title="📁 一层分类导航">
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
               {categoryStats.map((category, catIndex) => {
-                const isExpanded = selectedCategory === category.name
+                const isExpanded = expandedCategory === category.name
+                const isExpandedAll = expandedAllCategories.has(category.name)
                 const categoryIcon = ['🛡️', '🔄', '🔐', '📊'][catIndex] || '📋'
 
                 return (
-                  <Card
-                    key={category.id}
-                    size="small"
-                    style={{
-                      borderColor: isExpanded ? '#1890ff' : '#d9d9d9',
-                      backgroundColor: isExpanded ? '#f0f5ff' : '#ffffff',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s'
-                    }}
-                    hoverable
-                    onClick={() => handleCategoryClick(category.name)}
-                  >
-                    <Space direction="vertical" style={{ width: '100%' }} size="small">
-                      <div className="flex items-center justify-between">
-                        <Space>
-                          <span style={{ fontSize: '20px' }}>{categoryIcon}</span>
-                          <span className="text-lg font-medium">{category.name}</span>
-                        </Space>
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={isExpanded ? <span>▲</span> : <span>▼</span>}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleCategoryClick(category.name)
-                          }}
-                        />
-                      </div>
+                  <div key={category.id}>
+                    <Card
+                      size="small"
+                      style={{
+                        borderColor: isExpanded ? '#1890ff' : '#d9d9d9',
+                        backgroundColor: isExpanded ? '#f0f5ff' : '#ffffff',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s'
+                      }}
+                      hoverable
+                      onClick={() => handleCategoryExpand(category.name)}
+                    >
+                      <Space direction="vertical" style={{ width: '100%' }} size="small">
+                        <div className="flex items-center justify-between">
+                          <Space>
+                            <span style={{ fontSize: '20px' }}>{categoryIcon}</span>
+                            <span className="text-lg font-medium">{category.name}</span>
+                          </Space>
+                          <Space>
+                            <Button
+                              type="link"
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleExpandAllInCategory(category.name)
+                              }}
+                            >
+                              {isExpandedAll ? '收起' : '展开所有'}
+                            </Button>
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={isExpanded ? <span>▲</span> : <span>▼</span>}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleCategoryExpand(category.name)
+                              }}
+                            />
+                          </Space>
+                        </div>
 
-                      <div className="text-sm text-gray-500">
-                        {category.description}
-                      </div>
+                        <div className="text-sm text-gray-500">
+                          {category.description}
+                        </div>
 
                       <Card
                         size="small"
@@ -794,95 +865,85 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
                       </div>
                     </Space>
                   </Card>
+
+                  {/* 二层聚类导航（在该一级分类下展开） */}
+                  {isExpanded && (
+                    <Card
+                      bordered={false}
+                      style={{
+                        marginTop: 12,
+                        backgroundColor: '#f5f5f5',
+                        borderLeft: '3px solid #1890ff'
+                      }}
+                    >
+                      <div className="text-sm font-medium mb-3" style={{ color: '#1890ff' }}>
+                        📂 {category.name} - 二层聚类导航
+                      </div>
+                      <Row gutter={[12, 12]}>
+                        {category.clusters.map((cluster: any, clusterIndex: number) => {
+                          const isClusterExpanded = expandedClusters.has(cluster.name)
+
+                          return (
+                            <Col xs={24} sm={12} md={8} key={cluster.id}>
+                              <Card
+                                size="small"
+                                style={{
+                                  cursor: 'pointer',
+                                  borderColor: isClusterExpanded ? '#faad14' : '#d9d9d9',
+                                  backgroundColor: isClusterExpanded ? '#fffbe6' : '#ffffff',
+                                  transition: 'all 0.3s'
+                                }}
+                                hoverable
+                                onClick={() => handleClusterExpand(cluster.name)}
+                              >
+                                <Space direction="vertical" style={{ width: '100%' }} size="small">
+                                  <div className="font-medium text-sm">
+                                    {clusterIndex + 1}. {cluster.name}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      fontSize: '11px',
+                                      color: '#666',
+                                      backgroundColor: '#f9f9f9',
+                                      padding: '6px',
+                                      borderRadius: '3px',
+                                      border: '1px solid #e8e8e8'
+                                    }}
+                                  >
+                                    <div>当前: {cluster.avgCurrent} → 目标: {cluster.avgTarget}</div>
+                                    <div style={{ color: '#faad14', fontWeight: 'bold' }}>
+                                      差距: {cluster.avgGap}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center justify-between">
+                                    <Tag color="blue">{cluster.measureCount} 条措施</Tag>
+                                    <Space size="small">
+                                      {cluster.highPriority > 0 && <Tag color="red">高: {cluster.highPriority}</Tag>}
+                                      {cluster.mediumPriority > 0 && <Tag color="orange">中: {cluster.mediumPriority}</Tag>}
+                                      {cluster.lowPriority > 0 && <Tag color="blue">低: {cluster.lowPriority}</Tag>}
+                                    </Space>
+                                  </div>
+
+                                  <div className="text-center">
+                                    <Button type="primary" size="small">
+                                      {isClusterExpanded ? '收起措施' : '查看措施'}
+                                    </Button>
+                                  </div>
+                                </Space>
+                              </Card>
+                            </Col>
+                          )
+                        })}
+                      </Row>
+                    </Card>
+                  )}
+                  </div>
                 )
               })}
             </Space>
           </Card>
-
-          {/* 二层聚类导航（点击展开后显示） */}
-          {selectedCategory && (
-            <Card
-              bordered={false}
-              title={
-                <Space>
-                  <span>📂 二层聚类导航</span>
-                  <span style={{ color: '#1890ff' }}>{selectedCategory}</span>
-                </Space>
-              }
-              extra={
-                <Button
-                  type="link"
-                  size="small"
-                  onClick={() => setSelectedCategory(null)}
-                >
-                  收起
-                </Button>
-              }
-            >
-              <Row gutter={[16, 16]}>
-                {categoryStats
-                  .filter(cat => cat.name === selectedCategory)
-                  .map(cat =>
-                    cat.clusters.map((cluster: any, clusterIndex: number) => {
-                      const isHighlighted = highlightedCluster === cluster.name
-
-                      return (
-                        <Col xs={24} sm={12} md={8} key={cluster.id}>
-                          <Card
-                            size="small"
-                            style={{
-                              cursor: 'pointer',
-                              borderColor: isHighlighted ? '#faad14' : '#d9d9d9',
-                              backgroundColor: isHighlighted ? '#fffbe6' : '#fafafa',
-                              transition: 'all 0.3s'
-                            }}
-                            hoverable
-                            onClick={() => handleClusterClick(cluster.name)}
-                          >
-                            <Space direction="vertical" style={{ width: '100%' }} size="small">
-                              <div className="font-medium text-sm">
-                                {cat.clusters.findIndex((c: any) => c.id === cluster.id) + 1}. {cluster.name}
-                              </div>
-
-                              <div
-                                style={{
-                                  fontSize: '12px',
-                                  color: '#666',
-                                  backgroundColor: '#ffffff',
-                                  padding: '8px',
-                                  borderRadius: '4px',
-                                  border: '1px solid #d9d9d9'
-                                }}
-                              >
-                                <div>当前: {cluster.avgCurrent} → 目标: {cluster.avgTarget}</div>
-                                <div style={{ color: '#faad14', fontWeight: 'bold' }}>
-                                  差距: {cluster.avgGap}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center justify-between">
-                                <Tag color="blue">{cluster.measureCount} 条措施</Tag>
-                                <Space size="small">
-                                  {cluster.highPriority > 0 && <Tag color="red">高: {cluster.highPriority}</Tag>}
-                                  {cluster.mediumPriority > 0 && <Tag color="orange">中: {cluster.mediumPriority}</Tag>}
-                                  {cluster.lowPriority > 0 && <Tag color="blue">低: {cluster.lowPriority}</Tag>}
-                                </Space>
-                              </div>
-
-                              <div className="text-center">
-                                <Button type="primary" size="small">
-                                  查看措施 →
-                                </Button>
-                              </div>
-                            </Space>
-                          </Card>
-                        </Col>
-                      )
-                    })
-                  )}
-              </Row>
-            </Card>
-          )}
         </div>
       )}
 
@@ -903,12 +964,24 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
         </Col>
         <Col span={8}>
           <Card bordered={false}>
-            <Statistic
-              title="总措施数"
-              value={totalMeasures}
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#1890ff' }}
-            />
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Statistic
+                title="总措施数"
+                value={totalMeasures}
+                prefix={<CheckCircleOutlined />}
+                valueStyle={{ color: '#1890ff' }}
+              />
+              {useDetailedMeasures && (
+                <Button
+                  type="link"
+                  size="small"
+                  onClick={handleExpandAll}
+                  style={{ padding: 0, height: 'auto' }}
+                >
+                  {expandedAll ? '收起所有' : '展开所有'}
+                </Button>
+              )}
+            </Space>
           </Card>
         </Col>
         <Col span={8}>
@@ -971,47 +1044,54 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
         <Space direction="vertical" style={{ width: '100%' }} size="large">
           {useDetailedMeasures ? (
             // 使用详细措施列表（90条）- 按聚类分组展示
-            Array.from(new Set(detailedMeasures.map((m: any) => m.clusterName))).map((clusterName, clusterIndex) => {
-              const clusterMeasures = detailedMeasures.filter((m: any) => m.clusterName === clusterName)
-              const isHighlighted = highlightedCluster === clusterName
+            categoryStats.map((category: any) =>
+              category.clusters.map((cluster: any, clusterIndex: number) => {
+                const clusterMeasures = detailedMeasures.filter((m: any) => m.clusterName === cluster.name)
+                const isHighlighted = highlightedCluster === cluster.name
+                const showMeasures = shouldShowClusterMeasures(cluster.name, category.name)
 
-              return (
-                <div
-                  key={clusterName}
-                  id={`cluster-measures-${clusterName}`}
-                  style={{
-                    scrollMarginTop: 100, // 为固定头部留出空间
-                    transition: 'all 0.3s'
-                  }}
-                >
-                  {/* 聚类标题 */}
-                  <Card
-                    size="small"
+                return (
+                  <div
+                    key={cluster.name}
+                    id={`cluster-measures-${cluster.name}`}
                     style={{
-                      marginBottom: 16,
-                      backgroundColor: isHighlighted ? '#fffbe6' : '#f0f5ff',
-                      borderColor: isHighlighted ? '#faad14' : '#1890ff',
-                      borderLeftWidth: 4,
-                      borderLeftStyle: 'solid'
+                      scrollMarginTop: 100, // 为固定头部留出空间
+                      transition: 'all 0.3s'
                     }}
-                    title={
-                      <Space>
-                        <span style={{ fontSize: '16px', fontWeight: 'bold' }}>
-                          {clusterIndex + 1}. {clusterName}
-                        </span>
-                        <Tag color="blue">{clusterMeasures.length} 条措施</Tag>
-                        {isHighlighted && <Tag color="orange">🔍 正在查看</Tag>}
-                      </Space>
-                    }
-                  />
+                  >
+                    {/* 聚类标题 */}
+                    <Card
+                      size="small"
+                      style={{
+                        marginBottom: 16,
+                        backgroundColor: isHighlighted ? '#fffbe6' : '#f0f5ff',
+                        borderColor: isHighlighted ? '#faad14' : '#1890ff',
+                        borderLeftWidth: 4,
+                        borderLeftStyle: 'solid',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => handleClusterExpand(cluster.name)}
+                      title={
+                        <Space>
+                          <span style={{ fontSize: '16px', fontWeight: 'bold' }}>
+                            {clusterIndex + 1}. {cluster.name}
+                          </span>
+                          <Tag color="blue">{clusterMeasures.length} 条措施</Tag>
+                          {isHighlighted && <Tag color="orange">🔍 正在查看</Tag>}
+                          <span style={{ fontSize: '12px', color: '#999', marginLeft: '8px' }}>
+                            {showMeasures ? '▼ 收起措施' : '▶ 展开措施'}
+                          </span>
+                        </Space>
+                      }
+                    />
 
-                  {/* 该聚类下的所有措施 */}
-                  {clusterMeasures.map((measure: any, measureIndex: number) => {
+                    {/* 该聚类下的所有措施（根据展开状态显示） */}
+                    {showMeasures && clusterMeasures.map((measure: any, measureIndex: number) => {
                     const config = getPriorityConfig(measure.priority === 'high' ? '高' : measure.priority === 'medium' ? '中' : '低')
 
                     return (
                       <Card
-                        key={`${clusterName}-${measureIndex}`}
+                        key={`${cluster.name}-${measureIndex}`}
                         type="inner"
                         style={{
                           marginBottom: 16,
@@ -1192,12 +1272,12 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
                     </Collapse>
                   </Space>
                 </Card>
-                      )
-                    })}
-                  </div>
+                )
+              })}
+                </div>
                 )
               })
-            ) : (
+            )) : (
             // 使用简化的improvements
             improvements.map((improvement, index) => {
               const config = getPriorityConfig(improvement.priority)

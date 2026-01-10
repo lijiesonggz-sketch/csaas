@@ -39,6 +39,10 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
     setCreateDialogOpen(false)
   }
 
+  const handleProjectDeleted = () => {
+    loadProjects()
+  }
+
   if (loading) {
     return (
       <main className="flex items-center justify-center min-h-[400px]" role="status" aria-label="加载中">
@@ -118,6 +122,7 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
               key={project.id}
               project={project}
               onClick={() => onProjectClick?.(project)}
+              onDelete={handleProjectDeleted}
             />
           ))}
         </section>

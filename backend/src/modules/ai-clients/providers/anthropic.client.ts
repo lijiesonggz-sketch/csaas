@@ -20,7 +20,7 @@ export class AnthropicClient implements IAIClient {
     this.client = new Anthropic({
       apiKey: apiKey || 'dummy-key',
       baseURL,
-      timeout: 360000, // 6分钟超时（360秒 = 360000ms）
+      timeout: 900000, // 15分钟超时（900秒 = 900000ms）- 与GLM保持一致
       maxRetries: 0, // 不重试，只调用一次
     })
 

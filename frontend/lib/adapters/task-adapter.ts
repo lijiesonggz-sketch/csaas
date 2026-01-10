@@ -157,12 +157,19 @@ export class TaskAdapter {
 
       case 'questionnaire':
         // questionnaire 需要转换数据结构
-        // 新格式：task.result.content 包含 {questionnaire: [...], questionnaire_metadata: {...}}
-        // 旧格式：task.result.sections [...]
+        // 后端返回格式：task.result 直接包含 {questionnaire: [...], questionnaire_metadata: {...}}
+        // 或 task.result.content 包含这些字段
         let questionnaireData: any = null
 
-        // 尝试从 content 字段解析（新格式）
-        if (task.result?.content) {
+        // ✅ 优先：直接从 task.result 获取（最新格式）
+        if (task.result?.questionnaire && Array.isArray(task.result.questionnaire)) {
+          questionnaireData = {
+            questionnaire: task.result.questionnaire,
+            questionnaire_metadata: task.result.questionnaire_metadata || {}
+          }
+        }
+        // 其次：从 content 字段解析（兼容格式）
+        else if (task.result?.content) {
           try {
             const content = typeof task.result.content === 'string'
               ? JSON.parse(task.result.content)
@@ -177,7 +184,7 @@ export class TaskAdapter {
           }
         }
 
-        // 如果新格式解析失败，尝试旧格式（兼容）
+        // 最后：尝试旧格式（兼容）
         if (!questionnaireData || !questionnaireData.questionnaire || questionnaireData.questionnaire.length === 0) {
           const questions: any[] = []
           task.result?.sections?.forEach((section: any, sectionIdx: number) => {

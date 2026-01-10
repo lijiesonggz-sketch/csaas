@@ -1,8 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
 import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
 import { AIClientRequest, AIClientResponse } from '../../ai-clients/interfaces/ai-client.interface'
 import { AIModel } from '../../../database/entities/ai-generation-event.entity'
+import { AIGenerationEvent } from '../../../database/entities/ai-generation-event.entity'
 import { fillClusteringPrompt } from '../prompts/clustering.prompts'
 
 /**
@@ -99,6 +102,8 @@ export class ClusteringGenerator {
   constructor(
     private readonly aiOrchestrator: AIOrchestrator,
     private readonly configService: ConfigService,
+    @InjectRepository(AIGenerationEvent)
+    private readonly eventRepo: Repository<AIGenerationEvent>,
   ) {
     // 获取超时配置（默认15分钟）
     this.generationTimeout =
@@ -112,11 +117,13 @@ export class ClusteringGenerator {
   /**
    * 生成跨文档聚类
    * @param input 生成输入
+   * @param taskId 任务ID（用于记录AI生成事件）
    * @param onProgress 进度回调函数（可选）
    * @returns 生成输出（三模型结果）
    */
   async generate(
     input: ClusteringGenerationInput,
+    taskId?: string,
     onProgress?: (progress: {
       stage: string
       model?: string
@@ -141,7 +148,7 @@ export class ClusteringGenerator {
       })
     }
 
-    const { documents, temperature = 0.7, maxTokens = 16000 } = input
+    const { documents, temperature = 0.7, maxTokens = 32768 } = input
 
     // 验证输入
     if (!documents || documents.length === 0) {
@@ -167,42 +174,44 @@ export class ClusteringGenerator {
     const generationStartTime = Date.now()
     const modelProgress = {
       gpt4: { status: 'pending' as const, started_at: new Date().toISOString() },
-      claude: { status: 'pending' as const, started_at: new Date().toISOString() },
+      // claude: { status: 'pending' as const, started_at: new Date().toISOString() }, // 暂时禁用Claude
       domestic: { status: 'pending' as const, started_at: new Date().toISOString() },
     }
 
-    // 并行调用三模型生成，添加超时控制
+    // ⚠️ 临时禁用Claude模型，只使用GPT-4和Qwen（因为Claude API返回404）
+    // 并行调用两模型生成，添加超时控制
     const results = await Promise.allSettled([
       this.addTimeout(
-        this.generateWithModel(aiRequest, AIModel.GPT4, onProgress, modelProgress),
+        this.generateWithModel(aiRequest, AIModel.GPT4, taskId, onProgress, modelProgress),
         this.generationTimeout,
         'GPT-4',
       ),
+      // this.addTimeout(
+      //   this.generateWithModel(aiRequest, AIModel.CLAUDE, taskId, onProgress, modelProgress),
+      //   this.generationTimeout,
+      //   'Claude',
+      // ),
       this.addTimeout(
-        this.generateWithModel(aiRequest, AIModel.CLAUDE, onProgress, modelProgress),
+        this.generateWithModel(aiRequest, AIModel.DOMESTIC, taskId, onProgress, modelProgress),
         this.generationTimeout,
-        'Claude',
-      ),
-      this.addTimeout(
-        this.generateWithModel(aiRequest, AIModel.DOMESTIC, onProgress, modelProgress),
-        this.generationTimeout,
-        'Domestic',
+        'Qwen',
       ),
     ])
 
     const generationElapsed = Date.now() - generationStartTime
 
     const gpt4Response = results[0].status === 'fulfilled' ? results[0].value : null
-    const claudeResponse = results[1].status === 'fulfilled' ? results[1].value : null
-    const domesticResponse = results[2].status === 'fulfilled' ? results[2].value : null
+    // const claudeResponse = results[1].status === 'fulfilled' ? results[1].value : null // 禁用Claude
+    const claudeResponse = null // ⚠️ 临时禁用
+    const domesticResponse = results[1].status === 'fulfilled' ? results[1].value : null // 注意索引变化
 
     // 统计成功数量
-    const successfulCount = [gpt4Response, claudeResponse, domesticResponse].filter(
+    const successfulCount = [gpt4Response, domesticResponse].filter(
       (r) => r !== null,
     ).length
 
     this.logger.log(
-      `Generation completed in ${(generationElapsed / 1000).toFixed(1)}s. Successful models: ${successfulCount}/3`,
+      `Generation completed in ${(generationElapsed / 1000).toFixed(1)}s. Successful models: ${successfulCount}/2 (Claude disabled)`,
     )
 
     // 记录失败的模型
@@ -211,20 +220,21 @@ export class ClusteringGenerator {
         `GPT-4 model generation failed: ${results[0].status === 'rejected' ? results[0].reason : 'unknown error'}`,
       )
     }
-    if (!claudeResponse) {
-      this.logger.warn(
-        `Claude model generation failed: ${results[1].status === 'rejected' ? results[1].reason : 'unknown error'}`,
-      )
-    }
+    // ⚠️ Claude已禁用，跳过检查
+    // if (!claudeResponse) {
+    //   this.logger.warn(
+    //     `Claude model generation failed: ${results[1].status === 'rejected' ? results[1].reason : 'unknown error'}`,
+    //   )
+    // }
     if (!domesticResponse) {
       this.logger.warn(
-        `Domestic model generation failed: ${results[2].status === 'rejected' ? results[2].reason : 'unknown error'}`,
+        `Domestic (Qwen) model generation failed: ${results[1].status === 'rejected' ? results[1].reason : 'unknown error'}`,
       )
     }
 
     // 解析JSON结果 - 使用容错机制
     let gpt4Result: ClusteringGenerationOutput | null = null
-    let claudeResult: ClusteringGenerationOutput | null = null
+    let claudeResult: ClusteringGenerationOutput | null = null // ⚠️ 临时禁用
     let domesticResult: ClusteringGenerationOutput | null = null
 
     try {
@@ -233,31 +243,32 @@ export class ClusteringGenerator {
       this.logger.error(`Failed to parse GPT-4 response: ${error.message}`)
     }
 
-    try {
-      claudeResult = this.parseJsonResponse(claudeResponse.content, documents)
-    } catch (error) {
-      this.logger.error(`Failed to parse Claude response: ${error.message}`)
-    }
+    // ⚠️ Claude已禁用，跳过解析
+    // try {
+    //   claudeResult = this.parseJsonResponse(claudeResponse.content, documents)
+    // } catch (error) {
+    //   this.logger.error(`Failed to parse Claude response: ${error.message}`)
+    // }
 
     try {
       domesticResult = this.parseJsonResponse(domesticResponse.content, documents)
     } catch (error) {
-      this.logger.error(`Failed to parse Domestic model response: ${error.message}`)
+      this.logger.error(`Failed to parse Qwen response: ${error.message}`)
     }
 
-    // 如果所有模型都失败，抛出错误
-    if (!gpt4Result && !claudeResult && !domesticResult) {
-      throw new Error('All three models failed to generate valid clustering results')
+    // 如果所有模型都失败，抛出错误（只检查GPT-4和Qwen）
+    if (!gpt4Result && !domesticResult) {
+      throw new Error('All available models failed to generate valid clustering results')
     }
 
-    // 使用成功的结果填充失败的模型（优先使用Claude，然后GPT-4，最后Domestic）
-    const fallbackResult = claudeResult || gpt4Result || domesticResult
+    // 使用成功的结果填充失败的模型（优先使用GPT-4，然后Qwen）
+    const fallbackResult = gpt4Result || domesticResult
 
-    this.logger.log('Clustering generation completed for all three models')
+    this.logger.log('Clustering generation completed for available models (GPT-4 + Qwen, Claude disabled)')
 
     return {
       gpt4: gpt4Result || fallbackResult,
-      claude: claudeResult || fallbackResult,
+      claude: claudeResult || fallbackResult, // 返回fallback以保持兼容性
       domestic: domesticResult || fallbackResult,
     }
   }
@@ -269,6 +280,7 @@ export class ClusteringGenerator {
   private async generateWithModel(
     request: AIClientRequest,
     model: AIModel,
+    taskId: string | undefined,
     onProgress?: (progress: {
       stage: string
       model?: string
@@ -277,7 +289,20 @@ export class ClusteringGenerator {
     }) => void,
     modelProgress?: any,
   ): Promise<AIClientResponse | null> {
+    let event: AIGenerationEvent | null = null
+
     try {
+      // 创建AI生成事件记录
+      if (taskId) {
+        event = this.eventRepo.create({
+          taskId,
+          model,
+          input: request,
+        })
+        await this.eventRepo.save(event)
+        this.logger.log(`📝 [ClusteringGenerator] 创建AI生成事件: ${event.id} for model ${model}`)
+      }
+
       // 更新模型状态为generating
       if (modelProgress && modelProgress[model]) {
         modelProgress[model].status = 'generating'
@@ -292,10 +317,20 @@ export class ClusteringGenerator {
       }
 
       const startTime = Date.now()
+      this.logger.log(`🚀 [ClusteringGenerator] 开始调用模型: ${model}`)
       const response = await this.aiOrchestrator.generate(request, model)
       const elapsed = Date.now() - startTime
 
-      this.logger.debug(`Model ${model} generated clustering successfully`)
+      this.logger.log(`✅ [ClusteringGenerator] 模型 ${model} 生成成功 - 耗时: ${elapsed}ms, Tokens: ${response.tokens?.total || 0}, Cost: ¥${response.cost?.toFixed(4) || 0}`)
+
+      // 更新AI生成事件
+      if (event) {
+        await this.eventRepo.update(event.id, {
+          output: response as any, // 转换为any以绕过类型检查
+          executionTimeMs: elapsed,
+        })
+        this.logger.log(`📝 [ClusteringGenerator] 更新AI生成事件: ${event.id}`)
+      }
 
       // 更新模型状态为completed
       if (modelProgress && modelProgress[model]) {
@@ -317,6 +352,14 @@ export class ClusteringGenerator {
 
       return response
     } catch (error) {
+      // 更新AI生成事件记录错误
+      if (event) {
+        await this.eventRepo.update(event.id, {
+          errorMessage: error.message,
+        })
+        this.logger.log(`📝 [ClusteringGenerator] 更新AI生成事件错误: ${event.id} - ${error.message}`)
+      }
+
       // 更新模型状态为failed
       if (modelProgress && modelProgress[model]) {
         modelProgress[model].status = 'failed'

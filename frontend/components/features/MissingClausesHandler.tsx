@@ -255,7 +255,8 @@ export default function MissingClausesHandler({
       }))
 
       // 2. 保存到后端
-      const response = await fetch(`/api/ai-generation/clustering/${taskId}`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+      const response = await fetch(`${apiUrl}/ai-generation/clustering/${taskId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

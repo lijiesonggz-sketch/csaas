@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Project } from '@/lib/api/projects'
 import {
   FolderKanban,
@@ -9,14 +9,41 @@ import {
   TrendingUp,
   Calendar,
   MoreVertical,
+  Trash2,
 } from 'lucide-react'
+import { Popconfirm, message } from 'antd'
+import { ProjectsAPI } from '@/lib/api/projects'
 
 interface ProjectCardProps {
   project: Project
   onClick?: () => void
+  onDelete?: () => void
 }
 
-export default function ProjectCard({ project, onClick }: ProjectCardProps) {
+export default function ProjectCard({ project, onClick, onDelete }: ProjectCardProps) {
+  const [deleting, setDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    try {
+      setDeleting(true)
+      await ProjectsAPI.deleteProject(project.id)
+      message.success('项目已删除')
+      onDelete?.()
+    } catch (error: any) {
+      message.error(error.message || '删除失败')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // 如果点击的是删除按钮或其子元素，不触发卡片点击
+    const target = e.target as HTMLElement
+    if (target.closest('[data-delete-button]')) {
+      return
+    }
+    onClick?.()
+  }
   const getStatusConfig = (status: string) => {
     switch (status) {
       case 'COMPLETED':
@@ -62,7 +89,7 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
   return (
     <article
       className="group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-200 cursor-pointer overflow-hidden"
-      onClick={onClick}
+      onClick={handleCardClick}
       role="button"
       tabIndex={0}
       aria-label={`项目: ${project.name}`}
@@ -72,7 +99,7 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
       <div className={`h-1.5 w-full ${statusConfig.dotColor}`} />
 
       <div className="p-6">
-        {/* 头部：标题 + 状态 */}
+        {/* 头部：标题 + 状态 + 删除按钮 */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <div className={`p-2.5 rounded-lg ${statusConfig.bgColor}`}>
@@ -83,9 +110,31 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
             </h3>
           </div>
 
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${statusConfig.bgColor} ${statusConfig.textColor}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dotColor} animate-pulse`} />
-            {statusConfig.label}
+          <div className="flex items-center gap-2">
+            {/* 状态标签 */}
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${statusConfig.bgColor} ${statusConfig.textColor}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dotColor} animate-pulse`} />
+              {statusConfig.label}
+            </div>
+
+            {/* 删除按钮 */}
+            <div data-delete-button="true">
+              <Popconfirm
+                title="删除项目"
+                description="确定要删除这个项目吗？删除后无法恢复。"
+                onConfirm={handleDelete}
+                okText="确定"
+                cancelText="取消"
+                okButtonProps={{ danger: true, loading: deleting }}
+              >
+                <button
+                  className="p-2 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                  title="删除项目"
+                >
+                  <Trash2 className="w-4 h-4" strokeWidth={2} />
+                </button>
+              </Popconfirm>
+            </div>
           </div>
         </div>
 
@@ -145,7 +194,6 @@ export default function ProjectCard({ project, onClick }: ProjectCardProps) {
           <span className="text-xs text-gray-400 dark:text-gray-500">
             点击查看详情
           </span>
-          <MoreVertical className="w-4 h-4 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" strokeWidth={2} />
         </div>
       </div>
     </article>

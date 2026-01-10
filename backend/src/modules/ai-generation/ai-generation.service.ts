@@ -269,7 +269,7 @@ export class AIGenerationService {
         }
       }
 
-      const { gpt4, claude, domestic } = await this.clusteringGenerator.generate(input, onProgress)
+      const { gpt4, claude, domestic } = await this.clusteringGenerator.generate(input, request.taskId, onProgress)
 
       this.tasksGateway.emitTaskProgress({
         taskId: request.taskId,
@@ -382,6 +382,24 @@ export class AIGenerationService {
     try {
       // 0. 确保AITask存在
       await this.ensureTaskExists(request.taskId, request.generationType, input, request.projectId)
+
+      // 0.1. 如果提供了clusteringTaskId，从数据库加载聚类结果
+      if ((input as any).clusteringTaskId && !input.clusteringResult) {
+        const clusteringTaskId = (input as any).clusteringTaskId
+        this.logger.log(`Loading clustering result from task: ${clusteringTaskId}`)
+
+        const clusteringTask = await this.aiTaskRepository.findOne({
+          where: { id: clusteringTaskId }
+        })
+
+        if (!clusteringTask || !clusteringTask.result) {
+          throw new Error(`Clustering task ${clusteringTaskId} not found or has no result`)
+        }
+
+        // 使用聚类任务的selectedResult作为clusteringResult
+        input.clusteringResult = clusteringTask.result.selectedResult || clusteringTask.result.gpt4
+        this.logger.log(`Loaded clustering result with ${input.clusteringResult.categories?.length || 0} categories`)
+      }
 
       // 发送初始进度
       this.tasksGateway.emitTaskProgress({
@@ -843,7 +861,7 @@ export class AIGenerationService {
     // 5. 更新coverage_summary
     existingResult.coverage_summary = updatedCoverage
 
-    // 6. 保存到数据库
+    // 6. 保存到 ai_generation_results 表
     const updatedSelectedResult = JSON.stringify(existingResult)
 
     await this.resultAggregator.updateResultContent(
@@ -852,7 +870,13 @@ export class AIGenerationService {
       ReviewStatus.MODIFIED, // 标记为已修改
     )
 
-    this.logger.log(`Clustering result updated successfully for task ${taskId}`)
+    // 7. ✅ 同时更新 ai_tasks.result 字段，确保矩阵生成能读取到最新数据
+    // 注意：ai_tasks.result 字段存储的是解析后的 JSON 对象（与 ai-task.processor.ts:664 一致）
+    await this.aiTaskRepository.update(taskId, {
+      result: JSON.parse(updatedSelectedResult),
+    } as any)
+
+    this.logger.log(`Clustering result updated successfully for task ${taskId} (both ai_generation_results and ai_tasks)`)
   }
 
   /**

@@ -183,12 +183,24 @@ export default function ProjectWorkbenchPage() {
         </Typography>
       </Box>
 
-      <Grid container spacing={3}>
+      {/* 使用CSS Grid替代Material-UI Grid，确保等宽 */}
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: '1fr',
+          sm: 'repeat(2, 1fr)',
+          lg: 'repeat(4, 1fr)',
+        },
+        gap: 3,
+        maxWidth: 1400,
+        margin: '0 auto',
+      }}>
         {steps.map((step, index) => (
-          <Grid item xs={12} sm={6} md={4} key={step.id}>
+          <Box key={step.id} sx={{ display: 'flex' }}>
             <Card
               sx={{
                 height: '100%',
+                width: '100%',
                 display: 'flex',
                 flexDirection: 'column',
                 transition: 'transform 0.2s, box-shadow 0.2s',
@@ -200,15 +212,15 @@ export default function ProjectWorkbenchPage() {
             >
               <CardContent sx={{ flexGrow: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                  <Box sx={{ p: 1, borderRadius: 1, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+                  <Box sx={{ p: 1, borderRadius: 1, bgcolor: 'primary.light', color: 'primary.contrastText', flexShrink: 0 }}>
                     {step.icon}
                   </Box>
-                  <Typography variant="h6">{step.name}</Typography>
+                  <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>{step.name}</Typography>
                 </Box>
 
                 <TaskStatusIndicator status={step.status} />
 
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2, lineHeight: 1.4 }}>
                   {step.description}
                 </Typography>
               </CardContent>
@@ -226,9 +238,9 @@ export default function ProjectWorkbenchPage() {
                 </Button>
               </Box>
             </Card>
-          </Grid>
+          </Box>
         ))}
-      </Grid>
+      </Box>
 
       {/* 项目信息 */}
       <Box sx={{ mt: 4 }}>
