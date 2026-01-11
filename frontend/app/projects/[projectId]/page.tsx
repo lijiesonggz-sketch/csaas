@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Box, Grid, Card, CardContent, Typography, Button, Stack, Divider } from '@mui/material'
 import { useParams, useRouter } from 'next/navigation'
 import {
@@ -26,89 +26,118 @@ export default function ProjectWorkbenchPage() {
   const [loading, setLoading] = useState(true)
   const [taskStatuses, setTaskStatuses] = useState<Record<string, 'completed' | 'processing' | 'pending' | 'failed'>>({})
 
-  useEffect(() => {
-    loadProject()
-    loadTaskStatuses()
-  }, [projectId])
+  // 使用ref缓存数据，避免重复请求
+  const projectCacheRef = useRef<{ projectId: string; data: Project } | null>(null)
+  const tasksCacheRef = useRef<{ projectId: string; data: any[]; timestamp: number } | null>(null)
+  const CACHE_DURATION = 5000 // 5秒缓存
 
-  const loadProject = async () => {
+  // 使用useCallback缓存loadProject函数
+  const loadProject = useCallback(async () => {
+    // 检查缓存
+    if (projectCacheRef.current?.projectId === projectId) {
+      console.log('✅ [ProjectPage] 使用缓存的项目数据')
+      setProject(projectCacheRef.current.data)
+      setLoading(false)
+      return
+    }
+
     try {
       setLoading(true)
       const data = await ProjectsAPI.getProject(projectId)
       setProject(data)
+      // 缓存数据
+      projectCacheRef.current = { projectId, data }
     } catch (error) {
-      console.error('Failed to load project:', error)
+      console.error('❌ Failed to load project:', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [projectId])
 
-  const loadTaskStatuses = async () => {
+  // 使用useCallback缓存loadTaskStatuses函数
+  const loadTaskStatuses = useCallback(async () => {
+    // 检查缓存
+    const now = Date.now()
+    if (tasksCacheRef.current?.projectId === projectId &&
+        now - tasksCacheRef.current.timestamp < CACHE_DURATION) {
+      console.log('✅ [ProjectPage] 使用缓存的任务数据')
+      // 从缓存数据计算状态
+      computeTaskStatuses(tasksCacheRef.current.data)
+      return
+    }
+
     try {
       const tasks = await AITasksAPI.getTasksByProject(projectId)
 
       console.log('📊 [ProjectPage] 获取到的所有任务:', tasks.length, '个')
-      console.log('📋 [ProjectPage] 任务详情:', tasks.map(t => ({ id: t.id, type: t.type, status: t.status })))
 
-      // 定义步骤ID到任务类型的映射
-      const stepToTaskType: Record<string, string[]> = {
-        summary: ['summary'],
-        clustering: ['clustering'],
-        matrix: ['matrix'],
-        questionnaire: ['questionnaire'],
-        'gap-analysis': ['questionnaire'], // 差距分析基于问卷任务
-        'action-plan': ['action_plan'],
-      }
+      // 缓存数据
+      tasksCacheRef.current = { projectId, data: tasks, timestamp: now }
 
-      // 获取每个步骤的最新任务状态
-      const statuses: Record<string, 'completed' | 'processing' | 'pending' | 'failed'> = {}
-
-      Object.entries(stepToTaskType).forEach(([stepId, taskTypes]) => {
-        // 找到该步骤相关的所有任务
-        const relatedTasks = tasks.filter(task => taskTypes.includes(task.type))
-
-        console.log(`🔍 [ProjectPage] 步骤 "${stepId}" 相关任务:`, relatedTasks.length, '个', taskTypes)
-
-        if (relatedTasks.length === 0) {
-          statuses[stepId] = 'pending'
-          console.log(`  ⚠️  未找到相关任务，状态设为 pending`)
-          return
-        }
-
-        // 按创建时间排序，获取最新任务
-        const latestTask = relatedTasks.sort((a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        )[0]
-
-        console.log(`  ✅ 最新任务:`, latestTask.id, '状态:', latestTask.status)
-
-        // 根据任务状态确定步骤状态
-        if (latestTask.status === 'completed') {
-          statuses[stepId] = 'completed'
-        } else if (latestTask.status === 'processing' || latestTask.status === 'pending') {
-          statuses[stepId] = 'processing'
-        } else if (latestTask.status === 'failed') {
-          statuses[stepId] = 'failed'
-        } else {
-          statuses[stepId] = 'pending'
-        }
-      })
-
-      console.log('🎯 [ProjectPage] 最终状态映射:', statuses)
-      setTaskStatuses(statuses)
+      // 计算状态
+      computeTaskStatuses(tasks)
     } catch (error) {
       console.error('❌ Failed to load task statuses:', error)
     }
-  }
+  }, [projectId])
 
-  const steps = [
+  // 提取状态计算逻辑
+  const computeTaskStatuses = useCallback((tasks: any[]) => {
+    // 定义步骤ID到任务类型的映射
+    const stepToTaskType: Record<string, string[]> = {
+      summary: ['summary'],
+      clustering: ['clustering'],
+      matrix: ['matrix'],
+      questionnaire: ['questionnaire'],
+      'gap-analysis': ['questionnaire'],
+      'action-plan': ['action_plan'],
+    }
+
+    // 获取每个步骤的最新任务状态
+    const statuses: Record<string, 'completed' | 'processing' | 'pending' | 'failed'> = {}
+
+    Object.entries(stepToTaskType).forEach(([stepId, taskTypes]) => {
+      const relatedTasks = tasks.filter(task => taskTypes.includes(task.type))
+
+      if (relatedTasks.length === 0) {
+        statuses[stepId] = 'pending'
+        return
+      }
+
+      // 按创建时间排序，获取最新任务
+      const latestTask = relatedTasks.sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0]
+
+      // 根据任务状态确定步骤状态
+      if (latestTask.status === 'completed') {
+        statuses[stepId] = 'completed'
+      } else if (latestTask.status === 'processing' || latestTask.status === 'pending') {
+        statuses[stepId] = 'processing'
+      } else if (latestTask.status === 'failed') {
+        statuses[stepId] = 'failed'
+      } else {
+        statuses[stepId] = 'pending'
+      }
+    })
+
+    console.log('🎯 [ProjectPage] 最终状态映射:', statuses)
+    setTaskStatuses(statuses)
+  }, [])
+
+  useEffect(() => {
+    loadProject()
+    loadTaskStatuses()
+  }, [projectId, loadProject, loadTaskStatuses])
+
+  // 使用useMemo缓存steps配置，避免每次渲染都重新创建
+  const steps = useMemo(() => [
     {
       id: 'upload',
       name: '上传文档',
       icon: <CloudUpload />,
       route: `/projects/${projectId}/upload`,
       status: (() => {
-        // 检查是否有已上传的文档
         const uploadedDocs = (project?.metadata as any)?.uploadedDocuments
         return uploadedDocs && uploadedDocs.length > 0 ? 'completed' as const : 'pending' as const
       })(),
@@ -162,7 +191,7 @@ export default function ProjectWorkbenchPage() {
       status: (taskStatuses['action-plan'] || 'pending') as 'completed' | 'processing' | 'pending' | 'failed',
       description: '生成改进措施建议和行动计划',
     },
-  ]
+  ], [projectId, project?.metadata, taskStatuses])
 
   if (loading) {
     return (
