@@ -31,6 +31,7 @@ import {
   FileTextOutlined,
   UploadOutlined,
   CheckCircleOutlined,
+  CloseCircleOutlined,
   PlusOutlined,
   MinusOutlined,
   EditOutlined,
@@ -61,30 +62,49 @@ interface StandardInterpretationResult {
     scope: string
     core_objectives: string[]
     target_audience: string[]
+    key_changes?: string
   }
   key_terms: Array<{
     term: string
     definition: string
     explanation: string
+    examples?: string[]
   }>
   key_requirements: Array<{
     clause_id: string
-    clause_text: string
-    interpretation: string
-    compliance_criteria: string[]
+    chapter?: string
+    clause_full_text?: string
+    clause_summary?: string
+    clause_text: string // 兼容旧字段
+    interpretation: string | any // 兼容旧格式
+    compliance_criteria: string[] | any // 兼容旧格式
     priority: 'HIGH' | 'MEDIUM' | 'LOW'
+    risk_assessment?: any
+    implementation_order?: number
+    estimated_effort?: string
+    dependencies?: string[]
+    best_practices?: string[]
+    common_mistakes?: string[]
   }>
   implementation_guidance: {
     preparation: string[]
     implementation_steps: Array<{
       phase: string
       steps: string[]
+      order?: number
+      duration?: string
+      objectives?: string[]
+      deliverables?: string[]
     }>
     best_practices: string[]
     common_pitfalls: string[]
     timeline_estimate: string
-    resource_requirements: string
+    resource_requirements: string | any
+    checklists?: any
+    evidence_templates?: any[]
   }
+  risk_matrix?: any
+  implementation_roadmap?: any
 }
 
 interface RelatedStandardsResult {
@@ -154,6 +174,7 @@ export default function StandardInterpretationPage() {
   const [versionCompareResult, setVersionCompareResult] = useState<VersionCompareResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [interpretationMode, setInterpretationMode] = useState<'basic' | 'detailed' | 'enterprise'>('enterprise')
 
   const [standardDocument, setStandardDocument] = useState<any>(null)
   const [oldVersionDocument, setOldVersionDocument] = useState<any>(null)
@@ -181,7 +202,8 @@ export default function StandardInterpretationPage() {
   // 监听任务失败
   useEffect(() => {
     if (isFailed) {
-      setError(progressMessage || '生成失败')
+      console.error('❌ 任务失败:', progressMessage)
+      setError(progressMessage || '生成失败，请查看控制台获取详细信息')
       setLoading(false)
     }
   }, [isFailed, progressMessage])
@@ -202,8 +224,21 @@ export default function StandardInterpretationPage() {
     try {
       const tasks = await AITasksAPI.getTasksByProject(projectId)
 
-      // 查找已完成的任务并加载结果
-      for (const task of tasks) {
+      // 按创建时间倒序排序，优先加载最新的任务
+      const sortedTasks = tasks.sort((a, b) => {
+        const dateA = new Date(a.created_at || 0).getTime()
+        const dateB = new Date(b.created_at || 0).getTime()
+        return dateB - dateA // 降序，最新的在前
+      })
+
+      console.log(`📋 找到 ${sortedTasks.length} 个任务`)
+
+      // 分别查找每种类型的最新已完成任务
+      let latestInterpretationTask: any = null
+      let latestRelatedStandardsTask: any = null
+      let latestVersionCompareTask: any = null
+
+      for (const task of sortedTasks) {
         if (
           task.status === 'completed' &&
           task.result &&
@@ -213,22 +248,36 @@ export default function StandardInterpretationPage() {
         ) {
           const result = TaskAdapter.toGenerationResult(task)
 
-          if (task.type === 'standard_interpretation' && !interpretationResult) {
+          if (task.type === 'standard_interpretation' && !latestInterpretationTask) {
+            latestInterpretationTask = task
             setInterpretationResult(result.selectedResult as StandardInterpretationResult)
-            console.log('✅ 加载已存在的标准解读结果')
-          } else if (task.type === 'standard_related_search' && !relatedStandardsResult) {
+
+            const mode = task.input?.interpretationMode || 'unknown'
+            console.log(`✅ 加载标准解读结果 (模式: ${mode}, 创建时间: ${task.created_at})`)
+          } else if (task.type === 'standard_related_search' && !latestRelatedStandardsTask) {
+            latestRelatedStandardsTask = task
             setRelatedStandardsResult(result.selectedResult as RelatedStandardsResult)
-            console.log('✅ 加载已存在的关联标准搜索结果')
-          } else if (task.type === 'standard_version_compare' && !versionCompareResult) {
+            console.log('✅ 加载关联标准搜索结果')
+          } else if (task.type === 'standard_version_compare' && !latestVersionCompareTask) {
+            latestVersionCompareTask = task
             setVersionCompareResult(result.selectedResult as VersionCompareResult)
-            console.log('✅ 加载已存在的版本比对结果')
+            console.log('✅ 加载版本比对结果')
           }
 
-          // 设置当前任务（用于进度跟踪）
-          if (!currentTask) {
-            setCurrentTask(task)
+          // 找到了所有类型的最新任务后就可以停止了
+          if (
+            latestInterpretationTask &&
+            latestRelatedStandardsTask &&
+            latestVersionCompareTask
+          ) {
+            break
           }
         }
+      }
+
+      // 设置当前任务为最新的任务（用于进度跟踪）
+      if (!currentTask && latestInterpretationTask) {
+        setCurrentTask(latestInterpretationTask)
       }
     } catch (err: any) {
       console.error('Failed to load existing tasks:', err)
@@ -246,6 +295,10 @@ export default function StandardInterpretationPage() {
       setError(null)
       setActiveTab('interpretation')
 
+      // 清除旧的结果，避免混淆
+      setInterpretationResult(null)
+      console.log(`🔄 清除旧结果，准备生成新的${interpretationMode}模式解读`)
+
       const newTask = await AITasksAPI.createTask({
         projectId,
         type: 'standard_interpretation',
@@ -255,11 +308,12 @@ export default function StandardInterpretationPage() {
             name: standardDocument.name,
             content: standardDocument.content,
           },
+          interpretationMode, // 添加解读模式
         },
       })
 
       setCurrentTask(newTask)
-      message.success('标准解读任务已创建')
+      message.success(`标准解读任务已创建（${interpretationMode === 'enterprise' ? '企业级' : interpretationMode === 'detailed' ? '详细' : '基础'}模式）`)
     } catch (err: any) {
       setError(err.message || '提交失败')
       setLoading(false)
@@ -496,31 +550,58 @@ export default function StandardInterpretationPage() {
 
       {/* 操作按钮 */}
       <Card className="mb-6">
-        <Space size="middle">
-          <Button
-            type="primary"
-            icon={<BookOutlined />}
-            onClick={handleGenerateInterpretation}
-            loading={loading && activeTab === 'interpretation'}
-          >
-            生成标准解读
-          </Button>
-          <Button
-            icon={<SearchOutlined />}
-            onClick={handleSearchRelatedStandards}
-            loading={loading && activeTab === 'related'}
-            disabled={!interpretationResult}
-          >
-            搜索关联标准
-          </Button>
-          <Button
-            icon={<DiffOutlined />}
-            onClick={handleVersionCompare}
-            loading={loading && activeTab === 'version'}
-          >
-            版本比对
-          </Button>
+        <Space size="middle" style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Space size="middle">
+            <div>
+              <span style={{ marginRight: 8 }}>解读模式：</span>
+              <Select
+                defaultValue="enterprise"
+                style={{ width: 180 }}
+                onChange={(value) => setInterpretationMode(value)}
+              >
+                <Option value="basic">基础解读（快速）</Option>
+                <Option value="detailed">详细解读（全面）</Option>
+                <Option value="enterprise">企业级解读（深度）</Option>
+              </Select>
+            </div>
+            <Button
+              type="primary"
+              icon={<BookOutlined />}
+              onClick={handleGenerateInterpretation}
+              loading={loading && activeTab === 'interpretation'}
+            >
+              生成标准解读
+            </Button>
+            <Button
+              icon={<SearchOutlined />}
+              onClick={handleSearchRelatedStandards}
+              loading={loading && activeTab === 'related'}
+              disabled={!interpretationResult}
+            >
+              搜索关联标准
+            </Button>
+            <Button
+              icon={<DiffOutlined />}
+              onClick={handleVersionCompare}
+              loading={loading && activeTab === 'version'}
+            >
+              版本比对
+            </Button>
+          </Space>
         </Space>
+        {interpretationMode !== 'enterprise' && (
+          <Alert
+            message="模式说明"
+            description={
+              interpretationMode === 'basic'
+                ? '基础解读：快速生成标准概要和关键条款解读，适合快速了解标准'
+                : '详细解读：包含完整的条款解读、风险评估和实施指引，适合深入理解标准'
+            }
+            type="info"
+            showIcon
+            style={{ marginTop: 16 }}
+          />
+        )}
       </Card>
 
       {/* 生成进度 */}
@@ -614,6 +695,89 @@ export default function StandardInterpretationPage() {
 
                 {/* 关键要求 */}
                 <Divider orientation="left">关键要求</Divider>
+
+                {/* 统计信息 */}
+                <Row gutter={16} style={{ marginBottom: 16 }}>
+                  <Col span={6}>
+                    <Card>
+                      <Statistic
+                        title="总条款数"
+                        value={interpretationResult.key_requirements.length}
+                        prefix={<BookOutlined />}
+                      />
+                    </Card>
+                  </Col>
+                  <Col span={6}>
+                    <Card>
+                      <Statistic
+                        title="已解读条款"
+                        value={interpretationResult.key_requirements.filter(
+                          (req) => req.interpretation &&
+                          (typeof req.interpretation === 'string'
+                            ? req.interpretation.trim().length > 0
+                            : (req.interpretation.what || req.interpretation.why || req.interpretation.how)
+                          )
+                        ).length}
+                        valueStyle={{ color: '#3f8600' }}
+                        prefix={<CheckCircleOutlined />}
+                      />
+                    </Card>
+                  </Col>
+                  <Col span={6}>
+                    <Card>
+                      <Statistic
+                        title="未解读条款"
+                        value={interpretationResult.key_requirements.filter(
+                          (req) => !req.interpretation ||
+                          (typeof req.interpretation === 'string'
+                            ? req.interpretation.trim().length === 0
+                            : !req.interpretation.what && !req.interpretation.why && !req.interpretation.how
+                          )
+                        ).length}
+                        valueStyle={{ color: '#cf1322' }}
+                        prefix={<CloseCircleOutlined />}
+                      />
+                    </Card>
+                  </Col>
+                  <Col span={6}>
+                    <Card>
+                      <Statistic
+                        title="解读完成率"
+                        value={(
+                          (interpretationResult.key_requirements.filter(
+                            (req) => req.interpretation &&
+                            (typeof req.interpretation === 'string'
+                              ? req.interpretation.trim().length > 0
+                              : (req.interpretation.what || req.interpretation.why || req.interpretation.how)
+                            )
+                          ).length / interpretationResult.key_requirements.length) * 100
+                        ).toFixed(1)}
+                        suffix="%"
+                        valueStyle={{
+                          color:
+                            (interpretationResult.key_requirements.filter(
+                              (req) => req.interpretation &&
+                              (typeof req.interpretation === 'string'
+                                ? req.interpretation.trim().length > 0
+                                : (req.interpretation.what || req.interpretation.why || req.interpretation.how)
+                              )
+                            ).length / interpretationResult.key_requirements.length) >= 0.8
+                              ? '#3f8600'
+                              : (interpretationResult.key_requirements.filter(
+                                  (req) => req.interpretation &&
+                                  (typeof req.interpretation === 'string'
+                                    ? req.interpretation.trim().length > 0
+                                    : (req.interpretation.what || req.interpretation.why || req.interpretation.how)
+                                  )
+                                ).length / interpretationResult.key_requirements.length) >= 0.5
+                                ? '#faad14'
+                                : '#cf1322'
+                        }}
+                      />
+                    </Card>
+                  </Col>
+                </Row>
+
                 <List
                   itemLayout="horizontal"
                   dataSource={interpretationResult.key_requirements}
@@ -628,17 +792,181 @@ export default function StandardInterpretationPage() {
                         }
                         description={
                           <div>
-                            <p>
-                              <strong>解读：</strong> {item.interpretation}
-                            </p>
-                            <p>
-                              <strong>合规标准：</strong>
-                              <ul>
-                                {item.compliance_criteria.map((criteria, idx) => (
-                                  <li key={idx}>{criteria}</li>
-                                ))}
-                              </ul>
-                            </p>
+                            {/* 显示完整的条款原文 - 新增字段 */}
+                            {item.clause_full_text && (
+                              <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 4 }}>
+                                <p style={{ margin: 0, color: '#595959', fontStyle: 'italic' }}>
+                                  <strong>📄 原始条款：</strong>
+                                </p>
+                                <p style={{ margin: '8px 0 0 0', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                                  {item.clause_full_text}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* 显示章节信息 */}
+                            {item.chapter && (
+                              <Tag color="blue" style={{ marginBottom: 8 }}>
+                                {item.chapter}
+                              </Tag>
+                            )}
+
+                            {/* 显示条款总结 */}
+                            {item.clause_summary && (
+                              <p style={{ marginBottom: 12, color: '#595959' }}>
+                                <strong>总结：</strong> {item.clause_summary}
+                              </p>
+                            )}
+
+                            {/* 解读部分 - 兼容旧格式（字符串）和新格式（对象） */}
+                            {typeof item.interpretation === 'string' ? (
+                              <p>
+                                <strong>解读：</strong> {item.interpretation}
+                              </p>
+                            ) : (
+                              <div>
+                                <p>
+                                  <strong>是什么（What）：</strong> {item.interpretation.what}
+                                </p>
+                                <p>
+                                  <strong>为什么（Why）：</strong> {item.interpretation.why}
+                                </p>
+                                <p>
+                                  <strong>怎么做（How）：</strong> {item.interpretation.how}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* 合规标准部分 - 兼容旧格式（数组）和新格式（对象） */}
+                            <div>
+                              <p style={{ marginBottom: 8 }}>
+                                <strong>合规标准：</strong>
+                              </p>
+                              {Array.isArray(item.compliance_criteria) ? (
+                                <ul>
+                                  {item.compliance_criteria.map((criteria, idx) => (
+                                    <li key={idx}>{criteria}</li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <div>
+                                  <div style={{ marginBottom: 8 }}>
+                                    <strong>必须有：</strong>
+                                    <ul>
+                                      {item.compliance_criteria.must_have?.map((item, idx) => (
+                                        <li key={idx}>{item}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                  <div style={{ marginBottom: 8 }}>
+                                    <strong>建议有：</strong>
+                                    <ul>
+                                      {item.compliance_criteria.should_have?.map((item, idx) => (
+                                        <li key={idx}>{item}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                  <div style={{ marginBottom: 8 }}>
+                                    <strong>需要的证据：</strong>
+                                    <ul>
+                                      {item.compliance_criteria.evidence_required?.map((item, idx) => (
+                                        <li key={idx}>{item}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                  <div>
+                                    <strong>评估方法：</strong> {item.compliance_criteria.assessment_method}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* 风险评估 - 新增字段 */}
+                            {item.risk_assessment && (
+                              <div style={{ marginTop: 16 }}>
+                                <Divider style={{ margin: '8px 0' }} />
+                                <p>
+                                  <strong>⚠️ 风险评估</strong>
+                                </p>
+                                {item.risk_assessment.non_compliance_risks && item.risk_assessment.non_compliance_risks.length > 0 && (
+                                  <div>
+                                    <p style={{ color: '#cf1322' }}>
+                                      <strong>不合规风险：</strong>
+                                    </p>
+                                    <ul>
+                                      {item.risk_assessment.non_compliance_risks.map((risk, idx) => (
+                                        <li key={idx}>
+                                          <strong>{risk.risk}</strong> - {risk.consequence}
+                                          <br />
+                                          <small>概率：{risk.probability} | 缓解措施：{risk.mitigation}</small>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {item.risk_assessment.implementation_risks && item.risk_assessment.implementation_risks.length > 0 && (
+                                  <div>
+                                    <p style={{ color: '#faad14' }}>
+                                      <strong>实施风险：</strong>
+                                    </p>
+                                    <ul>
+                                      {item.risk_assessment.implementation_risks.map((risk, idx) => (
+                                        <li key={idx}>
+                                          <strong>{risk.risk}</strong> - {risk.consequence}
+                                          <br />
+                                          <small>预防措施：{risk.prevention}</small>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* 实施顺序和工作量 - 新增字段 */}
+                            {item.implementation_order && (
+                              <Tag color="blue" style={{ marginTop: 8 }}>
+                                实施顺序：第{item.implementation_order}步
+                              </Tag>
+                            )}
+                            {item.estimated_effort && (
+                              <Tag color="green" style={{ marginTop: 8, marginLeft: 8 }}>
+                                预估工期：{item.estimated_effort}
+                              </Tag>
+                            )}
+                            {item.dependencies && item.dependencies.length > 0 && (
+                              <Tag color="orange" style={{ marginTop: 8, marginLeft: 8 }}>
+                                依赖：{item.dependencies.join(', ')}
+                              </Tag>
+                            )}
+
+                            {/* 最佳实践和常见错误 - 新增字段 */}
+                            {item.best_practices && item.best_practices.length > 0 && (
+                              <div style={{ marginTop: 12 }}>
+                                <p>
+                                  <strong>💡 最佳实践：</strong>
+                                </p>
+                                <ul>
+                                  {item.best_practices.map((practice, idx) => (
+                                    <li key={idx}>{practice}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {item.common_mistakes && item.common_mistakes.length > 0 && (
+                              <div style={{ marginTop: 12 }}>
+                                <p>
+                                  <strong>⚠️ 常见错误：</strong>
+                                </p>
+                                <ul>
+                                  {item.common_mistakes.map((mistake, idx) => (
+                                    <li key={idx} style={{ color: '#cf1322' }}>
+                                      {mistake}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
                           </div>
                         }
                       />
@@ -711,10 +1039,278 @@ export default function StandardInterpretationPage() {
                     {
                       key: 'resources',
                       label: '所需资源',
-                      children: <p>{interpretationResult.implementation_guidance.resource_requirements}</p>,
+                      children: typeof interpretationResult.implementation_guidance.resource_requirements ===
+                      'string' ? (
+                        <p>{interpretationResult.implementation_guidance.resource_requirements}</p>
+                      ) : (
+                        <div>
+                          <p>
+                            <strong>团队配置：</strong>
+                            {interpretationResult.implementation_guidance.resource_requirements.team}
+                          </p>
+                          <p>
+                            <strong>预算估算：</strong>
+                            {interpretationResult.implementation_guidance.resource_requirements.budget}
+                          </p>
+                          <p>
+                            <strong>工具平台：</strong>
+                            {interpretationResult.implementation_guidance.resource_requirements.tools}
+                          </p>
+                        </div>
+                      ),
                     },
                   ]}
                 />
+
+                {/* 检查清单 - 新增字段 */}
+                {interpretationResult.implementation_guidance.checklists && (
+                  <>
+                    <Divider orientation="left">检查清单</Divider>
+                    <Card>
+                      <Row gutter={16}>
+                        <Col span={12}>
+                          <h4>📄 文档清单</h4>
+                          <ul>
+                            {interpretationResult.implementation_guidance.checklists.document_checklist.map(
+                              (doc, idx) => (
+                                <li key={idx}>{doc}</li>
+                              ),
+                            )}
+                          </ul>
+                        </Col>
+                        <Col span={12}>
+                          <h4>💻 系统清单</h4>
+                          <ul>
+                            {interpretationResult.implementation_guidance.checklists.system_checklist.map(
+                              (sys, idx) => (
+                                <li key={idx}>{sys}</li>
+                              ),
+                            )}
+                          </ul>
+                        </Col>
+                      </Row>
+                      <Row gutter={16} style={{ marginTop: 16 }}>
+                        <Col span={12}>
+                          <h4>⚙️ 流程清单</h4>
+                          <ul>
+                            {interpretationResult.implementation_guidance.checklists.process_checklist.map(
+                              (proc, idx) => (
+                                <li key={idx}>{proc}</li>
+                              ),
+                            )}
+                          </ul>
+                        </Col>
+                        <Col span={12}>
+                          <h4>🗣️ 访谈准备</h4>
+                          <ul>
+                            {interpretationResult.implementation_guidance.checklists.interview_preparation.map(
+                              (interview, idx) => (
+                                <li key={idx}>{interview}</li>
+                              ),
+                            )}
+                          </ul>
+                        </Col>
+                      </Row>
+                    </Card>
+                  </>
+                )}
+
+                {/* 证据模板 - 新增字段 */}
+                {interpretationResult.implementation_guidance.evidence_templates &&
+                  interpretationResult.implementation_guidance.evidence_templates.length > 0 && (
+                    <>
+                      <Divider orientation="left">证据模板</Divider>
+                      <List
+                        dataSource={interpretationResult.implementation_guidance.evidence_templates}
+                        renderItem={(template: any) => (
+                          <List.Item>
+                            <List.Item.Meta
+                              title={<Tag color="blue">{template.clause}</Tag>}
+                              description={
+                                <div>
+                                  <p>
+                                    <strong>类型：</strong> {template.evidence_type}
+                                  </p>
+                                  <p>
+                                    <strong>说明：</strong> {template.description}
+                                  </p>
+                                  <p>
+                                    <strong>参考：</strong> {template.sample_reference}
+                                  </p>
+                                </div>
+                              }
+                            />
+                          </List.Item>
+                        )}
+                      />
+                    </>
+                  )}
+
+                {/* 风险矩阵 - 新增字段 */}
+                {interpretationResult.risk_matrix && (
+                  <>
+                    <Divider orientation="left">风险矩阵</Divider>
+                    <Card>
+                      <Row gutter={16} style={{ marginBottom: 16 }}>
+                        <Col span={24}>
+                          <h4 style={{ color: '#cf1322' }}>🔴 高风险条款</h4>
+                          <Space wrap>
+                            {interpretationResult.risk_matrix.high_risk_clauses.map((clause: string, idx: number) => (
+                              <Tag key={idx} color="red">
+                                {clause}
+                              </Tag>
+                            ))}
+                          </Space>
+                        </Col>
+                      </Row>
+
+                      {interpretationResult.risk_matrix.common_failures &&
+                        interpretationResult.risk_matrix.common_failures.length > 0 && (
+                          <Row gutter={16} style={{ marginTop: 16 }}>
+                            <Col span={24}>
+                              <h4>⚠️ 常见失败点</h4>
+                              <List
+                                dataSource={interpretationResult.risk_matrix.common_failures}
+                                renderItem={(failure: any) => (
+                                  <List.Item>
+                                    <List.Item.Meta
+                                      title={<Tag color="orange">{failure.clause}</Tag>}
+                                      description={
+                                        <div>
+                                          <p>
+                                            <strong>失败点：</strong> {failure.failure_point}
+                                          </p>
+                                          <p>
+                                            <strong>后果：</strong> {failure.consequence}
+                                          </p>
+                                          <p>
+                                            <strong>改进建议：</strong> {failure.mitigation}
+                                          </p>
+                                        </div>
+                                      }
+                                    />
+                                  </List.Item>
+                                )}
+                              />
+                            </Col>
+                          </Row>
+                        )}
+
+                      <Row gutter={16} style={{ marginTop: 16 }}>
+                        <Col span={24}>
+                          <h4>🎯 审计重点关注</h4>
+                          <ul>
+                            {interpretationResult.risk_matrix.audit_focus_areas.map((area: string, idx: number) => (
+                              <li key={idx}>{area}</li>
+                            ))}
+                          </ul>
+                        </Col>
+                      </Row>
+                    </Card>
+                  </>
+                )}
+
+                {/* 实施路径规划 - 新增字段 */}
+                {interpretationResult.implementation_roadmap && (
+                  <>
+                    <Divider orientation="left">实施路径规划</Divider>
+                    <Card>
+                      <Timeline>
+                        {interpretationResult.implementation_roadmap.phase_1_foundation && (
+                          <Timeline.Item color="blue">
+                            <p>
+                              <strong>阶段1：{interpretationResult.implementation_roadmap.phase_1_foundation.name}</strong>
+                            </p>
+                            <p>时长：{interpretationResult.implementation_roadmap.phase_1_foundation.duration}</p>
+                            <p>重点：{interpretationResult.implementation_roadmap.phase_1_foundation.focus}</p>
+                            <p>
+                              涉及条款：{interpretationResult.implementation_roadmap.phase_1_foundation.clauses?.join(', ') || '无'}
+                            </p>
+                            <div>
+                              <p>交付物：</p>
+                              <ul>
+                                {interpretationResult.implementation_roadmap.phase_1_foundation.deliverables?.map(
+                                  (item: string, idx: number) => (
+                                    <li key={idx}>{item}</li>
+                                  ),
+                                ) || <li>无</li>}
+                              </ul>
+                            </div>
+                          </Timeline.Item>
+                        )}
+
+                        {interpretationResult.implementation_roadmap.phase_2_digitalization && (
+                          <Timeline.Item color="green">
+                            <p>
+                              <strong>阶段2：{interpretationResult.implementation_roadmap.phase_2_digitalization.name}</strong>
+                            </p>
+                            <p>时长：{interpretationResult.implementation_roadmap.phase_2_digitalization.duration}</p>
+                            <p>重点：{interpretationResult.implementation_roadmap.phase_2_digitalization.focus}</p>
+                            <p>
+                              涉及条款：{interpretationResult.implementation_roadmap.phase_2_digitalization.clauses?.join(', ') || '无'}
+                            </p>
+                            <div>
+                              <p>交付物：</p>
+                              <ul>
+                                {interpretationResult.implementation_roadmap.phase_2_digitalization.deliverables?.map(
+                                  (item: string, idx: number) => (
+                                    <li key={idx}>{item}</li>
+                                  ),
+                                ) || <li>无</li>}
+                              </ul>
+                            </div>
+                          </Timeline.Item>
+                        )}
+
+                        {interpretationResult.implementation_roadmap.phase_3_automation && (
+                          <Timeline.Item color="orange">
+                            <p>
+                              <strong>阶段3：{interpretationResult.implementation_roadmap.phase_3_automation.name}</strong>
+                            </p>
+                            <p>时长：{interpretationResult.implementation_roadmap.phase_3_automation.duration}</p>
+                            <p>重点：{interpretationResult.implementation_roadmap.phase_3_automation.focus}</p>
+                            <p>
+                              涉及条款：{interpretationResult.implementation_roadmap.phase_3_automation.clauses?.join(', ') || '无'}
+                            </p>
+                            <div>
+                              <p>交付物：</p>
+                              <ul>
+                                {interpretationResult.implementation_roadmap.phase_3_automation.deliverables?.map(
+                                  (item: string, idx: number) => (
+                                    <li key={idx}>{item}</li>
+                                  ),
+                                ) || <li>无</li>}
+                              </ul>
+                            </div>
+                          </Timeline.Item>
+                        )}
+
+                        {interpretationResult.implementation_roadmap.phase_4_optimization && (
+                          <Timeline.Item color="purple">
+                            <p>
+                              <strong>阶段4：{interpretationResult.implementation_roadmap.phase_4_optimization.name}</strong>
+                            </p>
+                            <p>时长：{interpretationResult.implementation_roadmap.phase_4_optimization.duration}</p>
+                            <p>重点：{interpretationResult.implementation_roadmap.phase_4_optimization.focus}</p>
+                            <p>
+                              涉及条款：{interpretationResult.implementation_roadmap.phase_4_optimization.clauses?.join(', ') || '无'}
+                            </p>
+                            <div>
+                              <p>交付物：</p>
+                              <ul>
+                                {interpretationResult.implementation_roadmap.phase_4_optimization.deliverables?.map(
+                                  (item: string, idx: number) => (
+                                    <li key={idx}>{item}</li>
+                                  ),
+                                ) || <li>无</li>}
+                              </ul>
+                            </div>
+                          </Timeline.Item>
+                        )}
+                      </Timeline>
+                    </Card>
+                  </>
+                )}
               </>
             )}
           </TabPane>

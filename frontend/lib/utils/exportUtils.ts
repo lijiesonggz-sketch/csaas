@@ -27,15 +27,23 @@ import { saveAs } from 'file-saver'
 export function exportStandardInterpretationToExcel(data: any, filename?: string) {
   const workbook = XLSX.utils.book_new()
 
+  // 辅助函数：设置列宽（注意：标准xlsx库不支持写入样式如自动换行）
+  const setColumnWidths = (sheet: any, colWidths: number[]) => {
+    if (colWidths.length > 0) {
+      sheet['!cols'] = colWidths.map(width => ({ wch: width }))
+    }
+  }
+
   // 1. 概述 Sheet
   const overviewData = [
     ['概述'],
     ['制定背景', data.overview?.background || ''],
     ['适用范围', data.overview?.scope || ''],
-    ['核心目标', (data.overview?.core_objectives || []).join('; ')],
-    ['目标受众', (data.overview?.target_audience || []).join('; ')],
+    ['核心目标', (data.overview?.core_objectives || []).join('\n')], // 使用\n手动换行
+    ['目标受众', (data.overview?.target_audience || []).join('\n')],
   ]
   const overviewSheet = XLSX.utils.aoa_to_sheet(overviewData)
+  setColumnWidths(overviewSheet, [15, 80])
   XLSX.utils.book_append_sheet(workbook, overviewSheet, '概述')
 
   // 2. 关键术语 Sheet
@@ -49,6 +57,7 @@ export function exportStandardInterpretationToExcel(data: any, filename?: string
     ]),
   ]
   const termsSheet = XLSX.utils.aoa_to_sheet(termsData)
+  setColumnWidths(termsSheet, [20, 40, 60])
   XLSX.utils.book_append_sheet(workbook, termsSheet, '关键术语')
 
   // 3. 关键要求 Sheet
@@ -61,15 +70,67 @@ export function exportStandardInterpretationToExcel(data: any, filename?: string
       '合规标准',
       '优先级',
     ],
-    ...(data.key_requirements || []).map((req: any) => [
-      req.clause_id,
-      req.clause_text,
-      req.interpretation,
-      (req.compliance_criteria || []).join('; '),
-      req.priority,
-    ]),
+    ...(data.key_requirements || []).map((req: any) => {
+      // 直接使用 clause_full_text 或 clause_text，避免重复
+      let displayContent = ''
+
+      if (req.clause_full_text && req.clause_full_text.trim().length > 0) {
+        displayContent = req.clause_full_text.trim()
+      } else if (req.clause_text && req.clause_text.trim().length > 0) {
+        displayContent = req.clause_text.trim()
+      } else if (req.clause_summary && req.clause_summary.trim().length > 0) {
+        displayContent = `${req.clause_id} ${req.clause_summary.trim()}`
+      } else {
+        displayContent = req.clause_id
+      }
+
+      // 处理解读：可能是字符串或对象
+      let interpretationText = ''
+      if (typeof req.interpretation === 'string') {
+        interpretationText = req.interpretation
+      } else if (typeof req.interpretation === 'object' && req.interpretation !== null) {
+        const interp = req.interpretation
+        const parts = []
+        if (interp.what) parts.push(`是什么:\n${interp.what}`) // 使用\n换行
+        if (interp.why) parts.push(`为什么:\n${interp.why}`)
+        if (interp.how) parts.push(`怎么做:\n${interp.how}`)
+        interpretationText = parts.join('\n\n')
+      }
+
+      // 处理 compliance_criteria 的两种类型：string[] 或 ComplianceCriteriaDetail 对象
+      let criteriaText = ''
+      if (Array.isArray(req.compliance_criteria)) {
+        criteriaText = req.compliance_criteria.join('\n') // 使用\n换行
+      } else if (typeof req.compliance_criteria === 'object' && req.compliance_criteria !== null) {
+        // ComplianceCriteriaDetail 对象类型
+        const criteria = req.compliance_criteria
+        const parts = []
+        if (criteria.must_have && criteria.must_have.length > 0) {
+          parts.push(`必须具备:\n${criteria.must_have.join('\n')}`)
+        }
+        if (criteria.should_have && criteria.should_have.length > 0) {
+          parts.push(`建议具备:\n${criteria.should_have.join('\n')}`)
+        }
+        if (criteria.evidence_required && criteria.evidence_required.length > 0) {
+          parts.push(`所需证据:\n${criteria.evidence_required.join('\n')}`)
+        }
+        if (criteria.assessment_method) {
+          parts.push(`评估方法:\n${criteria.assessment_method}`)
+        }
+        criteriaText = parts.join('\n\n')
+      }
+
+      return [
+        req.clause_id,
+        displayContent,
+        interpretationText,
+        criteriaText,
+        req.priority,
+      ]
+    }),
   ]
   const requirementsSheet = XLSX.utils.aoa_to_sheet(requirementsData)
+  setColumnWidths(requirementsSheet, [12, 60, 50, 50, 10])
   XLSX.utils.book_append_sheet(workbook, requirementsSheet, '关键要求')
 
   // 4. 实施指引 Sheet
@@ -81,7 +142,7 @@ export function exportStandardInterpretationToExcel(data: any, filename?: string
     ...(data.implementation_guidance?.implementation_steps || []).flatMap(
       (step: any) => [
         [step.phase, (step.steps || []).join('\n')],
-        [''], // 空行分隔
+        [''],
       ],
     ),
     [],
@@ -94,7 +155,116 @@ export function exportStandardInterpretationToExcel(data: any, filename?: string
     ['所需资源', data.implementation_guidance?.resource_requirements || ''],
   ]
   const implementationSheet = XLSX.utils.aoa_to_sheet(implementationData)
+  setColumnWidths(implementationSheet, [20, 80])
   XLSX.utils.book_append_sheet(workbook, implementationSheet, '实施指引')
+
+  // 5. 检查清单 Sheet
+  const checklists = data.implementation_guidance?.checklists
+  if (checklists) {
+    const checklistData = [
+      ['检查清单'],
+      [],
+      ['文档检查清单'],
+      ...(checklists.document_checklist || []).map((item: string) => ['•', item]),
+      [],
+      ['系统检查清单'],
+      ...(checklists.system_checklist || []).map((item: string) => ['•', item]),
+      [],
+      ['流程检查清单'],
+      ...(checklists.process_checklist || []).map((item: string) => ['•', item]),
+      [],
+      ['访谈准备清单'],
+      ...(checklists.interview_preparation || []).map((item: string) => ['•', item]),
+    ]
+    const checklistSheet = XLSX.utils.aoa_to_sheet(checklistData)
+    setColumnWidths(checklistSheet, [5, 80])
+    XLSX.utils.book_append_sheet(workbook, checklistSheet, '检查清单')
+  }
+
+  // 6. 证据模板 Sheet
+  if (Array.isArray(data.implementation_guidance?.evidence_templates) && data.implementation_guidance.evidence_templates.length > 0) {
+    const evidenceData = [
+      ['证据模板'],
+      ['条款', '证据类型', '说明', '参考示例'],
+      ...data.implementation_guidance.evidence_templates.map((template: any) => [
+        template.clause || '未指定',
+        template.evidence_type || '无',
+        template.description || '无',
+        template.sample_reference || '无',
+      ]),
+    ]
+    const evidenceSheet = XLSX.utils.aoa_to_sheet(evidenceData)
+    setColumnWidths(evidenceSheet, [15, 20, 50, 50])
+    XLSX.utils.book_append_sheet(workbook, evidenceSheet, '证据模板')
+  }
+
+  // 7. 风险矩阵 Sheet
+  if (data.risk_matrix) {
+    const riskData = [
+      ['风险矩阵'],
+      [],
+      ['高风险条款'],
+      ...(data.risk_matrix.high_risk_clauses || []).map((clause: string) => ['•', clause]),
+      [],
+      ['常见失败点'],
+      ['条款', '失败点', '后果', '缓解措施'],
+      ...(data.risk_matrix.common_failures || []).map((failure: any) => [
+        failure.clause || '未指定',
+        failure.failure_point || '无',
+        failure.consequence || '无',
+        failure.mitigation || '无',
+      ]),
+      [],
+      ['审核关注点'],
+      ...(data.risk_matrix.audit_focus_areas || []).map((area: string) => ['•', area]),
+    ]
+    const riskSheet = XLSX.utils.aoa_to_sheet(riskData)
+    setColumnWidths(riskSheet, [5, 60, 40, 40, 40])
+    XLSX.utils.book_append_sheet(workbook, riskSheet, '风险矩阵')
+  }
+
+  // 8. 实施路径规划 Sheet
+  if (data.implementation_roadmap) {
+    const roadmapData = [
+      ['实施路径规划'],
+      ['阶段', '阶段名称', '时间周期', '重点', '涉及条款', '交付物'],
+      ...(data.implementation_roadmap.phase_1_foundation ? [[
+        '1',
+        data.implementation_roadmap.phase_1_foundation.name || '',
+        data.implementation_roadmap.phase_1_foundation.duration || '',
+        data.implementation_roadmap.phase_1_foundation.focus || '',
+        (data.implementation_roadmap.phase_1_foundation.clauses || []).join('\n') || '',
+        (data.implementation_roadmap.phase_1_foundation.deliverables || []).join('\n') || '',
+      ]] : []),
+      ...(data.implementation_roadmap.phase_2_digitalization ? [[
+        '2',
+        data.implementation_roadmap.phase_2_digitalization.name || '',
+        data.implementation_roadmap.phase_2_digitalization.duration || '',
+        data.implementation_roadmap.phase_2_digitalization.focus || '',
+        (data.implementation_roadmap.phase_2_digitalization.clauses || []).join('\n') || '',
+        (data.implementation_roadmap.phase_2_digitalization.deliverables || []).join('\n') || '',
+      ]] : []),
+      ...(data.implementation_roadmap.phase_3_automation ? [[
+        '3',
+        data.implementation_roadmap.phase_3_automation.name || '',
+        data.implementation_roadmap.phase_3_automation.duration || '',
+        data.implementation_roadmap.phase_3_automation.focus || '',
+        (data.implementation_roadmap.phase_3_automation.clauses || []).join('\n') || '',
+        (data.implementation_roadmap.phase_3_automation.deliverables || []).join('\n') || '',
+      ]] : []),
+      ...(data.implementation_roadmap.phase_4_optimization ? [[
+        '4',
+        data.implementation_roadmap.phase_4_optimization.name || '',
+        data.implementation_roadmap.phase_4_optimization.duration || '',
+        data.implementation_roadmap.phase_4_optimization.focus || '',
+        (data.implementation_roadmap.phase_4_optimization.clauses || []).join('\n') || '',
+        (data.implementation_roadmap.phase_4_optimization.deliverables || []).join('\n') || '',
+      ]] : []),
+    ]
+    const roadmapSheet = XLSX.utils.aoa_to_sheet(roadmapData)
+    setColumnWidths(roadmapSheet, [8, 25, 15, 40, 40, 60])
+    XLSX.utils.book_append_sheet(workbook, roadmapSheet, '实施路径规划')
+  }
 
   // 生成文件并下载
   XLSX.writeFile(workbook, filename || '标准解读.xlsx')
@@ -107,6 +277,44 @@ export async function exportStandardInterpretationToWord(
   data: any,
   filename?: string,
 ) {
+  // 创建段落辅助函数，统一字体大小
+  const createParagraph = (text: string, options?: {
+    bold?: boolean
+    heading?: HeadingLevel
+    alignment?: AlignmentType
+    size?: number
+  }) => {
+    return new Paragraph({
+      text,
+      ...options,
+      children: options ? [new TextRun({
+        text,
+        bold: options?.bold,
+        size: options?.size || 24, // 统一使用24磅（12pt）
+      })] : undefined,
+    })
+  }
+
+  const createParagraphWithRuns = (runs: {
+    text: string
+    bold?: boolean
+    size?: number
+    color?: string
+  }[], options?: {
+    spacing?: { before?: number; after?: number }
+    indent?: { firstLine?: number }
+  }) => {
+    return new Paragraph({
+      children: runs.map(run => new TextRun({
+        text: run.text,
+        bold: run.bold || false,
+        size: run.size || 24, // 统一使用24磅（12pt）
+        color: run.color,
+      })),
+      ...options,
+    })
+  }
+
   const doc = new Document({
     sections: [
       {
@@ -124,42 +332,22 @@ export async function exportStandardInterpretationToWord(
             text: '一、概述',
             heading: HeadingLevel.HEADING_2,
           }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: '制定背景：',
-                bold: true,
-              }),
-              new TextRun(data.overview?.background || ''),
-            ],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: '适用范围：',
-                bold: true,
-              }),
-              new TextRun(data.overview?.scope || ''),
-            ],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: '核心目标：',
-                bold: true,
-              }),
-              new TextRun((data.overview?.core_objectives || []).join('; ')),
-            ],
-          }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: '目标受众：',
-                bold: true,
-              }),
-              new TextRun((data.overview?.target_audience || []).join('; ')),
-            ],
-          }),
+          createParagraphWithRuns([
+            { text: '制定背景：', bold: true },
+            { text: data.overview?.background || '无' },
+          ]),
+          createParagraphWithRuns([
+            { text: '适用范围：', bold: true },
+            { text: data.overview?.scope || '无' },
+          ]),
+          createParagraphWithRuns([
+            { text: '核心目标：', bold: true },
+            { text: (data.overview?.core_objectives || []).join('; ') || '无' },
+          ]),
+          createParagraphWithRuns([
+            { text: '目标受众：', bold: true },
+            { text: (data.overview?.target_audience || []).join('; ') || '无' },
+          ]),
 
           // 关键术语
           new Paragraph({
@@ -167,16 +355,10 @@ export async function exportStandardInterpretationToWord(
             heading: HeadingLevel.HEADING_2,
           }),
           ...(data.key_terms || []).map(
-            (term: any) =>
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: `${term.term}：`,
-                    bold: true,
-                  }),
-                  new TextRun(term.definition),
-                ],
-              }),
+            (term: any) => createParagraphWithRuns([
+              { text: `${term.term}：`, bold: true },
+              { text: term.definition || '无定义' },
+            ]),
           ),
 
           // 关键要求
@@ -184,113 +366,318 @@ export async function exportStandardInterpretationToWord(
             text: '三、关键要求',
             heading: HeadingLevel.HEADING_2,
           }),
-          ...(data.key_requirements || []).map(
-            (req: any) =>
+          // 将每个条款的所有内容聚合在一起
+          ...(data.key_requirements || []).flatMap((req: any) => {
+            // 直接使用 clause_full_text 或 clause_text，它们通常已包含完整信息
+            // 如果这两个字段为空，才使用 clause_id + clause_summary
+            let clauseDisplay = ''
+            let clauseContent = ''
+
+            if (req.clause_full_text && req.clause_full_text.trim().length > 0) {
+              // clause_full_text 通常已包含条款ID和完整内容
+              clauseDisplay = req.clause_full_text.trim()
+              clauseContent = clauseDisplay // 用于后续判断
+            } else if (req.clause_text && req.clause_text.trim().length > 0) {
+              clauseDisplay = req.clause_text.trim()
+              clauseContent = clauseDisplay
+            } else if (req.clause_summary && req.clause_summary.trim().length > 0) {
+              // clause_summary 可能不包含条款ID，需要拼接
+              clauseDisplay = `${req.clause_id} ${req.clause_summary.trim()}`
+              clauseContent = req.clause_summary.trim()
+            } else {
+              // 兜底：只显示条款ID
+              clauseDisplay = req.clause_id
+              clauseContent = ''
+            }
+
+            // 处理 interpretation 字段（可能是字符串或对象）
+            let interpretationText = ''
+            if (typeof req.interpretation === 'string') {
+              interpretationText = req.interpretation
+            } else if (typeof req.interpretation === 'object' && req.interpretation !== null) {
+              const interp = req.interpretation
+              const parts = []
+              if (interp.what) parts.push(`是什么：${interp.what}`)
+              if (interp.why) parts.push(`为什么：${interp.why}`)
+              if (interp.how) parts.push(`怎么做：${interp.how}`)
+              interpretationText = parts.join('\n')
+            }
+
+            // 处理 compliance_criteria 的两种类型：string[] 或 ComplianceCriteriaDetail 对象
+            let criteriaText = ''
+            if (Array.isArray(req.compliance_criteria)) {
+              criteriaText = req.compliance_criteria.join('; ')
+            } else if (typeof req.compliance_criteria === 'object' && req.compliance_criteria !== null) {
+              // ComplianceCriteriaDetail 对象类型
+              const criteria = req.compliance_criteria
+              const parts = []
+              if (criteria.must_have && criteria.must_have.length > 0) {
+                parts.push(`必须具备: ${criteria.must_have.join('; ')}`)
+              }
+              if (criteria.should_have && criteria.should_have.length > 0) {
+                parts.push(`建议具备: ${criteria.should_have.join('; ')}`)
+              }
+              if (criteria.evidence_required && criteria.evidence_required.length > 0) {
+                parts.push(`所需证据: ${criteria.evidence_required.join('; ')}`)
+              }
+              if (criteria.assessment_method) {
+                parts.push(`评估方法: ${criteria.assessment_method}`)
+              }
+              criteriaText = parts.join('\n')
+            }
+
+            // 返回该条款的所有内容段落，聚合在一起
+            return [
+              // 条款标题（只有条款ID加粗，内容不加粗）
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: `${req.clause_id} ${req.clause_text}`,
-                    bold: true,
+                    text: clauseDisplay,
+                    bold: false, // 条款内容不加粗
+                    size: 24, // 统一24磅
                   }),
                   new TextRun({
-                    text: ` [${req.priority}]`,
-                    color: 'FF0000',
+                    text: ` [${req.priority || '中'}]`,
+                    color: 'FF0000', // 红色
+                    bold: true, // 优先级标签加粗
+                    size: 24,
                   }),
                 ],
+                spacing: { before: 200, after: 100 },
               }),
-          ),
-          ...(data.key_requirements || []).map(
-            (req: any) =>
+              // 解读
               new Paragraph({
                 children: [
                   new TextRun({
                     text: '解读：',
                     bold: true,
+                    size: 24,
                   }),
-                  new TextRun(req.interpretation),
+                  new TextRun({
+                    text: interpretationText || '无解读',
+                    bold: false,
+                    size: 24,
+                  }),
                 ],
+                indent: { firstLine: 200 },
               }),
-          ),
-          ...(data.key_requirements || []).map(
-            (req: any) =>
+              // 合规标准
               new Paragraph({
                 children: [
                   new TextRun({
                     text: '合规标准：',
                     bold: true,
+                    size: 24,
                   }),
-                  new TextRun((req.compliance_criteria || []).join('; ')),
+                  new TextRun({
+                    text: criteriaText || '无',
+                    bold: false,
+                    size: 24,
+                  }),
                 ],
+                indent: { firstLine: 200 },
+                spacing: { after: 200 },
               }),
-          ),
+            ]
+          }),
 
           // 实施指引
           new Paragraph({
             text: '四、实施指引',
             heading: HeadingLevel.HEADING_2,
           }),
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: '准备工作：',
-                bold: true,
-              }),
-              new TextRun((data.implementation_guidance?.preparation || []).join('\n')),
-            ],
-          }),
+          createParagraphWithRuns([
+            { text: '准备工作：', bold: true },
+            { text: (data.implementation_guidance?.preparation || []).join('\n') || '无' },
+          ]),
           new Paragraph({
             text: '实施步骤',
             heading: HeadingLevel.HEADING_3,
           }),
           ...(data.implementation_guidance?.implementation_steps || []).flatMap(
             (step: any) => [
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: step.phase,
-                    bold: true,
-                  }),
-                ],
-              }),
-              ...step.steps.map((s: string) => new Paragraph(`  • ${s}`)),
+              createParagraphWithRuns([
+                { text: step.phase, bold: true },
+              ]),
+              ...step.steps.map((s: string) => new Paragraph({
+                children: [new TextRun({ text: `  • ${s}`, size: 24 })],
+              })),
             ],
           ),
+          createParagraphWithRuns([
+            { text: '最佳实践：', bold: true },
+            { text: (data.implementation_guidance?.best_practices || []).join('\n') || '无' },
+          ]),
+          createParagraphWithRuns([
+            { text: '常见误区：', bold: true },
+            { text: (data.implementation_guidance?.common_pitfalls || []).join('\n') || '无' },
+          ]),
+          createParagraphWithRuns([
+            { text: '预估时间：', bold: true },
+            { text: data.implementation_guidance?.timeline_estimate || '无' },
+          ]),
+          createParagraphWithRuns([
+            { text: '所需资源：', bold: true },
+            { text: data.implementation_guidance?.resource_requirements || '无' },
+          ]),
+
+          // 检查清单 (来自 implementation_guidance.checklists)
           new Paragraph({
-            children: [
-              new TextRun({
-                text: '最佳实践：',
-                bold: true,
-              }),
-              new TextRun((data.implementation_guidance?.best_practices || []).join('\n')),
-            ],
+            text: '五、检查清单',
+            heading: HeadingLevel.HEADING_2,
           }),
+          // 文档检查清单
+          createParagraphWithRuns([{ text: '文档检查清单：', bold: true }]),
+          ...(data.implementation_guidance?.checklists?.document_checklist || []).map((item: string) =>
+            createParagraphWithRuns([{ text: `  • ${item}` }]),
+          ),
+          // 系统检查清单
+          createParagraphWithRuns([{ text: '系统检查清单：', bold: true }], { spacing: { before: 100 } }),
+          ...(data.implementation_guidance?.checklists?.system_checklist || []).map((item: string) =>
+            createParagraphWithRuns([{ text: `  • ${item}` }]),
+          ),
+          // 流程检查清单
+          createParagraphWithRuns([{ text: '流程检查清单：', bold: true }], { spacing: { before: 100 } }),
+          ...(data.implementation_guidance?.checklists?.process_checklist || []).map((item: string) =>
+            createParagraphWithRuns([{ text: `  • ${item}` }]),
+          ),
+          // 访谈准备清单
+          createParagraphWithRuns([{ text: '访谈准备清单：', bold: true }], { spacing: { before: 100 } }),
+          ...(data.implementation_guidance?.checklists?.interview_preparation || []).map((item: string) =>
+            createParagraphWithRuns([{ text: `  • ${item}` }]),
+          ),
+
+          // 证据模板 (来自 implementation_guidance.evidence_templates)
           new Paragraph({
-            children: [
-              new TextRun({
-                text: '常见误区：',
-                bold: true,
-              }),
-              new TextRun((data.implementation_guidance?.common_pitfalls || []).join('\n')),
-            ],
+            text: '六、证据模板',
+            heading: HeadingLevel.HEADING_2,
           }),
+          ...(data.implementation_guidance?.evidence_templates || []).map((template: any) => [
+            createParagraphWithRuns([
+              { text: `条款：${template.clause || '未指定'}`, bold: true },
+            ], { spacing: { before: 100 } }),
+            createParagraphWithRuns([
+              { text: `  证据类型：${template.evidence_type || '无'}` },
+            ]),
+            createParagraphWithRuns([
+              { text: `  说明：${template.description || '无'}` },
+            ]),
+            createParagraphWithRuns([
+              { text: `  参考示例：${template.sample_reference || '无'}` },
+            ], { spacing: { after: 100 } }),
+          ]).flat(),
+
+          // 风险矩阵 (顶级字段 risk_matrix)
           new Paragraph({
-            children: [
-              new TextRun({
-                text: '预估时间：',
-                bold: true,
-              }),
-              new TextRun(data.implementation_guidance?.timeline_estimate || ''),
-            ],
+            text: '七、风险矩阵',
+            heading: HeadingLevel.HEADING_2,
           }),
+          // 高风险条款
+          createParagraphWithRuns([{ text: '高风险条款：', bold: true }]),
+          ...(data.risk_matrix?.high_risk_clauses || []).map((clause: string) =>
+            createParagraphWithRuns([{ text: `  • ${clause}` }]),
+          ),
+          // 常见失败点
+          createParagraphWithRuns([{ text: '常见失败点：', bold: true }], { spacing: { before: 100 } }),
+          ...(data.risk_matrix?.common_failures || []).map((failure: any) => [
+            createParagraphWithRuns([
+              { text: `  条款：${failure.clause || '未指定'}`, bold: true },
+            ], { spacing: { before: 50 } }),
+            createParagraphWithRuns([{ text: `    失败点：${failure.failure_point || '无'}` }]),
+            createParagraphWithRuns([{ text: `    后果：${failure.consequence || '无'}` }]),
+            createParagraphWithRuns([{ text: `    缓解措施：${failure.mitigation || '无'}` }], { spacing: { after: 100 } }),
+          ]).flat(),
+          // 审核关注点
+          createParagraphWithRuns([{ text: '审核关注点：', bold: true }], { spacing: { before: 100 } }),
+          ...(data.risk_matrix?.audit_focus_areas || []).map((area: string) =>
+            createParagraphWithRuns([{ text: `  • ${area}` }]),
+          ),
+
+          // 实施路径规划 (顶级字段 implementation_roadmap)
           new Paragraph({
-            children: [
-              new TextRun({
-                text: '所需资源：',
-                bold: true,
-              }),
-              new TextRun(data.implementation_guidance?.resource_requirements || ''),
-            ],
+            text: '八、实施路径规划',
+            heading: HeadingLevel.HEADING_2,
           }),
+          // 阶段1
+          ...(data.implementation_roadmap?.phase_1_foundation ? [
+            createParagraphWithRuns([
+              { text: '阶段1：', bold: true },
+              { text: data.implementation_roadmap.phase_1_foundation.name || '', bold: false },
+            ], { spacing: { before: 100 } }),
+            createParagraphWithRuns([
+              { text: `  时长：${data.implementation_roadmap.phase_1_foundation.duration || '无'}` },
+            ]),
+            createParagraphWithRuns([
+              { text: `  重点：${data.implementation_roadmap.phase_1_foundation.focus || '无'}` },
+            ]),
+            createParagraphWithRuns([
+              { text: `  涉及条款：${(data.implementation_roadmap.phase_1_foundation.clauses || []).join(', ') || '无'}` },
+            ]),
+            createParagraphWithRuns([{ text: '  交付物：', bold: true }]),
+            ...(data.implementation_roadmap.phase_1_foundation.deliverables || []).map((item: string) =>
+              createParagraphWithRuns([{ text: `    • ${item}` }]),
+            ),
+          ] : []),
+          // 阶段2
+          ...(data.implementation_roadmap?.phase_2_digitalization ? [
+            createParagraphWithRuns([
+              { text: '阶段2：', bold: true },
+              { text: data.implementation_roadmap.phase_2_digitalization.name || '', bold: false },
+            ], { spacing: { before: 100 } }),
+            createParagraphWithRuns([
+              { text: `  时长：${data.implementation_roadmap.phase_2_digitalization.duration || '无'}` },
+            ]),
+            createParagraphWithRuns([
+              { text: `  重点：${data.implementation_roadmap.phase_2_digitalization.focus || '无'}` },
+            ]),
+            createParagraphWithRuns([
+              { text: `  涉及条款：${(data.implementation_roadmap.phase_2_digitalization.clauses || []).join(', ') || '无'}` },
+            ]),
+            createParagraphWithRuns([{ text: '  交付物：', bold: true }]),
+            ...(data.implementation_roadmap.phase_2_digitalization.deliverables || []).map((item: string) =>
+              createParagraphWithRuns([{ text: `    • ${item}` }]),
+            ),
+          ] : []),
+          // 阶段3
+          ...(data.implementation_roadmap?.phase_3_automation ? [
+            createParagraphWithRuns([
+              { text: '阶段3：', bold: true },
+              { text: data.implementation_roadmap.phase_3_automation.name || '', bold: false },
+            ], { spacing: { before: 100 } }),
+            createParagraphWithRuns([
+              { text: `  时长：${data.implementation_roadmap.phase_3_automation.duration || '无'}` },
+            ]),
+            createParagraphWithRuns([
+              { text: `  重点：${data.implementation_roadmap.phase_3_automation.focus || '无'}` },
+            ]),
+            createParagraphWithRuns([
+              { text: `  涉及条款：${(data.implementation_roadmap.phase_3_automation.clauses || []).join(', ') || '无'}` },
+            ]),
+            createParagraphWithRuns([{ text: '  交付物：', bold: true }]),
+            ...(data.implementation_roadmap.phase_3_automation.deliverables || []).map((item: string) =>
+              createParagraphWithRuns([{ text: `    • ${item}` }]),
+            ),
+          ] : []),
+          // 阶段4
+          ...(data.implementation_roadmap?.phase_4_optimization ? [
+            createParagraphWithRuns([
+              { text: '阶段4：', bold: true },
+              { text: data.implementation_roadmap.phase_4_optimization.name || '', bold: false },
+            ], { spacing: { before: 100 } }),
+            createParagraphWithRuns([
+              { text: `  时长：${data.implementation_roadmap.phase_4_optimization.duration || '无'}` },
+            ]),
+            createParagraphWithRuns([
+              { text: `  重点：${data.implementation_roadmap.phase_4_optimization.focus || '无'}` },
+            ]),
+            createParagraphWithRuns([
+              { text: `  涉及条款：${(data.implementation_roadmap.phase_4_optimization.clauses || []).join(', ') || '无'}` },
+            ]),
+            createParagraphWithRuns([{ text: '  交付物：', bold: true }]),
+            ...(data.implementation_roadmap.phase_4_optimization.deliverables || []).map((item: string) =>
+              createParagraphWithRuns([{ text: `    • ${item}` }]),
+            ),
+          ] : []),
         ],
       },
     ],
