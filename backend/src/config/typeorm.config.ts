@@ -2,6 +2,8 @@ import { DataSource } from 'typeorm'
 import { config } from 'dotenv'
 import {
   User,
+  Organization,
+  OrganizationMember,
   Project,
   AITask,
   AIGenerationEvent,
@@ -12,6 +14,10 @@ import {
   ActionPlanMeasure,
   ProjectMember,
   SystemUser,
+  StandardDocument,
+  InterpretationResult,
+  CurrentStateDescription,
+  WeaknessSnapshot,
 } from '../database/entities'
 
 // Load environment variables
@@ -26,6 +32,8 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_DATABASE || 'csaas',
   entities: [
     User,
+    Organization,
+    OrganizationMember,
     Project,
     AITask,
     AIGenerationEvent,
@@ -36,6 +44,10 @@ export const AppDataSource = new DataSource({
     ActionPlanMeasure,
     ProjectMember,
     SystemUser,
+    StandardDocument,
+    InterpretationResult,
+    CurrentStateDescription,
+    WeaknessSnapshot,
   ],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false, // Migrations will handle schema changes

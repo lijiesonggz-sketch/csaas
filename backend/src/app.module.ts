@@ -14,6 +14,8 @@ import { AIGenerationModule } from './modules/ai-generation/ai-generation.module
 import { SurveyModule } from './modules/survey/survey.module'
 import { ProjectsModule } from './modules/projects/projects.module'
 import { FilesModule } from './modules/files/files.module'
+import { CurrentStateModule } from './modules/current-state/current-state.module'
+import { OrganizationsModule } from './modules/organizations/organizations.module'
 
 @Module({
   imports: [
@@ -54,6 +56,8 @@ import { FilesModule } from './modules/files/files.module'
     SurveyModule,
     ProjectsModule,
     FilesModule,
+    CurrentStateModule,
+    OrganizationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

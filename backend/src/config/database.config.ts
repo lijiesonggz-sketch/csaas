@@ -1,6 +1,8 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm'
 import {
   User,
+  Organization,
+  OrganizationMember,
   Project,
   AITask,
   AIGenerationEvent,
@@ -11,6 +13,10 @@ import {
   ActionPlanMeasure,
   ProjectMember,
   SystemUser,
+  StandardDocument,
+  InterpretationResult,
+  CurrentStateDescription,
+  WeaknessSnapshot,
 } from '../database/entities'
 
 export const databaseConfig = (): TypeOrmModuleOptions => ({
@@ -22,6 +28,8 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
   database: process.env.DB_DATABASE || 'csaas',
   entities: [
     User,
+    Organization,
+    OrganizationMember,
     Project,
     AITask,
     AIGenerationEvent,
@@ -32,6 +40,10 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
     ActionPlanMeasure,
     ProjectMember,
     SystemUser,
+    StandardDocument,
+    InterpretationResult,
+    CurrentStateDescription,
+    WeaknessSnapshot,
   ],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false, // Use migrations for schema changes
