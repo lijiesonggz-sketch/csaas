@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common'
 import { AppModule } from './app.module'
 import { initSentry } from './config/sentry.config'
 import { loggerConfig } from './config/logger.config'
+import { TransformInterceptor } from './common/interceptors/transform.interceptor'
 import * as Sentry from '@sentry/node'
 
 async function bootstrap() {
@@ -27,6 +28,9 @@ async function bootstrap() {
       transform: true,
     }),
   )
+
+  // 全局响应转换拦截器
+  app.useGlobalInterceptors(new TransformInterceptor())
 
   // CORS配置
   app.enableCors({
