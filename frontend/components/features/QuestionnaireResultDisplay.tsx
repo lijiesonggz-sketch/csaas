@@ -39,10 +39,11 @@ interface Question {
   cluster_id: string
   cluster_name: string
   question_text: string
-  question_type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'RATING'
+  question_type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'RATING' | 'BINARY'
   options: QuestionOption[]
   required: boolean
   guidance: string
+  expected_answer?: boolean  // 判断题的期望答案
 }
 
 interface QuestionOption {
@@ -85,6 +86,7 @@ export default function QuestionnaireResultDisplay({
     SINGLE_CHOICE: questions.filter((q) => q.question_type === 'SINGLE_CHOICE').length,
     MULTIPLE_CHOICE: questions.filter((q) => q.question_type === 'MULTIPLE_CHOICE').length,
     RATING: questions.filter((q) => q.question_type === 'RATING').length,
+    BINARY: questions.filter((q) => q.question_type === 'BINARY').length,
   }
 
   // 编辑题目
@@ -185,6 +187,7 @@ export default function QuestionnaireResultDisplay({
       SINGLE_CHOICE: { color: 'blue', text: '单选题' },
       MULTIPLE_CHOICE: { color: 'green', text: '多选题' },
       RATING: { color: 'orange', text: '评分题' },
+      BINARY: { color: 'purple', text: '判断题' },
     }
     const { color, text } = config[type as keyof typeof config] || {
       color: 'default',
@@ -195,6 +198,34 @@ export default function QuestionnaireResultDisplay({
 
   // 渲染题目选项
   const renderOptions = (question: Question, isEditing: boolean) => {
+    // 判断题类型
+    if (question.question_type === 'BINARY') {
+      return (
+        <Radio.Group disabled className="w-full">
+          <Space direction="vertical" className="w-full">
+            <Radio value="true" className="w-full p-2 border rounded hover:bg-gray-50">
+              <div className="flex items-start">
+                <span className="font-medium mr-2">A.</span>
+                <div className="flex-1">
+                  <div className="text-lg">有</div>
+                  <div className="text-xs text-gray-500 mt-1">组织已具备此能力或已实施此要求</div>
+                </div>
+              </div>
+            </Radio>
+            <Radio value="false" className="w-full p-2 border rounded hover:bg-gray-50">
+              <div className="flex items-start">
+                <span className="font-medium mr-2">B.</span>
+                <div className="flex-1">
+                  <div className="text-lg">没有</div>
+                  <div className="text-xs text-gray-500 mt-1">组织未具备此能力或未实施此要求</div>
+                </div>
+              </div>
+            </Radio>
+          </Space>
+        </Radio.Group>
+      )
+    }
+
     if (question.question_type === 'SINGLE_CHOICE') {
       return (
         <Radio.Group disabled className="w-full space-y-2">
@@ -521,6 +552,13 @@ export default function QuestionnaireResultDisplay({
             <div className="text-2xl font-bold text-orange-600">{questionTypeStats.RATING}</div>
             <div className="text-xs text-gray-500">
               占比 {((questionTypeStats.RATING / metadata.total_questions) * 100).toFixed(1)}%
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">判断题</div>
+            <div className="text-2xl font-bold text-purple-600">{questionTypeStats.BINARY}</div>
+            <div className="text-xs text-gray-500">
+              占比 {((questionTypeStats.BINARY / metadata.total_questions) * 100).toFixed(1)}%
             </div>
           </div>
         </div>

@@ -12,9 +12,17 @@ import {
   QuestionnaireGenerationInput,
 } from './generators/questionnaire.generator'
 import {
+  BinaryQuestionnaireGenerator,
+  BinaryQuestionnaireInput,
+} from './generators/binary-questionnaire.generator'
+import {
   ActionPlanGenerator,
   ActionPlanGenerationInput,
 } from './generators/action-plan.generator'
+import { QuickGapAnalyzer } from './generators/quick-gap-analyzer.generator'
+import {
+  StandardInterpretationGenerator,
+} from './generators/standard-interpretation.generator'
 import { QualityValidationService } from '../quality-validation/quality-validation.service'
 import { ResultAggregatorService } from '../result-aggregation/result-aggregator.service'
 import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
@@ -64,7 +72,10 @@ export class AIGenerationService {
     private readonly clusteringGenerator: ClusteringGenerator,
     private readonly matrixGenerator: MatrixGenerator,
     private readonly questionnaireGenerator: QuestionnaireGenerator,
+    private readonly binaryQuestionnaireGenerator: BinaryQuestionnaireGenerator,
+    private readonly quickGapAnalyzer: QuickGapAnalyzer,
     private readonly actionPlanGenerator: ActionPlanGenerator,
+    private readonly standardInterpretationGenerator: StandardInterpretationGenerator,
     private readonly qualityValidation: QualityValidationService,
     private readonly resultAggregator: ResultAggregatorService,
     private readonly tasksGateway: TasksGateway,
@@ -92,6 +103,24 @@ export class AIGenerationService {
 
       case AITaskType.QUESTIONNAIRE:
         return this.generateQuestionnaire(request)
+
+      case AITaskType.BINARY_QUESTIONNAIRE:
+        return this.generateBinaryQuestionnaire(request)
+
+      case AITaskType.BINARY_GAP_ANALYSIS:
+        return this.generateBinaryGapAnalysis(request)
+
+      case AITaskType.QUICK_GAP_ANALYSIS:
+        return this.generateQuickGapAnalysis(request)
+
+      case AITaskType.STANDARD_INTERPRETATION:
+        return this.generateStandardInterpretation(request)
+
+      case AITaskType.STANDARD_RELATED_SEARCH:
+        return this.generateRelatedStandardSearch(request)
+
+      case AITaskType.STANDARD_VERSION_COMPARE:
+        return this.generateVersionCompare(request)
 
       case AITaskType.ACTION_PLAN:
         return this.generateActionPlan(request)
@@ -257,15 +286,27 @@ export class AIGenerationService {
       }) => {
         // 更新AITask的progress_details
         try {
+          // 获取当前任务状态，避免覆盖其他字段
+          const currentTask = await this.aiTaskRepository.findOne({ where: { id: request.taskId } })
+          if (!currentTask) {
+            this.logger.warn(`Task ${request.taskId} not found for progress update`)
+            return
+          }
+
+          // 合并progress details，保留已有数据
+          const mergedProgress = {
+            ...(currentTask.progressDetails as any || {}),
+            ...(progress.details || {}),
+          }
+
           await this.aiTaskRepository.update(request.taskId, {
             generationStage: progress.stage as any,
-            progressDetails: progress.details || {
-              validation_stage: 'pending',
-              aggregation_stage: 'pending',
-            },
+            progressDetails: mergedProgress,
           })
+
+          this.logger.log(`✅ [Progress] Updated task ${request.taskId}: stage=${progress.stage}, models_completed=${Object.keys(mergedProgress).filter(k => k !== 'validation_stage' && k !== 'aggregation_stage').length}`)
         } catch (error) {
-          this.logger.warn(`Failed to update task progress: ${error.message}`)
+          this.logger.error(`❌ [Progress] Failed to update task progress: ${error.message}`)
         }
       }
 
@@ -278,9 +319,11 @@ export class AIGenerationService {
         currentStep: '质量验证',
       })
 
-      // 更新数据库状态为质量验证
+      // 更新数据库状态为质量验证（保留progressDetails）
+      const taskBeforeValidation = await this.aiTaskRepository.findOne({ where: { id: request.taskId } })
       await this.aiTaskRepository.update(request.taskId, {
         generationStage: 'quality_validation' as any,
+        progressDetails: taskBeforeValidation?.progressDetails,
       })
 
       // 2. 质量验证
@@ -297,9 +340,11 @@ export class AIGenerationService {
         currentStep: '结果聚合',
       })
 
-      // 更新数据库状态为聚合
+      // 更新数据库状态为聚合（保留progressDetails）
+      const taskBeforeAggregation = await this.aiTaskRepository.findOne({ where: { id: request.taskId } })
       await this.aiTaskRepository.update(request.taskId, {
         generationStage: 'aggregating' as any,
+        progressDetails: taskBeforeAggregation?.progressDetails,
       })
 
       // 3. 结果聚合
@@ -326,14 +371,17 @@ export class AIGenerationService {
       )
 
       // 更新数据库中的任务状态为completed
+      // 获取当前任务以保留progressDetails
+      const currentTask = await this.aiTaskRepository.findOne({ where: { id: request.taskId } })
       await this.aiTaskRepository.update(
         { id: request.taskId },
         {
           status: TaskStatus.COMPLETED,
           completedAt: new Date(),
+          progressDetails: currentTask?.progressDetails, // 确保保留progress详情
         }
       )
-      this.logger.log(`Updated task ${request.taskId} status to COMPLETED in database`)
+      this.logger.log(`✅ Updated task ${request.taskId} status to COMPLETED in database (progress preserved: ${!!currentTask?.progressDetails})`)
 
       // 发送完成事件
       const executionTime = Date.now() - startTime
@@ -638,6 +686,976 @@ export class AIGenerationService {
         taskId: request.taskId,
         status: 'failed',
         message: `问卷生成失败: ${error.message}`,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      throw error
+    }
+  }
+
+  /**
+   * 生成判断题问卷
+   */
+  private async generateBinaryQuestionnaire(request: GenerationRequest): Promise<GenerationResponse> {
+    const input = request.input as { clusteringTaskId: string; temperature?: number; maxTokens?: number }
+    const startTime = Date.now()
+
+    try {
+      // 0. 确保AITask存在
+      await this.ensureTaskExists(request.taskId, request.generationType, input, request.projectId)
+
+      // 发送初始进度
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 0,
+        message: '任务已创建，正在获取聚类结果...',
+        currentStep: '初始化',
+      })
+
+      // 1. 从数据库获取聚类结果
+      const clusteringResult = await this.getFinalResult(input.clusteringTaskId)
+
+      if (!clusteringResult) {
+        throw new Error(`Clustering result not found for task ${input.clusteringTaskId}`)
+      }
+
+      this.logger.log(`Retrieved clustering result with ${clusteringResult.categories?.length || 0} categories`)
+
+      // 2. 构造判断题问卷生成输入
+      const binaryQuestionnaireInput: BinaryQuestionnaireInput = {
+        clusteringResult: clusteringResult as any,
+        temperature: input.temperature,
+        maxTokens: input.maxTokens,
+      }
+
+      // 3. 调用三模型生成
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 10,
+        message: '正在调用三个AI模型并行生成判断题问卷...',
+        currentStep: '模型生成',
+      })
+
+      const { gpt4, claude, domestic } = await this.binaryQuestionnaireGenerator.generate(binaryQuestionnaireInput)
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 60,
+        message: '三模型生成完成，开始质量验证...',
+        currentStep: '质量验证',
+      })
+
+      // 4. 质量验证
+      const validationReport = await this.qualityValidation.validateQuality({
+        gpt4,
+        claude,
+        domestic,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 80,
+        message: '质量验证完成，开始结果聚合...',
+        currentStep: '结果聚合',
+      })
+
+      // 5. 结果聚合
+      const aggregationOutput = await this.resultAggregator.aggregate({
+        taskId: request.taskId,
+        generationType: request.generationType,
+        gpt4Result: gpt4,
+        claudeResult: claude,
+        domesticResult: domestic,
+        validationReport,
+      })
+
+      // 6. 构建响应
+      const response: GenerationResponse = {
+        taskId: request.taskId,
+        selectedResult: aggregationOutput.selectedResult,
+        selectedModel: aggregationOutput.selectedModel,
+        confidenceLevel: aggregationOutput.confidenceLevel,
+        qualityScores: aggregationOutput.qualityScores,
+      }
+
+      this.logger.log(
+        `Binary questionnaire generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, questions=${response.selectedResult.questionnaire?.length || 0}`,
+      )
+
+      // 更新数据库中的任务状态为completed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+      )
+      this.logger.log(`Updated task ${request.taskId} status to COMPLETED in database`)
+
+      // 发送完成事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'completed',
+        message: '判断题问卷生成完成！',
+        result: response,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      return response
+    } catch (error) {
+      // 更新数据库中的任务状态为failed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.FAILED,
+          completedAt: new Date(),
+        },
+      )
+      this.logger.error(`Updated task ${request.taskId} status to FAILED in database`)
+
+      // 发送失败事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'failed',
+        message: `判断题问卷生成失败: ${error.message}`,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      throw error
+    }
+  }
+
+  /**
+   * 生成判断题差距分析的改进措施
+   */
+  private async generateBinaryGapAnalysis(request: GenerationRequest): Promise<GenerationResponse> {
+    const input = request.input as {
+      gapAnalysisResult: any
+      clusteringTaskId: string
+      temperature?: number
+      maxTokens?: number
+    }
+    const startTime = Date.now()
+
+    try {
+      // 0. 确保AITask存在
+      await this.ensureTaskExists(request.taskId, request.generationType, input, request.projectId)
+
+      // 发送初始进度
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 0,
+        message: '任务已创建，正在获取聚类结果...',
+        currentStep: '初始化',
+      })
+
+      // 1. 从数据库获取聚类结果
+      const clusteringResult = await this.getFinalResult(input.clusteringTaskId)
+
+      if (!clusteringResult) {
+        throw new Error(`Clustering result not found for task ${input.clusteringTaskId}`)
+      }
+
+      this.logger.log(`Retrieved clustering result for binary gap analysis`)
+
+      // 2. 调用三模型生成改进措施
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 10,
+        message: '正在调用三个AI模型并行生成改进措施...',
+        currentStep: '模型生成',
+      })
+
+      const { gpt4, claude, domestic } = await this.actionPlanGenerator.generateBinaryActionPlan(
+        input.gapAnalysisResult,
+        clusteringResult,
+        input.temperature,
+        input.maxTokens,
+      )
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 60,
+        message: '三模型生成完成，开始质量验证...',
+        currentStep: '质量验证',
+      })
+
+      // 3. 质量验证
+      const validationReport = await this.qualityValidation.validateQuality({
+        gpt4,
+        claude,
+        domestic,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 80,
+        message: '质量验证完成，开始结果聚合...',
+        currentStep: '结果聚合',
+      })
+
+      // 4. 结果聚合
+      const aggregationOutput = await this.resultAggregator.aggregate({
+        taskId: request.taskId,
+        generationType: request.generationType,
+        gpt4Result: gpt4,
+        claudeResult: claude,
+        domesticResult: domestic,
+        validationReport,
+      })
+
+      // 5. 构建响应
+      const response: GenerationResponse = {
+        taskId: request.taskId,
+        selectedResult: aggregationOutput.selectedResult,
+        selectedModel: aggregationOutput.selectedModel,
+        confidenceLevel: aggregationOutput.confidenceLevel,
+        qualityScores: aggregationOutput.qualityScores,
+      }
+
+      this.logger.log(
+        `Binary gap action plan generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, actions=${response.selectedResult.action_plan?.length || 0}`,
+      )
+
+      // 更新数据库中的任务状态为completed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+      )
+
+      // 发送完成事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'completed',
+        message: '改进措施生成完成！',
+        result: response,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      return response
+    } catch (error) {
+      // 更新数据库中的任务状态为failed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.FAILED,
+          completedAt: new Date(),
+        },
+      )
+
+      // 发送失败事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'failed',
+        message: `改进措施生成失败: ${error.message}`,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      throw error
+    }
+  }
+
+  /**
+   * 生成超简版差距分析
+   */
+  private async generateQuickGapAnalysis(request: GenerationRequest): Promise<GenerationResponse> {
+    const input = request.input as {
+      currentStateDescription: string
+      standardDocument: {
+        id: string
+        name: string
+        content: string
+      }
+      clusteringTaskId?: string
+      temperature?: number
+      maxTokens?: number
+    }
+    const startTime = Date.now()
+
+    try {
+      // 0. 确保AITask存在
+      await this.ensureTaskExists(request.taskId, request.generationType, input, request.projectId)
+
+      // 发送初始进度
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 0,
+        message: '任务已创建，准备分析差距...',
+        currentStep: '初始化',
+      })
+
+      // 1. 获取聚类结果（可选）
+      let clusteringResult = null
+      if (input.clusteringTaskId) {
+        clusteringResult = await this.getFinalResult(input.clusteringTaskId)
+      }
+
+      // 2. 调用三模型生成差距分析
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 10,
+        message: '正在调用三个AI模型并行分析差距...',
+        currentStep: '模型生成',
+      })
+
+      const { gpt4, claude, domestic } = await this.quickGapAnalyzer.analyze({
+        currentStateDescription: input.currentStateDescription,
+        standardDocument: input.standardDocument,
+        clusteringResult: clusteringResult || undefined,
+        temperature: input.temperature,
+        maxTokens: input.maxTokens,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 60,
+        message: '三模型生成完成，开始质量验证...',
+        currentStep: '质量验证',
+      })
+
+      // 3. 质量验证
+      const validationReport = await this.qualityValidation.validateQuality({
+        gpt4,
+        claude,
+        domestic,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 80,
+        message: '质量验证完成，开始结果聚合...',
+        currentStep: '结果聚合',
+      })
+
+      // 4. 结果聚合
+      const aggregationOutput = await this.resultAggregator.aggregate({
+        taskId: request.taskId,
+        generationType: request.generationType,
+        gpt4Result: gpt4,
+        claudeResult: claude,
+        domesticResult: domestic,
+        validationReport,
+      })
+
+      // 5. 构建响应
+      const response: GenerationResponse = {
+        taskId: request.taskId,
+        selectedResult: aggregationOutput.selectedResult,
+        selectedModel: aggregationOutput.selectedModel,
+        confidenceLevel: aggregationOutput.confidenceLevel,
+        qualityScores: aggregationOutput.qualityScores,
+      }
+
+      this.logger.log(
+        `Quick gap analysis completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, gaps=${response.selectedResult.gap_details?.length || 0}`,
+      )
+
+      // 更新数据库中的任务状态为completed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+      )
+
+      // 发送完成事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'completed',
+        message: '超简版差距分析完成！',
+        result: response,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      return response
+    } catch (error) {
+      // 更新数据库中的任务状态为failed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.FAILED,
+          completedAt: new Date(),
+        },
+      )
+
+      // 发送失败事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'failed',
+        message: `超简版差距分析失败: ${error.message}`,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      throw error
+    }
+  }
+
+  /**
+   * 生成标准解读
+   * 支持两种模式：
+   * 1. 单阶段模式（默认）：直接解读整个文档
+   * 2. 两阶段模式（useTwoPhaseMode=true）：先提取条款清单，再批量解读
+   */
+  private async generateStandardInterpretation(request: GenerationRequest): Promise<GenerationResponse> {
+    const input = request.input as {
+      standardDocument: {
+        id: string
+        name: string
+        content: string
+      }
+      interpretationMode?: 'basic' | 'detailed' | 'enterprise'
+      temperature?: number
+      maxTokens?: number
+      useTwoPhaseMode?: boolean // 是否使用两阶段模式
+      batchSize?: number // 批次大小（两阶段模式）
+    }
+    const startTime = Date.now()
+
+    try {
+      // 0. 确保AITask存在
+      await this.ensureTaskExists(request.taskId, request.generationType, input, request.projectId)
+
+      // 检查是否使用两阶段模式
+      if (input.useTwoPhaseMode) {
+        return this.generateStandardInterpretationTwoPhase(request)
+      }
+
+      // 发送初始进度
+      const modeLabel = input.interpretationMode || 'enterprise'
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 0,
+        message: `任务已创建，准备解读标准（${modeLabel}模式）...`,
+        currentStep: '初始化',
+      })
+
+      // 1. 调用三模型生成标准解读
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 10,
+        message: '正在调用三个AI模型并行解读标准...',
+        currentStep: '模型生成',
+      })
+
+      const { gpt4, claude, domestic } = await this.standardInterpretationGenerator.generateInterpretation({
+        standardDocument: input.standardDocument,
+        interpretationMode: input.interpretationMode || 'enterprise',
+        temperature: input.temperature,
+        maxTokens: input.maxTokens,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 60,
+        message: '三模型生成完成，开始质量验证...',
+        currentStep: '质量验证',
+      })
+
+      // 2. 质量验证
+      const validationReport = await this.qualityValidation.validateQuality({
+        gpt4,
+        claude,
+        domestic,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 80,
+        message: '质量验证完成，开始结果聚合...',
+        currentStep: '结果聚合',
+      })
+
+      // 3. 结果聚合
+      const aggregationOutput = await this.resultAggregator.aggregate({
+        taskId: request.taskId,
+        generationType: request.generationType,
+        gpt4Result: gpt4,
+        claudeResult: claude,
+        domesticResult: domestic,
+        validationReport,
+      })
+
+      // 4. 构建响应
+      const response: GenerationResponse = {
+        taskId: request.taskId,
+        selectedResult: aggregationOutput.selectedResult,
+        selectedModel: aggregationOutput.selectedModel,
+        confidenceLevel: aggregationOutput.confidenceLevel,
+        qualityScores: aggregationOutput.qualityScores,
+      }
+
+      this.logger.log(
+        `Standard interpretation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, requirements=${response.selectedResult.key_requirements?.length || 0}`,
+      )
+
+      // 更新数据库中的任务状态为completed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+      )
+
+      // 发送完成事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'completed',
+        message: '标准解读完成！',
+        result: response,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      return response
+    } catch (error) {
+      // 更新数据库中的任务状态为failed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.FAILED,
+          completedAt: new Date(),
+        },
+      )
+
+      // 发送失败事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'failed',
+        message: `标准解读失败: ${error.message}`,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      throw error
+    }
+  }
+
+  /**
+   * 两阶段模式：生成标准解读
+   * 阶段1：提取条款清单
+   * 阶段2：批量解读条款
+   */
+  private async generateStandardInterpretationTwoPhase(request: GenerationRequest): Promise<GenerationResponse> {
+    const input = request.input as {
+      standardDocument: {
+        id: string
+        name: string
+        content: string
+      }
+      interpretationMode?: 'basic' | 'detailed' | 'enterprise'
+      temperature?: number
+      maxTokens?: number
+      batchSize?: number
+    }
+    const startTime = Date.now()
+
+    try {
+      // 发送初始进度
+      const modeLabel = input.interpretationMode || 'enterprise'
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 0,
+        message: `任务已创建，准备解读标准（${modeLabel}模式，两阶段）...`,
+        currentStep: '初始化',
+      })
+
+      // 调用批量解读生成器
+      const { gpt4, claude, domestic } = await this.standardInterpretationGenerator.generateBatchInterpretation({
+        standardDocument: input.standardDocument,
+        interpretationMode: input.interpretationMode || 'enterprise',
+        batchSize: input.batchSize || 10,
+        temperature: input.temperature,
+        maxTokens: input.maxTokens,
+        onProgress: (progress) => {
+          // 实时更新进度
+          this.tasksGateway.emitTaskProgress({
+            taskId: request.taskId,
+            progress: progress.current,
+            message: progress.message,
+            currentStep: '批量解读',
+          })
+        },
+      })
+
+      // 质量验证
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 90,
+        message: '解读完成，开始质量验证...',
+        currentStep: '质量验证',
+      })
+
+      const validationReport = await this.qualityValidation.validateQuality({
+        gpt4,
+        claude,
+        domestic,
+      })
+
+      // 结果聚合
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 95,
+        message: '质量验证完成，开始结果聚合...',
+        currentStep: '结果聚合',
+      })
+
+      const aggregationOutput = await this.resultAggregator.aggregate({
+        taskId: request.taskId,
+        generationType: request.generationType,
+        gpt4Result: gpt4,
+        claudeResult: claude,
+        domesticResult: domestic,
+        validationReport,
+      })
+
+      // 构建响应
+      const response: GenerationResponse = {
+        taskId: request.taskId,
+        selectedResult: aggregationOutput.selectedResult,
+        selectedModel: aggregationOutput.selectedModel,
+        confidenceLevel: aggregationOutput.confidenceLevel,
+        qualityScores: aggregationOutput.qualityScores,
+      }
+
+      this.logger.log(
+        `Two-phase standard interpretation completed: confidence=${response.confidenceLevel}, ` +
+        `model=${response.selectedModel}, requirements=${response.selectedResult.key_requirements?.length || 0}`,
+      )
+
+      // 更新数据库中的任务状态为completed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+      )
+      this.logger.log(`Updated task ${request.taskId} status to COMPLETED in database`)
+
+      // 发送完成事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'completed',
+        message: '标准解读完成（两阶段模式）！',
+        result: response,
+        executionTimeMs: executionTime,
+        cost: 0, // TODO: 从cost tracking获取实际成本
+      })
+
+      return response
+    } catch (error) {
+      this.logger.error(`Two-phase standard interpretation failed: ${error.message}`)
+
+      // 更新数据库中的任务状态为failed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.FAILED,
+          completedAt: new Date(),
+        },
+      )
+
+      // 发送失败事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'failed',
+        message: `标准解读失败（两阶段模式）: ${error.message}`,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      throw error
+    }
+  }
+
+  /**
+   * 生成关联标准搜索
+   */
+  private async generateRelatedStandardSearch(request: GenerationRequest): Promise<GenerationResponse> {
+    const input = request.input as {
+      standardDocument: {
+        id: string
+        name: string
+        content: string
+      }
+      interpretationTaskId?: string
+      temperature?: number
+      maxTokens?: number
+    }
+    const startTime = Date.now()
+
+    try {
+      // 0. 确保AITask存在
+      await this.ensureTaskExists(request.taskId, request.generationType, input, request.projectId)
+
+      // 发送初始进度
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 0,
+        message: '任务已创建，准备搜索关联标准...',
+        currentStep: '初始化',
+      })
+
+      // 1. 获取解读结果（如果提供了解读任务ID）
+      let interpretationResult = null
+      if (input.interpretationTaskId) {
+        interpretationResult = await this.getFinalResult(input.interpretationTaskId)
+      }
+
+      // 2. 调用三模型生成关联标准搜索
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 10,
+        message: '正在调用三个AI模型并行搜索关联标准...',
+        currentStep: '模型生成',
+      })
+
+      const { gpt4, claude, domestic } = await this.standardInterpretationGenerator.searchRelatedStandards({
+        standardDocument: input.standardDocument,
+        interpretationResult: interpretationResult?.selectedResult,
+        temperature: input.temperature,
+        maxTokens: input.maxTokens,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 60,
+        message: '三模型生成完成，开始质量验证...',
+        currentStep: '质量验证',
+      })
+
+      // 3. 质量验证
+      const validationReport = await this.qualityValidation.validateQuality({
+        gpt4,
+        claude,
+        domestic,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 80,
+        message: '质量验证完成，开始结果聚合...',
+        currentStep: '结果聚合',
+      })
+
+      // 4. 结果聚合
+      const aggregationOutput = await this.resultAggregator.aggregate({
+        taskId: request.taskId,
+        generationType: request.generationType,
+        gpt4Result: gpt4,
+        claudeResult: claude,
+        domesticResult: domestic,
+        validationReport,
+      })
+
+      // 5. 构建响应
+      const response: GenerationResponse = {
+        taskId: request.taskId,
+        selectedResult: aggregationOutput.selectedResult,
+        selectedModel: aggregationOutput.selectedModel,
+        confidenceLevel: aggregationOutput.confidenceLevel,
+        qualityScores: aggregationOutput.qualityScores,
+      }
+
+      this.logger.log(
+        `Related standards search completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, standards=${response.selectedResult.related_standards?.length || 0}`,
+      )
+
+      // 更新数据库中的任务状态为completed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+      )
+
+      // 发送完成事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'completed',
+        message: '关联标准搜索完成！',
+        result: response,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      return response
+    } catch (error) {
+      // 更新数据库中的任务状态为failed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.FAILED,
+          completedAt: new Date(),
+        },
+      )
+
+      // 发送失败事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'failed',
+        message: `关联标准搜索失败: ${error.message}`,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      throw error
+    }
+  }
+
+  /**
+   * 生成版本比对
+   */
+  private async generateVersionCompare(request: GenerationRequest): Promise<GenerationResponse> {
+    const input = request.input as {
+      oldVersion: {
+        id: string
+        name: string
+        content: string
+      }
+      newVersion: {
+        id: string
+        name: string
+        content: string
+      }
+      temperature?: number
+      maxTokens?: number
+    }
+    const startTime = Date.now()
+
+    try {
+      // 0. 确保AITask存在
+      await this.ensureTaskExists(request.taskId, request.generationType, input, request.projectId)
+
+      // 发送初始进度
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 0,
+        message: '任务已创建，准备比对版本...',
+        currentStep: '初始化',
+      })
+
+      // 1. 调用三模型生成版本比对
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 10,
+        message: '正在调用三个AI模型并行比对版本...',
+        currentStep: '模型生成',
+      })
+
+      const { gpt4, claude, domestic } = await this.standardInterpretationGenerator.compareVersions({
+        oldVersion: input.oldVersion,
+        newVersion: input.newVersion,
+        temperature: input.temperature,
+        maxTokens: input.maxTokens,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 60,
+        message: '三模型生成完成，开始质量验证...',
+        currentStep: '质量验证',
+      })
+
+      // 2. 质量验证
+      const validationReport = await this.qualityValidation.validateQuality({
+        gpt4,
+        claude,
+        domestic,
+      })
+
+      this.tasksGateway.emitTaskProgress({
+        taskId: request.taskId,
+        progress: 80,
+        message: '质量验证完成，开始结果聚合...',
+        currentStep: '结果聚合',
+      })
+
+      // 3. 结果聚合
+      const aggregationOutput = await this.resultAggregator.aggregate({
+        taskId: request.taskId,
+        generationType: request.generationType,
+        gpt4Result: gpt4,
+        claudeResult: claude,
+        domesticResult: domestic,
+        validationReport,
+      })
+
+      // 4. 构建响应
+      const response: GenerationResponse = {
+        taskId: request.taskId,
+        selectedResult: aggregationOutput.selectedResult,
+        selectedModel: aggregationOutput.selectedModel,
+        confidenceLevel: aggregationOutput.confidenceLevel,
+        qualityScores: aggregationOutput.qualityScores,
+      }
+
+      this.logger.log(
+        `Version comparison completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, added=${response.selectedResult.added_clauses?.length || 0}, modified=${response.selectedResult.modified_clauses?.length || 0}, deleted=${response.selectedResult.deleted_clauses?.length || 0}`,
+      )
+
+      // 更新数据库中的任务状态为completed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.COMPLETED,
+          completedAt: new Date(),
+        },
+      )
+
+      // 发送完成事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'completed',
+        message: '版本比对完成！',
+        result: response,
+        executionTimeMs: executionTime,
+        cost: 0,
+      })
+
+      return response
+    } catch (error) {
+      // 更新数据库中的任务状态为failed
+      await this.aiTaskRepository.update(
+        { id: request.taskId },
+        {
+          status: TaskStatus.FAILED,
+          completedAt: new Date(),
+        },
+      )
+
+      // 发送失败事件
+      const executionTime = Date.now() - startTime
+      this.tasksGateway.emitTaskCompleted({
+        taskId: request.taskId,
+        status: 'failed',
+        message: `版本比对失败: ${error.message}`,
         executionTimeMs: executionTime,
         cost: 0,
       })

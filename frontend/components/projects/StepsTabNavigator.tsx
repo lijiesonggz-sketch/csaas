@@ -11,6 +11,8 @@ import {
   Assignment,
   TrendingUp,
   TaskAlt,
+  MenuBook,
+  Speed,
 } from '@mui/icons-material'
 
 interface Step {
@@ -154,6 +156,12 @@ export const DEFAULT_STEPS: Omit<Step, 'route'>[] = [
     status: 'pending',
   },
   {
+    id: 'standard-interpretation',
+    name: '标准解读',
+    icon: <MenuBook fontSize="small" />,
+    status: 'pending',
+  },
+  {
     id: 'matrix',
     name: '成熟度矩阵',
     icon: <GridOn fontSize="small" />,
@@ -169,6 +177,12 @@ export const DEFAULT_STEPS: Omit<Step, 'route'>[] = [
     id: 'gap-analysis',
     name: '差距分析',
     icon: <TrendingUp fontSize="small" />,
+    status: 'pending',
+  },
+  {
+    id: 'quick-gap-analysis',
+    name: '超简版差距分析',
+    icon: <Speed fontSize="small" />,
     status: 'pending',
   },
   {

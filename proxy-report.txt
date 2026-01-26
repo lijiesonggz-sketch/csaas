@@ -1,0 +1,38 @@
+﻿================================================================================
+Windows Proxy Diagnostic Report
+Generated: 2026-01-14 10:03:45
+================================================================================
+
+[1] Current Proxy Settings:
+  ProxyEnable: 1
+  ProxyServer: 127.0.0.1:7897
+
+[2] Port 7897 Status:
+  Port 7897 is NOT listening
+
+[3] User Startup Items:
+  OneDrive: "C:\Users\27937\AppData\Local\Microsoft\OneDrive\OneDrive.exe" /background
+  BaiduYunDetect: "d:\Users\27937\AppData\Roaming\baidu\BaiduNetdisk\YunDetectService.exe"
+  DingTalk: D:\Program Files (x86)\DingDing\DingtalkLauncher.exe /autorun
+  360huabao: C:\Users\27937\AppData\Roaming\360huabao\360huabao.exe /hb:5 /from:2
+  sesvc: "C:\Users\27937\AppData\Roaming\secoresdk\360se6\Application\components\sesvc\sesvc.exe" /b:1 /c:1
+  yuntun: C:\Users\27937\AppData\Roaming\yuntun\yuntun.exe --dm_frame --dm_frame_hide
+  iFLYAssistant: D:\Program Files (x86)\iFLYAssistant4\iFLYAssistant.exe
+  360DrvMgr: "d:\Program Files (x86)\360\360DrvMgr\DrvMgr.exe"  -BootStart
+  CiscoMeetingDaemon: "C:\Users\27937\AppData\Local\WebEx\WebexHost.exe" /daemon /runFrom=autorun
+  doubao: "C:\Users\27937\AppData\Local\Doubao\Application\Doubao.exe" --launch_from=auto_run --auto_launch_delay_seconds=0
+  IdeaShareKey: "C:\Users\27937\AppData\Local\IdeaShareKey\IdeaShareService.exe" service
+  Docker Desktop: C:\Program Files\Docker\Docker\Docker Desktop.exe
+
+[4] System Startup Items:
+  SecurityHealth: C:\Windows\system32\SecurityHealthSystray.exe
+
+[5] Analysis:
+  Proxy setting is ENABLED in registry
+  But NO service is currently listening on port 7897
+  This means a startup item SET the proxy but did not start the service
+
+To disable proxy temporarily:
+  Set-ItemProperty -Path HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings -Name ProxyEnable -Value 0
+
+================================================================================

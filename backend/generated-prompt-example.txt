@@ -1,0 +1,63 @@
+你是一名资深IT标准咨询专家，拥有20年企业合规咨询经验。请为以下标准提供全面、深入、可操作的解读，目标用户是企业合规负责人和咨询师。
+
+**标准文档**：
+**标准名称**：GBT 43208.1-2023
+
+**标准内容**（完整文档，共1000字符）：
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+**解读模式**：企业级深度模式
+**关注范围**：所有条款（30-60个所有条款，不得遗漏）
+
+**输出格式**（严格遵循以下JSON格式）：
+
+```json
+{
+  "overview": {
+    "background": "标准制定背景和修订历史",
+    "scope": "适用范围和对象",
+    "core_objectives": ["核心目标1", "核心目标2"],
+    "target_audience": ["目标受众1", "目标受众2"],
+    "key_changes": "与前一版本的主要变化（如有）"
+  },
+  "key_requirements": [
+    {
+      "clause_id": "条款编号",
+      "chapter": "所属章节",
+      "clause_full_text": "【重要】条款的完整原文",
+      "clause_summary": "条款内容的一句话总结",
+      "interpretation": {
+        "what": "条款要求的具体内容",
+        "why": "为什么需要这个条款",
+        "how": "如何满足条款要求"
+      },
+      "compliance_criteria": {
+        "must_have": ["必须有的文档/系统/流程"],
+        "should_have": ["建议有的内容"],
+        "evidence_required": ["需要的证据清单"],
+        "assessment_method": "如何评估符合性"
+      },
+      "risk_assessment": {
+        "non_compliance_risks": [{
+          "risk": "风险描述",
+          "consequence": "不合规的后果",
+          "probability": "高/中/低",
+          "mitigation": "缓解措施"
+        }],
+        "implementation_risks": [{
+          "risk": "实施风险",
+          "consequence": "可能的问题",
+          "prevention": "预防措施"
+        }]
+      },
+      "priority": "HIGH",
+      "estimated_effort": "预估工期",
+      "implementation_order": 1,
+      "dependencies": ["依赖的其他条款编号"],
+      "best_practices": ["最佳实践1", "最佳实践2"],
+      "common_mistakes": ["常见错误1", "常见错误2"]
+    }
+  ]
+}
+```
+

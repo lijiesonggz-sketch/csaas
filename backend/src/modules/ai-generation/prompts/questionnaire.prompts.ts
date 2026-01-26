@@ -191,7 +191,7 @@ const SINGLE_CLUSTER_QUESTIONNAIRE_PROMPT_TEMPLATE = `你是一名资深IT咨询
 **成熟度级别定义**：
 {{MATURITY_LEVELS}}
 
-**关键要求**：
+**🔴 关键要求（必须严格遵守）**：
 1. **固定生成5个问题**，每个问题从不同维度提问
 2. **5个维度**（必须严格遵守）：
    - 维度1【政策与制度层面】：是否有正式的政策/流程文档
@@ -202,6 +202,15 @@ const SINGLE_CLUSTER_QUESTIONNAIRE_PROMPT_TEMPLATE = `你是一名资深IT咨询
 3. **交叉验证目的**：通过不同维度的问题，交叉验证用户答案的一致性，识别潜在的虚假陈述
 4. **题型限制**：只使用SINGLE_CHOICE（单选题）和MULTIPLE_CHOICE（多选题），**禁止使用RATING评分题**
 5. **严格输出JSON格式**，不要添加任何注释或markdown标记
+
+**🔴 强制性约束（违背将被判定为失败）**：
+1. **必须基于输入的key_practices（关键实践）生成问题和选项**
+2. **禁止使用笼统表述**：禁止使用"完善"、"健全"、"较好"、"规范"、"到位"、"充分"等抽象形容词
+3. **必须引用具体实践**：
+   - 题目必须提及具体的管理措施（如"脱敏处理"、"安全评估"、"专职团队"、"审批流程"等）
+   - 单选题选项必须直接引用或改写对应级别的key_practices
+   - 多选题选项必须列举关键实践中的具体措施
+4. **保留条款引用**：如果输入的key_practices包含"（对应第XX条要求）"，选项中应保留此标注
 
 **输出要求**：
 1. **结构要求**：必须输出完整的JSON格式：
@@ -301,14 +310,27 @@ const SINGLE_CLUSTER_QUESTIONNAIRE_PROMPT_TEMPLATE = `你是一名资深IT咨询
    - **Q4（持续改进）**：单选题，评估优化机制
    - **Q5（证据与合规）**：多选题，检查审计证据和合规性
 
-3. **单选题设计（SINGLE_CHOICE）**：
+3. **单选题设计（SINGLE_CHOICE）- 必须遵守**：
    - **5个选项严格对应5个成熟度级别**（Level 1到Level 5）
+   - **选项必须直接引用对应级别的key_practices**：
+     * 示例格式："[具体措施描述]（对应第XX条要求）"
+     * 如果key_practices是"建立专职团队"，选项应该是"未建立专职团队"（对应第XX条要求）
+     * 如果key_practices是"实施脱敏处理"，选项应该是"实施了脱敏处理"（对应第XX条要求）
+   - **禁止使用抽象描述**：
+     * ❌ 错误示例："政策非常完善"、"制度比较健全"、"管理较为规范"
+     * ✅ 正确示例："未建立企业级数据服务管理体系和专职团队（对应第二十三条要求）"
    - 选项互斥且穷尽（MECE原则）
    - 每个选项明确标注level字段（"level_1"到"level_5"）
    - score字段：Level 1得1分，Level 2得2分，以此类推
    - description字段：简要说明对应的成熟度特征
 
-4. **多选题设计（MULTIPLE_CHOICE）**：
+4. **多选题设计（MULTIPLE_CHOICE）- 必须遵守**：
+   - **选项必须列举关键实践中的具体措施**：
+     * 从不同级别的key_practices中提取具体实践动作
+     * 示例："实施脱敏处理"、"开展安全评估"、"建立审批流程"
+   - **每个选项包含具体的动作或措施**（不能只有名词）：
+     * ❌ 错误示例："管理能力"、"制度建设"
+     * ✅ 正确示例："建立数据服务管理体系"、"制定脱敏规范"
    - 列举3-5个关键实践或证据项
    - 不设置level字段（不直接对应单一成熟度级别）
    - score字段：每个选项单独计分（通常为2分）
@@ -325,6 +347,107 @@ const SINGLE_CLUSTER_QUESTIONNAIRE_PROMPT_TEMPLATE = `你是一名资深IT咨询
    - 具体可操作，问题针对可观察的实践或制度
    - 术语一致，使用与成熟度描述一致的表述
    - 避免引导性，保持中立
+
+**📝 Few-Shot示例（参考模板）**：
+
+假设输入的聚类是"数据使用、加工与展示"，各级别的关键实践如下：
+- Level 1: 未建立企业级数据服务管理体系和专职团队
+- Level 2: 展示高敏感性数据项时原则上实施脱敏（对应第十七条要求）
+- Level 3: 建立企业级数据服务管理体系、制定规范并建立专职团队（对应第二十三条要求）
+- Level 4: 建立数据安全评估机制，定期开展评估工作（对应第二十五条要求）
+- Level 5: 实施数据敏感性标识，建立数据保存期限管理制度（对应第二十七、二十八条要求）
+
+**期望输出示例**（注意如何使用key_practices）：
+
+Q1（政策与制度）单选题：
+{
+  "question_id": "Q001",
+  "cluster_id": "cluster_2_3",
+  "cluster_name": "数据使用、加工与展示",
+  "dimension": "政策与制度层面",
+  "question_text": "贵组织是否建立了企业级数据服务管理体系和专职团队？",
+  "question_type": "SINGLE_CHOICE",
+  "options": [
+    {
+      "option_id": "A",
+      "text": "未建立企业级数据服务管理体系和专职团队（对应第二十三条要求）",
+      "score": 1,
+      "level": "level_1",
+      "description": "对应初始级：缺乏管理体系"
+    },
+    {
+      "option_id": "B",
+      "text": "制定了部分管理制度，但未建立专职团队（对应第二十三条要求）",
+      "score": 2,
+      "level": "level_2",
+      "description": "对应可重复级：制度初步建立"
+    },
+    {
+      "option_id": "C",
+      "text": "建立了完整的管理体系、规范和专职团队（对应第二十三条要求）",
+      "score": 3,
+      "level": "level_3",
+      "description": "对应已定义级：体系完整"
+    },
+    {
+      "option_id": "D",
+      "text": "建立数据安全评估机制并定期开展评估（对应第二十五条要求）",
+      "score": 4,
+      "level": "level_4",
+      "description": "对应可管理级：定期评估"
+    },
+    {
+      "option_id": "E",
+      "text": "实施数据敏感性标识并建立数据保存期限管理制度（对应第二十七、二十八条要求）",
+      "score": 5,
+      "level": "level_5",
+      "description": "对应优化级：全面管理"
+    }
+  ],
+  "required": true,
+  "guidance": "请选择最符合贵组织当前状态的选项。"
+}
+
+Q2（执行与实施）多选题：
+{
+  "question_id": "Q002",
+  "cluster_id": "cluster_2_3",
+  "cluster_name": "数据使用、加工与展示",
+  "dimension": "执行与实施层面",
+  "question_text": "贵组织在数据使用过程中采取了哪些安全措施？（多选）",
+  "question_type": "MULTIPLE_CHOICE",
+  "options": [
+    {
+      "option_id": "A",
+      "text": "展示高敏感性数据项时实施脱敏处理（对应第十七条要求）",
+      "score": 2
+    },
+    {
+      "option_id": "B",
+      "text": "建立数据使用审批流程和授权机制",
+      "score": 2
+    },
+    {
+      "option_id": "C",
+      "text": "定期开展数据安全评估工作（对应第二十五条要求）",
+      "score": 2
+    },
+    {
+      "option_id": "D",
+      "text": "实施数据敏感性标识制度（对应第二十七条要求）",
+      "score": 2
+    },
+    {
+      "option_id": "E",
+      "text": "以上都没有实施",
+      "score": 0
+    }
+  ],
+  "required": true,
+  "guidance": "请选择所有符合贵组织实际情况的选项。"
+}
+
+**注意**：以上示例展示了如何正确使用key_practices生成问题和选项。请参考此示例，根据实际输入的key_practices生成相应的问题。
 
 **注意**：
 - 必须严格输出JSON格式
@@ -348,17 +471,31 @@ export function fillSingleClusterQuestionnairePrompt(
   let clusterInfo = `聚类ID：${cluster.cluster_id}\n`
   clusterInfo += `聚类名称：${cluster.cluster_name}\n`
 
-  // 格式化成熟度级别
+  // 格式化成熟度级别 - 优化：突出显示key_practices
   let levelsText = ''
   const levels = ['level_1', 'level_2', 'level_3', 'level_4', 'level_5']
   for (const levelKey of levels) {
     const level = cluster.levels[levelKey]
     if (level) {
-      levelsText += `**${level.name}**：${level.description}\n`
-      levelsText += `关键实践：\n`
-      for (const practice of level.key_practices || []) {
-        levelsText += `  - ${practice}\n`
+      // 首先展示关键实践（更突出）
+      levelsText += `**${level.name}**的关键实践（必须用于生成选项）：\n`
+      if (level.key_practices && level.key_practices.length > 0) {
+        for (const practice of level.key_practices) {
+          levelsText += `  ✳️ ${practice}\n`
+        }
+      } else {
+        levelsText += `  (无关键实践)\n`
       }
+
+      // 然后展示描述（简化显示）
+      if (level.description) {
+        // 只显示前100个字符，避免信息过载
+        const shortDesc = level.description.length > 100
+          ? level.description.substring(0, 100) + '...'
+          : level.description
+        levelsText += `说明：${shortDesc}\n`
+      }
+
       levelsText += `\n`
     }
   }

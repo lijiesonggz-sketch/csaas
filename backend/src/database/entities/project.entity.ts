@@ -10,8 +10,12 @@ import {
   OneToMany,
 } from 'typeorm'
 import { User } from './user.entity'
+import { Organization } from './organization.entity'
 import { AITask } from './ai-task.entity'
 import { ProjectMember } from './project-member.entity'
+import { StandardDocument } from './standard-document.entity'
+import { CurrentStateDescription } from './current-state-description.entity'
+import { WeaknessSnapshot } from './weakness-snapshot.entity'
 
 export enum ProjectStatus {
   DRAFT = 'draft',
@@ -37,8 +41,28 @@ export class Project {
   @Column({ name: 'standard_name', nullable: true })
   standardName: string
 
+  /**
+   * @deprecated Tenant ID is deprecated in favor of organization-based multi-tenancy.
+   * This field will be removed in Story 6.1 (Multi-tenant data model).
+   * All new code should use organizationId instead.
+   */
   @Column({ name: 'tenant_id', nullable: true })
   tenantId: string
+
+  /**
+   * Organization ID (foreign key)
+   *
+   * References organizations.id
+   * Every project belongs to an organization
+   */
+  @Column({ name: 'organization_id', nullable: true })
+  organizationId: string
+
+  @ManyToOne(() => Organization, (organization) => organization.projects, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'organization_id' })
+  organization: Organization
 
   @Column({ name: 'owner_id' })
   ownerId: string
@@ -71,4 +95,18 @@ export class Project {
 
   @OneToMany(() => ProjectMember, (member) => member.project)
   members: ProjectMember[]
+
+  @OneToMany(() => StandardDocument, (doc) => doc.project)
+  standardDocuments: StandardDocument[]
+
+  @OneToMany(() => CurrentStateDescription, (desc) => desc.project)
+  currentStateDescriptions: CurrentStateDescription[]
+
+  /**
+   * Weakness snapshots identified from this project
+   *
+   * One project can have multiple weakness snapshots
+   */
+  @OneToMany(() => WeaknessSnapshot, (weakness) => weakness.project)
+  weaknessSnapshots: WeaknessSnapshot[]
 }

@@ -17,17 +17,17 @@ async function checkTaskEvents() {
     await dataSource.initialize();
     console.log('✅ Database connected');
 
-    // 查询最新的matrix任务
+    // 查询最新的clustering任务
     const [latestTask] = await dataSource.query(`
       SELECT id, status, created_at
       FROM ai_tasks
-      WHERE type = 'matrix'
+      WHERE type = 'clustering'
       ORDER BY created_at DESC
       LIMIT 1
     `);
 
     if (!latestTask) {
-      console.log('❌ 没有找到matrix任务');
+      console.log('❌ 没有找到clustering任务');
       await dataSource.destroy();
       return;
     }

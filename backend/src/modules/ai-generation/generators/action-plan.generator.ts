@@ -225,4 +225,48 @@ export class ActionPlanGenerator {
       throw new Error(`Failed to parse action plan JSON: ${error.message}`)
     }
   }
+
+  /**
+   * 生成基于判断题差距分析的改进措施
+   * @param gapAnalysisResult 差距分析结果
+   * @param clusteringResult 聚类结果
+   * @param temperature 温度参数
+   * @param maxTokens 最大tokens
+   * @returns 三模型生成的改进措施
+   */
+  async generateBinaryActionPlan(
+    gapAnalysisResult: any,
+    clusteringResult: any,
+    temperature = 0.7,
+    maxTokens = 8000,
+  ): Promise<{
+    gpt4: ActionPlanGenerationOutput
+    claude: ActionPlanGenerationOutput
+    domestic: ActionPlanGenerationOutput
+  }> {
+    this.logger.log('Starting binary gap action plan generation...')
+
+    // 导入prompt填充函数
+    const { fillBinaryActionPlanPrompt } = require('../prompts/binary-action-plan.prompts')
+
+    // 构建prompt
+    const prompt = fillBinaryActionPlanPrompt(gapAnalysisResult, clusteringResult)
+
+    // 并行调用三个模型
+    const [gpt4Result, claudeResult, domesticResult] = await Promise.all([
+      this.generateWithModel(prompt, 'gpt4', temperature, maxTokens),
+      this.generateWithModel(prompt, 'claude', temperature, maxTokens),
+      this.generateWithModel(prompt, 'domestic', temperature, maxTokens),
+    ])
+
+    this.logger.log(
+      `Binary action plan generation completed. GPT4: ${gpt4Result.action_plan?.length || 0} actions, Claude: ${claudeResult.action_plan?.length || 0} actions, Domestic: ${domesticResult.action_plan?.length || 0} actions`,
+    )
+
+    return {
+      gpt4: gpt4Result,
+      claude: claudeResult,
+      domestic: domesticResult,
+    }
+  }
 }

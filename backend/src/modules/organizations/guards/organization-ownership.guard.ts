@@ -1,7 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { OrganizationMember } from '../../database/entities/organization-member.entity'
+import { OrganizationMember } from '../../../database/entities/organization-member.entity'
 
 /**
  * OrganizationOwnershipGuard

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(if:*)",
+      "Bash(then echo \".next directory exists\")",
+      "Bash(else echo \".next directory not found\")",
+      "Bash(fi)",
+      "Bash(curl:*)",
+      "Bash(wc:*)",
+      "Bash(npm run build)"
+    ]
+  }
+}

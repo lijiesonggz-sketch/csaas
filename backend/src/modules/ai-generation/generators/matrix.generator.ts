@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
 import { AIClientRequest } from '../../ai-clients/interfaces/ai-client.interface'
 import { AIModel } from '../../../database/entities/ai-generation-event.entity'
@@ -53,8 +54,20 @@ export interface MatrixGenerationInput {
 @Injectable()
 export class MatrixGenerator {
   private readonly logger = new Logger(MatrixGenerator.name)
+  private readonly generationTimeout: number
 
-  constructor(private readonly aiOrchestrator: AIOrchestrator) {}
+  constructor(
+    private readonly aiOrchestrator: AIOrchestrator,
+    private readonly configService: ConfigService,
+  ) {
+    // 获取超时配置（默认10分钟）
+    this.generationTimeout =
+      this.configService.get<number>('MODEL_GENERATION_TIMEOUT') || 600000
+
+    this.logger.log(
+      `MatrixGenerator initialized with timeout: ${this.generationTimeout}ms (${(this.generationTimeout / 60000).toFixed(1)} minutes)`,
+    )
+  }
 
   /**
    * 生成成熟度矩阵（分批次优化）
@@ -178,50 +191,81 @@ export class MatrixGenerator {
       responseFormat: { type: 'json_object' },
     }
 
-    // 并行调用三模型生成
-    const [gpt4Response, claudeResponse, domesticResponse] = await Promise.all([
-      this.generateWithModel(aiRequest, AIModel.GPT4),
-      this.generateWithModel(aiRequest, AIModel.CLAUDE),
-      this.generateWithModel(aiRequest, AIModel.DOMESTIC),
+    // ⚠️ 临时禁用Claude模型，只使用GPT-4和Qwen（因为Claude API返回404）
+    // 并行调用两模型生成，添加超时控制
+    this.logger.log(`Starting parallel generation with ${this.generationTimeout}ms timeout...`)
+
+    const results = await Promise.allSettled([
+      this.addTimeout(
+        this.generateWithModel(aiRequest, AIModel.GPT4),
+        this.generationTimeout,
+        'GPT-4',
+      ),
+      // ⚠️ Claude已禁用
+      // this.addTimeout(
+      //   this.generateWithModel(aiRequest, AIModel.CLAUDE),
+      //   this.generationTimeout,
+      //   'Claude',
+      // ),
+      this.addTimeout(
+        this.generateWithModel(aiRequest, AIModel.DOMESTIC),
+        this.generationTimeout,
+        'Qwen',
+      ),
     ])
+
+    const gpt4Response = results[0].status === 'fulfilled' ? results[0].value : null
+    const claudeResponse = null // ⚠️ 临时禁用Claude
+    const domesticResponse = results[1].status === 'fulfilled' ? results[1].value : null // 注意索引变化
+
+    // 统计成功数量
+    const successfulCount = [gpt4Response, domesticResponse].filter((r) => r !== null).length
+    this.logger.log(`Matrix cluster generation completed: ${successfulCount}/2 models successful (Claude disabled)`)
 
     // 解析JSON结果
     let gpt4Row: MatrixRow | null = null
     let claudeRow: MatrixRow | null = null
     let domesticRow: MatrixRow | null = null
 
-    try {
-      const parsed = this.parseSingleClusterResponse(gpt4Response.content, cluster)
-      gpt4Row = parsed
-    } catch (error) {
-      this.logger.error(`Failed to parse GPT-4 single cluster response: ${error.message}`)
+    if (gpt4Response) {
+      try {
+        const parsed = this.parseSingleClusterResponse(gpt4Response.content, cluster)
+        gpt4Row = parsed
+      } catch (error) {
+        this.logger.error(`Failed to parse GPT-4 single cluster response: ${error.message}`)
+      }
     }
 
-    try {
-      const parsed = this.parseSingleClusterResponse(claudeResponse.content, cluster)
-      claudeRow = parsed
-    } catch (error) {
-      this.logger.error(`Failed to parse Claude single cluster response: ${error.message}`)
+    // ⚠️ Claude已禁用，跳过解析
+    // if (claudeResponse) {
+    //   try {
+    //     const parsed = this.parseSingleClusterResponse(claudeResponse.content, cluster)
+    //     claudeRow = parsed
+    //   } catch (error) {
+    //     this.logger.error(`Failed to parse Claude single cluster response: ${error.message}`)
+    //   }
+    // }
+
+    if (domesticResponse) {
+      try {
+        const parsed = this.parseSingleClusterResponse(domesticResponse.content, cluster)
+        domesticRow = parsed
+      } catch (error) {
+        this.logger.error(`Failed to parse Domestic model single cluster response: ${error.message}`)
+      }
     }
 
-    try {
-      const parsed = this.parseSingleClusterResponse(domesticResponse.content, cluster)
-      domesticRow = parsed
-    } catch (error) {
-      this.logger.error(`Failed to parse Domestic model single cluster response: ${error.message}`)
+    // 如果所有模型都失败，抛出错误（只检查GPT-4和Qwen）
+    if (!gpt4Row && !domesticRow) {
+      throw new Error(`All available models failed to generate maturity for cluster: ${cluster.name}`)
     }
 
-    // 如果所有模型都失败，抛出错误
-    if (!gpt4Row && !claudeRow && !domesticRow) {
-      throw new Error(`All three models failed to generate maturity for cluster: ${cluster.name}`)
-    }
-
-    // 使用成功的结果填充失败的模型
-    const fallbackRow = claudeRow || gpt4Row || domesticRow
+    // 使用成功的结果填充失败的模型（优先使用GPT-4，然后Qwen）
+    const fallbackRow = gpt4Row || domesticRow
 
     return {
       gpt4: gpt4Row || fallbackRow,
-      claude: claudeRow || fallbackRow,
+      claude: claudeRow || fallbackRow, // 返回fallback以保持兼容性
       domestic: domesticRow || fallbackRow,
     }
   }
@@ -319,6 +363,31 @@ export class MatrixGenerator {
       this.logger.error(`Model ${model} matrix generation failed: ${error.message}`)
       throw new Error(`${model} matrix generation failed: ${error.message}`)
     }
+  }
+
+  /**
+   * 为Promise添加超时控制
+   * @param promise 要包装的Promise
+   * @param timeoutMs 超时时间（毫秒）
+   * @param modelName 模型名称（用于日志）
+   * @returns 带超时的Promise
+   */
+  private async addTimeout<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    modelName: string,
+  ): Promise<T> {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(
+          new Error(
+            `${modelName} matrix generation timeout after ${(timeoutMs / 1000).toFixed(1)}s`,
+          ),
+        )
+      }, timeoutMs)
+    })
+
+    return Promise.race([promise, timeoutPromise])
   }
 
   /**

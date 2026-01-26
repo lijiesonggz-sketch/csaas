@@ -17,6 +17,7 @@ import { AIModel } from '../../../database/entities/ai-generation-event.entity'
 import { ClusteringGenerator } from '../../ai-generation/generators/clustering.generator'
 import { MatrixGenerator } from '../../ai-generation/generators/matrix.generator'
 import { QuestionnaireGenerator } from '../../ai-generation/generators/questionnaire.generator'
+import { StandardInterpretationGenerator } from '../../ai-generation/generators/standard-interpretation.generator'
 import { QualityValidationService } from '../../quality-validation/quality-validation.service'
 import { ResultAggregatorService } from '../../result-aggregation/result-aggregator.service'
 
@@ -61,6 +62,7 @@ export class AITaskProcessor extends WorkerHost {
     private readonly clusteringGenerator: ClusteringGenerator,
     private readonly matrixGenerator: MatrixGenerator,
     private readonly questionnaireGenerator: QuestionnaireGenerator,
+    private readonly standardInterpretationGenerator: StandardInterpretationGenerator,
     private readonly qualityValidation: QualityValidationService,
     private readonly resultAggregator: ResultAggregatorService,
   ) {
@@ -686,6 +688,178 @@ export class AITaskProcessor extends WorkerHost {
         this.logger.log(
           `Questionnaire workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${aggregationOutput.selectedModel}`,
         )
+      } else if (type === 'standard_interpretation' || type === 'standard_related_search' || type === 'standard_version_compare') {
+        // 标准解读相关任务：使用三模型并行处理
+        this.logger.log(`Using StandardInterpretationGenerator for three-model parallel processing: ${type}`)
+
+        let generatorResults
+        if (type === 'standard_interpretation') {
+          // 检查是否使用两阶段模式
+          const useTwoPhaseMode = processedInput.useTwoPhaseMode === true
+          const batchSize = processedInput.batchSize || 10
+
+          this.logger.log(
+            `Standard interpretation mode: ${useTwoPhaseMode ? 'TWO-PHASE (batch size=' + batchSize + ')' : 'ONE-PASS'}, interpretationMode: ${processedInput.interpretationMode || 'enterprise'}`,
+          )
+
+          if (useTwoPhaseMode) {
+            // 两阶段模式：先提取条款清单，再批量解读（确保100%条款覆盖）
+            this.logger.log(`[Phase 1/2] Starting clause extraction and batch interpretation...`)
+
+            generatorResults = await this.standardInterpretationGenerator.generateBatchInterpretation({
+              standardDocument: processedInput.standardDocument,
+              interpretationMode: processedInput.interpretationMode || 'enterprise',
+              batchSize: batchSize,
+              temperature: 0.7,
+              maxTokens: 30000,
+              onProgress: (progress) => {
+                this.logger.log(
+                  `[Batch ${progress.batch || 0}/${progress.totalBatches || '?'}] ${progress.message || 'Processing...'}`,
+                )
+              },
+            })
+
+            this.logger.log(`[Phase 2/2] Batch interpretation completed`)
+          } else {
+            // 一次性模式：直接解读（AI自己选择重要条款）
+            this.logger.log(`Using one-pass interpretation mode (AI will select important clauses)`)
+            generatorResults = await this.standardInterpretationGenerator.generateInterpretation({
+              standardDocument: processedInput.standardDocument,
+              interpretationMode: processedInput.interpretationMode || 'enterprise',
+              temperature: 0.7,
+              maxTokens: 30000,
+            })
+          }
+        } else if (type === 'standard_related_search') {
+          // 搜索关联标准 - 加载解读结果
+          let interpretationResult = null
+          if (processedInput.interpretationTaskId) {
+            this.logger.log(`Loading interpretation result from task: ${processedInput.interpretationTaskId}`)
+            const interpretationTask = await this.aiTaskRepo.findOne({
+              where: { id: processedInput.interpretationTaskId },
+            })
+
+            if (interpretationTask?.result) {
+              // 从聚合结果中提取选中模型的结果
+              const resultData = interpretationTask.result as any
+              interpretationResult = {
+                key_requirements: resultData.key_requirements || [],
+                overview: resultData.overview || {},
+                key_terms: resultData.key_terms || [],
+              }
+              this.logger.log(`Loaded interpretation result with ${interpretationResult.key_requirements.length} requirements`)
+            } else {
+              this.logger.warn(`Interpretation task ${processedInput.interpretationTaskId} has no result, will use standard content only`)
+            }
+          }
+
+          generatorResults = await this.standardInterpretationGenerator.searchRelatedStandards({
+            standardDocument: processedInput.standardDocument,
+            interpretationResult,
+            temperature: 0.7,
+            maxTokens: 10000,
+          })
+        } else if (type === 'standard_version_compare') {
+          // 版本比对
+          generatorResults = await this.standardInterpretationGenerator.compareVersions({
+            oldVersion: processedInput.oldVersion,
+            newVersion: processedInput.newVersion,
+            temperature: 0.7,
+            maxTokens: 12000,
+          })
+        }
+
+        // Step 2: 质量验证
+        this.logger.log(`Step 2/3: Validating quality of 3 models for ${type}...`)
+        const validationReport = await this.qualityValidation.validateQuality({
+          gpt4: generatorResults.gpt4,
+          claude: generatorResults.claude,
+          domestic: generatorResults.domestic,
+        })
+
+        this.logger.log(
+          `Quality validation completed: overall=${validationReport.overallScore.toFixed(4)}, confidence=${validationReport.confidenceLevel}, passed=${validationReport.passed}`,
+        )
+
+        // Step 3: 结果聚合
+        this.logger.log(`Step 3/3: Aggregating best result from 3 models for ${type}...`)
+        const aggregationOutput = await this.resultAggregator.aggregate({
+          taskId,
+          generationType: type as any,
+          gpt4Result: generatorResults.gpt4,
+          claudeResult: generatorResults.claude,
+          domesticResult: generatorResults.domestic,
+          validationReport,
+        })
+
+        this.logger.log(
+          `Aggregation completed: selected=${aggregationOutput.selectedModel}, confidence=${aggregationOutput.confidenceLevel}`,
+        )
+
+        executionTimeMs = Date.now() - startTime
+
+        // 更新进度：所有三个模型都完成
+        const modelProgress: any = {
+          gpt4: {
+            status: 'completed',
+            message: '✅ 完成',
+            tokens: 0,
+            cost: 0,
+          },
+          claude: {
+            status: 'completed',
+            message: '✅ 完成',
+            tokens: 0,
+            cost: 0,
+          },
+          domestic: {
+            status: 'completed',
+            message: '✅ 完成',
+            tokens: 0,
+            cost: 0,
+          },
+        }
+
+        await this.aiTaskRepo.update(taskId, {
+          generationStage: GenerationStage.COMPLETED,
+          progressDetails: modelProgress,
+        })
+
+        // 构造响应（只返回聚合后的最佳结果）
+        const finalResult = {
+          ...aggregationOutput.selectedResult,
+          taskId,
+          qualityScores: aggregationOutput.qualityScores,
+          confidenceLevel: aggregationOutput.confidenceLevel,
+          selectedModel: aggregationOutput.selectedModel,
+          consistencyReport: aggregationOutput.consistencyReport,
+        }
+
+        aiResponse = {
+          content: JSON.stringify(finalResult),
+          metadata: {
+            type: type,
+            selectedModel: aggregationOutput.selectedModel,
+            confidenceLevel: aggregationOutput.confidenceLevel,
+            models: ['gpt4', 'claude', 'domestic'],
+            timestamp: new Date().toISOString(),
+          },
+          tokens: { total: 0 },
+          cost: 0,
+        }
+
+        // 记录聚合后的事件
+        await this.eventRepo.save({
+          taskId,
+          model: aggregationOutput.selectedModel as any,
+          input: processedInput,
+          output: { content: JSON.stringify(finalResult) } as any,
+          executionTimeMs,
+        })
+
+        this.logger.log(
+          `${type} workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${aggregationOutput.selectedModel}`,
+        )
       } else {
         // 其他类型：使用原有的单模型逻辑
         const prompt = this.buildPrompt(type, processedInput)
@@ -710,8 +884,9 @@ export class AITaskProcessor extends WorkerHost {
         currentStep: 'saving',
       })
 
-      // ✅ clustering/matrix/questionnaire类型已经在前面记录了三个模型的事件，这里跳过
-      if (type !== 'clustering' && type !== 'matrix' && type !== 'questionnaire' && event) {
+      // ✅ clustering/matrix/questionnaire/standard_*类型已经在前面记录了三个模型的事件，这里跳过
+      const isMultiModelTask = ['clustering', 'matrix', 'questionnaire', 'standard_interpretation', 'standard_related_search', 'standard_version_compare'].includes(type)
+      if (!isMultiModelTask && event) {
         // 更新生成事件 - 完成
         await this.eventRepo.update(event.id, {
           output: { content: aiResponse.content, metadata: aiResponse.metadata } as any,
@@ -738,8 +913,8 @@ export class AITaskProcessor extends WorkerHost {
       // 更新任务状态为 COMPLETED
       let completedProgress: any
 
-      if (type === 'clustering' || type === 'matrix' || type === 'questionnaire') {
-        // clustering/matrix/questionnaire类型：保留三模型进度信息
+      if (isMultiModelTask) {
+        // 多模型类型：保留三模型进度信息
         completedProgress = {
           gpt4: { status: 'completed', message: '✅ 完成' },
           claude: { status: 'completed', message: '✅ 完成' },
@@ -759,8 +934,8 @@ export class AITaskProcessor extends WorkerHost {
 
       // 根据任务类型决定如何保存result
       let resultData: any
-      if (type === 'clustering' || type === 'matrix' || type === 'questionnaire') {
-        // clustering/matrix/questionnaire: content是JSON字符串，需要解析成对象保存
+      if (isMultiModelTask) {
+        // 多模型类型: content是JSON字符串，需要解析成对象保存
         resultData = JSON.parse(aiResponse.content as string)
       } else {
         // 其他类型: 保持原有格式 {content: "..."}
@@ -776,7 +951,7 @@ export class AITaskProcessor extends WorkerHost {
       })
 
       // ✅ 根据任务类型输出不同的日志
-      if (type === 'clustering' || type === 'matrix' || type === 'questionnaire') {
+      if (isMultiModelTask) {
         this.logger.log(
           `AI task ${taskId} (${type}) completed in ${executionTimeMs}ms with 3 models (GPT-4, Claude, Domestic)`,
         )
@@ -1035,6 +1210,65 @@ ${documentsText}
 - 严格输出JSON格式，不要添加任何额外的解释或注释
 - 聚类的核心价值是"合并相似要求"
 - **不要过度限制聚类数量**：根据条款的实际相似性自然聚合`,
+        }
+
+      case 'standard_interpretation':
+        // 标准解读生成
+        return {
+          systemPrompt: '你是一名IT标准解读专家。请对以下标准进行深度解读，帮助用户全面理解标准的要求和实施方法。',
+          prompt: `**标准文档**：
+${input.standardDocument.name}
+
+${input.standardDocument.content.substring(0, 15000)}
+
+**解读要求**：
+1. 概述：标准的制定背景、适用范围、核心目标
+2. 关键术语：标准中的重要术语和定义
+3. 关键要求：逐条解读标准的关键要求（按条款编号组织）
+4. 实施指引：如何落地实施该标准，包含实施步骤、注意事项、最佳实践
+
+**输出格式**（严格遵循以下JSON格式）：
+\`\`\`json
+{
+  "overview": {
+    "background": "标准制定背景",
+    "scope": "适用范围",
+    "core_objectives": ["核心目标1", "核心目标2"],
+    "target_audience": ["目标受众1", "目标受众2"]
+  },
+  "key_terms": [
+    {
+      "term": "术语名称",
+      "definition": "术语定义",
+      "explanation": "详细解释"
+    }
+  ],
+  "key_requirements": [
+    {
+      "clause_id": "条款编号",
+      "clause_text": "条款内容",
+      "interpretation": "解读说明",
+      "compliance_criteria": ["合规标准1", "合规标准2"],
+      "priority": "HIGH/MEDIUM/LOW"
+    }
+  ],
+  "implementation_guidance": {
+    "preparation": ["准备工作1", "准备工作2"],
+    "implementation_steps": [
+      {
+        "phase": "阶段名称",
+        "steps": ["步骤1", "步骤2"]
+      }
+    ],
+    "best_practices": ["最佳实践1", "最佳实践2"],
+    "common_pitfalls": ["常见误区1", "常见误区2"],
+    "timeline_estimate": "预估时间",
+    "resource_requirements": "所需资源说明"
+  }
+}
+\`\`\`
+
+**CRITICAL: 你必须直接输出纯JSON格式，不要包含任何解释、注释、markdown代码块或其他文本。只输出JSON对象本身。**`,
         }
 
       case 'action_plan':

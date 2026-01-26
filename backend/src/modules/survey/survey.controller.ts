@@ -2,6 +2,7 @@ import { Controller, Post, Get, Put, Delete, Body, Param, HttpCode, HttpStatus, 
 import { SurveyService } from './survey.service'
 import { MaturityAnalysisService } from './maturity-analysis.service'
 import { ActionPlanGenerationService } from './action-plan-generation.service'
+import { BinaryGapAnalyzer, BinaryGapAnalysisInput } from './binary-gap-analyzer.service'
 import { CreateSurveyDto, SaveDraftDto, SubmitSurveyDto, UploadAndAnalyzeDto } from './dto'
 import { AITaskType, TaskStatus } from '../../database/entities/ai-task.entity'
 
@@ -11,6 +12,7 @@ export class SurveyController {
     private readonly surveyService: SurveyService,
     private readonly maturityAnalysisService: MaturityAnalysisService,
     private readonly actionPlanGenerationService: ActionPlanGenerationService,
+    private readonly binaryGapAnalyzer: BinaryGapAnalyzer,
   ) {}
 
   /**
@@ -266,6 +268,31 @@ export class SurveyController {
       return {
         success: false,
         message: error.message || '上传并分析失败',
+      }
+    }
+  }
+
+  /**
+   * 判断题差距分析
+   * POST /survey/binary-gap-analysis
+   */
+  @Post('binary-gap-analysis')
+  @HttpCode(HttpStatus.OK)
+  async analyzeBinaryGap(@Body() dto: BinaryGapAnalysisInput) {
+    try {
+      console.log('[SurveyController] 收到判断题差距分析请求:', dto)
+      const result = await this.binaryGapAnalyzer.analyzeGap(dto)
+      console.log('[SurveyController] 差距分析完成')
+      return {
+        success: true,
+        data: result,
+        message: '差距分析完成',
+      }
+    } catch (error) {
+      console.error('[SurveyController] 差距分析失败:', error.message, error.stack)
+      return {
+        success: false,
+        message: error.message || '差距分析失败',
       }
     }
   }

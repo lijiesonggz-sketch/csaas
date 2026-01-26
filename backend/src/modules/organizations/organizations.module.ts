@@ -1,13 +1,15 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
-import { ThrottlerModule } from '@nestjs/throttler'
 import { OrganizationsService } from './organizations.service'
 import { OrganizationAutoCreateService } from './organization-auto-create.service'
 import { OrganizationsController } from './organizations.controller'
+import { WeaknessSnapshotService } from './weakness-snapshot.service'
 import { Organization } from '../../database/entities/organization.entity'
 import { OrganizationMember } from '../../database/entities/organization-member.entity'
 import { User } from '../../database/entities/user.entity'
 import { Project } from '../../database/entities/project.entity'
+import { WeaknessSnapshot } from '../../database/entities/weakness-snapshot.entity'
+import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
 
 /**
  * OrganizationsModule
@@ -24,14 +26,31 @@ import { Project } from '../../database/entities/project.entity'
       OrganizationMember,
       User,
       Project,
+      WeaknessSnapshot,
     ]),
-    ThrottlerModule.forRoot([{
-      throttle: 10, // 10 requests
-      ttl: 60000,   // per 60 seconds
-    }]),
   ],
   controllers: [OrganizationsController],
-  providers: [OrganizationsService, OrganizationAutoCreateService],
-  exports: [OrganizationsService, OrganizationAutoCreateService], // Export for use in other modules
+  providers: [
+    OrganizationsService,
+    OrganizationAutoCreateService,
+    WeaknessSnapshotService,
+    TasksGateway,
+    {
+      provide: 'AuditLogService',
+      useFactory: () => ({
+        log: async (params: any) => {
+          // Placeholder for audit logging
+          // In production, this would use the actual AuditLogService from ProjectsModule
+          // For now, we log to console to avoid circular dependency
+          console.log('[AuditLog]', params.action, params.entityType, params.entityId)
+        },
+      }),
+    },
+  ],
+  exports: [
+    OrganizationsService,
+    OrganizationAutoCreateService,
+    WeaknessSnapshotService,
+  ], // Export for use in other modules
 })
 export class OrganizationsModule {}

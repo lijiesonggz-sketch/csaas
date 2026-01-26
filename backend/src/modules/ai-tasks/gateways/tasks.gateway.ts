@@ -174,13 +174,20 @@ export class TasksGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.logger.error(`Task ${event.taskId} failed: ${event.error}`)
 
+    // 转换为前端期望的格式（使用 'message' 字段而不是 'error'）
+    const failedEvent = {
+      taskId: event.taskId,
+      status: 'failed' as const,
+      message: event.error,  // ✅ 使用 'message' 字段
+    }
+
     if (subscribers && subscribers.size > 0) {
       subscribers.forEach((socketId) => {
-        this.server.to(socketId).emit('task:failed', event)
+        this.server.to(socketId).emit('task:failed', failedEvent)
       })
     }
 
-    this.server.to(`task:${event.taskId}`).emit('task:failed', event)
+    this.server.to(`task:${event.taskId}`).emit('task:failed', failedEvent)
 
     // 清理订阅
     this.taskSubscriptions.delete(event.taskId)

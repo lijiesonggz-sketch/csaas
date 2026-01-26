@@ -92,6 +92,10 @@ export class GenerateMatrixDto {
   clusteringResult: any // ClusteringGenerationOutput
 
   @IsOptional()
+  @IsString()
+  clusteringTaskId?: string // 聚类任务ID（从数据库自动加载聚类结果）
+
+  @IsOptional()
   @IsNumber()
   temperature?: number
 
@@ -109,6 +113,157 @@ export class GenerateQuestionnaireDto {
 
   @IsString()
   matrixTaskId: string // 矩阵任务ID（从数据库获取矩阵结果，避免HTTP请求体过大）
+
+  @IsOptional()
+  @IsNumber()
+  temperature?: number
+
+  @IsOptional()
+  @IsNumber()
+  maxTokens?: number
+}
+
+/**
+ * 生成判断题问卷DTO
+ */
+export class GenerateBinaryQuestionnaireDto {
+  @IsString()
+  taskId: string
+
+  @IsString()
+  clusteringTaskId: string // 聚类任务ID（从数据库获取聚类结果）
+
+  @IsOptional()
+  @IsNumber()
+  temperature?: number
+
+  @IsOptional()
+  @IsNumber()
+  maxTokens?: number
+}
+
+/**
+ * 生成超简版差距分析DTO
+ */
+export class GenerateQuickGapAnalysisDto {
+  @IsString()
+  taskId: string
+
+  @IsString()
+  @MinLength(500, { message: 'Current state description must be at least 500 characters' })
+  currentStateDescription: string
+
+  @ValidateNested()
+  @Type(() => StandardDocumentDto)
+  standardDocument: StandardDocumentDto
+
+  @IsOptional()
+  @IsString()
+  clusteringTaskId?: string // 聚类任务ID（可选，用于更精准的差距分析）
+
+  @IsOptional()
+  @IsNumber()
+  temperature?: number
+
+  @IsOptional()
+  @IsNumber()
+  maxTokens?: number
+}
+
+/**
+ * 生成标准解读DTO
+ */
+export class GenerateStandardInterpretationDto {
+  @IsString()
+  taskId: string
+
+  @ValidateNested()
+  @Type(() => StandardDocumentDto)
+  standardDocument: StandardDocumentDto
+
+  @IsOptional()
+  @IsString()
+  interpretationMode?: 'basic' | 'detailed' | 'enterprise'
+
+  @IsOptional()
+  @IsNumber()
+  temperature?: number
+
+  @IsOptional()
+  @IsNumber()
+  maxTokens?: number
+}
+
+/**
+ * 生成标准解读DTO（两阶段模式）
+ */
+export class GenerateStandardInterpretationTwoPhaseDto {
+  @IsString()
+  taskId: string
+
+  @ValidateNested()
+  @Type(() => StandardDocumentDto)
+  standardDocument: StandardDocumentDto
+
+  @IsOptional()
+  @IsString()
+  interpretationMode?: 'basic' | 'detailed' | 'enterprise'
+
+  @IsOptional()
+  @IsNumber()
+  batchSize?: number
+
+  @IsOptional()
+  @IsNumber()
+  temperature?: number
+
+  @IsOptional()
+  @IsNumber()
+  maxTokens?: number
+
+  @IsOptional()
+  @IsString()
+  projectId?: string
+}
+
+/**
+ * 生成关联标准搜索DTO
+ */
+export class GenerateRelatedStandardSearchDto {
+  @IsString()
+  taskId: string
+
+  @ValidateNested()
+  @Type(() => StandardDocumentDto)
+  standardDocument: StandardDocumentDto
+
+  @IsOptional()
+  @IsString()
+  interpretationTaskId?: string // 解读任务ID（可选，用于更精准的关联搜索）
+
+  @IsOptional()
+  @IsNumber()
+  temperature?: number
+
+  @IsOptional()
+  @IsNumber()
+  maxTokens?: number
+}
+
+/**
+ * 生成版本比对DTO
+ */
+export class GenerateVersionCompareDto {
+  @IsString()
+  taskId: string
+
+  @ValidateNested()
+  @Type(() => StandardDocumentDto)
+  oldVersion: StandardDocumentDto
+
+  @ValidateNested()
+  @Type(() => StandardDocumentDto)
+  newVersion: StandardDocumentDto
 
   @IsOptional()
   @IsNumber()
@@ -366,6 +521,7 @@ export class AIGenerationController {
         generationType: AITaskType.MATRIX,
         input: {
           clusteringResult: dto.clusteringResult,
+          clusteringTaskId: dto.clusteringTaskId, // 传递clusteringTaskId
           temperature: dto.temperature,
           maxTokens: dto.maxTokens,
         },
@@ -398,6 +554,213 @@ export class AIGenerationController {
         generationType: AITaskType.QUESTIONNAIRE,
         input: {
           matrixTaskId: dto.matrixTaskId, // 传递矩阵任务ID，由service层从数据库获取
+          temperature: dto.temperature,
+          maxTokens: dto.maxTokens,
+        },
+      })
+
+      return {
+        success: true,
+        data: result,
+      }
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      )
+    }
+  }
+
+  /**
+   * 生成判断题问卷
+   * POST /api/ai-generation/binary-questionnaire
+   */
+  @Post('binary-questionnaire')
+  async generateBinaryQuestionnaire(@Body() dto: GenerateBinaryQuestionnaireDto) {
+    try {
+      const result = await this.aiGenerationService.generateContent({
+        taskId: dto.taskId,
+        generationType: AITaskType.BINARY_QUESTIONNAIRE,
+        input: {
+          clusteringTaskId: dto.clusteringTaskId,
+          temperature: dto.temperature,
+          maxTokens: dto.maxTokens,
+        },
+      })
+
+      return {
+        success: true,
+        data: result,
+      }
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      )
+    }
+  }
+
+  /**
+   * 生成超简版差距分析
+   * POST /api/ai-generation/quick-gap-analysis
+   */
+  @Post('quick-gap-analysis')
+  async generateQuickGapAnalysis(@Body() dto: GenerateQuickGapAnalysisDto) {
+    try {
+      const result = await this.aiGenerationService.generateContent({
+        taskId: dto.taskId,
+        generationType: AITaskType.QUICK_GAP_ANALYSIS,
+        input: {
+          currentStateDescription: dto.currentStateDescription,
+          standardDocument: dto.standardDocument,
+          clusteringTaskId: dto.clusteringTaskId,
+          temperature: dto.temperature,
+          maxTokens: dto.maxTokens,
+        },
+      })
+
+      return {
+        success: true,
+        data: result,
+      }
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      )
+    }
+  }
+
+  /**
+   * 生成标准解读
+   * POST /api/ai-generation/standard-interpretation
+   */
+  @Post('standard-interpretation')
+  async generateStandardInterpretation(@Body() dto: GenerateStandardInterpretationDto) {
+    try {
+      const result = await this.aiGenerationService.generateContent({
+        taskId: dto.taskId,
+        generationType: AITaskType.STANDARD_INTERPRETATION,
+        input: {
+          standardDocument: dto.standardDocument,
+          interpretationMode: dto.interpretationMode,
+          temperature: dto.temperature,
+          maxTokens: dto.maxTokens,
+        },
+      })
+
+      return {
+        success: true,
+        data: result,
+      }
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      )
+    }
+  }
+
+  /**
+   * 生成标准解读（两阶段模式）
+   * POST /api/ai-generation/standard-interpretation/two-phase
+   *
+   * 两阶段模式确保100%条款覆盖：
+   * - 阶段1：提取条款清单（使用3个AI模型，正则验证，自动补全）
+   * - 阶段2：批量解读条款（默认10条/批，实时进度反馈）
+   */
+  @Post('standard-interpretation/two-phase')
+  async generateStandardInterpretationTwoPhase(@Body() dto: GenerateStandardInterpretationTwoPhaseDto) {
+    try {
+      const result = await this.aiGenerationService.generateContent({
+        taskId: dto.taskId,
+        generationType: AITaskType.STANDARD_INTERPRETATION,
+        input: {
+          standardDocument: dto.standardDocument,
+          interpretationMode: dto.interpretationMode,
+          batchSize: dto.batchSize,
+          temperature: dto.temperature,
+          maxTokens: dto.maxTokens,
+          useTwoPhaseMode: true, // 启用两阶段模式
+        },
+        projectId: dto.projectId,
+      })
+
+      return {
+        success: true,
+        data: result,
+        message: '标准解读任务已创建（两阶段模式）',
+        mode: 'two-phase',
+      }
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      )
+    }
+  }
+
+  /**
+   * 生成关联标准搜索
+   * POST /api/ai-generation/related-standards-search
+   */
+  @Post('related-standards-search')
+  async generateRelatedStandardSearch(@Body() dto: GenerateRelatedStandardSearchDto) {
+    try {
+      const result = await this.aiGenerationService.generateContent({
+        taskId: dto.taskId,
+        generationType: AITaskType.STANDARD_RELATED_SEARCH,
+        input: {
+          standardDocument: dto.standardDocument,
+          interpretationTaskId: dto.interpretationTaskId,
+          temperature: dto.temperature,
+          maxTokens: dto.maxTokens,
+        },
+      })
+
+      return {
+        success: true,
+        data: result,
+      }
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          error: error.message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      )
+    }
+  }
+
+  /**
+   * 生成版本比对
+   * POST /api/ai-generation/version-compare
+   */
+  @Post('version-compare')
+  async generateVersionCompare(@Body() dto: GenerateVersionCompareDto) {
+    try {
+      const result = await this.aiGenerationService.generateContent({
+        taskId: dto.taskId,
+        generationType: AITaskType.STANDARD_VERSION_COMPARE,
+        input: {
+          oldVersion: dto.oldVersion,
+          newVersion: dto.newVersion,
           temperature: dto.temperature,
           maxTokens: dto.maxTokens,
         },

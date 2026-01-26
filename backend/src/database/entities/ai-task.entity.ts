@@ -18,6 +18,13 @@ export enum AITaskType {
   MATRIX = 'matrix', // 矩阵生成
   QUESTIONNAIRE = 'questionnaire', // 问卷生成
   ACTION_PLAN = 'action_plan', // 落地措施
+  // 新增类型
+  STANDARD_INTERPRETATION = 'standard_interpretation', // 标准解读
+  STANDARD_RELATED_SEARCH = 'standard_related_search', // 关联标准搜索
+  STANDARD_VERSION_COMPARE = 'standard_version_compare', // 标准版本比对
+  BINARY_QUESTIONNAIRE = 'binary_questionnaire', // 判断题问卷
+  BINARY_GAP_ANALYSIS = 'binary_gap_analysis', // 判断题差距分析
+  QUICK_GAP_ANALYSIS = 'quick_gap_analysis', // 超简版差距分析
 }
 
 export enum TaskStatus {

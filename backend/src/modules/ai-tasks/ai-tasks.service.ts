@@ -36,7 +36,7 @@ export class AITasksService {
     // 添加到队列
     // 对于clustering/matrix/questionnaire类型，不设置model参数（让Processor使用对应的Generator进行三模型并行）
     // 对于其他类型，使用dto.model或默认的GPT4
-    const isMultiModelTask = ['clustering', 'matrix', 'questionnaire'].includes(dto.type)
+    const isMultiModelTask = ['clustering', 'matrix', 'questionnaire', 'standard_interpretation', 'standard_related_search', 'standard_version_compare'].includes(dto.type)
 
     const jobData: AITaskJobData = {
       taskId: task.id,

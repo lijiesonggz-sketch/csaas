@@ -1,6 +1,6 @@
 const { Client } = require('pg');
 
-async function checkTasks() {
+async function check() {
   const client = new Client({
     host: 'localhost',
     port: 5432,
@@ -9,31 +9,31 @@ async function checkTasks() {
     database: 'csaas'
   });
 
-  try {
-    await client.connect();
+  await client.connect();
 
-    const tasks = await client.query(`
-      SELECT id, status, progress, error_message, created_at
-      FROM ai_tasks
-      WHERE type = 'action_plan'
-      ORDER BY created_at DESC
-      LIMIT 3
-    `);
+  // 查询最近1小时创建的所有任务
+  const result = await client.query(
+    "SELECT id, type, status, project_id, created_at FROM ai_tasks WHERE created_at > NOW() - INTERVAL '1 hour' ORDER BY created_at DESC"
+  );
 
-    console.log('最近的 action_plan 任务:\n');
-    tasks.rows.forEach(t => {
-      console.log('ID:', t.id);
-      console.log('Status:', t.status);
-      console.log('Progress:', t.progress);
-      console.log('Error:', t.error_message || 'None');
-      console.log('Created:', t.created_at);
-      console.log('---');
+  console.log('最近1小时创建的所有任务:');
+  console.log('='.repeat(80));
+  
+  if (result.rows.length === 0) {
+    console.log('❌ 没有找到最近1小时的任务');
+  } else {
+    result.rows.forEach((task) => {
+      const created = new Date(task.created_at);
+      console.log('任务ID: ' + task.id);
+      console.log('类型: ' + task.type);
+      console.log('状态: ' + task.status);
+      console.log('项目ID: ' + task.project_id);
+      console.log('创建时间: ' + created.toLocaleString('zh-CN'));
+      console.log('');
     });
-  } catch (err) {
-    console.error('Error:', err.message);
-  } finally {
-    await client.end();
   }
+
+  await client.end();
 }
 
-checkTasks();
+check();

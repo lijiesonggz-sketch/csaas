@@ -90,10 +90,9 @@ export class AIOrchestrator {
         ]
 
       case AIModel.DOMESTIC:
+        // Only use Tongyi for DOMESTIC model - no fallback per user request
         return [
           { name: 'Tongyi', client: this.tongyiClient },
-          { name: 'OpenAI', client: this.openaiClient },
-          { name: 'Anthropic', client: this.anthropicClient },
         ]
 
       default:

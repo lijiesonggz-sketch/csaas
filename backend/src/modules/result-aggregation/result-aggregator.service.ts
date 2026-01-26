@@ -13,9 +13,9 @@ import { FullValidationReport } from '../quality-validation/quality-validation.s
 export interface AggregationInput {
   taskId: string
   generationType: AITaskType
-  gpt4Result: Record<string, any>
-  claudeResult: Record<string, any>
-  domesticResult: Record<string, any>
+  gpt4Result: Record<string, any> | null
+  claudeResult: Record<string, any> | null
+  domesticResult: Record<string, any> | null
   validationReport: FullValidationReport
   standardDocument?: string // 仅聚类任务需要（用于覆盖率检查）
 }
@@ -121,44 +121,51 @@ export class ResultAggregatorService {
    * 策略：选择整体质量分数最高的模型结果
    */
   private selectBestResult(
-    gpt4Result: Record<string, any>,
-    claudeResult: Record<string, any>,
-    domesticResult: Record<string, any>,
+    gpt4Result: Record<string, any> | null,
+    claudeResult: Record<string, any> | null,
+    domesticResult: Record<string, any> | null,
     validationReport: FullValidationReport,
   ): { selectedResult: Record<string, any>; selectedModel: SelectedModel } {
-    // 简化版投票策略：直接选择GPT-4的结果（因为我们假设GPT-4质量最高）
-    // TODO: 未来可以实现更复杂的投票策略，如基于单个模型的质量分数
+    // 收集非null的模型结果
+    const candidates = [
+      { name: 'gpt4' as const, result: gpt4Result },
+      { name: 'claude' as const, result: claudeResult },
+      { name: 'domestic' as const, result: domesticResult },
+    ].filter((c) => c.result !== null)
 
-    // 计算每个模型的加权分数（简化：使用总体分数）
-    const scores = {
-      gpt4: validationReport.overallScore,
-      claude: validationReport.overallScore, // 实际应该计算单独的分数
-      domestic: validationReport.overallScore, // 实际应该计算单独的分数
+    if (candidates.length === 0) {
+      throw new Error('No valid model results to select from')
     }
 
-    // 找出最高分
-    const maxScore = Math.max(...Object.values(scores))
+    this.logger.log(`Selecting best result from ${candidates.length} successful models`)
 
-    // 选择得分最高的模型（如果平分，优先选择GPT-4）
-    let selectedModel: SelectedModel
-    let selectedResult: Record<string, any>
+    // 优先级顺序：GPT4 > Claude > Domestic
+    // 选择第一个成功的模型（按优先级）
+    const selected = candidates[0]
+    const selectedModel = this.mapToSelectedModel(selected.name)
+    const selectedResult = selected.result!
 
-    if (scores.gpt4 === maxScore) {
-      selectedModel = SelectedModel.GPT4
-      selectedResult = gpt4Result
-    } else if (scores.claude === maxScore) {
-      selectedModel = SelectedModel.CLAUDE
-      selectedResult = claudeResult
-    } else {
-      selectedModel = SelectedModel.DOMESTIC
-      selectedResult = domesticResult
-    }
-
-    this.logger.debug(
-      `Selected model: ${selectedModel} with score ${maxScore.toFixed(4)}`,
+    this.logger.log(
+      `Selected model: ${selectedModel} (from ${candidates.length} successful models)`,
     )
 
     return { selectedResult, selectedModel }
+  }
+
+  /**
+   * 映射模型名称到SelectedModel枚举
+   */
+  private mapToSelectedModel(name: string): SelectedModel {
+    switch (name) {
+      case 'gpt4':
+        return SelectedModel.GPT4
+      case 'claude':
+        return SelectedModel.CLAUDE
+      case 'domestic':
+        return SelectedModel.DOMESTIC
+      default:
+        throw new Error(`Unknown model name: ${name}`)
+    }
   }
 
   /**

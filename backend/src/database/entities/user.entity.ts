@@ -8,6 +8,7 @@ import {
   OneToMany,
 } from 'typeorm'
 import { Project } from './project.entity'
+import { OrganizationMember } from './organization-member.entity'
 
 export enum UserRole {
   CONSULTANT = 'consultant', // 主咨询师
@@ -36,6 +37,11 @@ export class User {
   @Column({ nullable: true })
   name: string
 
+  /**
+   * @deprecated Tenant ID is deprecated in favor of organization-based multi-tenancy.
+   * This field will be removed in Story 6.1 (Multi-tenant data model).
+   * All new code should use organizationId via OrganizationMember relationship.
+   */
   @Column({ name: 'tenant_id', nullable: true })
   tenantId: string
 
@@ -50,4 +56,12 @@ export class User {
 
   @OneToMany(() => Project, (project) => project.owner)
   projects: Project[]
+
+  /**
+   * Organization memberships for this user
+   *
+   * One user can belong to multiple organizations (Growth phase Story 6.1)
+   */
+  @OneToMany(() => OrganizationMember, (member) => member.user)
+  organizationMembers: OrganizationMember[]
 }

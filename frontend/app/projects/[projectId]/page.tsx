@@ -12,6 +12,8 @@ import {
   TaskAlt,
   ArrowForward,
   TrendingUp,
+  MenuBook,
+  Speed,
 } from '@mui/icons-material'
 import { ProjectsAPI, Project } from '@/lib/api/projects'
 import { AITasksAPI } from '@/lib/api/ai-tasks'
@@ -88,9 +90,11 @@ export default function ProjectWorkbenchPage() {
       summary: ['summary'],
       clustering: ['clustering'],
       matrix: ['matrix'],
-      questionnaire: ['questionnaire'],
+      questionnaire: ['questionnaire', 'binary_questionnaire'],
       'gap-analysis': ['questionnaire'],
       'action-plan': ['action_plan'],
+      'standard-interpretation': ['standard_interpretation', 'standard_related_search', 'standard_version_compare'],
+      'quick-gap-analysis': ['quick_gap_analysis'],
     }
 
     // 获取每个步骤的最新任务状态
@@ -160,6 +164,14 @@ export default function ProjectWorkbenchPage() {
       description: '智能聚类分析，发现文档主题',
     },
     {
+      id: 'standard-interpretation',
+      name: '标准解读',
+      icon: <MenuBook />,
+      route: `/projects/${projectId}/standard-interpretation`,
+      status: (taskStatuses['standard-interpretation'] || 'pending') as 'completed' | 'processing' | 'pending' | 'failed',
+      description: '深度解读标准内容、搜索关联标准、版本比对',
+    },
+    {
       id: 'matrix',
       name: '成熟度矩阵',
       icon: <GridOn />,
@@ -182,6 +194,14 @@ export default function ProjectWorkbenchPage() {
       route: `/projects/${projectId}/gap-analysis`,
       status: (taskStatuses['gap-analysis'] || 'pending') as 'completed' | 'processing' | 'pending' | 'failed',
       description: '填写问卷并生成差距分析报告',
+    },
+    {
+      id: 'quick-gap-analysis',
+      name: '超简版差距分析',
+      icon: <Speed />,
+      route: `/projects/${projectId}/quick-gap-analysis`,
+      status: (taskStatuses['quick-gap-analysis'] || 'pending') as 'completed' | 'processing' | 'pending' | 'failed',
+      description: '快速输入现状描述，AI分析差距并生成改进措施',
     },
     {
       id: 'action-plan',
@@ -218,7 +238,7 @@ export default function ProjectWorkbenchPage() {
         gridTemplateColumns: {
           xs: '1fr',
           sm: 'repeat(2, 1fr)',
-          lg: 'repeat(4, 1fr)',
+          lg: 'repeat(3, 1fr)',
         },
         gap: 3,
         maxWidth: 1400,

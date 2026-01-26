@@ -21,7 +21,9 @@
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:generate": "npm run typeorm -- migration:generate -d src/config/typeorm.config.ts",
     "migration:run": "npm run typeorm -- migration:run -d src/config/typeorm.config.ts",
-    "migration:revert": "npm run typeorm -- migration:revert -d src/config/typeorm.config.ts"
+    "migration:revert": "npm run typeorm -- migration:revert -d src/config/typeorm.config.ts",
+    "health:check": "node test-api-health.js",
+    "health:history": "node test-api-health.js --history"
   },
   "dependencies": {
     "@alicloud/openapi-client": "^0.4.11",
@@ -46,6 +48,9 @@
     "json5": "^2.2.3",
     "nest-winston": "^1.10.2",
     "openai": "^4.70.0",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^2.4.5",
+    "pdf2json": "^4.0.0",
     "pg": "^8.13.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -63,7 +68,9 @@
     "@types/bcrypt": "^5.0.2",
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.0",
+    "@types/multer": "^2.0.0",
     "@types/node": "^20.17.0",
+    "@types/pdf-parse": "^1.1.5",
     "@types/supertest": "^6.0.2",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",

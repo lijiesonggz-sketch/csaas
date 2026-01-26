@@ -70,9 +70,10 @@ export function useTaskProgress(taskId: string | null) {
     // 监听任务失败
     newSocket.on('task:failed', (data: TaskCompletedEvent) => {
       if (data.taskId === taskId) {
+        console.error('❌ Task failed:', data)
         setMessage(data.message)
         setIsFailed(true)
-        setError(data.message)
+        setError(data.message || '未知错误')
       }
     })
 

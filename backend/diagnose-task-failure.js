@@ -1,0 +1,35 @@
+const fs = require('fs');
+const path = require('path');
+
+// 简单的SQL查询脚本
+console.log('='.repeat(80));
+console.log('诊断脚本：查询最近的失败任务');
+console.log('='.repeat(80));
+console.log('');
+console.log('请手动执行以下SQL查询来获取任务失败信息：');
+console.log('');
+console.log('-- 1. 查询最近的失败任务');
+console.log("SELECT id, type, status, error_message, created_at, completed_at, generation_stage");
+console.log("FROM ai_task");
+console.log("WHERE project_id = 'f504ab5a-7347-4148-bffe-cc55d97752e6'");
+console.log("ORDER BY created_at DESC");
+console.log("LIMIT 5;");
+console.log('');
+console.log('-- 2. 查询该任务的AI生成事件');
+console.log("SELECT id, model, input, output, error_message, created_at");
+console.log("FROM ai_generation_event");
+console.log("WHERE task_id IN (");
+console.log("  SELECT id FROM ai_task");
+console.log("  WHERE project_id = 'f504ab5a-7347-4148-bffe-cc55d97752e6'");
+console.log("  ORDER BY created_at DESC LIMIT 1");
+console.log(")");
+console.log('');
+console.log('-- 3. 查询AI成本跟踪');
+console.log("SELECT model, tokens, cost, created_at");
+console.log("FROM ai_cost_tracking");
+console.log("WHERE task_id IN (");
+console.log("  SELECT id FROM ai_task");
+console.log("  WHERE project_id = 'f504ab5a-7347-4148-bffe-cc55d97752e6'");
+console.log("  ORDER BY created_at DESC LIMIT 1");
+console.log(")");
+console.log('');

@@ -35,8 +35,12 @@ export class SurveyService {
         throw new NotFoundException('问卷任务不存在')
       }
 
-      if (questionnaireTask.type !== AITaskType.QUESTIONNAIRE) {
-        throw new BadRequestException('任务类型必须是问卷生成任务')
+      // 支持普通问卷和判断题问卷
+      if (
+        questionnaireTask.type !== AITaskType.QUESTIONNAIRE &&
+        questionnaireTask.type !== AITaskType.BINARY_QUESTIONNAIRE
+      ) {
+        throw new BadRequestException('任务类型必须是问卷生成任务（QUESTIONNAIRE或BINARY_QUESTIONNAIRE）')
       }
 
       console.log('[SurveyService] 开始查询生成结果...')
@@ -120,6 +124,7 @@ export class SurveyService {
   async submitSurvey(surveyId: string, dto: SubmitSurveyDto): Promise<SurveyResponse> {
     const survey = await this.surveyResponseRepository.findOne({
       where: { id: surveyId },
+      relations: ['questionnaireTask'],
     })
 
     if (!survey) {
@@ -143,6 +148,24 @@ export class SurveyService {
     survey.submittedAt = new Date()
     if (dto.notes) {
       survey.notes = dto.notes
+    }
+
+    // 如果是判断题问卷，自动计算得分（true的数量 / 总题数 * 100）
+    if (survey.questionnaireTask?.type === AITaskType.BINARY_QUESTIONNAIRE) {
+      const answers = dto.answers
+      let trueCount = 0
+      let totalCount = 0
+
+      for (const questionId in answers) {
+        totalCount++
+        if (answers[questionId] === true || answers[questionId]?.answer === true) {
+          trueCount++
+        }
+      }
+
+      survey.totalScore = totalCount > 0 ? (trueCount / totalCount) * 100 : 0
+      survey.maxScore = 100
+      console.log(`[SurveyService] 判断题问卷自动计算得分: ${trueCount}/${totalCount} = ${survey.totalScore}`)
     }
 
     return await this.surveyResponseRepository.save(survey)

@@ -1,0 +1,32 @@
+{
+  "timestamp": "2026-01-16T18:31:55.610Z",
+  "apis": {
+    "Claude (Anthropic)": {
+      "status": "unhealthy",
+      "responseTime": 3,
+      "responsePreview": null,
+      "responseLength": 0,
+      "error": "All AI providers failed. Last error: Cannot read properties of undefined (reading 'isAvailable')"
+    },
+    "智谱GLM": {
+      "status": "unhealthy",
+      "responseTime": 1,
+      "responsePreview": null,
+      "responseLength": 0,
+      "error": "All AI providers failed. Last error: Cannot read properties of undefined (reading 'isAvailable')"
+    },
+    "通义千问": {
+      "status": "unhealthy",
+      "responseTime": 2,
+      "responsePreview": null,
+      "responseLength": 0,
+      "error": "All AI providers failed. Last error: Cannot read properties of undefined (reading 'isAvailable')"
+    }
+  },
+  "summary": {
+    "total": 3,
+    "healthy": 0,
+    "unhealthy": 3,
+    "overall": "critical"
+  }
+}

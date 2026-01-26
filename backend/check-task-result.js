@@ -1,42 +1,61 @@
 const { Client } = require('pg');
 
-async function checkTaskResult() {
+async function checkResult() {
   const client = new Client({
     host: 'localhost',
     port: 5432,
     user: 'postgres',
     password: 'postgres',
-    database: 'csaas',
+    database: 'csaas'
   });
 
-  try {
-    await client.connect();
-    const result = await client.query(`
-      SELECT id, status, result, completed_at
-      FROM ai_tasks
-      WHERE id = '2326ba06-07e4-40dd-ae41-778c1efe0414'
-    `);
+  await client.connect();
 
-    console.log('Task info:');
-    console.log('ID:', result.rows[0].id);
-    console.log('Status:', result.rows[0].status);
-    console.log('Result type:', typeof result.rows[0].result);
-    console.log('Result:', JSON.stringify(result.rows[0].result, null, 2));
+  const taskId = '01b153b7-a93a-4d87-8b71-5b55a02ed1bb';
 
-    if (result.rows[0].result) {
-      const resultData = typeof result.rows[0].result === 'string'
-        ? JSON.parse(result.rows[0].result)
-        : result.rows[0].result;
-      console.log('\nParsed result keys:', Object.keys(resultData));
-      console.log('Has content?', !!resultData.content);
-      if (resultData.content) {
-        console.log('Content type:', typeof resultData.content);
-        console.log('Content length:', resultData.content?.length || 0);
+  const result = await client.query(
+    'SELECT result FROM ai_tasks WHERE id = $1',
+    [taskId]
+  );
+
+  if (result.rows.length > 0 && result.rows[0].result) {
+    const taskResult = result.rows[0].result;
+    
+    console.log('✅ 任务结果存在\n');
+    
+    let content = null;
+    if (taskResult.content) {
+      content = typeof taskResult.content === 'string' 
+        ? JSON.parse(taskResult.content) 
+        : taskResult.content;
+    } else if (taskResult.gpt4) {
+      content = taskResult.gpt4;
+    }
+    
+    if (content) {
+      console.log('标题:', content.title);
+      console.log('有document_comparison字段:', !!content.document_comparison);
+      
+      if (content.document_comparison) {
+        console.log('');
+        console.log('📊 文档对比分析:');
+        console.log('  关系:', content.document_comparison.relationships?.substring(0, 100) + '...');
+        console.log('  冲突数量:', content.document_comparison.conflicts?.length || 0);
+        console.log('  相似之处数量:', content.document_comparison.similarities?.length || 0);
+        
+        if (content.document_comparison.conflicts && content.document_comparison.conflicts.length > 0) {
+          console.log('\n  冲突示例:');
+          content.document_comparison.conflicts.slice(0, 2).forEach((c, i) => {
+            console.log(`    ${i+1}. ${c.topic} (${c.severity})`);
+          });
+        }
+      } else {
+        console.log('\n❌ 没有document_comparison字段（旧任务）');
       }
     }
-  } finally {
-    await client.end();
   }
+
+  await client.end();
 }
 
-checkTaskResult().catch(console.error);
+checkResult();

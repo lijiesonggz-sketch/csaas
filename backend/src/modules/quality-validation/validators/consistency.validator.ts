@@ -12,9 +12,9 @@ export interface ConsistencyReport {
 }
 
 export interface ValidationResult {
-  gpt4: Record<string, any>
-  claude: Record<string, any>
-  domestic: Record<string, any>
+  gpt4: Record<string, any> | null
+  claude: Record<string, any> | null
+  domestic: Record<string, any> | null
 }
 
 /**
@@ -135,30 +135,42 @@ export class ConsistencyValidator {
    * 验证JSON Schema结构是否一致
    */
   private validateStructuralConsistency(
-    gpt4: Record<string, any>,
-    claude: Record<string, any>,
-    domestic: Record<string, any>,
+    gpt4: Record<string, any> | null,
+    claude: Record<string, any> | null,
+    domestic: Record<string, any> | null,
   ): number {
-    // 计算三对结构相似度
-    const sim1 = this.similarityCalculator.calculateStructuralSimilarity(
-      gpt4,
-      claude,
-    )
-    const sim2 = this.similarityCalculator.calculateStructuralSimilarity(
-      gpt4,
-      domestic,
-    )
-    const sim3 = this.similarityCalculator.calculateStructuralSimilarity(
-      claude,
-      domestic,
-    )
+    // 收集非null的模型结果
+    const models = [
+      { name: 'gpt4', data: gpt4 },
+      { name: 'claude', data: claude },
+      { name: 'domestic', data: domestic },
+    ].filter((m) => m.data !== null)
+
+    // 如果只有1个或0个模型，返回1（已在validate方法中处理）
+    if (models.length < 2) {
+      return 1
+    }
+
+    // 计算所有配对的相似度
+    const similarities: number[] = []
+    for (let i = 0; i < models.length; i++) {
+      for (let j = i + 1; j < models.length; j++) {
+        const sim = this.similarityCalculator.calculateStructuralSimilarity(
+          models[i].data!,
+          models[j].data!,
+        )
+        similarities.push(sim)
+        this.logger.debug(
+          `Structural similarity ${models[i].name}-${models[j].name}: ${sim.toFixed(4)}`,
+        )
+      }
+    }
 
     // 返回平均值
-    const avgSimilarity = (sim1 + sim2 + sim3) / 3
+    const avgSimilarity =
+      similarities.reduce((sum, s) => sum + s, 0) / similarities.length
 
-    this.logger.debug(
-      `Structural consistency: ${avgSimilarity.toFixed(4)} (gpt4-claude=${sim1.toFixed(4)}, gpt4-domestic=${sim2.toFixed(4)}, claude-domestic=${sim3.toFixed(4)})`,
-    )
+    this.logger.debug(`Structural consistency: ${avgSimilarity.toFixed(4)}`)
 
     return avgSimilarity
   }
@@ -168,26 +180,41 @@ export class ConsistencyValidator {
    * 使用Embedding计算语义相似度
    */
   private async validateSemanticConsistency(
-    gpt4: Record<string, any>,
-    claude: Record<string, any>,
-    domestic: Record<string, any>,
+    gpt4: Record<string, any> | null,
+    claude: Record<string, any> | null,
+    domestic: Record<string, any> | null,
   ): Promise<number> {
-    // 将JSON对象转为文本
-    const text1 = JSON.stringify(gpt4, null, 2)
-    const text2 = JSON.stringify(claude, null, 2)
-    const text3 = JSON.stringify(domestic, null, 2)
+    // 收集非null的模型结果
+    const models = [
+      { name: 'gpt4', data: gpt4 },
+      { name: 'claude', data: claude },
+      { name: 'domestic', data: domestic },
+    ].filter((m) => m.data !== null)
 
-    // 计算三对语义相似度
-    const sim1 = await this.similarityCalculator.calculateSimilarity(text1, text2)
-    const sim2 = await this.similarityCalculator.calculateSimilarity(text1, text3)
-    const sim3 = await this.similarityCalculator.calculateSimilarity(text2, text3)
+    // 如果只有1个或0个模型，返回1（已在validate方法中处理）
+    if (models.length < 2) {
+      return 1
+    }
+
+    // 计算所有配对的相似度
+    const similarities: number[] = []
+    for (let i = 0; i < models.length; i++) {
+      for (let j = i + 1; j < models.length; j++) {
+        const text1 = JSON.stringify(models[i].data, null, 2)
+        const text2 = JSON.stringify(models[j].data, null, 2)
+        const sim = await this.similarityCalculator.calculateSimilarity(text1, text2)
+        similarities.push(sim)
+        this.logger.debug(
+          `Semantic similarity ${models[i].name}-${models[j].name}: ${sim.toFixed(4)}`,
+        )
+      }
+    }
 
     // 返回平均值
-    const avgSimilarity = (sim1 + sim2 + sim3) / 3
+    const avgSimilarity =
+      similarities.reduce((sum, s) => sum + s, 0) / similarities.length
 
-    this.logger.debug(
-      `Semantic consistency: ${avgSimilarity.toFixed(4)} (gpt4-claude=${sim1.toFixed(4)}, gpt4-domestic=${sim2.toFixed(4)}, claude-domestic=${sim3.toFixed(4)})`,
-    )
+    this.logger.debug(`Semantic consistency: ${avgSimilarity.toFixed(4)}`)
 
     return avgSimilarity
   }
@@ -197,25 +224,41 @@ export class ConsistencyValidator {
    * 使用Levenshtein距离计算文本相似度
    */
   private validateDetailConsistency(
-    gpt4: Record<string, any>,
-    claude: Record<string, any>,
-    domestic: Record<string, any>,
+    gpt4: Record<string, any> | null,
+    claude: Record<string, any> | null,
+    domestic: Record<string, any> | null,
   ): number {
-    const text1 = JSON.stringify(gpt4, null, 2)
-    const text2 = JSON.stringify(claude, null, 2)
-    const text3 = JSON.stringify(domestic, null, 2)
+    // 收集非null的模型结果
+    const models = [
+      { name: 'gpt4', data: gpt4 },
+      { name: 'claude', data: claude },
+      { name: 'domestic', data: domestic },
+    ].filter((m) => m.data !== null)
 
-    // 计算三对文本相似度（简化版：基于字符串长度比例）
-    const sim1 = this.calculateTextSimilarity(text1, text2)
-    const sim2 = this.calculateTextSimilarity(text1, text3)
-    const sim3 = this.calculateTextSimilarity(text2, text3)
+    // 如果只有1个或0个模型，返回1（已在validate方法中处理）
+    if (models.length < 2) {
+      return 1
+    }
+
+    // 计算所有配对的相似度
+    const similarities: number[] = []
+    for (let i = 0; i < models.length; i++) {
+      for (let j = i + 1; j < models.length; j++) {
+        const text1 = JSON.stringify(models[i].data, null, 2)
+        const text2 = JSON.stringify(models[j].data, null, 2)
+        const sim = this.calculateTextSimilarity(text1, text2)
+        similarities.push(sim)
+        this.logger.debug(
+          `Detail similarity ${models[i].name}-${models[j].name}: ${sim.toFixed(4)}`,
+        )
+      }
+    }
 
     // 返回平均值
-    const avgSimilarity = (sim1 + sim2 + sim3) / 3
+    const avgSimilarity =
+      similarities.reduce((sum, s) => sum + s, 0) / similarities.length
 
-    this.logger.debug(
-      `Detail consistency: ${avgSimilarity.toFixed(4)} (gpt4-claude=${sim1.toFixed(4)}, gpt4-domestic=${sim2.toFixed(4)}, claude-domestic=${sim3.toFixed(4)})`,
-    )
+    this.logger.debug(`Detail consistency: ${avgSimilarity.toFixed(4)}`)
 
     return avgSimilarity
   }
@@ -240,43 +283,57 @@ export class ConsistencyValidator {
    * 识别一致点和分歧点
    */
   private identifyAgreementsAndDisagreements(
-    gpt4: Record<string, any>,
-    claude: Record<string, any>,
-    domestic: Record<string, any>,
+    gpt4: Record<string, any> | null,
+    claude: Record<string, any> | null,
+    domestic: Record<string, any> | null,
   ): { agreements: string[]; disagreements: string[] } {
     const agreements: string[] = []
     const disagreements: string[] = []
 
+    // 收集非null的模型结果
+    const models = [
+      { name: 'gpt4', data: gpt4 },
+      { name: 'claude', data: claude },
+      { name: 'domestic', data: domestic },
+    ].filter((m) => m.data !== null)
+
+    // 如果只有1个或0个模型，返回空数组
+    if (models.length < 2) {
+      return {
+        agreements: ['Only one model succeeded - no comparison possible'],
+        disagreements: [],
+      }
+    }
+
     // 获取所有键
-    const allKeys = new Set([
-      ...Object.keys(gpt4),
-      ...Object.keys(claude),
-      ...Object.keys(domestic),
-    ])
+    const allKeys = new Set<string>()
+    models.forEach((m) => {
+      Object.keys(m.data!).forEach((key) => allKeys.add(key))
+    })
 
     for (const key of allKeys) {
-      const val1 = gpt4[key]
-      const val2 = claude[key]
-      const val3 = domestic[key]
+      const values = models.map((m) => ({
+        name: m.name,
+        value: m.data![key],
+      }))
 
-      // 检查是否所有模型都有这个键
-      if (val1 !== undefined && val2 !== undefined && val3 !== undefined) {
+      // 检查是否所有成功模型都有这个键
+      const allHaveKey = values.every((v) => v.value !== undefined)
+
+      if (allHaveKey) {
         // 简单比较（深度比较需要递归）
-        const str1 = JSON.stringify(val1)
-        const str2 = JSON.stringify(val2)
-        const str3 = JSON.stringify(val3)
+        const strings = values.map((v) => JSON.stringify(v.value))
+        const allEqual = strings.every((s) => s === strings[0])
 
-        if (str1 === str2 && str2 === str3) {
+        if (allEqual) {
           agreements.push(`Field '${key}': All models agree`)
         } else {
-          disagreements.push(
-            `Field '${key}': GPT4=${this.truncate(str1)}, Claude=${this.truncate(str2)}, Domestic=${this.truncate(str3)}`,
-          )
+          const detail = values.map((v) => `${v.name}=${this.truncate(JSON.stringify(v.value))}`).join(', ')
+          disagreements.push(`Field '${key}': ${detail}`)
         }
       } else {
-        disagreements.push(
-          `Field '${key}': Missing in some models (GPT4=${val1 !== undefined}, Claude=${val2 !== undefined}, Domestic=${val3 !== undefined})`,
-        )
+        const missing = values.filter((v) => v.value === undefined).map((v) => v.name).join(', ')
+        disagreements.push(`Field '${key}': Missing in ${missing}`)
       }
     }
 

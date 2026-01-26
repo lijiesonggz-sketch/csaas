@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   Logger,
+  BadRequestException,
 } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
@@ -16,6 +17,26 @@ import {
   OrganizationStatsDto,
   UserOrganizationResponse,
 } from './dto/create-organization.dto'
+
+/**
+ * Paginated response interface
+ */
+export interface PaginatedResponse<T> {
+  data: T[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+/**
+ * Default pagination constants
+ */
+const DEFAULT_PAGE = 1
+const DEFAULT_LIMIT = 10
+const MAX_LIMIT = 100
 
 /**
  * OrganizationsService
@@ -320,5 +341,126 @@ export class OrganizationsService {
 
     await this.memberRepository.remove(member)
     this.logger.log(`Removed member ${userId} from organization ${orgId}`)
+  }
+
+  /**
+   * Get organization members with pagination
+   *
+   * @param orgId - Organization ID
+   * @param page - Page number (default: 1)
+   * @param limit - Items per page (default: 10)
+   * @returns Paginated list of members with user details
+   */
+  async getOrganizationMembersPaginated(
+    orgId: string,
+    page: number = DEFAULT_PAGE,
+    limit: number = DEFAULT_LIMIT,
+  ): Promise<PaginatedResponse<OrganizationMember & { user?: User }>> {
+    // Validate pagination parameters
+    if (page < 1) {
+      throw new BadRequestException('Page must be >= 1')
+    }
+    if (limit < 1 || limit > MAX_LIMIT) {
+      throw new BadRequestException(`Limit must be between 1 and ${MAX_LIMIT}`)
+    }
+
+    // Calculate pagination
+    const skip = (page - 1) * limit
+
+    // Get members
+    const members = await this.memberRepository.find({
+      where: { organizationId: orgId },
+      skip,
+      take: limit,
+      order: { createdAt: 'DESC' },
+    })
+
+    // Get total count
+    const total = await this.memberRepository.count({
+      where: { organizationId: orgId },
+    })
+
+    // Fetch user details for each member
+    const membersWithUsers = await Promise.all(
+      members.map(async (member) => {
+        const user = await this.userRepository.findOne({
+          where: { id: member.userId },
+          select: ['id', 'name', 'email'],
+        })
+        return { ...member, user }
+      }),
+    )
+
+    // Calculate total pages
+    const totalPages = Math.ceil(total / limit)
+
+    this.logger.log(
+      `Retrieved ${members.length} members for org ${orgId} (page ${page}/${totalPages})`,
+    )
+
+    return {
+      data: membersWithUsers,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    }
+  }
+
+  /**
+   * Get organization projects with pagination
+   *
+   * @param orgId - Organization ID
+   * @param page - Page number (default: 1)
+   * @param limit - Items per page (default: 10)
+   * @returns Paginated list of projects
+   */
+  async getOrganizationProjectsPaginated(
+    orgId: string,
+    page: number = DEFAULT_PAGE,
+    limit: number = DEFAULT_LIMIT,
+  ): Promise<PaginatedResponse<Project>> {
+    // Validate pagination parameters
+    if (page < 1) {
+      throw new BadRequestException('Page must be >= 1')
+    }
+    if (limit < 1 || limit > MAX_LIMIT) {
+      throw new BadRequestException(`Limit must be between 1 and ${MAX_LIMIT}`)
+    }
+
+    // Calculate pagination
+    const skip = (page - 1) * limit
+
+    // Get projects
+    const projects = await this.projectRepository.find({
+      where: { organizationId: orgId },
+      skip,
+      take: limit,
+      order: { createdAt: 'DESC' },
+    })
+
+    // Get total count
+    const total = await this.projectRepository.count({
+      where: { organizationId: orgId },
+    })
+
+    // Calculate total pages
+    const totalPages = Math.ceil(total / limit)
+
+    this.logger.log(
+      `Retrieved ${projects.length} projects for org ${orgId} (page ${page}/${totalPages})`,
+    )
+
+    return {
+      data: projects,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    }
   }
 }

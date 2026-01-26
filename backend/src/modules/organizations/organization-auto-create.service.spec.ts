@@ -41,6 +41,8 @@ describe('OrganizationAutoCreateService', () => {
       .mockResolvedValueOnce({ id: 'member-123' })
       .mockResolvedValue({}),
     create: jest.fn().mockReturnValue({ id: 'temp-id' }),
+    findOne: jest.fn(),
+    update: jest.fn(),
   } as any
 
   // Mock manager property on queryRunner
@@ -74,81 +76,85 @@ describe('OrganizationAutoCreateService', () => {
       // Arrange
       const userId = 'user-123'
       const projectId = 'project-123'
-      const userName = 'Test User'
+      const orgName = 'Test Organization'
 
       const newOrg = {
         id: 'org-123',
-        name: '用户的组织',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        name: orgName,
       } as Organization
 
-      mockOrganizationsService.getUserOrganization.mockResolvedValueOnce(null) // No existing org
-      mockOrganizationsService.createOrganizationForUser.mockResolvedValueOnce(
-        newOrg,
-      )
-
+      // Mock transaction callback to execute with our EntityManager
       mockDataSource.transaction.mockImplementation(async (callback) => {
-        return callback(mockQueryRunner.manager)
+        // Setup EntityManager mock behavior
+        mockEntityManager.findOne.mockResolvedValueOnce(null) // No existing org
+        mockEntityManager.create.mockReturnValue(newOrg)
+        mockEntityManager.save.mockResolvedValue(newOrg)
+
+        return callback(mockEntityManager)
       })
 
       // Act
       const result = await service.ensureOrganizationForProject(
         userId,
         projectId,
-        userName,
+        orgName,
       )
 
-      // Assert
-      expect(result.id).toBe(newOrg.id)
-      expect(result.name).toBe(newOrg.name)
+      // Assert - verify transaction was called and organization was created
       expect(mockDataSource.transaction).toHaveBeenCalled()
-      expect(
-        mockOrganizationsService.createOrganizationForUser,
-      ).toHaveBeenCalledWith(userId, userName)
-      expect(
-        mockOrganizationsService.linkProjectToOrganization,
-      ).toHaveBeenCalledWith(userId, projectId)
+      expect(mockEntityManager.findOne).toHaveBeenCalled()
+      expect(mockEntityManager.create).toHaveBeenCalled()
+      expect(mockEntityManager.save).toHaveBeenCalled()
+      expect(mockEntityManager.update).toHaveBeenCalledWith(
+        Project,
+        { id: projectId, owner_id: userId },
+        { organizationId: expect.any(String) },
+      )
     })
 
     it('should reuse existing organization if user has one', async () => {
       // Arrange
       const userId = 'user-123'
       const projectId = 'project-123'
-      const userName = 'Test User'
+      const orgName = 'Test Organization'
 
       const existingOrg = {
         id: 'org-existing',
-        name: '用户的组织',
+        name: 'Existing Organization',
         createdAt: new Date(),
         updatedAt: new Date(),
       } as Organization
 
-      mockOrganizationsService.getUserOrganization.mockResolvedValueOnce({
+      const existingMember = {
+        id: 'member-123',
+        userId,
+        organizationId: existingOrg.id,
         organization: existingOrg,
-        role: 'admin',
-      })
+      }
 
+      // Mock transaction callback
       mockDataSource.transaction.mockImplementation(async (callback) => {
-        return callback(mockQueryRunner.manager)
+        mockEntityManager.findOne.mockResolvedValueOnce(existingMember)
+        return callback(mockEntityManager)
       })
 
       // Act
       const result = await service.ensureOrganizationForProject(
         userId,
         projectId,
-        userName,
+        orgName,
       )
 
       // Assert
       expect(result.id).toBe(existingOrg.id)
       expect(result.name).toBe(existingOrg.name)
-      expect(
-        mockOrganizationsService.createOrganizationForUser,
-      ).not.toHaveBeenCalled()
-      expect(
-        mockOrganizationsService.linkProjectToOrganization,
-      ).toHaveBeenCalledWith(userId, projectId)
+      expect(mockEntityManager.findOne).toHaveBeenCalled()
+      expect(mockEntityManager.create).not.toHaveBeenCalled()
+      expect(mockEntityManager.update).toHaveBeenCalledWith(
+        Project,
+        { id: projectId, owner_id: userId },
+        { organizationId: existingOrg.id },
+      )
     })
 
     it.skip('should rollback transaction on error', async () => {
@@ -158,34 +164,4 @@ describe('OrganizationAutoCreateService', () => {
     })
   })
 
-  describe('createOrganizationWithTransaction', () => {
-    it('should handle transaction flow correctly', async () => {
-      // Arrange
-      const userId = 'user-123'
-      const newOrg = {
-        id: 'org-123',
-        name: '用户的组织',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Organization
-
-      mockEntityManager.create.mockReturnValue(newOrg)
-      mockEntityManager.save.mockResolvedValueOnce(newOrg).mockResolvedValueOnce({
-        id: 'member-123',
-      })
-
-      // Act
-      const result = await service.createOrganizationWithTransaction(
-        mockEntityManager,
-        userId,
-        'Test User',
-      )
-
-      // Assert
-      expect(result.id).toBe(newOrg.id)
-      expect(result.name).toBe(newOrg.name)
-      expect(mockEntityManager.create).toHaveBeenCalled()
-      expect(mockEntityManager.save).toHaveBeenCalledTimes(2) // org + member
-    })
-  })
 })

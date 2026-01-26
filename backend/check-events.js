@@ -12,7 +12,8 @@ async function checkEvents() {
   await client.connect();
 
   const res = await client.query(
-    "SELECT id, model, input, output, error_message, execution_time_ms, created_at FROM ai_generation_events WHERE task_id = '51627820-d0d1-492c-ab05-d78371fe324f' ORDER BY created_at ASC"
+    "SELECT id, model, input, output, error_message, execution_time_ms, created_at FROM ai_generation_events WHERE task_id = $1 ORDER BY created_at ASC",
+    ['33c787e5-256a-49aa-a22c-97d544f76535']
   );
 
   console.log('=== AI生成事件 ===');
@@ -48,6 +49,16 @@ async function checkEvents() {
               });
             });
             console.log(`  总计: ${totalClusters}个聚类, ${totalClauses}个条款`);
+          }
+          if (parsed.coverage_summary?.overall) {
+            const cov = parsed.coverage_summary.overall;
+            console.log('  覆盖率: ' + (cov.coverage_rate * 100).toFixed(1) + '%');
+            console.log('  总条款: ' + cov.total_clauses);
+            console.log('  已聚类: ' + cov.clustered_clauses);
+            const missing = cov.total_clauses - cov.clustered_clauses;
+            if (missing > 0) {
+              console.log('  缺失: ' + missing + ' 条');
+            }
           }
         } catch (e) {
           console.log('  解析失败:', e.message);

@@ -205,6 +205,20 @@ export class ActionPlanMeasure {
   notes: string
 
   /**
+   * 措施来源类型
+   * MATURITY_GAP: 成熟度差距分析（原有）
+   * BINARY_GAP: 判断题差距分析（功能3）
+   * QUICK_GAP: 超简版差距分析（功能4）
+   */
+  @Column({
+    type: 'enum',
+    enum: ['MATURITY_GAP', 'BINARY_GAP', 'QUICK_GAP'],
+    nullable: true,
+    name: 'source_type',
+  })
+  sourceType: 'MATURITY_GAP' | 'BINARY_GAP' | 'QUICK_GAP'
+
+  /**
    * AI模型来源
    */
   @Column({ type: 'varchar', length: 50, name: 'ai_model', nullable: true })

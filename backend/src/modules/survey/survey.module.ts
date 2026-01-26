@@ -5,6 +5,7 @@ import { SurveyService } from './survey.service'
 import { MaturityAnalysisService } from './maturity-analysis.service'
 import { ActionPlanService } from './action-plan.service'
 import { ActionPlanGenerationService } from './action-plan-generation.service'
+import { BinaryGapAnalyzer } from './binary-gap-analyzer.service'
 import { SurveyResponse } from '../../database/entities/survey-response.entity'
 import { AITask } from '../../database/entities/ai-task.entity'
 import { AIGenerationResult } from '../../database/entities/ai-generation-result.entity'
@@ -17,7 +18,19 @@ import { AIClientsModule } from '../ai-clients/ai-clients.module'
     AIClientsModule, // 导入AI客户端模块以使用AIOrchestrator
   ],
   controllers: [SurveyController],
-  providers: [SurveyService, MaturityAnalysisService, ActionPlanService, ActionPlanGenerationService],
-  exports: [SurveyService, MaturityAnalysisService, ActionPlanService, ActionPlanGenerationService],
+  providers: [
+    SurveyService,
+    MaturityAnalysisService,
+    ActionPlanService,
+    ActionPlanGenerationService,
+    BinaryGapAnalyzer,
+  ],
+  exports: [
+    SurveyService,
+    MaturityAnalysisService,
+    ActionPlanService,
+    ActionPlanGenerationService,
+    BinaryGapAnalyzer,
+  ],
 })
 export class SurveyModule {}

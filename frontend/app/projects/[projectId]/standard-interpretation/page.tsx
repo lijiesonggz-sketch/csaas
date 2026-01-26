@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   Card,
@@ -41,6 +41,7 @@ import {
 } from '@ant-design/icons'
 import { AITasksAPI, AITask } from '@/lib/api/ai-tasks'
 import { useTaskProgress } from '@/lib/hooks/useTaskProgress'
+import { useAITaskCache } from '@/lib/hooks/useAITaskCache'
 import { TaskAdapter } from '@/lib/adapters/task-adapter'
 import { ProjectsAPI } from '@/lib/api/projects'
 import {
@@ -51,6 +52,7 @@ import {
   exportVersionCompareToExcel,
   exportVersionCompareToWord,
 } from '@/lib/utils/exportUtils'
+import { KeyRequirementsList } from '@/components/performance-optimized/KeyRequirementsList'
 
 const { TabPane } = Tabs
 const { Dragger } = Upload
@@ -180,6 +182,9 @@ export default function StandardInterpretationPage() {
   const [oldVersionDocument, setOldVersionDocument] = useState<any>(null)
   const [newVersionDocument, setNewVersionDocument] = useState<any>(null)
 
+  // 添加缓存Hook
+  const cache = useAITaskCache()
+
   // 实时进度跟踪
   const { progress, message: progressMessage, isCompleted, isFailed } = useTaskProgress(
     currentTask?.id || null,
@@ -219,9 +224,27 @@ export default function StandardInterpretationPage() {
     }
   }
 
-  // 加载现有的已完成任务
-  const loadExistingTasks = async () => {
+  // 加载现有的已完成任务（带缓存）
+  const loadExistingTasks = useCallback(async () => {
     try {
+      // 尝试从缓存加载
+      const cachedInterpretation = cache.get(projectId, 'standard_interpretation')
+      const cachedRelated = cache.get(projectId, 'standard_related_search')
+      const cachedVersion = cache.get(projectId, 'standard_version_compare')
+
+      if (cachedInterpretation) {
+        console.log('✅ 从缓存加载标准解读结果')
+        setInterpretationResult(cachedInterpretation)
+      }
+      if (cachedRelated) {
+        console.log('✅ 从缓存加载关联标准结果')
+        setRelatedStandardsResult(cachedRelated)
+      }
+      if (cachedVersion) {
+        console.log('✅ 从缓存加载版本比对结果')
+        setVersionCompareResult(cachedVersion)
+      }
+
       const tasks = await AITasksAPI.getTasksByProject(projectId)
 
       // 按创建时间倒序排序，优先加载最新的任务
@@ -250,17 +273,31 @@ export default function StandardInterpretationPage() {
 
           if (task.type === 'standard_interpretation' && !latestInterpretationTask) {
             latestInterpretationTask = task
-            setInterpretationResult(result.selectedResult as StandardInterpretationResult)
+            const interpretationResult = result.selectedResult as StandardInterpretationResult
+            setInterpretationResult(interpretationResult)
+
+            // 缓存结果
+            cache.set(projectId, 'standard_interpretation', task.id, interpretationResult)
 
             const mode = task.input?.interpretationMode || 'unknown'
             console.log(`✅ 加载标准解读结果 (模式: ${mode}, 创建时间: ${task.created_at})`)
           } else if (task.type === 'standard_related_search' && !latestRelatedStandardsTask) {
             latestRelatedStandardsTask = task
-            setRelatedStandardsResult(result.selectedResult as RelatedStandardsResult)
+            const relatedResult = result.selectedResult as RelatedStandardsResult
+            setRelatedStandardsResult(relatedResult)
+
+            // 缓存结果
+            cache.set(projectId, 'standard_related_search', task.id, relatedResult)
+
             console.log('✅ 加载关联标准搜索结果')
           } else if (task.type === 'standard_version_compare' && !latestVersionCompareTask) {
             latestVersionCompareTask = task
-            setVersionCompareResult(result.selectedResult as VersionCompareResult)
+            const versionResult = result.selectedResult as VersionCompareResult
+            setVersionCompareResult(versionResult)
+
+            // 缓存结果
+            cache.set(projectId, 'standard_version_compare', task.id, versionResult)
+
             console.log('✅ 加载版本比对结果')
           }
 
@@ -282,7 +319,7 @@ export default function StandardInterpretationPage() {
     } catch (err: any) {
       console.error('Failed to load existing tasks:', err)
     }
-  }
+  }, [projectId, currentTask, cache])
 
   const handleGenerateInterpretation = async () => {
     if (!standardDocument) {
@@ -309,6 +346,8 @@ export default function StandardInterpretationPage() {
             content: standardDocument.content,
           },
           interpretationMode, // 添加解读模式
+          useTwoPhaseMode: true, // 启用两阶段模式，确保100%条款覆盖
+          batchSize: 10, // 批次大小：每批解读10个条款
         },
       })
 
@@ -427,7 +466,7 @@ export default function StandardInterpretationPage() {
     }
   }
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = useCallback((priority: string) => {
     switch (priority) {
       case 'HIGH':
         return 'red'
@@ -438,9 +477,9 @@ export default function StandardInterpretationPage() {
       default:
         return 'default'
     }
-  }
+  }, [])
 
-  const getRelationTypeTag = (type: string) => {
+  const getRelationTypeTag = useCallback((type: string) => {
     const colors: Record<string, string> = {
       REFERENCE: 'blue',
       SUPPLEMENT: 'green',
@@ -454,10 +493,10 @@ export default function StandardInterpretationPage() {
       SYNERGY: '协同',
     }
     return <Tag color={colors[type]}>{labels[type] || type}</Tag>
-  }
+  }, [])
 
   // 标准解读导出处理函数
-  const handleExportInterpretationToExcel = () => {
+  const handleExportInterpretationToExcel = useCallback(() => {
     if (interpretationResult) {
       try {
         exportStandardInterpretationToExcel(interpretationResult, `${standardDocument?.name || '标准'}-解读.xlsx`)
@@ -467,9 +506,9 @@ export default function StandardInterpretationPage() {
         message.error('导出Excel失败')
       }
     }
-  }
+  }, [interpretationResult, standardDocument?.name])
 
-  const handleExportInterpretationToWord = () => {
+  const handleExportInterpretationToWord = useCallback(() => {
     if (interpretationResult) {
       try {
         exportStandardInterpretationToWord(interpretationResult, `${standardDocument?.name || '标准'}-解读.docx`)
@@ -479,10 +518,10 @@ export default function StandardInterpretationPage() {
         message.error('导出Word失败')
       }
     }
-  }
+  }, [interpretationResult, standardDocument?.name])
 
   // 关联标准导出处理函数
-  const handleExportRelatedStandardsToExcel = () => {
+  const handleExportRelatedStandardsToExcel = useCallback(() => {
     if (relatedStandardsResult) {
       try {
         exportRelatedStandardsToExcel(relatedStandardsResult, `${standardDocument?.name || '标准'}-关联标准.xlsx`)
@@ -492,9 +531,9 @@ export default function StandardInterpretationPage() {
         message.error('导出Excel失败')
       }
     }
-  }
+  }, [relatedStandardsResult, standardDocument?.name])
 
-  const handleExportRelatedStandardsToWord = () => {
+  const handleExportRelatedStandardsToWord = useCallback(() => {
     if (relatedStandardsResult) {
       try {
         exportRelatedStandardsToWord(relatedStandardsResult, `${standardDocument?.name || '标准'}-关联标准.docx`)
@@ -504,10 +543,10 @@ export default function StandardInterpretationPage() {
         message.error('导出Word失败')
       }
     }
-  }
+  }, [relatedStandardsResult, standardDocument?.name])
 
   // 版本比对导出处理函数
-  const handleExportVersionCompareToExcel = () => {
+  const handleExportVersionCompareToExcel = useCallback(() => {
     if (versionCompareResult) {
       try {
         const filename = `${versionCompareResult.version_info.old_version}-${versionCompareResult.version_info.new_version}-比对.xlsx`
@@ -518,9 +557,9 @@ export default function StandardInterpretationPage() {
         message.error('导出Excel失败')
       }
     }
-  }
+  }, [versionCompareResult])
 
-  const handleExportVersionCompareToWord = () => {
+  const handleExportVersionCompareToWord = useCallback(() => {
     if (versionCompareResult) {
       try {
         const filename = `${versionCompareResult.version_info.old_version}-${versionCompareResult.version_info.new_version}-比对.docx`
@@ -531,7 +570,7 @@ export default function StandardInterpretationPage() {
         message.error('导出Word失败')
       }
     }
-  }
+  }, [versionCompareResult])
 
   return (
     <div className="container mx-auto px-4 py-8">
