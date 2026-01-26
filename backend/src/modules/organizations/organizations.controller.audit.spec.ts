@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { OrganizationsController } from './organizations.controller'
 import { OrganizationsService } from './organizations.service'
 import { OrganizationAutoCreateService } from './organization-auto-create.service'
+import { WeaknessSnapshotService } from './weakness-snapshot.service'
 import { AuditAction } from '../../database/entities/audit-log.entity'
 
 // Mock AuditLogService
@@ -26,6 +27,12 @@ describe('OrganizationsController - Audit Logging', () => {
     ensureOrganizationForProject: jest.fn(),
   }
 
+  const mockWeaknessSnapshotService = {
+    createSnapshotFromAssessment: jest.fn(),
+    getWeaknessesByOrganization: jest.fn(),
+    aggregateWeaknesses: jest.fn(),
+  }
+
   const mockAuditLogService = {
     log: jest.fn(),
   }
@@ -48,6 +55,10 @@ describe('OrganizationsController - Audit Logging', () => {
         {
           provide: OrganizationAutoCreateService,
           useValue: mockOrgAutoCreateService,
+        },
+        {
+          provide: WeaknessSnapshotService,
+          useValue: mockWeaknessSnapshotService,
         },
         {
           provide: 'AuditLogService',

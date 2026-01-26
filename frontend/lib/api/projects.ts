@@ -28,6 +28,7 @@ export interface Project {
     name: string
     email: string
   }
+  organizationId?: string // Story 1.1: Organization association
 }
 
 export interface CreateProjectRequest {
@@ -35,6 +36,7 @@ export interface CreateProjectRequest {
   description?: string
   clientName?: string
   standardName?: string
+  organizationId?: string // Story 1.1: Optional organization association
 }
 
 export interface UpdateProjectRequest {

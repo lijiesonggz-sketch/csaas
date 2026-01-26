@@ -93,7 +93,7 @@ export class WeaknessSnapshot {
    *
    * Example: ["uuid1", "uuid2", "uuid3"]
    */
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ name: 'project_ids', type: 'jsonb', nullable: true })
   projectIds: string[]
 
   /**

@@ -104,7 +104,8 @@
       "Skill(bmad:bmm:workflows:create-tech-spec)",
       "Skill(bmad:bmm:workflows:create-story)",
       "Skill(bmad:bmm:workflows:dev-story)",
-      "Skill(bmad:bmm:workflows:code-review)"
+      "Skill(bmad:bmm:workflows:code-review)",
+      "Bash(npm run test:e2e:*)"
     ]
   }
 }

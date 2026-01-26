@@ -317,7 +317,7 @@ export class WeaknessSnapshotService {
       })
 
       this.logger.log(
-        `Emitted weakness:detected event for org ${organizationId} with ${snapshots.length} weaknesses`,
+        `Emitted weaknesses:updated event for org ${organizationId} with ${snapshots.length} weaknesses`,
       )
     } catch (error) {
       this.logger.error(`Failed to emit WebSocket event: ${error.message}`)
