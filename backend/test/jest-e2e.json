@@ -12,5 +12,7 @@
   "collectCoverageFrom": [
     "../src/**/*.(t|j)s"
   ],
-  "coverageDirectory": "../coverage"
+  "coverageDirectory": "../coverage",
+  "testTimeout": 30000,
+  "setupFilesAfterEnv": ["<rootDir>/setup.ts"]
 }

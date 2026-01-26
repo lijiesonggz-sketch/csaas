@@ -9,7 +9,7 @@ jest.mock('../api/organizations', () => ({
     getOrganizationById: jest.fn(),
     getOrganizationStats: jest.fn(),
     getOrganizationWeaknesses: jest.fn(),
-    getAggregatedWeaknesses: jest(),
+    getAggregatedWeaknesses: jest.fn(),
   },
 }))
 
