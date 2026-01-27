@@ -35,17 +35,17 @@
 
 development_status:
   # Epic 1: 基础设施与 Csaas 集成 (4 stories)
-  epic-1: in-progress
-  1-1-system-automatically-creates-organization-and-associates-projects: in-progress
-  1-2-csaas-authentication-and-permission-integration: backlog
-  1-3-automatically-identifies-weaknesses-after-assessment: backlog
-  1-4-unified-navigation-and-first-login-guidance: backlog
-  epic-1-retrospective: optional
+  epic-1: done
+  1-1-system-automatically-creates-organization-and-associates-projects: done
+  1-2-csaas-authentication-and-permission-integration: done
+  1-3-automatically-identifies-weaknesses-after-assessment: done
+  1-4-unified-navigation-and-first-login-guidance: done
+  epic-1-retrospective: done
 
   # Epic 2: 技术雷达 - ROI 导向的技术决策支持 (5 stories)
-  epic-2: backlog
-  2-1-automatically-collect-technical-information-and-support-external-import: backlog
-  2-2-use-ai-to-intelligently-analyze-relevance-of-pushed-content: backlog
+  epic-2: in-progress
+  2-1-automatically-collect-technical-information-and-support-external-import: done
+  2-2-use-ai-to-intelligently-analyze-relevance-of-pushed-content: done
   2-3-push-system-and-scheduling: backlog
   2-4-view-roi-analysis-of-technical-proposals: backlog
   2-5-technical-radar-frontend-display: backlog
