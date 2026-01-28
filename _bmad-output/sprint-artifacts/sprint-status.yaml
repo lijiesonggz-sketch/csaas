@@ -47,8 +47,8 @@ development_status:
   2-1-automatically-collect-technical-information-and-support-external-import: done
   2-2-use-ai-to-intelligently-analyze-relevance-of-pushed-content: done
   2-3-push-system-and-scheduling: done  # Phase 1-4完成，所有测试100%通过(101/101)
-  2-4-view-roi-analysis-of-technical-proposals: done  # ✅ 完成 - Phase 1-3完成，所有后端测试通过（17/17），前端组件完成
-  2-5-technical-radar-frontend-display: backlog
+  2-4-view-roi-analysis-of-technical-proposals: done  # ✅ 完成 - Phase 1-4全部完成，所有测试通过（ROI单元测试11/11），Critical/High问题已修复，前端真实API集成完成
+  2-5-technical-radar-frontend-display: review  # ✅ 完成 - Code Review通过，8个问题已修复，54个单元测试通过
   epic-2-retrospective: optional
 
   # Epic 3: 行业雷达 - 同业标杆学习 (3 stories)

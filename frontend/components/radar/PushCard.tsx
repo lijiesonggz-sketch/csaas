@@ -53,6 +53,7 @@ interface PushCardProps {
  * PushCard组件 - 技术雷达推送卡片
  *
  * Story 2.4 - Phase 3 Task 3.1
+ * Story 2.5 - Task 2.4: 性能优化 (React.memo with comparison)
  *
  * 功能：
  * - 显示推送基本信息（标题、摘要、优先级）
@@ -60,7 +61,8 @@ interface PushCardProps {
  * - 使用视觉标识突出高ROI推送
  * - 添加"查看详情"按钮
  */
-export function PushCard({ push, onViewDetail }: PushCardProps) {
+export const PushCard = React.memo(
+  function PushCard({ push, onViewDetail }: PushCardProps) {
   // 优先级配置
   const priorityConfig: Record<1 | 2 | 3, { icon: string; label: string; color: any }> = {
     1: { icon: '🥇', label: '优先级1', color: 'error' as const },
@@ -288,4 +290,16 @@ export function PushCard({ push, onViewDetail }: PushCardProps) {
       </CardActions>
     </Card>
   )
+},
+// 自定义比较函数优化 React.memo
+(prevProps, nextProps) => {
+  // 只在 pushId 和关键属性相同时跳过重渲染
+  return (
+    prevProps.push.pushId === nextProps.push.pushId &&
+    prevProps.push.title === nextProps.push.title &&
+    prevProps.push.relevanceScore === nextProps.push.relevanceScore &&
+    prevProps.push.priorityLevel === nextProps.push.priorityLevel &&
+    JSON.stringify(prevProps.push.roiAnalysis) === JSON.stringify(nextProps.push.roiAnalysis)
+  )
 }
+)

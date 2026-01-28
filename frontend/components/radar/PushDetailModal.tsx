@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -42,6 +42,7 @@ interface PushDetailModalProps {
  * PushDetailModal组件 - 推送详情弹窗
  *
  * Story 2.4 - Phase 3 Task 3.2 (Issue #5修复 - 添加backend fetch)
+ * Story 2.5 - Task 2.4: 性能优化 (React.memo, useCallback)
  *
  * 功能：
  * - 从后端API加载推送详情
@@ -50,13 +51,14 @@ interface PushDetailModalProps {
  * - 显示实施周期和推荐供应商列表
  * - 添加操作按钮（收藏、分享、标记已读）
  */
-export function PushDetailModal({
+export const PushDetailModal = React.memo(function PushDetailModal({
   pushId,
   isOpen,
   onClose,
 }: PushDetailModalProps) {
   const [push, setPush] = useState<RadarPush | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isMarkingAsRead, setIsMarkingAsRead] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // 加载推送详情
@@ -71,7 +73,10 @@ export function PushDetailModal({
         const data = await getRadarPush(pushId)
         setPush(data)
       } catch (err) {
-        console.error('Failed to fetch push details:', err)
+        // 生产环境应使用错误跟踪服务（如 Sentry）
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to fetch push details:', err)
+        }
         setError(err instanceof Error ? err.message : '加载推送详情失败')
       } finally {
         setIsLoading(false)
@@ -82,18 +87,25 @@ export function PushDetailModal({
   }, [pushId, isOpen])
 
   // 标记为已读
-  const handleMarkAsRead = async () => {
-    if (!pushId) return
+  const handleMarkAsRead = useCallback(async () => {
+    if (!pushId || isMarkingAsRead) return
 
+    setIsMarkingAsRead(true)
     try {
       await markPushAsRead(pushId)
       if (push) {
         setPush({ ...push, isRead: true, readAt: new Date().toISOString() })
       }
     } catch (err) {
-      console.error('Failed to mark as read:', err)
+      // 生产环境应使用错误跟踪服务（如 Sentry）
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to mark as read:', err)
+      }
+      // 可以添加用户友好的错误提示
+    } finally {
+      setIsMarkingAsRead(false)
     }
-  }
+  }, [pushId, push, isMarkingAsRead])
 
   // 加载状态
   if (isLoading) {
@@ -338,12 +350,12 @@ export function PushDetailModal({
           startIcon={<CheckCircle />}
           variant="contained"
           onClick={handleMarkAsRead}
-          disabled={push.isRead}
+          disabled={push.isRead || isMarkingAsRead}
         >
-          {push.isRead ? '已读' : '标记为已读'}
+          {push.isRead ? '已读' : isMarkingAsRead ? '标记中...' : '标记为已读'}
         </Button>
         <Button onClick={onClose}>关闭</Button>
       </DialogActions>
     </Dialog>
   )
-}
+})
