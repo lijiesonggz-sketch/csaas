@@ -46,8 +46,8 @@ development_status:
   epic-2: in-progress
   2-1-automatically-collect-technical-information-and-support-external-import: done
   2-2-use-ai-to-intelligently-analyze-relevance-of-pushed-content: done
-  2-3-push-system-and-scheduling: backlog
-  2-4-view-roi-analysis-of-technical-proposals: backlog
+  2-3-push-system-and-scheduling: done  # Phase 1-4完成，所有测试100%通过(101/101)
+  2-4-view-roi-analysis-of-technical-proposals: done  # ✅ 完成 - Phase 1-3完成，所有后端测试通过（17/17），前端组件完成
   2-5-technical-radar-frontend-display: backlog
   epic-2-retrospective: optional
 

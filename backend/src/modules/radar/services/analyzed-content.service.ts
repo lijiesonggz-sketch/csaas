@@ -126,4 +126,23 @@ export class AnalyzedContentService {
       relations: ['tags', 'rawContent'],
     })
   }
+
+  /**
+   * 更新 AnalyzedContent 记录 (Story 2.4)
+   *
+   * @param id - AnalyzedContent ID
+   * @param data - 要更新的数据
+   */
+  async update(
+    id: string,
+    data: Partial<{
+      roiAnalysis: any
+      relevanceScore: number
+      status: 'pending' | 'success' | 'failed'
+      errorMessage: string
+    }>,
+  ): Promise<void> {
+    await this.analyzedContentRepo.update(id, data)
+    this.logger.log(`AnalyzedContent ${id} updated`)
+  }
 }

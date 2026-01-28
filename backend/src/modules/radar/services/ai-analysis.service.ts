@@ -299,4 +299,170 @@ ${rawContent.fullContent}
     const content = `${rawContent.title}|${rawContent.url}|${rawContent.publishDate}`
     return crypto.createHash('sha256').update(content).digest('hex')
   }
+
+  /**
+   * 获取ROI分析Prompt (Story 2.4)
+   *
+   * @param rawContent - 原始内容
+   * @param weaknessCategory - 薄弱项类别 (如"数据安全")
+   * @returns ROI分析Prompt
+   */
+  private getROIAnalysisPrompt(
+    rawContent: RawContent,
+    weaknessCategory?: string,
+  ): string {
+    return `你是一位资深的金融IT投资分析专家。请分析以下技术方案的投资回报率(ROI)。
+
+技术方案：
+标题：${rawContent.title}
+摘要：${rawContent.summary}
+${weaknessCategory ? `关联薄弱项：${weaknessCategory}` : ''}
+
+请以JSON格式返回ROI分析结果，包含以下字段：
+- estimatedCost: 预计投入成本（字符串，如"50-100万"）
+- expectedBenefit: 预期收益（字符串，如"年节省200万运维成本"）
+- roiEstimate: ROI估算（字符串，如"ROI 2:1"或"ROI 1:8"）
+- implementationPeriod: 实施周期（字符串，如"3-6个月"）
+- recommendedVendors: 推荐供应商（字符串数组，如["阿里云", "腾讯云", "华为云"]）
+
+示例输出格式：
+{
+  "estimatedCost": "50-100万",
+  "expectedBenefit": "年节省200万运维成本 + 提升系统可用性",
+  "roiEstimate": "ROI 2:1",
+  "implementationPeriod": "3-6个月",
+  "recommendedVendors": ["阿里云", "腾讯云", "华为云"]
+}
+
+注意事项：
+1. 成本估算要考虑中小金融机构的预算约束（年预算通常100-300万）
+2. 收益要具体量化（避免罚款金额、节省成本、提升效率等）
+3. ROI计算公式：(预期收益 - 投入成本) / 投入成本
+4. 供应商推荐要有金融行业资质
+5. 如果信息不足，标注"需进一步评估"
+`
+  }
+
+  /**
+   * 分析技术方案的ROI (Story 2.4)
+   *
+   * @param contentId - AnalyzedContent ID
+   * @param weaknessCategory - 薄弱项类别（可选）
+   * @returns ROI分析结果
+   */
+  async analyzeROI(
+    contentId: string,
+    weaknessCategory?: string,
+  ): Promise<{
+    estimatedCost: string
+    expectedBenefit: string
+    roiEstimate: string
+    implementationPeriod: string
+    recommendedVendors: string[]
+  }> {
+    try {
+      // 1. 加载AnalyzedContent和RawContent
+      const analyzedContent =
+        await this.analyzedContentService.findById(contentId)
+      if (!analyzedContent) {
+        throw new Error(`AnalyzedContent not found: ${contentId}`)
+      }
+
+      const rawContent = await this.rawContentRepo.findOne({
+        where: { id: analyzedContent.contentId },
+      })
+      if (!rawContent) {
+        throw new Error(`RawContent not found: ${analyzedContent.contentId}`)
+      }
+
+      // 2. 检查Redis缓存
+      const cacheKey = `radar:roi:${contentId}:${weaknessCategory || 'general'}`
+      const redisClient = await this.crawlerQueue.client
+      const cachedResult = await redisClient.get(cacheKey)
+
+      if (cachedResult) {
+        this.logger.log(`ROI cache hit for content ${contentId}`)
+        return JSON.parse(cachedResult)
+      }
+
+      // 3. 调用通义千问API
+      const prompt = this.getROIAnalysisPrompt(rawContent, weaknessCategory)
+      const aiResponse = await this.aiOrchestrator.generate(
+        {
+          systemPrompt: '',
+          prompt,
+          temperature: 0.3,
+        },
+        AIModel.DOMESTIC,
+      )
+
+      // 4. 解析AI响应
+      const roiAnalysis = this.parseROIResponse(aiResponse.content)
+
+      // 5. 缓存结果（7天TTL）
+      const CACHE_TTL = 7 * 24 * 60 * 60 // 7天
+      await redisClient.setex(cacheKey, CACHE_TTL, JSON.stringify(roiAnalysis))
+
+      // 6. 更新AnalyzedContent
+      await this.analyzedContentService.update(contentId, {
+        roiAnalysis,
+      })
+
+      this.logger.log(
+        `ROI analysis completed for content ${contentId}, tokens: ${aiResponse.tokens.total}`,
+      )
+
+      return roiAnalysis
+    } catch (error) {
+      this.logger.error(
+        `ROI analysis failed for content ${contentId}`,
+        error.stack,
+      )
+      throw error
+    }
+  }
+
+  /**
+   * 解析ROI分析响应 (Story 2.4)
+   */
+  private parseROIResponse(content: string): {
+    estimatedCost: string
+    expectedBenefit: string
+    roiEstimate: string
+    implementationPeriod: string
+    recommendedVendors: string[]
+  } {
+    try {
+      // 尝试解析JSON
+      const parsed = JSON.parse(content)
+
+      // 验证必填字段
+      if (
+        !parsed.estimatedCost ||
+        !parsed.expectedBenefit ||
+        !parsed.roiEstimate
+      ) {
+        throw new Error('Missing required ROI fields')
+      }
+
+      return {
+        estimatedCost: parsed.estimatedCost,
+        expectedBenefit: parsed.expectedBenefit,
+        roiEstimate: parsed.roiEstimate,
+        implementationPeriod: parsed.implementationPeriod || '需进一步评估',
+        recommendedVendors: parsed.recommendedVendors || [],
+      }
+    } catch (error) {
+      this.logger.error('Failed to parse ROI response', error.stack)
+
+      // 降级策略：返回默认值
+      return {
+        estimatedCost: '需进一步评估',
+        expectedBenefit: '需进一步评估',
+        roiEstimate: '需进一步评估',
+        implementationPeriod: '需进一步评估',
+        recommendedVendors: [],
+      }
+    }
+  }
 }
