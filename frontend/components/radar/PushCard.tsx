@@ -63,19 +63,23 @@ interface PushCardProps {
  */
 export const PushCard = React.memo(
   function PushCard({ push, onViewDetail }: PushCardProps) {
-  // 优先级配置
+  // 优先级配置 - 统一使用primary色调
   const priorityConfig: Record<1 | 2 | 3, { icon: string; label: string; color: any }> = {
-    1: { icon: '🥇', label: '优先级1', color: 'error' as const },
-    2: { icon: '🥈', label: '优先级2', color: 'warning' as const },
-    3: { icon: '🥉', label: '优先级3', color: 'info' as const },
+    1: { icon: '🥇', label: '优先级1', color: 'primary' as const },
+    2: { icon: '🥈', label: '优先级2', color: 'primary' as const },
+    3: { icon: '🥉', label: '优先级3', color: 'default' as const },
   }
 
-  const priority = priorityConfig[push.priorityLevel as 1 | 2 | 3]
+  const priority = priorityConfig[push.priorityLevel as 1 | 2 | 3] || {
+    icon: '📌',
+    label: '未分类',
+    color: 'default' as const,
+  }
 
-  // 相关性评分显示
-  const relevancePercent = Math.round(push.relevanceScore * 100)
+  // 相关性评分显示 - 使用warning色调区分
+  const relevancePercent = Math.round((push.relevanceScore || 0) * 100)
   const relevanceColor =
-    relevancePercent >= 95 ? 'error' : relevancePercent >= 90 ? 'warning' : 'default'
+    relevancePercent >= 95 ? 'warning' : relevancePercent >= 90 ? 'default' : 'default'
 
   return (
     <Card
@@ -92,20 +96,32 @@ export const PushCard = React.memo(
       <CardContent sx={{ flexGrow: 1 }}>
         {/* 标题和优先级 */}
         <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
             <Chip
-              label={`${priority.icon} ${priority.label}`}
+              label={priority.label}
               color={priority.color}
               size="small"
+              sx={{ fontWeight: 600 }}
             />
             <Chip
-              label={`🔴 ${relevancePercent}% 相关`}
+              label={`${relevancePercent}% 相关`}
               color={relevanceColor}
               size="small"
               variant="outlined"
+              sx={{ fontSize: '0.75rem' }}
             />
           </Box>
-          <Typography variant="h6" component="h3" gutterBottom>
+          <Typography
+            variant="h6"
+            component="h3"
+            gutterBottom
+            sx={{
+              fontSize: '1.15rem',
+              fontWeight: 600,
+              lineHeight: 1.4,
+              color: 'text.primary',
+            }}
+          >
             {push.title}
           </Typography>
         </Box>
@@ -116,10 +132,18 @@ export const PushCard = React.memo(
             {push.weaknessCategories.map((category) => (
               <Chip
                 key={category}
-                label={`🎯 ${category}`}
+                label={category}
                 size="small"
                 variant="outlined"
-                color="secondary"
+                sx={{
+                  borderColor: 'primary.main',
+                  color: 'primary.main',
+                  fontSize: '0.75rem',
+                  '&:hover': {
+                    borderColor: 'primary.dark',
+                    bgcolor: 'primary.50',
+                  },
+                }}
               />
             ))}
           </Box>
@@ -154,8 +178,13 @@ export const PushCard = React.memo(
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
               <TrendingUp color="primary" fontSize="small" />
-              <Typography variant="subtitle2" fontWeight="bold" color="primary">
-                💰 ROI分析
+              <Typography
+                variant="subtitle2"
+                fontWeight="bold"
+                color="primary"
+                sx={{ fontSize: '0.875rem' }}
+              >
+                ROI分析
               </Typography>
             </Box>
 
@@ -163,13 +192,19 @@ export const PushCard = React.memo(
               {/* 预计投入 */}
               <Grid item xs={6}>
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <AttachMoney sx={{ fontSize: 16, color: 'text.secondary' }} />
-                    <Typography variant="caption" color="text.secondary">
-                      预计投入
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" fontWeight="medium">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem' }}
+                  >
+                    预计投入
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    fontWeight="bold"
+                    color="text.primary"
+                    sx={{ fontSize: '0.95rem' }}
+                  >
                     {push.roiAnalysis.estimatedCost}
                   </Typography>
                 </Box>
@@ -178,16 +213,19 @@ export const PushCard = React.memo(
               {/* 预期收益 */}
               <Grid item xs={6}>
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <EmojiEvents sx={{ fontSize: 16, color: 'text.secondary' }} />
-                    <Typography variant="caption" color="text.secondary">
-                      预期收益
-                    </Typography>
-                  </Box>
                   <Typography
-                    variant="body2"
-                    fontWeight="medium"
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem' }}
+                  >
+                    预期收益
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    fontWeight="bold"
+                    color="success.main"
                     sx={{
+                      fontSize: '0.95rem',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       display: '-webkit-box',
@@ -203,10 +241,19 @@ export const PushCard = React.memo(
               {/* ROI估算 */}
               <Grid item xs={6}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem' }}
+                  >
                     ROI估算
                   </Typography>
-                  <Typography variant="h6" color="success.main" fontWeight="bold">
+                  <Typography
+                    variant="h6"
+                    color="success.main"
+                    fontWeight="bold"
+                    sx={{ fontSize: '1.1rem' }}
+                  >
                     {push.roiAnalysis.roiEstimate}
                   </Typography>
                 </Box>
@@ -215,13 +262,19 @@ export const PushCard = React.memo(
               {/* 实施周期 */}
               <Grid item xs={6}>
                 <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                    <Schedule sx={{ fontSize: 16, color: 'text.secondary' }} />
-                    <Typography variant="caption" color="text.secondary">
-                      实施周期
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" fontWeight="medium">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem' }}
+                  >
+                    实施周期
+                  </Typography>
+                  <Typography
+                    variant="body1"
+                    fontWeight="bold"
+                    color="text.primary"
+                    sx={{ fontSize: '0.95rem' }}
+                  >
                     {push.roiAnalysis.implementationPeriod}
                   </Typography>
                 </Box>
@@ -233,12 +286,33 @@ export const PushCard = React.memo(
               <>
                 <Divider sx={{ my: 1.5 }} />
                 <Box>
-                  <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                    mb={0.5}
+                    sx={{ fontSize: '0.7rem' }}
+                  >
                     推荐供应商
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                     {push.roiAnalysis.recommendedVendors.map((vendor) => (
-                      <Chip key={vendor} label={vendor} size="small" variant="outlined" />
+                      <Chip
+                        key={vendor}
+                        label={vendor}
+                        size="small"
+                        variant="outlined"
+                        sx={{
+                          fontSize: '0.75rem',
+                          borderColor: 'divider',
+                          color: 'text.secondary',
+                          '&:hover': {
+                            borderColor: 'primary.main',
+                            color: 'primary.main',
+                            bgcolor: 'primary.50',
+                          },
+                        }}
+                      />
                     ))}
                   </Box>
                 </Box>
@@ -265,14 +339,23 @@ export const PushCard = React.memo(
         )}
 
         {/* 元信息 */}
-        <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-          <Typography variant="caption" color="text.secondary">
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 2,
+            mt: 2,
+            pt: 1,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
             来源: {push.source}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
             •
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
             {new Date(push.publishDate).toLocaleDateString('zh-CN')}
           </Typography>
         </Box>

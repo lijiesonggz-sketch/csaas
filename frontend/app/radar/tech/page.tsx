@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Box, Container, Typography, Button, Alert, CircularProgress, Grid } from '@mui/material'
-import { TrendingUp, Refresh } from '@mui/icons-material'
+import Link from 'next/link'
+import { Box, Container, Typography, Button, Alert, CircularProgress, Grid, Breadcrumbs } from '@mui/material'
+import { TrendingUp, Refresh, ArrowBack, Home } from '@mui/icons-material'
 import { PushCard } from '@/components/radar/PushCard'
 import { PushDetailModal } from '@/components/radar/PushDetailModal'
 import { getRadarPushes, RadarPush } from '@/lib/api/radar'
 import { useWebSocket } from '@/lib/hooks/useWebSocket'
+import { useOrganizationStore } from '@/lib/stores/useOrganizationStore'
 
 // 禁用静态生成，因为这个页面需要动态数据
 export const dynamic = 'force-dynamic'
@@ -25,7 +27,13 @@ export default function TechRadarPage() {
   const [pushes, setPushes] = useState<RadarPush[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { socket, isConnected } = useWebSocket()
+  const currentOrganization = useOrganizationStore((state) => state.currentOrganization)
+  const organizationId = currentOrganization?.id
+
+  console.log('[TechRadarPage] Current organization:', currentOrganization)
+  console.log('[TechRadarPage] Organization ID:', organizationId)
+
+  const { socket, isConnected } = useWebSocket(organizationId)
 
   // 加载推送列表
   const fetchPushes = async () => {
@@ -50,7 +58,28 @@ export default function TechRadarPage() {
 
   // 初始加载
   useEffect(() => {
-    fetchPushes()
+    const loadInitialData = async () => {
+      // 先加载组织
+      const { fetchOrganizations } = useOrganizationStore.getState()
+
+      let org = currentOrganization
+
+      if (!org) {
+        console.log('[TechRadarPage] No organization found, fetching...')
+        await fetchOrganizations()
+
+        // 手动获取加载后的组织
+        org = useOrganizationStore.getState().currentOrganization
+        console.log('[TechRadarPage] Organization loaded:', org)
+      }
+
+      console.log('[TechRadarPage] Final organization ID:', org?.id)
+
+      // 再加载推送列表
+      fetchPushes()
+    }
+
+    loadInitialData()
   }, [])
 
   // WebSocket监听新推送
@@ -92,14 +121,42 @@ export default function TechRadarPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      {/* 面包屑导航 */}
+      <Box sx={{ mb: 3 }}>
+        <Breadcrumbs aria-label="breadcrumb">
+          <Link href="/radar" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'primary.main' }}>
+              <Home sx={{ fontSize: 18 }} />
+              <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500 }}>
+                雷达首页
+              </Typography>
+            </Box>
+          </Link>
+          <Typography variant="body2" color="text.secondary">
+            技术雷达
+          </Typography>
+        </Breadcrumbs>
+      </Box>
+
       {/* 页面标题 */}
       <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <TrendingUp fontSize="large" />
-          <Typography variant="h4" fontWeight="bold">
-            技术雷达 - ROI导向的技术决策支持
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TrendingUp fontSize="large" />
+            <Typography variant="h4" fontWeight="bold">
+              技术雷达 - ROI导向的技术决策支持
+            </Typography>
+          </Box>
+          <Button
+            component={Link}
+            href="/radar"
+            variant="outlined"
+            startIcon={<ArrowBack />}
+            sx={{ minWidth: 120 }}
+          >
+            返回雷达
+          </Button>
         </Box>
         <Typography variant="body1" color="text.secondary">
           基于您的薄弱项和关注领域，为您推荐最具性价比的技术方案
@@ -146,9 +203,9 @@ export default function TechRadarPage() {
 
       {/* 推送列表 */}
       {!isLoading && pushes.length > 0 && (
-        <Grid container spacing={3}>
+        <Grid container spacing={4} justifyContent="center">
           {pushes.map((push) => (
-            <Grid item xs={12} sm={6} lg={4} key={push.pushId}>
+            <Grid item xs={12} lg={6} xl={6} key={push.pushId}>
               <PushCard
                 push={push}
                 onViewDetail={setSelectedPushId}
