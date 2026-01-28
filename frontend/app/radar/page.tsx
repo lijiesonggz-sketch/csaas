@@ -28,9 +28,8 @@ function RadarDashboardContent() {
   const searchParams = useSearchParams()
   const orgId = searchParams.get('orgId')
 
-  const { isOnboarded, radarActivated, isLoading } = useOnboarding(orgId)
+  const { isOnboarded, radarActivated, isLoading, refetch } = useOnboarding(orgId)
   const [showOnboarding, setShowOnboarding] = useState(false)
-  const [shouldRefreshStatus, setShouldRefreshStatus] = useState(false)
 
   // Show onboarding wizard if not completed
   useEffect(() => {
@@ -39,30 +38,11 @@ function RadarDashboardContent() {
     }
   }, [isLoading, isOnboarded, orgId])
 
-  // Refresh radar status after onboarding completes
-  useEffect(() => {
-    if (shouldRefreshStatus && orgId) {
-      // Trigger status refresh by re-fetching
-      const refreshStatus = async () => {
-        try {
-          const response = await apiFetch(`/organizations/${orgId}/radar-status`)
-          if (response.ok) {
-            const data = await response.json()
-            setShouldRefreshStatus(false)
-          }
-        } catch (error) {
-          console.error('Failed to refresh status:', error)
-        }
-      }
-      refreshStatus()
-    }
-  }, [shouldRefreshStatus, orgId])
-
   // Handle onboarding completion
-  const handleOnboardingComplete = () => {
+  const handleOnboardingComplete = async () => {
     setShowOnboarding(false)
-    setShouldRefreshStatus(true)
-    // Instead of reloading, we trigger a status refresh
+    // Refetch radar status from server
+    await refetch()
   }
 
   const radarTypes = [

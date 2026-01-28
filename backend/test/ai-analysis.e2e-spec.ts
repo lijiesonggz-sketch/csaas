@@ -136,7 +136,8 @@ describe('AI Analysis (E2E)', () => {
         source: 'TEST_SOURCE',
         publishDate: new Date('2024-01-15'),
         category: 'tech',
-        status: 'pending',
+        author: null,
+        organizationId: null,
       })
       testRawContentId = rawContent.id
 
@@ -191,7 +192,8 @@ describe('AI Analysis (E2E)', () => {
           source: 'TEST_SOURCE',
           publishDate: new Date(),
           category: 'tech',
-          status: 'pending',
+          author: null,
+          organizationId: null,
         }),
         rawContentService.create({
           title: 'TEST_微服务架构实践',
@@ -201,7 +203,8 @@ describe('AI Analysis (E2E)', () => {
           source: 'TEST_SOURCE',
           publishDate: new Date(),
           category: 'tech',
-          status: 'pending',
+          author: null,
+          organizationId: null,
         }),
         rawContentService.create({
           title: 'TEST_DevOps工具链',
@@ -211,7 +214,8 @@ describe('AI Analysis (E2E)', () => {
           source: 'TEST_SOURCE',
           publishDate: new Date(),
           category: 'tech',
-          status: 'pending',
+          author: null,
+          organizationId: null,
         }),
       ])
 
@@ -240,7 +244,8 @@ describe('AI Analysis (E2E)', () => {
         source: 'TEST_SOURCE',
         publishDate: new Date(),
         category: 'tech',
-        status: 'pending',
+        author: null,
+        organizationId: null,
       })
 
       // First analysis - should call AI
@@ -275,7 +280,8 @@ describe('AI Analysis (E2E)', () => {
         source: 'TEST_SOURCE',
         publishDate: new Date(),
         category: 'tech',
-        status: 'pending',
+        author: null,
+        organizationId: null,
       })
 
       // Trigger analysis
@@ -302,7 +308,8 @@ describe('AI Analysis (E2E)', () => {
         source: 'TEST_SOURCE',
         publishDate: new Date(),
         category: 'tech',
-        status: 'pending',
+        author: null,
+        organizationId: null,
       })
 
       // Initial status should be pending
@@ -331,7 +338,8 @@ describe('AI Analysis (E2E)', () => {
         source: 'TEST_SOURCE',
         publishDate: new Date(),
         category: 'tech',
-        status: 'pending',
+        author: null,
+        organizationId: null,
       })
 
       await aiAnalysisService.analyze(rawContent, 'tech')
@@ -367,7 +375,8 @@ describe('AI Analysis (E2E)', () => {
         source: 'TEST_SOURCE',
         publishDate: new Date(),
         category: 'tech',
-        status: 'pending',
+        author: null,
+        organizationId: null,
       })
 
       // Trigger analysis
@@ -393,7 +402,8 @@ describe('AI Analysis (E2E)', () => {
         source: 'TEST_SOURCE',
         publishDate: new Date(),
         category: 'tech',
-        status: 'pending',
+        author: null,
+        organizationId: null,
       })
 
       const result1 = await aiAnalysisService.analyze(content1, 'tech')
@@ -408,7 +418,8 @@ describe('AI Analysis (E2E)', () => {
         source: 'TEST_SOURCE',
         publishDate: new Date(),
         category: 'tech',
-        status: 'pending',
+        author: null,
+        organizationId: null,
       })
 
       const result2 = await aiAnalysisService.analyze(content2, 'tech')

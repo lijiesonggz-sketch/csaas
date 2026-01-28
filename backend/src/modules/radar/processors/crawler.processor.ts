@@ -20,7 +20,7 @@ export interface CrawlerJobData {
  *
  * Story 2.1: 爬虫和文件导入机制
  */
-@Processor('radar:crawler', {
+@Processor('radar-crawler', {
   concurrency: 5, // 并发数
 })
 export class CrawlerProcessor extends WorkerHost {
@@ -28,7 +28,7 @@ export class CrawlerProcessor extends WorkerHost {
 
   constructor(
     private readonly crawlerService: CrawlerService,
-    @InjectQueue('radar:ai-analysis')
+    @InjectQueue('radar-ai-analysis')
     private readonly aiAnalysisQueue: Queue,
   ) {
     super()

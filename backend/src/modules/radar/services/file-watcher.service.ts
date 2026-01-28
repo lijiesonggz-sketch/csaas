@@ -21,7 +21,7 @@ export class FileWatcherService implements OnModuleDestroy {
 
   constructor(
     private readonly rawContentService: RawContentService,
-    @InjectQueue('radar:ai-analysis')
+    @InjectQueue('radar-ai-analysis')
     private readonly aiAnalysisQueue: Queue,
   ) {}
 

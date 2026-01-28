@@ -30,7 +30,7 @@ import {
  * BullMQ队列名: 'radar:push'
  */
 @Injectable()
-@Processor('radar:push', {
+@Processor('radar-push', {
   concurrency: 1, // 串行处理，避免并发问题
 })
 export class PushProcessor extends WorkerHost {

@@ -21,11 +21,14 @@ import { RadarPush } from '../../database/entities/radar-push.entity'
 import { WeaknessSnapshot } from '../../database/entities/weakness-snapshot.entity'
 import { WatchedTopic } from '../../database/entities/watched-topic.entity'
 import { Organization } from '../../database/entities/organization.entity'
+import { OrganizationMember } from '../../database/entities/organization-member.entity'
 
 // Story 1.3 providers
 import { AssessmentEventListener } from './assessment-event.listener'
 import { OrganizationsModule } from '../organizations/organizations.module'
 import { AITasksModule } from '../ai-tasks/ai-tasks.module'
+import { AIClientsModule } from '../ai-clients/ai-clients.module'
+// import { ProjectsModule } from '../projects/projects.module' // 暂时禁用以避免循环依赖
 
 // Story 2.1 providers
 import { RawContentService } from './services/raw-content.service'
@@ -80,12 +83,13 @@ import { PushProcessor } from './processors/push.processor'
       WeaknessSnapshot,
       WatchedTopic,
       Organization,
+      OrganizationMember,
     ]),
 
     // Story 2.1 BullMQ queues
     BullModule.registerQueue(
       {
-        name: 'radar:crawler',
+        name: 'radar-crawler',
         defaultJobOptions: {
           attempts: 3,
           backoff: {
@@ -95,11 +99,11 @@ import { PushProcessor } from './processors/push.processor'
         },
       },
       {
-        name: 'radar:ai-analysis',
+        name: 'radar-ai-analysis',
       },
       // Story 2.3 push queue
       {
-        name: 'radar:push',
+        name: 'radar-push',
         defaultJobOptions: {
           attempts: 2, // 失败后重试1次
           backoff: {
@@ -112,6 +116,8 @@ import { PushProcessor } from './processors/push.processor'
 
     OrganizationsModule,
     AITasksModule, // Story 2.3 - 用于WebSocket推送
+    AIClientsModule, // Story 2.2 - AI分析服务依赖
+    // ProjectsModule, // 暂时禁用以避免循环依赖
   ],
   controllers: [RadarController, RadarPushController],
   providers: [
@@ -155,9 +161,9 @@ export class RadarModule implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RadarModule.name)
 
   constructor(
-    @InjectQueue('radar:crawler')
+    @InjectQueue('radar-crawler')
     private readonly crawlerQueue: Queue,
-    @InjectQueue('radar:push')
+    @InjectQueue('radar-push')
     private readonly pushQueue: Queue,
     private readonly fileWatcherService: FileWatcherService,
   ) {}

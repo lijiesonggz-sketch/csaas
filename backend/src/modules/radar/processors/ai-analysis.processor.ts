@@ -26,7 +26,7 @@ import { RawContentService } from '../services/raw-content.service'
  * - 记录错误日志
  * - 发送告警通知
  */
-@Processor('radar:ai-analysis', {
+@Processor('radar-ai-analysis', {
   concurrency: 5, // 并发处理 5 个任务
 })
 export class AIAnalysisProcessor extends WorkerHost {
@@ -35,7 +35,7 @@ export class AIAnalysisProcessor extends WorkerHost {
   constructor(
     private readonly aiAnalysisService: AIAnalysisService,
     private readonly rawContentService: RawContentService,
-    @InjectQueue('push:schedule')
+    @InjectQueue('radar-push')
     private readonly pushScheduleQueue: Queue,
   ) {
     super()

@@ -21,45 +21,71 @@ export function useOnboarding(orgId?: string | null) {
   const RADAR_ACTIVATED_KEY = `radar_activated_${orgId || 'default'}`
 
   // Check onboarding and activation status on mount
-  useEffect(() => {
+  const checkStatus = async (forceServerCheck = false) => {
     // Skip on server-side
     if (typeof window === 'undefined') {
       setIsLoading(false)
       return
     }
 
-    const checkStatus = async () => {
-      setIsLoading(true)
+    setIsLoading(true)
 
-      try {
-        // Check localStorage for onboarding completion
-        const onboarded = localStorage.getItem(ONBOARDING_STORAGE_KEY)
-        setIsOnboarded(onboarded === 'true')
+    try {
+      // Check localStorage for onboarding completion
+      const onboarded = localStorage.getItem(ONBOARDING_STORAGE_KEY)
+      setIsOnboarded(onboarded === 'true')
 
-        // Check localStorage for radar activation
-        const activated = localStorage.getItem(RADAR_ACTIVATED_KEY)
-        setRadarActivated(activated === 'true')
+      // Check localStorage for radar activation
+      let activated = localStorage.getItem(RADAR_ACTIVATED_KEY)
 
-        // If orgId provided, also check server
-        if (orgId && activated !== 'true') {
-          const response = await apiFetch(`/organizations/${orgId}/radar-status`)
+      // If orgId provided, also check server
+      if (orgId && (forceServerCheck || activated !== 'true')) {
+        console.log(`[useOnboarding] Fetching radar status for org ${orgId}, forceServerCheck=${forceServerCheck}`)
+        const response = await apiFetch(`/organizations/${orgId}/radar-status`)
 
-          // Handle 401 Unauthorized gracefully
-          if (response.status === 401) {
-            console.warn('User not authenticated - skipping radar status check')
-          } else if (response.ok) {
-            const data = await response.json()
-            setRadarActivated(data.radarActivated)
-            localStorage.setItem(RADAR_ACTIVATED_KEY, String(data.radarActivated))
-          }
+        console.log(`[useOnboarding] Radar status response:`, response.status, response.ok)
+
+        // Handle 401 Unauthorized gracefully
+        if (response.status === 401) {
+          console.warn('[useOnboarding] User not authenticated - skipping radar status check')
+        } else if (response.status === 403) {
+          console.warn('[useOnboarding] User not authorized (not a member) - using localStorage')
+          // Re-read from localStorage in case it was just updated
+          activated = localStorage.getItem(RADAR_ACTIVATED_KEY)
+          console.log('[useOnboarding] Re-read from localStorage:', activated)
+          setRadarActivated(activated === 'true')
+        } else if (response.ok) {
+          const data = await response.json()
+          console.log('[useOnboarding] Radar status data:', data)
+          // Handle both direct response and wrapped response
+          const radarActivated = data.data?.radarActivated ?? data.radarActivated ?? false
+          console.log('[useOnboarding] Extracted radarActivated:', radarActivated)
+          setRadarActivated(radarActivated)
+          localStorage.setItem(RADAR_ACTIVATED_KEY, String(radarActivated))
+        } else {
+          console.warn('[useOnboarding] Server check failed, using localStorage')
+          // Re-read from localStorage in case it was just updated
+          activated = localStorage.getItem(RADAR_ACTIVATED_KEY)
+          console.log('[useOnboarding] Re-read from localStorage:', activated)
+          // Fallback to localStorage if server check fails
+          setRadarActivated(activated === 'true')
         }
-      } catch (error) {
-        console.error('Failed to check onboarding status:', error)
-      } finally {
-        setIsLoading(false)
+      } else {
+        console.log('[useOnboarding] Using localStorage for radar activation status:', activated)
+        setRadarActivated(activated === 'true')
       }
+    } catch (error) {
+      console.error('[useOnboarding] Failed to check onboarding status:', error)
+      // Fallback to localStorage on error
+      const activated = localStorage.getItem(RADAR_ACTIVATED_KEY)
+      console.log('[useOnboarding] Error - using localStorage:', activated)
+      setRadarActivated(activated === 'true')
+    } finally {
+      setIsLoading(false)
     }
+  }
 
+  useEffect(() => {
     checkStatus()
   }, [orgId])
 
@@ -81,11 +107,15 @@ export function useOnboarding(orgId?: string | null) {
     setIsOnboarded(false)
   }
 
+  // Refetch status from server
+  const refetch = () => checkStatus(true)
+
   return {
     isOnboarded,
     radarActivated,
     isLoading,
     completeOnboarding,
     resetOnboarding,
+    refetch,
   }
 }

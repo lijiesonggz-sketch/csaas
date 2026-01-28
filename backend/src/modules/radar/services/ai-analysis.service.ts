@@ -38,7 +38,7 @@ export class AIAnalysisService {
   constructor(
     @InjectRepository(RawContent)
     private readonly rawContentRepo: Repository<RawContent>,
-    @InjectQueue('radar:crawler')
+    @InjectQueue('radar-crawler')
     private readonly crawlerQueue: Queue,
     private readonly aiOrchestrator: AIOrchestrator,
     private readonly tagService: TagService,
