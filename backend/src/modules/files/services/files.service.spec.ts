@@ -107,7 +107,7 @@ describe('FilesService - PDF解析功能 (TDD)', () => {
         expect.objectContaining({
           data: pdfBuffer,
           verbosity: pdfParseModule.VerbosityLevel.ERRORS,
-        })
+        }),
       )
     })
   })

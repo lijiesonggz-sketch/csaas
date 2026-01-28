@@ -1,17 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common'
-import {
-  SimilarityCalculator,
-} from './validators/similarity.calculator'
+import { SimilarityCalculator } from './validators/similarity.calculator'
 import {
   ConsistencyValidator,
   ConsistencyReport,
   ValidationResult,
 } from './validators/consistency.validator'
-import {
-  CoverageChecker,
-  CoverageReport,
-  ClusteringResult,
-} from './validators/coverage.checker'
+import { CoverageChecker, CoverageReport, ClusteringResult } from './validators/coverage.checker'
 
 export interface QualityScores {
   structural: number
@@ -162,10 +156,7 @@ export class QualityValidationService {
    * @param obj2 对象2
    * @returns 相似度分数
    */
-  calculateStructuralSimilarity(
-    obj1: Record<string, any>,
-    obj2: Record<string, any>,
-  ): number {
+  calculateStructuralSimilarity(obj1: Record<string, any>, obj2: Record<string, any>): number {
     return this.similarityCalculator.calculateStructuralSimilarity(obj1, obj2)
   }
 }

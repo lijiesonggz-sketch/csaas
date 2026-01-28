@@ -161,7 +161,7 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
         where: { id: 'raw-content-1' },
       })
       expect(redisClient.get).toHaveBeenCalledWith(
-        'radar:roi:analyzed-content-1:数据安全',
+        'radar:roi:org-123:analyzed-content-1:数据安全',
       )
       expect(aiOrchestrator.generate).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -171,7 +171,7 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
         AIModel.DOMESTIC,
       )
       expect(redisClient.setex).toHaveBeenCalledWith(
-        'radar:roi:analyzed-content-1:数据安全',
+        'radar:roi:org-123:analyzed-content-1:数据安全',
         7 * 24 * 60 * 60, // 7天TTL
         JSON.stringify(mockROIAnalysis),
       )
@@ -197,7 +197,7 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
       // Assert
       expect(result).toEqual(mockROIAnalysis)
       expect(redisClient.get).toHaveBeenCalledWith(
-        'radar:roi:analyzed-content-1:general',
+        'radar:roi:org-123:analyzed-content-1:general',
       )
       expect(aiOrchestrator.generate).not.toHaveBeenCalled() // 不应调用AI
       expect(analyzedContentService.update).not.toHaveBeenCalled() // 不应更新数据库

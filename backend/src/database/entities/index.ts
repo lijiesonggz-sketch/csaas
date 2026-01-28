@@ -27,6 +27,7 @@ export { WatchedItem } from './watched-item.entity'
 export { RawContent } from './raw-content.entity'
 export { AnalyzedContent } from './analyzed-content.entity'
 export { RadarPush } from './radar-push.entity'
+export { PushLog } from './push-log.entity'
 export { PushScheduleConfig } from './push-schedule-config.entity'
 export { CrawlerLog } from './crawler-log.entity'
 

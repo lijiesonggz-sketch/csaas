@@ -129,7 +129,9 @@ export class SummaryGenerator {
         }
       }
 
-      throw new Error(`Invalid JSON response: ${error.message}. Content preview: ${content.substring(0, 100)}...`)
+      throw new Error(
+        `Invalid JSON response: ${error.message}. Content preview: ${content.substring(0, 100)}...`,
+      )
     }
   }
 

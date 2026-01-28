@@ -118,16 +118,20 @@ export class AITask {
     completedClusters: string[] // 已完成的聚类ID列表
     failedClusters: string[] // 失败的聚类ID列表
     pendingClusters: string[] // 待生成的聚类ID列表
-    clusterProgress: Record<string, { // 每个聚类的详细进度
-      clusterId: string
-      clusterName: string
-      status: 'pending' | 'generating' | 'completed' | 'failed'
-      questionsGenerated: number
-      questionsExpected: number
-      startedAt?: string
-      completedAt?: string
-      error?: string
-    }>
+    clusterProgress: Record<
+      string,
+      {
+        // 每个聚类的详细进度
+        clusterId: string
+        clusterName: string
+        status: 'pending' | 'generating' | 'completed' | 'failed'
+        questionsGenerated: number
+        questionsExpected: number
+        startedAt?: string
+        completedAt?: string
+        error?: string
+      }
+    >
   }
 
   @Column({ name: 'backup_result', type: 'jsonb', nullable: true })

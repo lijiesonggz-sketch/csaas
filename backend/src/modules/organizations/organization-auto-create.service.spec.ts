@@ -36,7 +36,8 @@ describe('OrganizationAutoCreateService', () => {
   } as any
 
   const mockEntityManager = {
-    save: jest.fn()
+    save: jest
+      .fn()
       .mockResolvedValueOnce({ id: 'org-123', name: '用户的组织' })
       .mockResolvedValueOnce({ id: 'member-123' })
       .mockResolvedValue({}),
@@ -94,11 +95,7 @@ describe('OrganizationAutoCreateService', () => {
       })
 
       // Act
-      const result = await service.ensureOrganizationForProject(
-        userId,
-        projectId,
-        orgName,
-      )
+      const result = await service.ensureOrganizationForProject(userId, projectId, orgName)
 
       // Assert - verify transaction was called and organization was created
       expect(mockDataSource.transaction).toHaveBeenCalled()
@@ -139,11 +136,7 @@ describe('OrganizationAutoCreateService', () => {
       })
 
       // Act
-      const result = await service.ensureOrganizationForProject(
-        userId,
-        projectId,
-        orgName,
-      )
+      const result = await service.ensureOrganizationForProject(userId, projectId, orgName)
 
       // Assert
       expect(result.id).toBe(existingOrg.id)
@@ -163,5 +156,4 @@ describe('OrganizationAutoCreateService', () => {
       // For now, we'll skip this test and rely on integration tests
     })
   })
-
 })

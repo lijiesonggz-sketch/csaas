@@ -17,6 +17,8 @@ import {
   InterpretationResult,
   CurrentStateDescription,
   WeaknessSnapshot,
+  WatchedTopic,
+  WatchedPeer,
 } from '../database/entities'
 
 export const databaseConfig = (): TypeOrmModuleOptions => ({
@@ -44,6 +46,8 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
     InterpretationResult,
     CurrentStateDescription,
     WeaknessSnapshot,
+    WatchedTopic,
+    WatchedPeer,
   ],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false, // Use migrations for schema changes

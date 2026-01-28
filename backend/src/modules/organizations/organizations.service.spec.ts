@@ -69,16 +69,12 @@ describe('OrganizationsService', () => {
     }).compile()
 
     service = module.get<OrganizationsService>(OrganizationsService)
-    orgRepository = module.get<Repository<Organization>>(
-      getRepositoryToken(Organization),
-    )
+    orgRepository = module.get<Repository<Organization>>(getRepositoryToken(Organization))
     memberRepository = module.get<Repository<OrganizationMember>>(
       getRepositoryToken(OrganizationMember),
     )
     userRepository = module.get<Repository<User>>(getRepositoryToken(User))
-    projectRepository = module.get<Repository<Project>>(
-      getRepositoryToken(Project),
-    )
+    projectRepository = module.get<Repository<Project>>(getRepositoryToken(Project))
 
     // Clear mocks before each test
     jest.clearAllMocks()
@@ -189,9 +185,9 @@ describe('OrganizationsService', () => {
       mockMemberRepository.findOne.mockResolvedValue(null)
 
       // Act & Assert
-      await expect(
-        service.linkProjectToOrganization(userId, projectId),
-      ).rejects.toThrow(NotFoundException)
+      await expect(service.linkProjectToOrganization(userId, projectId)).rejects.toThrow(
+        NotFoundException,
+      )
     })
   })
 
@@ -267,9 +263,7 @@ describe('OrganizationsService', () => {
       mockOrgRepository.findOne.mockResolvedValue(null)
 
       // Act & Assert
-      await expect(service.getOrganizationById(orgId)).rejects.toThrow(
-        NotFoundException,
-      )
+      await expect(service.getOrganizationById(orgId)).rejects.toThrow(NotFoundException)
     })
   })
 
@@ -306,9 +300,9 @@ describe('OrganizationsService', () => {
       mockOrgRepository.findOne.mockResolvedValue(null)
 
       // Act & Assert
-      await expect(
-        service.updateOrganization(orgId, { name: 'New Name' }),
-      ).rejects.toThrow(NotFoundException)
+      await expect(service.updateOrganization(orgId, { name: 'New Name' })).rejects.toThrow(
+        NotFoundException,
+      )
     })
   })
 

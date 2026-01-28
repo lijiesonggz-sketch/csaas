@@ -200,7 +200,10 @@ export class CreateAIGenerationResultsTable1735200000000 implements MigrationInt
   public async down(queryRunner: QueryRunner): Promise<void> {
     // 删除索引
     await queryRunner.dropIndex('ai_generation_results', 'IDX_ai_generation_results_review_status')
-    await queryRunner.dropIndex('ai_generation_results', 'IDX_ai_generation_results_generation_type')
+    await queryRunner.dropIndex(
+      'ai_generation_results',
+      'IDX_ai_generation_results_generation_type',
+    )
     await queryRunner.dropIndex('ai_generation_results', 'IDX_ai_generation_results_task_id')
 
     // 删除表

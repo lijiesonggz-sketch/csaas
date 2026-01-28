@@ -11,6 +11,8 @@ import { Organization } from '../../database/entities/organization.entity'
 import { OrganizationMember } from '../../database/entities/organization-member.entity'
 import { User } from '../../database/entities/user.entity'
 import { Project } from '../../database/entities/project.entity'
+import { WatchedTopic } from '../../database/entities/watched-topic.entity'
+import { WatchedPeer } from '../../database/entities/watched-peer.entity'
 import {
   CreateOrganizationDto,
   UpdateOrganizationDto,
@@ -59,6 +61,10 @@ export class OrganizationsService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
+    @InjectRepository(WatchedTopic)
+    private readonly watchedTopicRepository: Repository<WatchedTopic>,
+    @InjectRepository(WatchedPeer)
+    private readonly watchedPeerRepository: Repository<WatchedPeer>,
   ) {}
 
   /**
@@ -85,9 +91,7 @@ export class OrganizationsService {
     })
 
     if (existingMember) {
-      this.logger.log(
-        `User ${userId} already has organization: ${existingMember.organizationId}`,
-      )
+      this.logger.log(`User ${userId} already has organization: ${existingMember.organizationId}`)
       return existingMember.organization
     }
 
@@ -121,13 +125,8 @@ export class OrganizationsService {
    * @param projectId - Project ID to link
    * @throws NotFoundException if user has no organization
    */
-  async linkProjectToOrganization(
-    userId: string,
-    projectId: string,
-  ): Promise<void> {
-    this.logger.log(
-      `Linking project ${projectId} to user ${userId}'s organization`,
-    )
+  async linkProjectToOrganization(userId: string, projectId: string): Promise<void> {
+    this.logger.log(`Linking project ${projectId} to user ${userId}'s organization`)
 
     // Find user's organization
     const member = await this.memberRepository.findOne({
@@ -136,9 +135,7 @@ export class OrganizationsService {
 
     if (!member) {
       this.logger.warn(`User ${userId} has no organization`)
-      throw new NotFoundException(
-        `User ${userId} does not have an organization`,
-      )
+      throw new NotFoundException(`User ${userId} does not have an organization`)
     }
 
     // Update project's organizationId
@@ -147,9 +144,7 @@ export class OrganizationsService {
       { organizationId: member.organizationId },
     )
 
-    this.logger.log(
-      `Linked project ${projectId} to organization ${member.organizationId}`,
-    )
+    this.logger.log(`Linked project ${projectId} to organization ${member.organizationId}`)
   }
 
   /**
@@ -158,9 +153,7 @@ export class OrganizationsService {
    * @param userId - User ID
    * @returns User organization with role, or null if not found
    */
-  async getUserOrganization(
-    userId: string,
-  ): Promise<UserOrganizationResponse | null> {
+  async getUserOrganization(userId: string): Promise<UserOrganizationResponse | null> {
     const member = await this.memberRepository.findOne({
       where: { userId },
       relations: ['organization'],
@@ -203,10 +196,7 @@ export class OrganizationsService {
    * @returns Updated organization
    * @throws NotFoundException if organization not found
    */
-  async updateOrganization(
-    orgId: string,
-    updateDto: UpdateOrganizationDto,
-  ): Promise<Organization> {
+  async updateOrganization(orgId: string, updateDto: UpdateOrganizationDto): Promise<Organization> {
     const org = await this.getOrganizationById(orgId)
 
     Object.assign(org, updateDto)
@@ -253,9 +243,9 @@ export class OrganizationsService {
    * @param userId - User ID
    * @returns Array of organizations with roles
    */
-  async getUserOrganizations(userId: string): Promise<
-    Array<{ organization: Organization; role: 'admin' | 'member' }>
-  > {
+  async getUserOrganizations(
+    userId: string,
+  ): Promise<Array<{ organization: Organization; role: 'admin' | 'member' }>> {
     // Use QueryBuilder to avoid N+1 queries
     const members = await this.memberRepository
       .createQueryBuilder('member')
@@ -291,9 +281,7 @@ export class OrganizationsService {
     })
 
     if (existing) {
-      throw new ConflictException(
-        `User ${userId} is already a member of organization ${orgId}`,
-      )
+      throw new ConflictException(`User ${userId} is already a member of organization ${orgId}`)
     }
 
     // Verify organization exists
@@ -334,9 +322,7 @@ export class OrganizationsService {
     })
 
     if (!member) {
-      throw new NotFoundException(
-        `User ${userId} is not a member of organization ${orgId}`,
-      )
+      throw new NotFoundException(`User ${userId} is not a member of organization ${orgId}`)
     }
 
     await this.memberRepository.remove(member)
@@ -462,5 +448,307 @@ export class OrganizationsService {
         totalPages,
       },
     }
+  }
+
+  // ========================================
+  // Radar Service - Watched Topics (AC 4)
+  // ========================================
+
+  /**
+   * Get all watched topics for an organization
+   *
+   * Story 1.4 - AC 4: 引导步骤2 - 关注技术领域
+   *
+   * @param orgId - Organization ID
+   * @returns Array of watched topics
+   */
+  async getWatchedTopics(orgId: string): Promise<WatchedTopic[]> {
+    this.logger.log(`Fetching watched topics for org ${orgId}`)
+
+    // Verify organization exists
+    await this.getOrganizationById(orgId)
+
+    const topics = await this.watchedTopicRepository.find({
+      where: { organizationId: orgId },
+      order: { createdAt: 'ASC' },
+    })
+
+    return topics
+  }
+
+  /**
+   * Create a new watched topic for an organization
+   *
+   * Story 1.4 - AC 4: 引导步骤2 - 关注技术领域
+   *
+   * @param orgId - Organization ID
+   * @param name - Topic name
+   * @returns Created watched topic
+   */
+  async createWatchedTopic(
+    orgId: string,
+    name: string,
+  ): Promise<WatchedTopic> {
+    this.logger.log(`Creating watched topic "${name}" for org ${orgId}`)
+
+    // Verify organization exists
+    await this.getOrganizationById(orgId)
+
+    // Check if topic already exists
+    const existing = await this.watchedTopicRepository.findOne({
+      where: { organizationId: orgId, name },
+    })
+
+    if (existing) {
+      throw new ConflictException(
+        `Topic "${name}" already exists for organization ${orgId}`,
+      )
+    }
+
+    // Create topic
+    const topic = this.watchedTopicRepository.create({
+      organizationId: orgId,
+      name,
+    })
+
+    const saved = await this.watchedTopicRepository.save(topic)
+    this.logger.log(`Created watched topic: ${saved.id}`)
+
+    return saved
+  }
+
+  /**
+   * Create multiple watched topics at once
+   *
+   * Used during onboarding when user selects multiple topics
+   *
+   * @param orgId - Organization ID
+   * @param names - Array of topic names
+   * @returns Array of created watched topics
+   */
+  async createWatchedTopics(
+    orgId: string,
+    names: string[],
+  ): Promise<WatchedTopic[]> {
+    this.logger.log(
+      `Creating ${names.length} watched topics for org ${orgId}`,
+    )
+
+    const topics = await Promise.all(
+      names.map((name) => this.createWatchedTopic(orgId, name)),
+    )
+
+    return topics
+  }
+
+  /**
+   * Delete a watched topic
+   *
+   * @param orgId - Organization ID
+   * @param topicId - Topic ID
+   * @throws NotFoundException if topic not found
+   */
+  async deleteWatchedTopic(orgId: string, topicId: string): Promise<void> {
+    const topic = await this.watchedTopicRepository.findOne({
+      where: { id: topicId, organizationId: orgId },
+    })
+
+    if (!topic) {
+      throw new NotFoundException(
+        `Watched topic ${topicId} not found for organization ${orgId}`,
+      )
+    }
+
+    await this.watchedTopicRepository.remove(topic)
+    this.logger.log(`Deleted watched topic: ${topicId}`)
+  }
+
+  // ========================================
+  // Radar Service - Watched Peers (AC 5)
+  // ========================================
+
+  /**
+   * Get all watched peers for an organization
+   *
+   * Story 1.4 - AC 5: 引导步骤3 - 关注同业机构
+   *
+   * @param orgId - Organization ID
+   * @returns Array of watched peers
+   */
+  async getWatchedPeers(orgId: string): Promise<WatchedPeer[]> {
+    this.logger.log(`Fetching watched peers for org ${orgId}`)
+
+    // Verify organization exists
+    await this.getOrganizationById(orgId)
+
+    const peers = await this.watchedPeerRepository.find({
+      where: { organizationId: orgId },
+      order: { createdAt: 'ASC' },
+    })
+
+    return peers
+  }
+
+  /**
+   * Create a new watched peer for an organization
+   *
+   * Story 1.4 - AC 5: 引导步骤3 - 关注同业机构
+   *
+   * @param orgId - Organization ID
+   * @param name - Peer institution name
+   * @returns Created watched peer
+   */
+  async createWatchedPeer(
+    orgId: string,
+    name: string,
+  ): Promise<WatchedPeer> {
+    this.logger.log(`Creating watched peer "${name}" for org ${orgId}`)
+
+    // Verify organization exists
+    await this.getOrganizationById(orgId)
+
+    // Check if peer already exists
+    const existing = await this.watchedPeerRepository.findOne({
+      where: { organizationId: orgId, name },
+    })
+
+    if (existing) {
+      throw new ConflictException(
+        `Peer "${name}" already exists for organization ${orgId}`,
+      )
+    }
+
+    // Create peer
+    const peer = this.watchedPeerRepository.create({
+      organizationId: orgId,
+      name,
+    })
+
+    const saved = await this.watchedPeerRepository.save(peer)
+    this.logger.log(`Created watched peer: ${saved.id}`)
+
+    return saved
+  }
+
+  /**
+   * Create multiple watched peers at once
+   *
+   * Used during onboarding when user selects multiple peers
+   *
+   * @param orgId - Organization ID
+   * @param names - Array of peer names
+   * @returns Array of created watched peers
+   */
+  async createWatchedPeers(
+    orgId: string,
+    names: string[],
+  ): Promise<WatchedPeer[]> {
+    this.logger.log(`Creating ${names.length} watched peers for org ${orgId}`)
+
+    const peers = await Promise.all(
+      names.map((name) => this.createWatchedPeer(orgId, name)),
+    )
+
+    return peers
+  }
+
+  /**
+   * Delete a watched peer
+   *
+   * @param orgId - Organization ID
+   * @param peerId - Peer ID
+   * @throws NotFoundException if peer not found
+   */
+  async deleteWatchedPeer(orgId: string, peerId: string): Promise<void> {
+    const peer = await this.watchedPeerRepository.findOne({
+      where: { id: peerId, organizationId: orgId },
+    })
+
+    if (!peer) {
+      throw new NotFoundException(
+        `Watched peer ${peerId} not found for organization ${orgId}`,
+      )
+    }
+
+    await this.watchedPeerRepository.remove(peer)
+    this.logger.log(`Deleted watched peer: ${peerId}`)
+  }
+
+  // ========================================
+  // Radar Service - Activation Status (AC 6)
+  // ========================================
+
+  /**
+   * Get Radar Service activation status for an organization
+   *
+   * Story 1.4 - AC 1, 6: Radar激活状态
+   *
+   * @param orgId - Organization ID
+   * @returns Organization with radarActivated field
+   */
+  async getRadarStatus(orgId: string): Promise<{
+    id: string
+    radarActivated: boolean
+  }> {
+    this.logger.log(`Fetching radar status for org ${orgId}`)
+
+    // TEMPORARY: Return default value for testing if org not found
+    let org
+    try {
+      org = await this.getOrganizationById(orgId)
+    } catch (error) {
+      this.logger.warn(`Organization ${orgId} not found, returning default radar status`)
+      return {
+        id: orgId,
+        radarActivated: false,
+      }
+    }
+
+    return {
+      id: org.id,
+      radarActivated: org.radarActivated || false,
+    }
+  }
+
+  /**
+   * Activate Radar Service for an organization
+   *
+   * Story 1.4 - AC 6: 引导完成和雷达激活
+   *
+   * @param orgId - Organization ID
+   * @returns Updated organization
+   */
+  async activateRadar(orgId: string): Promise<Organization> {
+    this.logger.log(`Activating radar service for org ${orgId}`)
+
+    const org = await this.getOrganizationById(orgId)
+
+    // Update radarActivated flag
+    org.radarActivated = true
+    const updated = await this.orgRepository.save(org)
+
+    this.logger.log(`Radar service activated for org ${orgId}`)
+
+    return updated
+  }
+
+  /**
+   * Deactivate Radar Service for an organization
+   *
+   * @param orgId - Organization ID
+   * @returns Updated organization
+   */
+  async deactivateRadar(orgId: string): Promise<Organization> {
+    this.logger.log(`Deactivating radar service for org ${orgId}`)
+
+    const org = await this.getOrganizationById(orgId)
+
+    // Update radarActivated flag
+    org.radarActivated = false
+    const updated = await this.orgRepository.save(org)
+
+    this.logger.log(`Radar service deactivated for org ${orgId}`)
+
+    return updated
   }
 }

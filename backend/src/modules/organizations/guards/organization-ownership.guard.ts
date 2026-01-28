@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, NotFoundException } from '@nestjs/common'
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { OrganizationMember } from '../../../database/entities/organization-member.entity'
@@ -37,9 +43,7 @@ export class OrganizationOwnershipGuard implements CanActivate {
     })
 
     if (!member) {
-      throw new ForbiddenException(
-        `您不是该组织的成员，无权访问`,
-      )
+      throw new ForbiddenException(`您不是该组织的成员，无权访问`)
     }
 
     // Attach member info to request for use in controller

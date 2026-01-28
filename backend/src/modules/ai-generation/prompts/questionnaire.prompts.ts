@@ -463,10 +463,7 @@ Q2（执行与实施）多选题：
  * @param clusterIndex 聚类索引（用于生成question_id）
  * @returns 填充后的Prompt
  */
-export function fillSingleClusterQuestionnairePrompt(
-  cluster: any,
-  clusterIndex: number,
-): string {
+export function fillSingleClusterQuestionnairePrompt(cluster: any, clusterIndex: number): string {
   // 格式化聚类信息
   let clusterInfo = `聚类ID：${cluster.cluster_id}\n`
   clusterInfo += `聚类名称：${cluster.cluster_name}\n`
@@ -490,9 +487,10 @@ export function fillSingleClusterQuestionnairePrompt(
       // 然后展示描述（简化显示）
       if (level.description) {
         // 只显示前100个字符，避免信息过载
-        const shortDesc = level.description.length > 100
-          ? level.description.substring(0, 100) + '...'
-          : level.description
+        const shortDesc =
+          level.description.length > 100
+            ? level.description.substring(0, 100) + '...'
+            : level.description
         levelsText += `说明：${shortDesc}\n`
       }
 

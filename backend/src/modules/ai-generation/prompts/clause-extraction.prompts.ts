@@ -44,7 +44,7 @@ export interface ClauseExtractionOutput {
  */
 export function fillClauseExtractionPrompt(
   standardDocument: { id: string; name: string; content: string },
-  expectedClauseCount?: number
+  expectedClauseCount?: number,
 ): string {
   let prompt = `你是一名IT标准文档分析专家。请从以下标准文档中提取**所有条款的完整清单**。\n\n`
 
@@ -112,7 +112,7 @@ export function fillClauseExtractionPrompt(
  */
 export function fillClauseCompletionPrompt(
   documentContent: string,
-  missingClauseIds: string[]
+  missingClauseIds: string[],
 ): string {
   let prompt = `你是一名IT标准文档分析专家。请从以下标准文档中提取**指定条款**的完整原文。\n\n`
 

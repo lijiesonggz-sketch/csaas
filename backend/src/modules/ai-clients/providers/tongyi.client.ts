@@ -1,11 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import OpenAI from 'openai'
-import {
-  IAIClient,
-  AIClientRequest,
-  AIClientResponse,
-} from '../interfaces/ai-client.interface'
+import { IAIClient, AIClientRequest, AIClientResponse } from '../interfaces/ai-client.interface'
 
 /**
  * Tongyi Qianwen (通义千问) client
@@ -31,9 +27,7 @@ export class TongyiClient implements IAIClient {
     // Tongyi uses DashScope API with OpenAI-compatible interface
     this.client = new OpenAI({
       apiKey: apiKey || 'dummy-key',
-      baseURL:
-        baseURL ||
-        'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      baseURL: baseURL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
       timeout: 900000, // 15分钟超时（900秒 = 900000ms）- 与GLM保持一致
       maxRetries: 0, // 不重试，只调用一次
     })
@@ -44,7 +38,9 @@ export class TongyiClient implements IAIClient {
   }
 
   async generate(request: AIClientRequest): Promise<AIClientResponse> {
-    this.logger.log(`🔵 TongyiClient.generate() called with model: ${this.defaultModel}, maxTokens: ${request.maxTokens}`)
+    this.logger.log(
+      `🔵 TongyiClient.generate() called with model: ${this.defaultModel}, maxTokens: ${request.maxTokens}`,
+    )
 
     const startTime = Date.now()
 
@@ -70,9 +66,14 @@ export class TongyiClient implements IAIClient {
       // qwen3-max: 输出最大 32768（新旗舰模型）
       // qwen-max: 输出最大 8192
       // qwen-plus/turbo: 输出最大 6144
-      const modelMaxTokens = model === 'qwen-long' ? 32768 :
-                            model === 'qwen3-max' ? 32768 :
-                            model === 'qwen-max' ? 8192 : 6144
+      const modelMaxTokens =
+        model === 'qwen-long'
+          ? 32768
+          : model === 'qwen3-max'
+            ? 32768
+            : model === 'qwen-max'
+              ? 8192
+              : 6144
       const maxTokens = Math.min(request.maxTokens ?? 2000, modelMaxTokens)
 
       this.logger.debug(
@@ -136,7 +137,9 @@ export class TongyiClient implements IAIClient {
     const model = this.configService.get<string>('TONGYI_MODEL')
     const available = !!apiKey && apiKey !== 'dummy-key'
 
-    this.logger.log(`🔍 TongyiClient.isAvailable() = ${available} (API key: ${apiKey ? apiKey.substring(0, 10) + '...' : 'missing'}, model: ${model})`)
+    this.logger.log(
+      `🔍 TongyiClient.isAvailable() = ${available} (API key: ${apiKey ? apiKey.substring(0, 10) + '...' : 'missing'}, model: ${model})`,
+    )
 
     return available
   }
@@ -147,19 +150,15 @@ export class TongyiClient implements IAIClient {
    *
    * NOTE: 新模型定价会不断更新，如果遇到未知模型会使用默认定价并记录警告
    */
-  private calculateCost(
-    model: string,
-    promptTokens: number,
-    completionTokens: number,
-  ): number {
+  private calculateCost(model: string, promptTokens: number, completionTokens: number): number {
     // Pricing in RMB per token (2025年最新定价)
     // 官方定价是每1000 tokens的价格，这里转换为每个token的价格
     const pricing: Record<string, { prompt: number; completion: number }> = {
-      'qwen-plus': { prompt: 0.004 / 1000, completion: 0.012 / 1000 },          // 普通版
-      'qwen-turbo': { prompt: 0.002 / 1000, completion: 0.006 / 1000 },         // 快速版
-      'qwen3-max': { prompt: 0.02 / 1000, completion: 0.06 / 1000 },            // 新旗舰版（与qwen-max定价相同）
-      'qwen-max': { prompt: 0.02 / 1000, completion: 0.06 / 1000 },             // 旗舰版
-      'qwen-long': { prompt: 0.0005 / 1000, completion: 0.002 / 1000 },         // 长文本版 (输入1000万tokens/输出32768tokens)
+      'qwen-plus': { prompt: 0.004 / 1000, completion: 0.012 / 1000 }, // 普通版
+      'qwen-turbo': { prompt: 0.002 / 1000, completion: 0.006 / 1000 }, // 快速版
+      'qwen3-max': { prompt: 0.02 / 1000, completion: 0.06 / 1000 }, // 新旗舰版（与qwen-max定价相同）
+      'qwen-max': { prompt: 0.02 / 1000, completion: 0.06 / 1000 }, // 旗舰版
+      'qwen-long': { prompt: 0.0005 / 1000, completion: 0.002 / 1000 }, // 长文本版 (输入1000万tokens/输出32768tokens)
       'qwen2.5-72b-instruct': { prompt: 0.004 / 1000, completion: 0.004 / 1000 },
     }
 
@@ -168,7 +167,7 @@ export class TongyiClient implements IAIClient {
     if (!modelPricing) {
       this.logger.warn(
         `Unknown Tongyi model: ${model}. Using default pricing (qwen-plus). ` +
-        `Please update pricing table in tongyi.client.ts`,
+          `Please update pricing table in tongyi.client.ts`,
       )
       return (
         promptTokens * pricing['qwen-plus'].prompt +
@@ -176,9 +175,6 @@ export class TongyiClient implements IAIClient {
       )
     }
 
-    return (
-      promptTokens * modelPricing.prompt +
-      completionTokens * modelPricing.completion
-    )
+    return promptTokens * modelPricing.prompt + completionTokens * modelPricing.completion
   }
 }

@@ -1,11 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import OpenAI from 'openai'
-import {
-  IAIClient,
-  AIClientRequest,
-  AIClientResponse,
-} from '../interfaces/ai-client.interface'
+import { IAIClient, AIClientRequest, AIClientResponse } from '../interfaces/ai-client.interface'
 
 @Injectable()
 export class OpenAIClient implements IAIClient {
@@ -24,8 +20,7 @@ export class OpenAIClient implements IAIClient {
       maxRetries: 0, // 不重试，只调用一次
     })
 
-    this.defaultModel =
-      this.configService.get<string>('OPENAI_MODEL') || 'gpt-4'
+    this.defaultModel = this.configService.get<string>('OPENAI_MODEL') || 'gpt-4'
   }
 
   async generate(request: AIClientRequest): Promise<AIClientResponse> {
@@ -115,11 +110,7 @@ export class OpenAIClient implements IAIClient {
    *
    * NOTE: 新模型定价会不断更新，如果遇到未知模型会使用默认定价并记录警告
    */
-  private calculateCost(
-    model: string,
-    promptTokens: number,
-    completionTokens: number,
-  ): number {
+  private calculateCost(model: string, promptTokens: number, completionTokens: number): number {
     const pricing: Record<string, { prompt: number; completion: number }> = {
       'gpt-4': { prompt: 0.03 / 1000, completion: 0.06 / 1000 },
       'gpt-4-turbo': { prompt: 0.01 / 1000, completion: 0.03 / 1000 },
@@ -135,17 +126,11 @@ export class OpenAIClient implements IAIClient {
     if (!modelPricing) {
       this.logger.warn(
         `Unknown OpenAI model: ${model}. Using default pricing (GPT-4). ` +
-        `Please update pricing table in openai.client.ts`,
+          `Please update pricing table in openai.client.ts`,
       )
-      return (
-        promptTokens * pricing['gpt-4'].prompt +
-        completionTokens * pricing['gpt-4'].completion
-      )
+      return promptTokens * pricing['gpt-4'].prompt + completionTokens * pricing['gpt-4'].completion
     }
 
-    return (
-      promptTokens * modelPricing.prompt +
-      completionTokens * modelPricing.completion
-    )
+    return promptTokens * modelPricing.prompt + completionTokens * modelPricing.completion
   }
 }

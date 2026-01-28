@@ -9,6 +9,8 @@ import { OrganizationMember } from '../../database/entities/organization-member.
 import { User } from '../../database/entities/user.entity'
 import { Project } from '../../database/entities/project.entity'
 import { WeaknessSnapshot } from '../../database/entities/weakness-snapshot.entity'
+import { WatchedTopic } from '../../database/entities/watched-topic.entity'
+import { WatchedPeer } from '../../database/entities/watched-peer.entity'
 import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
 
 /**
@@ -27,6 +29,8 @@ import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
       User,
       Project,
       WeaknessSnapshot,
+      WatchedTopic,
+      WatchedPeer,
     ]),
   ],
   controllers: [OrganizationsController],
@@ -47,10 +51,6 @@ import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
       }),
     },
   ],
-  exports: [
-    OrganizationsService,
-    OrganizationAutoCreateService,
-    WeaknessSnapshotService,
-  ], // Export for use in other modules
+  exports: [OrganizationsService, OrganizationAutoCreateService, WeaknessSnapshotService], // Export for use in other modules
 })
 export class OrganizationsModule {}

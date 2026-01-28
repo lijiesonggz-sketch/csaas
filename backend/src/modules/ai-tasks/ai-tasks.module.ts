@@ -1,6 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { BullModule } from '@nestjs/bullmq'
+import { EventEmitterModule } from '@nestjs/event-emitter'
 import { AITasksController } from './ai-tasks.controller'
 import { AITasksService } from './ai-tasks.service'
 import { AITaskProcessor } from './processors/ai-task.processor'
@@ -19,6 +20,7 @@ import { ResultAggregationModule } from '../result-aggregation/result-aggregatio
 @Module({
   imports: [
     TypeOrmModule.forFeature([AITask, AIGenerationEvent, AICostTracking, Project]),
+    EventEmitterModule.forRoot(),
     BullModule.registerQueue({
       name: AI_TASK_QUEUE,
       defaultJobOptions: {
@@ -43,12 +45,7 @@ import { ResultAggregationModule } from '../result-aggregation/result-aggregatio
     ResultAggregationModule,
   ],
   controllers: [AITasksController],
-  providers: [
-    AITasksService,
-    AITaskProcessor,
-    TasksGateway,
-    CostMonitoringService,
-  ],
+  providers: [AITasksService, AITaskProcessor, TasksGateway, CostMonitoringService],
   exports: [AITasksService, TasksGateway, CostMonitoringService],
 })
 export class AITasksModule {}

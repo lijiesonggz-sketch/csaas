@@ -76,10 +76,7 @@ export class ProjectMembersService {
     this.logger.log(`Removed member ${userId} from project ${projectId}`)
   }
 
-  async findByProjectAndUser(
-    projectId: string,
-    userId: string,
-  ): Promise<ProjectMember | null> {
+  async findByProjectAndUser(projectId: string, userId: string): Promise<ProjectMember | null> {
     this.logger.log(`🔍 findByProjectAndUser: projectId=${projectId}, userId=${userId}`)
 
     const member = await this.projectMemberRepo.findOne({

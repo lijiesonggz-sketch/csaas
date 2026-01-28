@@ -1,11 +1,34 @@
-import { Controller, Post, Get, Put, Delete, Body, Param, HttpCode, HttpStatus, Query } from '@nestjs/common'
+import {
+  Controller,
+  Post,
+  Get,
+  Put,
+  Delete,
+  Body,
+  Param,
+  HttpCode,
+  HttpStatus,
+  Query,
+  UseGuards,
+} from '@nestjs/common'
 import { SurveyService } from './survey.service'
 import { MaturityAnalysisService } from './maturity-analysis.service'
 import { ActionPlanGenerationService } from './action-plan-generation.service'
 import { BinaryGapAnalyzer, BinaryGapAnalysisInput } from './binary-gap-analyzer.service'
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { CurrentUser } from '../auth/decorators/current-user.decorator'
 import { CreateSurveyDto, SaveDraftDto, SubmitSurveyDto, UploadAndAnalyzeDto } from './dto'
 import { AITaskType, TaskStatus } from '../../database/entities/ai-task.entity'
 
+/**
+ * SurveyController
+ *
+ * Survey management endpoints.
+ * All endpoints require JWT authentication.
+ *
+ * @module backend/src/modules/survey
+ */
+@UseGuards(JwtAuthGuard)
 @Controller('survey')
 export class SurveyController {
   constructor(
@@ -158,10 +181,7 @@ export class SurveyController {
    * GET /survey/:id/action-plan/task/:taskId
    */
   @Get(':id/action-plan/task/:taskId')
-  async getActionPlanTaskStatus(
-    @Param('id') surveyId: string,
-    @Param('taskId') taskId: string,
-  ) {
+  async getActionPlanTaskStatus(@Param('id') surveyId: string, @Param('taskId') taskId: string) {
     try {
       const status = await this.actionPlanGenerationService.getTaskStatus(taskId)
 

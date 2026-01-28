@@ -1,11 +1,17 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq'
-import { Logger } from '@nestjs/common'
+import { Logger, Inject } from '@nestjs/common'
 import { Job } from 'bullmq'
+import { EventEmitter2 } from '@nestjs/event-emitter'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { AI_TASK_QUEUE } from '../constants/queue.constants'
 import { AITaskJobData, AITaskJobResult } from '../interfaces/queue-job.interface'
-import { AITask, TaskStatus, GenerationStage, AITaskType } from '../../../database/entities/ai-task.entity'
+import {
+  AITask,
+  TaskStatus,
+  GenerationStage,
+  AITaskType,
+} from '../../../database/entities/ai-task.entity'
 import { AIGenerationEvent } from '../../../database/entities/ai-generation-event.entity'
 import { AICostTracking } from '../../../database/entities/ai-cost-tracking.entity'
 import { Project } from '../../../database/entities/project.entity'
@@ -65,6 +71,7 @@ export class AITaskProcessor extends WorkerHost {
     private readonly standardInterpretationGenerator: StandardInterpretationGenerator,
     private readonly qualityValidation: QualityValidationService,
     private readonly resultAggregator: ResultAggregatorService,
+    private readonly eventEmitter: EventEmitter2,
   ) {
     super()
   }
@@ -78,14 +85,14 @@ export class AITaskProcessor extends WorkerHost {
 
     // 更新job进度以防止stalled（每30秒至少更新一次）
     const keepAliveInterval = setInterval(() => {
-      job.updateProgress(Math.random()).catch(err => {
+      job.updateProgress(Math.random()).catch((err) => {
         this.logger.warn(`Failed to update job progress: ${err.message}`)
       })
     }, 25000) // 25秒更新一次，小于默认的30秒stalledInterval
 
     try {
       // 处理 documentIds - 从项目 metadata 加载完整文档
-      let processedInput = { ...input }
+      const processedInput = { ...input }
       if (input.documentIds && projectId) {
         this.logger.log(`Loading ${input.documentIds.length} documents from project ${projectId}`)
         const project = await this.projectRepo.findOne({
@@ -104,7 +111,9 @@ export class AITaskProcessor extends WorkerHost {
             delete processedInput.documentIds
             this.logger.log(`Successfully loaded ${documents.length} documents`)
           } else {
-            throw new Error(`Failed to load all documents: found ${documents.length} of ${input.documentIds.length}`)
+            throw new Error(
+              `Failed to load all documents: found ${documents.length} of ${input.documentIds.length}`,
+            )
           }
         } else {
           throw new Error('Project has no uploadedDocuments in metadata')
@@ -313,7 +322,9 @@ export class AITaskProcessor extends WorkerHost {
         })
 
         if (!clusteringTask || !clusteringTask.result) {
-          throw new Error(`Clustering task ${processedInput.clusteringTaskId} not found or has no result`)
+          throw new Error(
+            `Clustering task ${processedInput.clusteringTaskId} not found or has no result`,
+          )
         }
 
         // 解析聚类结果
@@ -342,7 +353,9 @@ export class AITaskProcessor extends WorkerHost {
             clusteringResult = resultObj
           }
         }
-        this.logger.log(`Loaded clustering result with ${clusteringResult.categories?.length || 0} categories`)
+        this.logger.log(
+          `Loaded clustering result with ${clusteringResult.categories?.length || 0} categories`,
+        )
 
         // 准备输入
         const matrixInput = {
@@ -688,9 +701,15 @@ export class AITaskProcessor extends WorkerHost {
         this.logger.log(
           `Questionnaire workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${aggregationOutput.selectedModel}`,
         )
-      } else if (type === 'standard_interpretation' || type === 'standard_related_search' || type === 'standard_version_compare') {
+      } else if (
+        type === 'standard_interpretation' ||
+        type === 'standard_related_search' ||
+        type === 'standard_version_compare'
+      ) {
         // 标准解读相关任务：使用三模型并行处理
-        this.logger.log(`Using StandardInterpretationGenerator for three-model parallel processing: ${type}`)
+        this.logger.log(
+          `Using StandardInterpretationGenerator for three-model parallel processing: ${type}`,
+        )
 
         let generatorResults
         if (type === 'standard_interpretation') {
@@ -706,18 +725,19 @@ export class AITaskProcessor extends WorkerHost {
             // 两阶段模式：先提取条款清单，再批量解读（确保100%条款覆盖）
             this.logger.log(`[Phase 1/2] Starting clause extraction and batch interpretation...`)
 
-            generatorResults = await this.standardInterpretationGenerator.generateBatchInterpretation({
-              standardDocument: processedInput.standardDocument,
-              interpretationMode: processedInput.interpretationMode || 'enterprise',
-              batchSize: batchSize,
-              temperature: 0.7,
-              maxTokens: 30000,
-              onProgress: (progress) => {
-                this.logger.log(
-                  `[Batch ${progress.batch || 0}/${progress.totalBatches || '?'}] ${progress.message || 'Processing...'}`,
-                )
-              },
-            })
+            generatorResults =
+              await this.standardInterpretationGenerator.generateBatchInterpretation({
+                standardDocument: processedInput.standardDocument,
+                interpretationMode: processedInput.interpretationMode || 'enterprise',
+                batchSize: batchSize,
+                temperature: 0.7,
+                maxTokens: 30000,
+                onProgress: (progress) => {
+                  this.logger.log(
+                    `[Batch ${progress.batch || 0}/${progress.totalBatches || '?'}] ${progress.message || 'Processing...'}`,
+                  )
+                },
+              })
 
             this.logger.log(`[Phase 2/2] Batch interpretation completed`)
           } else {
@@ -734,7 +754,9 @@ export class AITaskProcessor extends WorkerHost {
           // 搜索关联标准 - 加载解读结果
           let interpretationResult = null
           if (processedInput.interpretationTaskId) {
-            this.logger.log(`Loading interpretation result from task: ${processedInput.interpretationTaskId}`)
+            this.logger.log(
+              `Loading interpretation result from task: ${processedInput.interpretationTaskId}`,
+            )
             const interpretationTask = await this.aiTaskRepo.findOne({
               where: { id: processedInput.interpretationTaskId },
             })
@@ -747,9 +769,13 @@ export class AITaskProcessor extends WorkerHost {
                 overview: resultData.overview || {},
                 key_terms: resultData.key_terms || [],
               }
-              this.logger.log(`Loaded interpretation result with ${interpretationResult.key_requirements.length} requirements`)
+              this.logger.log(
+                `Loaded interpretation result with ${interpretationResult.key_requirements.length} requirements`,
+              )
             } else {
-              this.logger.warn(`Interpretation task ${processedInput.interpretationTaskId} has no result, will use standard content only`)
+              this.logger.warn(
+                `Interpretation task ${processedInput.interpretationTaskId} has no result, will use standard content only`,
+              )
             }
           }
 
@@ -885,7 +911,14 @@ export class AITaskProcessor extends WorkerHost {
       })
 
       // ✅ clustering/matrix/questionnaire/standard_*类型已经在前面记录了三个模型的事件，这里跳过
-      const isMultiModelTask = ['clustering', 'matrix', 'questionnaire', 'standard_interpretation', 'standard_related_search', 'standard_version_compare'].includes(type)
+      const isMultiModelTask = [
+        'clustering',
+        'matrix',
+        'questionnaire',
+        'standard_interpretation',
+        'standard_related_search',
+        'standard_version_compare',
+      ].includes(type)
       if (!isMultiModelTask && event) {
         // 更新生成事件 - 完成
         await this.eventRepo.update(event.id, {
@@ -974,24 +1007,32 @@ export class AITaskProcessor extends WorkerHost {
 
         // 检查项目总成本是否超过阈值
         if (job.data.projectId) {
-          const projectAlert =
-            await this.costMonitoring.checkProjectCostAlert(job.data.projectId)
+          const projectAlert = await this.costMonitoring.checkProjectCostAlert(job.data.projectId)
           if (projectAlert) {
             await this.costMonitoring.sendCostAlert(projectAlert)
           }
         }
       } catch (alertError) {
         // 告警失败不应该影响任务完成
-        this.logger.error(
-          `Cost alert check failed for task ${taskId}: ${alertError.message}`,
-        )
+        this.logger.error(`Cost alert check failed for task ${taskId}: ${alertError.message}`)
       }
 
       // 发送完成事件：100%
       this.tasksGateway.emitTaskCompleted({
         taskId,
+        type,
         status: 'completed',
         message: 'AI任务处理完成',
+        result: { content: aiResponse.content },
+        executionTimeMs,
+        cost: aiResponse.cost,
+      })
+
+      // 发送内部事件供AssessmentEventListener监听
+      this.eventEmitter.emit('task:completed', {
+        taskId,
+        type,
+        status: 'completed',
         result: { content: aiResponse.content },
         executionTimeMs,
         cost: aiResponse.cost,
@@ -1064,7 +1105,8 @@ export class AITaskProcessor extends WorkerHost {
       case 'summary':
         // 综述生成 - 使用详细的 prompt 模板
         return {
-          systemPrompt: '你是一名资深IT咨询师，专注于IT标准的成熟度评估。请对以下IT标准文档进行综述，并重点分析多个文档之间的关系、冲突和差异。',
+          systemPrompt:
+            '你是一名资深IT咨询师，专注于IT标准的成熟度评估。请对以下IT标准文档进行综述，并重点分析多个文档之间的关系、冲突和差异。',
           prompt: `**输入标准文档**：
 ${input.standardDocument || input.text || ''}
 
@@ -1147,18 +1189,20 @@ ${input.standardDocument || input.text || ''}
         // 聚类生成 - 使用详细的 prompt 模板
         const documents = input.documents || []
         const documentsText = documents
-          .map((doc: any, index: number) =>
-            `**文档${index + 1} - ID: ${doc.id}**
+          .map(
+            (doc: any, index: number) =>
+              `**文档${index + 1} - ID: ${doc.id}**
 **文档名称**: ${doc.name}
 **文档内容**:
 ${doc.content}
 
----`
+---`,
           )
           .join('\n\n')
 
         return {
-          systemPrompt: '你是一名资深IT咨询师，专注于跨标准的条款聚类分析。请对以下多个标准文档进行三层结构的智能聚类分析，将相似的要求合并到同一类别中。',
+          systemPrompt:
+            '你是一名资深IT咨询师，专注于跨标准的条款聚类分析。请对以下多个标准文档进行三层结构的智能聚类分析，将相似的要求合并到同一类别中。',
           prompt: `**输入多个标准文档**：
 ${documentsText}
 
@@ -1215,7 +1259,8 @@ ${documentsText}
       case 'standard_interpretation':
         // 标准解读生成
         return {
-          systemPrompt: '你是一名IT标准解读专家。请对以下标准进行深度解读，帮助用户全面理解标准的要求和实施方法。',
+          systemPrompt:
+            '你是一名IT标准解读专家。请对以下标准进行深度解读，帮助用户全面理解标准的要求和实施方法。',
           prompt: `**标准文档**：
 ${input.standardDocument.name}
 
@@ -1284,7 +1329,7 @@ ${input.standardDocument.content.substring(0, 15000)}
             currentLevel: 2.0,
             targetLevel: targetMaturity,
             gap: targetMaturity - 2.0,
-            priority: targetMaturity > 3.5 ? 'high' : 'medium' as 'high' | 'medium' | 'low',
+            priority: targetMaturity > 3.5 ? 'high' : ('medium' as 'high' | 'medium' | 'low'),
           },
           {
             clusterName: '数据保护',
@@ -1292,7 +1337,7 @@ ${input.standardDocument.content.substring(0, 15000)}
             currentLevel: 2.3,
             targetLevel: targetMaturity,
             gap: targetMaturity - 2.3,
-            priority: targetMaturity > 4.0 ? 'high' : 'medium' as 'high' | 'medium' | 'low',
+            priority: targetMaturity > 4.0 ? 'high' : ('medium' as 'high' | 'medium' | 'low'),
           },
           {
             clusterName: '安全监控',
@@ -1329,10 +1374,11 @@ ${input.standardDocument.content.substring(0, 15000)}
         ]
 
         // 生成每个聚类的改进措施 prompt
-        const prompts = clusters.map(cluster => generateActionPlanPrompt(cluster))
+        const prompts = clusters.map((cluster) => generateActionPlanPrompt(cluster))
 
         return {
-          systemPrompt: '你是一位资深的数据安全咨询专家，擅长基于CMMI成熟度模型为企业制定数据安全改进路线图。',
+          systemPrompt:
+            '你是一位资深的数据安全咨询专家，擅长基于CMMI成熟度模型为企业制定数据安全改进路线图。',
           prompt: `请基于以下目标成熟度为数据安全项目生成详细的改进措施。
 
 **项目目标**:
@@ -1341,7 +1387,7 @@ ${input.standardDocument.content.substring(0, 15000)}
 - 差距: ${(targetMaturity - currentMaturity).toFixed(2)} 级
 
 **需要改进的聚类领域**:
-${clusters.map(c => `- ${c.clusterName} (当前: ${c.currentLevel}, 目标: ${c.targetLevel}, 差距: ${c.gap.toFixed(2)}, 优先级: ${c.priority})`).join('\n')}
+${clusters.map((c) => `- ${c.clusterName} (当前: ${c.currentLevel}, 目标: ${c.targetLevel}, 差距: ${c.gap.toFixed(2)}, 优先级: ${c.priority})`).join('\n')}
 
 ${prompts[0]}
 
@@ -1371,8 +1417,7 @@ ${prompts[0]}
 
       case 'analysis':
         return {
-          systemPrompt:
-            'You are a data analyst. Provide insightful analysis with clear reasoning.',
+          systemPrompt: 'You are a data analyst. Provide insightful analysis with clear reasoning.',
           prompt: `Analyze the following data:\n\n${JSON.stringify(input.data, null, 2)}`,
         }
 

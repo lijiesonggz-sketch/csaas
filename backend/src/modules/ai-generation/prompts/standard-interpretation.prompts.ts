@@ -25,7 +25,8 @@ export function fillStandardInterpretationPrompt(
   interpretationMode: 'basic' | 'detailed' | 'enterprise' = 'enterprise',
 ): string {
   // 所有模式都使用完整文档，让AI根据模式决定输出详细程度
-  let prompt = '你是一名资深IT标准咨询专家，拥有20年企业合规咨询经验。请为以下标准提供全面、深入、可操作的解读，目标用户是企业合规负责人和咨询师。\n\n'
+  let prompt =
+    '你是一名资深IT标准咨询专家，拥有20年企业合规咨询经验。请为以下标准提供全面、深入、可操作的解读，目标用户是企业合规负责人和咨询师。\n\n'
 
   prompt += '**标准文档**：\n'
   prompt += `**标准名称**：${standardDocument.name}\n\n`
@@ -88,7 +89,8 @@ export function fillStandardInterpretationPrompt(
     prompt += '- 【核心要求】必须完整解读标准中的**所有主要条款**，不要遗漏任何条款\n'
     prompt += '- 按章节顺序组织（第4章、第5章、第6章、第7章等），涵盖所有章节\n'
     prompt += '- 每个条款必须包含**完整的条款原文**，不能只是总结或概括\n'
-    prompt += '- 如果标准有30个条款，就解读30个；如果有50个条款，就解读50个；如果有60个，就解读60个\n'
+    prompt +=
+      '- 如果标准有30个条款，就解读30个；如果有50个条款，就解读50个；如果有60个，就解读60个\n'
     prompt += '- **宁可覆盖全面，不可遗漏**！宁多勿少！\n'
   }
   prompt += '- key_requirements数组必须包含根据模式指定的所有要求项\n\n'
@@ -131,7 +133,9 @@ export function fillStandardInterpretationPrompt(
   }
 
   if (interpretationMode === 'enterprise') {
-    reqFields.push('\n      "clause_full_text": "【重要】条款的完整原文，必须逐字逐句包含标准中的所有内容"')
+    reqFields.push(
+      '\n      "clause_full_text": "【重要】条款的完整原文，必须逐字逐句包含标准中的所有内容"',
+    )
   }
 
   if (interpretationMode !== 'basic') {
@@ -158,7 +162,9 @@ export function fillStandardInterpretationPrompt(
   const objFields = []
 
   if (interpretationMode !== 'basic') {
-    objFields.push('\n      "compliance_criteria": {\n        "must_have": ["必须有的文档/系统/流程"]')
+    objFields.push(
+      '\n      "compliance_criteria": {\n        "must_have": ["必须有的文档/系统/流程"]',
+    )
     if (interpretationMode === 'enterprise') {
       objFields.push(',\n        "should_have": ["建议有的内容"]')
     }
@@ -169,10 +175,14 @@ export function fillStandardInterpretationPrompt(
   if (config.riskDetail || interpretationMode === 'enterprise') {
     objFields.push('\n      "risk_assessment": {')
     if (interpretationMode === 'enterprise') {
-      objFields.push('\n        "non_compliance_risks": [{\n          "risk": "风险描述",\n          "consequence": "不合规的后果",\n          "probability": "高/中/低",\n          "mitigation": "缓解措施"\n        }]')
+      objFields.push(
+        '\n        "non_compliance_risks": [{\n          "risk": "风险描述",\n          "consequence": "不合规的后果",\n          "probability": "高/中/低",\n          "mitigation": "缓解措施"\n        }]',
+      )
     }
     if (interpretationMode === 'enterprise') {
-      objFields.push(',\n        "implementation_risks": [{\n          "risk": "实施风险",\n          "consequence": "可能的问题",\n          "prevention": "预防措施"\n        }]')
+      objFields.push(
+        ',\n        "implementation_risks": [{\n          "risk": "实施风险",\n          "consequence": "可能的问题",\n          "prevention": "预防措施"\n        }]',
+      )
     }
     objFields.push('\n      }')
   }
@@ -303,8 +313,10 @@ export function fillStandardInterpretationPrompt(
   prompt += '1. 【必须】严格遵循JSON格式，不要在JSON之外添加任何其他文本\n'
 
   if (interpretationMode === 'enterprise') {
-    prompt += '2. 【必须】key_requirements必须包含标准中的**所有主要条款**（30-60个），不要遗漏任何条款\n'
-    prompt += '3. 【必须】每个条款的clause_full_text必须包含**完整的条款原文**，逐字逐句，不能省略或简化\n'
+    prompt +=
+      '2. 【必须】key_requirements必须包含标准中的**所有主要条款**（30-60个），不要遗漏任何条款\n'
+    prompt +=
+      '3. 【必须】每个条款的clause_full_text必须包含**完整的条款原文**，逐字逐句，不能省略或简化\n'
   } else if (interpretationMode === 'detailed') {
     prompt += '2. 【必须】key_requirements必须包含**20-30个主要条款**，覆盖所有重要内容\n'
   } else {
@@ -341,7 +353,8 @@ export function fillRelatedStandardSearchPrompt(
   standardDocument: { id: string; name: string; content: string },
   interpretationResult?: any,
 ): string {
-  let prompt = '你是一名IT标准关联专家。请为以下标准的每个主要条款搜索关联的国家标准（GB）和行业标准。\n\n'
+  let prompt =
+    '你是一名IT标准关联专家。请为以下标准的每个主要条款搜索关联的国家标准（GB）和行业标准。\n\n'
 
   prompt += '**目标标准**：\n'
   prompt += standardDocument.name + '\n\n'
@@ -504,9 +517,10 @@ export interface BatchInterpretationInput {
  */
 export function fillBatchInterpretationPrompt(
   input: BatchInterpretationInput,
-  interpretationMode: 'basic' | 'detailed' | 'enterprise' = 'enterprise'
+  interpretationMode: 'basic' | 'detailed' | 'enterprise' = 'enterprise',
 ): string {
-  let prompt = '你是一名资深IT标准咨询专家，拥有20年企业合规咨询经验。请对以下条款清单进行**逐条完整解读**。\n\n'
+  let prompt =
+    '你是一名资深IT标准咨询专家，拥有20年企业合规咨询经验。请对以下条款清单进行**逐条完整解读**。\n\n'
 
   prompt += `**标准名称**：${input.standardDocument.name}\n\n`
 

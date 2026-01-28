@@ -44,10 +44,7 @@ export const loggerConfig = () => {
       // 所有日志文件
       new winston.transports.File({
         filename: 'logs/combined.log',
-        format: winston.format.combine(
-          winston.format.timestamp(),
-          winston.format.json(),
-        ),
+        format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
         maxsize: 10 * 1024 * 1024, // 10MB
         maxFiles: 10,
       }),

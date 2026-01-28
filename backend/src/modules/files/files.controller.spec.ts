@@ -32,9 +32,11 @@ describe('FilesController (e2e)', () => {
     })
       .overrideProvider(FilesService)
       .useValue({
-        parsePdf: jest.fn().mockResolvedValue(
-          'Sample PDF content for testing\nThis is extracted text from the PDF file.'
-        ),
+        parsePdf: jest
+          .fn()
+          .mockResolvedValue(
+            'Sample PDF content for testing\nThis is extracted text from the PDF file.',
+          ),
       })
       .compile()
 
@@ -103,9 +105,7 @@ describe('FilesController (e2e)', () => {
 
     it('应该拒绝没有上传文件的请求', async () => {
       // Act
-      const response = await request(app.getHttpServer())
-        .post('/files/parse-pdf')
-        .expect(400)
+      const response = await request(app.getHttpServer()).post('/files/parse-pdf').expect(400)
 
       // Assert
       expect(response.body).toMatchObject({

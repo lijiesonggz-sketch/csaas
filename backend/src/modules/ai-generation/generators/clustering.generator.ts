@@ -106,8 +106,7 @@ export class ClusteringGenerator {
     private readonly eventRepo: Repository<AIGenerationEvent>,
   ) {
     // 获取超时配置（默认15分钟）
-    this.generationTimeout =
-      this.configService.get<number>('MODEL_GENERATION_TIMEOUT') || 900000
+    this.generationTimeout = this.configService.get<number>('MODEL_GENERATION_TIMEOUT') || 900000
 
     this.logger.log(
       `ClusteringGenerator initialized with timeout: ${this.generationTimeout}ms (${(this.generationTimeout / 60000).toFixed(1)} minutes)`,
@@ -135,9 +134,7 @@ export class ClusteringGenerator {
     claude: ClusteringGenerationOutput
     domestic: ClusteringGenerationOutput
   }> {
-    this.logger.log(
-      `Starting clustering generation for ${input.documents.length} documents...`,
-    )
+    this.logger.log(`Starting clustering generation for ${input.documents.length} documents...`)
 
     // 通知开始模型生成
     if (onProgress) {
@@ -167,9 +164,7 @@ export class ClusteringGenerator {
     }
 
     // ⭐ 方案3：混合策略 - Promise.allSettled + 超时 + 动态质量验证
-    this.logger.log(
-      `Starting parallel generation with ${this.generationTimeout}ms timeout...`,
-    )
+    this.logger.log(`Starting parallel generation with ${this.generationTimeout}ms timeout...`)
 
     const generationStartTime = Date.now()
     const modelProgress = {
@@ -206,9 +201,7 @@ export class ClusteringGenerator {
     const domesticResponse = results[1].status === 'fulfilled' ? results[1].value : null // 注意索引变化
 
     // 统计成功数量
-    const successfulCount = [gpt4Response, domesticResponse].filter(
-      (r) => r !== null,
-    ).length
+    const successfulCount = [gpt4Response, domesticResponse].filter((r) => r !== null).length
 
     this.logger.log(
       `Generation completed in ${(generationElapsed / 1000).toFixed(1)}s. Successful models: ${successfulCount}/2 (Claude disabled)`,
@@ -234,7 +227,7 @@ export class ClusteringGenerator {
 
     // 解析JSON结果 - 使用容错机制
     let gpt4Result: ClusteringGenerationOutput | null = null
-    let claudeResult: ClusteringGenerationOutput | null = null // ⚠️ 临时禁用
+    const claudeResult: ClusteringGenerationOutput | null = null // ⚠️ 临时禁用
     let domesticResult: ClusteringGenerationOutput | null = null
 
     try {
@@ -264,7 +257,9 @@ export class ClusteringGenerator {
     // 使用成功的结果填充失败的模型（优先使用GPT-4，然后Qwen）
     const fallbackResult = gpt4Result || domesticResult
 
-    this.logger.log('Clustering generation completed for available models (GPT-4 + Qwen, Claude disabled)')
+    this.logger.log(
+      'Clustering generation completed for available models (GPT-4 + Qwen, Claude disabled)',
+    )
 
     return {
       gpt4: gpt4Result || fallbackResult,
@@ -321,7 +316,9 @@ export class ClusteringGenerator {
       const response = await this.aiOrchestrator.generate(request, model)
       const elapsed = Date.now() - startTime
 
-      this.logger.log(`✅ [ClusteringGenerator] 模型 ${model} 生成成功 - 耗时: ${elapsed}ms, Tokens: ${response.tokens?.total || 0}, Cost: ¥${response.cost?.toFixed(4) || 0}`)
+      this.logger.log(
+        `✅ [ClusteringGenerator] 模型 ${model} 生成成功 - 耗时: ${elapsed}ms, Tokens: ${response.tokens?.total || 0}, Cost: ¥${response.cost?.toFixed(4) || 0}`,
+      )
 
       // 更新AI生成事件
       if (event) {
@@ -357,7 +354,9 @@ export class ClusteringGenerator {
         await this.eventRepo.update(event.id, {
           errorMessage: error.message,
         })
-        this.logger.log(`📝 [ClusteringGenerator] 更新AI生成事件错误: ${event.id} - ${error.message}`)
+        this.logger.log(
+          `📝 [ClusteringGenerator] 更新AI生成事件错误: ${event.id} - ${error.message}`,
+        )
       }
 
       // 更新模型状态为failed
@@ -397,11 +396,7 @@ export class ClusteringGenerator {
   ): Promise<T> {
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => {
-        reject(
-          new Error(
-            `${modelName} generation timeout after ${(timeoutMs / 1000).toFixed(1)}s`,
-          ),
-        )
+        reject(new Error(`${modelName} generation timeout after ${(timeoutMs / 1000).toFixed(1)}s`))
       }, timeoutMs)
     })
 
@@ -421,9 +416,7 @@ export class ClusteringGenerator {
 
       // 移除 ```json 和 ``` 标记
       if (cleanedContent.startsWith('```')) {
-        cleanedContent = cleanedContent
-          .replace(/^```(?:json)?\s*\n?/, '')
-          .replace(/\n?```\s*$/, '')
+        cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
       }
 
       // 1.5. 修复常见的JSON格式问题
@@ -445,7 +438,9 @@ export class ClusteringGenerator {
       // 记录更多调试信息
       this.logger.debug(`Content length: ${content.length} characters`)
       this.logger.debug(`Content preview (first 500 chars): ${content.substring(0, 500)}`)
-      this.logger.debug(`Content preview (last 500 chars): ${content.substring(Math.max(0, content.length - 500))}`)
+      this.logger.debug(
+        `Content preview (last 500 chars): ${content.substring(Math.max(0, content.length - 500))}`,
+      )
 
       // 5. 最后尝试：提取大括号之间的内容并修复
       const jsonMatch = content.match(/\{[\s\S]*\}/)
@@ -554,7 +549,7 @@ export class ClusteringGenerator {
     if (inString && stringStartPos !== -1) {
       this.logger.warn(
         `Detected unterminated string starting at position ${stringStartPos}. ` +
-        `Adding closing quote. Context: ...${input.substring(Math.max(0, stringStartPos - 50), Math.min(input.length, stringStartPos + 100))}...`
+          `Adding closing quote. Context: ...${input.substring(Math.max(0, stringStartPos - 50), Math.min(input.length, stringStartPos + 100))}...`,
       )
       // 添加缺失的结束引号
       output.push('"')
@@ -624,7 +619,8 @@ export class ClusteringGenerator {
     // 如果缺少clustering_logic，使用默认值
     if (!output.clustering_logic) {
       this.logger.warn('Missing clustering_logic, using default value')
-      output.clustering_logic = 'AI模型基于语义相似度和控制目标对条款进行三层智能分类和合并：第一层按安全领域划分大类，第二层在每个大类中合并相似要求，第三层保留原始条款溯源'
+      output.clustering_logic =
+        'AI模型基于语义相似度和控制目标对条款进行三层智能分类和合并：第一层按安全领域划分大类，第二层在每个大类中合并相似要求，第三层保留原始条款溯源'
     }
 
     // 验证categories数组
@@ -639,13 +635,17 @@ export class ClusteringGenerator {
     for (const category of output.categories) {
       // 检查必需字段
       if (!category.id || !category.name || !category.description) {
-        this.logger.warn(`Skipping category with missing basic fields: ${JSON.stringify(category).substring(0, 100)}`)
+        this.logger.warn(
+          `Skipping category with missing basic fields: ${JSON.stringify(category).substring(0, 100)}`,
+        )
         continue
       }
 
       // 检查clusters字段
       if (!Array.isArray(category.clusters)) {
-        this.logger.warn(`Category ${category.id} has invalid clusters field, initializing as empty array`)
+        this.logger.warn(
+          `Category ${category.id} has invalid clusters field, initializing as empty array`,
+        )
         category.clusters = []
       }
 
@@ -661,7 +661,9 @@ export class ClusteringGenerator {
 
         // 检查clauses字段
         if (!Array.isArray(cluster.clauses)) {
-          this.logger.warn(`Cluster ${cluster.id} has invalid clauses field, initializing as empty array`)
+          this.logger.warn(
+            `Cluster ${cluster.id} has invalid clauses field, initializing as empty array`,
+          )
           cluster.clauses = []
         }
 
@@ -724,9 +726,10 @@ export class ClusteringGenerator {
     for (const doc of documents) {
       const docCoverage = output.coverage_summary.by_document[doc.id]
       if (docCoverage) {
-        const rate = docCoverage.total_clauses > 0
-          ? docCoverage.clustered_clauses / docCoverage.total_clauses
-          : 0
+        const rate =
+          docCoverage.total_clauses > 0
+            ? docCoverage.clustered_clauses / docCoverage.total_clauses
+            : 0
         if (rate < 0.95) {
           const missing = docCoverage.missing_clause_ids?.slice(0, 5).join(', ') || ''
           coverageIssues.push(
@@ -778,7 +781,7 @@ export class ClusteringGenerator {
       const uniqueClusteredCount = uniqueClauseIds.size
 
       // ✅ 找出缺失的clause_id
-      const missingClauseIds = allClauseIds.filter(id => !uniqueClauseIds.has(id))
+      const missingClauseIds = allClauseIds.filter((id) => !uniqueClauseIds.has(id))
 
       byDocument[doc.id] = {
         total_clauses: actualClauseCount, // ✅ 修复：文档实际唯一条款数（去重）
@@ -791,14 +794,13 @@ export class ClusteringGenerator {
 
       // ⚠️ 如果覆盖率过低，记录警告
       const coverageRate = actualClauseCount > 0 ? uniqueClusteredCount / actualClauseCount : 0
-      if (coverageRate < 0.95) { // ✅ 阈值提高到95%
+      if (coverageRate < 0.95) {
+        // ✅ 阈值提高到95%
         this.logger.warn(
           `⚠️ 文档 "${doc.name}" 覆盖率不足: ${(coverageRate * 100).toFixed(1)}% (${uniqueClusteredCount}/${actualClauseCount} 条款被提取)`,
         )
         if (missingClauseIds.length > 0 && missingClauseIds.length <= 10) {
-          this.logger.warn(
-            `   缺失条款: ${missingClauseIds.join(', ')}`,
-          )
+          this.logger.warn(`   缺失条款: ${missingClauseIds.join(', ')}`)
         }
       }
     }

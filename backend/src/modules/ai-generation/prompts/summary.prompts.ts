@@ -70,8 +70,7 @@ export const SUMMARY_FEW_SHOT_EXAMPLES = [
     input: 'ISO 27001标准文档摘录...',
     output: {
       title: 'ISO/IEC 27001:2013 信息安全管理体系要求',
-      overview:
-        'ISO 27001是国际标准化组织（ISO）发布的信息安全管理体系（ISMS）标准...',
+      overview: 'ISO 27001是国际标准化组织（ISO）发布的信息安全管理体系（ISMS）标准...',
       key_areas: [
         {
           name: '信息安全策略',
@@ -80,10 +79,7 @@ export const SUMMARY_FEW_SHOT_EXAMPLES = [
         },
       ],
       scope: '适用于所有类型和规模的组织',
-      key_requirements: [
-        '建立和维护信息安全管理体系',
-        '识别和评估信息安全风险',
-      ],
+      key_requirements: ['建立和维护信息安全管理体系', '识别和评估信息安全风险'],
       compliance_level: '强制性（ISO认证要求）',
     },
   },

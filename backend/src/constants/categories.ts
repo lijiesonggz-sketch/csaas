@@ -78,14 +78,14 @@ export const WEAKNESS_CATEGORY_DISPLAY: Record<WeaknessCategory, string> = {
  * Useful for mapping user-friendly category names back to enum values.
  */
 export const DISPLAY_NAME_TO_CATEGORY: Record<string, WeaknessCategory> = {
-  '数据安全': WeaknessCategory.DATA_SECURITY,
-  '网络安全': WeaknessCategory.NETWORK_SECURITY,
-  '云原生': WeaknessCategory.CLOUD_NATIVE,
-  'AI应用': WeaknessCategory.AI_APPLICATION,
-  '移动金融安全': WeaknessCategory.MOBILE_FINANCIAL,
-  'DevOps': WeaknessCategory.DEVOPS,
-  '成本优化': WeaknessCategory.COST_OPTIMIZATION,
-  '合规管理': WeaknessCategory.COMPLIANCE,
+  数据安全: WeaknessCategory.DATA_SECURITY,
+  网络安全: WeaknessCategory.NETWORK_SECURITY,
+  云原生: WeaknessCategory.CLOUD_NATIVE,
+  AI应用: WeaknessCategory.AI_APPLICATION,
+  移动金融安全: WeaknessCategory.MOBILE_FINANCIAL,
+  DevOps: WeaknessCategory.DEVOPS,
+  成本优化: WeaknessCategory.COST_OPTIMIZATION,
+  合规管理: WeaknessCategory.COMPLIANCE,
 }
 
 /**
@@ -109,14 +109,12 @@ export const WEAKNESS_CATEGORY_DESCRIPTIONS: Record<WeaknessCategory, string> = 
   [WeaknessCategory.MOBILE_FINANCIAL]:
     '移动银行应用安全、移动支付安全、APP加固、移动设备管理等移动金融安全',
 
-  [WeaknessCategory.DEVOPS]:
-    '持续集成/部署（CI/CD）、自动化测试、基础设施即代码、DevOps文化和流程',
+  [WeaknessCategory.DEVOPS]: '持续集成/部署（CI/CD）、自动化测试、基础设施即代码、DevOps文化和流程',
 
   [WeaknessCategory.COST_OPTIMIZATION]:
     '云资源成本优化、资源利用率提升、 FinOps、成本监控和优化策略',
 
-  [WeaknessCategory.COMPLIANCE]:
-    '监管合规、风险评估、合规检查、监管报告等合规管理和风险控制',
+  [WeaknessCategory.COMPLIANCE]: '监管合规、风险评估、合规检查、监管报告等合规管理和风险控制',
 }
 
 /**

@@ -108,9 +108,7 @@ export class ActionPlanService {
     allClusters: any[],
   ): { priority: MeasurePriority; urgency: 'critical' | 'high' | 'medium' | 'low' } {
     // 计算当前成熟度在所有聚类中的排名（百分位）
-    const sortedLevels = allClusters
-      .map((c) => c.maturityLevel)
-      .sort((a, b) => a - b)
+    const sortedLevels = allClusters.map((c) => c.maturityLevel).sort((a, b) => a - b)
     const rank = sortedLevels.indexOf(currentLevel)
     const percentile = rank / sortedLevels.length
 
@@ -147,7 +145,7 @@ export class ActionPlanService {
    */
   private calculateMeasureCount(gap: number, currentLevel: number): number {
     // 基础规则：每0.5分差距生成2-3条措施（提高颗粒度）
-    let baseCount = Math.ceil(gap / 0.5 * 2)
+    let baseCount = Math.ceil((gap / 0.5) * 2)
 
     // 调整因子：基础薄弱的领域需要更多措施
     if (currentLevel < 1.5) {

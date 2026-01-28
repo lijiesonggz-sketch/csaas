@@ -8,14 +8,7 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common'
-import {
-  IsString,
-  IsNumber,
-  IsOptional,
-  MinLength,
-  IsArray,
-  ValidateNested,
-} from 'class-validator'
+import { IsString, IsNumber, IsOptional, MinLength, IsArray, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
@@ -385,7 +378,9 @@ export class AIGenerationController {
 
       // ✅ 如果在 ai_generation_results 表中找不到，尝试从 ai_tasks 表读取（兼容旧任务）
       if (!result) {
-        console.log(`Result not found in ai_generation_results for task ${taskId}, trying ai_tasks table...`)
+        console.log(
+          `Result not found in ai_generation_results for task ${taskId}, trying ai_tasks table...`,
+        )
 
         // 从 ai_tasks 表读取
         const task = await this.aiTaskRepository.findOne({
@@ -682,7 +677,9 @@ export class AIGenerationController {
    * - 阶段2：批量解读条款（默认10条/批，实时进度反馈）
    */
   @Post('standard-interpretation/two-phase')
-  async generateStandardInterpretationTwoPhase(@Body() dto: GenerateStandardInterpretationTwoPhaseDto) {
+  async generateStandardInterpretationTwoPhase(
+    @Body() dto: GenerateStandardInterpretationTwoPhaseDto,
+  ) {
     try {
       const result = await this.aiGenerationService.generateContent({
         taskId: dto.taskId,

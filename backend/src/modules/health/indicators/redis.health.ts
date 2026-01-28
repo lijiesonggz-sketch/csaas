@@ -1,9 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import {
-  HealthIndicator,
-  HealthIndicatorResult,
-  HealthCheckError,
-} from '@nestjs/terminus'
+import { HealthIndicator, HealthIndicatorResult, HealthCheckError } from '@nestjs/terminus'
 import { InjectQueue } from '@nestjs/bullmq'
 import { Queue } from 'bullmq'
 import { AI_TASK_QUEUE } from '../../ai-tasks/constants/queue.constants'

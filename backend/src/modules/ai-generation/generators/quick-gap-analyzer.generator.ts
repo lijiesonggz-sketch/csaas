@@ -67,9 +67,7 @@ export class QuickGapAnalyzer {
    * @param input 输入参数
    * @returns 差距分析和改进措施
    */
-  async analyze(
-    input: QuickGapAnalysisInput,
-  ): Promise<{
+  async analyze(input: QuickGapAnalysisInput): Promise<{
     gpt4: QuickGapAnalysisOutput
     claude: QuickGapAnalysisOutput
     domestic: QuickGapAnalysisOutput
@@ -143,7 +141,8 @@ export class QuickGapAnalyzer {
     currentStateDescription: string,
     standardDocument: { id: string; name: string; content: string },
   ): string {
-    let prompt = '你是一名IT标准落地专家。请基于用户现状描述和标准要求，快速分析差距并生成改进措施。\n\n'
+    let prompt =
+      '你是一名IT标准落地专家。请基于用户现状描述和标准要求，快速分析差距并生成改进措施。\n\n'
 
     prompt += '**用户现状描述**：\n'
     prompt += currentStateDescription + '\n\n'
@@ -210,7 +209,8 @@ export class QuickGapAnalyzer {
   private parseResponse(responseText: string): QuickGapAnalysisOutput {
     try {
       // 提取JSON部分
-      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || responseText.match(/\{[\s\S]*\}/)
+      const jsonMatch =
+        responseText.match(/```json\s*([\s\S]*?)\s*```/) || responseText.match(/\{[\s\S]*\}/)
 
       if (!jsonMatch) {
         throw new Error('No JSON found in response')

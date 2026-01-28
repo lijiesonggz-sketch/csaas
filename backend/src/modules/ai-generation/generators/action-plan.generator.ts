@@ -174,9 +174,7 @@ export class ActionPlanGenerator {
       const parsedResult = this.parseActionPlanResult(response.content)
       return parsedResult
     } catch (error) {
-      this.logger.error(
-        `Failed to generate action plan with ${modelType}: ${error.message}`,
-      )
+      this.logger.error(`Failed to generate action plan with ${modelType}: ${error.message}`)
       throw error
     }
   }

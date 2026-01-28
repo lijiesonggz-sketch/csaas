@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  Logger,
-  BadRequestException,
-} from '@nestjs/common'
+import { Injectable, NotFoundException, Logger, BadRequestException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { WeaknessSnapshot } from '../../database/entities/weakness-snapshot.entity'
@@ -68,9 +63,7 @@ export class WeaknessSnapshotService {
     projectId: string,
     assessmentResult: AssessmentResult,
   ): Promise<WeaknessSnapshot[]> {
-    this.logger.log(
-      `Creating weakness snapshots for org ${organizationId}, project ${projectId}`,
-    )
+    this.logger.log(`Creating weakness snapshots for org ${organizationId}, project ${projectId}`)
 
     if (!assessmentResult?.categories || !Array.isArray(assessmentResult.categories)) {
       throw new BadRequestException('Invalid assessment result format')
@@ -111,9 +104,7 @@ export class WeaknessSnapshotService {
         const updated = await this.snapshotRepository.save(existingSnapshot)
         createdSnapshots.push(updated)
 
-        this.logger.log(
-          `Updated weakness snapshot: ${category} for org ${organizationId}`,
-        )
+        this.logger.log(`Updated weakness snapshot: ${category} for org ${organizationId}`)
       } else {
         // Create new snapshot
         const newSnapshot = this.snapshotRepository.create({
@@ -148,9 +139,7 @@ export class WeaknessSnapshotService {
    * @param organizationId - Organization ID
    * @returns Array of weakness snapshots ordered by creation date (newest first)
    */
-  async getWeaknessesByOrganization(
-    organizationId: string,
-  ): Promise<WeaknessSnapshot[]> {
+  async getWeaknessesByOrganization(organizationId: string): Promise<WeaknessSnapshot[]> {
     return this.snapshotRepository.find({
       where: { organizationId },
       order: { createdAt: 'DESC' },
@@ -241,7 +230,9 @@ export class WeaknessSnapshotService {
   async aggregateWeaknesses(
     organizationId: string,
     projectId?: string,
-  ): Promise<Array<{ category: string; level: number; description: string; projectIds: string[] }>> {
+  ): Promise<
+    Array<{ category: string; level: number; description: string; projectIds: string[] }>
+  > {
     const query = this.snapshotRepository
       .createQueryBuilder('snapshot')
       .where('snapshot.organizationId = :organizationId', { organizationId })
@@ -273,7 +264,10 @@ export class WeaknessSnapshotService {
           description: weakness.description,
           projectIds: weakness.projectIds || [weakness.projectId],
         })
-      } else if (existing && (!existing.projectIds || !existing.projectIds.includes(weakness.projectId))) {
+      } else if (
+        existing &&
+        (!existing.projectIds || !existing.projectIds.includes(weakness.projectId))
+      ) {
         // Same category, add project if not already present
         if (!existing.projectIds) {
           existing.projectIds = []
@@ -299,10 +293,7 @@ export class WeaknessSnapshotService {
    * @param organizationId - Organization ID
    * @param snapshots - Created/updated weakness snapshots
    */
-  private emitWeaknessDetected(
-    organizationId: string,
-    snapshots: WeaknessSnapshot[],
-  ): void {
+  private emitWeaknessDetected(organizationId: string, snapshots: WeaknessSnapshot[]): void {
     try {
       this.tasksGateway.server.emit('weaknesses:updated', {
         organizationId,

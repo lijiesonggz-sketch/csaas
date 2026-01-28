@@ -13,12 +13,14 @@ import { AITask } from '../../database/entities/ai-task.entity'
 import { AuditLog } from '../../database/entities/audit-log.entity'
 import { AIGenerationModule } from '../ai-generation/ai-generation.module'
 import { AIClientsModule } from '../ai-clients/ai-clients.module'
+import { OrganizationsModule } from '../organizations/organizations.module'
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Project, ProjectMember, AITask, AuditLog]),
     AIGenerationModule,
     AIClientsModule,
+    OrganizationsModule,
   ],
   controllers: [ProjectsController, TestDebugController],
   providers: [

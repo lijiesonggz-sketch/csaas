@@ -8,7 +8,7 @@ export class CreateOrganizationDto {
   @MinLength(3, { message: '组织名称至少 3 个字符' })
   @MaxLength(100, { message: '组织名称最多 100 个字符' })
   @Matches(/^[a-zA-Z0-9\u4e00-\u9fa5\s\-_]+$/, {
-    message: '组织名称只能包含中文、字母、数字、空格、短横线和下划线'
+    message: '组织名称只能包含中文、字母、数字、空格、短横线和下划线',
   })
   name: string
 }

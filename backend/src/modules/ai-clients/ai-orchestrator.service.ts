@@ -2,11 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { OpenAIClient } from './providers/openai.client'
 import { AnthropicClient } from './providers/anthropic.client'
 import { TongyiClient } from './providers/tongyi.client'
-import {
-  IAIClient,
-  AIClientRequest,
-  AIClientResponse,
-} from './interfaces/ai-client.interface'
+import { IAIClient, AIClientRequest, AIClientResponse } from './interfaces/ai-client.interface'
 import { AIModel } from '../../database/entities/ai-generation-event.entity'
 
 /**
@@ -56,24 +52,18 @@ export class AIOrchestrator {
         return response
       } catch (error) {
         lastError = error
-        this.logger.warn(
-          `${provider.name} failed: ${error.message}, trying next provider`,
-        )
+        this.logger.warn(`${provider.name} failed: ${error.message}, trying next provider`)
       }
     }
 
     // All providers failed
-    throw new Error(
-      `All AI providers failed. Last error: ${lastError?.message || 'Unknown error'}`,
-    )
+    throw new Error(`All AI providers failed. Last error: ${lastError?.message || 'Unknown error'}`)
   }
 
   /**
    * Get provider chain based on preferred model with fallback strategy
    */
-  private getProviderChain(
-    preferredModel: AIModel,
-  ): Array<{ name: string; client: IAIClient }> {
+  private getProviderChain(preferredModel: AIModel): Array<{ name: string; client: IAIClient }> {
     switch (preferredModel) {
       case AIModel.GPT4:
         return [
@@ -91,9 +81,7 @@ export class AIOrchestrator {
 
       case AIModel.DOMESTIC:
         // Only use Tongyi for DOMESTIC model - no fallback per user request
-        return [
-          { name: 'Tongyi', client: this.tongyiClient },
-        ]
+        return [{ name: 'Tongyi', client: this.tongyiClient }]
 
       default:
         return [

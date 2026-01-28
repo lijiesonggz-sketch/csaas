@@ -19,14 +19,16 @@ export class SimilarityCalculator {
       this.configService.get<string>('TONGYI_API_KEY') ||
       ''
 
-    this.apiBase = 'https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding'
+    this.apiBase =
+      'https://dashscope.aliyuncs.com/api/v1/services/embeddings/text-embedding/text-embedding'
 
     this.embeddingModel =
-      this.configService.get<string>('DASHSCOPE_EMBEDDING_MODEL') ||
-      'text-embedding-v2'
+      this.configService.get<string>('DASHSCOPE_EMBEDDING_MODEL') || 'text-embedding-v2'
 
     if (!this.apiKey) {
-      this.logger.warn('DASHSCOPE_API_KEY and TONGYI_API_KEY are not configured, embedding similarity will be disabled')
+      this.logger.warn(
+        'DASHSCOPE_API_KEY and TONGYI_API_KEY are not configured, embedding similarity will be disabled',
+      )
     }
   }
 
@@ -65,9 +67,7 @@ export class SimilarityCalculator {
       // 降级：使用简单的文本相似度算法
       const fallbackSimilarity = this.calculateTextSimilarity(text1, text2)
 
-      this.logger.debug(
-        `Fallback similarity: ${fallbackSimilarity.toFixed(4)} (text-based)`,
-      )
+      this.logger.debug(`Fallback similarity: ${fallbackSimilarity.toFixed(4)} (text-based)`)
 
       return fallbackSimilarity
     }
@@ -85,24 +85,19 @@ export class SimilarityCalculator {
     const intersection = new Set([...words1].filter((x) => words2.has(x)))
     const union = new Set([...words1, ...words2])
 
-    const jaccardSimilarity =
-      union.size > 0 ? intersection.size / union.size : 0
+    const jaccardSimilarity = union.size > 0 ? intersection.size / union.size : 0
 
     // 2. 字符级相似度（Levenshtein距离归一化）
     const maxLength = Math.max(text1.length, text2.length)
     const levenshteinDistance = this.levenshtein(text1, text2)
-    const charSimilarity =
-      maxLength > 0 ? 1 - levenshteinDistance / maxLength : 0
+    const charSimilarity = maxLength > 0 ? 1 - levenshteinDistance / maxLength : 0
 
     // 3. 长度相似度
     const lengthSimilarity =
       1 - Math.abs(text1.length - text2.length) / Math.max(text1.length, text2.length, 1)
 
     // 加权平均（Jaccard 50%, 字符相似度 30%, 长度相似度 20%）
-    const finalSimilarity =
-      jaccardSimilarity * 0.5 +
-      charSimilarity * 0.3 +
-      lengthSimilarity * 0.2
+    const finalSimilarity = jaccardSimilarity * 0.5 + charSimilarity * 0.3 + lengthSimilarity * 0.2
 
     return finalSimilarity
   }
@@ -123,11 +118,15 @@ export class SimilarityCalculator {
     // 如果文本过长，只比较前N个字符（代表性采样）
     if (s1.length > MAX_LENGTH) {
       s1 = s1.substring(0, MAX_LENGTH)
-      this.logger.debug(`Truncating str1 from ${str1.length} to ${MAX_LENGTH} chars for Levenshtein`)
+      this.logger.debug(
+        `Truncating str1 from ${str1.length} to ${MAX_LENGTH} chars for Levenshtein`,
+      )
     }
     if (s2.length > MAX_LENGTH) {
       s2 = s2.substring(0, MAX_LENGTH)
-      this.logger.debug(`Truncating str2 from ${str2.length} to ${MAX_LENGTH} chars for Levenshtein`)
+      this.logger.debug(
+        `Truncating str2 from ${str2.length} to ${MAX_LENGTH} chars for Levenshtein`,
+      )
     }
 
     const len1 = s1.length
@@ -178,8 +177,7 @@ export class SimilarityCalculator {
     }
 
     // 返回平均相似度
-    const averageSimilarity =
-      similarities.reduce((sum, sim) => sum + sim, 0) / similarities.length
+    const averageSimilarity = similarities.reduce((sum, sim) => sum + sim, 0) / similarities.length
 
     this.logger.log(
       `Calculated average similarity: ${averageSimilarity.toFixed(4)} for ${texts.length} texts`,
@@ -194,10 +192,7 @@ export class SimilarityCalculator {
    * @param obj2 对象2
    * @returns 结构相似度分数 (0-1)
    */
-  calculateStructuralSimilarity(
-    obj1: Record<string, any>,
-    obj2: Record<string, any>,
-  ): number {
+  calculateStructuralSimilarity(obj1: Record<string, any>, obj2: Record<string, any>): number {
     try {
       // 获取两个对象的键集合
       const keys1 = this.getAllKeys(obj1)
@@ -216,9 +211,7 @@ export class SimilarityCalculator {
 
       return similarity
     } catch (error) {
-      this.logger.error(
-        `Failed to calculate structural similarity: ${error.message}`,
-      )
+      this.logger.error(`Failed to calculate structural similarity: ${error.message}`)
       return 0
     }
   }
@@ -232,7 +225,7 @@ export class SimilarityCalculator {
     const response = await fetch(this.apiBase, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        Authorization: `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

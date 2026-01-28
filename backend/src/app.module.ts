@@ -16,6 +16,7 @@ import { ProjectsModule } from './modules/projects/projects.module'
 import { FilesModule } from './modules/files/files.module'
 import { CurrentStateModule } from './modules/current-state/current-state.module'
 import { OrganizationsModule } from './modules/organizations/organizations.module'
+import { RadarModule } from './modules/radar/radar.module'
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
     FilesModule,
     CurrentStateModule,
     OrganizationsModule,
+    RadarModule,
   ],
   controllers: [AppController],
   providers: [AppService],

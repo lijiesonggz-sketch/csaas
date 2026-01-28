@@ -18,6 +18,17 @@ import {
   InterpretationResult,
   CurrentStateDescription,
   WeaknessSnapshot,
+  WatchedTopic,
+  WatchedPeer,
+  // Epic 2: 技术雷达实体
+  Tag,
+  WatchedItem,
+  RawContent,
+  AnalyzedContent,
+  RadarPush,
+  PushLog,
+  PushScheduleConfig,
+  CrawlerLog,
 } from '../database/entities'
 
 // Load environment variables
@@ -48,8 +59,25 @@ export const AppDataSource = new DataSource({
     InterpretationResult,
     CurrentStateDescription,
     WeaknessSnapshot,
+    WatchedTopic,
+    WatchedPeer,
+    // Epic 2: 技术雷达实体
+    Tag,
+    WatchedItem,
+    RawContent,
+    AnalyzedContent,
+    RadarPush,
+    PushLog,
+    PushScheduleConfig,
+    CrawlerLog,
   ],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false, // Migrations will handle schema changes
   logging: true,
+  extra: {
+    // 解决Windows PostgreSQL连接ECONNRESET问题
+    max: 10, // 最大连接数
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  },
 })

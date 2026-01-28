@@ -1,11 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import Anthropic from '@anthropic-ai/sdk'
-import {
-  IAIClient,
-  AIClientRequest,
-  AIClientResponse,
-} from '../interfaces/ai-client.interface'
+import { IAIClient, AIClientRequest, AIClientResponse } from '../interfaces/ai-client.interface'
 
 @Injectable()
 export class AnthropicClient implements IAIClient {
@@ -25,8 +21,7 @@ export class AnthropicClient implements IAIClient {
     })
 
     this.defaultModel =
-      this.configService.get<string>('ANTHROPIC_MODEL') ||
-      'claude-3-5-sonnet-20241022'
+      this.configService.get<string>('ANTHROPIC_MODEL') || 'claude-3-5-sonnet-20241022'
   }
 
   async generate(request: AIClientRequest): Promise<AIClientResponse> {
@@ -63,9 +58,11 @@ export class AnthropicClient implements IAIClient {
       // 注意：Anthropic不支持response_format参数，需要在提示词中明确要求
       if (request.responseFormat?.type === 'json_object') {
         if (createParams.system) {
-          createParams.system += '\n\nIMPORTANT: You must respond with valid JSON only. Do not include any explanations, comments, or markdown code blocks. Output pure JSON.'
+          createParams.system +=
+            '\n\nIMPORTANT: You must respond with valid JSON only. Do not include any explanations, comments, or markdown code blocks. Output pure JSON.'
         } else {
-          createParams.system = 'IMPORTANT: You must respond with valid JSON only. Do not include any explanations, comments, or markdown code blocks. Output pure JSON.'
+          createParams.system =
+            'IMPORTANT: You must respond with valid JSON only. Do not include any explanations, comments, or markdown code blocks. Output pure JSON.'
         }
       }
 
@@ -129,11 +126,7 @@ export class AnthropicClient implements IAIClient {
    *
    * NOTE: 新模型定价会不断更新，如果遇到未知模型会使用默认定价并记录警告
    */
-  private calculateCost(
-    model: string,
-    promptTokens: number,
-    completionTokens: number,
-  ): number {
+  private calculateCost(model: string, promptTokens: number, completionTokens: number): number {
     const pricing: Record<string, { prompt: number; completion: number }> = {
       // Claude Sonnet 4.5 (2025-01)
       'claude-sonnet-4-5-20250929': {
@@ -162,7 +155,7 @@ export class AnthropicClient implements IAIClient {
     if (!modelPricing) {
       this.logger.warn(
         `Unknown Anthropic model: ${model}. Using default pricing (Sonnet 3.5). ` +
-        `Please update pricing table in anthropic.client.ts`,
+          `Please update pricing table in anthropic.client.ts`,
       )
       return (
         promptTokens * pricing['claude-3-5-sonnet-20241022'].prompt +
@@ -170,9 +163,6 @@ export class AnthropicClient implements IAIClient {
       )
     }
 
-    return (
-      promptTokens * modelPricing.prompt +
-      completionTokens * modelPricing.completion
-    )
+    return promptTokens * modelPricing.prompt + completionTokens * modelPricing.completion
   }
 }

@@ -221,14 +221,12 @@ export class StandardInterpretationGenerator {
   /**
    * 生成标准解读（优化版）
    */
-  async generateInterpretation(
-    input: {
-      standardDocument: { id: string; name: string; content: string }
-      interpretationMode?: 'basic' | 'detailed' | 'enterprise'
-      temperature?: number
-      maxTokens?: number
-    },
-  ): Promise<{
+  async generateInterpretation(input: {
+    standardDocument: { id: string; name: string; content: string }
+    interpretationMode?: 'basic' | 'detailed' | 'enterprise'
+    temperature?: number
+    maxTokens?: number
+  }): Promise<{
     gpt4: StandardInterpretationOutput | null
     claude: StandardInterpretationOutput | null
     domestic: StandardInterpretationOutput | null
@@ -276,15 +274,18 @@ export class StandardInterpretationGenerator {
     this.logger.log('[1/1] Calling 通义千问...')
     const domesticResult = await this.aiOrchestrator
       .generate(domesticRequest, AIModel.DOMESTIC)
-      .catch(err => {
+      .catch((err) => {
         this.logger.error(`通义千问调用失败: ${err.message}`)
-        return { content: '', tokens: { input: 0, output: 0, total: 0 }, cost: 0, model: 'domestic-failed' }
+        return {
+          content: '',
+          tokens: { input: 0, output: 0, total: 0 },
+          cost: 0,
+          model: 'domestic-failed',
+        }
       })
 
     // Log response lengths
-    this.logger.log(
-      `AI call completed. Tongyi: ${domesticResult.content.length} chars`,
-    )
+    this.logger.log(`AI call completed. Tongyi: ${domesticResult.content.length} chars`)
 
     // 解析结果
     this.logger.log('Parsing interpretation results...')
@@ -293,7 +294,9 @@ export class StandardInterpretationGenerator {
 
     // 检查模型是否成功
     if (domesticOutput) {
-      this.logger.log(`Interpretation parsing completed. Tongyi: ${domesticOutput.key_requirements?.length || 0}条款`)
+      this.logger.log(
+        `Interpretation parsing completed. Tongyi: ${domesticOutput.key_requirements?.length || 0}条款`,
+      )
     } else {
       this.logger.log('Interpretation parsing completed. No valid results')
     }
@@ -314,14 +317,12 @@ export class StandardInterpretationGenerator {
   /**
    * 搜索关联标准（逐条处理模式）
    */
-  async searchRelatedStandards(
-    input: {
-      standardDocument: { id: string; name: string; content: string }
-      interpretationResult?: any
-      temperature?: number
-      maxTokens?: number
-    },
-  ): Promise<{
+  async searchRelatedStandards(input: {
+    standardDocument: { id: string; name: string; content: string }
+    interpretationResult?: any
+    temperature?: number
+    maxTokens?: number
+  }): Promise<{
     gpt4: RelatedStandardSearchOutput
     claude: RelatedStandardSearchOutput
     domestic: RelatedStandardSearchOutput
@@ -331,7 +332,10 @@ export class StandardInterpretationGenerator {
     const { standardDocument, interpretationResult, temperature = 0.7, maxTokens = 80000 } = input
 
     // 如果有解读结果，使用逐条处理模式
-    if (interpretationResult?.key_requirements && interpretationResult.key_requirements.length > 0) {
+    if (
+      interpretationResult?.key_requirements &&
+      interpretationResult.key_requirements.length > 0
+    ) {
       return this.searchRelatedStandardsByClause({
         standardDocument,
         interpretationResult,
@@ -341,7 +345,9 @@ export class StandardInterpretationGenerator {
     }
 
     // 否则使用一次性处理模式（降级处理）
-    this.logger.warn('No interpretation result provided, using fallback mode with standard content only')
+    this.logger.warn(
+      'No interpretation result provided, using fallback mode with standard content only',
+    )
     const prompt = fillRelatedStandardSearchPrompt(standardDocument, null)
 
     // 准备三个AI模型的请求
@@ -368,27 +374,42 @@ export class StandardInterpretationGenerator {
     // 串行调用三个模型（避免并发限制）
     const gpt4Result = await this.aiOrchestrator
       .generate(gpt4Request, AIModel.GPT4)
-      .catch(err => {
+      .catch((err) => {
         this.logger.error(`GPT4 call failed: ${err.message}`)
-        return { content: '', tokens: { input: 0, output: 0, total: 0 }, cost: 0, model: 'gpt4-failed' }
+        return {
+          content: '',
+          tokens: { input: 0, output: 0, total: 0 },
+          cost: 0,
+          model: 'gpt4-failed',
+        }
       })
 
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     const claudeResult = await this.aiOrchestrator
       .generate(claudeRequest, AIModel.CLAUDE)
-      .catch(err => {
+      .catch((err) => {
         this.logger.error(`Claude call failed: ${err.message}`)
-        return { content: '', tokens: { input: 0, output: 0, total: 0 }, cost: 0, model: 'claude-failed' }
+        return {
+          content: '',
+          tokens: { input: 0, output: 0, total: 0 },
+          cost: 0,
+          model: 'claude-failed',
+        }
       })
 
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     const domesticResult = await this.aiOrchestrator
       .generate(domesticRequest, AIModel.DOMESTIC)
-      .catch(err => {
+      .catch((err) => {
         this.logger.error(`Domestic call failed: ${err.message}`)
-        return { content: '', tokens: { input: 0, output: 0, total: 0 }, cost: 0, model: 'domestic-failed' }
+        return {
+          content: '',
+          tokens: { input: 0, output: 0, total: 0 },
+          cost: 0,
+          model: 'domestic-failed',
+        }
       })
 
     // 解析结果
@@ -412,14 +433,12 @@ export class StandardInterpretationGenerator {
   /**
    * 逐条搜索关联标准（推荐模式）
    */
-  private async searchRelatedStandardsByClause(
-    input: {
-      standardDocument: { id: string; name: string; content: string }
-      interpretationResult: any
-      temperature?: number
-      maxTokens?: number
-    },
-  ): Promise<{
+  private async searchRelatedStandardsByClause(input: {
+    standardDocument: { id: string; name: string; content: string }
+    interpretationResult: any
+    temperature?: number
+    maxTokens?: number
+  }): Promise<{
     gpt4: RelatedStandardSearchOutput
     claude: RelatedStandardSearchOutput
     domestic: RelatedStandardSearchOutput
@@ -427,7 +446,9 @@ export class StandardInterpretationGenerator {
     const { standardDocument, interpretationResult, temperature = 0.7, maxTokens = 4000 } = input
     const clauses = interpretationResult.key_requirements || []
 
-    this.logger.log(`Processing ${clauses.length} clauses individually for related standards search...`)
+    this.logger.log(
+      `Processing ${clauses.length} clauses individually for related standards search...`,
+    )
 
     // 初始化结果结构
     const results = {
@@ -456,15 +477,15 @@ export class StandardInterpretationGenerator {
       try {
         // 并行调用三个模型
         const [gpt4Result, claudeResult, domesticResult] = await Promise.all([
-          this.aiOrchestrator.generate(gpt4Request, AIModel.GPT4).catch(err => {
+          this.aiOrchestrator.generate(gpt4Request, AIModel.GPT4).catch((err) => {
             this.logger.error(`GPT4 failed for clause ${clause.clause_id}: ${err.message}`)
             return null
           }),
-          this.aiOrchestrator.generate(claudeRequest, AIModel.CLAUDE).catch(err => {
+          this.aiOrchestrator.generate(claudeRequest, AIModel.CLAUDE).catch((err) => {
             this.logger.error(`Claude failed for clause ${clause.clause_id}: ${err.message}`)
             return null
           }),
-          this.aiOrchestrator.generate(domesticRequest, AIModel.DOMESTIC).catch(err => {
+          this.aiOrchestrator.generate(domesticRequest, AIModel.DOMESTIC).catch((err) => {
             this.logger.error(`Domestic failed for clause ${clause.clause_id}: ${err.message}`)
             return null
           }),
@@ -484,7 +505,9 @@ export class StandardInterpretationGenerator {
           if (parsed) results.domestic.push(parsed)
         }
 
-        this.logger.log(`Clause ${clause.clause_id} completed: GPT4=${!!gpt4Result}, Claude=${!!claudeResult}, Domestic=${!!domesticResult}`)
+        this.logger.log(
+          `Clause ${clause.clause_id} completed: GPT4=${!!gpt4Result}, Claude=${!!claudeResult}, Domestic=${!!domesticResult}`,
+        )
       } catch (error) {
         this.logger.error(`Failed to process clause ${clause.clause_id}: ${error.message}`)
       }
@@ -530,7 +553,8 @@ export class StandardInterpretationGenerator {
    */
   private parseSingleClauseResponse(responseText: string, clause: any): any | null {
     try {
-      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || responseText.match(/\{[\s\S]*\}/)
+      const jsonMatch =
+        responseText.match(/```json\s*([\s\S]*?)\s*```/) || responseText.match(/\{[\s\S]*\}/)
 
       if (!jsonMatch) {
         this.logger.warn(`No JSON found in response for clause ${clause.clause_id}`)
@@ -555,14 +579,12 @@ export class StandardInterpretationGenerator {
   /**
    * 比对版本差异
    */
-  async compareVersions(
-    input: {
-      oldVersion: { id: string; name: string; content: string }
-      newVersion: { id: string; name: string; content: string }
-      temperature?: number
-      maxTokens?: number
-    },
-  ): Promise<{
+  async compareVersions(input: {
+    oldVersion: { id: string; name: string; content: string }
+    newVersion: { id: string; name: string; content: string }
+    temperature?: number
+    maxTokens?: number
+  }): Promise<{
     gpt4: VersionCompareOutput
     claude: VersionCompareOutput
     domestic: VersionCompareOutput
@@ -598,27 +620,42 @@ export class StandardInterpretationGenerator {
     // 串行调用三个模型（避免并发限制）
     const gpt4Result = await this.aiOrchestrator
       .generate(gpt4Request, AIModel.GPT4)
-      .catch(err => {
+      .catch((err) => {
         this.logger.error(`GPT4 call failed: ${err.message}`)
-        return { content: '', tokens: { input: 0, output: 0, total: 0 }, cost: 0, model: 'gpt4-failed' }
+        return {
+          content: '',
+          tokens: { input: 0, output: 0, total: 0 },
+          cost: 0,
+          model: 'gpt4-failed',
+        }
       })
 
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     const claudeResult = await this.aiOrchestrator
       .generate(claudeRequest, AIModel.CLAUDE)
-      .catch(err => {
+      .catch((err) => {
         this.logger.error(`Claude call failed: ${err.message}`)
-        return { content: '', tokens: { input: 0, output: 0, total: 0 }, cost: 0, model: 'claude-failed' }
+        return {
+          content: '',
+          tokens: { input: 0, output: 0, total: 0 },
+          cost: 0,
+          model: 'claude-failed',
+        }
       })
 
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     const domesticResult = await this.aiOrchestrator
       .generate(domesticRequest, AIModel.DOMESTIC)
-      .catch(err => {
+      .catch((err) => {
         this.logger.error(`Domestic call failed: ${err.message}`)
-        return { content: '', tokens: { input: 0, output: 0, total: 0 }, cost: 0, model: 'domestic-failed' }
+        return {
+          content: '',
+          tokens: { input: 0, output: 0, total: 0 },
+          cost: 0,
+          model: 'domestic-failed',
+        }
       })
 
     // 解析结果
@@ -725,7 +762,7 @@ export class StandardInterpretationGenerator {
       let stringChar = ''
 
       for (const line of lines) {
-        let fixedLine = line
+        const fixedLine = line
         for (let i = 0; i < fixedLine.length; i++) {
           const char = fixedLine[i]
           if ((char === '"' || char === "'") && (i === 0 || fixedLine[i - 1] !== '\\')) {
@@ -790,7 +827,8 @@ export class StandardInterpretationGenerator {
   private parseRelatedStandardsResponse(responseText: string): RelatedStandardSearchOutput {
     try {
       // 提取JSON部分
-      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || responseText.match(/\{[\s\S]*\}/)
+      const jsonMatch =
+        responseText.match(/```json\s*([\s\S]*?)\s*```/) || responseText.match(/\{[\s\S]*\}/)
 
       if (!jsonMatch) {
         throw new Error('No JSON found in response')
@@ -827,7 +865,8 @@ export class StandardInterpretationGenerator {
   private parseVersionCompareResponse(responseText: string): VersionCompareOutput {
     try {
       // 提取JSON部分
-      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || responseText.match(/\{[\s\S]*\}/)
+      const jsonMatch =
+        responseText.match(/```json\s*([\s\S]*?)\s*```/) || responseText.match(/\{[\s\S]*\}/)
 
       if (!jsonMatch) {
         throw new Error('No JSON found in response')
@@ -940,7 +979,7 @@ export class StandardInterpretationGenerator {
     // 选择最佳提取结果
     const selectedExtraction = this.clauseExtractionGenerator.selectBestExtraction(
       extractionResults,
-      expectedClauseCount
+      expectedClauseCount,
     )
 
     if (!selectedExtraction) {
@@ -952,23 +991,19 @@ export class StandardInterpretationGenerator {
     // 验证提取完整性
     const validation = this.clauseCoverageService.validateCoverage(
       standardDocument.content,
-      selectedExtraction
+      selectedExtraction,
     )
 
     // 如果有缺失条款，自动补全
     if (!validation.isComplete) {
-      this.logger.warn(
-        `Found ${validation.missingClauseIds.length} missing clauses, filling...`
-      )
+      this.logger.warn(`Found ${validation.missingClauseIds.length} missing clauses, filling...`)
       selectedExtraction.clauses = this.clauseCoverageService.fillMissingClauses(
         standardDocument.content,
         selectedExtraction.clauses,
-        validation.missingClauseIds
+        validation.missingClauseIds,
       )
       selectedExtraction.total_clauses = selectedExtraction.clauses.length
-      this.logger.log(
-        `After filling: ${selectedExtraction.total_clauses} clauses (100% coverage)`
-      )
+      this.logger.log(`After filling: ${selectedExtraction.total_clauses} clauses (100% coverage)`)
     }
 
     onProgress?.({
@@ -986,7 +1021,7 @@ export class StandardInterpretationGenerator {
 
     const totalBatches = Math.ceil(selectedExtraction.clauses.length / batchSize)
     this.logger.log(
-      `Total clauses: ${selectedExtraction.clauses.length}, Batch size: ${batchSize}, Total batches: ${totalBatches}`
+      `Total clauses: ${selectedExtraction.clauses.length}, Batch size: ${batchSize}, Total batches: ${totalBatches}`,
     )
 
     onProgress?.({
@@ -1005,9 +1040,7 @@ export class StandardInterpretationGenerator {
     }
 
     // 只使用通义千问大模型（避免其他API失败）
-    const models = [
-      { name: 'Tongyi', model: AIModel.DOMESTIC, key: 'domestic' as const },
-    ]
+    const models = [{ name: 'Tongyi', model: AIModel.DOMESTIC, key: 'domestic' as const }]
 
     for (const modelInfo of models) {
       this.logger.log(`[Batch Interpretation] Processing ${modelInfo.name}...`)
@@ -1022,7 +1055,7 @@ export class StandardInterpretationGenerator {
           const batchClauses = selectedExtraction.clauses.slice(startIdx, endIdx)
 
           this.logger.log(
-            `[${modelInfo.name}] Batch ${batchIndex + 1}/${totalBatches}: ${batchClauses.length} clauses (${startIdx + 1}-${endIdx})`
+            `[${modelInfo.name}] Batch ${batchIndex + 1}/${totalBatches}: ${batchClauses.length} clauses (${startIdx + 1}-${endIdx})`,
           )
 
           // 构建批次解读prompt
@@ -1035,23 +1068,19 @@ export class StandardInterpretationGenerator {
               currentBatchIndex: batchIndex + 1,
               totalBatches,
             },
-            interpretationMode
+            interpretationMode,
           )
 
           // 调用AI模型
           const batchResult = await this.aiOrchestrator
             .generate({ prompt: batchPrompt, temperature, maxTokens }, modelInfo.model)
-            .catch(err => {
-              this.logger.error(
-                `${modelInfo.name} batch ${batchIndex + 1} failed: ${err.message}`
-              )
+            .catch((err) => {
+              this.logger.error(`${modelInfo.name} batch ${batchIndex + 1} failed: ${err.message}`)
               return null
             })
 
           if (!batchResult) {
-            this.logger.warn(
-              `${modelInfo.name} batch ${batchIndex + 1} failed, skipping...`
-            )
+            this.logger.warn(`${modelInfo.name} batch ${batchIndex + 1} failed, skipping...`)
             continue
           }
 
@@ -1060,7 +1089,7 @@ export class StandardInterpretationGenerator {
 
           if (!batchParsed || !batchParsed.key_requirements) {
             this.logger.warn(
-              `${modelInfo.name} batch ${batchIndex + 1} parsing failed, skipping...`
+              `${modelInfo.name} batch ${batchIndex + 1} parsing failed, skipping...`,
             )
             continue
           }
@@ -1068,7 +1097,7 @@ export class StandardInterpretationGenerator {
           // 验证批次结果数量
           if (batchParsed.key_requirements.length !== batchClauses.length) {
             this.logger.warn(
-              `${modelInfo.name} batch ${batchIndex + 1} returned ${batchParsed.key_requirements.length} clauses, expected ${batchClauses.length}`
+              `${modelInfo.name} batch ${batchIndex + 1} returned ${batchParsed.key_requirements.length} clauses, expected ${batchClauses.length}`,
             )
           }
 
@@ -1086,7 +1115,7 @@ export class StandardInterpretationGenerator {
           })
 
           // 延迟500ms避免限流
-          await new Promise(resolve => setTimeout(resolve, 500))
+          await new Promise((resolve) => setTimeout(resolve, 500))
         }
 
         // 构建完整的解读结果
@@ -1094,10 +1123,10 @@ export class StandardInterpretationGenerator {
           results[modelInfo.key] = this.buildCompleteInterpretation(
             standardDocument,
             interpretedClauses,
-            interpretationMode
+            interpretationMode,
           )
           this.logger.log(
-            `${modelInfo.name} batch interpretation completed: ${interpretedClauses.length} clauses`
+            `${modelInfo.name} batch interpretation completed: ${interpretedClauses.length} clauses`,
           )
         }
       } catch (error) {
@@ -1111,7 +1140,7 @@ export class StandardInterpretationGenerator {
       .map(([name, result]) => `${name}(${result!.key_requirements.length}条款)`)
 
     this.logger.log(
-      `Batch interpretation completed. Successful models: ${successModels.join(', ') || 'NONE'}`
+      `Batch interpretation completed. Successful models: ${successModels.join(', ') || 'NONE'}`,
     )
 
     if (!results.domestic) {
@@ -1158,7 +1187,7 @@ export class StandardInterpretationGenerator {
   private buildCompleteInterpretation(
     standardDocument: { id: string; name: string; content: string },
     interpretedClauses: StandardInterpretationOutput['key_requirements'],
-    interpretationMode: 'basic' | 'detailed' | 'enterprise'
+    interpretationMode: 'basic' | 'detailed' | 'enterprise',
   ): StandardInterpretationOutput {
     // 构建基础结构
     const result: StandardInterpretationOutput = {

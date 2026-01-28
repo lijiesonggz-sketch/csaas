@@ -57,9 +57,7 @@ export class ClauseCoverageService {
       }
     }
 
-    this.logger.log(
-      `Regex counting complete. Found ${uniqueClauseIds.size} unique clause IDs`
-    )
+    this.logger.log(`Regex counting complete. Found ${uniqueClauseIds.size} unique clause IDs`)
 
     // 记录每种模式的匹配情况
     patternMatches.forEach(({ pattern, count }) => {
@@ -81,7 +79,7 @@ export class ClauseCoverageService {
    */
   validateCoverage(
     documentContent: string,
-    extraction: { clauses: Clause[]; total_clauses: number }
+    extraction: { clauses: Clause[]; total_clauses: number },
   ): {
     isComplete: boolean
     expectedCount: number
@@ -91,9 +89,7 @@ export class ClauseCoverageService {
     extractedClauseIds: Set<string>
     allClauseIds: Set<string>
   } {
-    this.logger.log(
-      `Validating coverage: AI extracted ${extraction.total_clauses} clauses`
-    )
+    this.logger.log(`Validating coverage: AI extracted ${extraction.total_clauses} clauses`)
 
     // 使用正则统计预期条款数量
     const regexResult = this.countClausesByRegex(documentContent)
@@ -101,27 +97,21 @@ export class ClauseCoverageService {
     const actualCount = extraction.total_clauses
 
     // 构建提取的条款ID集合
-    const extractedClauseIds = new Set(
-      extraction.clauses.map((c) => c.clause_id.trim())
-    )
+    const extractedClauseIds = new Set(extraction.clauses.map((c) => c.clause_id.trim()))
     const allClauseIds = regexResult.uniqueClauseIds
 
     // 找出缺失的条款ID
-    const missingClauseIds = Array.from(allClauseIds).filter(
-      (id) => !extractedClauseIds.has(id)
-    )
+    const missingClauseIds = Array.from(allClauseIds).filter((id) => !extractedClauseIds.has(id))
 
     const coverage = expectedCount > 0 ? (actualCount / expectedCount) * 100 : 0
     const isComplete = missingClauseIds.length === 0
 
     this.logger.log(
-      `Coverage validation: ${actualCount}/${expectedCount} (${coverage.toFixed(1)}%)`
+      `Coverage validation: ${actualCount}/${expectedCount} (${coverage.toFixed(1)}%)`,
     )
 
     if (!isComplete) {
-      this.logger.warn(
-        `Missing ${missingClauseIds.length} clauses: ${missingClauseIds.join(', ')}`
-      )
+      this.logger.warn(`Missing ${missingClauseIds.length} clauses: ${missingClauseIds.join(', ')}`)
     } else {
       this.logger.log('✅ All clauses covered!')
     }
@@ -147,11 +137,9 @@ export class ClauseCoverageService {
   fillMissingClauses(
     documentContent: string,
     existingClauses: Clause[],
-    missingClauseIds: string[]
+    missingClauseIds: string[],
   ): Clause[] {
-    this.logger.log(
-      `Filling ${missingClauseIds.length} missing clauses...`
-    )
+    this.logger.log(`Filling ${missingClauseIds.length} missing clauses...`)
 
     const filledClauses = [...existingClauses]
 
@@ -172,9 +160,7 @@ export class ClauseCoverageService {
       }
     }
 
-    this.logger.log(
-      `Clause filling complete. Total clauses: ${filledClauses.length}`
-    )
+    this.logger.log(`Clause filling complete. Total clauses: ${filledClauses.length}`)
 
     return filledClauses
   }
@@ -218,15 +204,11 @@ export class ClauseCoverageService {
       // 清理：移除多余的空白行
       clauseText = clauseText.replace(/\n{3,}/g, '\n\n')
 
-      this.logger.debug(
-        `Extracted clause "${clauseId}": ${clauseText.length} characters`
-      )
+      this.logger.debug(`Extracted clause "${clauseId}": ${clauseText.length} characters`)
 
       return clauseText
     } catch (error) {
-      this.logger.error(
-        `Error extracting clause "${clauseId}": ${error.message}`
-      )
+      this.logger.error(`Error extracting clause "${clauseId}": ${error.message}`)
       return null
     }
   }
@@ -253,9 +235,7 @@ export class ClauseCoverageService {
     const max = Math.ceil(docLength / minClauseLength)
     const likely = Math.round(docLength / avgClauseLength)
 
-    this.logger.log(
-      `Estimated clause count: min=${min}, max=${max}, likely=${likely}`
-    )
+    this.logger.log(`Estimated clause count: min=${min}, max=${max}, likely=${likely}`)
 
     return { min, max, likely }
   }
@@ -278,9 +258,7 @@ export class ClauseCoverageService {
 
     for (const pattern of this.CLAUSE_PATTERNS) {
       const matches = documentContent.match(pattern)
-      const uniqueMatches = matches
-        ? Array.from(new Set(matches.map((m) => m.trim())))
-        : []
+      const uniqueMatches = matches ? Array.from(new Set(matches.map((m) => m.trim()))) : []
 
       if (uniqueMatches.length > 0) {
         formats.push({
@@ -292,11 +270,10 @@ export class ClauseCoverageService {
     }
 
     // 找出主导格式
-    const dominantFormat =
-      formats.sort((a, b) => b.count - a.count)[0]?.pattern || 'unknown'
+    const dominantFormat = formats.sort((a, b) => b.count - a.count)[0]?.pattern || 'unknown'
 
     this.logger.log(
-      `Clause format analysis: ${formats.length} formats found, dominant: ${dominantFormat}`
+      `Clause format analysis: ${formats.length} formats found, dominant: ${dominantFormat}`,
     )
 
     return { formats, dominantFormat }

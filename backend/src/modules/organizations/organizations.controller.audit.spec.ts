@@ -90,10 +90,7 @@ describe('OrganizationsController - Audit Logging', () => {
       await controller.updateOrganization(orgId, updateDto, mockRequest)
 
       // Assert
-      expect(mockOrganizationsService.updateOrganization).toHaveBeenCalledWith(
-        orgId,
-        updateDto,
-      )
+      expect(mockOrganizationsService.updateOrganization).toHaveBeenCalledWith(orgId, updateDto)
       expect(auditLogService.log).toHaveBeenCalledWith({
         userId: mockRequest.user.id,
         action: AuditAction.UPDATE,
@@ -110,17 +107,16 @@ describe('OrganizationsController - Audit Logging', () => {
       // Arrange
       const projectId = 'project-123'
 
-      mockOrganizationsService.linkProjectToOrganization.mockResolvedValue(
-        undefined,
-      )
+      mockOrganizationsService.linkProjectToOrganization.mockResolvedValue(undefined)
 
       // Act
       await controller.linkProject(mockRequest, { projectId })
 
       // Assert
-      expect(
-        mockOrganizationsService.linkProjectToOrganization,
-      ).toHaveBeenCalledWith(mockRequest.user.id, projectId)
+      expect(mockOrganizationsService.linkProjectToOrganization).toHaveBeenCalledWith(
+        mockRequest.user.id,
+        projectId,
+      )
       expect(auditLogService.log).toHaveBeenCalledWith({
         userId: mockRequest.user.id,
         projectId,
@@ -145,10 +141,7 @@ describe('OrganizationsController - Audit Logging', () => {
       await controller.removeMember(orgId, userId, mockRequest)
 
       // Assert
-      expect(mockOrganizationsService.removeMember).toHaveBeenCalledWith(
-        orgId,
-        userId,
-      )
+      expect(mockOrganizationsService.removeMember).toHaveBeenCalledWith(orgId, userId)
       expect(auditLogService.log).toHaveBeenCalledWith({
         userId: mockRequest.user.id,
         action: AuditAction.DELETE,

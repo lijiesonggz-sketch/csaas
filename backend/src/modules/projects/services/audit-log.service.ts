@@ -5,11 +5,16 @@ import { AuditLog, AuditAction } from '@/database/entities'
 
 export interface AuditLogParams {
   userId: string
+  organizationId?: string
   projectId?: string
   action: AuditAction | string
-  success: boolean
+  entityType?: string
+  entityId?: string
+  changes?: Record<string, any>
+  details?: Record<string, any>
+  success?: boolean
   errorMessage?: string
-  req: any
+  req?: any
 }
 
 @Injectable()
@@ -25,17 +30,28 @@ export class AuditLogService {
     try {
       const auditLog = this.auditLogRepo.create({
         userId: params.userId,
+        organizationId: params.organizationId,
         projectId: params.projectId,
         action: params.action as any,
-        success: params.success,
+        entityType: params.entityType,
+        entityId: params.entityId,
+        changes: params.changes,
+        details: params.details,
+        success: params.success ?? true,
         errorMessage: params.errorMessage,
-        ipAddress: this.extractIp(params.req),
-        userAgent: params.req.headers?.['user-agent'],
+        ipAddress: params.req ? this.extractIp(params.req) : undefined,
+        userAgent: params.req?.headers?.['user-agent'],
+        req: params.req ? {
+          method: params.req.method,
+          url: params.req.url,
+          params: params.req.params,
+          query: params.req.query,
+        } : undefined,
       })
 
       await this.auditLogRepo.save(auditLog)
       this.logger.log(
-        `Audit log: ${params.userId} - ${params.action} - ${params.success ? 'SUCCESS' : 'FAILED'}`,
+        `Audit log: ${params.userId} - ${params.action} - ${params.success ?? true ? 'SUCCESS' : 'FAILED'}`,
       )
     } catch (error) {
       this.logger.error(`Failed to create audit log: ${error.message}`)

@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { Box, Container, Typography, Card, CardContent, Grid, Button, Alert, CircularProgress } from '@mui/material'
+import { useState, useEffect } from 'react'
+import { Box, Container, Typography, Button, Alert, CircularProgress, Grid } from '@mui/material'
 import { TrendingUp, Refresh } from '@mui/icons-material'
 import { PushCard } from '@/components/radar/PushCard'
 import { PushDetailModal } from '@/components/radar/PushDetailModal'
+import { getRadarPushes, RadarPush } from '@/lib/api/radar'
+import { useWebSocket } from '@/lib/hooks/useWebSocket'
 
 // 禁用静态生成，因为这个页面需要动态数据
 export const dynamic = 'force-dynamic'
@@ -12,108 +14,81 @@ export const dynamic = 'force-dynamic'
 /**
  * Tech Radar Page - 技术雷达
  *
- * Story 2.4 - Phase 3: 前端展示
- * - 显示技术推送列表
+ * Story 2.4 - Phase 3: 前端展示 (Issue #2修复 - 真实API集成)
+ * - 从后端API加载技术推送列表
  * - 使用PushCard组件展示推送摘要和ROI分析
  * - 使用PushDetailModal弹窗展示详情
+ * - WebSocket实时监听新推送
  */
 export default function TechRadarPage() {
   const [selectedPushId, setSelectedPushId] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [pushes, setPushes] = useState<RadarPush[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { socket, isConnected } = useWebSocket()
 
-  // Mock数据 - 实际应从API加载
-  const mockPushes = [
-    {
-      pushId: 'push-1',
-      radarType: 'tech' as const,
-      title: '零信任架构在金融行业的应用',
-      summary: '介绍零信任架构的实施方案和成本收益分析',
-      fullContent: `零信任架构是一种新的安全模式，它假设没有用户或设备是可信的，
-所有访问都需要经过严格的验证。本文详细介绍了零信任架构的实施方案和成本收益分析。
-
-主要内容包括：
-1. 零信任架构的核心概念和原则
-2. 金融行业的应用场景
-3. 实施成本和收益分析
-4. 典型的实施方案
-
-关键收益：
-- 提升安全性和风险管理能力
-- 减少内部威胁和数据泄露风险
-- 提高系统可用性和性能`,
-      relevanceScore: 0.95,
-      priorityLevel: 'high' as const,
-      weaknessCategories: ['数据安全'],
-      publishDate: '2024-01-15',
-      source: '金融科技周刊',
-      url: 'https://example.com/article1',
-      tags: ['零信任', '安全架构', '身份验证'],
-      targetAudience: 'IT总监、架构师',
-      roiAnalysis: {
-        estimatedCost: '50-100万',
-        expectedBenefit: '年节省200万运维成本 + 提升系统可用性',
-        roiEstimate: 'ROI 2:1',
-        implementationPeriod: '3-6个月',
-        recommendedVendors: ['阿里云', '腾讯云', '华为云'],
-      },
-      isRead: false,
-    },
-    {
-      pushId: 'push-2',
-      radarType: 'tech' as const,
-      title: '云原生架构最佳实践',
-      summary: '云原生技术在生产环境中的最佳实践指南',
-      fullContent: '云原生架构的实施指南...',
-      relevanceScore: 0.92,
-      priorityLevel: 'high' as const,
-      weaknessCategories: ['基础设施管理'],
-      publishDate: '2024-01-14',
-      source: '技术论坛',
-      url: 'https://example.com/article2',
-      tags: ['云原生', 'Kubernetes', 'Docker'],
-      targetAudience: '架构师',
-      roiAnalysis: {
-        estimatedCost: '100-150万',
-        expectedBenefit: '年节省300万基础设施成本',
-        roiEstimate: 'ROI 2:1',
-        implementationPeriod: '6-9个月',
-        recommendedVendors: ['阿里云', '腾讯云'],
-      },
-      isRead: false,
-    },
-    {
-      pushId: 'push-3',
-      radarType: 'tech' as const,
-      title: 'API网关安全防护',
-      summary: 'API网关的安全防护策略和实施方案',
-      fullContent: 'API网关安全防护的详细说明...',
-      relevanceScore: 0.88,
-      priorityLevel: 'medium' as const,
-      weaknessCategories: ['数据安全'],
-      publishDate: '2024-01-13',
-      source: '技术社区',
-      url: 'https://example.com/article3',
-      tags: ['API网关', '安全'],
-      targetAudience: 'IT总监',
-      roiAnalysis: {
-        estimatedCost: '30-50万',
-        expectedBenefit: '年防御50起以上的API攻击',
-        roiEstimate: 'ROI 3:1',
-        implementationPeriod: '1-2个月',
-        recommendedVendors: ['阿里云'],
-      },
-      isRead: false,
-    },
-  ]
-
-  const handleRefresh = () => {
+  // 加载推送列表
+  const fetchPushes = async () => {
     setIsLoading(true)
     setError(null)
-    // 模拟API调用
-    setTimeout(() => {
+
+    try {
+      const response = await getRadarPushes({
+        radarType: 'tech',
+        status: 'sent',
+        page: 1,
+        limit: 20,
+      })
+      setPushes(response.data)
+    } catch (err) {
+      console.error('Failed to fetch pushes:', err)
+      setError(err instanceof Error ? err.message : '加载推送失败')
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
+  }
+
+  // 初始加载
+  useEffect(() => {
+    fetchPushes()
+  }, [])
+
+  // WebSocket监听新推送
+  useEffect(() => {
+    if (!socket || !isConnected) return
+
+    // 监听新推送事件
+    socket.on('radar:push:new', (newPush: RadarPush) => {
+      if (newPush.radarType === 'tech') {
+        console.log('New tech radar push received:', newPush)
+
+        // 添加到列表顶部
+        setPushes((prev) => [newPush, ...prev])
+
+        // 显示浏览器通知
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('技术雷达新推送', {
+            body: newPush.title,
+            icon: '/radar-icon.png',
+          })
+        }
+      }
+    })
+
+    return () => {
+      socket.off('radar:push:new')
+    }
+  }, [socket, isConnected])
+
+  // 请求通知权限
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }, [])
+
+  const handleRefresh = () => {
+    fetchPushes()
   }
 
   return (
@@ -132,7 +107,19 @@ export default function TechRadarPage() {
       </Box>
 
       {/* 操作按钮 */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, justifyContent: 'flex-end' }}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box>
+          {!isConnected && (
+            <Typography variant="caption" color="warning.main">
+              ⚠️ 实时推送连接中断，正在重新连接...
+            </Typography>
+          )}
+          {isConnected && (
+            <Typography variant="caption" color="success.main">
+              ✓ 实时推送已连接
+            </Typography>
+          )}
+        </Box>
         <Button
           variant="outlined"
           startIcon={<Refresh />}
@@ -158,9 +145,9 @@ export default function TechRadarPage() {
       )}
 
       {/* 推送列表 */}
-      {!isLoading && mockPushes.length > 0 ? (
+      {!isLoading && pushes.length > 0 && (
         <Grid container spacing={3}>
-          {mockPushes.map((push) => (
+          {pushes.map((push) => (
             <Grid item xs={12} sm={6} lg={4} key={push.pushId}>
               <PushCard
                 push={push}
@@ -169,15 +156,19 @@ export default function TechRadarPage() {
             </Grid>
           ))}
         </Grid>
-      ) : !isLoading ? (
-        <Card>
-          <CardContent sx={{ textAlign: 'center', py: 4 }}>
-            <Typography variant="body1" color="text.secondary">
-              暂无推送内容
-            </Typography>
-          </CardContent>
-        </Card>
-      ) : null}
+      )}
+
+      {/* 空状态 */}
+      {!isLoading && pushes.length === 0 && !error && (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            暂无推送内容
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            系统会根据您的薄弱项和关注领域自动推送相关技术方案
+          </Typography>
+        </Box>
+      )}
 
       {/* 详情弹窗 */}
       {selectedPushId && (
@@ -185,8 +176,6 @@ export default function TechRadarPage() {
           pushId={selectedPushId}
           isOpen={!!selectedPushId}
           onClose={() => setSelectedPushId(null)}
-          push={mockPushes.find((p) => p.pushId === selectedPushId)}
-          isLoading={false}
         />
       )}
     </Container>

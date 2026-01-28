@@ -2,11 +2,12 @@ import { Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { SummaryGenerator, SummaryGenerationInput } from './generators/summary.generator'
+import { ClusteringGenerator, ClusteringGenerationInput } from './generators/clustering.generator'
 import {
-  ClusteringGenerator,
-  ClusteringGenerationInput,
-} from './generators/clustering.generator'
-import { MatrixGenerator, MatrixGenerationInput, MatrixGenerationOutput } from './generators/matrix.generator'
+  MatrixGenerator,
+  MatrixGenerationInput,
+  MatrixGenerationOutput,
+} from './generators/matrix.generator'
 import {
   QuestionnaireGenerator,
   QuestionnaireGenerationInput,
@@ -15,14 +16,9 @@ import {
   BinaryQuestionnaireGenerator,
   BinaryQuestionnaireInput,
 } from './generators/binary-questionnaire.generator'
-import {
-  ActionPlanGenerator,
-  ActionPlanGenerationInput,
-} from './generators/action-plan.generator'
+import { ActionPlanGenerator, ActionPlanGenerationInput } from './generators/action-plan.generator'
 import { QuickGapAnalyzer } from './generators/quick-gap-analyzer.generator'
-import {
-  StandardInterpretationGenerator,
-} from './generators/standard-interpretation.generator'
+import { StandardInterpretationGenerator } from './generators/standard-interpretation.generator'
 import { QualityValidationService } from '../quality-validation/quality-validation.service'
 import { ResultAggregatorService } from '../result-aggregation/result-aggregator.service'
 import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
@@ -209,7 +205,7 @@ export class AIGenerationService {
         {
           status: TaskStatus.COMPLETED,
           completedAt: new Date(),
-        }
+        },
       )
       this.logger.log(`Updated task ${request.taskId} status to COMPLETED in database`)
 
@@ -232,7 +228,7 @@ export class AIGenerationService {
         {
           status: TaskStatus.FAILED,
           completedAt: new Date(),
-        }
+        },
       )
       this.logger.error(`Updated task ${request.taskId} status to FAILED in database`)
 
@@ -295,7 +291,7 @@ export class AIGenerationService {
 
           // 合并progress details，保留已有数据
           const mergedProgress = {
-            ...(currentTask.progressDetails as any || {}),
+            ...((currentTask.progressDetails as any) || {}),
             ...(progress.details || {}),
           }
 
@@ -304,13 +300,19 @@ export class AIGenerationService {
             progressDetails: mergedProgress,
           })
 
-          this.logger.log(`✅ [Progress] Updated task ${request.taskId}: stage=${progress.stage}, models_completed=${Object.keys(mergedProgress).filter(k => k !== 'validation_stage' && k !== 'aggregation_stage').length}`)
+          this.logger.log(
+            `✅ [Progress] Updated task ${request.taskId}: stage=${progress.stage}, models_completed=${Object.keys(mergedProgress).filter((k) => k !== 'validation_stage' && k !== 'aggregation_stage').length}`,
+          )
         } catch (error) {
           this.logger.error(`❌ [Progress] Failed to update task progress: ${error.message}`)
         }
       }
 
-      const { gpt4, claude, domestic } = await this.clusteringGenerator.generate(input, request.taskId, onProgress)
+      const { gpt4, claude, domestic } = await this.clusteringGenerator.generate(
+        input,
+        request.taskId,
+        onProgress,
+      )
 
       this.tasksGateway.emitTaskProgress({
         taskId: request.taskId,
@@ -320,7 +322,9 @@ export class AIGenerationService {
       })
 
       // 更新数据库状态为质量验证（保留progressDetails）
-      const taskBeforeValidation = await this.aiTaskRepository.findOne({ where: { id: request.taskId } })
+      const taskBeforeValidation = await this.aiTaskRepository.findOne({
+        where: { id: request.taskId },
+      })
       await this.aiTaskRepository.update(request.taskId, {
         generationStage: 'quality_validation' as any,
         progressDetails: taskBeforeValidation?.progressDetails,
@@ -341,7 +345,9 @@ export class AIGenerationService {
       })
 
       // 更新数据库状态为聚合（保留progressDetails）
-      const taskBeforeAggregation = await this.aiTaskRepository.findOne({ where: { id: request.taskId } })
+      const taskBeforeAggregation = await this.aiTaskRepository.findOne({
+        where: { id: request.taskId },
+      })
       await this.aiTaskRepository.update(request.taskId, {
         generationStage: 'aggregating' as any,
         progressDetails: taskBeforeAggregation?.progressDetails,
@@ -379,9 +385,11 @@ export class AIGenerationService {
           status: TaskStatus.COMPLETED,
           completedAt: new Date(),
           progressDetails: currentTask?.progressDetails, // 确保保留progress详情
-        }
+        },
       )
-      this.logger.log(`✅ Updated task ${request.taskId} status to COMPLETED in database (progress preserved: ${!!currentTask?.progressDetails})`)
+      this.logger.log(
+        `✅ Updated task ${request.taskId} status to COMPLETED in database (progress preserved: ${!!currentTask?.progressDetails})`,
+      )
 
       // 发送完成事件
       const executionTime = Date.now() - startTime
@@ -402,7 +410,7 @@ export class AIGenerationService {
         {
           status: TaskStatus.FAILED,
           completedAt: new Date(),
-        }
+        },
       )
       this.logger.error(`Updated task ${request.taskId} status to FAILED in database`)
 
@@ -437,7 +445,7 @@ export class AIGenerationService {
         this.logger.log(`Loading clustering result from task: ${clusteringTaskId}`)
 
         const clusteringTask = await this.aiTaskRepository.findOne({
-          where: { id: clusteringTaskId }
+          where: { id: clusteringTaskId },
         })
 
         if (!clusteringTask || !clusteringTask.result) {
@@ -446,7 +454,9 @@ export class AIGenerationService {
 
         // 使用聚类任务的selectedResult作为clusteringResult
         input.clusteringResult = clusteringTask.result.selectedResult || clusteringTask.result.gpt4
-        this.logger.log(`Loaded clustering result with ${input.clusteringResult.categories?.length || 0} categories`)
+        this.logger.log(
+          `Loaded clustering result with ${input.clusteringResult.categories?.length || 0} categories`,
+        )
       }
 
       // 发送初始进度
@@ -517,7 +527,7 @@ export class AIGenerationService {
         {
           status: TaskStatus.COMPLETED,
           completedAt: new Date(),
-        }
+        },
       )
       this.logger.log(`Updated task ${request.taskId} status to COMPLETED in database`)
 
@@ -540,7 +550,7 @@ export class AIGenerationService {
         {
           status: TaskStatus.FAILED,
           completedAt: new Date(),
-        }
+        },
       )
       this.logger.error(`Updated task ${request.taskId} status to FAILED in database`)
 
@@ -562,7 +572,11 @@ export class AIGenerationService {
    * 生成调研问卷
    */
   private async generateQuestionnaire(request: GenerationRequest): Promise<GenerationResponse> {
-    const input = request.input as { matrixTaskId: string; temperature?: number; maxTokens?: number }
+    const input = request.input as {
+      matrixTaskId: string
+      temperature?: number
+      maxTokens?: number
+    }
     const startTime = Date.now()
 
     try {
@@ -601,7 +615,8 @@ export class AIGenerationService {
         currentStep: '模型生成',
       })
 
-      const { gpt4, claude, domestic } = await this.questionnaireGenerator.generate(questionnaireInput)
+      const { gpt4, claude, domestic } =
+        await this.questionnaireGenerator.generate(questionnaireInput)
 
       this.tasksGateway.emitTaskProgress({
         taskId: request.taskId,
@@ -653,7 +668,7 @@ export class AIGenerationService {
         {
           status: TaskStatus.COMPLETED,
           completedAt: new Date(),
-        }
+        },
       )
       this.logger.log(`Updated task ${request.taskId} status to COMPLETED in database`)
 
@@ -676,7 +691,7 @@ export class AIGenerationService {
         {
           status: TaskStatus.FAILED,
           completedAt: new Date(),
-        }
+        },
       )
       this.logger.error(`Updated task ${request.taskId} status to FAILED in database`)
 
@@ -697,8 +712,14 @@ export class AIGenerationService {
   /**
    * 生成判断题问卷
    */
-  private async generateBinaryQuestionnaire(request: GenerationRequest): Promise<GenerationResponse> {
-    const input = request.input as { clusteringTaskId: string; temperature?: number; maxTokens?: number }
+  private async generateBinaryQuestionnaire(
+    request: GenerationRequest,
+  ): Promise<GenerationResponse> {
+    const input = request.input as {
+      clusteringTaskId: string
+      temperature?: number
+      maxTokens?: number
+    }
     const startTime = Date.now()
 
     try {
@@ -720,7 +741,9 @@ export class AIGenerationService {
         throw new Error(`Clustering result not found for task ${input.clusteringTaskId}`)
       }
 
-      this.logger.log(`Retrieved clustering result with ${clusteringResult.categories?.length || 0} categories`)
+      this.logger.log(
+        `Retrieved clustering result with ${clusteringResult.categories?.length || 0} categories`,
+      )
 
       // 2. 构造判断题问卷生成输入
       const binaryQuestionnaireInput: BinaryQuestionnaireInput = {
@@ -737,7 +760,8 @@ export class AIGenerationService {
         currentStep: '模型生成',
       })
 
-      const { gpt4, claude, domestic } = await this.binaryQuestionnaireGenerator.generate(binaryQuestionnaireInput)
+      const { gpt4, claude, domestic } =
+        await this.binaryQuestionnaireGenerator.generate(binaryQuestionnaireInput)
 
       this.tasksGateway.emitTaskProgress({
         taskId: request.taskId,
@@ -1113,7 +1137,9 @@ export class AIGenerationService {
    * 1. 单阶段模式（默认）：直接解读整个文档
    * 2. 两阶段模式（useTwoPhaseMode=true）：先提取条款清单，再批量解读
    */
-  private async generateStandardInterpretation(request: GenerationRequest): Promise<GenerationResponse> {
+  private async generateStandardInterpretation(
+    request: GenerationRequest,
+  ): Promise<GenerationResponse> {
     const input = request.input as {
       standardDocument: {
         id: string
@@ -1154,12 +1180,13 @@ export class AIGenerationService {
         currentStep: '模型生成',
       })
 
-      const { gpt4, claude, domestic } = await this.standardInterpretationGenerator.generateInterpretation({
-        standardDocument: input.standardDocument,
-        interpretationMode: input.interpretationMode || 'enterprise',
-        temperature: input.temperature,
-        maxTokens: input.maxTokens,
-      })
+      const { gpt4, claude, domestic } =
+        await this.standardInterpretationGenerator.generateInterpretation({
+          standardDocument: input.standardDocument,
+          interpretationMode: input.interpretationMode || 'enterprise',
+          temperature: input.temperature,
+          maxTokens: input.maxTokens,
+        })
 
       this.tasksGateway.emitTaskProgress({
         taskId: request.taskId,
@@ -1255,7 +1282,9 @@ export class AIGenerationService {
    * 阶段1：提取条款清单
    * 阶段2：批量解读条款
    */
-  private async generateStandardInterpretationTwoPhase(request: GenerationRequest): Promise<GenerationResponse> {
+  private async generateStandardInterpretationTwoPhase(
+    request: GenerationRequest,
+  ): Promise<GenerationResponse> {
     const input = request.input as {
       standardDocument: {
         id: string
@@ -1280,22 +1309,23 @@ export class AIGenerationService {
       })
 
       // 调用批量解读生成器
-      const { gpt4, claude, domestic } = await this.standardInterpretationGenerator.generateBatchInterpretation({
-        standardDocument: input.standardDocument,
-        interpretationMode: input.interpretationMode || 'enterprise',
-        batchSize: input.batchSize || 10,
-        temperature: input.temperature,
-        maxTokens: input.maxTokens,
-        onProgress: (progress) => {
-          // 实时更新进度
-          this.tasksGateway.emitTaskProgress({
-            taskId: request.taskId,
-            progress: progress.current,
-            message: progress.message,
-            currentStep: '批量解读',
-          })
-        },
-      })
+      const { gpt4, claude, domestic } =
+        await this.standardInterpretationGenerator.generateBatchInterpretation({
+          standardDocument: input.standardDocument,
+          interpretationMode: input.interpretationMode || 'enterprise',
+          batchSize: input.batchSize || 10,
+          temperature: input.temperature,
+          maxTokens: input.maxTokens,
+          onProgress: (progress) => {
+            // 实时更新进度
+            this.tasksGateway.emitTaskProgress({
+              taskId: request.taskId,
+              progress: progress.current,
+              message: progress.message,
+              currentStep: '批量解读',
+            })
+          },
+        })
 
       // 质量验证
       this.tasksGateway.emitTaskProgress({
@@ -1339,7 +1369,7 @@ export class AIGenerationService {
 
       this.logger.log(
         `Two-phase standard interpretation completed: confidence=${response.confidenceLevel}, ` +
-        `model=${response.selectedModel}, requirements=${response.selectedResult.key_requirements?.length || 0}`,
+          `model=${response.selectedModel}, requirements=${response.selectedResult.key_requirements?.length || 0}`,
       )
 
       // 更新数据库中的任务状态为completed
@@ -1393,7 +1423,9 @@ export class AIGenerationService {
   /**
    * 生成关联标准搜索
    */
-  private async generateRelatedStandardSearch(request: GenerationRequest): Promise<GenerationResponse> {
+  private async generateRelatedStandardSearch(
+    request: GenerationRequest,
+  ): Promise<GenerationResponse> {
     const input = request.input as {
       standardDocument: {
         id: string
@@ -1432,12 +1464,13 @@ export class AIGenerationService {
         currentStep: '模型生成',
       })
 
-      const { gpt4, claude, domestic } = await this.standardInterpretationGenerator.searchRelatedStandards({
-        standardDocument: input.standardDocument,
-        interpretationResult: interpretationResult?.selectedResult,
-        temperature: input.temperature,
-        maxTokens: input.maxTokens,
-      })
+      const { gpt4, claude, domestic } =
+        await this.standardInterpretationGenerator.searchRelatedStandards({
+          standardDocument: input.standardDocument,
+          interpretationResult: interpretationResult?.selectedResult,
+          temperature: input.temperature,
+          maxTokens: input.maxTokens,
+        })
 
       this.tasksGateway.emitTaskProgress({
         taskId: request.taskId,
@@ -1568,12 +1601,14 @@ export class AIGenerationService {
         currentStep: '模型生成',
       })
 
-      const { gpt4, claude, domestic } = await this.standardInterpretationGenerator.compareVersions({
-        oldVersion: input.oldVersion,
-        newVersion: input.newVersion,
-        temperature: input.temperature,
-        maxTokens: input.maxTokens,
-      })
+      const { gpt4, claude, domestic } = await this.standardInterpretationGenerator.compareVersions(
+        {
+          oldVersion: input.oldVersion,
+          newVersion: input.newVersion,
+          temperature: input.temperature,
+          maxTokens: input.maxTokens,
+        },
+      )
 
       this.tasksGateway.emitTaskProgress({
         taskId: request.taskId,
@@ -1706,14 +1741,18 @@ export class AIGenerationService {
       }
 
       if (surveyResponse.status !== 'submitted' && surveyResponse.status !== 'completed') {
-        throw new Error(`Survey must be submitted before generating action plan. Current status: ${surveyResponse.status}`)
+        throw new Error(
+          `Survey must be submitted before generating action plan. Current status: ${surveyResponse.status}`,
+        )
       }
 
       // 获取问卷模板（用于理解问题结构）
       const questionnaireResult = await this.getFinalResult(surveyResponse.questionnaireTaskId)
 
       if (!questionnaireResult) {
-        throw new Error(`Questionnaire template not found for task ${surveyResponse.questionnaireTaskId}`)
+        throw new Error(
+          `Questionnaire template not found for task ${surveyResponse.questionnaireTaskId}`,
+        )
       }
 
       // 合并问卷模板和用户答案，构造完整的问卷填写结果
@@ -1802,7 +1841,7 @@ export class AIGenerationService {
         {
           status: TaskStatus.COMPLETED,
           completedAt: new Date(),
-        }
+        },
       )
       this.logger.log(`Updated task ${request.taskId} status to COMPLETED in database`)
 
@@ -1825,7 +1864,7 @@ export class AIGenerationService {
         {
           status: TaskStatus.FAILED,
           completedAt: new Date(),
-        }
+        },
       )
       this.logger.error(`Updated task ${request.taskId} status to FAILED in database`)
 
@@ -1894,7 +1933,9 @@ export class AIGenerationService {
       result: JSON.parse(updatedSelectedResult),
     } as any)
 
-    this.logger.log(`Clustering result updated successfully for task ${taskId} (both ai_generation_results and ai_tasks)`)
+    this.logger.log(
+      `Clustering result updated successfully for task ${taskId} (both ai_generation_results and ai_tasks)`,
+    )
   }
 
   /**
@@ -2057,7 +2098,9 @@ export class AIGenerationService {
     }
 
     // 4. 创建AITask
-    this.logger.log(`Creating AITask ${taskId} with type ${taskType} and projectId ${targetProjectId}`)
+    this.logger.log(
+      `Creating AITask ${taskId} with type ${taskType} and projectId ${targetProjectId}`,
+    )
     const newTask = this.aiTaskRepository.create({
       id: taskId,
       projectId: targetProjectId,

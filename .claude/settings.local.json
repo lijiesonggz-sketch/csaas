@@ -105,7 +105,17 @@
       "Skill(bmad:bmm:workflows:create-story)",
       "Skill(bmad:bmm:workflows:dev-story)",
       "Skill(bmad:bmm:workflows:code-review)",
-      "Bash(npm run test:e2e:*)"
+      "Bash(npm run test:e2e:*)",
+      "Bash(where:*)",
+      "Bash(DB_DATABASE=csaas_test npm run migration:run:*)",
+      "Bash(npm run lint:*)",
+      "Bash(tee:*)",
+      "Bash(npm run migration:show:*)",
+      "Bash(git --no-pager log --oneline -10)",
+      "Bash(claude update:*)",
+      "Bash(test:*)",
+      "Bash(npm run typeorm:check:*)",
+      "Bash(npm run test:*)"
     ]
   }
 }

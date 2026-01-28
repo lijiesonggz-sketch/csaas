@@ -64,9 +64,7 @@ export class BinaryQuestionnaireGenerator {
    * @param input 生成输入
    * @returns 生成输出（三模型结果）
    */
-  async generate(
-    input: BinaryQuestionnaireInput,
-  ): Promise<{
+  async generate(input: BinaryQuestionnaireInput): Promise<{
     gpt4: BinaryQuestionnaireGenerationOutput
     claude: BinaryQuestionnaireGenerationOutput
     domestic: BinaryQuestionnaireGenerationOutput
@@ -80,7 +78,9 @@ export class BinaryQuestionnaireGenerator {
       throw new Error('Valid clustering result is required for binary questionnaire generation')
     }
 
-    this.logger.log(`Generating binary questionnaire for ${clusteringResult.categories.length} categories...`)
+    this.logger.log(
+      `Generating binary questionnaire for ${clusteringResult.categories.length} categories...`,
+    )
 
     // 构建Prompt
     const prompt = fillBinaryQuestionnairePrompt(clusteringResult)
@@ -203,7 +203,9 @@ export class BinaryQuestionnaireGenerator {
         !question.question_text ||
         question.expected_answer === undefined
       ) {
-        this.logger.warn(`Validation failed: Missing required fields in question ${question.question_id}`)
+        this.logger.warn(
+          `Validation failed: Missing required fields in question ${question.question_id}`,
+        )
         return false
       }
     }

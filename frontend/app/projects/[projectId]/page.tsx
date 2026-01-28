@@ -14,6 +14,7 @@ import {
   TrendingUp,
   MenuBook,
   Speed,
+  Radar,
 } from '@mui/icons-material'
 import { ProjectsAPI, Project } from '@/lib/api/projects'
 import { AITasksAPI } from '@/lib/api/ai-tasks'
@@ -210,6 +211,14 @@ export default function ProjectWorkbenchPage() {
       route: `/projects/${projectId}/action-plan`,
       status: (taskStatuses['action-plan'] || 'pending') as 'completed' | 'processing' | 'pending' | 'failed',
       description: '生成改进措施建议和行动计划',
+    },
+    {
+      id: 'radar-service',
+      name: 'Radar Service',
+      icon: <Radar />,
+      route: `/radar?orgId=${project?.organizationId}`,
+      status: 'completed' as 'completed' | 'processing' | 'pending' | 'failed',
+      description: '技术趋势、行业标杆、合规预警 - 智能推送',
     },
   ], [projectId, project?.metadata, taskStatuses])
 

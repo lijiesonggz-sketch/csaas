@@ -19,7 +19,7 @@ export class MigrateHistoricalData1700000000001 implements MigrationInterface {
     // 检查项目是否已存在
     const existingProject = await queryRunner.query(
       `SELECT id FROM projects WHERE name = '数据安全测试项目' AND owner_id = $1`,
-      [userId]
+      [userId],
     )
 
     let projectId: string
@@ -30,7 +30,7 @@ export class MigrateHistoricalData1700000000001 implements MigrationInterface {
         `INSERT INTO projects (id, name, description, client_name, standard_name, owner_id, status, metadata, created_at, updated_at)
          VALUES (uuid_generate_v4(), '数据安全测试项目', '历史数据迁移项目', '历史客户', '通用标准', $1, 'completed', '{}', NOW(), NOW())
          RETURNING id`,
-        [userId]
+        [userId],
       )
       projectId = result[0].id
 
@@ -38,7 +38,7 @@ export class MigrateHistoricalData1700000000001 implements MigrationInterface {
       await queryRunner.query(
         `INSERT INTO project_members (project_id, user_id, role, added_at)
          VALUES ($1, $2, 'OWNER', NOW())`,
-        [projectId, userId]
+        [projectId, userId],
       )
     } else {
       projectId = existingProject[0].id
@@ -49,7 +49,7 @@ export class MigrateHistoricalData1700000000001 implements MigrationInterface {
       `UPDATE ai_tasks
        SET project_id = $1
        WHERE project_id IS NULL`,
-      [projectId]
+      [projectId],
     )
 
     console.log(`✅ 历史数据迁移完成：`)
@@ -64,7 +64,7 @@ export class MigrateHistoricalData1700000000001 implements MigrationInterface {
        SET project_id = NULL
        WHERE project_id IN (
          SELECT id FROM projects WHERE name = '数据安全测试项目' AND owner_id = '00000000-0000-0000-0000-000000000001'
-       )`
+       )`,
     )
 
     // 可选：删除"数据安全测试项目"（谨慎操作）

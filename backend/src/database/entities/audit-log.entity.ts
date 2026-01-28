@@ -9,6 +9,7 @@ export enum AuditAction {
   ACCESS_PROJECT = 'ACCESS_PROJECT',
   RERUN_TASK = 'RERUN_TASK',
   VIEW_VERSION = 'VIEW_VERSION',
+  ACCESS_DENIED = 'ACCESS_DENIED',
 }
 
 @Entity('audit_logs')
@@ -18,6 +19,9 @@ export class AuditLog {
 
   @Column({ name: 'user_id', nullable: true })
   userId: string
+
+  @Column({ name: 'organization_id', nullable: true })
+  organizationId: string
 
   @Column({ name: 'project_id', nullable: true })
   projectId: string
@@ -36,6 +40,12 @@ export class AuditLog {
 
   @Column({ type: 'jsonb', nullable: true })
   changes: Record<string, any>
+
+  @Column({ type: 'jsonb', nullable: true })
+  details: Record<string, any>
+
+  @Column({ type: 'jsonb', nullable: true })
+  req: Record<string, any>
 
   @Column({ default: true })
   success: boolean

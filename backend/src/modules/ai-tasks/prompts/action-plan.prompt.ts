@@ -26,15 +26,10 @@ export function generateActionPlanPrompt(data: ActionPlanPromptData): string {
 
   // 判断紧急程度
   const urgency =
-    gap >= 2.0
-      ? '高（差距较大，急需改进）'
-      : gap >= 1.0
-        ? '中（存在明显差距）'
-        : '低（小幅提升）'
+    gap >= 2.0 ? '高（差距较大，急需改进）' : gap >= 1.0 ? '中（存在明显差距）' : '低（小幅提升）'
 
   // 措施数量建议
-  const measureCount =
-    priority === 'high' ? 5 : priority === 'medium' ? 4 : 3
+  const measureCount = priority === 'high' ? 5 : priority === 'medium' ? 4 : 3
 
   // 问题详情描述
   let questionContext = ''

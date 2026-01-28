@@ -47,7 +47,7 @@
 **When** 需要计算ROI
 **Then** 调用通义千问API，分析：预计投入成本、预期收益、ROI估算、实施周期、推荐供应商
 
-### AC 2: 创建ROIAnalysis记录
+### AC 2: 更新AnalyzedContent的roiAnalysis字段
 
 **Given** 通义千问返回ROI分析结果
 **When** 解析AI响应

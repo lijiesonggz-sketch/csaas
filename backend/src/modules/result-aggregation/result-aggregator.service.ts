@@ -61,16 +61,9 @@ export class ResultAggregatorService {
    * @returns 聚合输出
    */
   async aggregate(input: AggregationInput): Promise<AggregationOutput> {
-    this.logger.log(
-      `Aggregating results for task ${input.taskId}, type: ${input.generationType}`,
-    )
+    this.logger.log(`Aggregating results for task ${input.taskId}, type: ${input.generationType}`)
 
-    const {
-      gpt4Result,
-      claudeResult,
-      domesticResult,
-      validationReport,
-    } = input
+    const { gpt4Result, claudeResult, domesticResult, validationReport } = input
 
     // 1. 投票选择最佳结果（基于质量分数）
     const { selectedResult, selectedModel } = this.selectBestResult(
@@ -81,9 +74,7 @@ export class ResultAggregatorService {
     )
 
     // 2. 确定置信度等级
-    const confidenceLevel = this.mapConfidenceLevel(
-      validationReport.confidenceLevel,
-    )
+    const confidenceLevel = this.mapConfidenceLevel(validationReport.confidenceLevel)
 
     // 3. 构建输出
     const output: AggregationOutput = {
@@ -171,9 +162,7 @@ export class ResultAggregatorService {
   /**
    * 映射置信度等级
    */
-  private mapConfidenceLevel(
-    level: 'HIGH' | 'MEDIUM' | 'LOW',
-  ): ConfidenceLevel {
+  private mapConfidenceLevel(level: 'HIGH' | 'MEDIUM' | 'LOW'): ConfidenceLevel {
     switch (level) {
       case 'HIGH':
         return ConfidenceLevel.HIGH
@@ -187,10 +176,7 @@ export class ResultAggregatorService {
   /**
    * 存储聚合结果到数据库
    */
-  private async saveToDatabase(
-    input: AggregationInput,
-    output: AggregationOutput,
-  ): Promise<void> {
+  private async saveToDatabase(input: AggregationInput, output: AggregationOutput): Promise<void> {
     const generationResult = this.generationResultRepository.create({
       taskId: input.taskId,
       generationType: input.generationType,
@@ -207,9 +193,7 @@ export class ResultAggregatorService {
 
     await this.generationResultRepository.save(generationResult)
 
-    this.logger.debug(
-      `Saved generation result to database: id=${generationResult.id}`,
-    )
+    this.logger.debug(`Saved generation result to database: id=${generationResult.id}`)
   }
 
   /**
@@ -252,9 +236,7 @@ export class ResultAggregatorService {
 
     await this.generationResultRepository.save(result)
 
-    this.logger.log(
-      `Updated review status for result ${resultId}: ${reviewStatus}`,
-    )
+    this.logger.log(`Updated review status for result ${resultId}: ${reviewStatus}`)
   }
 
   /**

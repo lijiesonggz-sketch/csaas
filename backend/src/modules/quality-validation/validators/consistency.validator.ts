@@ -53,9 +53,7 @@ export class ConsistencyValidator {
     const successfulModels = [gpt4, claude, domestic].filter((r) => r !== null)
     const successfulCount = successfulModels.length
 
-    this.logger.log(
-      `Starting consistency validation with ${successfulCount}/3 successful models`,
-    )
+    this.logger.log(`Starting consistency validation with ${successfulCount}/3 successful models`)
 
     // ⭐ 动态质量验证：根据成功数量调整验证策略
     if (successfulCount === 0) {
@@ -81,18 +79,10 @@ export class ConsistencyValidator {
 
     // ⭐ 2-3个模型成功：正常进行一致性验证
     // Layer 1: 结构一致性验证（JSON Schema结构）
-    const structuralScore = this.validateStructuralConsistency(
-      gpt4,
-      claude,
-      domestic,
-    )
+    const structuralScore = this.validateStructuralConsistency(gpt4, claude, domestic)
 
     // Layer 2: 语义等价性验证（Embedding相似度）
-    const semanticScore = await this.validateSemanticConsistency(
-      gpt4,
-      claude,
-      domestic,
-    )
+    const semanticScore = await this.validateSemanticConsistency(gpt4, claude, domestic)
 
     // Layer 3: 细节一致性验证（文本相似度）
     const detailScore = this.validateDetailConsistency(gpt4, claude, domestic)
@@ -167,8 +157,7 @@ export class ConsistencyValidator {
     }
 
     // 返回平均值
-    const avgSimilarity =
-      similarities.reduce((sum, s) => sum + s, 0) / similarities.length
+    const avgSimilarity = similarities.reduce((sum, s) => sum + s, 0) / similarities.length
 
     this.logger.debug(`Structural consistency: ${avgSimilarity.toFixed(4)}`)
 
@@ -211,8 +200,7 @@ export class ConsistencyValidator {
     }
 
     // 返回平均值
-    const avgSimilarity =
-      similarities.reduce((sum, s) => sum + s, 0) / similarities.length
+    const avgSimilarity = similarities.reduce((sum, s) => sum + s, 0) / similarities.length
 
     this.logger.debug(`Semantic consistency: ${avgSimilarity.toFixed(4)}`)
 
@@ -255,8 +243,7 @@ export class ConsistencyValidator {
     }
 
     // 返回平均值
-    const avgSimilarity =
-      similarities.reduce((sum, s) => sum + s, 0) / similarities.length
+    const avgSimilarity = similarities.reduce((sum, s) => sum + s, 0) / similarities.length
 
     this.logger.debug(`Detail consistency: ${avgSimilarity.toFixed(4)}`)
 
@@ -328,11 +315,16 @@ export class ConsistencyValidator {
         if (allEqual) {
           agreements.push(`Field '${key}': All models agree`)
         } else {
-          const detail = values.map((v) => `${v.name}=${this.truncate(JSON.stringify(v.value))}`).join(', ')
+          const detail = values
+            .map((v) => `${v.name}=${this.truncate(JSON.stringify(v.value))}`)
+            .join(', ')
           disagreements.push(`Field '${key}': ${detail}`)
         }
       } else {
-        const missing = values.filter((v) => v.value === undefined).map((v) => v.name).join(', ')
+        const missing = values
+          .filter((v) => v.value === undefined)
+          .map((v) => v.name)
+          .join(', ')
         disagreements.push(`Field '${key}': Missing in ${missing}`)
       }
     }
@@ -389,10 +381,7 @@ export class ConsistencyValidator {
    * @param successfulCount 成功模型数量
    * @returns 置信度等级
    */
-  getConfidenceLevel(
-    overallScore: number,
-    successfulCount?: number,
-  ): 'HIGH' | 'MEDIUM' | 'LOW' {
+  getConfidenceLevel(overallScore: number, successfulCount?: number): 'HIGH' | 'MEDIUM' | 'LOW' {
     // ⭐ 动态置信度：根据成功模型数量调整
     if (successfulCount === 1) {
       return 'LOW' // 单模型结果，低置信度

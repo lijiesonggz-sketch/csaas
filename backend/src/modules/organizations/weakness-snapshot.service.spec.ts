@@ -47,9 +47,7 @@ describe('WeaknessSnapshotService', () => {
     }).compile()
 
     service = module.get<WeaknessSnapshotService>(WeaknessSnapshotService)
-    repository = module.get<Repository<WeaknessSnapshot>>(
-      getRepositoryToken(WeaknessSnapshot),
-    )
+    repository = module.get<Repository<WeaknessSnapshot>>(getRepositoryToken(WeaknessSnapshot))
     tasksGateway = module.get<TasksGateway>(TasksGateway)
 
     jest.clearAllMocks()

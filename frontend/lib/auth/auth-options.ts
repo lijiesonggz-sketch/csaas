@@ -11,13 +11,21 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
+        console.log('[NextAuth] authorize called with:', {
+          email: credentials?.email,
+          hasPassword: !!credentials?.password,
+        })
+
         if (!credentials?.email || !credentials?.password) {
           throw new Error('请输入邮箱和密码')
         }
 
         try {
           // Call backend API to verify credentials
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+          console.log('[NextAuth] Calling backend API:', apiUrl)
+
+          const res = await fetch(`${apiUrl}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -26,20 +34,36 @@ export const authOptions: NextAuthOptions = {
             }),
           })
 
+          console.log('[NextAuth] Backend response status:', res.status)
+
           const data = await res.json()
+          console.log('[NextAuth] Backend response data:', {
+            success: data.success,
+            hasUser: !!data.data?.user,
+            hasToken: !!data.data?.access_token
+          })
 
           if (!res.ok) {
+            console.error('[NextAuth] Login failed:', data)
             throw new Error(data.message || '登录失败')
           }
 
           // Return user object with token
-          return {
-            id: data.user.id,
-            email: data.user.email,
-            name: data.user.name,
-            role: data.user.role,
-            accessToken: data.accessToken,
+          const user = {
+            id: data.data.user.id,
+            email: data.data.user.email,
+            name: data.data.user.name,
+            role: data.data.user.role,
+            accessToken: data.data.access_token,
           }
+
+          console.log('[NextAuth] Returning user:', {
+            id: user.id,
+            email: user.email,
+            hasAccessToken: !!user.accessToken
+          })
+
+          return user
         } catch (error) {
           console.error('Login error:', error)
           throw new Error(error instanceof Error ? error.message : '登录失败')

@@ -61,8 +61,7 @@ export class MatrixGenerator {
     private readonly configService: ConfigService,
   ) {
     // 获取超时配置（默认10分钟）
-    this.generationTimeout =
-      this.configService.get<number>('MODEL_GENERATION_TIMEOUT') || 600000
+    this.generationTimeout = this.configService.get<number>('MODEL_GENERATION_TIMEOUT') || 600000
 
     this.logger.log(
       `MatrixGenerator initialized with timeout: ${this.generationTimeout}ms (${(this.generationTimeout / 60000).toFixed(1)} minutes)`,
@@ -220,11 +219,13 @@ export class MatrixGenerator {
 
     // 统计成功数量
     const successfulCount = [gpt4Response, domesticResponse].filter((r) => r !== null).length
-    this.logger.log(`Matrix cluster generation completed: ${successfulCount}/2 models successful (Claude disabled)`)
+    this.logger.log(
+      `Matrix cluster generation completed: ${successfulCount}/2 models successful (Claude disabled)`,
+    )
 
     // 解析JSON结果
     let gpt4Row: MatrixRow | null = null
-    let claudeRow: MatrixRow | null = null
+    const claudeRow: MatrixRow | null = null
     let domesticRow: MatrixRow | null = null
 
     if (gpt4Response) {
@@ -251,13 +252,17 @@ export class MatrixGenerator {
         const parsed = this.parseSingleClusterResponse(domesticResponse.content, cluster)
         domesticRow = parsed
       } catch (error) {
-        this.logger.error(`Failed to parse Domestic model single cluster response: ${error.message}`)
+        this.logger.error(
+          `Failed to parse Domestic model single cluster response: ${error.message}`,
+        )
       }
     }
 
     // 如果所有模型都失败，抛出错误（只检查GPT-4和Qwen）
     if (!gpt4Row && !domesticRow) {
-      throw new Error(`All available models failed to generate maturity for cluster: ${cluster.name}`)
+      throw new Error(
+        `All available models failed to generate maturity for cluster: ${cluster.name}`,
+      )
     }
 
     // 使用成功的结果填充失败的模型（优先使用GPT-4，然后Qwen）
@@ -279,9 +284,7 @@ export class MatrixGenerator {
       let cleanedContent = content.trim()
 
       if (cleanedContent.startsWith('```')) {
-        cleanedContent = cleanedContent
-          .replace(/^```(?:json)?\s*\n?/, '')
-          .replace(/\n?```\s*$/, '')
+        cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
       }
 
       // 2. 修复常见的JSON格式问题
@@ -393,19 +396,14 @@ export class MatrixGenerator {
   /**
    * 解析JSON响应
    */
-  private parseJsonResponse(
-    content: string,
-    expectedClusters: number,
-  ): MatrixGenerationOutput {
+  private parseJsonResponse(content: string, expectedClusters: number): MatrixGenerationOutput {
     try {
       // 1. 移除markdown代码块标记（如果存在）
       let cleanedContent = content.trim()
 
       // 移除 ```json 和 ``` 标记
       if (cleanedContent.startsWith('```')) {
-        cleanedContent = cleanedContent
-          .replace(/^```(?:json)?\s*\n?/, '')
-          .replace(/\n?```\s*$/, '')
+        cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
       }
 
       // 2. 修复常见的JSON格式问题

@@ -76,11 +76,7 @@ export class CostMonitoringService {
   /**
    * 计算AI API调用成本
    */
-  calculateCost(
-    model: AIModel,
-    inputTokens: number,
-    outputTokens: number,
-  ): number {
+  calculateCost(model: AIModel, inputTokens: number, outputTokens: number): number {
     const pricing = MODEL_PRICING[model] || MODEL_PRICING[AIModel.GPT4]
 
     const inputCost = (inputTokens / 1000) * pricing.input
@@ -213,10 +209,7 @@ export class CostMonitoringService {
   /**
    * 检查任务成本是否异常
    */
-  async checkTaskCostAlert(
-    taskId: string,
-    projectId: string,
-  ): Promise<CostAlert | null> {
+  async checkTaskCostAlert(taskId: string, projectId: string): Promise<CostAlert | null> {
     const stats = await this.getTaskCostStats(taskId)
 
     if (stats.totalCost >= COST_THRESHOLDS.TASK_ABNORMAL) {
@@ -238,9 +231,7 @@ export class CostMonitoringService {
    * 发送成本告警（TODO: 集成邮件/短信服务）
    */
   async sendCostAlert(alert: CostAlert) {
-    this.logger.warn(
-      `[COST ALERT] ${alert.type.toUpperCase()}: ${alert.message}`,
-    )
+    this.logger.warn(`[COST ALERT] ${alert.type.toUpperCase()}: ${alert.message}`)
 
     // TODO: 集成邮件服务
     // await this.emailService.sendCostAlert(alert)
@@ -272,9 +263,7 @@ export class CostMonitoringService {
     })
 
     const overview = await Promise.all(
-      Array.from(projectGroups.keys()).map((projectId) =>
-        this.getProjectCostStats(projectId),
-      ),
+      Array.from(projectGroups.keys()).map((projectId) => this.getProjectCostStats(projectId)),
     )
 
     const totalCost = overview.reduce((sum, stat) => sum + stat.totalCost, 0)

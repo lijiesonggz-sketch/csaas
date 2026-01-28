@@ -12,6 +12,15 @@ import {
 import { RawContent } from './raw-content.entity'
 import { Tag } from './tag.entity'
 
+// 导入ROI分析数据接口 (Story 2.4 - Issue #4修复)
+export interface ROIAnalysisData {
+  estimatedCost: string
+  expectedBenefit: string
+  roiEstimate: string
+  implementationPeriod: string
+  recommendedVendors: string[]
+}
+
 /**
  * AnalyzedContent Entity - AI分析结果表
  *
@@ -107,13 +116,7 @@ export class AnalyzedContent {
    * }
    */
   @Column({ type: 'jsonb', nullable: true })
-  roiAnalysis: {
-    estimatedCost: string
-    expectedBenefit: string
-    roiEstimate: string
-    implementationPeriod: string
-    recommendedVendors: string[]
-  } | null
+  roiAnalysis: ROIAnalysisData | null
 
   /**
    * 相关性评分（0-1，Story 2.3需要）

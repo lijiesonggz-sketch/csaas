@@ -58,9 +58,7 @@ describe('OrganizationsService - Pagination', () => {
     memberRepository = module.get<Repository<OrganizationMember>>(
       getRepositoryToken(OrganizationMember),
     )
-    projectRepository = module.get<Repository<Project>>(
-      getRepositoryToken(Project),
-    )
+    projectRepository = module.get<Repository<Project>>(getRepositoryToken(Project))
 
     jest.clearAllMocks()
   })

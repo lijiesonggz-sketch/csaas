@@ -183,10 +183,7 @@ export class CurrentStateController {
    * PUT /api/projects/:projectId/current-state/:id
    */
   @Put(':id')
-  async updateCurrentState(
-    @Param('id') id: string,
-    @Body() dto: UpdateCurrentStateDto,
-  ) {
+  async updateCurrentState(@Param('id') id: string, @Body() dto: UpdateCurrentStateDto) {
     try {
       const updatedState = await this.currentStateService.updateCurrentState(id, dto)
 

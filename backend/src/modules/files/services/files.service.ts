@@ -25,9 +25,7 @@ export class FilesService {
     }
 
     if (fileBuffer.length > this.MAX_FILE_SIZE) {
-      throw new BadRequestException(
-        `PDF文件过大。最大支持${this.MAX_FILE_SIZE / 1024 / 1024}MB`
-      )
+      throw new BadRequestException(`PDF文件过大。最大支持${this.MAX_FILE_SIZE / 1024 / 1024}MB`)
     }
 
     let parser: any = null
@@ -46,9 +44,7 @@ export class FilesService {
       // 提取文本
       const result = await parser.getText()
 
-      this.logger.log(
-        `PDF解析成功，页数: ${result.total}，文本长度: ${result.text.length}`
-      )
+      this.logger.log(`PDF解析成功，页数: ${result.total}，文本长度: ${result.text.length}`)
 
       // 清理资源
       await parser.destroy()
@@ -72,7 +68,7 @@ export class FilesService {
       }
 
       throw new BadRequestException(
-        `PDF解析失败: ${error instanceof Error ? error.message : '未知错误'}`
+        `PDF解析失败: ${error instanceof Error ? error.message : '未知错误'}`,
       )
     }
   }

@@ -16,6 +16,8 @@ import { ProjectsService } from '../services/projects.service'
 import { ProjectMembersService } from '../services/project-members.service'
 import { TaskRerunService } from '../services/task-rerun.service'
 import { ProjectAccessGuard } from '../guards/project-access.guard'
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
+import { CurrentUser } from '../../auth/decorators/current-user.decorator'
 import { CreateProjectDto } from '../dto/create-project.dto'
 import { UpdateProjectDto } from '../dto/update-project.dto'
 import { AddProjectMemberDto } from '../dto/add-project-member.dto'
@@ -24,6 +26,16 @@ import { RerunTaskDto } from '../dto/rerun-task.dto'
 import { RollbackTaskDto } from '../dto/rollback-task.dto'
 import { ProjectMemberRole } from '@/database/entities'
 
+/**
+ * ProjectsController
+ *
+ * Project management endpoints.
+ * All endpoints require JWT authentication.
+ * Project-specific endpoints require project membership verification.
+ *
+ * @module backend/src/modules/projects
+ */
+@UseGuards(JwtAuthGuard)
 @Controller('projects')
 export class ProjectsController {
   private readonly logger = new Logger(ProjectsController.name)
@@ -39,9 +51,8 @@ export class ProjectsController {
    * POST /projects
    */
   @Post()
-  async create(@Body() dto: CreateProjectDto, @Req() req: any) {
-    // TODO: Get userId from JWT after auth is implemented
-    const userId = req.user?.id || req.headers['x-user-id'] as string
+  async create(@Body() dto: CreateProjectDto, @CurrentUser() user: any) {
+    const userId = user.userId || user.id
 
     if (!userId) {
       return {
@@ -62,9 +73,8 @@ export class ProjectsController {
    * GET /projects
    */
   @Get()
-  async findAll(@Req() req: any) {
-    // TODO: Get userId from JWT after auth is implemented
-    const userId = req.user?.id || req.headers['x-user-id'] as string
+  async findAll(@CurrentUser() user: any) {
+    const userId = user.userId || user.id
 
     if (!userId) {
       return {
@@ -100,8 +110,8 @@ export class ProjectsController {
    */
   @Get(':projectId')
   @UseGuards(ProjectAccessGuard)
-  async findOne(@Param('projectId') projectId: string, @Req() req: any) {
-    const userId = req.user?.id || req.headers['x-user-id'] || 'system'
+  async findOne(@Param('projectId') projectId: string, @CurrentUser() user: any) {
+    const userId = user.userId || user.id
 
     this.logger.log(`🔍 Controller.findOne: projectId=${projectId}, userId=${userId}`)
 
@@ -145,8 +155,8 @@ export class ProjectsController {
   @Delete(':projectId')
   @UseGuards(ProjectAccessGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('projectId') projectId: string, @Req() req: any) {
-    const userId = req.user?.id || req.headers['x-user-id'] || 'system'
+  async remove(@Param('projectId') projectId: string, @CurrentUser() user: any, @Req() req?: any) {
+    const userId = user?.id || req?.headers['x-user-id'] || 'system'
     await this.projectsService.remove(projectId, userId)
   }
 
@@ -173,14 +183,11 @@ export class ProjectsController {
   async addMember(
     @Param('projectId') projectId: string,
     @Body() dto: AddProjectMemberDto,
-    @Req() req: any,
+    @CurrentUser() user: any,
   ) {
-    const userId = req.user?.id || req.headers['x-user-id'] || 'system'
+    const userId = user.userId || user.id
     // 检查权限：只有OWNER可以添加成员
-    const membership = await this.projectMembersService.findByProjectAndUser(
-      projectId,
-      userId,
-    )
+    const membership = await this.projectMembersService.findByProjectAndUser(projectId, userId)
 
     if (!membership || membership.role !== ProjectMemberRole.OWNER) {
       return {
@@ -239,9 +246,9 @@ export class ProjectsController {
   async removeMember(
     @Param('projectId') projectId: string,
     @Param('userId') userId: string,
-    @Req() req: any,
+    @CurrentUser() user: any,
   ) {
-    const currentUserId = req.user?.id || req.headers['x-user-id'] || 'system'
+    const currentUserId = user.userId || user.id
     // 检查权限：只有OWNER可以移除成员
     const membership = await this.projectMembersService.findByProjectAndUser(
       projectId,
@@ -264,16 +271,16 @@ export class ProjectsController {
   async rerunTask(
     @Param('projectId') projectId: string,
     @Body() dto: RerunTaskDto,
-    @Req() req: any,
+    @CurrentUser() user: any,
   ) {
-    const userId = req.user?.id || req.headers['x-user-id'] || 'system'
+    const userId = user.userId || user.id
     // 检查权限：OWNER和EDITOR可以重跑任务
-    const membership = await this.projectMembersService.findByProjectAndUser(
-      projectId,
-      userId,
-    )
+    const membership = await this.projectMembersService.findByProjectAndUser(projectId, userId)
 
-    if (!membership || ![ProjectMemberRole.OWNER, ProjectMemberRole.EDITOR].includes(membership.role)) {
+    if (
+      !membership ||
+      ![ProjectMemberRole.OWNER, ProjectMemberRole.EDITOR].includes(membership.role)
+    ) {
       return {
         success: false,
         message: '只有项目所有者和编辑者可以重跑任务',
@@ -297,16 +304,16 @@ export class ProjectsController {
   async rollbackTask(
     @Param('projectId') projectId: string,
     @Body() dto: RollbackTaskDto,
-    @Req() req: any,
+    @CurrentUser() user: any,
   ) {
-    const userId = req.user?.id || req.headers['x-user-id'] || 'system'
+    const userId = user.userId || user.id
     // 检查权限：OWNER和EDITOR可以回退
-    const membership = await this.projectMembersService.findByProjectAndUser(
-      projectId,
-      userId,
-    )
+    const membership = await this.projectMembersService.findByProjectAndUser(projectId, userId)
 
-    if (!membership || ![ProjectMemberRole.OWNER, ProjectMemberRole.EDITOR].includes(membership.role)) {
+    if (
+      !membership ||
+      ![ProjectMemberRole.OWNER, ProjectMemberRole.EDITOR].includes(membership.role)
+    ) {
       return {
         success: false,
         message: '只有项目所有者和编辑者可以回退任务',
@@ -328,10 +335,7 @@ export class ProjectsController {
   @Get(':projectId/backup/:taskType')
   @UseGuards(ProjectAccessGuard)
   async getBackupInfo(@Param('projectId') projectId: string, @Param('taskType') taskType: string) {
-    const backupInfo = await this.taskRerunService.getBackupInfo(
-      projectId,
-      taskType as any,
-    )
+    const backupInfo = await this.taskRerunService.getBackupInfo(projectId, taskType as any)
     return {
       success: true,
       data: backupInfo,

@@ -11,6 +11,8 @@ import {
 import { OrganizationMember } from './organization-member.entity'
 import { Project } from './project.entity'
 import { WeaknessSnapshot } from './weakness-snapshot.entity'
+import { WatchedTopic } from './watched-topic.entity'
+import { WatchedPeer } from './watched-peer.entity'
 
 /**
  * Organization Entity
@@ -37,6 +39,18 @@ export class Organization {
    */
   @Column({ type: 'varchar' })
   name: string
+
+  /**
+   * Radar Service activation status
+   *
+   * Indicates whether the organization has completed the onboarding process
+   * and activated Radar Service. Set to true after user completes the 3-step
+   * onboarding wizard (weakness display, topic selection, peer selection).
+   *
+   * @default false
+   */
+  @Column({ name: 'radar_activated', type: 'boolean', default: false })
+  radarActivated: boolean
 
   /**
    * Timestamp when organization was created
@@ -82,4 +96,24 @@ export class Organization {
    */
   @OneToMany(() => WeaknessSnapshot, (weakness) => weakness.organization)
   weaknessSnapshots: WeaknessSnapshot[]
+
+  /**
+   * Technical topics watched by this organization
+   *
+   * Selected during onboarding for Radar Service monitoring
+   */
+  @OneToMany(() => WatchedTopic, (topic) => topic.organization, {
+    onDelete: 'CASCADE',
+  })
+  watchedTopics: WatchedTopic[]
+
+  /**
+   * Peer institutions watched by this organization
+   *
+   * Selected during onboarding for benchmarking and learning
+   */
+  @OneToMany(() => WatchedPeer, (peer) => peer.organization, {
+    onDelete: 'CASCADE',
+  })
+  watchedPeers: WatchedPeer[]
 }

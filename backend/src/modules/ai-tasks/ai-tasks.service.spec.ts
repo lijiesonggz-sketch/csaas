@@ -191,9 +191,9 @@ describe('Questionnaire Resume Generation (TDD)', () => {
       aiTaskRepo.findOne = jest.fn().mockResolvedValue(allCompletedTask)
 
       // Act & Assert
-      await expect(
-        service.resumeQuestionnaireGeneration(mockTaskId)
-      ).rejects.toThrow('所有聚类已生成完成，无需继续')
+      await expect(service.resumeQuestionnaireGeneration(mockTaskId)).rejects.toThrow(
+        '所有聚类已生成完成，无需继续',
+      )
     })
 
     it('应该从pendingClusters开始生成', async () => {
@@ -234,9 +234,9 @@ describe('Questionnaire Resume Generation (TDD)', () => {
       aiTaskRepo.findOne = jest.fn().mockResolvedValue(mockCompletedTask)
 
       // Act & Assert
-      await expect(
-        service.regenerateCluster(mockTaskId, invalidClusterId)
-      ).rejects.toThrow('聚类 cluster_999 不存在')
+      await expect(service.regenerateCluster(mockTaskId, invalidClusterId)).rejects.toThrow(
+        '聚类 cluster_999 不存在',
+      )
     })
   })
 

@@ -75,9 +75,7 @@ export class CoverageChecker {
     const coveredClauseIds = this.extractCoveredClauseIds(clusteringResult)
 
     // 3. 精确匹配：计算遗漏条款
-    const missingClauseIds = allClauseIds.filter(
-      (id) => !coveredClauseIds.includes(id),
-    )
+    const missingClauseIds = allClauseIds.filter((id) => !coveredClauseIds.includes(id))
 
     // 4. 语义匹配：对遗漏条款进行兜底检查
     const semanticallyCoveredClauses = await this.findSemanticallyCoveredClauses(
@@ -92,9 +90,10 @@ export class CoverageChecker {
     )
 
     // 6. 计算覆盖率
-    const coverageRate = allClauseIds.length > 0
-      ? (allClauseIds.length - finalMissingClauses.length) / allClauseIds.length
-      : 0
+    const coverageRate =
+      allClauseIds.length > 0
+        ? (allClauseIds.length - finalMissingClauses.length) / allClauseIds.length
+        : 0
 
     const report: CoverageReport = {
       totalClauses: allClauseIds.length,
@@ -193,19 +192,14 @@ export class CoverageChecker {
       }
 
       // 在聚类结果中查找语义相似的条款
-      const isCovered = await this.isSemanticallyCovered(
-        clauseText,
-        clusteringResult,
-      )
+      const isCovered = await this.isSemanticallyCovered(clauseText, clusteringResult)
 
       if (isCovered) {
         semanticallyCovered.push(clauseId)
       }
     }
 
-    this.logger.debug(
-      `Found ${semanticallyCovered.length} semantically covered clauses`,
-    )
+    this.logger.debug(`Found ${semanticallyCovered.length} semantically covered clauses`)
 
     return semanticallyCovered
   }
@@ -308,9 +302,7 @@ export class CoverageChecker {
     documents: Array<{ id: string; name: string; content: string }>,
     clusteringResult: ClusteringResult,
   ): Promise<MultiDocumentCoverageReport> {
-    this.logger.log(
-      `Starting multi-document coverage check for ${documents.length} documents...`,
-    )
+    this.logger.log(`Starting multi-document coverage check for ${documents.length} documents...`)
 
     const by_document: Record<string, CoverageReport> = {}
     let totalClausesOverall = 0
@@ -320,10 +312,7 @@ export class CoverageChecker {
     // 为每个文档单独检查覆盖率
     for (const doc of documents) {
       // 从聚类结果中筛选属于该文档的条款
-      const docSpecificClustering = this.filterClusteringByDocument(
-        clusteringResult,
-        doc.id,
-      )
+      const docSpecificClustering = this.filterClusteringByDocument(clusteringResult, doc.id)
 
       // 检查该文档的覆盖率
       const docReport = await this.checkCoverage(doc.content, docSpecificClustering)
@@ -345,8 +334,7 @@ export class CoverageChecker {
       total_clauses: totalClausesOverall,
       covered_clauses: coveredClausesOverall,
       missing_clauses: missingClausesOverall,
-      coverage_rate:
-        totalClausesOverall > 0 ? coveredClausesOverall / totalClausesOverall : 0,
+      coverage_rate: totalClausesOverall > 0 ? coveredClausesOverall / totalClausesOverall : 0,
     }
 
     this.logger.log(
@@ -372,9 +360,7 @@ export class CoverageChecker {
     const filteredClusters = clusteringResult.clusters
       .map((cluster) => ({
         ...cluster,
-        clauses: cluster.clauses.filter(
-          (clause) => clause.source_document_id === documentId,
-        ),
+        clauses: cluster.clauses.filter((clause) => clause.source_document_id === documentId),
       }))
       .filter((cluster) => cluster.clauses.length > 0) // 移除空聚类
 

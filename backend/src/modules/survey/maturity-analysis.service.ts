@@ -176,7 +176,11 @@ export class MaturityAnalysisService {
     const overall = this.calculateOverallMaturity(questionnaire, answers)
 
     // 4. 计算各聚类成熟度
-    const clusterMaturity = this.calculateClusterMaturity(questionnaire, answers, overall.maturityLevel)
+    const clusterMaturity = this.calculateClusterMaturity(
+      questionnaire,
+      answers,
+      overall.maturityLevel,
+    )
 
     // 5. 计算成熟度分布（基于聚类）
     const distribution = this.calculateDistribution(clusterMaturity)
@@ -218,7 +222,7 @@ export class MaturityAnalysisService {
    */
   private calculateOverallMaturity(questionnaire: any[], answers: Record<string, any>) {
     let totalScore = 0
-    let maxScore = questionnaire.length * 5
+    const maxScore = questionnaire.length * 5
 
     for (const question of questionnaire) {
       const answer = answers[question.question_id]
@@ -371,8 +375,7 @@ export class MaturityAnalysisService {
     const dimensionMaturity = []
 
     for (const [dimension, clusters] of dimensionMap.entries()) {
-      const avgMaturity =
-        clusters.reduce((sum, c) => sum + c.maturityLevel, 0) / clusters.length
+      const avgMaturity = clusters.reduce((sum, c) => sum + c.maturityLevel, 0) / clusters.length
 
       dimensionMaturity.push({
         dimension,
@@ -485,15 +488,19 @@ export class MaturityAnalysisService {
     for (const rule of conflictRules) {
       // 查找前置聚类（匹配任一关键词即可）
       const prerequisiteCluster = clusterMaturity.find((c) =>
-        rule.prerequisite.keywords.some(keyword => c.cluster_name.includes(keyword))
+        rule.prerequisite.keywords.some((keyword) => c.cluster_name.includes(keyword)),
       )
 
       // 查找依赖聚类（匹配任一关键词即可）
       const dependentCluster = clusterMaturity.find((c) =>
-        rule.dependent.keywords.some(keyword => c.cluster_name.includes(keyword))
+        rule.dependent.keywords.some((keyword) => c.cluster_name.includes(keyword)),
       )
 
-      if (prerequisiteCluster && dependentCluster && prerequisiteCluster.cluster_id !== dependentCluster.cluster_id) {
+      if (
+        prerequisiteCluster &&
+        dependentCluster &&
+        prerequisiteCluster.cluster_id !== dependentCluster.cluster_id
+      ) {
         // 前置条件成熟度过低 && 依赖项成熟度过高 = 冲突
         if (
           prerequisiteCluster.maturityLevel < rule.prerequisite.minLevel &&
@@ -582,9 +589,7 @@ export class MaturityAnalysisService {
       minClusterMaturity: Number(Math.min(...maturityLevels).toFixed(2)),
       maxClusterMaturity: Number(Math.max(...maturityLevels).toFixed(2)),
       clusterMaturityStdDev: Number(stdDev.toFixed(2)),
-      maturityRange: Number(
-        (Math.max(...maturityLevels) - Math.min(...maturityLevels)).toFixed(2),
-      ),
+      maturityRange: Number((Math.max(...maturityLevels) - Math.min(...maturityLevels)).toFixed(2)),
     }
   }
 
@@ -603,8 +608,7 @@ export class MaturityAnalysisService {
    */
   private calculateVariance(scores: number[]): number {
     const mean = scores.reduce((sum, s) => sum + s, 0) / scores.length
-    const variance =
-      scores.reduce((sum, s) => sum + Math.pow(s - mean, 2), 0) / scores.length
+    const variance = scores.reduce((sum, s) => sum + Math.pow(s - mean, 2), 0) / scores.length
     return variance
   }
 

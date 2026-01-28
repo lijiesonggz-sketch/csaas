@@ -1,5 +1,7 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common'
+import { Controller, Post, Body, Get, UseGuards, HttpCode, HttpStatus } from '@nestjs/common'
 import { AuthService } from './auth.service'
+import { JwtAuthGuard } from './guards/jwt-auth.guard'
+import { CurrentUser } from './decorators/current-user.decorator'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
 
@@ -18,13 +20,19 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
-    const user = await this.authService.validateUser(loginDto)
-    const { passwordHash, ...result } = user
-
-    // TODO: 生成JWT token
+    const result = await this.authService.login(loginDto)
     return {
-      user: result,
-      message: 'Login successful',
+      success: true,
+      data: result,
+    }
+  }
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  getProfile(@CurrentUser() user: any) {
+    return {
+      success: true,
+      data: user,
     }
   }
 }

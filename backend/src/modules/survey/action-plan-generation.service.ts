@@ -1,7 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { ActionPlanMeasure, MeasurePriority, MeasureStatus, AITask, AITaskType, TaskStatus, SurveyResponse } from '../../database/entities'
+import {
+  ActionPlanMeasure,
+  MeasurePriority,
+  MeasureStatus,
+  AITask,
+  AITaskType,
+  TaskStatus,
+  SurveyResponse,
+} from '../../database/entities'
 import { ActionPlanService, ClusterGapAnalysis } from './action-plan.service'
 import { MaturityAnalysisService } from './maturity-analysis.service'
 import { AIOrchestrator } from '../ai-clients/ai-orchestrator.service'
@@ -40,7 +48,9 @@ export class ActionPlanGenerationService {
     surveyResponseId: string,
     targetMaturity: number,
   ): Promise<{ taskId: string }> {
-    this.logger.log(`Starting action plan generation for survey ${surveyResponseId}, target maturity: ${targetMaturity}`)
+    this.logger.log(
+      `Starting action plan generation for survey ${surveyResponseId}, target maturity: ${targetMaturity}`,
+    )
 
     // 1. 获取问卷填写记录和关联的任务
     const surveyResponse = await this.surveyResponseRepository.findOne({
@@ -67,7 +77,9 @@ export class ActionPlanGenerationService {
 
     // 3. 验证目标成熟度
     if (targetMaturity <= analysisResult.overall.maturityLevel) {
-      throw new Error(`目标成熟度(${targetMaturity})应高于当前成熟度(${analysisResult.overall.maturityLevel.toFixed(2)})`)
+      throw new Error(
+        `目标成熟度(${targetMaturity})应高于当前成熟度(${analysisResult.overall.maturityLevel.toFixed(2)})`,
+      )
     }
 
     // 4. 创建AI任务
@@ -90,7 +102,9 @@ export class ActionPlanGenerationService {
     // 4. 异步执行生成（不阻塞返回）
     this.executeGeneration(savedTask.id, surveyResponseId, targetMaturity, analysisResult).catch(
       (error) => {
-        this.logger.error(`Failed to generate action plan for task ${savedTask.id}: ${error.message}`)
+        this.logger.error(
+          `Failed to generate action plan for task ${savedTask.id}: ${error.message}`,
+        )
         this.updateTaskStatus(savedTask.id, TaskStatus.FAILED, error.message)
       },
     )
@@ -246,10 +260,7 @@ export class ActionPlanGenerationService {
   /**
    * 调用AI模型生成措施
    */
-  private async generateWithAI(
-    prompt: string,
-    model: AIModel,
-  ): Promise<{ measures: any[] }> {
+  private async generateWithAI(prompt: string, model: AIModel): Promise<{ measures: any[] }> {
     const request: AIClientRequest = {
       prompt,
       temperature: 0.7,
@@ -307,7 +318,9 @@ export class ActionPlanGenerationService {
         throw new Error('Invalid response: measures field is not an array')
       }
 
-      this.logger.log(`✅ AI model ${model} generated ${parsed.measures.length} measures (parsed with ${parseMethod})`)
+      this.logger.log(
+        `✅ AI model ${model} generated ${parsed.measures.length} measures (parsed with ${parseMethod})`,
+      )
 
       return parsed
     } catch (error) {

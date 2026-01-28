@@ -375,8 +375,9 @@ ${weaknessCategory ? `关联薄弱项：${weaknessCategory}` : ''}
         throw new Error(`RawContent not found: ${analyzedContent.contentId}`)
       }
 
-      // 2. 检查Redis缓存
-      const cacheKey = `radar:roi:${contentId}:${weaknessCategory || 'general'}`
+      // 2. 检查Redis缓存（包含organizationId以支持多租户隔离）
+      const orgId = rawContent.organizationId || 'public'
+      const cacheKey = `radar:roi:${orgId}:${contentId}:${weaknessCategory || 'general'}`
       const redisClient = await this.crawlerQueue.client
       const cachedResult = await redisClient.get(cacheKey)
 

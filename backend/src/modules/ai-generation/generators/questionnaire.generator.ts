@@ -173,7 +173,11 @@ export class QuestionnaireGenerator {
     }
 
     // 检查是否有成功的结果
-    if (gpt4Questions.length === 0 && claudeQuestions.length === 0 && domesticQuestions.length === 0) {
+    if (
+      gpt4Questions.length === 0 &&
+      claudeQuestions.length === 0 &&
+      domesticQuestions.length === 0
+    ) {
       throw new Error('Failed to generate questions for all clusters')
     }
 
@@ -255,7 +259,11 @@ export class QuestionnaireGenerator {
     let domesticQuestions: Question[] | null = null
 
     try {
-      gpt4Questions = this.parseSingleClusterResponse(gpt4Response.content, cluster, startQuestionId)
+      gpt4Questions = this.parseSingleClusterResponse(
+        gpt4Response.content,
+        cluster,
+        startQuestionId,
+      )
     } catch (error) {
       this.logger.error(`Failed to parse GPT-4 single cluster response: ${error.message}`)
     }
@@ -282,7 +290,9 @@ export class QuestionnaireGenerator {
 
     // 如果所有模型都失败，抛出错误
     if (!gpt4Questions && !claudeQuestions && !domesticQuestions) {
-      throw new Error(`All three models failed to generate questions for cluster: ${cluster.cluster_name}`)
+      throw new Error(
+        `All three models failed to generate questions for cluster: ${cluster.cluster_name}`,
+      )
     }
 
     // 使用成功的结果填充失败的模型
@@ -308,9 +318,7 @@ export class QuestionnaireGenerator {
       let cleanedContent = content.trim()
 
       if (cleanedContent.startsWith('```')) {
-        cleanedContent = cleanedContent
-          .replace(/^```(?:json)?\s*\n?/, '')
-          .replace(/\n?```\s*$/, '')
+        cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
       }
 
       // 2. 修复常见的JSON格式问题
@@ -421,9 +429,7 @@ export class QuestionnaireGenerator {
 
       // 移除 ```json 和 ``` 标记
       if (cleanedContent.startsWith('```')) {
-        cleanedContent = cleanedContent
-          .replace(/^```(?:json)?\s*\n?/, '')
-          .replace(/\n?```\s*$/, '')
+        cleanedContent = cleanedContent.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
       }
 
       // 2. 修复常见的JSON格式问题
@@ -633,9 +639,7 @@ export class QuestionnaireGenerator {
       }
 
       // 验证question_type
-      if (
-        !['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'RATING'].includes(question.question_type)
-      ) {
+      if (!['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'RATING'].includes(question.question_type)) {
         this.logger.warn(`Invalid question_type: ${question.question_type}`)
         continue
       }
@@ -699,9 +703,7 @@ export class QuestionnaireGenerator {
 
     // 更新元数据
     output.questionnaire_metadata.total_questions = validQuestions.length
-    output.questionnaire_metadata.estimated_time_minutes = Math.ceil(
-      validQuestions.length * 0.5,
-    ) // 每题30秒
+    output.questionnaire_metadata.estimated_time_minutes = Math.ceil(validQuestions.length * 0.5) // 每题30秒
     output.questionnaire_metadata.coverage_map = clusterCoverage
   }
 
@@ -736,9 +738,7 @@ export class QuestionnaireGenerator {
   generateSummary(output: QuestionnaireGenerationOutput): string {
     const { questionnaire, questionnaire_metadata } = output
     const singleChoice = questionnaire.filter((q) => q.question_type === 'SINGLE_CHOICE').length
-    const multipleChoice = questionnaire.filter(
-      (q) => q.question_type === 'MULTIPLE_CHOICE',
-    ).length
+    const multipleChoice = questionnaire.filter((q) => q.question_type === 'MULTIPLE_CHOICE').length
     const rating = questionnaire.filter((q) => q.question_type === 'RATING').length
 
     return `Generated ${questionnaire_metadata.total_questions} questions (Single: ${singleChoice}, Multiple: ${multipleChoice}, Rating: ${rating}). Estimated time: ${questionnaire_metadata.estimated_time_minutes} minutes. Covering ${Object.keys(questionnaire_metadata.coverage_map).length} clusters.`

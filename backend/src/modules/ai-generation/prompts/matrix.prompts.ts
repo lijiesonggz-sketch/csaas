@@ -254,7 +254,8 @@ export function fillSingleClusterMatrixPrompt(cluster: any): string {
     clausesText = '（无原始条目数据）'
   }
 
-  return SINGLE_CLUSTER_MATRIX_PROMPT_TEMPLATE
-    .replace('{{CLUSTER_INFO}}', clusterInfo)
-    .replace('{{CLAUSES}}', clausesText)
+  return SINGLE_CLUSTER_MATRIX_PROMPT_TEMPLATE.replace('{{CLUSTER_INFO}}', clusterInfo).replace(
+    '{{CLAUSES}}',
+    clausesText,
+  )
 }

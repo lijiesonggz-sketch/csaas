@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { AnalyzedContent } from '../../../database/entities/analyzed-content.entity'
+import { AnalyzedContent, ROIAnalysisData } from '../../../database/entities/analyzed-content.entity'
 import { Tag } from '../../../database/entities/tag.entity'
 
 /**
@@ -37,7 +37,7 @@ export class AnalyzedContentService {
     categories: string[]
     targetAudience: string | null
     aiSummary: string | null
-    roiAnalysis: any | null
+    roiAnalysis: ROIAnalysisData | null
     relevanceScore: number | null
     aiModel: string
     tokensUsed: number
@@ -46,6 +46,11 @@ export class AnalyzedContentService {
     analyzedAt: Date
   }): Promise<AnalyzedContent> {
     this.logger.log(`Creating AnalyzedContent for contentId: ${data.contentId}`)
+
+    // 验证ROI分析数据（如果提供）
+    if (data.roiAnalysis) {
+      this.validateROIAnalysis(data.roiAnalysis)
+    }
 
     const analyzedContent = this.analyzedContentRepo.create({
       ...data,
@@ -136,13 +141,53 @@ export class AnalyzedContentService {
   async update(
     id: string,
     data: Partial<{
-      roiAnalysis: any
+      roiAnalysis: ROIAnalysisData
       relevanceScore: number
       status: 'pending' | 'success' | 'failed'
       errorMessage: string
     }>,
   ): Promise<void> {
+    // 验证ROI分析数据（如果提供）
+    if (data.roiAnalysis) {
+      this.validateROIAnalysis(data.roiAnalysis)
+    }
+
     await this.analyzedContentRepo.update(id, data)
     this.logger.log(`AnalyzedContent ${id} updated`)
+  }
+
+  /**
+   * 验证ROI分析数据结构 (Story 2.4 - Issue #4修复)
+   *
+   * @param roi - ROI分析数据
+   * @throws Error 如果数据结构不完整
+   */
+  private validateROIAnalysis(roi: any): asserts roi is ROIAnalysisData {
+    const required = [
+      'estimatedCost',
+      'expectedBenefit',
+      'roiEstimate',
+      'implementationPeriod',
+      'recommendedVendors',
+    ]
+
+    for (const field of required) {
+      if (!(field in roi)) {
+        throw new Error(`ROI analysis missing required field: ${field}`)
+      }
+    }
+
+    // 验证recommendedVendors是数组
+    if (!Array.isArray(roi.recommendedVendors)) {
+      throw new Error('ROI analysis recommendedVendors must be an array')
+    }
+
+    // 验证字符串字段不为空
+    const stringFields = ['estimatedCost', 'expectedBenefit', 'roiEstimate', 'implementationPeriod']
+    for (const field of stringFields) {
+      if (typeof roi[field] !== 'string' || roi[field].trim() === '') {
+        throw new Error(`ROI analysis ${field} must be a non-empty string`)
+      }
+    }
   }
 }

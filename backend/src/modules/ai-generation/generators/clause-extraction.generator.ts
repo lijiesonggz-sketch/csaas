@@ -91,7 +91,9 @@ function extractPartialJson(jsonStr: string): any {
 
       if (lastCompleteIndex > 0) {
         // 构建一个完整的JSON对象
-        const partialClauses = JSON.parse('[' + arrayContent.substring(0, lastCompleteIndex + 1) + ']')
+        const partialClauses = JSON.parse(
+          '[' + arrayContent.substring(0, lastCompleteIndex + 1) + ']',
+        )
 
         // 尝试从原始字符串中提取total_clauses
         const totalMatch = cleaned.match(/"total_clauses":\s*(\d+)/)
@@ -136,7 +138,7 @@ export class ClauseExtractionGenerator {
 
     this.logger.log(
       `Starting clause extraction for standard: ${standardDocument.name} ` +
-      `(expected: ${expectedClauseCount || 'unknown'})...`
+        `(expected: ${expectedClauseCount || 'unknown'})...`,
     )
 
     // 构建Prompt
@@ -159,17 +161,20 @@ export class ClauseExtractionGenerator {
       })
 
     // 解析结果
-    const domesticOutput = domesticResult ? this.parseExtractionResponse(domesticResult.content) : null
+    const domesticOutput = domesticResult
+      ? this.parseExtractionResponse(domesticResult.content)
+      : null
 
     // 验证提取的完整性
     if (expectedClauseCount) {
-      this.logger.log(`Validating extraction results against expected count: ${expectedClauseCount}`)
+      this.logger.log(
+        `Validating extraction results against expected count: ${expectedClauseCount}`,
+      )
       this.validateExtractionCount(domesticOutput, expectedClauseCount, 'Tongyi')
     }
 
     this.logger.log(
-      `Clause extraction completed. ` +
-      `Tongyi: ${domesticOutput?.total_clauses || 0} clauses`
+      `Clause extraction completed. ` + `Tongyi: ${domesticOutput?.total_clauses || 0} clauses`,
     )
 
     return {
@@ -209,13 +214,13 @@ export class ClauseExtractionGenerator {
 
           this.logger.log(
             `Successfully parsed extraction using method ${i + 1}: ` +
-            `${parsed.total_clauses} clauses${isPartial ? ' (partial recovery)' : ''}`
+              `${parsed.total_clauses} clauses${isPartial ? ' (partial recovery)' : ''}`,
           )
 
           if (isPartial) {
             this.logger.warn(
               `Response was truncated. Recovered ${parsed.clauses.length} of ${parsed.total_clauses} clauses. ` +
-              `Consider increasing maxTokens parameter.`
+                `Consider increasing maxTokens parameter.`,
             )
           }
 
@@ -227,7 +232,9 @@ export class ClauseExtractionGenerator {
           // 最后一个方法也失败了
           this.logger.error(`Failed to parse extraction response: ${error.message}`)
           this.logger.debug(`Response text (first 500 chars): ${responseText.substring(0, 500)}`)
-          this.logger.debug(`Response text (last 500 chars): ${responseText.substring(Math.max(0, responseText.length - 500))}`)
+          this.logger.debug(
+            `Response text (last 500 chars): ${responseText.substring(Math.max(0, responseText.length - 500))}`,
+          )
           return null
         }
       }
@@ -243,7 +250,7 @@ export class ClauseExtractionGenerator {
   private validateExtractionCount(
     output: ClauseExtractionOutput | null,
     expectedCount: number,
-    modelName: string
+    modelName: string,
   ): void {
     if (!output) {
       this.logger.warn(`${modelName}: No output to validate`)
@@ -253,7 +260,7 @@ export class ClauseExtractionGenerator {
     if (output.total_clauses !== expectedCount) {
       this.logger.warn(
         `${modelName}: Expected ${expectedCount} clauses, but got ${output.total_clauses}. ` +
-        `Difference: ${expectedCount - output.total_clauses} missing`
+          `Difference: ${expectedCount - output.total_clauses} missing`,
       )
     } else {
       this.logger.log(`${modelName}: ✅ Clause count validation passed (${expectedCount} clauses)`)
@@ -270,7 +277,7 @@ export class ClauseExtractionGenerator {
       claude: ClauseExtractionOutput | null
       domestic: ClauseExtractionOutput | null
     },
-    expectedCount?: number
+    expectedCount?: number,
   ): ClauseExtractionOutput | null {
     // 只使用通义千问的结果
     const candidates = [results.domestic].filter((r) => r !== null)
@@ -282,9 +289,7 @@ export class ClauseExtractionGenerator {
 
     // 直接返回通义千问的结果
     const selectedResult = candidates[0]
-    this.logger.log(
-      `Selected extraction: ${selectedResult.total_clauses} clauses (from Tongyi)`
-    )
+    this.logger.log(`Selected extraction: ${selectedResult.total_clauses} clauses (from Tongyi)`)
 
     return selectedResult
   }
