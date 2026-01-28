@@ -41,34 +41,28 @@ export function useOnboarding(orgId?: string | null) {
       // If orgId provided, also check server
       if (orgId && (forceServerCheck || activated !== 'true')) {
         console.log(`[useOnboarding] Fetching radar status for org ${orgId}, forceServerCheck=${forceServerCheck}`)
-        const response = await apiFetch(`/organizations/${orgId}/radar-status`)
 
-        console.log(`[useOnboarding] Radar status response:`, response.status, response.ok)
-
-        // Handle 401 Unauthorized gracefully
-        if (response.status === 401) {
-          console.warn('[useOnboarding] User not authenticated - skipping radar status check')
-        } else if (response.status === 403) {
-          console.warn('[useOnboarding] User not authorized (not a member) - using localStorage')
-          // Re-read from localStorage in case it was just updated
-          activated = localStorage.getItem(RADAR_ACTIVATED_KEY)
-          console.log('[useOnboarding] Re-read from localStorage:', activated)
-          setRadarActivated(activated === 'true')
-        } else if (response.ok) {
-          const data = await response.json()
+        try {
+          const data = await apiFetch(`/organizations/${orgId}/radar-status`)
           console.log('[useOnboarding] Radar status data:', data)
-          // Handle both direct response and wrapped response
-          const radarActivated = data.data?.radarActivated ?? data.radarActivated ?? false
+
+          // apiFetch 已经自动提取了 result.data，所以 data 就是 status 数据
+          const radarActivated = data?.radarActivated ?? false
           console.log('[useOnboarding] Extracted radarActivated:', radarActivated)
           setRadarActivated(radarActivated)
           localStorage.setItem(RADAR_ACTIVATED_KEY, String(radarActivated))
-        } else {
-          console.warn('[useOnboarding] Server check failed, using localStorage')
-          // Re-read from localStorage in case it was just updated
-          activated = localStorage.getItem(RADAR_ACTIVATED_KEY)
-          console.log('[useOnboarding] Re-read from localStorage:', activated)
-          // Fallback to localStorage if server check fails
-          setRadarActivated(activated === 'true')
+        } catch (error: any) {
+          // Handle API errors
+          console.warn('[useOnboarding] API Error:', error.message)
+
+          // 如果是404或403，使用localStorage fallback
+          if (error.message?.includes('404') || error.message?.includes('403')) {
+            console.log('[useOnboarding] Using localStorage fallback')
+            activated = localStorage.getItem(RADAR_ACTIVATED_KEY)
+            setRadarActivated(activated === 'true')
+          } else {
+            throw error
+          }
         }
       } else {
         console.log('[useOnboarding] Using localStorage for radar activation status:', activated)

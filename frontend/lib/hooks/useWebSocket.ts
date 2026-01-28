@@ -12,21 +12,27 @@ import { io, Socket } from 'socket.io-client'
 /**
  * WebSocket连接hook
  *
+ * @param organizationId - 组织ID，用于订阅组织房间
  * @returns Socket实例和连接状态
  */
-export function useWebSocket() {
+export function useWebSocket(organizationId?: string) {
   const [socket, setSocket] = useState<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const socketRef = useRef<Socket | null>(null)
 
   useEffect(() => {
     // 创建Socket连接
-    const socketUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3001'
+    const socketUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3000/tasks'
     const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 5,
+      // 超时配置
+      timeout: 10000,              // 连接超时：10秒
+      connectTimeout: 10000,       // 连接尝试超时：10秒
+      pingTimeout: 60000,          // Ping超时：60秒
+      pingInterval: 25000,         // Ping间隔：25秒
     })
 
     socketRef.current = newSocket
@@ -35,6 +41,12 @@ export function useWebSocket() {
     newSocket.on('connect', () => {
       console.log('WebSocket connected')
       setIsConnected(true)
+
+      // 连接成功后订阅组织房间
+      if (organizationId) {
+        newSocket.emit('subscribe:organization', { organizationId })
+        console.log(`Subscribed to organization: ${organizationId}`)
+      }
     })
 
     newSocket.on('disconnect', () => {
@@ -56,7 +68,7 @@ export function useWebSocket() {
         socketRef.current = null
       }
     }
-  }, [])
+  }, [organizationId])
 
   return { socket, isConnected }
 }

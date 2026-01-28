@@ -19,6 +19,15 @@ import {
   WeaknessSnapshot,
   WatchedTopic,
   WatchedPeer,
+  // Story 2.1 entities
+  RawContent,
+  CrawlerLog,
+  // Story 2.2 entities
+  AnalyzedContent,
+  Tag,
+  // Story 2.3 entities
+  RadarPush,
+  PushScheduleConfig,
 } from '../database/entities'
 
 export const databaseConfig = (): TypeOrmModuleOptions => ({
@@ -48,6 +57,15 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
     WeaknessSnapshot,
     WatchedTopic,
     WatchedPeer,
+    // Story 2.1 entities
+    RawContent,
+    CrawlerLog,
+    // Story 2.2 entities
+    AnalyzedContent,
+    Tag,
+    // Story 2.3 entities
+    RadarPush,
+    PushScheduleConfig,
   ],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false, // Use migrations for schema changes

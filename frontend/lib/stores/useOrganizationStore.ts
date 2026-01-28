@@ -43,13 +43,13 @@ export const useOrganizationStore = create<OrganizationState>((set, get) => ({
     set({ loading: true, error: null })
 
     try {
-      const orgs = await organizationsApi.getUserOrganizations()
+      const org = await organizationsApi.getUserOrganizations()
 
-      set({ organizations: orgs, loading: false })
+      set({ organizations: [org], loading: false })
 
-      // Auto-set first organization as current if none selected
+      // Auto-set fetched organization as current if none selected
       get().setCurrentOrganization(
-        get().currentOrganization || orgs[0] || null,
+        get().currentOrganization || org || null,
       )
     } catch (error) {
       set({

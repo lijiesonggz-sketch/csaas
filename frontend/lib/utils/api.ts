@@ -12,12 +12,16 @@ async function getAuthToken(): Promise<string | null> {
     // Try to get token from session storage or make a request to get session
     try {
       const response = await fetch('/api/auth/session')
+      console.log('[getAuthToken] /api/auth/session response:', response.status)
       if (response.ok) {
         const session = await response.json()
+        console.log('[getAuthToken] session data:', session)
         return session?.accessToken || null
+      } else {
+        console.log('[getAuthToken] failed to get session:', response.status, response.statusText)
       }
     } catch (error) {
-      console.error('Failed to get auth token:', error)
+      console.error('[getAuthToken] Failed to get auth token:', error)
     }
     return null
   }
@@ -43,13 +47,15 @@ async function getAuthToken(): Promise<string | null> {
 export async function apiFetch(
   endpoint: string,
   options: RequestInit = {},
-): Promise<Response> {
+): Promise<any> {
   const url = endpoint.startsWith('http')
     ? endpoint
     : `${process.env.NEXT_PUBLIC_API_URL || ''}${endpoint}`
 
   // Get auth token
   const token = await getAuthToken()
+
+  console.log('[apiFetch]', endpoint, 'token:', token ? 'present' : 'missing', 'url:', url)
 
   // Prepare headers
   const headers: HeadersInit = {
@@ -62,8 +68,24 @@ export async function apiFetch(
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  return fetch(url, {
+  const response = await fetch(url, {
     ...options,
     headers,
   })
+
+  console.log('[apiFetch]', endpoint, 'response:', response.status, response.statusText)
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'API request failed' }))
+    throw new Error(error.message || 'API request failed')
+  }
+
+  const result = await response.json()
+
+  // 自动提取 result.data
+  if (result.success !== undefined && result.data !== undefined) {
+    return result.data
+  }
+
+  return result
 }

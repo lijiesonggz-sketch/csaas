@@ -7,62 +7,29 @@
  * @module frontend/lib/api/organizations
  */
 
+import { apiFetch } from '../utils/api'
 import { PaginatedResponse, Organization, WeaknessSnapshot, AggregatedWeakness } from '../types/organization'
 
 /**
  * Organizations API Client
  */
 export class OrganizationsApi {
-  private readonly baseUrl: string
-
-  constructor(baseUrl?: string) {
-    this.baseUrl = baseUrl || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
-  }
-
-  /**
-   * Get auth headers for API requests
-   */
-  private getAuthHeaders(): Record<string, string> {
-    if (typeof window === 'undefined') {
-      // Server-side: no auth headers needed
-      return {}
-    }
-
-    // Client-side: include credentials for cookies
-    return {
-      'Content-Type': 'application/json',
-    }
-  }
-
-  /**
-   * Handle API response
-   */
-  private async handleResponse<T>(response: Response): Promise<T> {
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'API request failed' }))
-      throw new Error(error.message || 'API request failed')
-    }
-
-    const result = await response.json()
-
-    if (!result.success) {
-      throw new Error(result.message || 'API request failed')
-    }
-
-    return result.data
-  }
-
   /**
    * Get current user's organization
    * GET /organizations/me
    */
-  async getUserOrganizations(): Promise<Organization[]> {
-    const response = await fetch(`${this.baseUrl}/organizations/me`, {
-      headers: this.getAuthHeaders(),
-      credentials: 'include',
-    })
+  async getUserOrganizations(): Promise<Organization> {
+    const response = await apiFetch('/organizations/me')
 
-    return this.handleResponse<Organization[]>(response)
+    console.log('[OrganizationsApi] /organizations/me response:', response)
+
+    // API返回: { organization: {...}, role: "admin" }
+    // apiFetch已经提取了result.data，所以response就是data对象
+    const orgData = (response as any).organization
+
+    console.log('[OrganizationsApi] Extracted organization:', orgData)
+
+    return orgData
   }
 
   /**

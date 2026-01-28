@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core'
-import { ValidationPipe } from '@nestjs/common'
+import { ValidationPipe, BadRequestException } from '@nestjs/common'
 import { AppModule } from './app.module'
 import { initSentry } from './config/sentry.config'
 import { loggerConfig } from './config/logger.config'
@@ -20,12 +20,28 @@ async function bootstrap() {
   app.use(require('express').json({ limit: '50mb' }))
   app.use(require('express').urlencoded({ limit: '50mb', extended: true }))
 
+  // 添加请求日志中间件
+  app.use((req, res, next) => {
+    console.log('[REQUEST]', req.method, req.url, {
+      query: req.query,
+      headers: {
+        authorization: req.headers.authorization ? 'Bearer ***' : undefined,
+        'content-type': req.headers['content-type'],
+      },
+    })
+    next()
+  })
+
   // 全局验证管道
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      exceptionFactory: (errors) => {
+        console.error('[ValidationPipe] Validation errors:', JSON.stringify(errors, null, 2))
+        return new BadRequestException(errors)
+      },
     }),
   )
 

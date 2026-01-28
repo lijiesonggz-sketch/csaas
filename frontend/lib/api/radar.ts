@@ -73,13 +73,12 @@ export async function getRadarPushes(filters?: {
   if (filters?.page) params.append('page', String(filters.page))
   if (filters?.limit) params.append('limit', String(filters.limit))
 
-  const response = await apiFetch(`/api/radar/pushes?${params.toString()}`)
+  // apiFetch 现在返回解析后的数据，不再需要 .ok 检查和 .json()
+  const data = await apiFetch(`/api/radar/pushes?${params.toString()}`)
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch radar pushes: ${response.statusText}`)
-  }
+  console.log('[getRadarPushes] API返回数据:', data)
 
-  return response.json()
+  return data
 }
 
 /**
@@ -89,13 +88,10 @@ export async function getRadarPushes(filters?: {
  * @returns 推送详情
  */
 export async function getRadarPush(pushId: string): Promise<RadarPush> {
-  const response = await apiFetch(`/api/radar/pushes/${pushId}`)
+  // apiFetch 现在返回解析后的数据
+  const data = await apiFetch(`/api/radar/pushes/${pushId}`)
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch radar push: ${response.statusText}`)
-  }
-
-  return response.json()
+  return data
 }
 
 /**

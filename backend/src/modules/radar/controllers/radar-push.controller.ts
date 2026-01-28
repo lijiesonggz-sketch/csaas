@@ -6,19 +6,41 @@ import {
   Query,
   UseGuards,
   NotFoundException,
+  Logger,
 } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { RadarPush } from '../../../database/entities/radar-push.entity'
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
+import { IsOptional, IsNumber, IsString, IsEnum, IsInt, Min } from 'class-validator'
+import { Type } from 'class-transformer'
 
 /**
  * DTO for get push history query
  */
 class GetPushHistoryDto {
+  @IsOptional()
+  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
   page?: number
+
+  @IsOptional()
+  @IsNumber()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
   limit?: number
+
+  @IsOptional()
+  @IsString()
+  @IsEnum(['tech', 'industry', 'compliance'])
   radarType?: 'tech' | 'industry' | 'compliance'
+
+  @IsOptional()
+  @IsString()
+  @IsEnum(['scheduled', 'sent', 'failed'])
   status?: 'scheduled' | 'sent' | 'failed'
 }
 
@@ -39,6 +61,8 @@ class GetPushHistoryDto {
 @Controller('api/radar/pushes')
 @UseGuards(JwtAuthGuard) // 暂时只使用JWT认证
 export class RadarPushController {
+  private readonly logger = new Logger(RadarPushController.name)
+
   constructor(
     @InjectRepository(RadarPush)
     private readonly radarPushRepo: Repository<RadarPush>,
@@ -60,40 +84,83 @@ export class RadarPushController {
   async getPushHistory(
     @Query() query: GetPushHistoryDto,
   ) {
-    const { page = 1, limit = 20, radarType, status } = query
+    try {
+      const { page = 1, limit = 20, radarType, status } = query
 
-    // 构建查询条件（暂时不使用组织过滤用于测试）
-    const where: any = {}
+      this.logger.log(`getPushHistory called with:`, { page, limit, radarType, status })
 
-    if (radarType) {
-      where.radarType = radarType
-    }
+      // 构建查询条件（暂时不使用组织过滤用于测试）
+      const where: any = {}
 
-    if (status) {
-      where.status = status
-    }
+      if (radarType) {
+        where.radarType = radarType
+      }
 
-    // 分页查询
-    const [pushes, total] = await this.radarPushRepo.findAndCount({
-      where,
-      order: {
-        priorityLevel: 'DESC',
-        relevanceScore: 'DESC',
-        scheduledAt: 'DESC',
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-      relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags'],
-    })
+      if (status) {
+        where.status = status
+      }
 
-    return {
-      data: pushes,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+      this.logger.log(`Query conditions:`, where)
+
+      // 分页查询
+      const [pushes, total] = await this.radarPushRepo.findAndCount({
+        where,
+        order: {
+          priorityLevel: 'DESC',
+          relevanceScore: 'DESC',
+          scheduledAt: 'DESC',
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+        relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags'],
+      })
+
+      this.logger.log(`Found ${pushes.length} pushes, total: ${total}`)
+
+      // Transform database entities to frontend response format
+      const transformedPushes = pushes.map(push => {
+        const analyzed = push.analyzedContent
+        const raw = analyzed?.rawContent
+
+        // Transform priority level from string to number
+        const priorityMap: Record<string, 1 | 2 | 3> = {
+          'high': 1,
+          'medium': 2,
+          'low': 3,
+        }
+
+        return {
+          pushId: push.id,
+          radarType: push.radarType,
+          title: raw?.title || '',
+          summary: analyzed?.aiSummary || raw?.summary || '',
+          fullContent: raw?.fullContent,
+          relevanceScore: parseFloat(push.relevanceScore as any) || 0,
+          priorityLevel: priorityMap[push.priorityLevel] || 3,
+          weaknessCategories: analyzed?.categories || [],
+          url: raw?.url || '',
+          publishDate: raw?.publishDate || push.scheduledAt,
+          source: raw?.source || '',
+          tags: analyzed?.tags?.map((t: any) => t.name) || [],
+          targetAudience: analyzed?.targetAudience || '',
+          roiAnalysis: analyzed?.roiAnalysis || undefined,
+          isRead: push.isRead || false,
+          readAt: push.readAt,
+        }
+      })
+
+      return {
+        data: transformedPushes,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      }
+    } catch (error) {
+      this.logger.error('Error in getPushHistory:', error)
+      throw error
     }
   }
 
@@ -124,7 +191,35 @@ export class RadarPushController {
       throw new NotFoundException('Push not found')
     }
 
-    return push
+    // Transform database entity to frontend response format
+    const analyzed = push.analyzedContent
+    const raw = analyzed?.rawContent
+
+    // Transform priority level from string to number
+    const priorityMap: Record<string, 1 | 2 | 3> = {
+      'high': 1,
+      'medium': 2,
+      'low': 3,
+    }
+
+    return {
+      pushId: push.id,
+      radarType: push.radarType,
+      title: raw?.title || '',
+      summary: analyzed?.aiSummary || raw?.summary || '',
+      fullContent: raw?.fullContent,
+      relevanceScore: parseFloat(push.relevanceScore as any) || 0,
+      priorityLevel: priorityMap[push.priorityLevel] || 3,
+      weaknessCategories: analyzed?.categories || [],
+      url: raw?.url || '',
+      publishDate: raw?.publishDate || push.scheduledAt,
+      source: raw?.source || '',
+      tags: analyzed?.tags?.map((t: any) => t.name) || [],
+      targetAudience: analyzed?.targetAudience || '',
+      roiAnalysis: analyzed?.roiAnalysis || undefined,
+      isRead: push.isRead || false,
+      readAt: push.readAt,
+    }
   }
 
   /**

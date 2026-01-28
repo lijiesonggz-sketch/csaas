@@ -9,6 +9,7 @@ import {
   FileTextOutlined,
   SettingOutlined,
   TeamOutlined,
+  RadarChartOutlined,
 } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 
@@ -26,6 +27,11 @@ const items: MenuItem[] = [
     key: '/projects',
     icon: <ProjectOutlined />,
     label: '项目管理',
+  },
+  {
+    key: '/radar',
+    icon: <RadarChartOutlined />,
+    label: '技术雷达',
   },
   {
     key: '/reports',
@@ -49,8 +55,42 @@ export default function Sidebar() {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
 
-  const handleMenuClick: MenuProps['onClick'] = (e) => {
-    router.push(e.key)
+  const handleMenuClick: MenuProps['onClick'] = async (e) => {
+    // 特殊处理雷达导航：自动获取用户的组织ID
+    if (e.key === '/radar') {
+      console.log('[Sidebar] 点击技术雷达导航')
+      try {
+        // 获取用户的组织
+        const response = await fetch('/api/organizations/me')
+        console.log('[Sidebar] /api/organizations/me response status:', response.status)
+
+        if (response.ok) {
+          const data = await response.json()
+          console.log('[Sidebar] 组织数据:', data)
+
+          const orgId = data.data?.organization?.id
+          console.log('[Sidebar] 提取的orgId:', orgId)
+
+          if (orgId) {
+            const targetUrl = `/radar?orgId=${orgId}`
+            console.log('[Sidebar] 跳转到:', targetUrl)
+            router.push(targetUrl)
+            return
+          } else {
+            console.warn('[Sidebar] 未找到orgId，使用默认跳转')
+          }
+        } else {
+          console.warn('[Sidebar] API调用失败，状态码:', response.status)
+        }
+      } catch (error) {
+        console.error('[Sidebar] 获取组织失败:', error)
+      }
+      // 如果获取失败，仍然跳转到 /radar，让页面自己处理
+      console.log('[Sidebar] 使用默认跳转到 /radar')
+      router.push('/radar')
+    } else {
+      router.push(e.key)
+    }
   }
 
   return (
