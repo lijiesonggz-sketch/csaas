@@ -43,18 +43,18 @@ development_status:
   epic-1-retrospective: done
 
   # Epic 2: 技术雷达 - ROI 导向的技术决策支持 (5 stories)
-  epic-2: in-progress
+  epic-2: done
   2-1-automatically-collect-technical-information-and-support-external-import: done
   2-2-use-ai-to-intelligently-analyze-relevance-of-pushed-content: done
   2-3-push-system-and-scheduling: done  # Phase 1-4完成，所有测试100%通过(101/101)
   2-4-view-roi-analysis-of-technical-proposals: done  # ✅ 完成 - Phase 1-4全部完成，所有测试通过（ROI单元测试11/11），Critical/High问题已修复，前端真实API集成完成
-  2-5-technical-radar-frontend-display: review  # ✅ 完成 - Code Review通过，8个问题已修复，54个单元测试通过
-  epic-2-retrospective: optional
+  2-5-technical-radar-frontend-display: done  # ✅ 完成 - Code Review通过，8个问题已修复，54个单元测试通过
+  epic-2-retrospective: done
 
   # Epic 3: 行业雷达 - 同业标杆学习 (3 stories)
-  epic-3: backlog
-  3-1-configure-industry-radar-information-sources: backlog
-  3-2-peer-case-matching-and-push: backlog
+  epic-3: in-progress  # 自动转换：第一个story创建时
+  3-1-configure-industry-radar-information-sources: done  # ✅ 完成 - Code Review通过，42个单元测试通过(100%)，所有CRITICAL/HIGH/MEDIUM问题已修复，代码质量显著提升
+  3-2-peer-case-matching-and-push: in-progress
   3-3-industry-radar-frontend-display: backlog
   epic-3-retrospective: optional
 
