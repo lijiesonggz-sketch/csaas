@@ -28,6 +28,8 @@ import {
   // Story 2.3 entities
   RadarPush,
   PushScheduleConfig,
+  // Story 3.1 entities
+  RadarSource,
 } from '../database/entities'
 
 export const databaseConfig = (): TypeOrmModuleOptions => ({
@@ -66,6 +68,8 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
     // Story 2.3 entities
     RadarPush,
     PushScheduleConfig,
+    // Story 3.1 entities
+    RadarSource,
   ],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false, // Use migrations for schema changes

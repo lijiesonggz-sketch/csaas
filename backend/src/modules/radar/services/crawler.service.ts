@@ -4,6 +4,7 @@ import * as cheerio from 'cheerio'
 import { RawContentService } from './raw-content.service'
 import { CrawlerLogService } from './crawler-log.service'
 import { RawContent } from '../../../database/entities/raw-content.entity'
+import { MAX_TECH_KEYWORDS } from '../constants/content.constants'
 
 /**
  * CrawlerService
@@ -45,6 +46,7 @@ export class CrawlerService {
     category: 'tech' | 'industry' | 'compliance',
     url: string,
     retryCount: number = 0,
+    options?: { contentType?: string; peerName?: string },
   ): Promise<RawContent> {
     this.logger.log(`Starting crawl: ${source} - ${url}`)
 
@@ -84,18 +86,57 @@ export class CrawlerService {
         throw new Error('Failed to extract content from page')
       }
 
+      // 根据 contentType 选择解析方法
+      let rawContentData: any
+
+      // 将 RadarSource 的 type 映射到 RawContent 的 contentType
+      const contentTypeMapping: Record<string, 'article' | 'recruitment' | 'conference'> = {
+        'website': 'article',
+        'wechat': 'article',
+        'recruitment': 'recruitment',
+        'conference': 'conference',
+      }
+      const mappedContentType = options?.contentType
+        ? contentTypeMapping[options.contentType] || 'article'
+        : 'article'
+
+      if (options?.contentType === 'recruitment') {
+        // 使用招聘信息解析
+        const html = await this.fetchHtml(url)
+        const parsedData = await this.parseRecruitmentJob(html, source)
+        rawContentData = {
+          ...parsedData,
+          url, // 确保 url 字段存在
+          peerName: options.peerName || parsedData.peerName,
+        }
+      } else {
+        // 使用文章解析（现有逻辑）
+        rawContentData = {
+          source,
+          category,
+          title: crawledData.title,
+          summary: crawledData.summary,
+          fullContent: crawledData.fullContent,
+          url: crawledData.url,
+          publishDate: crawledData.publishDate,
+          author: crawledData.author,
+          contentType: mappedContentType,
+          peerName: options?.peerName || null,
+          organizationId: null,
+        }
+
+        // 如果是行业雷达，提取同业信息
+        if (category === 'industry' && crawledData.fullContent) {
+          const peerInfo = this.extractPeerInfo(crawledData.fullContent, source)
+          rawContentData = {
+            ...rawContentData,
+            peerName: rawContentData.peerName || peerInfo.peerName,
+          }
+        }
+      }
+
       // 保存到RawContent表
-      const rawContent = await this.rawContentService.create({
-        source,
-        category,
-        title: crawledData.title,
-        summary: crawledData.summary,
-        fullContent: crawledData.fullContent,
-        url: crawledData.url,
-        publishDate: crawledData.publishDate,
-        author: crawledData.author,
-        organizationId: null, // 公共内容
-      })
+      const rawContent = await this.rawContentService.create(rawContentData)
 
       // 记录成功日志
       await this.crawlerLogService.logSuccess(source, category, url, 1)
@@ -116,6 +157,19 @@ export class CrawlerService {
 
       throw error
     }
+  }
+
+  /**
+   * 获取HTML内容（用于招聘信息解析）
+   */
+  private async fetchHtml(url: string): Promise<string> {
+    // 简单实现，实际应该使用 Crawlee 的请求
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': this.getRandomUserAgent(),
+      },
+    })
+    return await response.text()
   }
 
   /**
@@ -209,5 +263,167 @@ export class CrawlerService {
   } {
     const $ = cheerio.load(html)
     return this.parseArticleFromCheerio($)
+  }
+
+  /**
+   * 解析招聘职位信息（Story 3.1）
+   * 从职位描述中提取技术栈，推断同业技术使用情况
+   */
+  async parseRecruitmentJob(
+    html: string,
+    source: string,
+  ): Promise<Partial<RawContent>> {
+    try {
+      const $ = cheerio.load(html)
+
+      // 提取职位基本信息 - 多种选择器适配不同招聘网站
+      const jobTitle =
+        $('.job-title').first().text().trim() ||
+        $('.job-name').first().text().trim() ||
+        $('h1.job').first().text().trim() ||
+        $('h1').first().text().trim() ||
+        'Untitled Position'
+
+      const companyName =
+        $('.company-name').first().text().trim() ||
+        $('.company').first().text().trim() ||
+        $('.employer-name').first().text().trim() ||
+        'Unknown Company'
+
+      const jobDescription =
+        $('.job-description').text().trim() ||
+        $('.job-detail').text().trim() ||
+        $('.description').text().trim() ||
+        $('article').text().trim() ||
+        $('main').text().trim() ||
+        ''
+
+      // 提取技术栈关键词
+      const techKeywords = this.extractTechKeywords(jobDescription)
+
+      // 生成摘要
+      const summary =
+        techKeywords.length > 0
+          ? `招聘要求：${techKeywords.join('、')}`
+          : '招聘信息（未识别技术栈）'
+
+      // 生成标题
+      const title = `${companyName} - ${jobTitle} (推断技术栈)`
+
+      this.logger.log(
+        `Parsed recruitment job: ${companyName} - ${jobTitle}, found ${techKeywords.length} tech keywords`,
+      )
+
+      return {
+        source,
+        category: 'industry',
+        title,
+        summary,
+        fullContent: jobDescription,
+        contentType: 'recruitment',
+        peerName: companyName,
+        organizationId: null,
+        status: 'pending',
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to parse recruitment job from ${source}:`,
+        error.stack,
+      )
+      throw new Error(`Recruitment parsing failed: ${error.message}`)
+    }
+  }
+
+  /**
+   * 从文本中提取技术栈关键词（Story 3.1）
+   * 匹配 "熟悉XXX"、"精通XXX"、"掌握XXX"、"了解XXX" 等模式
+   */
+  private extractTechKeywords(text: string): string[] {
+    const keywords: string[] = []
+
+    // 正则匹配：\"熟悉XXX\"、\"精通XXX\"、\"掌握XXX\"、\"了解XXX\"
+    const regex = /(?:熟悉|精通|掌握|了解|使用|开发|应用)[\s:：]*([^。；\n]+?)(?=(?:熟悉|精通|掌握|了解|使用|开发|应用|。|；|\n|$))/g
+    let match: RegExpExecArray | null
+
+    while ((match = regex.exec(text)) !== null) {
+      const content = match[1].trim()
+      // 分割技术词汇（支持、，/ 等分隔符）
+      const techs = content
+        .split(/[、,，/\s]+/)
+        .map(t => t.trim())
+        .filter(t => {
+          // 过滤：空串、过长内容、纯数字、常见无用词
+          if (!t || t.length === 0 || t.length > 50) return false
+          if (/^\d+$/.test(t)) return false
+          const excludeWords = [
+            '等', '和', '或', '的', '与', '及', '要求', '如下', '以下',
+            '维护', '完成', '业绩', '指标', '沟通', '能力', '学历',
+          ]
+          if (excludeWords.some(word => t.includes(word))) return false
+          // 过滤过短的词（很可能不是技术名词）
+          if (t.length < 2) return false
+          return true
+        })
+
+      keywords.push(...techs)
+    }
+
+    // 去重并限制数量
+    const uniqueKeywords = Array.from(new Set(keywords))
+
+    // 如果提取数量过多，可能提取有误，返回前MAX_TECH_KEYWORDS个
+    return uniqueKeywords.slice(0, MAX_TECH_KEYWORDS)
+  }
+
+  /**
+   * 从文章内容中提取同业机构信息（Story 3.1）
+   */
+  extractPeerInfo(content: string, source: string): {
+    peerName?: string
+    estimatedCost?: string
+    implementationPeriod?: string
+    technicalEffect?: string
+  } {
+    const result: any = {}
+
+    // 从source推断同业名称
+    // 匹配：银行、保险、证券、基金等金融机构（支持中英文）
+    const peerMatch = source.match(
+      /([\u4e00-\u9fa5]+银行|[\u4e00-\u9fa5]+保险|[\u4e00-\u9fa5]+证券|[\u4e00-\u9fa5]+基金|[A-Z][a-z]+\s?Bank|[A-Z][a-z]+\s?Insurance)/,
+    )
+    if (peerMatch) {
+      result.peerName = peerMatch[1]
+    }
+
+    // 提取投入成本
+    // 匹配：\"投入120万\"、\"预算约80万\"、\"成本约为50-100万\"
+    const costMatch = content.match(
+      /(?:投入|预算|花费|成本)[\s约为:：]*([0-9.-]+)\s*万/,
+    )
+    if (costMatch) {
+      result.estimatedCost = `${costMatch[1]}万`
+    }
+
+    // 提取实施周期
+    // 匹配：\"历时6个月\"、\"用时3周\"、\"周期约3-6个月\"
+    const durationMatch = content.match(
+      /(?:历时|用时|耗时|周期)[\s约为:：]*([0-9-]+)\s*(个月|月|周|天)/,
+    )
+    if (durationMatch) {
+      result.implementationPeriod = `${durationMatch[1]}${durationMatch[2]}`
+    }
+
+    // 提取技术效果（关键词匹配）
+    const effectKeywords = ['提升', '降低', '节省', '缩短', '提高', '优化']
+    for (const keyword of effectKeywords) {
+      // 匹配包含效果关键词的句子
+      const effectMatch = content.match(new RegExp(`${keyword}[^。；\n]{0,100}`))
+      if (effectMatch) {
+        result.technicalEffect = effectMatch[0].trim()
+        break
+      }
+    }
+
+    return result
   }
 }
