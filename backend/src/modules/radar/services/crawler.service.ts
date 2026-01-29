@@ -4,7 +4,12 @@ import * as cheerio from 'cheerio'
 import { RawContentService } from './raw-content.service'
 import { CrawlerLogService } from './crawler-log.service'
 import { RawContent } from '../../../database/entities/raw-content.entity'
-import { MAX_TECH_KEYWORDS } from '../constants/content.constants'
+import {
+  MAX_TECH_KEYWORDS,
+  MAX_TECH_KEYWORD_LENGTH,
+  MIN_TECH_KEYWORD_LENGTH,
+  MAX_EFFECT_DESCRIPTION_LENGTH,
+} from '../constants/content.constants'
 
 /**
  * CrawlerService
@@ -25,6 +30,14 @@ export class CrawlerService {
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
   ]
+
+  // ContentType映射：RadarSource的type -> RawContent的contentType
+  private readonly CONTENT_TYPE_MAPPING: Record<string, 'article' | 'recruitment' | 'conference'> = {
+    'website': 'article',
+    'wechat': 'article',
+    'recruitment': 'recruitment',
+    'conference': 'conference',
+  }
 
   constructor(
     private readonly rawContentService: RawContentService,
@@ -90,14 +103,8 @@ export class CrawlerService {
       let rawContentData: any
 
       // 将 RadarSource 的 type 映射到 RawContent 的 contentType
-      const contentTypeMapping: Record<string, 'article' | 'recruitment' | 'conference'> = {
-        'website': 'article',
-        'wechat': 'article',
-        'recruitment': 'recruitment',
-        'conference': 'conference',
-      }
       const mappedContentType = options?.contentType
-        ? contentTypeMapping[options.contentType] || 'article'
+        ? this.CONTENT_TYPE_MAPPING[options.contentType] || 'article'
         : 'article'
 
       if (options?.contentType === 'recruitment') {
@@ -161,15 +168,39 @@ export class CrawlerService {
 
   /**
    * 获取HTML内容（用于招聘信息解析）
+   * 使用Crawlee的CheerioCrawler确保反爬虫机制一致性
    */
   private async fetchHtml(url: string): Promise<string> {
-    // 简单实现，实际应该使用 Crawlee 的请求
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': this.getRandomUserAgent(),
+    let htmlContent = ''
+
+    const crawler = new CheerioCrawler({
+      maxRequestRetries: 3,
+      requestHandlerTimeoutSecs: 60,
+      requestHandler: async ({ body }) => {
+        htmlContent = body.toString()
       },
+      preNavigationHooks: [
+        async ({ request }) => {
+          request.headers = {
+            ...request.headers,
+            'User-Agent': this.getRandomUserAgent(),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+          }
+        },
+      ],
     })
-    return await response.text()
+
+    await crawler.run([url])
+
+    if (!htmlContent) {
+      throw new Error('Failed to fetch HTML content')
+    }
+
+    return htmlContent
   }
 
   /**
@@ -353,7 +384,7 @@ export class CrawlerService {
         .map(t => t.trim())
         .filter(t => {
           // 过滤：空串、过长内容、纯数字、常见无用词
-          if (!t || t.length === 0 || t.length > 50) return false
+          if (!t || t.length === 0 || t.length > MAX_TECH_KEYWORD_LENGTH) return false
           if (/^\d+$/.test(t)) return false
           const excludeWords = [
             '等', '和', '或', '的', '与', '及', '要求', '如下', '以下',
@@ -361,7 +392,7 @@ export class CrawlerService {
           ]
           if (excludeWords.some(word => t.includes(word))) return false
           // 过滤过短的词（很可能不是技术名词）
-          if (t.length < 2) return false
+          if (t.length < MIN_TECH_KEYWORD_LENGTH) return false
           return true
         })
 
@@ -416,8 +447,10 @@ export class CrawlerService {
     // 提取技术效果（关键词匹配）
     const effectKeywords = ['提升', '降低', '节省', '缩短', '提高', '优化']
     for (const keyword of effectKeywords) {
-      // 匹配包含效果关键词的句子
-      const effectMatch = content.match(new RegExp(`${keyword}[^。；\n]{0,100}`))
+      // 匹配包含效果关键词的句子（限制长度避免过长）
+      const effectMatch = content.match(
+        new RegExp(`${keyword}[^。；\n]{0,${MAX_EFFECT_DESCRIPTION_LENGTH}}`)
+      )
       if (effectMatch) {
         result.technicalEffect = effectMatch[0].trim()
         break

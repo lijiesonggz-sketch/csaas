@@ -119,6 +119,34 @@ export class AnalyzedContent {
   roiAnalysis: ROIAnalysisData | null
 
   /**
+   * 技术实践描述 (行业雷达 - Story 3.2)
+   * AI提取的同业技术实践场景描述
+   */
+  @Column({ type: 'text', nullable: true })
+  practiceDescription: string | null
+
+  /**
+   * 投入成本 (行业雷达 - Story 3.2)
+   * AI提取的项目投入成本,如"50-100万"、"约80万"
+   */
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  estimatedCost: string | null
+
+  /**
+   * 实施周期 (行业雷达 - Story 3.2)
+   * AI提取的项目实施周期,如"3-6个月"、"历时半年"
+   */
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  implementationPeriod: string | null
+
+  /**
+   * 技术效果 (行业雷达 - Story 3.2)
+   * AI提取的技术实施效果,如"部署时间从2小时缩短到10分钟"
+   */
+  @Column({ type: 'text', nullable: true })
+  technicalEffect: string | null
+
+  /**
    * 相关性评分（0-1，Story 2.3需要）
    * AI计算的与组织薄弱项的相关性评分
    */

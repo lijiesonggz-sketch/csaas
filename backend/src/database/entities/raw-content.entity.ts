@@ -123,6 +123,24 @@ export class RawContent {
   @Column({ type: 'uuid', nullable: true })
   organizationId: string | null
 
+  /**
+   * 内容类型（Story 3.1新增）
+   * 用于区分文章、招聘信息、会议内容
+   */
+  @Column({
+    type: 'enum',
+    enum: ['article', 'recruitment', 'conference'],
+    nullable: true,
+  })
+  contentType?: 'article' | 'recruitment' | 'conference'
+
+  /**
+   * 同业机构名称（Story 3.1新增）
+   * 用于行业雷达的同业匹配
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  peerName?: string
+
   @CreateDateColumn()
   createdAt: Date
 

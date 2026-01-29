@@ -30,6 +30,7 @@ export { RadarPush } from './radar-push.entity'
 export { PushLog } from './push-log.entity'
 export { PushScheduleConfig } from './push-schedule-config.entity'
 export { CrawlerLog } from './crawler-log.entity'
+export { RadarSource } from './radar-source.entity'
 
 // 保留旧的实体（向后兼容，待迁移后删除）
 export { WatchedTopic } from './watched-topic.entity'

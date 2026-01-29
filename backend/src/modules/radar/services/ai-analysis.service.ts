@@ -124,6 +124,11 @@ export class AIAnalysisService {
         aiSummary: parsedResult.aiSummary,
         roiAnalysis: null, // Story 2.3 will calculate this
         relevanceScore: null, // Story 2.3 will calculate this
+        // 行业雷达特定字段 (Story 3.2)
+        practiceDescription: parsedResult.practiceDescription || null,
+        estimatedCost: parsedResult.estimatedCost || null,
+        implementationPeriod: parsedResult.implementationPeriod || null,
+        technicalEffect: parsedResult.technicalEffect || null,
         aiModel: aiResponse.model,
         tokensUsed: aiResponse.tokens.total,
         status: 'success',
@@ -194,12 +199,43 @@ export class AIAnalysisService {
 - 适用的金融场景`
 
       case 'industry':
-        return `${basePrompt}
+        return `你是一位资深的金融IT技术专家。请分析以下同业技术实践案例,提取结构化信息。
 
-特别关注：
-- 同业机构名称
-- 实施案例和效果
-- 可借鉴的最佳实践`
+输入内容将包含:
+- 标题
+- 来源
+- 同业机构名称(如果已提取)
+- 正文内容
+
+请以JSON格式返回结果,包含以下字段:
+- practiceDescription: 技术实践场景描述(100-200字,聚焦技术方案和实施过程)
+- estimatedCost: 投入成本(如"50-100万"、"约80万",如果未提及则返回null)
+- implementationPeriod: 实施周期(如"3-6个月"、"历时半年",如果未提及则返回null)
+- technicalEffect: 技术效果(如"部署时间从2小时缩短到10分钟",如果未提及则返回null)
+- categories: 技术分类标签数组(如["云原生", "容器化", "DevOps"])
+- keywords: 关键词数组(如["Kubernetes", "Docker", "微服务"])
+- tags: 标签数组(技术领域、同业机构等)
+- targetAudience: 目标受众(如:IT总监、架构师)
+- aiSummary: 简洁的摘要(200字以内)
+
+示例输出格式:
+{
+  "practiceDescription": "杭州银行于2025年启动容器化改造项目,采用Kubernetes作为容器编排平台,实现应用的快速部署和弹性伸缩。项目分三期实施,首期完成核心业务系统容器化,建立CI/CD流水线。",
+  "estimatedCost": "120万",
+  "implementationPeriod": "6个月",
+  "technicalEffect": "应用部署时间从2小时缩短到10分钟,运维效率提升60%,资源利用率提升40%",
+  "categories": ["云原生", "容器化", "DevOps"],
+  "keywords": ["Kubernetes", "Docker", "微服务", "CI/CD"],
+  "tags": ["云原生", "杭州银行", "容器化"],
+  "targetAudience": "IT总监、架构师",
+  "aiSummary": "杭州银行通过容器化改造实现应用快速部署,显著提升运维效率和资源利用率"
+}
+
+注意事项:
+1. practiceDescription必须聚焦技术方案和实施过程,避免泛泛而谈
+2. 成本、周期、效果如果文中未明确提及,返回null而不是猜测
+3. categories和keywords要准确反映技术领域
+4. 如果内容中提到同业机构名称,务必包含在tags中`
 
       case 'compliance':
         return `${basePrompt}
@@ -225,6 +261,7 @@ export class AIAnalysisService {
 标题：${rawContent.title}
 
 ${rawContent.summary ? `摘要：${rawContent.summary}\n` : ''}
+${rawContent.peerName ? `同业机构：${rawContent.peerName}\n` : ''}
 
 正文：
 ${rawContent.fullContent}
@@ -246,6 +283,10 @@ ${rawContent.fullContent}
     categories: string[]
     targetAudience: string
     aiSummary: string
+    practiceDescription?: string | null
+    estimatedCost?: string | null
+    implementationPeriod?: string | null
+    technicalEffect?: string | null
   } {
     try {
       // 尝试解析 JSON
@@ -257,6 +298,11 @@ ${rawContent.fullContent}
         categories: parsed.categories || [],
         targetAudience: parsed.targetAudience || null,
         aiSummary: parsed.aiSummary || null,
+        // 行业雷达特定字段 (Story 3.2)
+        practiceDescription: parsed.practiceDescription || null,
+        estimatedCost: parsed.estimatedCost || null,
+        implementationPeriod: parsed.implementationPeriod || null,
+        technicalEffect: parsed.technicalEffect || null,
       }
     } catch (error) {
       this.logger.error('Failed to parse AI response as JSON', error.stack)
@@ -268,6 +314,10 @@ ${rawContent.fullContent}
         categories: [],
         targetAudience: null,
         aiSummary: null,
+        practiceDescription: null,
+        estimatedCost: null,
+        implementationPeriod: null,
+        technicalEffect: null,
       }
     }
   }

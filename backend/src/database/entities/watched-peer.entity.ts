@@ -43,6 +43,18 @@ export class WatchedPeer {
   name: string
 
   /**
+   * Peer type (Story 3.2)
+   * - benchmark: 标杆机构(学习对象)
+   * - competitor: 竞争对手(监控对象)
+   */
+  @Column({
+    type: 'enum',
+    enum: ['benchmark', 'competitor'],
+    default: 'benchmark',
+  })
+  peerType: 'benchmark' | 'competitor'
+
+  /**
    * Organization that watches this peer
    *
    * Many watched peers can belong to one organization.

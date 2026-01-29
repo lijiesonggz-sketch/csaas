@@ -6,6 +6,10 @@ import * as matter from 'gray-matter'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { RawContentService } from './raw-content.service'
+import {
+  VALID_CONTENT_TYPES,
+  MAX_PEER_NAME_LENGTH,
+} from '../constants/content.constants'
 
 /**
  * FileWatcherService
@@ -93,6 +97,17 @@ export class FileWatcherService implements OnModuleDestroy {
       // 提取标题
       const title = this.extractTitle(body)
 
+      // 验证 contentType (Story 3.1)
+      const contentType = frontmatter.contentType &&
+        VALID_CONTENT_TYPES.includes(frontmatter.contentType)
+        ? frontmatter.contentType
+        : null
+
+      // 验证 peerName 长度 (Story 3.1)
+      const peerName = frontmatter.peerName
+        ? String(frontmatter.peerName).substring(0, MAX_PEER_NAME_LENGTH)
+        : null
+
       // 保存到RawContent表
       const rawContent = await this.rawContentService.create({
         source: frontmatter.source,
@@ -106,6 +121,9 @@ export class FileWatcherService implements OnModuleDestroy {
           : null,
         author: frontmatter.author || null,
         organizationId: null, // 公共内容
+        // Story 3.1: 支持行业雷达字段
+        contentType,
+        peerName,
       })
 
       this.logger.log(`File processed successfully: ${filePath}`)

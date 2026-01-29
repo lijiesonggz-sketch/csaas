@@ -23,6 +23,9 @@ import { WatchedTopic } from '../../database/entities/watched-topic.entity'
 import { Organization } from '../../database/entities/organization.entity'
 import { OrganizationMember } from '../../database/entities/organization-member.entity'
 
+// Story 3.1 entities
+import { RadarSource } from '../../database/entities/radar-source.entity'
+
 // Story 1.3 providers
 import { AssessmentEventListener } from './assessment-event.listener'
 import { OrganizationsModule } from '../organizations/organizations.module'
@@ -38,6 +41,10 @@ import { FileWatcherService } from './services/file-watcher.service'
 import { CrawlerProcessor } from './processors/crawler.processor'
 import { RadarController } from './controllers/radar.controller'
 import { RadarPushController } from './controllers/radar-push.controller'
+
+// Story 3.1 providers
+import { RadarSourceService } from './services/radar-source.service'
+import { RadarSourceController } from './controllers/radar-source.controller'
 
 // Story 2.2 providers
 import { TagService } from './services/tag.service'
@@ -86,6 +93,9 @@ import { PushProcessor } from './processors/push.processor'
       OrganizationMember,
     ]),
 
+    // Story 3.1 entities
+    TypeOrmModule.forFeature([RadarSource]),
+
     // Story 2.1 BullMQ queues
     BullModule.registerQueue(
       {
@@ -119,7 +129,7 @@ import { PushProcessor } from './processors/push.processor'
     AIClientsModule, // Story 2.2 - AI分析服务依赖
     // ProjectsModule, // 暂时禁用以避免循环依赖
   ],
-  controllers: [RadarController, RadarPushController],
+  controllers: [RadarController, RadarPushController, RadarSourceController],
   providers: [
     // Story 1.3 providers
     AssessmentEventListener,
@@ -142,6 +152,9 @@ import { PushProcessor } from './processors/push.processor'
     PushFrequencyControlService,
     PushSchedulerService,
     PushProcessor,
+
+    // Story 3.1 providers
+    RadarSourceService,
   ],
   exports: [
     // Story 1.3 exports
@@ -166,6 +179,7 @@ export class RadarModule implements OnModuleInit, OnModuleDestroy {
     @InjectQueue('radar-push')
     private readonly pushQueue: Queue,
     private readonly fileWatcherService: FileWatcherService,
+    private readonly radarSourceService: RadarSourceService,
   ) {}
 
   /**
@@ -213,38 +227,116 @@ export class RadarModule implements OnModuleInit, OnModuleDestroy {
 
   /**
    * 配置定时爬虫任务
-   * 每日凌晨2:00自动触发
+   *
+   * Story 3.1: 从数据库读取信息源配置
+   * - 优先从 radar_sources 表读取配置
+   * - 如果数据库为空，使用硬编码的默认配置（向后兼容）
    */
   private async setupCrawlerJobs() {
-    const sources = [
-      {
-        source: 'GARTNER',
-        url: 'https://www.gartner.com/en/newsroom',
-        category: 'tech' as const,
-      },
-      {
-        source: '信通院',
-        url: 'http://www.caict.ac.cn/kxyj/qwfb/',
-        category: 'tech' as const,
-      },
-      {
-        source: 'IDC',
-        url: 'https://www.idc.com/research',
-        category: 'tech' as const,
-      },
-    ]
+    try {
+      // 尝试从数据库读取所有启用的信息源
+      const dbSources = await this.radarSourceService.findAll(undefined, true)
 
-    for (const { source, url, category } of sources) {
-      await this.crawlerQueue.add(
-        'crawl-tech',
-        { source, category, url },
-        {
-          repeat: {
-            pattern: '0 2 * * *', // 每日凌晨2:00
+      if (dbSources.length > 0) {
+        // 使用数据库配置
+        this.logger.log(
+          `Setting up crawler jobs from database: ${dbSources.length} sources`,
+        )
+
+        for (const source of dbSources) {
+          await this.crawlerQueue.add(
+            `crawl-${source.category}`,
+            {
+              source: source.source,
+              category: source.category,
+              url: source.url,
+            },
+            {
+              repeat: {
+                pattern: source.crawlSchedule,
+              },
+              jobId: `crawler-${source.id}`,
+            },
+          )
+
+          this.logger.log(
+            `Scheduled crawler job: ${source.source} (${source.category}) - ${source.crawlSchedule}`,
+          )
+        }
+      } else {
+        // 数据库为空，使用默认配置（向后兼容）
+        this.logger.warn(
+          'No sources found in database, using default configuration',
+        )
+
+        const defaultSources = [
+          {
+            source: 'GARTNER',
+            url: 'https://www.gartner.com/en/newsroom',
+            category: 'tech' as const,
           },
-          jobId: `crawler-${source}`,
+          {
+            source: '信通院',
+            url: 'http://www.caict.ac.cn/kxyj/qwfb/',
+            category: 'tech' as const,
+          },
+          {
+            source: 'IDC',
+            url: 'https://www.idc.com/research',
+            category: 'tech' as const,
+          },
+        ]
+
+        for (const { source, url, category } of defaultSources) {
+          await this.crawlerQueue.add(
+            'crawl-tech',
+            { source, category, url },
+            {
+              repeat: {
+                pattern: '0 2 * * *', // 每日凌晨2:00
+              },
+              jobId: `crawler-${source}`,
+            },
+          )
+        }
+
+        this.logger.log('Scheduled default crawler jobs')
+      }
+    } catch (error) {
+      this.logger.error('Failed to setup crawler jobs from database:', error)
+      // 如果数据库查询失败，回退到默认配置
+      this.logger.warn('Falling back to default crawler configuration')
+
+      const defaultSources = [
+        {
+          source: 'GARTNER',
+          url: 'https://www.gartner.com/en/newsroom',
+          category: 'tech' as const,
         },
-      )
+        {
+          source: '信通院',
+          url: 'http://www.caict.ac.cn/kxyj/qwfb/',
+          category: 'tech' as const,
+        },
+        {
+          source: 'IDC',
+          url: 'https://www.idc.com/research',
+          category: 'tech' as const,
+        },
+      ]
+
+      for (const { source, url, category } of defaultSources) {
+        await this.crawlerQueue.add(
+          'crawl-tech',
+          { source, category, url },
+          {
+            repeat: {
+              pattern: '0 2 * * *',
+            },
+            jobId: `crawler-${source}`,
+          },
+        )
+      }
     }
   }
 

@@ -39,6 +39,11 @@ export class AnalyzedContentService {
     aiSummary: string | null
     roiAnalysis: ROIAnalysisData | null
     relevanceScore: number | null
+    // 行业雷达特定字段 (Story 3.2)
+    practiceDescription?: string | null
+    estimatedCost?: string | null
+    implementationPeriod?: string | null
+    technicalEffect?: string | null
     aiModel: string
     tokensUsed: number
     status: 'pending' | 'success' | 'failed'

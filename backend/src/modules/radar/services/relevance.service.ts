@@ -5,6 +5,7 @@ import { AnalyzedContent } from '../../../database/entities/analyzed-content.ent
 import { RadarPush } from '../../../database/entities/radar-push.entity'
 import { WeaknessSnapshot } from '../../../database/entities/weakness-snapshot.entity'
 import { WatchedTopic } from '../../../database/entities/watched-topic.entity'
+import { WatchedPeer } from '../../../database/entities/watched-peer.entity'
 import { Organization } from '../../../database/entities/organization.entity'
 import {
   WeaknessCategory,
@@ -58,6 +59,8 @@ export class RelevanceService {
     private readonly weaknessSnapshotRepo: Repository<WeaknessSnapshot>,
     @InjectRepository(WatchedTopic)
     private readonly watchedTopicRepo: Repository<WatchedTopic>,
+    @InjectRepository(WatchedPeer)
+    private readonly watchedPeerRepo: Repository<WatchedPeer>,
     @InjectRepository(Organization)
     private readonly organizationRepo: Repository<Organization>,
     private readonly pushFrequencyControlService: PushFrequencyControlService,
@@ -446,6 +449,79 @@ export class RelevanceService {
       nextPush.setMinutes(nextPush.getMinutes() - offsetDiff) // 转换为UTC
 
       return nextPush
+    }
+  }
+
+  /**
+   * 计算行业雷达相关性 (Story 3.2)
+   *
+   * 相关性算法:
+   * - 同业匹配权重: 0.5 (关注的同业机构)
+   * - 薄弱项匹配权重: 0.3 (组织的薄弱项)
+   * - 关注领域匹配权重: 0.2 (组织关注的技术领域)
+   *
+   * 优先级判定:
+   * - relevanceScore >= 0.9: high
+   * - relevanceScore >= 0.7: medium
+   * - relevanceScore < 0.7: low
+   *
+   * @param content - AI分析内容
+   * @param organization - 组织信息
+   * @returns 相关性评分和优先级
+   */
+  async calculateIndustryRelevance(
+    content: AnalyzedContent,
+    organization: Organization,
+  ): Promise<{
+    relevanceScore: number
+    priorityLevel: 'high' | 'medium' | 'low'
+  }> {
+    // 1. 同业匹配 (权重0.5)
+    const watchedPeers = await this.watchedPeerRepo.find({
+      where: { organizationId: organization.id },
+    })
+
+    const peerName = content.rawContent?.peerName
+    const peerMatch = peerName && watchedPeers.some((peer) => peer.name === peerName) ? 1.0 : 0.0
+
+    this.logger.debug(
+      `Peer match for ${peerName}: ${peerMatch} (${watchedPeers.length} watched peers)`,
+    )
+
+    // 2. 薄弱项匹配 (权重0.3)
+    const weaknesses = await this.weaknessSnapshotRepo.find({
+      where: { organizationId: organization.id },
+    })
+
+    const weaknessMatch = this.calculateWeaknessMatch(content, weaknesses)
+
+    this.logger.debug(
+      `Weakness match: ${weaknessMatch} (${weaknesses.length} weaknesses)`,
+    )
+
+    // 3. 关注领域匹配 (权重0.2)
+    const topics = await this.watchedTopicRepo.find({
+      where: { organizationId: organization.id },
+    })
+
+    const topicMatch = this.calculateTopicMatch(content, topics)
+
+    this.logger.debug(`Topic match: ${topicMatch} (${topics.length} topics)`)
+
+    // 4. 计算最终评分
+    const relevanceScore = peerMatch * 0.5 + weaknessMatch * 0.3 + topicMatch * 0.2
+
+    // 5. 确定优先级
+    const priorityLevel =
+      relevanceScore >= 0.9 ? 'high' : relevanceScore >= 0.7 ? 'medium' : 'low'
+
+    this.logger.log(
+      `Industry relevance for ${organization.name}: score=${relevanceScore.toFixed(2)}, priority=${priorityLevel}`,
+    )
+
+    return {
+      relevanceScore: parseFloat(relevanceScore.toFixed(2)),
+      priorityLevel,
     }
   }
 

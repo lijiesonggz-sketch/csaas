@@ -21,6 +21,21 @@ export const MAX_PEER_NAME_LENGTH = 255
 export const MAX_TECH_KEYWORDS = 20
 
 /**
+ * Maximum length for a single tech keyword
+ */
+export const MAX_TECH_KEYWORD_LENGTH = 50
+
+/**
+ * Minimum length for a valid tech keyword
+ */
+export const MIN_TECH_KEYWORD_LENGTH = 2
+
+/**
+ * Maximum length for technical effect description
+ */
+export const MAX_EFFECT_DESCRIPTION_LENGTH = 100
+
+/**
  * Valid content types
  */
 export const VALID_CONTENT_TYPES = ['article', 'recruitment', 'conference'] as const
