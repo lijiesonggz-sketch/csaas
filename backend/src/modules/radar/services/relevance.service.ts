@@ -394,6 +394,9 @@ export class RelevanceService {
    * - industry: 每周三 17:00 (UTC+8)
    * - compliance: 每日 9:00 (UTC+8)
    *
+   * Code Review Fix #5: 时区处理说明
+   * 注意：当前使用手动时区偏移计算，未来可考虑使用date-fns-tz库以更好地处理DST
+   *
    * @param radarType - 雷达类型
    * @returns 下次推送时间（UTC时间）
    */
@@ -401,6 +404,7 @@ export class RelevanceService {
     radarType: 'tech' | 'industry' | 'compliance',
   ): Date {
     // 使用UTC+8时区（中国标准时间）
+    // 注意：中国不使用夏令时，因此偏移量固定为-480分钟
     const now = new Date()
     const chinaOffset = TIMEZONE_CONFIG.CHINA_OFFSET_MINUTES
     const localOffset = now.getTimezoneOffset() // 本地时区偏移（分钟）
@@ -460,10 +464,16 @@ export class RelevanceService {
    * - 薄弱项匹配权重: 0.3 (组织的薄弱项)
    * - 关注领域匹配权重: 0.2 (组织关注的技术领域)
    *
+   * Code Review Fix #7: 权重设计说明
+   * 权重分配原因:
+   * - 同业匹配(0.5): 用户明确关注的同业机构，优先级最高，直接学习标杆经验
+   * - 薄弱项匹配(0.3): 同业案例能解决用户的薄弱项，实用价值高
+   * - 关注领域(0.2): 用户感兴趣的技术领域，但不一定直接解决问题
+   *
    * 优先级判定:
-   * - relevanceScore >= 0.9: high
-   * - relevanceScore >= 0.7: medium
-   * - relevanceScore < 0.7: low
+   * - relevanceScore >= 0.9: high (强烈推荐)
+   * - relevanceScore >= 0.7: medium (值得关注)
+   * - relevanceScore < 0.7: low (参考价值)
    *
    * @param content - AI分析内容
    * @param organization - 组织信息
@@ -476,7 +486,7 @@ export class RelevanceService {
     relevanceScore: number
     priorityLevel: 'high' | 'medium' | 'low'
   }> {
-    // 1. 同业匹配 (权重0.5)
+    // 1. 同业匹配 (权重0.5) - 用户明确关注的同业机构
     const watchedPeers = await this.watchedPeerRepo.find({
       where: { organizationId: organization.id },
     })
@@ -488,7 +498,7 @@ export class RelevanceService {
       `Peer match for ${peerName}: ${peerMatch} (${watchedPeers.length} watched peers)`,
     )
 
-    // 2. 薄弱项匹配 (权重0.3)
+    // 2. 薄弱项匹配 (权重0.3) - 同业案例能解决用户的薄弱项
     const weaknesses = await this.weaknessSnapshotRepo.find({
       where: { organizationId: organization.id },
     })
@@ -499,7 +509,7 @@ export class RelevanceService {
       `Weakness match: ${weaknessMatch} (${weaknesses.length} weaknesses)`,
     )
 
-    // 3. 关注领域匹配 (权重0.2)
+    // 3. 关注领域匹配 (权重0.2) - 用户感兴趣的技术领域
     const topics = await this.watchedTopicRepo.find({
       where: { organizationId: organization.id },
     })
@@ -508,7 +518,7 @@ export class RelevanceService {
 
     this.logger.debug(`Topic match: ${topicMatch} (${topics.length} topics)`)
 
-    // 4. 计算最终评分
+    // 4. 计算最终评分 (加权求和)
     const relevanceScore = peerMatch * 0.5 + weaknessMatch * 0.3 + topicMatch * 0.2
 
     // 5. 确定优先级
@@ -517,6 +527,107 @@ export class RelevanceService {
 
     this.logger.log(
       `Industry relevance for ${organization.name}: score=${relevanceScore.toFixed(2)}, priority=${priorityLevel}`,
+    )
+
+    return {
+      relevanceScore: parseFloat(relevanceScore.toFixed(2)),
+      priorityLevel,
+    }
+  }
+
+  /**
+   * 计算合规雷达相关性 (Story 4.1)
+   *
+   * 相关性算法:
+   * - 薄弱项匹配权重: 0.5 (优先匹配用户薄弱项)
+   * - 关注领域匹配权重: 0.3 (用户关注的技术领域)
+   * - 关注同业匹配权重: 0.2 (合规相关同业处罚案例)
+   *
+   * 优先级判定:
+   * - relevanceScore >= 0.9: high (强烈推荐)
+   * - relevanceScore >= 0.7: medium (值得关注)
+   * - relevanceScore < 0.7: low (参考价值)
+   *
+   * @param content - AI分析内容
+   * @param organization - 组织信息
+   * @returns 相关性评分和优先级
+   */
+  async calculateComplianceRelevance(
+    content: AnalyzedContent,
+    organization: Organization,
+  ): Promise<{
+    relevanceScore: number
+    priorityLevel: 'high' | 'medium' | 'low'
+  }> {
+    // 1. 薄弱项匹配 (权重0.5) - 优先匹配用户薄弱项
+    const weaknesses = await this.weaknessSnapshotRepo.find({
+      where: { organizationId: organization.id },
+    })
+
+    let weaknessMatch = 0
+    if (content.complianceAnalysis?.relatedWeaknessCategories) {
+      for (const weakness of weaknesses) {
+        const weaknessDisplayName = this.getCategoryDisplayName(weakness.category)
+
+        // 检查complianceAnalysis中的relatedWeaknessCategories是否匹配
+        const categoryMatch = content.complianceAnalysis.relatedWeaknessCategories.some(
+          (cat) =>
+            cat === weaknessDisplayName ||
+            cat.toLowerCase().includes(weaknessDisplayName.toLowerCase()) ||
+            weaknessDisplayName.toLowerCase().includes(cat.toLowerCase()),
+        )
+
+        if (categoryMatch) {
+          // 薄弱程度越高(level越低)，权重越大
+          const weight = (WEAKNESS_LEVEL_CONFIG.MAX_LEVEL - weakness.level) / WEAKNESS_LEVEL_CONFIG.WEIGHT_DIVISOR
+          weaknessMatch = Math.max(weaknessMatch, weight)
+
+          this.logger.debug(
+            `Compliance weakness match found: ${weaknessDisplayName} (level ${weakness.level}, weight ${weight})`,
+          )
+        }
+      }
+    }
+
+    this.logger.debug(`Compliance weakness match: ${weaknessMatch} (${weaknesses.length} weaknesses)`)
+
+    // 2. 关注领域匹配 (权重0.3) - 用户感兴趣的技术领域
+    const topics = await this.watchedTopicRepo.find({
+      where: { organizationId: organization.id },
+    })
+
+    const topicMatch = this.calculateTopicMatch(content, topics)
+
+    this.logger.debug(`Compliance topic match: ${topicMatch} (${topics.length} topics)`)
+
+    // 3. 关注同业匹配 (权重0.2) - 合规相关同业处罚案例
+    const watchedPeers = await this.watchedPeerRepo.find({
+      where: { organizationId: organization.id },
+    })
+
+    let peerMatch = 0
+    // 检查处罚案例中是否包含关注的同业机构名称
+    if (content.complianceAnalysis?.penaltyCase) {
+      for (const peer of watchedPeers) {
+        if (content.complianceAnalysis.penaltyCase.includes(peer.name)) {
+          peerMatch = 1.0
+          this.logger.debug(`Compliance peer match found: ${peer.name}`)
+          break
+        }
+      }
+    }
+
+    this.logger.debug(`Compliance peer match: ${peerMatch} (${watchedPeers.length} watched peers)`)
+
+    // 4. 计算最终评分 (加权求和)
+    const relevanceScore = weaknessMatch * 0.5 + topicMatch * 0.3 + peerMatch * 0.2
+
+    // 5. 确定优先级
+    const priorityLevel =
+      relevanceScore >= 0.9 ? 'high' : relevanceScore >= 0.7 ? 'medium' : 'low'
+
+    this.logger.log(
+      `Compliance relevance for ${organization.name}: score=${relevanceScore.toFixed(2)}, priority=${priorityLevel}`,
     )
 
     return {
