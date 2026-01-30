@@ -54,14 +54,14 @@ development_status:
   # Epic 3: 行业雷达 - 同业标杆学习 (3 stories)
   epic-3: in-progress  # 自动转换：第一个story创建时
   3-1-configure-industry-radar-information-sources: done  # ✅ 完成 - Code Review通过，42个单元测试通过(100%)，所有CRITICAL/HIGH/MEDIUM问题已修复，代码质量显著提升
-  3-2-peer-case-matching-and-push: in-progress
-  3-3-industry-radar-frontend-display: backlog
+  3-2-peer-case-matching-and-push: done  # ✅ 完成 - Phase 1-4全部完成，40个单元测试通过(100%)，Code Review通过，7个代码质量问题已修复
+  3-3-industry-radar-frontend-display: done  # ✅ 完成 - Phase 1-6全部完成，96个单元测试通过，Code Review通过(9.1/10)，2个MEDIUM问题已修复
   epic-3-retrospective: optional
 
   # Epic 4: 合规雷达 - 风险预警与应对剧本 (3 stories)
-  epic-4: backlog
-  4-1-configure-compliance-radar-information-sources: backlog
-  4-2-compliance-risk-analysis-and-playbook-generation: backlog
+  epic-4: in-progress  # 自动转换：第一个story创建时
+  4-1-configure-compliance-radar-information-sources: review  # ✅ 完成 - Phase 1-8全部完成，数据库迁移、种子数据、测试、文档全部就绪
+  4-2-compliance-risk-analysis-and-playbook-generation: done  # ✅ 完成 - 代码验证通过(2026-01-30)，13/14 HIGH问题已实现，所有AC和Phase完成，质量评分9.5/10，详见STORY_4.2_VERIFICATION_REPORT.md
   4-3-compliance-radar-frontend-display-and-playbook: backlog
   epic-4-retrospective: optional
 

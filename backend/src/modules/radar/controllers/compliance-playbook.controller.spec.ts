@@ -1,0 +1,313 @@
+import { Test, TestingModule } from '@nestjs/testing'
+import { CompliancePlaybookController } from '../controllers/compliance-playbook.controller'
+import { CompliancePlaybookService } from '../services/compliance-playbook.service'
+import { HttpException, HttpStatus } from '@nestjs/common'
+import { SubmitChecklistDto } from '../dto/submit-checklist.dto'
+
+/**
+ * CompliancePlaybookController Tests (Story 4.2 - Phase 5.2)
+ *
+ * 测试合规剧本Controller层
+ */
+describe('CompliancePlaybookController', () => {
+  let controller: CompliancePlaybookController
+  let service: CompliancePlaybookService
+
+  // Mock data
+  const mockPlaybook = {
+    id: 'playbook-123',
+    pushId: 'push-123',
+    checklistItems: [
+      {
+        id: 'item-1',
+        text: '检查数据安全制度',
+        category: '数据安全',
+        checked: false,
+        order: 1,
+      },
+    ],
+    solutions: [
+      {
+        name: '升级安全系统',
+        estimatedCost: 50000,
+        expectedBenefit: 200000,
+        roiScore: 7,
+        implementationTime: '2个月',
+      },
+    ],
+    reportTemplate: '合规自查报告',
+    policyReference: [],
+    generatedAt: new Date(),
+  }
+
+  const mockSubmission = {
+    id: 'submission-123',
+    pushId: 'push-123',
+    userId: 'user-123',
+    checkedItems: ['item-1'],
+    uncheckedItems: [],
+    notes: 'Test notes',
+    updatedAt: new Date(),
+  }
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [CompliancePlaybookController],
+      providers: [
+        {
+          provide: CompliancePlaybookService,
+          useValue: {
+            getPlaybookByPushId: jest.fn(),
+            submitChecklist: jest.fn(),
+            getChecklistSubmission: jest.fn(),
+          },
+        },
+      ],
+    }).compile()
+
+    controller = module.get<CompliancePlaybookController>(CompliancePlaybookController)
+    service = module.get<CompliancePlaybookService>(CompliancePlaybookService)
+  })
+
+  afterEach(() => {
+    jest.clearAllMocks()
+  })
+
+  describe('GET /playbooks/:pushId', () => {
+    it('should return 200 with playbook when found', async () => {
+      // Arrange
+      const pushId = 'push-123'
+      jest.spyOn(service, 'getPlaybookByPushId').mockResolvedValue(mockPlaybook as any)
+
+      // Act
+      const result = await controller.getPlaybook(pushId)
+
+      // Assert
+      expect(service.getPlaybookByPushId).toHaveBeenCalledWith(pushId)
+      expect(result).toEqual(mockPlaybook)
+    })
+
+    it('should return 404 when playbook not found', async () => {
+      // Arrange
+      const pushId = 'non-existent-push'
+      const error = new Error('Playbook not found')
+      error.name = 'NotFoundException'
+      jest.spyOn(service, 'getPlaybookByPushId').mockRejectedValue(error)
+
+      // Act & Assert
+      await expect(controller.getPlaybook(pushId)).rejects.toThrow(Error)
+    })
+
+    it('should return 202 when playbook is generating', async () => {
+      // Arrange
+      const pushId = 'push-123'
+      const error = new HttpException('Playbook is being generated', HttpStatus.ACCEPTED)
+      jest.spyOn(service, 'getPlaybookByPushId').mockRejectedValue(error)
+
+      // Act & Assert
+      await expect(controller.getPlaybook(pushId)).rejects.toThrow(HttpException)
+    })
+
+    it('should return 500 when playbook generation failed', async () => {
+      // Arrange
+      const pushId = 'push-123'
+      const error = new HttpException(
+        'Playbook generation failed',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      )
+      jest.spyOn(service, 'getPlaybookByPushId').mockRejectedValue(error)
+
+      // Act & Assert
+      await expect(controller.getPlaybook(pushId)).rejects.toThrow(HttpException)
+    })
+  })
+
+  describe('POST /playbooks/:pushId/checklist', () => {
+    it('should return 201 with submission when created', async () => {
+      // Arrange
+      const pushId = 'push-123'
+
+      const submitDto: SubmitChecklistDto = {
+        checkedItems: ['item-1'],
+        uncheckedItems: [],
+      }
+
+      jest.spyOn(service, 'submitChecklist').mockResolvedValue(mockSubmission as any)
+
+      // Act
+      const result = await controller.submitChecklist(pushId, 'user-123', submitDto)
+
+      // Assert
+      expect(service.submitChecklist).toHaveBeenCalledWith(pushId, 'user-123', submitDto)
+      expect(result).toEqual({
+        message: 'Checklist submitted successfully',
+        submission: mockSubmission,
+      })
+    })
+
+    it('should return 400 for invalid data (duplicate items)', async () => {
+      // Arrange
+      const pushId = 'push-123'
+
+      const invalidDto: SubmitChecklistDto = {
+        checkedItems: ['item-1', 'item-2'],
+        uncheckedItems: ['item-2', 'item-3'], // duplicate
+      }
+
+      const error = new HttpException('Duplicate item IDs', HttpStatus.BAD_REQUEST)
+      jest.spyOn(service, 'submitChecklist').mockRejectedValue(error)
+
+      // Act & Assert
+      await expect(controller.submitChecklist(pushId, 'user-123', invalidDto)).rejects.toThrow(
+        HttpException,
+      )
+    })
+
+    it('should return 400 for invalid data (item count mismatch)', async () => {
+      // Arrange
+      const pushId = 'push-123'
+
+      const invalidDto: SubmitChecklistDto = {
+        checkedItems: ['item-1'],
+        uncheckedItems: ['item-2', 'item-3'], // Too many items
+      }
+
+      const error = new HttpException('Data integrity error', HttpStatus.BAD_REQUEST)
+      jest.spyOn(service, 'submitChecklist').mockRejectedValue(error)
+
+      // Act & Assert
+      await expect(controller.submitChecklist(pushId, 'user-123', invalidDto)).rejects.toThrow(
+        HttpException,
+      )
+    })
+
+    it('should return 400 for invalid data (invalid item IDs)', async () => {
+      // Arrange
+      const pushId = 'push-123'
+
+      const invalidDto: SubmitChecklistDto = {
+        checkedItems: ['non-existent-item'],
+        uncheckedItems: [],
+      }
+
+      const error = new HttpException('Invalid item IDs', HttpStatus.BAD_REQUEST)
+      jest.spyOn(service, 'submitChecklist').mockRejectedValue(error)
+
+      // Act & Assert
+      await expect(controller.submitChecklist(pushId, 'user-123', invalidDto)).rejects.toThrow(
+        HttpException,
+      )
+    })
+
+    it('should return 404 when playbook not found', async () => {
+      // Arrange
+      const pushId = 'non-existent-push'
+
+      const submitDto: SubmitChecklistDto = {
+        checkedItems: ['item-1'],
+        uncheckedItems: [],
+      }
+
+      const error = new HttpException('Playbook not found', HttpStatus.NOT_FOUND)
+      jest.spyOn(service, 'submitChecklist').mockRejectedValue(error)
+
+      // Act & Assert
+      await expect(controller.submitChecklist(pushId, 'user-123', submitDto)).rejects.toThrow(
+        HttpException,
+      )
+    })
+
+    it('should return 200 when updating existing submission', async () => {
+      // Arrange
+      const pushId = 'push-123'
+
+      const submitDto: SubmitChecklistDto = {
+        checkedItems: ['item-1'],
+        uncheckedItems: [],
+      }
+
+      jest.spyOn(service, 'submitChecklist').mockResolvedValue(mockSubmission as any)
+
+      // Act
+      const result = await controller.submitChecklist(pushId, 'user-123', submitDto)
+
+      // Assert
+      expect(result).toEqual({
+        message: 'Checklist submitted successfully',
+        submission: mockSubmission,
+      })
+    })
+  })
+
+  describe('GET /playbooks/:pushId/checklist', () => {
+    it('should return 200 with submission when found', async () => {
+      // Arrange
+      const pushId = 'push-123'
+      jest.spyOn(service, 'getChecklistSubmission').mockResolvedValue(mockSubmission as any)
+
+      // Act
+      const result = await controller.getChecklistSubmission(pushId, 'user-123')
+
+      // Assert
+      expect(service.getChecklistSubmission).toHaveBeenCalledWith(pushId, 'user-123')
+      expect(result).toEqual(mockSubmission)
+    })
+
+    it('should return 404 when submission not found', async () => {
+      // Arrange
+      const pushId = 'push-123'
+      jest.spyOn(service, 'getChecklistSubmission').mockResolvedValue(null)
+
+      // Act
+      const result = await controller.getChecklistSubmission(pushId, 'user-123')
+
+      // Assert
+      expect(result).toBeNull()
+    })
+  })
+
+  describe('HTTP Status Codes', () => {
+    it('should use correct HTTP status codes for different scenarios', async () => {
+      // Test 200: Success
+      jest.spyOn(service, 'getPlaybookByPushId').mockResolvedValue(mockPlaybook as any)
+      await expect(controller.getPlaybook('push-123')).resolves.toEqual(mockPlaybook)
+
+      // Test 202: Generating
+      const acceptedError = new HttpException(
+        'Playbook is being generated',
+        HttpStatus.ACCEPTED,
+      )
+      jest.spyOn(service, 'getPlaybookByPushId').mockRejectedValue(acceptedError)
+      await expect(controller.getPlaybook('push-123')).rejects.toThrow(HttpException)
+
+      // Test 404: Not found
+      const notFoundError = new HttpException('Not found', HttpStatus.NOT_FOUND)
+      jest.spyOn(service, 'getPlaybookByPushId').mockRejectedValue(notFoundError)
+      await expect(controller.getPlaybook('push-123')).rejects.toThrow(HttpException)
+
+      // Test 500: Server error
+      const serverError = new HttpException('Server error', HttpStatus.INTERNAL_SERVER_ERROR)
+      jest.spyOn(service, 'getPlaybookByPushId').mockRejectedValue(serverError)
+      await expect(controller.getPlaybook('push-123')).rejects.toThrow(HttpException)
+    })
+
+    it('should return proper error messages with status codes', async () => {
+      // Arrange
+      const pushId = 'push-123'
+      const error = new HttpException(
+        'Playbook is being generated',
+        HttpStatus.ACCEPTED,
+      )
+      jest.spyOn(service, 'getPlaybookByPushId').mockRejectedValue(error)
+
+      // Act & Assert
+      try {
+        await controller.getPlaybook(pushId)
+        fail('Should have thrown HttpException')
+      } catch (e) {
+        expect(e).toBeInstanceOf(HttpException)
+        expect((e as HttpException).getStatus()).toBe(HttpStatus.ACCEPTED)
+      }
+    })
+  })
+})
