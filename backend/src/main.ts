@@ -4,6 +4,7 @@ import { AppModule } from './app.module'
 import { initSentry } from './config/sentry.config'
 import { loggerConfig } from './config/logger.config'
 import { TransformInterceptor } from './common/interceptors/transform.interceptor'
+import { NotFoundFilter } from './common/filters/not-found.filter'
 import * as Sentry from '@sentry/node'
 
 async function bootstrap() {
@@ -20,14 +21,17 @@ async function bootstrap() {
   app.use(require('express').json({ limit: '50mb' }))
   app.use(require('express').urlencoded({ limit: '50mb', extended: true }))
 
-  // 添加请求日志中间件
+  // 添加请求日志中间件（改进版：包含 User-Agent 和 Referer）
   app.use((req, res, next) => {
     console.log('[REQUEST]', req.method, req.url, {
       query: req.query,
       headers: {
         authorization: req.headers.authorization ? 'Bearer ***' : undefined,
         'content-type': req.headers['content-type'],
+        'user-agent': req.headers['user-agent'],
+        referer: req.headers['referer'],
       },
+      ip: req.ip,
     })
     next()
   })
@@ -47,6 +51,9 @@ async function bootstrap() {
 
   // 全局响应转换拦截器
   app.useGlobalInterceptors(new TransformInterceptor())
+
+  // 全局 404 异常过滤器
+  app.useGlobalFilters(new NotFoundFilter())
 
   // CORS配置
   app.enableCors({
