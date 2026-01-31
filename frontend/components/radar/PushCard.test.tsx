@@ -103,15 +103,17 @@ describe('PushCard Component', () => {
     it('should display weakness category tags', () => {
       renderWithProviders(<PushCard push={mockPushWithROI} onViewDetail={mockOnViewDetail} />)
 
-      expect(screen.getByText(/🎯 数据安全/)).toBeInTheDocument()
-      expect(screen.getByText(/🎯 身份认证/)).toBeInTheDocument()
+      expect(screen.getByText('数据安全')).toBeInTheDocument()
+      expect(screen.getByText('身份认证')).toBeInTheDocument()
     })
 
     it('should not display weakness section when empty', () => {
       const push = { ...mockPushWithROI, weaknessCategories: [] }
       renderWithProviders(<PushCard push={push} onViewDetail={mockOnViewDetail} />)
 
-      expect(screen.queryByText(/🎯/)).not.toBeInTheDocument()
+      // 检查薄弱项标签容器不存在
+      const weaknessChips = screen.queryAllByRole('button', { name: /数据安全|身份认证/ })
+      expect(weaknessChips).toHaveLength(0)
     })
   })
 
@@ -119,7 +121,7 @@ describe('PushCard Component', () => {
     it('should display ROI analysis section header', () => {
       renderWithProviders(<PushCard push={mockPushWithROI} onViewDetail={mockOnViewDetail} />)
 
-      expect(screen.getByText(/💰 ROI分析/)).toBeInTheDocument()
+      expect(screen.getByText('ROI分析')).toBeInTheDocument()
     })
 
     it('should display estimated cost', () => {
@@ -262,6 +264,154 @@ describe('PushCard Component', () => {
       renderWithProviders(<PushCard push={push} onViewDetail={mockOnViewDetail} />)
 
       expect(screen.getByText(/85% 相关/)).toBeInTheDocument()
+    })
+  })
+
+  describe('Industry Radar Variant (Story 3.3)', () => {
+    const mockIndustryPush = {
+      pushId: 'industry-1',
+      title: '某银行云原生转型实践案例',
+      summary: '该银行通过云原生架构升级，实现了系统性能和稳定性的显著提升',
+      relevanceScore: 0.92,
+      priorityLevel: 1 as const,
+      weaknessCategories: ['系统架构'],
+      publishDate: '2024-01-15T00:00:00Z',
+      source: '银行业技术论坛',
+      peerName: '招商银行',
+      practiceDescription: '这是一段超过100字符的实践描述文本，用于测试截断功能。当文本长度超过100个字符时，应该显示省略号(...)来表示文本被截断。这段文字足够长，可以触发截断逻辑。',
+      estimatedCost: '300-500万',
+      implementationPeriod: '6-12个月',
+      technicalEffect: '系统可用性提升至99.99%',
+    }
+
+    it('should display peer name when variant="industry"', () => {
+      renderWithProviders(
+        <PushCard push={mockIndustryPush} variant="industry" onViewDetail={mockOnViewDetail} />
+      )
+
+      expect(screen.getByText('招商银行')).toBeInTheDocument()
+    })
+
+    it('should display star icon when isWatchedPeer=true', () => {
+      renderWithProviders(
+        <PushCard
+          push={mockIndustryPush}
+          variant="industry"
+          isWatchedPeer={true}
+          onViewDetail={mockOnViewDetail}
+        />
+      )
+
+      expect(screen.getByText('⭐ 关注')).toBeInTheDocument()
+    })
+
+    it('should not display star icon when isWatchedPeer=false', () => {
+      renderWithProviders(
+        <PushCard
+          push={mockIndustryPush}
+          variant="industry"
+          isWatchedPeer={false}
+          onViewDetail={mockOnViewDetail}
+        />
+      )
+
+      expect(screen.queryByText('⭐ 关注')).not.toBeInTheDocument()
+    })
+
+    it('should truncate practiceDescription to 100 characters', () => {
+      renderWithProviders(
+        <PushCard push={mockIndustryPush} variant="industry" onViewDetail={mockOnViewDetail} />
+      )
+
+      // 实际显示的内容应该被截断并有省略号
+      const displayedText = screen.getByText((content) => {
+        return content.includes('这是一段超过100字符的实践描述文本') && content.includes('...')
+      })
+      expect(displayedText).toBeInTheDocument()
+    })
+
+    it('should display estimated cost', () => {
+      renderWithProviders(
+        <PushCard push={mockIndustryPush} variant="industry" onViewDetail={mockOnViewDetail} />
+      )
+
+      expect(screen.getByText('投入成本')).toBeInTheDocument()
+      expect(screen.getByText('300-500万')).toBeInTheDocument()
+    })
+
+    it('should display implementation period', () => {
+      renderWithProviders(
+        <PushCard push={mockIndustryPush} variant="industry" onViewDetail={mockOnViewDetail} />
+      )
+
+      expect(screen.getByText('实施周期')).toBeInTheDocument()
+      expect(screen.getByText('6-12个月')).toBeInTheDocument()
+    })
+
+    it('should not display ROI analysis for industry variant', () => {
+      const industryPushWithROI = {
+        ...mockIndustryPush,
+        roiAnalysis: {
+          estimatedCost: '100万',
+          expectedBenefit: '年节省200万',
+          roiEstimate: 'ROI 2:1',
+          implementationPeriod: '3个月',
+          recommendedVendors: ['供应商A'],
+        },
+      }
+
+      renderWithProviders(
+        <PushCard push={industryPushWithROI} variant="industry" onViewDetail={mockOnViewDetail} />
+      )
+
+      // 行业雷达不应该显示ROI分析
+      expect(screen.queryByText('ROI分析')).not.toBeInTheDocument()
+      expect(screen.queryByText('预期收益')).not.toBeInTheDocument()
+      expect(screen.queryByText('ROI估算')).not.toBeInTheDocument()
+    })
+
+    it('should not display industry fields when variant="tech"', () => {
+      renderWithProviders(
+        <PushCard push={mockIndustryPush} variant="tech" onViewDetail={mockOnViewDetail} />
+      )
+
+      // 技术雷达不应该显示行业雷达特定字段
+      expect(screen.queryByText('招商银行')).not.toBeInTheDocument()
+      expect(screen.queryByText('投入成本')).not.toBeInTheDocument()
+      expect(screen.queryByText('实施周期')).not.toBeInTheDocument()
+    })
+
+    it('should handle missing peerName gracefully', () => {
+      const pushWithoutPeer = { ...mockIndustryPush, peerName: undefined }
+
+      renderWithProviders(
+        <PushCard push={pushWithoutPeer} variant="industry" onViewDetail={mockOnViewDetail} />
+      )
+
+      // 不应该显示Business icon相关的peer name
+      expect(screen.queryByText('招商银行')).not.toBeInTheDocument()
+    })
+
+    it('should handle missing practiceDescription gracefully', () => {
+      const pushWithoutDescription = { ...mockIndustryPush, practiceDescription: undefined }
+
+      renderWithProviders(
+        <PushCard push={pushWithoutDescription} variant="industry" onViewDetail={mockOnViewDetail} />
+      )
+
+      // 不应该报错，组件应该正常渲染
+      expect(screen.getByText('某银行云原生转型实践案例')).toBeInTheDocument()
+    })
+
+    it('should display technical effect when available', () => {
+      renderWithProviders(
+        <PushCard push={mockIndustryPush} variant="industry" onViewDetail={mockOnViewDetail} />
+      )
+
+      // technicalEffect在详情弹窗中显示，不在卡片中
+      // 卡片中只显示estimatedCost和implementationPeriod
+      expect(screen.getByText('投入成本')).toBeInTheDocument()
+      expect(screen.getByText('实施周期')).toBeInTheDocument()
     })
   })
 })

@@ -32,6 +32,11 @@ export { PushScheduleConfig } from './push-schedule-config.entity'
 export { CrawlerLog } from './crawler-log.entity'
 export { RadarSource } from './radar-source.entity'
 
+// Epic 4: 合规雷达 - 风险预警与应对剧本
+export { CompliancePlaybook } from './compliance-playbook.entity'
+export { ComplianceChecklistSubmission } from './compliance-checklist-submission.entity'
+
 // 保留旧的实体（向后兼容，待迁移后删除）
 export { WatchedTopic } from './watched-topic.entity'
 export { WatchedPeer } from './watched-peer.entity'
+

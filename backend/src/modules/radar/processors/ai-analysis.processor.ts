@@ -37,6 +37,8 @@ export class AIAnalysisProcessor extends WorkerHost {
     private readonly rawContentService: RawContentService,
     @InjectQueue('radar-push')
     private readonly pushScheduleQueue: Queue,
+    @InjectQueue('radar-playbook-generation')
+    private readonly playbookQueue: Queue,
   ) {
     super()
   }
@@ -85,6 +87,32 @@ export class AIAnalysisProcessor extends WorkerHost {
           priority: this.getPriority(category),
         },
       )
+
+      // 6. 如果是合规雷达，异步生成剧本（Story 4.2 - Phase 2.2）
+      if (category === 'compliance') {
+        try {
+          await this.playbookQueue.add(
+            'generate-playbook',
+            {
+              contentId: contentId,
+              analyzedContentId: analysisResult.id,
+            },
+            {
+              priority: 1, // compliance highest priority
+              jobId: `playbook-${contentId}`,
+            },
+          )
+          this.logger.log(
+            `合规剧本生成任务已创建: contentId=${contentId}, analyzedContentId=${analysisResult.id}`,
+          )
+        } catch (error) {
+          this.logger.error(
+            `创建合规剧本生成任务失败: contentId=${contentId}`,
+            error.stack,
+          )
+          // 不阻塞主流程，继续处理推送
+        }
+      }
 
       return {
         success: true,

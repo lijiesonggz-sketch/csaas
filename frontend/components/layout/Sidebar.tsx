@@ -47,6 +47,12 @@ const items: MenuItem[] = [
     key: '/settings',
     icon: <SettingOutlined />,
     label: '系统设置',
+    children: [
+      {
+        key: '/admin/radar-sources',
+        label: '信息源配置',
+      },
+    ],
   },
 ]
 

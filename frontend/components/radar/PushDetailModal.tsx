@@ -183,8 +183,138 @@ export const PushDetailModal = React.memo(function PushDetailModal({
 
           <Divider />
 
-          {/* ROI分析详情 */}
-          {push.roiAnalysis && (
+          {/* 行业雷达详情 (Story 3.3 - Phase 3) */}
+          {push.radarType === 'industry' && (
+            <>
+              {/* 同业机构背景区域 */}
+              {push.peerName && (
+                <Box
+                  sx={{
+                    p: 3,
+                    border: '2px solid',
+                    borderColor: 'success.light',
+                    borderRadius: 2,
+                    background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Box
+                      sx={{
+                        p: 1,
+                        bgcolor: 'success.main',
+                        borderRadius: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Business sx={{ color: 'white', fontSize: 32 }} />
+                    </Box>
+                    <Box>
+                      <Typography variant="h6" fontWeight="bold" color="success.main">
+                        {push.peerName}
+                      </Typography>
+                      <Chip
+                        label="同业标杆机构"
+                        size="small"
+                        color="success"
+                        sx={{ mt: 0.5 }}
+                      />
+                    </Box>
+                  </Box>
+                </Box>
+              )}
+
+              {/* 技术实践详细描述 */}
+              {push.practiceDescription && (
+                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                    技术实践详细描述
+                  </Typography>
+                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
+                    {push.practiceDescription}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* 投入成本/实施周期/效果 */}
+              <Grid container spacing={2}>
+                {push.estimatedCost && (
+                  <Grid item xs={12} md={4}>
+                    <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <AttachMoney color="success" />
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          投入成本
+                        </Typography>
+                      </Box>
+                      <Typography variant="h6" fontWeight="bold" color="text.primary">
+                        {push.estimatedCost}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        包含软硬件采购、实施服务等
+                      </Typography>
+                    </Box>
+                  </Grid>
+                )}
+
+                {push.implementationPeriod && (
+                  <Grid item xs={12} md={4}>
+                    <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Schedule color="warning" />
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          实施周期
+                        </Typography>
+                      </Box>
+                      <Typography variant="h6" fontWeight="bold" color="text.primary">
+                        {push.implementationPeriod}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        从启动到上线的预计时间
+                      </Typography>
+                    </Box>
+                  </Grid>
+                )}
+
+                {push.technicalEffect && (
+                  <Grid item xs={12} md={4}>
+                    <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <EmojiEvents color="success" />
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          技术效果
+                        </Typography>
+                      </Box>
+                      <Typography variant="body1" fontWeight="bold" color="text.primary">
+                        {push.technicalEffect}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        实际效果和收益
+                      </Typography>
+                    </Box>
+                  </Grid>
+                )}
+              </Grid>
+
+              {/* 可借鉴点总结 */}
+              {push.tags && push.tags.length > 0 && (
+                <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
+                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                    可借鉴点总结
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary">
+                    {push.tags.join('、')}
+                  </Typography>
+                </Box>
+              )}
+
+              <Divider />
+            </>
+          )}
+
+          {/* ROI分析详情 (技术雷达) */}
+          {push.radarType === 'tech' && push.roiAnalysis && (
             <Box
               sx={{
                 p: 3,

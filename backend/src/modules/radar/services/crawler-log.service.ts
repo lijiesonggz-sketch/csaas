@@ -34,7 +34,8 @@ export class CrawlerLogService {
       itemsCollected,
       errorMessage: null,
       retryCount: 0,
-      executedAt: new Date(),
+      crawledAt: new Date(),
+      crawlDuration: 0,
     })
 
     await this.crawlerLogRepository.save(log)
@@ -58,7 +59,8 @@ export class CrawlerLogService {
       itemsCollected: 0,
       errorMessage,
       retryCount,
-      executedAt: new Date(),
+      crawledAt: new Date(),
+      crawlDuration: 0,
     })
 
     await this.crawlerLogRepository.save(log)
@@ -70,7 +72,7 @@ export class CrawlerLogService {
   async getRecentLogs(source: string, limit: number = 10): Promise<CrawlerLog[]> {
     return await this.crawlerLogRepository.find({
       where: { source },
-      order: { executedAt: 'DESC' },
+      order: { crawledAt: 'DESC' },
       take: limit,
     })
   }

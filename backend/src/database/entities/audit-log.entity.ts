@@ -1,64 +1,75 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm'
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  Index,
+} from 'typeorm'
 
+/**
+ * AuditAction - 审计操作类型枚举
+ */
 export enum AuditAction {
+  PLAYBOOK_VIEW = 'playbook_view',
+  CHECKLIST_SUBMIT = 'checklist_submit',
+  CHECKLIST_UPDATE = 'checklist_update',
+  PUSH_SENT = 'push_sent',
+  PUSH_FAILED = 'push_failed',
   CREATE = 'create',
   UPDATE = 'update',
   DELETE = 'delete',
-  LOGIN = 'login',
-  LOGOUT = 'logout',
-  ACCESS_PROJECT = 'ACCESS_PROJECT',
-  RERUN_TASK = 'RERUN_TASK',
-  VIEW_VERSION = 'VIEW_VERSION',
-  ACCESS_DENIED = 'ACCESS_DENIED',
+  ACCESS_DENIED = 'access_denied',
 }
 
+/**
+ * AuditLog Entity - 审计日志实体
+ *
+ * Story 4.2 - NFR10: 审计日志
+ *
+ * 记录所有敏感操作事件，包括：
+ * - Playbook查看事件
+ * - Checklist提交事件
+ * - 数据访问事件
+ *
+ * 日志保留1年，不可篡改
+ */
 @Entity('audit_logs')
+@Index(['userId'])
+@Index(['entityType'])
+@Index(['entityId'])
+@Index(['createdAt'])
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
   id: string
 
-  @Column({ name: 'user_id', nullable: true })
+  @Column({ name: 'userId', type: 'uuid' })
   userId: string
 
-  @Column({ name: 'organization_id', nullable: true })
-  organizationId: string
-
-  @Column({ name: 'project_id', nullable: true })
-  projectId: string
+  @Column({ name: 'organizationId', type: 'uuid', nullable: true })
+  organizationId: string | null
 
   @Column({
+    name: 'action',
     type: 'enum',
     enum: AuditAction,
   })
   action: AuditAction
 
-  @Column({ name: 'entity_type', nullable: true })
-  entityType: string
+  @Column({ name: 'entityType', type: 'varchar', length: 50 })
+  entityType: string // e.g., 'compliance_playbook', 'checklist_submission'
 
-  @Column({ name: 'entity_id', nullable: true })
-  entityId: string
+  @Column({ name: 'entityId', type: 'uuid' })
+  entityId: string // ID of the entity being acted upon
 
-  @Column({ type: 'jsonb', nullable: true })
-  changes: Record<string, any>
+  @Column({ name: 'details', type: 'json', nullable: true })
+  details: Record<string, any> | null // Additional details about the action
 
-  @Column({ type: 'jsonb', nullable: true })
-  details: Record<string, any>
+  @Column({ name: 'ipAddress', type: 'varchar', nullable: true })
+  ipAddress: string | null // IP address of the user (optional)
 
-  @Column({ type: 'jsonb', nullable: true })
-  req: Record<string, any>
+  @Column({ name: 'userAgent', type: 'varchar', nullable: true })
+  userAgent: string | null // Browser/client information (optional)
 
-  @Column({ default: true })
-  success: boolean
-
-  @Column({ name: 'error_message', nullable: true })
-  errorMessage: string
-
-  @Column({ name: 'ip_address', nullable: true })
-  ipAddress: string
-
-  @Column({ name: 'user_agent', nullable: true })
-  userAgent: string
-
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'createdAt' })
   createdAt: Date
 }

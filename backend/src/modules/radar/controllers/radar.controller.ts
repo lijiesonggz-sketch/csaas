@@ -37,7 +37,7 @@ export class RadarController {
             status: log.status,
             itemsCollected: log.itemsCollected,
             errorMessage: log.errorMessage,
-            executedAt: log.executedAt,
+            crawledAt: log.crawledAt,
           })),
         }
       }),

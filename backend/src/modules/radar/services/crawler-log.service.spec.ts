@@ -52,7 +52,7 @@ describe('CrawlerLogService', () => {
         status: 'success' as const,
         errorMessage: null,
         retryCount: 0,
-        executedAt: expect.any(Date),
+        crawledAt: expect.any(Date),
         createdAt: expect.any(Date),
       }
 
@@ -74,7 +74,7 @@ describe('CrawlerLogService', () => {
         itemsCollected: logData.itemsCollected,
         errorMessage: null,
         retryCount: 0,
-        executedAt: expect.any(Date),
+        crawledAt: expect.any(Date),
       })
       expect(mockRepository.save).toHaveBeenCalled()
     })
@@ -95,7 +95,7 @@ describe('CrawlerLogService', () => {
         ...logData,
         status: 'failed' as const,
         itemsCollected: 0,
-        executedAt: expect.any(Date),
+        crawledAt: expect.any(Date),
         createdAt: expect.any(Date),
       }
 
@@ -118,7 +118,7 @@ describe('CrawlerLogService', () => {
         itemsCollected: 0,
         errorMessage: logData.errorMessage,
         retryCount: logData.retryCount,
-        executedAt: expect.any(Date),
+        crawledAt: expect.any(Date),
       })
       expect(mockRepository.save).toHaveBeenCalled()
     })
@@ -131,13 +131,13 @@ describe('CrawlerLogService', () => {
           id: 'log-1',
           source: 'GARTNER',
           status: 'success',
-          executedAt: new Date(),
+          crawledAt: new Date(),
         },
         {
           id: 'log-2',
           source: 'GARTNER',
           status: 'failed',
-          executedAt: new Date(),
+          crawledAt: new Date(),
         },
       ]
 
@@ -147,7 +147,7 @@ describe('CrawlerLogService', () => {
 
       expect(mockRepository.find).toHaveBeenCalledWith({
         where: { source: 'GARTNER' },
-        order: { executedAt: 'DESC' },
+        order: { crawledAt: 'DESC' },
         take: 10,
       })
       expect(result).toEqual(logs)

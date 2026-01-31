@@ -60,17 +60,33 @@ export default function RadarSettingsPage() {
   const [selectedTopic, setSelectedTopic] = useState('')
   const [customTopic, setCustomTopic] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
+  const [authError, setAuthError] = useState(false)
 
-  // 从localStorage获取organizationId（临时方案）
-  const organizationId = typeof window !== 'undefined'
-    ? localStorage.getItem('organizationId') || 'default-org-id'
-    : 'default-org-id'
+  // 安全地获取 organizationId
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const orgId = localStorage.getItem('organizationId')
+      if (!orgId) {
+        setAuthError(true)
+        message.error('未找到组织信息，请重新登录')
+        // 可选：重定向到登录页
+        // router.push('/login')
+      } else {
+        setOrganizationId(orgId)
+      }
+    }
+  }, [])
 
   useEffect(() => {
-    loadTopics()
+    if (organizationId) {
+      loadTopics()
+    }
   }, [organizationId])
 
   const loadTopics = async () => {
+    if (!organizationId) return
+
     setLoading(true)
     try {
       const data = await getWatchedTopics(organizationId)
@@ -83,6 +99,11 @@ export default function RadarSettingsPage() {
   }
 
   const handleAdd = async () => {
+    if (!organizationId) {
+      message.error('组织信息缺失，无法添加')
+      return
+    }
+
     const topicName = selectedTopic || customTopic
     if (!topicName) {
       message.warning('请选择或输入领域名称')
@@ -134,6 +155,32 @@ export default function RadarSettingsPage() {
       month: '2-digit',
       day: '2-digit',
     })
+  }
+
+  // 如果认证失败，显示错误状态
+  if (authError) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography variant="h5" color="error" sx={{ mb: 2 }}>
+          认证失败
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          未找到组织信息，请重新登录
+        </Typography>
+        <Button type="primary" onClick={() => router.push('/login')} sx={{ mt: 2 }}>
+          返回登录
+        </Button>
+      </Box>
+    )
+  }
+
+  // 等待 organizationId 加载
+  if (!organizationId) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Skeleton variant="rectangular" height={400} />
+      </Box>
+    )
   }
 
   return (

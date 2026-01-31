@@ -29,6 +29,10 @@ import {
   PushLog,
   PushScheduleConfig,
   CrawlerLog,
+  RadarSource,
+  // Epic 4: 合规雷达实体
+  CompliancePlaybook,
+  ComplianceChecklistSubmission,
 } from '../database/entities'
 
 // Load environment variables
@@ -70,6 +74,10 @@ export const AppDataSource = new DataSource({
     PushLog,
     PushScheduleConfig,
     CrawlerLog,
+    RadarSource,
+    // Epic 4: 合规雷达实体
+    CompliancePlaybook,
+    ComplianceChecklistSubmission,
   ],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false, // Migrations will handle schema changes

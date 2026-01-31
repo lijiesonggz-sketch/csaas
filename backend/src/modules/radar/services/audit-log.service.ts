@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { AuditLog } from '../../../database/entities/audit-log.entity'
+import { AuditLog, AuditAction } from '../../../database/entities/audit-log.entity'
 
 @Injectable()
 export class AuditLogService {
@@ -21,7 +21,7 @@ export class AuditLogService {
     const auditLog = this.auditLogRepo.create({
       userId,
       organizationId,
-      action: 'playbook_view',
+      action: AuditAction.PLAYBOOK_VIEW,
       entityType: 'compliance_playbook',
       entityId: pushId,
       details: { playbookStatus, timestamp: new Date().toISOString() },
@@ -42,7 +42,7 @@ export class AuditLogService {
     const auditLog = this.auditLogRepo.create({
       userId,
       organizationId,
-      action: 'checklist_submit',
+      action: AuditAction.CHECKLIST_SUBMIT,
       entityType: 'checklist_submission',
       entityId: pushId,
       details: {
@@ -70,7 +70,7 @@ export class AuditLogService {
     const auditLog = this.auditLogRepo.create({
       userId,
       organizationId,
-      action: 'checklist_update',
+      action: AuditAction.CHECKLIST_UPDATE,
       entityType: 'checklist_submission',
       entityId: pushId,
       details: {

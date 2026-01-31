@@ -6,15 +6,16 @@ import { AuditLog, AuditAction } from '@/database/entities'
 export interface AuditLogParams {
   userId: string
   organizationId?: string
-  projectId?: string
   action: AuditAction | string
   entityType?: string
   entityId?: string
-  changes?: Record<string, any>
   details?: Record<string, any>
+  ipAddress?: string
+  userAgent?: string
+  // Deprecated properties - will be stored in details
   success?: boolean
-  errorMessage?: string
   req?: any
+  changes?: Record<string, any>
 }
 
 @Injectable()
@@ -28,51 +29,46 @@ export class AuditLogService {
 
   async log(params: AuditLogParams): Promise<void> {
     try {
+      // Merge deprecated properties into details
+      const details = {
+        ...params.details,
+        ...(params.success !== undefined && { success: params.success }),
+        ...(params.changes && { changes: params.changes }),
+        ...(params.req && {
+          request: {
+            method: params.req.method,
+            url: params.req.url,
+            params: params.req.params,
+            query: params.req.query,
+          },
+        }),
+      }
+
       const auditLog = this.auditLogRepo.create({
         userId: params.userId,
-        organizationId: params.organizationId,
-        projectId: params.projectId,
+        organizationId: params.organizationId || null,
         action: params.action as any,
         entityType: params.entityType,
         entityId: params.entityId,
-        changes: params.changes,
-        details: params.details,
-        success: params.success ?? true,
-        errorMessage: params.errorMessage,
-        ipAddress: params.req ? this.extractIp(params.req) : undefined,
-        userAgent: params.req?.headers?.['user-agent'],
-        req: params.req ? {
-          method: params.req.method,
-          url: params.req.url,
-          params: params.req.params,
-          query: params.req.query,
-        } : undefined,
+        details: Object.keys(details).length > 0 ? details : undefined,
+        ipAddress: params.ipAddress,
+        userAgent: params.userAgent,
       })
 
       await this.auditLogRepo.save(auditLog)
       this.logger.log(
-        `Audit log: ${params.userId} - ${params.action} - ${params.success ?? true ? 'SUCCESS' : 'FAILED'}`,
+        `Audit log: ${params.userId} - ${params.action}`,
       )
     } catch (error) {
       this.logger.error(`Failed to create audit log: ${error.message}`)
     }
   }
 
-  async queryProjectAccess(projectId: string): Promise<AuditLog[]> {
+  async queryByEntity(entityType: string, entityId: string): Promise<AuditLog[]> {
     return this.auditLogRepo.find({
-      where: { projectId },
+      where: { entityType, entityId },
       order: { createdAt: 'DESC' },
       take: 100,
     })
-  }
-
-  private extractIp(req: any): string {
-    return (
-      req.headers?.['x-forwarded-for']?.split(',')[0] ||
-      req.headers?.['x-real-ip'] ||
-      req.connection?.remoteAddress ||
-      req.socket?.remoteAddress ||
-      req.ip
-    )
   }
 }

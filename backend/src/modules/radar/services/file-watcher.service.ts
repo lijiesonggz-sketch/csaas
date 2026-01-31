@@ -108,6 +108,12 @@ export class FileWatcherService implements OnModuleDestroy {
         ? String(frontmatter.peerName).substring(0, MAX_PEER_NAME_LENGTH)
         : null
 
+      // Story 4.1: 提取合规雷达数据
+      let complianceData = null
+      if (frontmatter.category === 'compliance') {
+        complianceData = this.extractComplianceData(body, frontmatter)
+      }
+
       // 保存到RawContent表
       const rawContent = await this.rawContentService.create({
         source: frontmatter.source,
@@ -124,6 +130,8 @@ export class FileWatcherService implements OnModuleDestroy {
         // Story 3.1: 支持行业雷达字段
         contentType,
         peerName,
+        // Story 4.1: 支持合规雷达字段
+        complianceData,
       })
 
       this.logger.log(`File processed successfully: ${filePath}`)
@@ -195,6 +203,128 @@ export class FileWatcherService implements OnModuleDestroy {
       }
     }
     return 'Untitled'
+  }
+
+  /**
+   * 提取合规雷达数据（Story 4.1）
+   *
+   * 从frontmatter和正文内容中提取合规雷达特定字段
+   */
+  private extractComplianceData(
+    fullContent: string,
+    frontmatter: any,
+  ): {
+    type: 'penalty' | 'policy_draft'
+    penaltyInstitution?: string
+    penaltyReason?: string
+    penaltyAmount?: string
+    penaltyDate?: Date
+    policyBasis?: string
+    policyTitle?: string
+    commentDeadline?: Date
+    mainRequirements?: string
+    expectedImplementationDate?: Date
+  } {
+    // 验证type字段
+    if (!frontmatter.type || !['penalty', 'policy_draft'].includes(frontmatter.type)) {
+      throw new Error('Invalid type for compliance radar: must be "penalty" or "policy_draft"')
+    }
+
+    const data: any = {
+      type: frontmatter.type,
+    }
+
+    // 从frontmatter提取字段（如果有）
+    if (frontmatter.penaltyInstitution) {
+      data.penaltyInstitution = frontmatter.penaltyInstitution
+    }
+    if (frontmatter.penaltyReason) {
+      data.penaltyReason = frontmatter.penaltyReason
+    }
+    if (frontmatter.penaltyAmount) {
+      data.penaltyAmount = frontmatter.penaltyAmount
+    }
+    if (frontmatter.penaltyDate) {
+      data.penaltyDate = new Date(frontmatter.penaltyDate)
+    }
+    if (frontmatter.policyBasis) {
+      data.policyBasis = frontmatter.policyBasis
+    }
+    if (frontmatter.policyTitle) {
+      data.policyTitle = frontmatter.policyTitle
+    }
+    if (frontmatter.commentDeadline) {
+      data.commentDeadline = new Date(frontmatter.commentDeadline)
+    }
+    if (frontmatter.mainRequirements) {
+      data.mainRequirements = frontmatter.mainRequirements
+    }
+    if (frontmatter.expectedImplementationDate) {
+      data.expectedImplementationDate = new Date(frontmatter.expectedImplementationDate)
+    }
+
+    // 从正文内容提取（使用正则表达式）
+    if (frontmatter.type === 'penalty') {
+      // 提取处罚相关字段
+      if (!data.penaltyInstitution) {
+        const penaltyInstitutionMatch = fullContent.match(/被处罚机构[：:]\s*([^\n]+)/)
+        if (penaltyInstitutionMatch) {
+          data.penaltyInstitution = penaltyInstitutionMatch[1].trim()
+        }
+      }
+
+      if (!data.penaltyReason) {
+        const penaltyReasonMatch = fullContent.match(/处罚原因[：:]\s*([^\n]+)/)
+        if (penaltyReasonMatch) {
+          data.penaltyReason = penaltyReasonMatch[1].trim()
+        }
+      }
+
+      if (!data.penaltyAmount) {
+        const penaltyAmountMatch = fullContent.match(/处罚金额[：:]\s*([^\n]+)/)
+        if (penaltyAmountMatch) {
+          data.penaltyAmount = penaltyAmountMatch[1].trim()
+        }
+      }
+
+      if (!data.policyBasis) {
+        const policyBasisMatch = fullContent.match(/政策依据[：:]\s*([^\n]+)/)
+        if (policyBasisMatch) {
+          data.policyBasis = policyBasisMatch[1].trim()
+        }
+      }
+    } else if (frontmatter.type === 'policy_draft') {
+      // 提取政策相关字段
+      if (!data.policyTitle) {
+        const policyTitleMatch = fullContent.match(/^#\s+(.+)$/m)
+        if (policyTitleMatch) {
+          data.policyTitle = policyTitleMatch[1].trim()
+        }
+      }
+
+      if (!data.commentDeadline) {
+        const commentDeadlineMatch = fullContent.match(/征求意见截止[：:]\s*([^\n]+)/)
+        if (commentDeadlineMatch) {
+          data.commentDeadline = new Date(commentDeadlineMatch[1].trim())
+        }
+      }
+
+      if (!data.mainRequirements) {
+        const mainRequirementsMatch = fullContent.match(/主要要求[：:]\s*([^\n]+)/)
+        if (mainRequirementsMatch) {
+          data.mainRequirements = mainRequirementsMatch[1].trim()
+        }
+      }
+
+      if (!data.expectedImplementationDate) {
+        const expectedDateMatch = fullContent.match(/预计实施[：:]\s*([^\n]+)/)
+        if (expectedDateMatch) {
+          data.expectedImplementationDate = new Date(expectedDateMatch[1].trim())
+        }
+      }
+    }
+
+    return data
   }
 
   /**

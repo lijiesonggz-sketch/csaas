@@ -4,6 +4,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { PushSchedulerService } from '../services/push-scheduler.service'
 import { AnalyzedContentService } from '../services/analyzed-content.service'
 import { AIAnalysisService } from '../services/ai-analysis.service'
+import { PushLogService } from '../services/push-log.service'
 import { TasksGateway } from '../../ai-tasks/gateways/tasks.gateway'
 import { RadarPush } from '../../../database/entities/radar-push.entity'
 import { InjectRepository } from '@nestjs/typeorm'
@@ -19,13 +20,15 @@ import {
  *
  * Story 2.3: 推送系统与调度 - Phase 3 Task 3.2
  * Story 2.4: ROI分析集成 - Phase 2 Task 2.1
+ * Story 3.2: 行业雷达推送 - Task 3.2, 3.3
  *
  * 核心功能：
  * - 处理定时推送任务（tech/industry/compliance雷达）
- * - 按组织分组，每个组织最多5条推送
+ * - 按组织分组，每个组织最多5条推送（技术雷达）或2条（行业雷达）
  * - 通过WebSocket发送推送通知
  * - 失败重试机制（5分钟后重试1次）
  * - ROI分析按需计算（Story 2.4）
+ * - 推送日志记录（Story 3.2 Task 3.3）
  *
  * BullMQ队列名: 'radar:push'
  */
@@ -40,6 +43,7 @@ export class PushProcessor extends WorkerHost {
     private readonly pushSchedulerService: PushSchedulerService,
     private readonly analyzedContentService: AnalyzedContentService,
     private readonly aiAnalysisService: AIAnalysisService,
+    private readonly pushLogService: PushLogService,
     private readonly tasksGateway: TasksGateway,
     @InjectRepository(WeaknessSnapshot)
     private readonly weaknessSnapshotRepo: Repository<WeaknessSnapshot>,
@@ -52,9 +56,11 @@ export class PushProcessor extends WorkerHost {
    *
    * AC 7: 推送调度
    * - 获取待推送内容（status='scheduled' 且 scheduledAt <= now）
-   * - 按组织分组，每个组织最多5条
+   * - 按组织分组，每个组织最多5条（技术雷达）或2条（行业雷达）
    * - 通过WebSocket发送推送
    * - 更新推送状态（sent/failed）
+   *
+   * Story 3.2 Task 2.3: 行业雷达每个组织最多2条/天
    *
    * @param job - BullMQ任务
    */
@@ -72,8 +78,10 @@ export class PushProcessor extends WorkerHost {
         return
       }
 
-      // 2. 按组织分组，每个组织最多5条
-      const groupedPushes = this.pushSchedulerService.groupByOrganization(pushes, 5)
+      // 2. 按组织分组，根据雷达类型设置不同的推送数量限制
+      // Story 3.2 Task 2.3: 行业雷达每个组织最多2条/天
+      const maxPushesPerOrg = radarType === 'industry' ? 2 : 5
+      const groupedPushes = this.pushSchedulerService.groupByOrganization(pushes, maxPushesPerOrg)
 
       // 3. 发送推送
       let totalSent = 0
@@ -85,14 +93,30 @@ export class PushProcessor extends WorkerHost {
         for (const push of orgPushes) {
           try {
             await this.sendPushViaWebSocket(push)
-            await this.pushSchedulerService.markAsSent(push.id)
-            totalSent++
+
+            // Code Review Fix #3: 使用try-finally确保日志记录的一致性
+            try {
+              await this.pushSchedulerService.markAsSent(push.id)
+              await this.pushLogService.logSuccess(push.id)
+              totalSent++
+            } catch (logError) {
+              // 如果标记失败，回滚推送状态
+              this.logger.error(
+                `Failed to mark push ${push.id} as sent, but WebSocket was delivered`,
+                logError.stack,
+              )
+              // 仍然记录为失败，保持数据一致性
+              await this.pushLogService.logFailure(push.id, `Post-send error: ${logError.message}`)
+              totalFailed++
+            }
           } catch (error) {
             this.logger.error(
               `Failed to send push ${push.id} to organization ${orgId}:`,
               error.stack,
             )
             await this.pushSchedulerService.markAsFailed(push.id, error.message)
+            // Story 3.2 Task 3.3: 记录推送失败日志
+            await this.pushLogService.logFailure(push.id, error.message)
             totalFailed++
           }
         }
@@ -122,6 +146,11 @@ export class PushProcessor extends WorkerHost {
 
     if (!content) {
       throw new Error(`AnalyzedContent not found for push ${push.id}`)
+    }
+
+    // Code Review Fix #4: 显式检查rawContent
+    if (!content.rawContent) {
+      throw new Error(`RawContent not found for push ${push.id}`)
     }
 
     // 获取组织的薄弱项
@@ -155,15 +184,15 @@ export class PushProcessor extends WorkerHost {
       }
     }
 
-    // 发送WebSocket事件
-    this.tasksGateway.server.to(`org:${push.organizationId}`).emit('radar:push:new', {
+    // 构建基础事件数据
+    const eventData: any = {
       pushId: push.id,
       radarType: push.radarType,
       title: content.rawContent?.title || 'Untitled',
       summary: content.aiSummary || content.rawContent?.summary || '',
       relevanceScore: push.relevanceScore,
       priorityLevel: this.mapPriorityToNumber(push.priorityLevel),
-      // 扩展字段
+      // 通用字段
       weaknessCategories: matchedWeaknesses, // 关联的薄弱项
       url: content.rawContent?.url, // 原文链接
       publishDate: content.rawContent?.publishDate, // 发布日期
@@ -172,7 +201,42 @@ export class PushProcessor extends WorkerHost {
       targetAudience: content.targetAudience, // 目标受众
       roiAnalysis: content.roiAnalysis, // Story 2.4: ROI分析结果
       timestamp: new Date().toISOString(),
-    })
+    }
+
+    // Story 3.2 Task 3.2: 如果是行业雷达，添加行业特定字段
+    if (push.radarType === 'industry') {
+      eventData.peerName = content.rawContent?.peerName // 同业机构名称
+      eventData.contentType = content.rawContent?.contentType // 内容类型 (article/recruitment/conference)
+      eventData.practiceDescription = content.practiceDescription // 技术实践描述
+      eventData.estimatedCost = content.estimatedCost // 投入成本
+      eventData.implementationPeriod = content.implementationPeriod // 实施周期
+      eventData.technicalEffect = content.technicalEffect // 技术效果
+
+      // Code Review Fix #6: 添加行业雷达字段的调试日志
+      this.logger.debug(
+        `Industry radar fields for push ${push.id}: peerName=${eventData.peerName}, contentType=${eventData.contentType}, practiceDescription=${eventData.practiceDescription?.substring(0, 50)}...`,
+      )
+    }
+
+    // Story 4.2 Phase 4.2: 如果是合规雷达，添加合规特定字段
+    if (push.radarType === 'compliance') {
+      eventData.complianceRiskCategory = content.complianceAnalysis?.complianceRiskCategory // 合规风险类别
+      eventData.penaltyCase = content.complianceAnalysis?.penaltyCase // 处罚案例
+      eventData.policyRequirements = content.complianceAnalysis?.policyRequirements // 政策要求
+      eventData.remediationSuggestions = content.complianceAnalysis?.remediationSuggestions // 整改建议
+      eventData.relatedWeaknessCategories = content.complianceAnalysis?.relatedWeaknessCategories // 关联薄弱项类别
+      eventData.playbookStatus = push.playbookStatus // 剧本状态 (ready/generating/failed)
+
+      // 注意：合规剧本详细信息需要前端通过API单独获取
+      // GET /api/radar/compliance/playbook/:pushId
+
+      this.logger.debug(
+        `Compliance radar fields for push ${push.id}: riskCategory=${eventData.complianceRiskCategory}, playbookStatus=${eventData.playbookStatus}`,
+      )
+    }
+
+    // 发送WebSocket事件
+    this.tasksGateway.server.to(`org:${push.organizationId}`).emit('radar:push:new', eventData)
 
     this.logger.log(
       `Sent radar:push:new to org:${push.organizationId} for push ${push.id} (${push.radarType})`,

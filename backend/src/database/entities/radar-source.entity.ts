@@ -14,10 +14,12 @@ import {
  * 替代硬编码的配置文件，支持通过管理界面动态管理
  *
  * Story 3.1: 配置行业雷达信息源
+ * Story 4.1: 合规雷达信息源配置（添加source + category唯一约束）
  */
 @Entity('radar_sources')
 @Index(['category'])
 @Index(['isActive'])
+@Index(['source', 'category'], { unique: true }) // Story 4.1: 同一category下source唯一
 export class RadarSource {
   @PrimaryGeneratedColumn('uuid')
   id: string

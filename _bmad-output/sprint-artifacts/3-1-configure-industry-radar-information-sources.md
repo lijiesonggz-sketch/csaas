@@ -876,6 +876,15 @@ Claude Sonnet 4.5 (claude-sonnet-4-5-20250929)
 - `backend/src/modules/radar/services/crawler-log.service.ts` - 爬虫日志服务
 - RadarSource管理系统（已有）- 用于配置行业雷达信息源
 
+**前端文件** (Story 3.1 包含前端管理界面):
+- `frontend/app/admin/radar-sources/page.tsx` - ✅ 雷达信息源配置管理页面
+- `frontend/components/admin/RadarSourceList.tsx` - ✅ 信息源列表组件
+- `frontend/components/admin/RadarSourceForm.tsx` - ✅ 信息源表单组件
+- `frontend/lib/api/radar-sources.ts` - ✅ RadarSource API客户端
+- `frontend/components/layout/Sidebar.tsx` - ✅ 添加"信息源配置"菜单项（在系统设置下）
+
+**注**: Sidebar.tsx的修改是在Story 3.1期间为信息源配置管理页面添加导航入口，路径为`/admin/radar-sources`。
+
 ### Change Log
 
 **2026-01-29 - Phase 2 Implementation**:

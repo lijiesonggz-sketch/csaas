@@ -450,4 +450,188 @@ describe('PushDetailModal Component', () => {
       expect(screen.getByRole('button', { name: /关闭/i })).toBeInTheDocument()
     })
   })
+
+  describe('Industry Radar Layout (Story 3.3)', () => {
+    const mockIndustryPush: RadarPush = {
+      pushId: 'industry-1',
+      radarType: 'industry',
+      title: '某银行云原生转型实践案例',
+      summary: '该银行通过云原生架构升级，实现了系统性能和稳定性的显著提升',
+      fullContent: '完整的实践描述内容...',
+      relevanceScore: 0.92,
+      priorityLevel: 1,
+      weaknessCategories: ['系统架构'],
+      url: 'https://example.com/industry-case',
+      publishDate: '2024-01-15T00:00:00Z',
+      source: '银行业技术论坛',
+      tags: ['云原生', '容器化', '微服务', 'DevOps'],
+      targetAudience: 'IT总监',
+      peerName: '招商银行',
+      practiceDescription: '该银行采用Kubernetes容器编排平台，实现了应用的快速部署和弹性伸缩。通过引入服务网格 Istio，提升了微服务治理能力。同时，构建了完整的CI/CD流水线，实现了自动化测试和部署。',
+      estimatedCost: '300-500万',
+      implementationPeriod: '6-12个月',
+      technicalEffect: '系统可用性提升至99.99%，部署效率提升80%',
+      isRead: false,
+    }
+
+    beforeEach(() => {
+      jest.clearAllMocks()
+      ;(getRadarPush as jest.Mock).mockResolvedValue(mockIndustryPush)
+    })
+
+    it('should display peer name with icon', async () => {
+      renderWithProviders(
+        <PushDetailModal pushId="industry-1" isOpen={true} onClose={mockOnClose} />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('招商银行')).toBeInTheDocument()
+      })
+    })
+
+    it('should display "同业标杆机构" tag', async () => {
+      renderWithProviders(
+        <PushDetailModal pushId="industry-1" isOpen={true} onClose={mockOnClose} />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('同业标杆机构')).toBeInTheDocument()
+      })
+    })
+
+    it('should display practice description', async () => {
+      renderWithProviders(
+        <PushDetailModal pushId="industry-1" isOpen={true} onClose={mockOnClose} />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('技术实践详细描述')).toBeInTheDocument()
+        expect(screen.getByText(/该银行采用Kubernetes容器编排平台/)).toBeInTheDocument()
+      })
+    })
+
+    it('should display estimated cost', async () => {
+      renderWithProviders(
+        <PushDetailModal pushId="industry-1" isOpen={true} onClose={mockOnClose} />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('投入成本')).toBeInTheDocument()
+        expect(screen.getByText('300-500万')).toBeInTheDocument()
+        expect(screen.getByText('包含软硬件采购、实施服务等')).toBeInTheDocument()
+      })
+    })
+
+    it('should display implementation period', async () => {
+      renderWithProviders(
+        <PushDetailModal pushId="industry-1" isOpen={true} onClose={mockOnClose} />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('实施周期')).toBeInTheDocument()
+        expect(screen.getByText('6-12个月')).toBeInTheDocument()
+        expect(screen.getByText('从启动到上线的预计时间')).toBeInTheDocument()
+      })
+    })
+
+    it('should display technical effect', async () => {
+      renderWithProviders(
+        <PushDetailModal pushId="industry-1" isOpen={true} onClose={mockOnClose} />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('技术效果')).toBeInTheDocument()
+        expect(screen.getByText('系统可用性提升至99.99%，部署效率提升80%')).toBeInTheDocument()
+      })
+    })
+
+    it('should display key learnings from tags', async () => {
+      renderWithProviders(
+        <PushDetailModal pushId="industry-1" isOpen={true} onClose={mockOnClose} />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('可借鉴点总结')).toBeInTheDocument()
+        expect(screen.getByText(/云原生、容器化、微服务、DevOps/)).toBeInTheDocument()
+      })
+    })
+
+    it('should not display ROI analysis for industry radar', async () => {
+      renderWithProviders(
+        <PushDetailModal pushId="industry-1" isOpen={true} onClose={mockOnClose} />
+      )
+
+      await waitFor(() => {
+        expect(screen.queryByText(/💰 投资回报率\(ROI\)分析/)).not.toBeInTheDocument()
+        expect(screen.queryByText('预期收益')).not.toBeInTheDocument()
+        expect(screen.queryByText('推荐供应商')).not.toBeInTheDocument()
+      })
+    })
+
+    it('should handle missing peerName gracefully', async () => {
+      const pushWithoutPeer = { ...mockIndustryPush, peerName: undefined }
+      ;(getRadarPush as jest.Mock).mockResolvedValue(pushWithoutPeer)
+
+      renderWithProviders(
+        <PushDetailModal pushId="industry-1" isOpen={true} onClose={mockOnClose} />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('某银行云原生转型实践案例')).toBeInTheDocument()
+      })
+
+      // Should not show peer name section
+      expect(screen.queryByText('招商银行')).not.toBeInTheDocument()
+    })
+
+    it('should handle missing practiceDescription gracefully', async () => {
+      const pushWithoutDescription = { ...mockIndustryPush, practiceDescription: undefined }
+      ;(getRadarPush as jest.Mock).mockResolvedValue(pushWithoutDescription)
+
+      renderWithProviders(
+        <PushDetailModal pushId="industry-1" isOpen={true} onClose={mockOnClose} />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('某银行云原生转型实践案例')).toBeInTheDocument()
+      })
+
+      // Should not show practice description section
+      expect(screen.queryByText('技术实践详细描述')).not.toBeInTheDocument()
+    })
+
+    it('should not display tech radar layout when radarType is industry', async () => {
+      renderWithProviders(
+        <PushDetailModal pushId="industry-1" isOpen={true} onClose={mockOnClose} />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('某银行云原生转型实践案例')).toBeInTheDocument()
+      })
+
+      // Industry radar should not display tech radar fields
+      expect(screen.queryByText(/ROI估算/)).not.toBeInTheDocument()
+      expect(screen.queryByText('计算公式：')).not.toBeInTheDocument()
+    })
+
+    it('should display tech radar layout when radarType is tech', async () => {
+      ;(getRadarPush as jest.Mock).mockResolvedValue(mockPushWithROI)
+
+      renderWithProviders(
+        <PushDetailModal pushId="push-1" isOpen={true} onClose={mockOnClose} />
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText(/💰 投资回报率\(ROI\)分析/)).toBeInTheDocument()
+      })
+
+      // Tech radar should display ROI analysis
+      expect(screen.getByText('ROI估算')).toBeInTheDocument()
+      expect(screen.getByText('计算公式：')).toBeInTheDocument()
+
+      // Should not display industry radar fields
+      expect(screen.queryByText('同业标杆机构')).not.toBeInTheDocument()
+      expect(screen.queryByText('技术实践详细描述')).not.toBeInTheDocument()
+    })
+  })
 })

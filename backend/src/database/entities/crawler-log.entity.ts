@@ -26,10 +26,18 @@ import {
  */
 @Entity('crawler_logs')
 @Index(['source', 'status'])
-@Index(['executedAt'])
+@Index(['crawledAt'])
 export class CrawlerLog {
   @PrimaryGeneratedColumn('uuid')
   id: string
+
+  /**
+   * 关联的原始内容ID（Story 4.1新增）
+   * 用于追踪爬虫任务产生的具体内容
+   */
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  contentId: string | null
 
   /**
    * 信息源
@@ -77,6 +85,13 @@ export class CrawlerLog {
   errorMessage: string | null
 
   /**
+   * 爬取耗时（Story 4.1新增）
+   * 单位：毫秒
+   */
+  @Column({ type: 'int', default: 0 })
+  crawlDuration: number
+
+  /**
    * 重试次数
    * 记录这次任务重试了多少次
    */
@@ -84,10 +99,11 @@ export class CrawlerLog {
   retryCount: number
 
   /**
-   * 执行时间
+   * 爬取时间（Story 4.1修复：重命名executedAt为crawledAt）
    */
   @Column({ type: 'timestamp' })
-  executedAt: Date
+  @Index()
+  crawledAt: Date
 
   @CreateDateColumn()
   createdAt: Date

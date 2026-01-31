@@ -1,0 +1,172 @@
+/**
+ * 插入测试推送数据的Node.js脚本
+ *
+ * 使用方法:
+ * 1. 确保后端服务正在运行
+ * 2. 运行: npx ts-node insert-test-push-data.ts
+ */
+
+import { DataSource } from 'typeorm'
+import { RawContent } from './src/database/entities/raw-content.entity'
+import { AnalyzedContent } from './src/database/entities/analyzed-content.entity'
+import { RadarPush } from './src/database/entities/radar-push.entity'
+
+async function insertTestData() {
+  console.log('🔧 准备插入测试推送数据...\n')
+
+  // 创建数据库连接
+  const AppDataSource = new DataSource({
+    type: 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5432'),
+    username: process.env.DB_USER || 'csaas_user',
+    password: process.env.DB_PASSWORD || 'csaas_password',
+    database: process.env.DB_NAME || 'csaas_dev',
+    entities: [RawContent, AnalyzedContent, RadarPush],
+    synchronize: false,
+  })
+
+  try {
+    // 连接数据库
+    await AppDataSource.initialize()
+    console.log('✅ 数据库连接成功\n')
+
+    const rawContentRepo = AppDataSource.getRepository(RawContent)
+    const analyzedContentRepo = AppDataSource.getRepository(AnalyzedContent)
+    const radarPushRepo = AppDataSource.getRepository(RadarPush)
+
+    // 1. 创建或获取 RawContent
+    console.log('📝 创建测试原始内容...')
+    let rawContent = await rawContentRepo.findOne({
+      where: { url: 'https://example.com/test-tech-article' },
+    })
+
+    if (!rawContent) {
+      rawContent = rawContentRepo.create({
+        url: 'https://example.com/test-tech-article',
+        title: '测试技术文章: WebSocket实时推送最佳实践',
+        summary: '本文介绍如何在项目中使用WebSocket实现实时推送功能，包括连接管理、错误处理和重连机制。',
+        source: '测试来源',
+        publishDate: new Date(),
+      })
+      await rawContentRepo.save(rawContent)
+      console.log(`✅ 原始内容创建成功 (ID: ${rawContent.id})\n`)
+    } else {
+      console.log(`ℹ️  原始内容已存在 (ID: ${rawContent.id})，跳过创建\n`)
+    }
+
+    // 2. 创建或获取 AnalyzedContent
+    console.log('📝 创建测试分析内容...')
+    let analyzedContent = await analyzedContentRepo.findOne({
+      where: { contentId: rawContent.id },
+      relations: ['tags'],
+    })
+
+    if (!analyzedContent) {
+      // 导入Tag实体
+      const { Tag } = await import('./src/database/entities/tag.entity')
+      const tagRepo = AppDataSource.getRepository(Tag)
+
+      // 创建或获取标签
+      const tagNames = ['WebSocket', '实时通信', '前端开发']
+      const tags = []
+      for (const name of tagNames) {
+        let tag = await tagRepo.findOne({ where: { name } })
+        if (!tag) {
+          tag = tagRepo.create({ name, color: '#2196F3' })
+          await tagRepo.save(tag)
+        }
+        tags.push(tag)
+      }
+
+      analyzedContent = analyzedContentRepo.create({
+        contentId: rawContent.id,
+        aiSummary: '这是一篇关于WebSocket最佳实践的技术文章，适合需要实现实时功能的项目参考。',
+        categories: ['技术架构'],
+        tags: tags,
+        keywords: ['WebSocket', '实时通信', '前端开发', '推送'],
+        targetAudience: '技术团队',
+        aiModel: 'test-model',
+        tokensUsed: 1000,
+        status: 'success',
+        analyzedAt: new Date(),
+      })
+      await analyzedContentRepo.save(analyzedContent)
+      console.log(`✅ 分析内容创建成功 (ID: ${analyzedContent.id})\n`)
+    } else {
+      console.log(`ℹ️  分析内容已存在 (ID: ${analyzedContent.id})，跳过创建\n`)
+    }
+
+    // 3. 创建 RadarPush（状态为 scheduled，等待推送）
+    console.log('📝 创建测试推送记录...')
+    const existingPush = await radarPushRepo.findOne({
+      where: {
+        contentId: analyzedContent.id,
+        radarType: 'tech',
+      },
+    })
+
+    if (existingPush) {
+      console.log('ℹ️  推送记录已存在，更新状态为 scheduled...')
+      existingPush.status = 'scheduled'
+      existingPush.scheduledAt = new Date()
+      await radarPushRepo.save(existingPush)
+      console.log('✅ 推送记录更新成功\n')
+    } else {
+      const radarPush = radarPushRepo.create({
+        organizationId: '00000000-0000-0000-0000-000000000001', // 使用UUID格式的组织ID
+        contentId: analyzedContent.id,
+        radarType: 'tech',
+        status: 'scheduled', // 状态为 scheduled，等待推送任务处理
+        relevanceScore: 0.95,
+        priorityLevel: 'high',
+        scheduledAt: new Date(), // 立即可推送
+      })
+      await radarPushRepo.save(radarPush)
+      console.log(`✅ 推送记录创建成功 (ID: ${radarPush.id})\n`)
+    }
+
+    // 4. 查询待推送的记录
+    console.log('📊 查询待推送的记录:')
+    const pendingPushes = await radarPushRepo.find({
+      where: {
+        status: 'scheduled',
+        radarType: 'tech',
+      },
+      order: {
+        scheduledAt: 'DESC',
+      },
+      take: 10,
+    })
+
+    if (pendingPushes.length === 0) {
+      console.log('⚠️  没有找到待推送的记录\n')
+    } else {
+      console.log(`找到 ${pendingPushes.length} 条待推送记录:\n`)
+      pendingPushes.forEach((push, index) => {
+        console.log(`${index + 1}. ${push.id}`)
+        console.log(`   组织: ${push.organizationId}`)
+        console.log(`   类型: ${push.radarType}`)
+        console.log(`   状态: ${push.status}`)
+        console.log(`   优先级: ${push.priorityLevel}`)
+        console.log(`   相关性: ${push.relevanceScore}`)
+        console.log(`   计划时间: ${push.scheduledAt.toISOString()}`)
+        console.log('')
+      })
+    }
+
+    console.log('✅ 测试数据插入完成!')
+    console.log('\n💡 下一步:')
+    console.log('   运行: npx ts-node trigger-push.ts')
+    console.log('   来触发推送任务\n')
+
+  } catch (error) {
+    console.error('❌ 错误:', error)
+    process.exit(1)
+  } finally {
+    await AppDataSource.destroy()
+  }
+}
+
+// 运行脚本
+insertTestData()

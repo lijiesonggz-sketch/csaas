@@ -1,33 +1,322 @@
 'use client'
 
-import { Box, Container, Typography, Card, CardContent } from '@mui/material'
-import { Business } from '@mui/icons-material'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { Box, Container, Typography, Button, Alert, CircularProgress, Grid, Breadcrumbs, Chip } from '@mui/material'
+import { Business, Refresh, ArrowBack, Home } from '@mui/icons-material'
+import { PushCard } from '@/components/radar/PushCard'
+import { PushDetailModal } from '@/components/radar/PushDetailModal'
+import { getIndustryPushes, getWatchedPeers, RadarPush } from '@/lib/api/radar'
+import { useWebSocket } from '@/lib/hooks/useWebSocket'
+import { useOrganizationStore } from '@/lib/stores/useOrganizationStore'
+
+// 禁用静态生成，因为这个页面需要动态数据
+export const dynamic = 'force-dynamic'
 
 /**
- * Industry Radar Page
+ * Industry Radar Page - 行业雷达
  *
- * 行业雷达 - 同业标杆学习
+ * Story 3.3 - Phase 1 Task 1.1: 创建行业雷达页面组件
+ * - 复用技术雷达页面布局 (Story 2.5)
+ * - 从后端API加载行业推送列表
+ * - 使用PushCard组件展示同业案例
+ * - WebSocket实时监听新推送（过滤radarType === 'industry'）
+ * - 筛选器状态持久化（使用URL查询参数）
  */
 export default function IndustryRadarPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  const [selectedPushId, setSelectedPushId] = useState<string | null>(null)
+  const [pushes, setPushes] = useState<RadarPush[]>([])
+  const [watchedPeers, setWatchedPeers] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [filter, setFilter] = useState(searchParams.get('filter') || 'all')
+
+  const currentOrganization = useOrganizationStore((state) => state.currentOrganization)
+  const organizationId = currentOrganization?.id
+
+  const { socket, isConnected } = useWebSocket(organizationId)
+
+  // 加载关注的同业列表
+  const fetchWatchedPeers = async () => {
+    if (!organizationId) return
+
+    try {
+      const response = await getWatchedPeers(organizationId)
+      const peerNames = response.data.map((peer) => peer.name)
+      setWatchedPeers(peerNames)
+    } catch (err) {
+      // 不影响主流程，静默失败
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch watched peers:', err)
+      }
+    }
+  }
+
+  // 加载推送列表
+  const fetchPushes = async () => {
+    if (!organizationId) {
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await getIndustryPushes(organizationId, {
+        filter: filter as 'all' | 'watched' | 'same-scale' | 'same-region',
+        page: 1,
+        limit: 20,
+      })
+
+      // 如果是"我关注的同业"筛选，前端再次过滤
+      let filteredPushes = response.data
+      if (filter === 'watched' && watchedPeers.length > 0) {
+        filteredPushes = response.data.filter((push) =>
+          push.peerName && watchedPeers.includes(push.peerName)
+        )
+      }
+
+      setPushes(filteredPushes)
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch pushes:', err)
+      }
+      setError(err instanceof Error ? err.message : '加载推送失败')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 初始加载
+  useEffect(() => {
+    const loadInitialData = async () => {
+      // 先加载组织
+      const { fetchOrganizations } = useOrganizationStore.getState()
+
+      let org = currentOrganization
+
+      if (!org) {
+        await fetchOrganizations()
+
+        // 手动获取加载后的组织
+        org = useOrganizationStore.getState().currentOrganization
+      }
+
+      // 加载关注的同业列表和推送列表
+      await fetchWatchedPeers()
+      await fetchPushes()
+    }
+
+    loadInitialData()
+  }, [filter])
+
+  // WebSocket监听新推送（过滤radarType === 'industry'）
+  useEffect(() => {
+    if (!socket) return
+
+    // 监听新推送事件
+    socket.on('radar:push:new', (newPush: RadarPush) => {
+      if (newPush.radarType === 'industry') {
+        // 添加到列表顶部
+        setPushes((prev) => [newPush, ...prev])
+
+        // 显示浏览器通知
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('行业雷达新推送', {
+            body: newPush.title,
+            icon: '/radar-icon.png',
+          })
+        }
+      }
+    })
+
+    return () => {
+      socket.off('radar:push:new')
+    }
+  }, [socket])
+
+  // 请求通知权限
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }, [])
+
+  const handleRefresh = () => {
+    fetchPushes()
+  }
+
+  // 筛选器切换（状态持久化到URL）
+  const handleFilterChange = (newFilter: string) => {
+    setFilter(newFilter)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('filter', newFilter)
+    router.push(`/radar/industry?${params.toString()}`)
+  }
+
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      {/* 面包屑导航 */}
+      <Box sx={{ mb: 3 }}>
+        <Breadcrumbs aria-label="breadcrumb">
+          <Link href="/radar" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'success.main' }}>
+              <Home sx={{ fontSize: 18 }} />
+              <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 500 }}>
+                雷达首页
+              </Typography>
+            </Box>
+          </Link>
+          <Typography variant="body2" color="text.secondary">
+            行业雷达
+          </Typography>
+        </Breadcrumbs>
+      </Box>
+
+      {/* 页面标题 */}
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          <Business sx={{ mr: 1, verticalAlign: 'middle' }} />
-          行业雷达
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Business fontSize="large" sx={{ color: 'success.main' }} />
+            <Typography variant="h4" fontWeight="bold">
+              行业雷达 - 同业标杆学习
+            </Typography>
+          </Box>
+          <Button
+            component={Link}
+            href="/radar"
+            variant="outlined"
+            startIcon={<ArrowBack />}
+            sx={{ minWidth: 120 }}
+          >
+            返回雷达
+          </Button>
+        </Box>
         <Typography variant="body1" color="text.secondary">
-          同业标杆学习
+          学习标杆机构的实践经验，洞察同业技术趋势
         </Typography>
       </Box>
 
-      <Card>
-        <CardContent>
-          <Typography variant="body1">
-            行业雷达功能即将推出...
+      {/* 筛选器 */}
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Chip
+            label="全部"
+            color={filter === 'all' ? 'success' : 'default'}
+            onClick={() => handleFilterChange('all')}
+            sx={{ fontWeight: filter === 'all' ? 600 : 400, cursor: 'pointer' }}
+          />
+          <Chip
+            label="我关注的同业"
+            color={filter === 'watched' ? 'success' : 'default'}
+            onClick={() => handleFilterChange('watched')}
+            sx={{ fontWeight: filter === 'watched' ? 600 : 400, cursor: 'pointer' }}
+          />
+          <Chip
+            label="同规模机构"
+            color={filter === 'same-scale' ? 'success' : 'default'}
+            onClick={() => handleFilterChange('same-scale')}
+            sx={{ fontWeight: filter === 'same-scale' ? 600 : 400, cursor: 'pointer' }}
+          />
+          <Chip
+            label="同地区机构"
+            color={filter === 'same-region' ? 'success' : 'default'}
+            onClick={() => handleFilterChange('same-region')}
+            sx={{ fontWeight: filter === 'same-region' ? 600 : 400, cursor: 'pointer' }}
+          />
+        </Box>
+      </Box>
+
+      {/* 操作按钮和状态 */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          {!isConnected && (
+            <Typography variant="caption" color="warning.main">
+              ⚠️ 实时推送连接中断，正在重新连接...
+            </Typography>
+          )}
+          {isConnected && (
+            <Typography variant="caption" color="success.main">
+              ✓ 实时推送已连接
+            </Typography>
+          )}
+          <Typography variant="caption" color="text.secondary">
+            共 {pushes.length} 条推送
           </Typography>
-        </CardContent>
-      </Card>
+        </Box>
+        <Button
+          variant="outlined"
+          startIcon={<Refresh />}
+          onClick={handleRefresh}
+          disabled={isLoading}
+        >
+          刷新
+        </Button>
+      </Box>
+
+      {/* 错误提示 */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* 加载状态 */}
+      {isLoading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress color="success" />
+        </Box>
+      )}
+
+      {/* 推送列表 */}
+      {!isLoading && pushes.length > 0 && (
+        <Grid container spacing={4} justifyContent="center">
+          {pushes.map((push) => (
+            <Grid item xs={12} lg={6} xl={6} key={push.pushId}>
+              <PushCard
+                push={push}
+                variant="industry"
+                isWatchedPeer={push.peerName ? watchedPeers.includes(push.peerName) : false}
+                onViewDetail={setSelectedPushId}
+              />
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      {/* 空状态 */}
+      {!isLoading && pushes.length === 0 && !error && (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            暂无行业雷达推送，请配置关注的同业机构
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            系统会根据您关注的同业机构自动推送相关实践案例
+          </Typography>
+          <Button
+            component={Link}
+            href="/radar/settings"
+            variant="contained"
+            color="success"
+          >
+            前往配置
+          </Button>
+        </Box>
+      )}
+
+      {/* 详情弹窗 */}
+      {selectedPushId && (
+        <PushDetailModal
+          pushId={selectedPushId}
+          isOpen={!!selectedPushId}
+          onClose={() => setSelectedPushId(null)}
+        />
+      )}
     </Container>
   )
 }

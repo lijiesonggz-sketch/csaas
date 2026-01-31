@@ -7,17 +7,18 @@ import { RadarPush } from '../../../database/entities/radar-push.entity'
  * PushSchedulerService - 推送调度服务
  *
  * Story 2.3: 推送系统与调度 - Phase 3 Task 3.1
+ * Story 3.2: 行业雷达推送调度 - Task 2.3
  *
  * 核心功能：
  * - getPendingPushes: 获取待推送的内容（status='scheduled' 且 scheduledAt <= now）
- * - groupByOrganization: 按组织分组，每个组织最多5条
+ * - groupByOrganization: 按组织分组，每个组织最多5条（技术雷达）或2条（行业雷达）
  * - markAsSent: 标记推送为已发送
  * - markAsFailed: 标记推送为失败
  *
  * 调度逻辑：
- * - 技术雷达: 每周五17:00
- * - 行业雷达: 每周三17:00
- * - 合规雷达: 每日9:00
+ * - 技术雷达: 每周五17:00，每个组织最多5条
+ * - 行业雷达: 每日9:00，每个组织最多2条 (Story 3.2)
+ * - 合规雷达: 每日9:00，每个组织最多5条
  */
 @Injectable()
 export class PushSchedulerService {
@@ -49,7 +50,7 @@ export class PushSchedulerService {
         status: 'scheduled',
         scheduledAt: LessThanOrEqual(now),
       },
-      relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags'],
+      relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags', 'compliancePlaybook'],
       order: {
         // 优先级排序: high > medium > low
         priorityLevel: 'DESC',
@@ -63,10 +64,13 @@ export class PushSchedulerService {
   }
 
   /**
-   * 按组织分组推送，每个组织最多5条
+   * 按组织分组推送，每个组织最多N条
    *
    * AC 6: 推送去重与频率控制
-   * - 每个组织在同一scheduledAt时间段内最多5条推送
+   * Story 3.2 Task 2.3: 行业雷达每个组织最多2条/天
+   * - 技术雷达: 每个组织最多5条
+   * - 行业雷达: 每个组织最多2条
+   * - 合规雷达: 每个组织最多5条
    *
    * @param pushes - 待推送的记录列表
    * @param maxPerOrg - 每个组织最多推送数量（默认5）
@@ -192,5 +196,90 @@ export class PushSchedulerService {
     ])
 
     return { total, sent, failed, pending }
+  }
+
+  /**
+   * 统计今天已发送的推送数量 (Story 4.2 - AC 4)
+   *
+   * @param organizationId - 组织ID
+   * @param radarType - 雷达类型
+   * @param today - 今天的日期（可选，默认为当前日期）
+   * @returns 今天已发送的推送数量
+   */
+  async countTodayPushes(
+    organizationId: string,
+    radarType: 'tech' | 'industry' | 'compliance',
+    today: Date = new Date(),
+  ): Promise<number> {
+    // 计算今天的时间范围（00:00:00 到 23:59:59）
+    const startOfDay = new Date(today)
+    startOfDay.setHours(0, 0, 0, 0)
+
+    const endOfDay = new Date(today)
+    endOfDay.setHours(23, 59, 59, 999)
+
+    // 统计今天已发送的推送数量
+    const count = await this.radarPushRepo.count({
+      where: {
+        organizationId,
+        radarType,
+        status: 'sent',
+        sentAt: {
+          $gte: startOfDay,
+          $lte: endOfDay,
+        } as any,
+      },
+    })
+
+    this.logger.log(
+      `Organization ${organizationId} has sent ${count} ${radarType} pushes today`,
+    )
+
+    return count
+  }
+
+  /**
+   * 降级超过限制的推送到次日9:00 (Story 4.2 - AC 4)
+   *
+   * @param pushes - 待推送列表
+   * @param limit - 最大推送数量限制
+   * @param today - 今天的日期（可选，默认为当前日期）
+   */
+  async downgradeExcessPushes(
+    pushes: RadarPush[],
+    limit: number,
+    today: Date = new Date(),
+  ): Promise<void> {
+    if (pushes.length <= limit) {
+      // 没有超过限制，无需降级
+      return
+    }
+
+    // 找出超过限制的推送
+    const excessPushes = pushes.slice(limit)
+
+    if (excessPushes.length === 0) {
+      return
+    }
+
+    // 计算次日9:00的时间
+    const tomorrow9am = new Date(today)
+    tomorrow9am.setDate(tomorrow9am.getDate() + 1)
+    tomorrow9am.setHours(9, 0, 0, 0)
+
+    this.logger.log(
+      `Downgrading ${excessPushes.length} excess pushes to ${tomorrow9am.toISOString()}`,
+    )
+
+    // 批量更新推送时间到次日9:00
+    for (const push of excessPushes) {
+      await this.radarPushRepo.update(push.id, {
+        scheduledAt: tomorrow9am,
+      })
+
+      this.logger.debug(
+        `Push ${push.id} downgraded to ${tomorrow9am.toISOString()}`,
+      )
+    }
   }
 }

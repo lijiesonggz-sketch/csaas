@@ -141,6 +141,28 @@ export class RawContent {
   @Column({ type: 'varchar', length: 255, nullable: true })
   peerName?: string
 
+  /**
+   * 合规雷达数据（Story 4.1新增）
+   * 存储合规雷达特定的内容数据
+   *
+   * type区分:
+   * - penalty: 处罚通报
+   * - policy_draft: 政策征求意见
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  complianceData?: {
+    type: 'penalty' | 'policy_draft'
+    penaltyInstitution?: string // 被处罚机构
+    penaltyReason?: string // 处罚原因
+    penaltyAmount?: string // 处罚金额
+    penaltyDate?: Date // 处罚日期
+    policyBasis?: string // 政策依据
+    policyTitle?: string // 政策标题
+    commentDeadline?: Date // 征求意见截止日期
+    mainRequirements?: string // 主要要求
+    expectedImplementationDate?: Date // 预计实施时间
+  }
+
   @CreateDateColumn()
   createdAt: Date
 

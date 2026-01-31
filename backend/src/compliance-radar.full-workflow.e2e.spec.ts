@@ -12,7 +12,7 @@ import { AnalyzedContent } from './database/entities/analyzed-content.entity'
 import { RawContent } from './database/entities/raw-content.entity'
 import { Organization } from './database/entities/organization.entity'
 import { CrawlerLog } from './database/entities/crawler-log.entity'
-import { fs } from 'fs/promises'
+import * as fs from 'fs/promises'
 import { v4 as uuidv4 } from 'uuid'
 
 /**
@@ -84,9 +84,15 @@ describe('Compliance Radar Full Workflow E2E (Phase 6.2)', () => {
     await organizationRepo.save({
       id: testOrgId,
       name: 'Test Organization E2E',
-      industry: 'finance',
+      radarActivated: true,
       createdAt: new Date(),
       updatedAt: new Date(),
+      deletedAt: null as any,
+      members: [],
+      projects: [],
+      weaknessSnapshots: [],
+      watchedTopics: [],
+      watchedPeers: [],
     } as Organization)
   })
 
@@ -113,11 +119,17 @@ describe('Compliance Radar Full Workflow E2E (Phase 6.2)', () => {
       const analyzedContent = await analyzedContentRepo.save({
         id: uuidv4(),
         contentId: rawContent.id,
+        rawContent: null as any,
         tags: [],
         keywords: [],
         categories: ['数据安全'],
         targetAudience: 'IT部门',
         aiSummary: '某银行因数据安全管理不到位被处罚',
+        roiAnalysis: null,
+        practiceDescription: null,
+        estimatedCost: null,
+        implementationPeriod: null,
+        technicalEffect: null,
         complianceAnalysis: {
           complianceRiskCategory: '数据安全',
           penaltyCase: '某银行因数据安全管理不到位，被处以50万元罚款',
@@ -125,9 +137,11 @@ describe('Compliance Radar Full Workflow E2E (Phase 6.2)', () => {
           remediationSuggestions: '建立完善的数据分类分级制度',
           relatedWeaknessCategories: ['数据安全'],
         },
+        relevanceScore: null,
         aiModel: 'qwen-turbo',
         tokensUsed: 1000,
         status: 'success',
+        errorMessage: null,
         analyzedAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -256,11 +270,17 @@ describe('Compliance Radar Full Workflow E2E (Phase 6.2)', () => {
       await analyzedContentRepo.save({
         id: uuidv4(),
         contentId: rawContent.id,
+        rawContent: null as any,
         tags: [],
         keywords: [],
         categories: ['数据安全'],
         targetAudience: 'IT部门',
         aiSummary: '测试摘要',
+        roiAnalysis: null,
+        practiceDescription: null,
+        estimatedCost: null,
+        implementationPeriod: null,
+        technicalEffect: null,
         complianceAnalysis: {
           complianceRiskCategory: '数据安全',
           penaltyCase: '测试案例',
@@ -268,9 +288,11 @@ describe('Compliance Radar Full Workflow E2E (Phase 6.2)', () => {
           remediationSuggestions: '建议',
           relatedWeaknessCategories: ['数据安全'],
         },
+        relevanceScore: null,
         aiModel: 'qwen-turbo',
         tokensUsed: 500,
         status: 'success',
+        errorMessage: null,
         analyzedAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -320,11 +342,17 @@ describe('Compliance Radar Full Workflow E2E (Phase 6.2)', () => {
       await analyzedContentRepo.save({
         id: uuidv4(),
         contentId: rawContent.id,
+        rawContent: null as any,
         tags: [],
         keywords: [],
         categories: ['数据安全'],
         targetAudience: 'IT部门',
         aiSummary: '测试摘要',
+        roiAnalysis: null,
+        practiceDescription: null,
+        estimatedCost: null,
+        implementationPeriod: null,
+        technicalEffect: null,
         complianceAnalysis: {
           complianceRiskCategory: '数据安全',
           penaltyCase: '测试案例',
@@ -332,9 +360,11 @@ describe('Compliance Radar Full Workflow E2E (Phase 6.2)', () => {
           remediationSuggestions: '建议',
           relatedWeaknessCategories: ['数据安全'],
         },
+        relevanceScore: null,
         aiModel: 'qwen-turbo',
         tokensUsed: 500,
         status: 'success',
+        errorMessage: null,
         analyzedAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),

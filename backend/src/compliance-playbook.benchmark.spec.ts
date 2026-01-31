@@ -89,7 +89,7 @@ describe('Compliance Playbook Performance Benchmarks (Story 4.2)', () => {
         category: 'compliance' as const,
         title: '数据安全违规处罚案例',
         url: 'https://example.com/penalty',
-        publishDate: '2026-01-30',
+        publishDate: new Date('2026-01-30'),
         summary: '某银行因数据安全管理不到位被处罚',
         fullContent:
           '某银行因数据安全管理不到位，违反《银行业金融机构数据治理指引》，被处以50万元罚款。该行在客户敏感信息保护、数据访问控制等方面存在缺陷。',
@@ -269,7 +269,7 @@ describe('Compliance Playbook Performance Benchmarks (Story 4.2)', () => {
         category: 'compliance' as const,
         title: '缓存测试内容',
         url: 'https://example.com/cache',
-        publishDate: '2026-01-30',
+        publishDate: new Date('2026-01-30'),
         summary: '测试摘要',
         fullContent: '测试内容',
         author: null,

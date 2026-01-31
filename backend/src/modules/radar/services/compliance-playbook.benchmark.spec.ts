@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { Repository } from 'typeorm'
+import { getRepositoryToken } from '@nestjs/typeorm'
 import { getQueueToken } from '@nestjs/bullmq'
 import { Queue } from 'bullmq'
 import { performance } from 'perf_hooks'

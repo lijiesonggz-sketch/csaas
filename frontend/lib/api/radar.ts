@@ -385,9 +385,19 @@ export interface CreateWatchedTopicDto {
  * @returns 关注领域列表
  */
 export async function getWatchedTopics(organizationId: string): Promise<WatchedTopic[]> {
+  if (!organizationId) {
+    throw new Error('组织ID不能为空')
+  }
+
   const data = await apiFetch(`/api/radar/watched-topics?organizationId=${organizationId}`)
 
   console.log('[getWatchedTopics] API返回数据:', data)
+
+  // 验证返回数据是数组
+  if (!Array.isArray(data)) {
+    console.error('[getWatchedTopics] 返回数据格式错误:', data)
+    throw new Error('服务器返回数据格式错误')
+  }
 
   return data
 }
@@ -403,20 +413,39 @@ export async function createWatchedTopic(
   organizationId: string,
   dto: CreateWatchedTopicDto
 ): Promise<WatchedTopic> {
-  const data = await apiFetch('/api/radar/watched-topics', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      ...dto,
-      organizationId,
-    }),
-  })
+  if (!organizationId) {
+    throw new Error('组织ID不能为空')
+  }
 
-  console.log('[createWatchedTopic] 创建成功:', data)
+  if (!dto.topicName || dto.topicName.trim() === '') {
+    throw new Error('领域名称不能为空')
+  }
 
-  return data
+  try {
+    const data = await apiFetch('/api/radar/watched-topics', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...dto,
+        organizationId,
+      }),
+    })
+
+    console.log('[createWatchedTopic] 创建成功:', data)
+
+    return data
+  } catch (error: any) {
+    // 处理特定的错误状态码
+    if (error.status === 409 || error.message?.includes('已在关注列表')) {
+      throw new Error('该领域已在关注列表中')
+    }
+    if (error.status === 400) {
+      throw new Error('领域名称不能为空')
+    }
+    throw error
+  }
 }
 
 /**
@@ -426,11 +455,23 @@ export async function createWatchedTopic(
  * @returns 删除结果
  */
 export async function deleteWatchedTopic(id: string): Promise<{ message: string }> {
-  const data = await apiFetch(`/api/radar/watched-topics/${id}`, {
-    method: 'DELETE',
-  })
+  if (!id) {
+    throw new Error('关注领域ID不能为空')
+  }
 
-  console.log('[deleteWatchedTopic] 删除成功:', data)
+  try {
+    const data = await apiFetch(`/api/radar/watched-topics/${id}`, {
+      method: 'DELETE',
+    })
 
-  return data
+    console.log('[deleteWatchedTopic] 删除成功:', data)
+
+    return data
+  } catch (error: any) {
+    // 处理特定的错误状态码
+    if (error.status === 404) {
+      throw new Error('关注领域不存在')
+    }
+    throw error
+  }
 }

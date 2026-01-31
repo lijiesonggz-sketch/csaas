@@ -41,6 +41,7 @@
     "@nestjs/typeorm": "^10.0.2",
     "@nestjs/websockets": "^10.4.20",
     "@sentry/node": "^8.55.0",
+    "axios": "^1.13.4",
     "bcrypt": "^5.1.0",
     "bullmq": "^5.66.2",
     "chokidar": "^3.6.0",
@@ -115,7 +116,10 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1"
+    }
   },
   "lint-staged": {
     "*.ts": [

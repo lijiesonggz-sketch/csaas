@@ -115,7 +115,30 @@
       "Bash(claude update:*)",
       "Bash(test:*)",
       "Bash(npm run typeorm:check:*)",
-      "Bash(npm run test:*)"
+      "Bash(npm run test:*)",
+      "Bash(D:csaasstart-test-env.bat)",
+      "Bash(redis-cli ping:*)",
+      "Bash(pg_isready:*)",
+      "Bash(start \"Csaas Backend\" cmd /k \"npm run start:dev\")",
+      "Bash(start \"Csaas Frontend\" cmd /k \"npm run dev\")",
+      "Bash(start http://localhost:3001)",
+      "Bash(start \"Csaas Backend [请保持打开]\" cmd /k \"npm run start:dev\")",
+      "Bash(npx prisma db seed:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjO…DM0fQ.yFTYYSNv2u3Btl7UqnTG1sZR2N41t2GJX2xSLoqtl-4\")",
+      "Bash(copy:*)",
+      "Bash(npm run dev:db:query:*)",
+      "Bash(tail:*)",
+      "Bash(redis-cli:*)",
+      "Bash(npm run seed:*)",
+      "Bash(npx typeorm migration:show:*)",
+      "Bash(DB_HOST=127.0.0.1 DB_PORT=5432 DB_USERNAME=postgres DB_PASSWORD=postgres DB_DATABASE=csaas node:*)",
+      "Bash(git log:*)",
+      "Bash(do if [ -f \"$file\" ])",
+      "Bash(then mv \"$file\" \"$file.disabled\")",
+      "Bash(fi:*)",
+      "Bash(done:*)",
+      "Bash(D:csaasverify-authorization-fix.bat)",
+      "Bash(git reset:*)"
     ]
   }
 }

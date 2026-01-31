@@ -28,23 +28,23 @@ async function verifySchema() {
 
     // 1. 检查raw_contents.complianceData字段
     console.log('📋 Checking raw_contents.complianceData...')
-    const rawColumns = await queryRunner.getColumns('raw_contents')
-    const complianceDataExists = rawColumns.some(c => c.name === 'complianceData')
+    const rawTable = await queryRunner.getTable('raw_contents')
+    const complianceDataExists = rawTable.columns.some(c => c.name === 'complianceData')
     console.log(`   ${complianceDataExists ? '✅' : '❌'} complianceData column ${complianceDataExists ? 'exists' : 'MISSING'}`)
 
     // 2. 检查analyzed_contents.complianceAnalysis字段
     console.log('\n📋 Checking analyzed_contents.complianceAnalysis...')
-    const analyzedColumns = await queryRunner.getColumns('analyzed_contents')
-    const complianceAnalysisExists = analyzedColumns.some(c => c.name === 'complianceAnalysis')
+    const analyzedTable = await queryRunner.getTable('analyzed_contents')
+    const complianceAnalysisExists = analyzedTable.columns.some(c => c.name === 'complianceAnalysis')
     console.log(`   ${complianceAnalysisExists ? '✅' : '❌'} complianceAnalysis column ${complianceAnalysisExists ? 'exists' : 'MISSING'}`)
 
     // 3. 检查crawler_logs新字段
     console.log('\n📋 Checking crawler_logs new fields...')
-    const crawlerColumns = await queryRunner.getColumns('crawler_logs')
-    const contentIdExists = crawlerColumns.some(c => c.name === 'contentId')
-    const crawlDurationExists = crawlerColumns.some(c => c.name === 'crawlDuration')
-    const crawledAtExists = crawlerColumns.some(c => c.name === 'crawledAt')
-    const executedAtExists = crawlerColumns.some(c => c.name === 'executedAt')
+    const crawlerTable = await queryRunner.getTable('crawler_logs')
+    const contentIdExists = crawlerTable.columns.some(c => c.name === 'contentId')
+    const crawlDurationExists = crawlerTable.columns.some(c => c.name === 'crawlDuration')
+    const crawledAtExists = crawlerTable.columns.some(c => c.name === 'crawledAt')
+    const executedAtExists = crawlerTable.columns.some(c => c.name === 'executedAt')
     console.log(`   ${contentIdExists ? '✅' : '❌'} contentId column ${contentIdExists ? 'exists' : 'MISSING'}`)
     console.log(`   ${crawlDurationExists ? '✅' : '❌'} crawlDuration column ${crawlDurationExists ? 'exists' : 'MISSING'}`)
     console.log(`   ${crawledAtExists ? '✅' : '❌'} crawledAt column ${crawledAtExists ? 'exists' : 'MISSING'}`)

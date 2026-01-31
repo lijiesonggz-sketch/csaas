@@ -147,6 +147,19 @@ export class AnalyzedContent {
   technicalEffect: string | null
 
   /**
+   * 合规雷达AI分析（Story 4.1新增）
+   * AI分析的合规内容结构化数据
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  complianceAnalysis?: {
+    complianceRiskCategory?: string // 合规风险类别，如"数据安全"、"网络安全"
+    penaltyCase?: string // 处罚案例描述
+    policyRequirements?: string // 政策要求
+    remediationSuggestions?: string // 整改建议
+    relatedWeaknessCategories?: string[] // 关联的薄弱项类别
+  }
+
+  /**
    * 相关性评分（0-1，Story 2.3需要）
    * AI计算的与组织薄弱项的相关性评分
    */

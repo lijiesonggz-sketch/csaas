@@ -340,13 +340,13 @@ describe('Authentication and Permissions (E2E)', () => {
       expect(failedAccessLog.action).toBe(AuditAction.ACCESS_DENIED)
       expect(failedAccessLog.entityType).toBe('Organization')
       expect(failedAccessLog.entityId).toBe(organizationId)
-      expect(failedAccessLog.success).toBe(false)
 
-      // Verify details JSON
+      // Verify details JSON - success status is now in details
       const details = failedAccessLog.details as any
       expect(details).toBeDefined()
       expect(details.reason).toBe('user_not_member')
       expect(details.attemptedAccess).toBe('cross_organization_access')
+      expect(details.success).toBe(false)
     })
 
     it('should log multiple failed access attempts separately', async () => {
@@ -384,7 +384,7 @@ describe('Authentication and Permissions (E2E)', () => {
       expect(auditLogs.length).toBeGreaterThanOrEqual(3)
 
       // Verify different endpoints were logged
-      const endpoints = auditLogs.map((log) => log.req?.url || '')
+      const endpoints = auditLogs.map((log) => log.details?.entityType || log.entityType || '')
       const uniqueEndpoints = new Set(endpoints)
       expect(uniqueEndpoints.size).toBeGreaterThan(1)
     })

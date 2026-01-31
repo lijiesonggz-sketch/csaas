@@ -42,6 +42,14 @@ class GetPushHistoryDto {
   @IsString()
   @IsEnum(['scheduled', 'sent', 'failed'])
   status?: 'scheduled' | 'sent' | 'failed'
+
+  @IsOptional()
+  @IsString()
+  organizationId?: string
+
+  @IsOptional()
+  @IsString()
+  filter?: string
 }
 
 /**
@@ -85,11 +93,11 @@ export class RadarPushController {
     @Query() query: GetPushHistoryDto,
   ) {
     try {
-      const { page = 1, limit = 20, radarType, status } = query
+      const { page = 1, limit = 20, radarType, status, organizationId } = query
 
-      this.logger.log(`getPushHistory called with:`, { page, limit, radarType, status })
+      this.logger.log(`getPushHistory called with:`, { page, limit, radarType, status, organizationId })
 
-      // 构建查询条件（暂时不使用组织过滤用于测试）
+      // 构建查询条件
       const where: any = {}
 
       if (radarType) {
@@ -100,9 +108,14 @@ export class RadarPushController {
         where.status = status
       }
 
+      // 添加组织过滤（如果提供了organizationId）
+      if (organizationId) {
+        where.organizationId = organizationId
+      }
+
       this.logger.log(`Query conditions:`, where)
 
-      // 分页查询
+      // 分页查询 - 使用left join处理可能缺失的关联数据
       const [pushes, total] = await this.radarPushRepo.findAndCount({
         where,
         order: {
@@ -113,6 +126,8 @@ export class RadarPushController {
         skip: (page - 1) * limit,
         take: limit,
         relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags'],
+        // 使用left join (relationLoadStrategy是TypeORM 0.3+的新特性)
+        relationLoadStrategy: 'join',
       })
 
       this.logger.log(`Found ${pushes.length} pushes, total: ${total}`)
@@ -159,7 +174,7 @@ export class RadarPushController {
         },
       }
     } catch (error) {
-      this.logger.error('Error in getPushHistory:', error)
+      this.logger.error('Error in getPushHistory:', error.stack || error)
       throw error
     }
   }

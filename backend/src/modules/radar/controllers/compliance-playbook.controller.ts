@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, HttpCode, HttpStatus, UseGuards } from '@nestjs/common'
+import { Controller, Get, Post, Body, Param, Query, HttpCode, HttpStatus, UseGuards, HttpException } from '@nestjs/common'
 // import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger'
 import { CompliancePlaybookService } from '../services/compliance-playbook.service'
 import { SubmitChecklistDto } from '../dto/submit-checklist.dto'
@@ -16,7 +16,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator'
  * 提供合规剧本API端点
  */
 // @ApiTags('Compliance Radar')
-@Controller('radar/compliance')
+@Controller('api/radar/compliance')
 @UseGuards(JwtAuthGuard) // AR12 Layer 1: JWT认证
 export class CompliancePlaybookController {
   constructor(private readonly playbookService: CompliancePlaybookService) {}
@@ -26,7 +26,7 @@ export class CompliancePlaybookController {
    *
    * GET /api/radar/compliance/playbooks/:pushId
    *
-   * AR12 Layer 1 Defense: 从JWT token提取userId和organizationId
+   * AR12 Layer 1 Defense: 从query参数获取organizationId进行组织验证
    */
   @Get('playbooks/:pushId')
   @HttpCode(HttpStatus.OK)
@@ -46,9 +46,11 @@ export class CompliancePlaybookController {
   // })
   async getPlaybook(
     @Param('pushId') pushId: string,
-    @CurrentUser() user: any, // AR12 Layer 1: 从JWT提取用户信息
+    @Query('organizationId') organizationId: string, // AR12 Layer 1: 从query参数获取组织ID
   ): Promise<CompliancePlaybook> {
-    const { organizationId } = user
+    if (!organizationId) {
+      throw new HttpException('organizationId is required', HttpStatus.BAD_REQUEST)
+    }
     return this.playbookService.getPlaybookByPushId(pushId, organizationId)
   }
 
@@ -57,7 +59,7 @@ export class CompliancePlaybookController {
    *
    * POST /api/radar/compliance/playbooks/:pushId/checklist
    *
-   * AR12 Layer 1 Defense: 从JWT token提取userId和organizationId
+   * AR12 Layer 1 Defense: 从JWT提取userId，从query参数获取organizationId
    */
   @Post('playbooks/:pushId/checklist')
   @HttpCode(HttpStatus.CREATED)
@@ -67,13 +69,17 @@ export class CompliancePlaybookController {
   // })
   async submitChecklist(
     @Param('pushId') pushId: string,
-    @CurrentUser() user: any, // AR12 Layer 1: 从JWT提取用户信息
+    @CurrentUser() user: any, // AR12 Layer 1: 从JWT提取用户ID
     @Body() submitDto: SubmitChecklistDto,
+    @Body('organizationId') organizationId: string, // AR12 Layer 1: 从body获取组织ID
   ): Promise<{
     message: string
     submission: ComplianceChecklistSubmission
   }> {
-    const { id: userId, organizationId } = user
+    const { id: userId } = user
+    if (!organizationId) {
+      throw new HttpException('organizationId is required', HttpStatus.BAD_REQUEST)
+    }
     const submission = await this.playbookService.submitChecklist(
       pushId,
       userId,
@@ -92,7 +98,7 @@ export class CompliancePlaybookController {
    *
    * GET /api/radar/compliance/playbooks/:pushId/checklist
    *
-   * AR12 Layer 1 Defense: 从JWT token提取userId和organizationId
+   * AR12 Layer 1 Defense: 从JWT提取userId，从query参数获取organizationId
    */
   @Get('playbooks/:pushId/checklist')
   @HttpCode(HttpStatus.OK)
@@ -102,9 +108,13 @@ export class CompliancePlaybookController {
   // })
   async getChecklistSubmission(
     @Param('pushId') pushId: string,
-    @CurrentUser() user: any, // AR12 Layer 1: 从JWT提取用户信息
+    @CurrentUser() user: any, // AR12 Layer 1: 从JWT提取用户ID
+    @Query('organizationId') organizationId: string, // AR12 Layer 1: 从query获取组织ID
   ): Promise<ComplianceChecklistSubmission | null> {
-    const { id: userId, organizationId } = user
+    const { id: userId } = user
+    if (!organizationId) {
+      throw new HttpException('organizationId is required', HttpStatus.BAD_REQUEST)
+    }
     return this.playbookService.getChecklistSubmission(pushId, userId, organizationId)
   }
 }

@@ -156,4 +156,26 @@ export class RadarPush {
 
   @UpdateDateColumn()
   updatedAt: Date
+
+  /**
+   * 合规雷达：自查清单完成时间
+   * Story 4.2: 合规应对剧本生成
+   */
+  @Column({ type: 'timestamp', nullable: true })
+  checklistCompletedAt: Date | null
+
+  /**
+   * 合规雷达：剧本生成状态
+   * - ready: 剧本已生成，可查看
+   * - generating: 剧本生成中
+   * - failed: 剧本生成失败
+   * Story 4.2: 合规应对剧本生成
+   */
+  @Column({
+    type: 'enum',
+    enum: ['ready', 'generating', 'failed'],
+    default: 'ready',
+    nullable: true,
+  })
+  playbookStatus: 'ready' | 'generating' | 'failed' | null
 }

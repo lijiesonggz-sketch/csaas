@@ -4,6 +4,7 @@ import {
   MaxLength,
   IsEnum,
   IsOptional,
+  Matches,
 } from 'class-validator';
 
 /**
@@ -21,6 +22,9 @@ export class CreateWatchedTopicDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
+  @Matches(/^[a-zA-Z0-9\u4e00-\u9fa5\s\-_]+$/, {
+    message: '领域名称只能包含字母、数字、中文、空格、连字符和下划线',
+  })
   topicName: string;
 
   /**
@@ -41,6 +45,9 @@ export class CreateWatchedTopicDto {
   @IsString()
   @IsOptional()
   @MaxLength(500)
+  @Matches(/^[a-zA-Z0-9\u4e00-\u9fa5\s\-_,，。、；：""''（）()]+$/, {
+    message: '描述只能包含字母、数字、中文和常用标点符号',
+  })
   description?: string;
 }
 
