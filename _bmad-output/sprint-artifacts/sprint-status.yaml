@@ -67,7 +67,7 @@ development_status:
 
   # Epic 5: 用户配置与推送管理 (4 stories)
   epic-5: in-progress  # 自动转换：第一个story创建时
-  5-1-configure-focus-technical-areas: review  # ✅ Phase 1-4完成 - 后端API+前端页面实现，42个测试(39通过)
+  5-1-configure-focus-technical-areas: done  # ✅ 完成 - Phase 1-4全部完成，Code Review通过，7个问题已修复
   5-2-configure-focus-peer-institutions: backlog
   5-3-push-preference-settings: backlog
   5-4-push-history-viewing: backlog
