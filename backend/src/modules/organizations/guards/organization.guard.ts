@@ -32,30 +32,47 @@ export class OrganizationGuard implements CanActivate {
     const request = context.switchToHttp().getRequest()
     const user = request.user
 
+    console.log('[OrganizationGuard] Request user:', user)
+
     // Skip if no user info (e.g., public routes)
     if (!user || !user.userId) {
+      console.log('[OrganizationGuard] No user or userId, returning false')
       return false
     }
 
     // Extract organizationId from multiple possible sources
+    // Priority: query/body params (explicit orgId) > route params (could be entity ID)
     const orgId =
-      request.params.id ||
-      request.params.orgId ||
+      request.query?.organizationId ||
+      request.body?.organizationId ||
       request.params.organizationId ||
-      request.body?.organizationId
+      request.params.orgId ||
+      request.params.id
+
+    console.log('[OrganizationGuard] Extracted orgId:', orgId, 'from:', {
+      paramsId: request.params.id,
+      paramsOrgId: request.params.orgId,
+      paramsOrganizationId: request.params.organizationId,
+      queryOrganizationId: request.query?.organizationId,
+      bodyOrganizationId: request.body?.organizationId,
+    })
 
     // If no organizationId in request, return false
     if (!orgId) {
+      console.log('[OrganizationGuard] No orgId found, returning false')
       return false
     }
 
     // Check if user is a member of the organization
+    console.log('[OrganizationGuard] Checking membership for userId:', user.userId, 'orgId:', orgId)
     const member = await this.memberRepository.findOne({
       where: {
         userId: user.userId,
         organizationId: orgId,
       },
     })
+
+    console.log('[OrganizationGuard] Member found:', member)
 
     if (!member) {
       // 记录审计日志 (Story 1.2 - AC 3)
@@ -73,6 +90,7 @@ export class OrganizationGuard implements CanActivate {
         req: request,
       })
 
+      console.log('[OrganizationGuard] Access denied - user not member')
       throw new ForbiddenException('您不是该组织的成员,无权访问')
     }
 
@@ -80,6 +98,7 @@ export class OrganizationGuard implements CanActivate {
     request.orgId = orgId
     request.orgMember = member
 
+    console.log('[OrganizationGuard] Access granted')
     return true
   }
 }

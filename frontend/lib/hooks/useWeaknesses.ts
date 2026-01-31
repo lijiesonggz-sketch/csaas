@@ -47,11 +47,20 @@ export function useWeaknesses(orgId?: string | null, projectId?: string | null) 
           return
         }
 
+        // Handle 404 Not Found gracefully (no data yet)
+        if (response.status === 404) {
+          console.info('No weaknesses data found for organization')
+          setWeaknesses([])
+          setIsLoading(false)
+          return
+        }
+
         if (!response.ok) {
           throw new Error('Failed to fetch weaknesses')
         }
 
         const data = await response.json()
+        console.log('[useWeaknesses] API response data:', data)
 
         // Transform data into WeaknessCategory format
         // The API returns aggregated weaknesses by category
@@ -69,6 +78,10 @@ export function useWeaknesses(orgId?: string | null, projectId?: string | null) 
         setWeaknesses(categories)
       } catch (err) {
         console.error('Failed to fetch weaknesses:', err)
+        console.error('Error details:', {
+          message: err instanceof Error ? err.message : 'Unknown error',
+          stack: err instanceof Error ? err.stack : undefined,
+        })
         setError(err instanceof Error ? err.message : 'Unknown error')
         setWeaknesses([])
       } finally {

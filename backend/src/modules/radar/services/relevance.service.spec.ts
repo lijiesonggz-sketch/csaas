@@ -7,6 +7,7 @@ import { AnalyzedContent } from '../../../database/entities/analyzed-content.ent
 import { RadarPush } from '../../../database/entities/radar-push.entity'
 import { WeaknessSnapshot } from '../../../database/entities/weakness-snapshot.entity'
 import { WatchedTopic } from '../../../database/entities/watched-topic.entity'
+import { WatchedPeer } from '../../../database/entities/watched-peer.entity'
 import { Organization } from '../../../database/entities/organization.entity'
 import { WeaknessCategory } from '../../../constants/categories'
 
@@ -73,7 +74,8 @@ describe('RelevanceService', () => {
     {
       id: 'topic-1',
       organizationId: 'org-123',
-      name: '数据安全',
+      topicName: '数据安全',
+      topicType: 'tech',
     },
   ]
 
@@ -120,6 +122,12 @@ describe('RelevanceService', () => {
         },
         {
           provide: getRepositoryToken(WatchedTopic),
+          useValue: {
+            find: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: getRepositoryToken(WatchedPeer),
           useValue: {
             find: jest.fn().mockResolvedValue([]),
           },
@@ -194,7 +202,8 @@ describe('RelevanceService', () => {
 
       jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([
         {
-          name: 'AI应用',
+          topicName: 'AI应用',
+          topicType: 'tech',
           organizationId: 'org-123', // 添加 organizationId
         } as WatchedTopic, // 完全匹配，topicMatch = 1.0
       ])
@@ -262,7 +271,8 @@ describe('RelevanceService', () => {
 
       jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([
         {
-          name: '数据安全', // 完全匹配
+          topicName: '数据安全', // 完全匹配
+          topicType: 'tech',
         },
       ] as WatchedTopic[])
 
@@ -282,7 +292,7 @@ describe('RelevanceService', () => {
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
 
       jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([
-        { name: '数据安全' } as WatchedTopic,
+        { topicName: '数据安全', topicType: 'tech' } as WatchedTopic,
       ])
 
       // topicMatch = 0.7 (模糊匹配)
@@ -310,7 +320,8 @@ describe('RelevanceService', () => {
       jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([
         {
           organizationId: 'org-123',
-          name: 'AI应用',
+          topicName: 'AI应用',
+          topicType: 'tech',
         } as WatchedTopic, // 完全匹配
       ])
 
@@ -360,7 +371,8 @@ describe('RelevanceService', () => {
       jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([
         {
           organizationId: 'org-123',
-          name: '数据安全',
+          topicName: '数据安全',
+          topicType: 'tech',
         } as WatchedTopic,
       ])
 
@@ -399,7 +411,7 @@ describe('RelevanceService', () => {
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([]) // 无薄弱项
 
       jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([
-        { name: '数据安全' } as WatchedTopic,
+        { topicName: '数据安全', topicType: 'tech' } as WatchedTopic,
       ])
 
       // Act
@@ -471,7 +483,7 @@ describe('RelevanceService', () => {
       ] as WeaknessSnapshot[])
 
       jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([
-        { name: '加密' } as WatchedTopic, // 模糊匹配 → 0.7
+        { topicName: '加密', topicType: 'tech' } as WatchedTopic, // 模糊匹配 → 0.7
       ])
 
       // 需要构造 0.9 的场景
@@ -507,7 +519,8 @@ describe('RelevanceService', () => {
       jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([
         {
           organizationId: 'org-123',
-          name: 'AI应用',
+          topicName: 'AI应用',
+          topicType: 'tech',
         } as WatchedTopic,
       ])
 
@@ -567,7 +580,7 @@ describe('RelevanceService', () => {
       ] as WeaknessSnapshot[])
 
       jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([
-        { name: '数据安全' } as WatchedTopic,
+        { topicName: '数据安全', topicType: 'tech' } as WatchedTopic,
       ])
 
       // Mock 去重检查返回不允许（重复）
@@ -603,7 +616,8 @@ describe('RelevanceService', () => {
       jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([
         {
           organizationId: 'org-123',
-          name: '数据安全',
+          topicName: '数据安全',
+          topicType: 'tech',
         } as WatchedTopic,
       ])
 

@@ -62,27 +62,35 @@ describe('RelevanceService - Industry Radar (Story 3.2)', () => {
   const mockWatchedPeers: WatchedPeer[] = [
     {
       id: 'peer-1',
-      name: '杭州银行',
-      peerType: 'benchmark',
+      peerName: '杭州银行',
+      industry: 'banking',
+      institutionType: '城商行',
       organizationId: 'org-123',
+      createdAt: new Date(),
+      updatedAt: new Date(),
     } as WatchedPeer,
     {
       id: 'peer-2',
-      name: '招商银行',
-      peerType: 'benchmark',
+      peerName: '招商银行',
+      industry: 'banking',
+      institutionType: '股份制银行',
       organizationId: 'org-123',
+      createdAt: new Date(),
+      updatedAt: new Date(),
     } as WatchedPeer,
   ]
 
   const mockWatchedTopics: WatchedTopic[] = [
     {
       id: 'topic-1',
-      name: '云原生',
+      topicName: '云原生',
+      topicType: 'tech',
       organizationId: 'org-123',
     } as WatchedTopic,
     {
       id: 'topic-2',
-      name: '容器化',
+      topicName: '容器化',
+      topicType: 'tech',
       organizationId: 'org-123',
     } as WatchedTopic,
   ]

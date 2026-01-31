@@ -147,7 +147,8 @@ describe('Radar Push System (E2E)', () => {
     // Create watched topics for org 1
     const topic1 = dataSource.getRepository(WatchedTopic).create({
       organizationId: org1Id,
-      name: 'AI应用',
+      topicName: 'AI应用',
+      topicType: 'tech',
     })
     await dataSource.getRepository(WatchedTopic).save(topic1)
 

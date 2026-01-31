@@ -126,22 +126,6 @@ export async function markPushAsRead(pushId: string): Promise<void> {
  */
 
 /**
- * WatchedPeer数据结构
- */
-export interface WatchedPeer {
-  id: string
-  name: string
-  type: string
-}
-
-/**
- * WatchedPeers响应
- */
-export interface WatchedPeersResponse {
-  data: WatchedPeer[]
-}
-
-/**
  * 获取行业雷达推送列表
  *
  * @param organizationId - 组织ID
@@ -201,18 +185,6 @@ export async function markIndustryPushAsRead(pushId: string): Promise<void> {
   await apiFetch(`/api/radar/pushes/${pushId}/read`, {
     method: 'POST',
   })
-}
-
-/**
- * 获取关注的同业列表
- *
- * @param organizationId - 组织ID
- * @returns 关注的同业列表
- */
-export async function getWatchedPeers(organizationId: string): Promise<WatchedPeersResponse> {
-  const data = await apiFetch(`/api/radar/watched-peers?organizationId=${organizationId}`)
-
-  return data
 }
 
 /**
@@ -389,7 +361,7 @@ export async function getWatchedTopics(organizationId: string): Promise<WatchedT
     throw new Error('组织ID不能为空')
   }
 
-  const data = await apiFetch(`/api/radar/watched-topics?organizationId=${organizationId}`)
+  const data = await apiFetch(`/radar/watched-topics?organizationId=${organizationId}`)
 
   console.log('[getWatchedTopics] API返回数据:', data)
 
@@ -422,15 +394,12 @@ export async function createWatchedTopic(
   }
 
   try {
-    const data = await apiFetch('/api/radar/watched-topics', {
+    const data = await apiFetch(`/radar/watched-topics?organizationId=${organizationId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        ...dto,
-        organizationId,
-      }),
+      body: JSON.stringify(dto),
     })
 
     console.log('[createWatchedTopic] 创建成功:', data)
@@ -452,15 +421,20 @@ export async function createWatchedTopic(
  * 删除关注领域
  *
  * @param id - 关注领域ID
+ * @param organizationId - 组织ID
  * @returns 删除结果
  */
-export async function deleteWatchedTopic(id: string): Promise<{ message: string }> {
+export async function deleteWatchedTopic(id: string, organizationId: string): Promise<{ message: string }> {
   if (!id) {
     throw new Error('关注领域ID不能为空')
   }
 
+  if (!organizationId) {
+    throw new Error('组织ID不能为空')
+  }
+
   try {
-    const data = await apiFetch(`/api/radar/watched-topics/${id}`, {
+    const data = await apiFetch(`/radar/watched-topics/${id}?organizationId=${organizationId}`, {
       method: 'DELETE',
     })
 
@@ -475,3 +449,125 @@ export async function deleteWatchedTopic(id: string): Promise<{ message: string 
     throw error
   }
 }
+
+/**
+ * WatchedPeer数据结构 (Story 5.2)
+ */
+export interface WatchedPeer {
+  id: string
+  organizationId: string
+  peerName: string
+  industry: string
+  institutionType: string
+  description?: string
+  createdAt: string
+  relatedPushCount?: number
+}
+
+/**
+ * CreateWatchedPeerDto数据结构 (Story 5.2)
+ */
+export interface CreateWatchedPeerDto {
+  peerName: string
+  industry: string
+  institutionType: string
+  description?: string
+}
+
+/**
+ * 获取关注同业列表 (Story 5.2 - AC #4)
+ *
+ * @param organizationId - 组织ID
+ * @returns 关注同业列表
+ */
+export async function getWatchedPeers(organizationId: string): Promise<WatchedPeer[]> {
+  if (!organizationId) {
+    throw new Error('组织ID不能为空')
+  }
+
+  const data = await apiFetch(`/radar/watched-peers?organizationId=${organizationId}`)
+
+  console.log('[getWatchedPeers] API返回数据:', data)
+
+  // 验证返回数据是数组
+  if (!Array.isArray(data)) {
+    console.error('[getWatchedPeers] 返回数据格式错误:', data)
+    throw new Error('服务器返回数据格式错误')
+  }
+
+  return data
+}
+
+/**
+ * 创建关注同业 (Story 5.2 - AC #2)
+ *
+ * @param organizationId - 组织ID
+ * @param dto - 创建数据
+ * @returns 创建的关注同业
+ */
+export async function createWatchedPeer(
+  organizationId: string,
+  dto: CreateWatchedPeerDto
+): Promise<WatchedPeer> {
+  if (!organizationId) {
+    throw new Error('组织ID不能为空')
+  }
+
+  if (!dto.peerName || dto.peerName.trim() === '') {
+    throw new Error('同业机构名称不能为空')
+  }
+
+  try {
+    const data = await apiFetch(`/radar/watched-peers?organizationId=${organizationId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(dto),
+    })
+
+    console.log('[createWatchedPeer] 创建成功:', data)
+
+    return data
+  } catch (error: any) {
+    // 处理特定的错误状态码
+    if (error.status === 409) {
+      throw new Error('该同业机构已在关注列表中')
+    }
+    throw error
+  }
+}
+
+/**
+ * 删除关注同业 (Story 5.2 - AC #3)
+ *
+ * @param id - 关注同业ID
+ * @param organizationId - 组织ID
+ * @returns 删除结果
+ */
+export async function deleteWatchedPeer(id: string, organizationId: string): Promise<{ message: string }> {
+  if (!id) {
+    throw new Error('关注同业ID不能为空')
+  }
+
+  if (!organizationId) {
+    throw new Error('组织ID不能为空')
+  }
+
+  try {
+    const data = await apiFetch(`/radar/watched-peers/${id}?organizationId=${organizationId}`, {
+      method: 'DELETE',
+    })
+
+    console.log('[deleteWatchedPeer] 删除成功:', data)
+
+    return data
+  } catch (error: any) {
+    // 处理特定的错误状态码
+    if (error.status === 404) {
+      throw new Error('关注同业不存在')
+    }
+    throw error
+  }
+}
+

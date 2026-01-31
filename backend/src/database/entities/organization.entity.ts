@@ -53,6 +53,23 @@ export class Organization {
   radarActivated: boolean
 
   /**
+   * Industry classification (optional)
+   *
+   * Indicates the industry sector this organization belongs to.
+   * Used to provide industry-specific presets and recommendations.
+   *
+   * Supported values:
+   * - banking: 银行业
+   * - securities: 证券业
+   * - insurance: 保险业
+   * - enterprise: 传统企业
+   *
+   * @default null
+   */
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  industry?: string
+
+  /**
    * Timestamp when organization was created
    */
   @CreateDateColumn({ name: 'created_at' })

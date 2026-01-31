@@ -27,6 +27,7 @@ import {
 import { apiFetch } from '@/lib/utils/api'
 import { useOnboarding } from '@/lib/hooks/useOnboarding'
 import { useWeaknesses, WeaknessCategory } from '@/lib/hooks/useWeaknesses'
+import { INSTITUTION_PRESETS } from '@/lib/constants/institution-presets'
 
 const PRESET_TOPICS = [
   '云原生',
@@ -39,14 +40,8 @@ const PRESET_TOPICS = [
   '大数据分析',
 ]
 
-const PRESET_PEERS = [
-  '杭州银行',
-  '绍兴银行',
-  '招商银行',
-  '宁波银行',
-  '浙江农信',
-  '温州银行',
-]
+// Use banking presets from unified constant file
+const PRESET_PEERS = INSTITUTION_PRESETS.banking.map(p => p.name)
 
 interface OnboardingWizardProps {
   orgId: string

@@ -7,6 +7,7 @@ import {
   Param,
   UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { WatchedTopicService } from '../services/watched-topic.service';
 import {
   CreateWatchedTopicDto,
@@ -22,7 +23,7 @@ import { CurrentOrg } from '../../organizations/decorators/current-org.decorator
  * @story Story 5.1 - Configure Focus Technical Areas
  */
 @Controller('radar/watched-topics')
-@UseGuards(OrganizationGuard)
+@UseGuards(JwtAuthGuard, OrganizationGuard)
 export class WatchedTopicController {
   constructor(private readonly service: WatchedTopicService) {}
 

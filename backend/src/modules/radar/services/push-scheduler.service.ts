@@ -50,7 +50,7 @@ export class PushSchedulerService {
         status: 'scheduled',
         scheduledAt: LessThanOrEqual(now),
       },
-      relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags', 'compliancePlaybook'],
+      relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags'],
       order: {
         // 优先级排序: high > medium > low
         priorityLevel: 'DESC',

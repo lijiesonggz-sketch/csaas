@@ -4,6 +4,7 @@ import { OrganizationsService } from './organizations.service'
 import { OrganizationAutoCreateService } from './organization-auto-create.service'
 import { OrganizationsController } from './organizations.controller'
 import { WeaknessSnapshotService } from './weakness-snapshot.service'
+import { OrganizationGuard } from './guards/organization.guard'
 import { Organization } from '../../database/entities/organization.entity'
 import { OrganizationMember } from '../../database/entities/organization-member.entity'
 import { User } from '../../database/entities/user.entity'
@@ -38,6 +39,7 @@ import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
     OrganizationsService,
     OrganizationAutoCreateService,
     WeaknessSnapshotService,
+    OrganizationGuard,
     TasksGateway,
     {
       provide: 'AuditLogService',
@@ -51,6 +53,12 @@ import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
       }),
     },
   ],
-  exports: [OrganizationsService, OrganizationAutoCreateService, WeaknessSnapshotService], // Export for use in other modules
+  exports: [
+    OrganizationsService,
+    OrganizationAutoCreateService,
+    WeaknessSnapshotService,
+    OrganizationGuard,
+    'AuditLogService', // Export AuditLogService for OrganizationGuard
+  ], // Export for use in other modules
 })
 export class OrganizationsModule {}

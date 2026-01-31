@@ -9,6 +9,7 @@ import {
   Gavel,
   ArrowForward,
   Radar as RadarIcon,
+  Settings,
 } from '@mui/icons-material'
 import OnboardingWizard from '@/components/radar/OnboardingWizard'
 import { useOnboarding } from '@/lib/hooks/useOnboarding'
@@ -31,12 +32,12 @@ function RadarDashboardContent() {
   const { isOnboarded, radarActivated, isLoading, refetch } = useOnboarding(orgId)
   const [showOnboarding, setShowOnboarding] = useState(false)
 
-  // Show onboarding wizard if not completed
+  // Show onboarding wizard if not completed and radar not activated
   useEffect(() => {
-    if (!isLoading && !isOnboarded && orgId) {
+    if (!isLoading && !isOnboarded && !radarActivated && orgId) {
       setShowOnboarding(true)
     }
-  }, [isLoading, isOnboarded, orgId])
+  }, [isLoading, isOnboarded, radarActivated, orgId])
 
   // Handle onboarding completion
   const handleOnboardingComplete = async () => {
@@ -87,13 +88,27 @@ function RadarDashboardContent() {
       <Container sx={{ maxWidth: 1400, px: 3, py: 4 }}>
         {/* Header */}
         <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" gutterBottom>
-            <RadarIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-            Radar Service
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            智能推送技术趋势、行业标杆和合规预警，帮助您做出技术投资决策
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+            <Box>
+              <Typography variant="h4" gutterBottom>
+                <RadarIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                Radar Service
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                智能推送技术趋势、行业标杆和合规预警，帮助您做出技术投资决策
+              </Typography>
+            </Box>
+
+            {/* Settings Button */}
+            <Button
+              variant="outlined"
+              startIcon={<Settings />}
+              onClick={() => router.push(`/radar/settings${orgId ? `?orgId=${orgId}` : ''}`)}
+              sx={{ minWidth: 120 }}
+            >
+              配置管理
+            </Button>
+          </Box>
 
           {/* Radar activation status badge */}
           {orgId && !isLoading && (

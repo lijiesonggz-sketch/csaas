@@ -39,20 +39,38 @@ export class WatchedPeer {
    *
    * @example "杭州银行", "绍兴银行", "招商银行"
    */
-  @Column({ type: 'varchar' })
-  name: string
+  @Column({ name: 'name', type: 'varchar', length: 100 })
+  peerName: string
 
   /**
-   * Peer type (Story 3.2)
-   * - benchmark: 标杆机构(学习对象)
-   * - competitor: 竞争对手(监控对象)
+   * Industry classification
+   *
+   * Supports multi-industry SaaS architecture:
+   * - banking: 银行业
+   * - securities: 证券业
+   * - insurance: 保险业
+   * - enterprise: 传统企业
    */
-  @Column({
-    type: 'enum',
-    enum: ['benchmark', 'competitor'],
-    default: 'benchmark',
-  })
-  peerType: 'benchmark' | 'competitor'
+  @Column({ name: 'industry', type: 'varchar', length: 50 })
+  industry: string
+
+  /**
+   * Institution type within the industry
+   *
+   * Examples:
+   * - Banking: 城商行, 股份制银行, 互联网银行, 国有大行, 农商行
+   * - Securities: 券商, 基金公司, 期货公司
+   * - Insurance: 寿险公司, 财险公司, 再保险公司
+   * - Enterprise: 制造业, 零售业, 物流业, 能源企业
+   */
+  @Column({ name: 'institution_type', type: 'varchar', length: 100 })
+  institutionType: string
+
+  /**
+   * Optional description of the peer institution
+   */
+  @Column({ type: 'text', nullable: true })
+  description: string
 
   /**
    * Organization that watches this peer

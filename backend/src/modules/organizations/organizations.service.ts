@@ -496,7 +496,7 @@ export class OrganizationsService {
 
     // Check if topic already exists
     const existing = await this.watchedTopicRepository.findOne({
-      where: { organizationId: orgId, name },
+      where: { organizationId: orgId, topicName: name },
     })
 
     if (existing) {
@@ -508,7 +508,8 @@ export class OrganizationsService {
     // Create topic
     const topic = this.watchedTopicRepository.create({
       organizationId: orgId,
-      name,
+      topicName: name,
+      topicType: 'tech', // Default to tech type
     })
 
     const saved = await this.watchedTopicRepository.save(topic)
@@ -609,7 +610,7 @@ export class OrganizationsService {
 
     // Check if peer already exists
     const existing = await this.watchedPeerRepository.findOne({
-      where: { organizationId: orgId, name },
+      where: { organizationId: orgId, peerName: name },
     })
 
     if (existing) {
@@ -618,10 +619,12 @@ export class OrganizationsService {
       )
     }
 
-    // Create peer
+    // Create peer with default values for new fields
     const peer = this.watchedPeerRepository.create({
       organizationId: orgId,
-      name,
+      peerName: name,
+      industry: 'banking', // Default to banking for batch API
+      institutionType: '标杆机构', // Default institution type
     })
 
     const saved = await this.watchedPeerRepository.save(peer)

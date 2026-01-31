@@ -60,6 +60,10 @@ import { CompliancePlaybookController } from './controllers/compliance-playbook.
 import { WatchedTopicService } from './services/watched-topic.service'
 import { WatchedTopicController } from './controllers/watched-topic.controller'
 
+// Story 5.2 providers
+import { WatchedPeerService } from './services/watched-peer.service'
+import { WatchedPeerController } from './controllers/watched-peer.controller'
+
 // Story 2.2 providers
 import { TagService } from './services/tag.service'
 import { AnalyzedContentService } from './services/analyzed-content.service'
@@ -160,7 +164,7 @@ import { PushProcessor } from './processors/push.processor'
     AIClientsModule, // Story 2.2 - AI分析服务依赖
     // ProjectsModule, // 暂时禁用以避免循环依赖
   ],
-  controllers: [RadarController, RadarPushController, RadarSourceController, CompliancePlaybookController, WatchedTopicController],
+  controllers: [RadarController, RadarPushController, RadarSourceController, CompliancePlaybookController, WatchedTopicController, WatchedPeerController],
   providers: [
     // Story 1.3 providers
     AssessmentEventListener,
@@ -193,6 +197,9 @@ import { PushProcessor } from './processors/push.processor'
 
     // Story 5.1 providers
     WatchedTopicService,
+
+    // Story 5.2 providers
+    WatchedPeerService,
   ],
   exports: [
     // Story 1.3 exports

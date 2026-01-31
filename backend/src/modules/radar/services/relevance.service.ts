@@ -306,33 +306,33 @@ export class RelevanceService {
     for (const topic of topics) {
       // 完全匹配（权重1.0）
       const exactTagMatch = content.tags.some(
-        (tag) => tag.name.toLowerCase() === topic.name.toLowerCase(),
+        (tag) => tag.name.toLowerCase() === topic.topicName.toLowerCase(),
       )
       const exactCategoryMatch = content.categories.some(
-        (cat) => cat.toLowerCase() === topic.name.toLowerCase(),
+        (cat) => cat.toLowerCase() === topic.topicName.toLowerCase(),
       )
 
       if (exactTagMatch || exactCategoryMatch) {
         maxScore = TOPIC_MATCH_WEIGHTS.EXACT
-        this.logger.debug(`Exact topic match found: ${topic.name}`)
+        this.logger.debug(`Exact topic match found: ${topic.topicName}`)
         break // 找到完全匹配，直接返回
       }
 
       // 模糊匹配（权重0.7）- 包含关系
       const fuzzyTagMatch = content.tags.some(
         (tag) =>
-          tag.name.toLowerCase().includes(topic.name.toLowerCase()) ||
-          topic.name.toLowerCase().includes(tag.name.toLowerCase()),
+          tag.name.toLowerCase().includes(topic.topicName.toLowerCase()) ||
+          topic.topicName.toLowerCase().includes(tag.name.toLowerCase()),
       )
       const fuzzyCategoryMatch = content.categories.some(
         (cat) =>
-          cat.toLowerCase().includes(topic.name.toLowerCase()) ||
-          topic.name.toLowerCase().includes(cat.toLowerCase()),
+          cat.toLowerCase().includes(topic.topicName.toLowerCase()) ||
+          topic.topicName.toLowerCase().includes(cat.toLowerCase()),
       )
 
       if (fuzzyTagMatch || fuzzyCategoryMatch) {
         maxScore = Math.max(maxScore, TOPIC_MATCH_WEIGHTS.FUZZY)
-        this.logger.debug(`Fuzzy topic match found: ${topic.name}`)
+        this.logger.debug(`Fuzzy topic match found: ${topic.topicName}`)
       }
     }
 
@@ -492,7 +492,7 @@ export class RelevanceService {
     })
 
     const peerName = content.rawContent?.peerName
-    const peerMatch = peerName && watchedPeers.some((peer) => peer.name === peerName) ? 1.0 : 0.0
+    const peerMatch = peerName && watchedPeers.some((peer) => peer.peerName === peerName) ? 1.0 : 0.0
 
     this.logger.debug(
       `Peer match for ${peerName}: ${peerMatch} (${watchedPeers.length} watched peers)`,
@@ -609,9 +609,9 @@ export class RelevanceService {
     // 检查处罚案例中是否包含关注的同业机构名称
     if (content.complianceAnalysis?.penaltyCase) {
       for (const peer of watchedPeers) {
-        if (content.complianceAnalysis.penaltyCase.includes(peer.name)) {
+        if (content.complianceAnalysis.penaltyCase.includes(peer.peerName)) {
           peerMatch = 1.0
-          this.logger.debug(`Compliance peer match found: ${peer.name}`)
+          this.logger.debug(`Compliance peer match found: ${peer.peerName}`)
           break
         }
       }
