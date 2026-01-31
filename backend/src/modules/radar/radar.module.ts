@@ -18,13 +18,19 @@ import { Tag } from '../../database/entities/tag.entity'
 
 // Story 2.3 entities
 import { RadarPush } from '../../database/entities/radar-push.entity'
+import { PushLog } from '../../database/entities/push-log.entity'
 import { WeaknessSnapshot } from '../../database/entities/weakness-snapshot.entity'
 import { WatchedTopic } from '../../database/entities/watched-topic.entity'
+import { WatchedPeer } from '../../database/entities/watched-peer.entity'
 import { Organization } from '../../database/entities/organization.entity'
 import { OrganizationMember } from '../../database/entities/organization-member.entity'
 
 // Story 3.1 entities
 import { RadarSource } from '../../database/entities/radar-source.entity'
+
+// Story 4.2 entities
+import { CompliancePlaybook } from '../../database/entities/compliance-playbook.entity'
+import { ComplianceChecklistSubmission } from '../../database/entities/compliance-checklist-submission.entity'
 
 // Story 1.3 providers
 import { AssessmentEventListener } from './assessment-event.listener'
@@ -46,6 +52,14 @@ import { RadarPushController } from './controllers/radar-push.controller'
 import { RadarSourceService } from './services/radar-source.service'
 import { RadarSourceController } from './controllers/radar-source.controller'
 
+// Story 4.2 providers
+import { CompliancePlaybookService } from './services/compliance-playbook.service'
+import { CompliancePlaybookController } from './controllers/compliance-playbook.controller'
+
+// Story 5.1 providers
+import { WatchedTopicService } from './services/watched-topic.service'
+import { WatchedTopicController } from './controllers/watched-topic.controller'
+
 // Story 2.2 providers
 import { TagService } from './services/tag.service'
 import { AnalyzedContentService } from './services/analyzed-content.service'
@@ -56,6 +70,7 @@ import { AIAnalysisProcessor } from './processors/ai-analysis.processor'
 import { RelevanceService } from './services/relevance.service'
 import { PushFrequencyControlService } from './services/push-frequency-control.service'
 import { PushSchedulerService } from './services/push-scheduler.service'
+import { PushLogService } from './services/push-log.service'
 import { PushProcessor } from './processors/push.processor'
 
 /**
@@ -87,14 +102,19 @@ import { PushProcessor } from './processors/push.processor'
     // Story 2.3 entities
     TypeOrmModule.forFeature([
       RadarPush,
+      PushLog,
       WeaknessSnapshot,
       WatchedTopic,
+      WatchedPeer,
       Organization,
       OrganizationMember,
     ]),
 
     // Story 3.1 entities
     TypeOrmModule.forFeature([RadarSource]),
+
+    // Story 4.2 entities
+    TypeOrmModule.forFeature([CompliancePlaybook, ComplianceChecklistSubmission]),
 
     // Story 2.1 BullMQ queues
     BullModule.registerQueue(
@@ -122,6 +142,17 @@ import { PushProcessor } from './processors/push.processor'
           },
         },
       },
+      // Story 4.2: 合规剧本生成队列
+      {
+        name: 'radar-playbook-generation',
+        defaultJobOptions: {
+          attempts: 2,
+          backoff: {
+            type: 'fixed',
+            delay: 60000, // 1分钟后重试
+          },
+        },
+      },
     ),
 
     OrganizationsModule,
@@ -129,7 +160,7 @@ import { PushProcessor } from './processors/push.processor'
     AIClientsModule, // Story 2.2 - AI分析服务依赖
     // ProjectsModule, // 暂时禁用以避免循环依赖
   ],
-  controllers: [RadarController, RadarPushController, RadarSourceController],
+  controllers: [RadarController, RadarPushController, RadarSourceController, CompliancePlaybookController, WatchedTopicController],
   providers: [
     // Story 1.3 providers
     AssessmentEventListener,
@@ -151,10 +182,17 @@ import { PushProcessor } from './processors/push.processor'
     RelevanceService,
     PushFrequencyControlService,
     PushSchedulerService,
+    PushLogService,
     PushProcessor,
 
     // Story 3.1 providers
     RadarSourceService,
+
+    // Story 4.2 providers
+    CompliancePlaybookService,
+
+    // Story 5.1 providers
+    WatchedTopicService,
   ],
   exports: [
     // Story 1.3 exports
@@ -344,10 +382,11 @@ export class RadarModule implements OnModuleInit, OnModuleDestroy {
    * 配置定时推送任务
    *
    * Story 2.3: 推送系统与调度 - Phase 3 Task 3.3
+   * Story 3.2: 行业雷达推送调度 - Task 2.3
    *
    * 三大雷达的推送调度时间：
    * - 技术雷达: 每周五17:00
-   * - 行业雷达: 每周三17:00
+   * - 行业雷达: 每日9:00 (Story 3.2 - 改为每日推送)
    * - 合规雷达: 每日9:00
    */
   private async setupPushSchedules() {
@@ -360,9 +399,9 @@ export class RadarModule implements OnModuleInit, OnModuleDestroy {
       },
       {
         radarType: 'industry',
-        cronPattern: '0 17 * * 3', // 每周三17:00
+        cronPattern: '0 9 * * *', // 每日9:00 (Story 3.2 Task 2.3)
         jobId: 'push-industry-radar',
-        description: '行业雷达推送',
+        description: '行业雷达每日推送',
       },
       {
         radarType: 'compliance',

@@ -62,12 +62,12 @@ development_status:
   epic-4: in-progress  # 自动转换：第一个story创建时
   4-1-configure-compliance-radar-information-sources: review  # ✅ 完成 - Phase 1-8全部完成，数据库迁移、种子数据、测试、文档全部就绪
   4-2-compliance-risk-analysis-and-playbook-generation: done  # ✅ 完成 - 代码验证通过(2026-01-30)，13/14 HIGH问题已实现，所有AC和Phase完成，质量评分9.5/10，详见STORY_4.2_VERIFICATION_REPORT.md
-  4-3-compliance-radar-frontend-display-and-playbook: backlog
+  4-3-compliance-radar-frontend-display-and-playbook: done  # ✅ 完成 - Phase 1-6全部完成，所有核心功能已实现，Code Review通过(2026-01-30)，9个问题已修复，编译通过
   epic-4-retrospective: optional
 
   # Epic 5: 用户配置与推送管理 (4 stories)
-  epic-5: backlog
-  5-1-configure-focus-technical-areas: backlog
+  epic-5: in-progress  # 自动转换：第一个story创建时
+  5-1-configure-focus-technical-areas: review  # ✅ Phase 1-4完成 - 后端API+前端页面实现，42个测试(39通过)
   5-2-configure-focus-peer-institutions: backlog
   5-3-push-preference-settings: backlog
   5-4-push-history-viewing: backlog
