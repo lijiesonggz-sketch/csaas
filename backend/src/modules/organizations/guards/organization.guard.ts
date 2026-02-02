@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Inject } from '@nestjs/common'
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Inject,
+} from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { OrganizationMember } from '../../../database/entities/organization-member.entity'
@@ -42,7 +48,7 @@ export class OrganizationGuard implements CanActivate {
 
     // Extract organizationId from multiple possible sources
     // Priority: query/body params (explicit orgId) > route params (could be entity ID)
-    const orgId =
+    let orgId =
       request.query?.organizationId ||
       request.body?.organizationId ||
       request.params.organizationId ||
@@ -57,9 +63,26 @@ export class OrganizationGuard implements CanActivate {
       bodyOrganizationId: request.body?.organizationId,
     })
 
-    // If no organizationId in request, return false
+    // If no organizationId in request, get user's organization (MVP: user has only one org)
     if (!orgId) {
-      console.log('[OrganizationGuard] No orgId found, returning false')
+      console.log('[OrganizationGuard] No orgId in request, fetching user organization')
+      const userMembership = await this.memberRepository.findOne({
+        where: { userId: user.userId },
+      })
+
+      if (!userMembership) {
+        console.log('[OrganizationGuard] User has no organization membership')
+        return false
+      }
+
+      orgId = userMembership.organizationId
+      console.log('[OrganizationGuard] Auto-detected orgId:', orgId)
+    }
+
+    // Validate UUID format to prevent database errors
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(orgId)) {
+      console.log('[OrganizationGuard] Invalid UUID format:', orgId)
       return false
     }
 
