@@ -86,11 +86,7 @@ export class TagService {
     const results: Tag[] = []
 
     for (const tagData of tags) {
-      const tag = await this.findOrCreate(
-        tagData.name,
-        tagData.tagType,
-        tagData.category,
-      )
+      const tag = await this.findOrCreate(tagData.name, tagData.tagType, tagData.category)
       results.push(tag)
     }
 

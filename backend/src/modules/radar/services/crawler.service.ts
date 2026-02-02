@@ -32,12 +32,13 @@ export class CrawlerService {
   ]
 
   // ContentType映射：RadarSource的type -> RawContent的contentType
-  private readonly CONTENT_TYPE_MAPPING: Record<string, 'article' | 'recruitment' | 'conference'> = {
-    'website': 'article',
-    'wechat': 'article',
-    'recruitment': 'recruitment',
-    'conference': 'conference',
-  }
+  private readonly CONTENT_TYPE_MAPPING: Record<string, 'article' | 'recruitment' | 'conference'> =
+    {
+      website: 'article',
+      wechat: 'article',
+      recruitment: 'recruitment',
+      conference: 'conference',
+    }
 
   constructor(
     private readonly rawContentService: RawContentService,
@@ -83,10 +84,10 @@ export class CrawlerService {
             request.headers = {
               ...request.headers,
               'User-Agent': this.getRandomUserAgent(),
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+              Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
               'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
               'Accept-Encoding': 'gzip, deflate, br',
-              'Connection': 'keep-alive',
+              Connection: 'keep-alive',
               'Upgrade-Insecure-Requests': '1',
             }
           },
@@ -154,13 +155,7 @@ export class CrawlerService {
       this.logger.error(`Crawl failed: ${source} - ${url}`, error.stack)
 
       // 记录失败日志（传递正确的重试次数）
-      await this.crawlerLogService.logFailure(
-        source,
-        category,
-        url,
-        error.message,
-        retryCount,
-      )
+      await this.crawlerLogService.logFailure(source, category, url, error.message, retryCount)
 
       throw error
     }
@@ -184,10 +179,10 @@ export class CrawlerService {
           request.headers = {
             ...request.headers,
             'User-Agent': this.getRandomUserAgent(),
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
             'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
+            Connection: 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
           }
         },
@@ -214,7 +209,7 @@ export class CrawlerService {
     author: string | null
   } {
     // 提取标题 - 多种选择器
-    let title =
+    const title =
       $('h1').first().text().trim() ||
       $('title').text().trim() ||
       $('meta[property="og:title"]').attr('content') ||
@@ -300,10 +295,7 @@ export class CrawlerService {
    * 解析招聘职位信息（Story 3.1）
    * 从职位描述中提取技术栈，推断同业技术使用情况
    */
-  async parseRecruitmentJob(
-    html: string,
-    source: string,
-  ): Promise<Partial<RawContent>> {
+  async parseRecruitmentJob(html: string, source: string): Promise<Partial<RawContent>> {
     try {
       const $ = cheerio.load(html)
 
@@ -357,10 +349,7 @@ export class CrawlerService {
         status: 'pending',
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to parse recruitment job from ${source}:`,
-        error.stack,
-      )
+      this.logger.error(`Failed to parse recruitment job from ${source}:`, error.stack)
       throw new Error(`Recruitment parsing failed: ${error.message}`)
     }
   }
@@ -373,7 +362,8 @@ export class CrawlerService {
     const keywords: string[] = []
 
     // 正则匹配：\"熟悉XXX\"、\"精通XXX\"、\"掌握XXX\"、\"了解XXX\"
-    const regex = /(?:熟悉|精通|掌握|了解|使用|开发|应用)[\s:：]*([^。；\n]+?)(?=(?:熟悉|精通|掌握|了解|使用|开发|应用|。|；|\n|$))/g
+    const regex =
+      /(?:熟悉|精通|掌握|了解|使用|开发|应用)[\s:：]*([^。；\n]+?)(?=(?:熟悉|精通|掌握|了解|使用|开发|应用|。|；|\n|$))/g
     let match: RegExpExecArray | null
 
     while ((match = regex.exec(text)) !== null) {
@@ -381,16 +371,30 @@ export class CrawlerService {
       // 分割技术词汇（支持、，/ 等分隔符）
       const techs = content
         .split(/[、,，/\s]+/)
-        .map(t => t.trim())
-        .filter(t => {
+        .map((t) => t.trim())
+        .filter((t) => {
           // 过滤：空串、过长内容、纯数字、常见无用词
           if (!t || t.length === 0 || t.length > MAX_TECH_KEYWORD_LENGTH) return false
           if (/^\d+$/.test(t)) return false
           const excludeWords = [
-            '等', '和', '或', '的', '与', '及', '要求', '如下', '以下',
-            '维护', '完成', '业绩', '指标', '沟通', '能力', '学历',
+            '等',
+            '和',
+            '或',
+            '的',
+            '与',
+            '及',
+            '要求',
+            '如下',
+            '以下',
+            '维护',
+            '完成',
+            '业绩',
+            '指标',
+            '沟通',
+            '能力',
+            '学历',
           ]
-          if (excludeWords.some(word => t.includes(word))) return false
+          if (excludeWords.some((word) => t.includes(word))) return false
           // 过滤过短的词（很可能不是技术名词）
           if (t.length < MIN_TECH_KEYWORD_LENGTH) return false
           return true
@@ -409,7 +413,10 @@ export class CrawlerService {
   /**
    * 从文章内容中提取同业机构信息（Story 3.1）
    */
-  extractPeerInfo(content: string, source: string): {
+  extractPeerInfo(
+    content: string,
+    source: string,
+  ): {
     peerName?: string
     estimatedCost?: string
     implementationPeriod?: string
@@ -428,9 +435,7 @@ export class CrawlerService {
 
     // 提取投入成本
     // 匹配：\"投入120万\"、\"预算约80万\"、\"成本约为50-100万\"
-    const costMatch = content.match(
-      /(?:投入|预算|花费|成本)[\s约为:：]*([0-9.-]+)\s*万/,
-    )
+    const costMatch = content.match(/(?:投入|预算|花费|成本)[\s约为:：]*([0-9.-]+)\s*万/)
     if (costMatch) {
       result.estimatedCost = `${costMatch[1]}万`
     }
@@ -449,7 +454,7 @@ export class CrawlerService {
     for (const keyword of effectKeywords) {
       // 匹配包含效果关键词的句子（限制长度避免过长）
       const effectMatch = content.match(
-        new RegExp(`${keyword}[^。；\n]{0,${MAX_EFFECT_DESCRIPTION_LENGTH}}`)
+        new RegExp(`${keyword}[^。；\n]{0,${MAX_EFFECT_DESCRIPTION_LENGTH}}`),
       )
       if (effectMatch) {
         result.technicalEffect = effectMatch[0].trim()

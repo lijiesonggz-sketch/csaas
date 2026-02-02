@@ -279,9 +279,7 @@ describe('Compliance ROI Calculation (Task 3.1)', () => {
       }
 
       // Act & Assert
-      expect(() => calculateComplianceROI(solution)).toThrow(
-        'Invalid estimated cost',
-      )
+      expect(() => calculateComplianceROI(solution)).toThrow('Invalid estimated cost')
     })
 
     it('should throw error for negative cost', () => {
@@ -292,9 +290,7 @@ describe('Compliance ROI Calculation (Task 3.1)', () => {
       }
 
       // Act & Assert
-      expect(() => calculateComplianceROI(solution)).toThrow(
-        'Invalid estimated cost',
-      )
+      expect(() => calculateComplianceROI(solution)).toThrow('Invalid estimated cost')
     })
 
     it('should handle negative benefit (loss)', () => {

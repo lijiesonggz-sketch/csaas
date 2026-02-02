@@ -9,9 +9,7 @@ import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm'
  * - implementationPeriod: 实施周期
  * - technicalEffect: 技术效果
  */
-export class AddIndustryFieldsToAnalyzedContent1738300000000
-  implements MigrationInterface
-{
+export class AddIndustryFieldsToAnalyzedContent1738300000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 添加技术实践描述字段
     await queryRunner.addColumn(

@@ -60,8 +60,7 @@ export class PlaybookGenerationProcessor extends WorkerHost {
         throw new Error(`RawContent not found: ${contentId}`)
       }
 
-      const analyzedContent =
-        await this.analyzedContentService.findById(analyzedContentId)
+      const analyzedContent = await this.analyzedContentService.findById(analyzedContentId)
       if (!analyzedContent) {
         throw new Error(`AnalyzedContent not found: ${analyzedContentId}`)
       }
@@ -83,10 +82,7 @@ export class PlaybookGenerationProcessor extends WorkerHost {
 
       try {
         // 4. 调用AI生成剧本
-        await this.aiAnalysisService.generateCompliancePlaybook(
-          analyzedContent,
-          rawContent,
-        )
+        await this.aiAnalysisService.generateCompliancePlaybook(analyzedContent, rawContent)
 
         // 5. 更新状态为ready
         await this.updatePlaybookStatus(contentId, 'ready')
@@ -96,14 +92,9 @@ export class PlaybookGenerationProcessor extends WorkerHost {
         throw error
       }
 
-      this.logger.log(
-        `合规剧本生成成功: contentId=${contentId}, pushId=${radarPush.id}`,
-      )
+      this.logger.log(`合规剧本生成成功: contentId=${contentId}, pushId=${radarPush.id}`)
     } catch (error) {
-      this.logger.error(
-        `合规剧本生成失败: contentId=${contentId}`,
-        error.stack,
-      )
+      this.logger.error(`合规剧本生成失败: contentId=${contentId}`, error.stack)
 
       // 不抛出错误，避免无限重试
       // (错误已在内部处理，状态已更新为failed)
@@ -143,10 +134,7 @@ export class PlaybookGenerationProcessor extends WorkerHost {
   @OnWorkerEvent('failed')
   onFailed(job: Job<PlaybookGenerationJobData>, error: Error) {
     const { contentId } = job.data
-    this.logger.error(
-      `剧本生成任务失败: contentId=${contentId}`,
-      error.stack,
-    )
+    this.logger.error(`剧本生成任务失败: contentId=${contentId}`, error.stack)
   }
 }
 

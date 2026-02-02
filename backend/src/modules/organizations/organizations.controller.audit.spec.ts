@@ -4,6 +4,8 @@ import { OrganizationsService } from './organizations.service'
 import { OrganizationAutoCreateService } from './organization-auto-create.service'
 import { WeaknessSnapshotService } from './weakness-snapshot.service'
 import { AuditAction } from '../../database/entities/audit-log.entity'
+import { OrganizationGuard } from './guards/organization.guard'
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 
 // Mock AuditLogService
 interface AuditLogService {
@@ -37,6 +39,14 @@ describe('OrganizationsController - Audit Logging', () => {
     log: jest.fn(),
   }
 
+  const mockOrganizationGuard = {
+    canActivate: jest.fn().mockResolvedValue(true),
+  }
+
+  const mockJwtAuthGuard = {
+    canActivate: jest.fn().mockResolvedValue(true),
+  }
+
   const mockRequest = {
     user: { id: 'user-123', sub: 'user-123' },
     headers: { 'user-agent': 'test-agent' },
@@ -65,7 +75,12 @@ describe('OrganizationsController - Audit Logging', () => {
           useValue: mockAuditLogService,
         },
       ],
-    }).compile()
+    })
+      .overrideGuard(OrganizationGuard)
+      .useValue(mockOrganizationGuard)
+      .overrideGuard(JwtAuthGuard)
+      .useValue(mockJwtAuthGuard)
+      .compile()
 
     controller = module.get<OrganizationsController>(OrganizationsController)
     organizationsService = module.get<OrganizationsService>(OrganizationsService)

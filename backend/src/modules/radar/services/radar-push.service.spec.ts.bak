@@ -1,0 +1,394 @@
+import 'reflect-metadata'
+import { Test, TestingModule } from '@nestjs/testing'
+import { getRepositoryToken } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { RadarPushService } from './radar-push.service'
+import { RadarPush } from '../../../database/entities/radar-push.entity'
+import { QueryPushHistoryDto } from '../dto/push-history.dto'
+
+describe('RadarPushService', () => {
+  let service: RadarPushService
+  let repository: Repository<RadarPush>
+
+  const mockTenantId = 'tenant-123'
+  const mockOrgId = 'org-123'
+
+  const mockRepository = {
+    createQueryBuilder: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+    count: jest.fn(),
+  }
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        RadarPushService,
+        {
+          provide: getRepositoryToken(RadarPush),
+          useValue: mockRepository,
+        },
+      ],
+    }).compile()
+
+    service = module.get<RadarPushService>(RadarPushService)
+    repository = module.get<Repository<RadarPush>>(getRepositoryToken(RadarPush))
+
+    // Reset mocks
+    jest.clearAllMocks()
+  })
+
+  describe('getPushHistory', () => {
+    it('should return push history with pagination', async () => {
+      const query: QueryPushHistoryDto = {
+        page: 1,
+        limit: 20,
+      }
+
+      const mockPushes = [
+        {
+          id: 'push-1',
+          radarType: 'tech',
+          relevanceScore: 0.95,
+          sentAt: new Date('2024-01-15'),
+          isRead: false,
+          readAt: null,
+          analyzedContent: {
+            aiSummary: 'Test summary',
+            categories: ['cloud'],
+            rawContent: {
+              title: 'Test Title',
+              url: 'https://example.com',
+              source: 'Test Source',
+            },
+          },
+        },
+      ]
+
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([mockPushes, 1]),
+      }
+
+      mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder)
+
+      const result = await service.getPushHistory(mockTenantId, mockOrgId, query)
+
+      expect(result.data).toHaveLength(1)
+      expect(result.meta.total).toBe(1)
+      expect(result.meta.page).toBe(1)
+      expect(result.meta.limit).toBe(20)
+      expect(result.meta.totalPages).toBe(1)
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('push.organizationId = :organizationId', {
+        organizationId,
+      })
+    })
+
+    it('should filter by radar type', async () => {
+      const organizationId = 'org-123'
+      const query: QueryPushHistoryDto = {
+        radarType: 'tech',
+        page: 1,
+        limit: 20,
+      }
+
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      }
+
+      mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder)
+
+      await service.getPushHistory(organizationId, query)
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('push.radarType = :radarType', {
+        radarType: 'tech',
+      })
+    })
+
+    it('should filter by time range (7d)', async () => {
+      const organizationId = 'org-123'
+      const query: QueryPushHistoryDto = {
+        timeRange: '7d',
+        page: 1,
+        limit: 20,
+      }
+
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      }
+
+      mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder)
+
+      await service.getPushHistory(organizationId, query)
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        "push.sentAt >= NOW() - INTERVAL '7 days'",
+      )
+    })
+
+    it('should filter by custom date range', async () => {
+      const organizationId = 'org-123'
+      const query: QueryPushHistoryDto = {
+        startDate: '2024-01-01T00:00:00.000Z',
+        endDate: '2024-12-31T23:59:59.999Z',
+        page: 1,
+        limit: 20,
+      }
+
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      }
+
+      mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder)
+
+      await service.getPushHistory(organizationId, query)
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('push.sentAt >= :startDate', {
+        startDate: query.startDate,
+      })
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('push.sentAt <= :endDate', {
+        endDate: query.endDate,
+      })
+    })
+
+    it('should filter by relevance level (high)', async () => {
+      const organizationId = 'org-123'
+      const query: QueryPushHistoryDto = {
+        relevance: 'high',
+        page: 1,
+        limit: 20,
+      }
+
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      }
+
+      mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder)
+
+      await service.getPushHistory(organizationId, query)
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('push.relevanceScore >= :minScore', {
+        minScore: 0.9,
+      })
+    })
+
+    it('should filter by relevance level (medium)', async () => {
+      const organizationId = 'org-123'
+      const query: QueryPushHistoryDto = {
+        relevance: 'medium',
+        page: 1,
+        limit: 20,
+      }
+
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      }
+
+      mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder)
+
+      await service.getPushHistory(organizationId, query)
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'push.relevanceScore >= :minScore AND push.relevanceScore < :maxScore',
+        { minScore: 0.7, maxScore: 0.9 },
+      )
+    })
+
+    it('should filter by relevance level (low)', async () => {
+      const organizationId = 'org-123'
+      const query: QueryPushHistoryDto = {
+        relevance: 'low',
+        page: 1,
+        limit: 20,
+      }
+
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      }
+
+      mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder)
+
+      await service.getPushHistory(organizationId, query)
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('push.relevanceScore < :maxScore', {
+        maxScore: 0.7,
+      })
+    })
+
+    it('should apply pagination correctly', async () => {
+      const organizationId = 'org-123'
+      const query: QueryPushHistoryDto = {
+        page: 3,
+        limit: 10,
+      }
+
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      }
+
+      mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder)
+
+      await service.getPushHistory(organizationId, query)
+
+      expect(mockQueryBuilder.skip).toHaveBeenCalledWith(20) // (3-1) * 10
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(10)
+    })
+
+    it('should only return sent pushes', async () => {
+      const organizationId = 'org-123'
+      const query: QueryPushHistoryDto = {
+        page: 1,
+        limit: 20,
+      }
+
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      }
+
+      mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder)
+
+      await service.getPushHistory(organizationId, query)
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith("push.status = 'sent'")
+    })
+  })
+
+  describe('markAsRead', () => {
+    it('should mark push as read', async () => {
+      const pushId = '12345678-1234-1234-1234-123456789abc'
+      const userId = 'user-456'
+      const organizationId = 'org-123'
+
+      const mockPush = {
+        id: pushId,
+        isRead: false,
+        readAt: null,
+      }
+
+      mockRepository.findOne.mockResolvedValue(mockPush)
+      mockRepository.update.mockResolvedValue({ affected: 1 })
+
+      await service.markAsRead(pushId, userId, organizationId)
+
+      expect(mockRepository.findOne).toHaveBeenCalledWith({
+        where: { id: pushId, organizationId },
+      })
+      expect(mockRepository.update).toHaveBeenCalledWith(pushId, {
+        isRead: true,
+        readAt: expect.any(Date),
+      })
+    })
+
+    it('should throw error if push not found', async () => {
+      const pushId = '12345678-1234-1234-1234-123456789abc'
+      const userId = 'user-456'
+      const organizationId = 'org-123'
+
+      mockRepository.findOne.mockResolvedValue(null)
+
+      await expect(service.markAsRead(pushId, userId, organizationId)).rejects.toThrow(
+        'Push not found',
+      )
+    })
+
+    it('should not update if already read', async () => {
+      const pushId = '12345678-1234-1234-1234-123456789abc'
+      const userId = 'user-456'
+      const organizationId = 'org-123'
+
+      const mockPush = {
+        id: pushId,
+        isRead: true,
+        readAt: new Date('2024-01-15'),
+      }
+
+      mockRepository.findOne.mockResolvedValue(mockPush)
+
+      await service.markAsRead(pushId, userId, organizationId)
+
+      expect(mockRepository.update).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('getUnreadCount', () => {
+    it('should return unread count for organization', async () => {
+      const organizationId = 'org-123'
+
+      mockRepository.count.mockResolvedValue(5)
+
+      const count = await service.getUnreadCount(organizationId)
+
+      expect(count).toBe(5)
+      expect(mockRepository.count).toHaveBeenCalledWith({
+        where: {
+          organizationId,
+          status: 'sent',
+          isRead: false,
+        },
+      })
+    })
+
+    it('should return 0 if no unread pushes', async () => {
+      const organizationId = 'org-123'
+
+      mockRepository.count.mockResolvedValue(0)
+
+      const count = await service.getUnreadCount(organizationId)
+
+      expect(count).toBe(0)
+    })
+  })
+})

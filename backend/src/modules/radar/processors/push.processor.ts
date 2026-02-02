@@ -173,10 +173,7 @@ export class PushProcessor extends WorkerHost {
     if (!content.roiAnalysis && push.radarType === 'tech') {
       try {
         const weaknessCategory = matchedWeaknesses[0] // 取第一个匹配的薄弱项
-        content.roiAnalysis = await this.aiAnalysisService.analyzeROI(
-          content.id,
-          weaknessCategory,
-        )
+        content.roiAnalysis = await this.aiAnalysisService.analyzeROI(content.id, weaknessCategory)
         this.logger.log(`ROI analysis completed for push ${push.id}`)
       } catch (error) {
         this.logger.warn(`ROI analysis failed for push ${push.id}`, error.message)
@@ -211,10 +208,11 @@ export class PushProcessor extends WorkerHost {
       eventData.estimatedCost = content.estimatedCost // 投入成本
       eventData.implementationPeriod = content.implementationPeriod // 实施周期
       eventData.technicalEffect = content.technicalEffect // 技术效果
+      eventData.matchedPeers = push.matchedPeers || [] // Story 5.2 Task 2.2: 匹配的关注同业列表
 
       // Code Review Fix #6: 添加行业雷达字段的调试日志
       this.logger.debug(
-        `Industry radar fields for push ${push.id}: peerName=${eventData.peerName}, contentType=${eventData.contentType}, practiceDescription=${eventData.practiceDescription?.substring(0, 50)}...`,
+        `Industry radar fields for push ${push.id}: peerName=${eventData.peerName}, contentType=${eventData.contentType}, matchedPeers=${eventData.matchedPeers.join(', ')}, practiceDescription=${eventData.practiceDescription?.substring(0, 50)}...`,
       )
     }
 

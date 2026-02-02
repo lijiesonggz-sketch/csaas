@@ -6,24 +6,31 @@ import {
   Body,
   Param,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { TenantGuard } from '../../organizations/guards/tenant.guard';
+import { OrganizationGuard } from '../../organizations/guards/organization.guard';
+import { AuditInterceptor } from '../../../common/interceptors/audit.interceptor';
 import { WatchedTopicService } from '../services/watched-topic.service';
 import {
   CreateWatchedTopicDto,
   WatchedTopicResponseDto,
 } from '../dto/watched-topic.dto';
 import { WatchedTopic } from '../../../database/entities/watched-topic.entity';
-import { OrganizationGuard } from '../../organizations/guards/organization.guard';
 import { CurrentOrg } from '../../organizations/decorators/current-org.decorator';
+import { CurrentTenant } from '../../organizations/decorators/current-tenant.decorator';
 
 /**
  * Controller for managing watched topics
  *
  * @story Story 5.1 - Configure Focus Technical Areas
+ * @story Story 6.1A - Multi-tenant API/Service Layer Isolation
+ * @story Story 6.1B - Database Layer RLS & Audit Layer
  */
 @Controller('radar/watched-topics')
-@UseGuards(JwtAuthGuard, OrganizationGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, OrganizationGuard)
+@UseInterceptors(AuditInterceptor)
 export class WatchedTopicController {
   constructor(private readonly service: WatchedTopicService) {}
 
@@ -34,10 +41,11 @@ export class WatchedTopicController {
    */
   @Post()
   async create(
+    @CurrentTenant() tenantId: string,
     @CurrentOrg() orgId: string,
     @Body() dto: CreateWatchedTopicDto,
   ): Promise<WatchedTopicResponseDto> {
-    const topic = await this.service.create(orgId, dto);
+    const topic = await this.service.create(tenantId, orgId, dto);
     return this.toResponseDto(topic);
   }
 
@@ -48,9 +56,10 @@ export class WatchedTopicController {
    */
   @Get()
   async findAll(
+    @CurrentTenant() tenantId: string,
     @CurrentOrg() orgId: string,
   ): Promise<WatchedTopicResponseDto[]> {
-    const topics = await this.service.findAll(orgId);
+    const topics = await this.service.findAll(tenantId, orgId);
     return topics.map((t) => this.toResponseDto(t));
   }
 
@@ -62,9 +71,10 @@ export class WatchedTopicController {
   @Delete(':id')
   async delete(
     @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
     @CurrentOrg() orgId: string,
   ): Promise<{ message: string }> {
-    await this.service.delete(id, orgId);
+    await this.service.delete(id, tenantId, orgId);
     return { message: '已取消关注' };
   }
 

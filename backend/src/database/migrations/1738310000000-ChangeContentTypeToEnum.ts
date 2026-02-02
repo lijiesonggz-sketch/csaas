@@ -7,9 +7,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  * Changes contentType column from varchar(50) to enum type
  * with values: 'article', 'recruitment', 'conference'
  */
-export class ChangeContentTypeToEnum1738310000000
-  implements MigrationInterface
-{
+export class ChangeContentTypeToEnum1738310000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create enum type
     await queryRunner.query(`

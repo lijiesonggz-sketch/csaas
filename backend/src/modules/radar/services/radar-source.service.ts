@@ -181,11 +181,7 @@ export class RadarSourceService {
    * @param status - 爬取状态
    * @param error - 错误信息（可选）
    */
-  async updateCrawlStatus(
-    id: string,
-    status: 'success' | 'failed',
-    error?: string,
-  ): Promise<void> {
+  async updateCrawlStatus(id: string, status: 'success' | 'failed', error?: string): Promise<void> {
     const source = await this.findById(id)
 
     source.lastCrawledAt = new Date()
@@ -193,9 +189,7 @@ export class RadarSourceService {
     source.lastCrawlError = error || null
 
     await this.radarSourceRepository.save(source)
-    this.logger.log(
-      `Updated crawl status for ${source.source} (${id}): ${status}`,
-    )
+    this.logger.log(`Updated crawl status for ${source.source} (${id}): ${status}`)
   }
 
   /**
@@ -273,18 +267,14 @@ export class RadarSourceService {
       // 更新最后爬取状态为成功
       await this.updateCrawlStatus(source.id, 'success')
 
-      this.logger.log(
-        `Test crawl successful for ${source.source}: ${result.title}`,
-      )
+      this.logger.log(`Test crawl successful for ${source.source}: ${result.title}`)
 
       return result
     } catch (error) {
       // 更新最后爬取状态为失败
       await this.updateCrawlStatus(source.id, 'failed', error.message)
 
-      this.logger.error(
-        `Test crawl failed for ${source.source}: ${error.message}`,
-      )
+      this.logger.error(`Test crawl failed for ${source.source}: ${error.message}`)
 
       throw error
     }

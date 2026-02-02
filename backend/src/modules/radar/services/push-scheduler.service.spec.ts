@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm'
 import { Repository, LessThanOrEqual } from 'typeorm'
 import { PushSchedulerService } from './push-scheduler.service'
 import { RadarPush } from '../../../database/entities/radar-push.entity'
+import { PushPreference } from '../../../database/entities/push-preference.entity'
 
 /**
  * PushSchedulerService 单元测试
@@ -19,6 +20,7 @@ import { RadarPush } from '../../../database/entities/radar-push.entity'
 describe('PushSchedulerService', () => {
   let service: PushSchedulerService
   let radarPushRepo: Repository<RadarPush>
+  let pushPreferenceRepo: Repository<PushPreference>
 
   // Mock数据
   const mockPush: Partial<RadarPush> = {
@@ -57,13 +59,18 @@ describe('PushSchedulerService', () => {
             save: jest.fn(),
           },
         },
+        {
+          provide: getRepositoryToken(PushPreference),
+          useValue: {
+            findOne: jest.fn(),
+          },
+        },
       ],
     }).compile()
 
     service = module.get<PushSchedulerService>(PushSchedulerService)
-    radarPushRepo = module.get<Repository<RadarPush>>(
-      getRepositoryToken(RadarPush),
-    )
+    radarPushRepo = module.get<Repository<RadarPush>>(getRepositoryToken(RadarPush))
+    pushPreferenceRepo = module.get<Repository<PushPreference>>(getRepositoryToken(PushPreference))
   })
 
   afterEach(() => {
@@ -105,7 +112,7 @@ describe('PushSchedulerService', () => {
       const mockPushes = [
         { ...mockPush, id: 'push-1', priorityLevel: 'high', relevanceScore: 0.95 },
         { ...mockPush, id: 'push-2', priorityLevel: 'high', relevanceScore: 0.92 },
-        { ...mockPush, id: 'push-3', priorityLevel: 'medium', relevanceScore: 0.90 },
+        { ...mockPush, id: 'push-3', priorityLevel: 'medium', relevanceScore: 0.9 },
       ] as RadarPush[]
 
       jest.spyOn(radarPushRepo, 'find').mockResolvedValue(mockPushes)
@@ -298,11 +305,12 @@ describe('PushSchedulerService', () => {
       const startDate = new Date('2026-01-01T00:00:00Z')
       const endDate = new Date('2026-01-31T23:59:59Z')
 
-      jest.spyOn(radarPushRepo, 'count')
+      jest
+        .spyOn(radarPushRepo, 'count')
         .mockResolvedValueOnce(10) // total
-        .mockResolvedValueOnce(7)  // sent
-        .mockResolvedValueOnce(2)  // failed
-        .mockResolvedValueOnce(1)  // pending
+        .mockResolvedValueOnce(7) // sent
+        .mockResolvedValueOnce(2) // failed
+        .mockResolvedValueOnce(1) // pending
 
       // Act
       const result = await service.getPushStats(orgId, radarType, startDate, endDate)
@@ -389,6 +397,163 @@ describe('PushSchedulerService', () => {
         failed: 0,
         pending: 0,
       })
+    })
+  })
+
+  describe('isWithinPushWindow - 推送时段检查 (Story 5.3)', () => {
+    it('应该在时段内允许推送 (09:00-18:00, 当前12:00)', () => {
+      const preference = {
+        pushStartTime: '09:00',
+        pushEndTime: '18:00',
+      } as PushPreference
+
+      const now = new Date('2026-01-15T12:00:00')
+      expect(service.isWithinPushWindow(preference, now)).toBe(true)
+    })
+
+    it('应该在时段外拒绝推送 (09:00-18:00, 当前20:00)', () => {
+      const preference = {
+        pushStartTime: '09:00',
+        pushEndTime: '18:00',
+      } as PushPreference
+
+      const now = new Date('2026-01-15T20:00:00')
+      expect(service.isWithinPushWindow(preference, now)).toBe(false)
+    })
+
+    it('应该支持跨午夜时段 (22:00-08:00, 当前23:00)', () => {
+      const preference = {
+        pushStartTime: '22:00',
+        pushEndTime: '08:00',
+      } as PushPreference
+
+      const now = new Date('2026-01-15T23:00:00')
+      expect(service.isWithinPushWindow(preference, now)).toBe(true)
+    })
+
+    it('应该在跨午夜时段外拒绝推送 (22:00-08:00, 当前12:00)', () => {
+      const preference = {
+        pushStartTime: '22:00',
+        pushEndTime: '08:00',
+      } as PushPreference
+
+      const now = new Date('2026-01-15T12:00:00')
+      expect(service.isWithinPushWindow(preference, now)).toBe(false)
+    })
+
+    it('当时段配置为空时应该默认允许推送', () => {
+      const preference = {
+        pushStartTime: '',
+        pushEndTime: '',
+      } as PushPreference
+
+      const now = new Date('2026-01-15T12:00:00')
+      expect(service.isWithinPushWindow(preference, now)).toBe(true)
+    })
+  })
+
+  describe('checkPushLimitsAndFilter - 推送限制检查 (Story 5.3)', () => {
+    it('应该在时段内允许推送', async () => {
+      const preference = {
+        pushStartTime: '09:00',
+        pushEndTime: '18:00',
+        dailyPushLimit: 5,
+      } as PushPreference
+
+      jest.spyOn(pushPreferenceRepo, 'findOne').mockResolvedValue(preference)
+      jest.spyOn(radarPushRepo, 'count').mockResolvedValue(0)
+
+      const pushes = [{ id: 'push-1' }, { id: 'push-2' }] as RadarPush[]
+      const now = new Date('2026-01-15T12:00:00')
+
+      const result = await service.checkPushLimitsAndFilter(pushes, 'org-1', 'tech', now)
+      expect(result).toHaveLength(2)
+    })
+
+    it('应该在时段外延迟推送并返回空数组', async () => {
+      const preference = {
+        pushStartTime: '09:00',
+        pushEndTime: '18:00',
+        dailyPushLimit: 5,
+      } as PushPreference
+
+      jest.spyOn(pushPreferenceRepo, 'findOne').mockResolvedValue(preference)
+      jest.spyOn(radarPushRepo, 'update').mockResolvedValue({ affected: 1 } as any)
+
+      const pushes = [{ id: 'push-1' }] as RadarPush[]
+      const now = new Date('2026-01-15T20:00:00')
+
+      const result = await service.checkPushLimitsAndFilter(pushes, 'org-1', 'tech', now)
+      expect(result).toHaveLength(0)
+      expect(radarPushRepo.update).toHaveBeenCalled()
+    })
+
+    it('合规雷达应该忽略时段限制', async () => {
+      const preference = {
+        pushStartTime: '09:00',
+        pushEndTime: '18:00',
+        dailyPushLimit: 5,
+      } as PushPreference
+
+      jest.spyOn(pushPreferenceRepo, 'findOne').mockResolvedValue(preference)
+      jest.spyOn(radarPushRepo, 'count').mockResolvedValue(0)
+
+      const pushes = [{ id: 'push-1' }] as RadarPush[]
+      const now = new Date('2026-01-15T20:00:00') // 时段外
+
+      const result = await service.checkPushLimitsAndFilter(pushes, 'org-1', 'compliance', now)
+      expect(result).toHaveLength(1)
+    })
+
+    it('应该在达到上限时延迟推送', async () => {
+      const preference = {
+        pushStartTime: '09:00',
+        pushEndTime: '18:00',
+        dailyPushLimit: 5,
+      } as PushPreference
+
+      jest.spyOn(pushPreferenceRepo, 'findOne').mockResolvedValue(preference)
+      jest.spyOn(radarPushRepo, 'count').mockResolvedValue(5) // 已达到上限
+      jest.spyOn(radarPushRepo, 'update').mockResolvedValue({ affected: 1 } as any)
+
+      const pushes = [{ id: 'push-1' }] as RadarPush[]
+      const now = new Date('2026-01-15T12:00:00')
+
+      const result = await service.checkPushLimitsAndFilter(pushes, 'org-1', 'tech', now)
+      expect(result).toHaveLength(0)
+    })
+
+    it('应该限制推送数量在剩余额度内', async () => {
+      const preference = {
+        pushStartTime: '09:00',
+        pushEndTime: '18:00',
+        dailyPushLimit: 5,
+      } as PushPreference
+
+      jest.spyOn(pushPreferenceRepo, 'findOne').mockResolvedValue(preference)
+      jest.spyOn(radarPushRepo, 'count').mockResolvedValue(3) // 已发送3条，剩余2条
+      jest.spyOn(radarPushRepo, 'update').mockResolvedValue({ affected: 1 } as any)
+
+      const pushes = [
+        { id: 'push-1' },
+        { id: 'push-2' },
+        { id: 'push-3' },
+        { id: 'push-4' },
+      ] as RadarPush[]
+      const now = new Date('2026-01-15T12:00:00')
+
+      const result = await service.checkPushLimitsAndFilter(pushes, 'org-1', 'tech', now)
+      expect(result).toHaveLength(2) // 只允许2条
+    })
+
+    it('当没有配置时应该使用默认值允许推送', async () => {
+      jest.spyOn(pushPreferenceRepo, 'findOne').mockResolvedValue(null)
+
+      const pushes = [{ id: 'push-1' }] as RadarPush[]
+      const now = new Date('2026-01-15T12:00:00')
+
+      const result = await service.checkPushLimitsAndFilter(pushes, 'org-1', 'tech', now)
+      expect(result).toHaveLength(1)
     })
   })
 })

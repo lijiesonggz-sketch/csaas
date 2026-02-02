@@ -8,9 +8,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  *
  * Story 1.4 - AC 6: 引导完成和雷达激活
  */
-export class AddRadarActivatedColumn1768700000000
-  implements MigrationInterface
-{
+export class AddRadarActivatedColumn1768700000000 implements MigrationInterface {
   name = 'AddRadarActivatedColumn1768700000000'
 
   public async up(queryRunner: QueryRunner): Promise<void> {

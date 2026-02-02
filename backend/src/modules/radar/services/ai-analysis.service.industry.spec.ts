@@ -56,8 +56,7 @@ describe('AIAnalysisService - Industry Radar (Story 3.2)', () => {
         '杭州银行于2025年启动容器化改造项目,采用Kubernetes作为容器编排平台,实现应用的快速部署和弹性伸缩。项目分三期实施,首期完成核心业务系统容器化,建立CI/CD流水线。',
       estimatedCost: '120万',
       implementationPeriod: '6个月',
-      technicalEffect:
-        '应用部署时间从2小时缩短到10分钟,运维效率提升60%,资源利用率提升40%',
+      technicalEffect: '应用部署时间从2小时缩短到10分钟,运维效率提升60%,资源利用率提升40%',
       categories: ['云原生', '容器化', 'DevOps'],
       keywords: ['Kubernetes', 'Docker', '微服务', 'CI/CD'],
       tags: ['云原生', '杭州银行', '容器化'],
@@ -86,8 +85,7 @@ describe('AIAnalysisService - Industry Radar (Story 3.2)', () => {
       '杭州银行于2025年启动容器化改造项目,采用Kubernetes作为容器编排平台,实现应用的快速部署和弹性伸缩。项目分三期实施,首期完成核心业务系统容器化,建立CI/CD流水线。',
     estimatedCost: '120万',
     implementationPeriod: '6个月',
-    technicalEffect:
-      '应用部署时间从2小时缩短到10分钟,运维效率提升60%,资源利用率提升40%',
+    technicalEffect: '应用部署时间从2小时缩短到10分钟,运维效率提升60%,资源利用率提升40%',
     aiModel: 'qwen-turbo',
     tokensUsed: 800,
     status: 'success',

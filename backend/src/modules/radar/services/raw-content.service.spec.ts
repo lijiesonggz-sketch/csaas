@@ -29,9 +29,7 @@ describe('RawContentService', () => {
     }).compile()
 
     service = module.get<RawContentService>(RawContentService)
-    repository = module.get<Repository<RawContent>>(
-      getRepositoryToken(RawContent),
-    )
+    repository = module.get<Repository<RawContent>>(getRepositoryToken(RawContent))
 
     jest.clearAllMocks()
   })
@@ -153,9 +151,7 @@ describe('RawContentService', () => {
 
       mockRepository.update.mockResolvedValue({ affected: 0 })
 
-      await expect(
-        service.updateStatus(contentId, newStatus),
-      ).rejects.toThrow('Content not found')
+      await expect(service.updateStatus(contentId, newStatus)).rejects.toThrow('Content not found')
     })
   })
 

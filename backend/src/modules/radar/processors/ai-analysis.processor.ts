@@ -49,9 +49,7 @@ export class AIAnalysisProcessor extends WorkerHost {
   async process(job: Job<AIAnalysisJobData>): Promise<AIAnalysisJobResult> {
     const { contentId, category, priority } = job.data
 
-    this.logger.log(
-      `开始处理 AI 分析任务: contentId=${contentId}, category=${category}`,
-    )
+    this.logger.log(`开始处理 AI 分析任务: contentId=${contentId}, category=${category}`)
 
     try {
       // 1. 加载 RawContent
@@ -64,10 +62,7 @@ export class AIAnalysisProcessor extends WorkerHost {
       await this.rawContentService.updateStatus(contentId, 'analyzing')
 
       // 3. 调用 AI 分析服务
-      const analysisResult = await this.aiAnalysisService.analyzeWithCache(
-        rawContent,
-        category,
-      )
+      const analysisResult = await this.aiAnalysisService.analyzeWithCache(rawContent, category)
 
       this.logger.log(
         `AI 分析完成: contentId=${contentId}, tags=${analysisResult.tags.length}, tokensUsed=${analysisResult.tokensUsed}`,
@@ -106,10 +101,7 @@ export class AIAnalysisProcessor extends WorkerHost {
             `合规剧本生成任务已创建: contentId=${contentId}, analyzedContentId=${analysisResult.id}`,
           )
         } catch (error) {
-          this.logger.error(
-            `创建合规剧本生成任务失败: contentId=${contentId}`,
-            error.stack,
-          )
+          this.logger.error(`创建合规剧本生成任务失败: contentId=${contentId}`, error.stack)
           // 不阻塞主流程，继续处理推送
         }
       }
@@ -120,10 +112,7 @@ export class AIAnalysisProcessor extends WorkerHost {
         tokensUsed: analysisResult.tokensUsed,
       }
     } catch (error) {
-      this.logger.error(
-        `AI 分析失败: contentId=${contentId}`,
-        error.stack,
-      )
+      this.logger.error(`AI 分析失败: contentId=${contentId}`, error.stack)
 
       // 更新状态为 'failed'
       await this.rawContentService.updateStatus(contentId, 'failed').catch((err) => {
@@ -137,9 +126,7 @@ export class AIAnalysisProcessor extends WorkerHost {
       }
 
       // 第二次失败，发送告警
-      this.logger.error(
-        `AI 分析最终失败: contentId=${contentId}, 已达到最大重试次数`,
-      )
+      this.logger.error(`AI 分析最终失败: contentId=${contentId}, 已达到最大重试次数`)
       await this.sendAlert({
         type: 'ai_analysis_failed',
         contentId,
@@ -166,9 +153,7 @@ export class AIAnalysisProcessor extends WorkerHost {
         `AI 分析任务完成: contentId=${contentId}, analyzedContentId=${result.analyzedContentId}`,
       )
     } else {
-      this.logger.error(
-        `AI 分析任务失败: contentId=${contentId}, error=${result.error}`,
-      )
+      this.logger.error(`AI 分析任务失败: contentId=${contentId}, error=${result.error}`)
     }
   }
 
@@ -177,10 +162,7 @@ export class AIAnalysisProcessor extends WorkerHost {
    */
   @OnWorkerEvent('failed')
   onFailed(job: Job<AIAnalysisJobData>, error: Error) {
-    this.logger.error(
-      `AI 分析任务失败: contentId=${job.data.contentId}`,
-      error.stack,
-    )
+    this.logger.error(`AI 分析任务失败: contentId=${job.data.contentId}`, error.stack)
   }
 
   /**

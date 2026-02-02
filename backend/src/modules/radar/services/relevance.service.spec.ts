@@ -28,6 +28,7 @@ describe('RelevanceService', () => {
   let radarPushRepo: Repository<RadarPush>
   let weaknessSnapshotRepo: Repository<WeaknessSnapshot>
   let watchedTopicRepo: Repository<WatchedTopic>
+  let watchedPeerRepo: Repository<WatchedPeer>
   let organizationRepo: Repository<Organization>
   let pushFrequencyControlService: PushFrequencyControlService
   let mockQueryRunner: any
@@ -158,18 +159,13 @@ describe('RelevanceService', () => {
     analyzedContentRepo = module.get<Repository<AnalyzedContent>>(
       getRepositoryToken(AnalyzedContent),
     )
-    radarPushRepo = module.get<Repository<RadarPush>>(
-      getRepositoryToken(RadarPush),
-    )
+    radarPushRepo = module.get<Repository<RadarPush>>(getRepositoryToken(RadarPush))
     weaknessSnapshotRepo = module.get<Repository<WeaknessSnapshot>>(
       getRepositoryToken(WeaknessSnapshot),
     )
-    watchedTopicRepo = module.get<Repository<WatchedTopic>>(
-      getRepositoryToken(WatchedTopic),
-    )
-    organizationRepo = module.get<Repository<Organization>>(
-      getRepositoryToken(Organization),
-    )
+    watchedTopicRepo = module.get<Repository<WatchedTopic>>(getRepositoryToken(WatchedTopic))
+    watchedPeerRepo = module.get<Repository<WatchedPeer>>(getRepositoryToken(WatchedPeer))
+    organizationRepo = module.get<Repository<Organization>>(getRepositoryToken(Organization))
     pushFrequencyControlService = module.get<PushFrequencyControlService>(
       PushFrequencyControlService,
     )
@@ -291,9 +287,9 @@ describe('RelevanceService', () => {
       jest.spyOn(organizationRepo, 'find').mockResolvedValue([mockOrganization] as Organization[])
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
 
-      jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([
-        { topicName: '数据安全', topicType: 'tech' } as WatchedTopic,
-      ])
+      jest
+        .spyOn(watchedTopicRepo, 'find')
+        .mockResolvedValue([{ topicName: '数据安全', topicType: 'tech' } as WatchedTopic])
 
       // topicMatch = 0.7 (模糊匹配)
       // relevanceScore = 0 * 0.6 + 0.7 * 0.4 = 0.28
@@ -410,9 +406,9 @@ describe('RelevanceService', () => {
       jest.spyOn(organizationRepo, 'find').mockResolvedValue([mockOrganization] as Organization[])
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([]) // 无薄弱项
 
-      jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([
-        { topicName: '数据安全', topicType: 'tech' } as WatchedTopic,
-      ])
+      jest
+        .spyOn(watchedTopicRepo, 'find')
+        .mockResolvedValue([{ topicName: '数据安全', topicType: 'tech' } as WatchedTopic])
 
       // Act
       await service.calculateRelevance('550e8400-e29b-41d4-a716-446655440000')
@@ -433,9 +429,11 @@ describe('RelevanceService', () => {
 
       jest.spyOn(organizationRepo, 'find').mockResolvedValue([mockOrganization] as Organization[])
 
-      jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([
-        { category: WeaknessCategory.DATA_SECURITY, level: 1 },
-      ] as WeaknessSnapshot[])
+      jest
+        .spyOn(weaknessSnapshotRepo, 'find')
+        .mockResolvedValue([
+          { category: WeaknessCategory.DATA_SECURITY, level: 1 },
+        ] as WeaknessSnapshot[])
 
       jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([]) // 无关注领域
 
@@ -451,7 +449,9 @@ describe('RelevanceService', () => {
 
     it('9. 组织既无薄弱项也无关注领域时，相关性评分为0', async () => {
       // Arrange
-      jest.spyOn(analyzedContentRepo, 'findOne').mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
+      jest
+        .spyOn(analyzedContentRepo, 'findOne')
+        .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
       jest.spyOn(organizationRepo, 'find').mockResolvedValue([mockOrganization] as Organization[])
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
       jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([])
@@ -550,16 +550,20 @@ describe('RelevanceService', () => {
       // 测试两次，对比 level 1 和 level 5 的权重差异
 
       // Test case 1: level 1 → weight 1.0
-      jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValueOnce([
-        { category: WeaknessCategory.DATA_SECURITY, level: 1 },
-      ] as WeaknessSnapshot[])
+      jest
+        .spyOn(weaknessSnapshotRepo, 'find')
+        .mockResolvedValueOnce([
+          { category: WeaknessCategory.DATA_SECURITY, level: 1 },
+        ] as WeaknessSnapshot[])
 
       // weight = (5 - 1) / 4 = 1.0
 
       // Test case 2: level 5 → weight 0.0
-      jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValueOnce([
-        { category: WeaknessCategory.DATA_SECURITY, level: 5 },
-      ] as WeaknessSnapshot[])
+      jest
+        .spyOn(weaknessSnapshotRepo, 'find')
+        .mockResolvedValueOnce([
+          { category: WeaknessCategory.DATA_SECURITY, level: 5 },
+        ] as WeaknessSnapshot[])
 
       // weight = (5 - 5) / 4 = 0.0
     })
@@ -575,13 +579,15 @@ describe('RelevanceService', () => {
 
       jest.spyOn(organizationRepo, 'find').mockResolvedValue([mockOrganization] as Organization[])
 
-      jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([
-        { category: WeaknessCategory.DATA_SECURITY, level: 1 },
-      ] as WeaknessSnapshot[])
+      jest
+        .spyOn(weaknessSnapshotRepo, 'find')
+        .mockResolvedValue([
+          { category: WeaknessCategory.DATA_SECURITY, level: 1 },
+        ] as WeaknessSnapshot[])
 
-      jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([
-        { topicName: '数据安全', topicType: 'tech' } as WatchedTopic,
-      ])
+      jest
+        .spyOn(watchedTopicRepo, 'find')
+        .mockResolvedValue([{ topicName: '数据安全', topicType: 'tech' } as WatchedTopic])
 
       // Mock 去重检查返回不允许（重复）
       jest.spyOn(pushFrequencyControlService, 'checkPushAllowed').mockResolvedValue({
@@ -664,5 +670,17 @@ describe('RelevanceService', () => {
     it('19. 并发推送限制检查，不超过5条', async () => {
       // TODO: 需要数据库锁测试
     })
+  })
+
+  describe('Story 5.2 Task 2.2: matchedPeers功能', () => {
+    // Note: 集成测试已移至 relevance.service.industry.spec.ts
+    // 该测试文件验证了 calculateIndustryRelevance 方法返回 matchedPeers
+    // 完整的推送流程测试需要E2E测试（暂时跳过）
+
+    it.todo('20. 行业雷达推送时，matchedPeers应该存储到数据库 (需要E2E测试)')
+    it.todo('21. 行业雷达推送时，多同业匹配应该存储所有匹配的同业 (需要E2E测试)')
+    it.todo('22. 技术雷达推送时，matchedPeers应该为null (需要E2E测试)')
+    it.todo('23. 无同业匹配时，matchedPeers应该为空数组 (需要E2E测试)')
+    it.todo('24. 全文回退匹配时，matchedPeers应该包含匹配的同业 (需要E2E测试)')
   })
 })

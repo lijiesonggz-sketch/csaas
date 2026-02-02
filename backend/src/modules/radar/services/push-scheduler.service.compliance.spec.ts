@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm'
 import { Repository, LessThanOrEqual, Between } from 'typeorm'
 import { PushSchedulerService } from './push-scheduler.service'
 import { RadarPush } from '../../../database/entities/radar-push.entity'
+import { PushPreference } from '../../../database/entities/push-preference.entity'
 
 /**
  * PushSchedulerService - Compliance Radar Tests (Story 4.2 - Phase 4.1)
@@ -61,13 +62,17 @@ describe('PushSchedulerService - Compliance Radar (Phase 4.1)', () => {
             update: jest.fn(),
           },
         },
+        {
+          provide: getRepositoryToken(PushPreference),
+          useValue: {
+            findOne: jest.fn(),
+          },
+        },
       ],
     }).compile()
 
     service = module.get<PushSchedulerService>(PushSchedulerService)
-    radarPushRepo = module.get<Repository<RadarPush>>(
-      getRepositoryToken(RadarPush),
-    )
+    radarPushRepo = module.get<Repository<RadarPush>>(getRepositoryToken(RadarPush))
   })
 
   afterEach(() => {
@@ -80,7 +85,7 @@ describe('PushSchedulerService - Compliance Radar (Phase 4.1)', () => {
       const mockPushes = [
         { ...mockCompliancePush, id: 'push-1', priorityLevel: 'high', relevanceScore: 0.98 },
         { ...mockCompliancePush, id: 'push-2', priorityLevel: 'high', relevanceScore: 0.95 },
-        { ...mockCompliancePush, id: 'push-3', priorityLevel: 'medium', relevanceScore: 0.90 },
+        { ...mockCompliancePush, id: 'push-3', priorityLevel: 'medium', relevanceScore: 0.9 },
       ] as RadarPush[]
 
       jest.spyOn(radarPushRepo, 'find').mockResolvedValue(mockPushes)
@@ -95,7 +100,7 @@ describe('PushSchedulerService - Compliance Radar (Phase 4.1)', () => {
           status: 'scheduled',
           scheduledAt: expect.any(Object),
         },
-        relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags', 'compliancePlaybook'],
+        relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags'],
         order: {
           priorityLevel: 'DESC',
           relevanceScore: 'DESC',
@@ -158,7 +163,8 @@ describe('PushSchedulerService - Compliance Radar (Phase 4.1)', () => {
       const startDate = new Date('2026-01-01T00:00:00Z')
       const endDate = new Date('2026-01-31T23:59:59Z')
 
-      jest.spyOn(radarPushRepo, 'count')
+      jest
+        .spyOn(radarPushRepo, 'count')
         .mockResolvedValueOnce(8) // total
         .mockResolvedValueOnce(6) // sent
         .mockResolvedValueOnce(1) // failed
@@ -460,11 +466,7 @@ describe('PushSchedulerService - Compliance Radar (Phase 4.1)', () => {
       it('should handle edge case with exactly limit number of pushes', async () => {
         // Arrange
         const today = new Date('2026-01-30T12:00:00Z')
-        const pushes = [
-          { id: 'push-1' },
-          { id: 'push-2' },
-          { id: 'push-3' },
-        ] as RadarPush[]
+        const pushes = [{ id: 'push-1' }, { id: 'push-2' }, { id: 'push-3' }] as RadarPush[]
 
         const limit = 3
         const updateSpy = jest.spyOn(radarPushRepo, 'update').mockResolvedValue(undefined)
@@ -486,9 +488,7 @@ describe('PushSchedulerService - Compliance Radar (Phase 4.1)', () => {
         // Simulate 3 already sent pushes today
         jest.spyOn(radarPushRepo, 'count').mockResolvedValue(3)
 
-        const pendingPushes = [
-          { id: 'push-4', organizationId: orgId },
-        ] as RadarPush[]
+        const pendingPushes = [{ id: 'push-4', organizationId: orgId }] as RadarPush[]
 
         jest.spyOn(radarPushRepo, 'update').mockResolvedValue(undefined)
 

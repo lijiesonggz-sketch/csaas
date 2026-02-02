@@ -8,9 +8,7 @@ import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm'
  * - contentType: Distinguish between article, recruitment, conference content
  * - peerName: Track peer institution names for industry benchmarking
  */
-export class AddIndustryFieldsToRawContent1738300000000
-  implements MigrationInterface
-{
+export class AddIndustryFieldsToRawContent1738300000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Add contentType column
     await queryRunner.addColumn(

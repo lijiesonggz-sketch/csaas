@@ -8,9 +8,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  *
  * Story 1.4 - AC 4: 引导步骤2 - 关注技术领域
  */
-export class CreateWatchedTopicsTable1768700000001
-  implements MigrationInterface
-{
+export class CreateWatchedTopicsTable1768700000001 implements MigrationInterface {
   name = 'CreateWatchedTopicsTable1768700000001'
 
   public async up(queryRunner: QueryRunner): Promise<void> {

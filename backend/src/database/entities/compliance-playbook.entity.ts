@@ -1,10 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  Index,
-  CreateDateColumn,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from 'typeorm'
 
 /**
  * CompliancePlaybook Entity - 合规剧本实体
@@ -23,41 +17,41 @@ import {
 @Index(['organizationId']) // AR12 Layer 3: RLS索引
 export class CompliancePlaybook {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Column({ type: 'uuid' })
-  pushId: string;
+  pushId: string
 
   @Column({ name: 'organizationId', type: 'uuid', nullable: true }) // AR12 Layer 3: 组织ID
-  organizationId: string | null;
+  organizationId: string | null
 
   @Column({ type: 'json' })
   checklistItems: Array<{
-    id: string; // ✅ UUID v4
-    text: string;
-    category: string;
-    checked: boolean;
-    order: number; // ✅ 新增：UI显示顺序
-  }>;
+    id: string // ✅ UUID v4
+    text: string
+    category: string
+    checked: boolean
+    order: number // ✅ 新增：UI显示顺序
+  }>
 
   @Column({ type: 'json' })
   solutions: Array<{
-    name: string;
-    estimatedCost: number;
-    expectedBenefit: number;
-    roiScore: number; // 0-10
-    implementationTime: string;
-  }>;
+    name: string
+    estimatedCost: number
+    expectedBenefit: number
+    roiScore: number // 0-10
+    implementationTime: string
+  }>
 
   @Column({ type: 'text' })
-  reportTemplate: string;
+  reportTemplate: string
 
   @Column({ type: 'json', nullable: true })
-  policyReference: string[];
+  policyReference: string[]
 
   @CreateDateColumn({ name: 'createdAt' })
-  createdAt: Date;
+  createdAt: Date
 
   @Column({ type: 'timestamp', nullable: true })
-  generatedAt: Date; // ✅ 新增：实际生成时间
+  generatedAt: Date // ✅ 新增：实际生成时间
 }

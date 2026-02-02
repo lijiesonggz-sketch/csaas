@@ -5,6 +5,7 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
   NotFoundException,
   Logger,
 } from '@nestjs/common'
@@ -12,6 +13,11 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { RadarPush } from '../../../database/entities/radar-push.entity'
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
+import { TenantGuard } from '../../organizations/guards/tenant.guard'
+import { OrganizationGuard } from '../../organizations/guards/organization.guard'
+import { AuditInterceptor } from '../../../common/interceptors/audit.interceptor'
+import { CurrentTenant } from '../../organizations/decorators/current-tenant.decorator'
+import { CurrentOrg } from '../../organizations/decorators/current-org.decorator'
 import { IsOptional, IsNumber, IsString, IsEnum, IsInt, Min } from 'class-validator'
 import { Type } from 'class-transformer'
 
@@ -56,6 +62,8 @@ class GetPushHistoryDto {
  * RadarPushController - 推送历史查询API
  *
  * Story 2.3: 推送系统与调度 - Phase 3 Task 3.4
+ * Story 6.1A: 多租户数据模型与 API/服务层隔离 - Phase 2
+ * Story 6.1B: 数据库层 RLS 与审计层 - Phase 2
  *
  * API端点：
  * - GET /api/radar/pushes - 查询推送历史（分页）
@@ -64,10 +72,12 @@ class GetPushHistoryDto {
  *
  * 权限：
  * - 需要JWT认证
- * - 暂时禁用组织权限验证以避免循环依赖
+ * - 需要租户验证（TenantGuard）- 多租户隔离（tenantId 自动注入到 request）
+ * - 审计拦截器（AuditInterceptor）- 记录所有敏感操作
  */
 @Controller('api/radar/pushes')
-@UseGuards(JwtAuthGuard) // 暂时只使用JWT认证
+@UseGuards(JwtAuthGuard, TenantGuard, OrganizationGuard)
+@UseInterceptors(AuditInterceptor)
 export class RadarPushController {
   private readonly logger = new Logger(RadarPushController.name)
 
@@ -85,20 +95,27 @@ export class RadarPushController {
    * - 支持分页查询
    * - 支持按雷达类型、状态筛选
    * - 按优先级、相关性评分、推送时间降序排序
+   * - 多租户隔离：自动过滤当前租户的数据
    *
+   * @param tenantId - 租户ID（由TenantGuard自动注入）
+   * @param organizationId - 组织ID（由OrganizationGuard自动注入）
    * @param query - 查询参数
    */
   @Get()
   async getPushHistory(
+    @CurrentTenant() tenantId: string,
+    @CurrentOrg() organizationId: string,
     @Query() query: GetPushHistoryDto,
   ) {
     try {
       const { page = 1, limit = 20, radarType, status, organizationId } = query
 
-      this.logger.log(`getPushHistory called with:`, { page, limit, radarType, status, organizationId })
+      this.logger.log(`getPushHistory called with:`, { tenantId, page, limit, radarType, status, organizationId })
 
-      // 构建查询条件
-      const where: any = {}
+      // 构建查询条件 - 必须包含 tenantId 进行多租户隔离
+      const where: any = {
+        tenantId, // ✅ 添加 tenantId 过滤（Layer 2 防御）
+      }
 
       if (radarType) {
         where.radarType = radarType
@@ -186,15 +203,18 @@ export class RadarPushController {
    *
    * AC 8: 推送历史查询API
    * - 返回完整的推送信息，包括关联的内容和标签
+   * - 多租户隔离：自动过滤当前租户的数据
    *
+   * @param tenantId - 租户ID（由TenantGuard自动注入）
    * @param id - 推送记录ID
    */
   @Get(':id')
   async getPushDetail(
+    @CurrentTenant() tenantId: string,
     @Param('id') id: string,
   ) {
     const push = await this.radarPushRepo.findOne({
-      where: { id },
+      where: { id, tenantId }, // ✅ 添加 tenantId 过滤（Layer 2 防御）
       relations: [
         'analyzedContent',
         'analyzedContent.rawContent',
@@ -245,18 +265,21 @@ export class RadarPushController {
    * AC 8: 推送历史查询API
    * - 更新 isRead=true（如果实体有该字段）
    * - 记录 readAt 时间戳（如果实体有该字段）
+   * - 多租户隔离：自动过滤当前租户的数据
    *
    * 注意：当前 RadarPush 实体没有 isRead/readAt 字段
    * 这些字段应该在 Story 5.4 中添加（完整的推送管理功能）
    *
+   * @param tenantId - 租户ID（由TenantGuard自动注入）
    * @param id - 推送记录ID
    */
   @Patch(':id/read')
   async markAsRead(
+    @CurrentTenant() tenantId: string,
     @Param('id') id: string,
   ) {
     const push = await this.radarPushRepo.findOne({
-      where: { id },
+      where: { id, tenantId }, // ✅ 添加 tenantId 过滤（Layer 2 防御）
     })
 
     if (!push) {

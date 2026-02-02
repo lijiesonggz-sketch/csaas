@@ -49,19 +49,22 @@ describe('Automatic Weakness Detection (E2E)', () => {
     // Cleanup any existing test data first
     try {
       await dataSource.getRepository(WeaknessSnapshot).delete({
-        organizationId: '00000000-0000-0000-0000-000000000002'
+        organizationId: '00000000-0000-0000-0000-000000000002',
       })
       await dataSource.getRepository(AITask).delete({
-        projectId: In(['00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000004'])
+        projectId: In([
+          '00000000-0000-0000-0000-000000000003',
+          '00000000-0000-0000-0000-000000000004',
+        ]),
       })
       await dataSource.getRepository(Project).delete({
-        id: In(['00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000004'])
+        id: In(['00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000004']),
       })
       await dataSource.getRepository(OrganizationMember).delete({
-        organizationId: '00000000-0000-0000-0000-000000000002'
+        organizationId: '00000000-0000-0000-0000-000000000002',
       })
       await dataSource.getRepository(Organization).delete({
-        id: '00000000-0000-0000-0000-000000000002'
+        id: '00000000-0000-0000-0000-000000000002',
       })
       await dataSource.getRepository(User).delete({ id: testUserId })
     } catch (error) {
@@ -122,7 +125,7 @@ describe('Automatic Weakness Detection (E2E)', () => {
       try {
         await dataSource.getRepository(WeaknessSnapshot).delete({ organizationId })
         await dataSource.getRepository(AITask).delete({
-          projectId: In([project1Id, project2Id])
+          projectId: In([project1Id, project2Id]),
         })
         await dataSource.getRepository(Project).delete({ id: In([project1Id, project2Id]) })
         await dataSource.getRepository(OrganizationMember).delete({ organizationId })

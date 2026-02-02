@@ -42,11 +42,17 @@ export class Project {
   standardName: string
 
   /**
-   * @deprecated Tenant ID is deprecated in favor of organization-based multi-tenancy.
-   * This field will be removed in Story 6.1 (Multi-tenant data model).
-   * All new code should use organizationId instead.
+   * Tenant ID (Consulting Company)
+   *
+   * Foreign key to the Tenant table. Represents which consulting company
+   * this project belongs to. Used for multi-tenant data isolation.
+   *
+   * Note: Projects inherit tenantId from their parent Organization.
+   * This field is denormalized for query performance.
+   *
+   * @required After migration completes, this field becomes NOT NULL
    */
-  @Column({ name: 'tenant_id', nullable: true })
+  @Column({ name: 'tenant_id', nullable: false })
   tenantId: string
 
   /**

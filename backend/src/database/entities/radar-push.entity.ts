@@ -54,6 +54,17 @@ export class RadarPush {
   organization: Organization
 
   /**
+   * 租户ID（咨询公司）
+   *
+   * 用于多租户数据隔离，确保咨询公司 A 的数据对咨询公司 B 不可见
+   *
+   * @story Story 6.1A - Multi-tenant API/Service Layer Isolation
+   */
+  @Column({ name: 'tenant_id', type: 'uuid' })
+  @Index()
+  tenantId: string
+
+  /**
    * 雷达类型
    * - tech: 技术雷达
    * - industry: 行业雷达
@@ -178,4 +189,14 @@ export class RadarPush {
     nullable: true,
   })
   playbookStatus: 'ready' | 'generating' | 'failed' | null
+
+  /**
+   * 匹配的关注同业机构名称列表
+   * Story 5.2 Task 2.2: 推送时标注匹配的关注同业
+   *
+   * 示例: ["杭州银行", "招商银行"]
+   * 用途: 前端显示"与您关注的XX、YY相关"
+   */
+  @Column({ type: 'jsonb', nullable: true, name: 'matched_peers' })
+  matchedPeers: string[] | null
 }

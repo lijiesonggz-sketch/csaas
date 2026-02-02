@@ -155,12 +155,8 @@ describe('RelevanceService - Industry Radar (Story 3.2)', () => {
     analyzedContentRepo = module.get<Repository<AnalyzedContent>>(
       getRepositoryToken(AnalyzedContent),
     )
-    watchedPeerRepo = module.get<Repository<WatchedPeer>>(
-      getRepositoryToken(WatchedPeer),
-    )
-    watchedTopicRepo = module.get<Repository<WatchedTopic>>(
-      getRepositoryToken(WatchedTopic),
-    )
+    watchedPeerRepo = module.get<Repository<WatchedPeer>>(getRepositoryToken(WatchedPeer))
+    watchedTopicRepo = module.get<Repository<WatchedTopic>>(getRepositoryToken(WatchedTopic))
     weaknessSnapshotRepo = module.get<Repository<WeaknessSnapshot>>(
       getRepositoryToken(WeaknessSnapshot),
     )
@@ -174,14 +170,12 @@ describe('RelevanceService - Industry Radar (Story 3.2)', () => {
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
 
       // Act
-      const result = await service.calculateIndustryRelevance(
-        mockAnalyzedContent,
-        mockOrganization,
-      )
+      const result = await service.calculateIndustryRelevance(mockAnalyzedContent, mockOrganization)
 
       // Assert
       expect(result.relevanceScore).toBeCloseTo(0.5, 2) // 同业匹配1.0 * 0.5
       expect(result.priorityLevel).toBe('low') // 0.5 < 0.7
+      expect(result.matchedPeers).toEqual(['杭州银行']) // Story 5.2 Task 2.2
     })
 
     it('应该计算同业不匹配的相关性', async () => {
@@ -190,6 +184,8 @@ describe('RelevanceService - Industry Radar (Story 3.2)', () => {
         ...mockAnalyzedContent,
         rawContent: {
           ...mockRawContent,
+          title: '建设银行数字化转型', // 标题包含"建设银行"
+          summary: '本文介绍建设银行的经验',
           peerName: '建设银行', // 不在关注列表中
         },
       }
@@ -207,6 +203,7 @@ describe('RelevanceService - Industry Radar (Story 3.2)', () => {
       // Assert
       expect(result.relevanceScore).toBe(0) // 同业不匹配
       expect(result.priorityLevel).toBe('low')
+      expect(result.matchedPeers).toEqual([]) // Story 5.2 Task 2.2: 无匹配同业
     })
 
     it('应该计算关注领域匹配的相关性 (权重0.2)', async () => {
@@ -216,15 +213,13 @@ describe('RelevanceService - Industry Radar (Story 3.2)', () => {
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
 
       // Act
-      const result = await service.calculateIndustryRelevance(
-        mockAnalyzedContent,
-        mockOrganization,
-      )
+      const result = await service.calculateIndustryRelevance(mockAnalyzedContent, mockOrganization)
 
       // Assert
       // 2个关注领域匹配 / 2个总关注领域 = 1.0, 1.0 * 0.2 = 0.2
       expect(result.relevanceScore).toBeCloseTo(0.2, 2)
       expect(result.priorityLevel).toBe('low')
+      expect(result.matchedPeers).toEqual([]) // Story 5.2 Task 2.2: 无匹配同业
     })
 
     it('应该计算综合相关性评分 (同业+薄弱项+领域)', async () => {
@@ -243,10 +238,7 @@ describe('RelevanceService - Industry Radar (Story 3.2)', () => {
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue(mockWeaknesses)
 
       // Act
-      const result = await service.calculateIndustryRelevance(
-        mockAnalyzedContent,
-        mockOrganization,
-      )
+      const result = await service.calculateIndustryRelevance(mockAnalyzedContent, mockOrganization)
 
       // Assert
       // 同业匹配: 1.0 * 0.5 = 0.5
@@ -255,6 +247,7 @@ describe('RelevanceService - Industry Radar (Story 3.2)', () => {
       // 总分: ~0.94
       expect(result.relevanceScore).toBeGreaterThanOrEqual(0.9)
       expect(result.priorityLevel).toBe('high') // >= 0.9
+      expect(result.matchedPeers).toEqual(['杭州银行']) // Story 5.2 Task 2.2
     })
 
     it('应该正确判定优先级 - high (>= 0.9)', async () => {
@@ -273,14 +266,12 @@ describe('RelevanceService - Industry Radar (Story 3.2)', () => {
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue(mockWeaknesses)
 
       // Act
-      const result = await service.calculateIndustryRelevance(
-        mockAnalyzedContent,
-        mockOrganization,
-      )
+      const result = await service.calculateIndustryRelevance(mockAnalyzedContent, mockOrganization)
 
       // Assert
       expect(result.relevanceScore).toBeGreaterThanOrEqual(0.9)
       expect(result.priorityLevel).toBe('high')
+      expect(result.matchedPeers).toEqual(['杭州银行']) // Story 5.2 Task 2.2
     })
 
     it('应该正确判定优先级 - medium (0.7-0.9)', async () => {
@@ -290,16 +281,14 @@ describe('RelevanceService - Industry Radar (Story 3.2)', () => {
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
 
       // Act
-      const result = await service.calculateIndustryRelevance(
-        mockAnalyzedContent,
-        mockOrganization,
-      )
+      const result = await service.calculateIndustryRelevance(mockAnalyzedContent, mockOrganization)
 
       // Assert
       // 0.5 + 0 + 0.2 = 0.7
       expect(result.relevanceScore).toBeGreaterThanOrEqual(0.7)
       expect(result.relevanceScore).toBeLessThan(0.9)
       expect(result.priorityLevel).toBe('medium')
+      expect(result.matchedPeers).toEqual(['杭州银行']) // Story 5.2 Task 2.2
     })
 
     it('应该正确判定优先级 - low (< 0.7)', async () => {
@@ -309,22 +298,22 @@ describe('RelevanceService - Industry Radar (Story 3.2)', () => {
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
 
       // Act
-      const result = await service.calculateIndustryRelevance(
-        mockAnalyzedContent,
-        mockOrganization,
-      )
+      const result = await service.calculateIndustryRelevance(mockAnalyzedContent, mockOrganization)
 
       // Assert
       expect(result.relevanceScore).toBeLessThan(0.7)
       expect(result.priorityLevel).toBe('low')
+      expect(result.matchedPeers).toEqual([]) // Story 5.2 Task 2.2: 无匹配同业
     })
 
-    it('应该处理没有peerName的内容', async () => {
+    it('应该处理没有peerName的内容 (旧逻辑)', async () => {
       // Arrange
       const contentWithoutPeer = {
         ...mockAnalyzedContent,
         rawContent: {
           ...mockRawContent,
+          title: '技术趋势分析', // 标题不包含关注的同业
+          summary: '云原生技术发展趋势', // 摘要也不包含
           peerName: null,
         },
       }
@@ -342,6 +331,162 @@ describe('RelevanceService - Industry Radar (Story 3.2)', () => {
       // Assert
       expect(result.relevanceScore).toBe(0) // 无同业匹配
       expect(result.priorityLevel).toBe('low')
+      expect(result.matchedPeers).toEqual([]) // Story 5.2 Task 2.2: 无匹配同业
+    })
+
+    // 新增测试: 混合策略 - 全文回退匹配
+    it('应该使用全文回退匹配 (标题包含同业名称)', async () => {
+      // Arrange
+      const contentWithPeerInTitle = {
+        ...mockAnalyzedContent,
+        rawContent: {
+          ...mockRawContent,
+          title: '杭州银行数字化转型实践', // 标题包含"杭州银行"
+          summary: '本文介绍了数字化转型的经验',
+          peerName: null, // 结构化字段为空
+        },
+      }
+
+      jest.spyOn(watchedPeerRepo, 'find').mockResolvedValue(mockWatchedPeers)
+      jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([])
+      jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
+
+      // Act
+      const result = await service.calculateIndustryRelevance(
+        contentWithPeerInTitle as AnalyzedContent,
+        mockOrganization,
+      )
+
+      // Assert
+      expect(result.relevanceScore).toBeCloseTo(0.5, 2) // 全文匹配成功: 1.0 * 0.5
+      expect(result.priorityLevel).toBe('low')
+    })
+
+    it('应该使用全文回退匹配 (摘要包含同业名称)', async () => {
+      // Arrange
+      const contentWithPeerInSummary = {
+        ...mockAnalyzedContent,
+        rawContent: {
+          ...mockRawContent,
+          title: '城商行数字化案例分享',
+          summary: '招商银行通过云原生架构实现了快速部署', // 摘要包含"招商银行"
+          peerName: null, // 结构化字段为空
+        },
+      }
+
+      jest.spyOn(watchedPeerRepo, 'find').mockResolvedValue(mockWatchedPeers)
+      jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([])
+      jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
+
+      // Act
+      const result = await service.calculateIndustryRelevance(
+        contentWithPeerInSummary as AnalyzedContent,
+        mockOrganization,
+      )
+
+      // Assert
+      expect(result.relevanceScore).toBeCloseTo(0.5, 2) // 全文匹配成功: 1.0 * 0.5
+      expect(result.priorityLevel).toBe('low')
+      expect(result.matchedPeers).toEqual(['招商银行']) // Story 5.2 Task 2.2: 全文匹配
+    })
+
+    it('应该优先使用结构化字段匹配 (精确匹配)', async () => {
+      // Arrange
+      const contentWithBothMatches = {
+        ...mockAnalyzedContent,
+        rawContent: {
+          ...mockRawContent,
+          title: '招商银行和杭州银行的对比', // 标题包含两个同业
+          summary: '本文对比分析',
+          peerName: '杭州银行', // 结构化字段指定"杭州银行"
+        },
+      }
+
+      jest.spyOn(watchedPeerRepo, 'find').mockResolvedValue(mockWatchedPeers)
+      jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([])
+      jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
+
+      // Act
+      const result = await service.calculateIndustryRelevance(
+        contentWithBothMatches as AnalyzedContent,
+        mockOrganization,
+      )
+
+      // Assert
+      expect(result.relevanceScore).toBeCloseTo(0.5, 2) // 精确匹配成功
+      expect(result.priorityLevel).toBe('low')
+      expect(result.matchedPeers).toEqual(['杭州银行']) // Story 5.2 Task 2.2: 精确匹配优先
+      // 注意: 应该使用结构化字段的"杭州银行"，而不是全文匹配的"招商银行"
+    })
+
+    it('应该避免误匹配相似名称', async () => {
+      // Arrange
+      const contentWithSimilarName = {
+        ...mockAnalyzedContent,
+        rawContent: {
+          ...mockRawContent,
+          title: '平安保险数字化转型案例', // 包含"平安保险"
+          summary: '本文介绍平安保险的经验',
+          peerName: null,
+        },
+      }
+
+      const watchedPeersWithPingAn: WatchedPeer[] = [
+        {
+          id: 'peer-3',
+          peerName: '平安银行', // 用户关注"平安银行"
+          industry: 'banking',
+          institutionType: '股份制银行',
+          organizationId: 'org-123',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        } as WatchedPeer,
+      ]
+
+      jest.spyOn(watchedPeerRepo, 'find').mockResolvedValue(watchedPeersWithPingAn)
+      jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([])
+      jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
+
+      // Act
+      const result = await service.calculateIndustryRelevance(
+        contentWithSimilarName as AnalyzedContent,
+        mockOrganization,
+      )
+
+      // Assert
+      // "平安保险"不包含"平安银行"，应该不匹配
+      expect(result.relevanceScore).toBe(0)
+      expect(result.priorityLevel).toBe('low')
+      expect(result.matchedPeers).toEqual([]) // Story 5.2 Task 2.2: 无匹配同业
+    })
+
+    it('应该匹配多个同业机构', async () => {
+      // Arrange
+      const contentWithMultiplePeers = {
+        ...mockAnalyzedContent,
+        rawContent: {
+          ...mockRawContent,
+          title: '杭州银行与招商银行的合作案例',
+          summary: '两家银行在技术领域的合作',
+          peerName: null,
+        },
+      }
+
+      jest.spyOn(watchedPeerRepo, 'find').mockResolvedValue(mockWatchedPeers)
+      jest.spyOn(watchedTopicRepo, 'find').mockResolvedValue([])
+      jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
+
+      // Act
+      const result = await service.calculateIndustryRelevance(
+        contentWithMultiplePeers as AnalyzedContent,
+        mockOrganization,
+      )
+
+      // Assert
+      // 匹配到多个同业，但peerMatch仍然是1.0（二元匹配）
+      expect(result.relevanceScore).toBeCloseTo(0.5, 2)
+      expect(result.priorityLevel).toBe('low')
+      expect(result.matchedPeers).toEqual(['杭州银行', '招商银行']) // Story 5.2 Task 2.2: 多同业匹配
     })
 
     it('应该处理空的关注列表', async () => {
@@ -351,14 +496,12 @@ describe('RelevanceService - Industry Radar (Story 3.2)', () => {
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
 
       // Act
-      const result = await service.calculateIndustryRelevance(
-        mockAnalyzedContent,
-        mockOrganization,
-      )
+      const result = await service.calculateIndustryRelevance(mockAnalyzedContent, mockOrganization)
 
       // Assert
       expect(result.relevanceScore).toBe(0)
       expect(result.priorityLevel).toBe('low')
+      expect(result.matchedPeers).toEqual([]) // Story 5.2 Task 2.2: 无关注同业
     })
   })
 })

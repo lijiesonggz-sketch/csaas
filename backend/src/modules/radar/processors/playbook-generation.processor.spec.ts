@@ -113,13 +113,9 @@ describe('PlaybookGenerationProcessor', () => {
 
     processor = module.get<PlaybookGenerationProcessor>(PlaybookGenerationProcessor)
     aiAnalysisService = module.get<AIAnalysisService>(AIAnalysisService)
-    analyzedContentService = module.get<AnalyzedContentService>(
-      AnalyzedContentService,
-    )
+    analyzedContentService = module.get<AnalyzedContentService>(AnalyzedContentService)
     rawContentService = module.get<RawContentService>(RawContentService)
-    radarPushRepository = module.get<Repository<RadarPush>>(
-      getRepositoryToken(RadarPush),
-    )
+    radarPushRepository = module.get<Repository<RadarPush>>(getRepositoryToken(RadarPush))
   })
 
   describe('Async Playbook Generation', () => {
@@ -163,21 +159,15 @@ describe('PlaybookGenerationProcessor', () => {
         generatedAt: new Date(),
       }
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest
         .spyOn(analyzedContentService, 'findById')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
       jest
         .spyOn(aiAnalysisService, 'generateCompliancePlaybook')
         .mockResolvedValue(mockPlaybook as any)
-      jest
-        .spyOn(radarPushRepository, 'findOne')
-        .mockResolvedValue(mockRadarPush as RadarPush)
-      const updateSpy = jest
-        .spyOn(radarPushRepository, 'update')
-        .mockResolvedValue(undefined)
+      jest.spyOn(radarPushRepository, 'findOne').mockResolvedValue(mockRadarPush as RadarPush)
+      const updateSpy = jest.spyOn(radarPushRepository, 'update').mockResolvedValue(undefined)
 
       // Act
       await processor.process(job)
@@ -188,12 +178,20 @@ describe('PlaybookGenerationProcessor', () => {
         mockRawContent,
       )
       expect(updateSpy).toHaveBeenCalledTimes(2) // generating → ready
-      expect(updateSpy).toHaveBeenNthCalledWith(1, { contentId: 'raw-content-uuid' }, {
-        playbookStatus: 'generating',
-      })
-      expect(updateSpy).toHaveBeenNthCalledWith(2, { contentId: 'raw-content-uuid' }, {
-        playbookStatus: 'ready',
-      })
+      expect(updateSpy).toHaveBeenNthCalledWith(
+        1,
+        { contentId: 'raw-content-uuid' },
+        {
+          playbookStatus: 'generating',
+        },
+      )
+      expect(updateSpy).toHaveBeenNthCalledWith(
+        2,
+        { contentId: 'raw-content-uuid' },
+        {
+          playbookStatus: 'ready',
+        },
+      )
     })
 
     it('should update status to failed on playbook generation error', async () => {
@@ -208,29 +206,26 @@ describe('PlaybookGenerationProcessor', () => {
         attemptsMade: 0,
       } as Job<typeof jobData>
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest
         .spyOn(analyzedContentService, 'findById')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
       jest
         .spyOn(aiAnalysisService, 'generateCompliancePlaybook')
         .mockRejectedValue(new Error('AI service unavailable'))
-      jest
-        .spyOn(radarPushRepository, 'findOne')
-        .mockResolvedValue(mockRadarPush as RadarPush)
-      const updateSpy = jest
-        .spyOn(radarPushRepository, 'update')
-        .mockResolvedValue(undefined)
+      jest.spyOn(radarPushRepository, 'findOne').mockResolvedValue(mockRadarPush as RadarPush)
+      const updateSpy = jest.spyOn(radarPushRepository, 'update').mockResolvedValue(undefined)
 
       // Act
       await processor.process(job)
 
       // Assert
-      expect(updateSpy).toHaveBeenCalledWith({ contentId: 'raw-content-uuid' }, {
-        playbookStatus: 'failed',
-      })
+      expect(updateSpy).toHaveBeenCalledWith(
+        { contentId: 'raw-content-uuid' },
+        {
+          playbookStatus: 'failed',
+        },
+      )
     })
 
     it('should handle missing RadarPush gracefully', async () => {
@@ -253,9 +248,7 @@ describe('PlaybookGenerationProcessor', () => {
         generatedAt: new Date(),
       }
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest
         .spyOn(analyzedContentService, 'findById')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
@@ -263,9 +256,7 @@ describe('PlaybookGenerationProcessor', () => {
         .spyOn(aiAnalysisService, 'generateCompliancePlaybook')
         .mockResolvedValue(mockPlaybook as any)
       jest.spyOn(radarPushRepository, 'findOne').mockResolvedValue(null)
-      const updateSpy = jest
-        .spyOn(radarPushRepository, 'update')
-        .mockResolvedValue(undefined)
+      const updateSpy = jest.spyOn(radarPushRepository, 'update').mockResolvedValue(undefined)
 
       // Act
       await processor.process(job)
@@ -286,9 +277,7 @@ describe('PlaybookGenerationProcessor', () => {
         attemptsMade: 0,
       } as Job<typeof jobData>
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(null)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(null)
       jest.spyOn(aiAnalysisService, 'generateCompliancePlaybook')
 
       // Act & Assert - Should return gracefully (not throw)
@@ -308,12 +297,8 @@ describe('PlaybookGenerationProcessor', () => {
         attemptsMade: 0,
       } as Job<typeof jobData>
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
-      jest
-        .spyOn(analyzedContentService, 'findById')
-        .mockResolvedValue(null)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(analyzedContentService, 'findById').mockResolvedValue(null)
       jest.spyOn(aiAnalysisService, 'generateCompliancePlaybook')
 
       // Act & Assert - Should return gracefully (not throw)
@@ -379,33 +364,35 @@ describe('PlaybookGenerationProcessor', () => {
         generatedAt: new Date(),
       }
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest
         .spyOn(analyzedContentService, 'findById')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
       jest
         .spyOn(aiAnalysisService, 'generateCompliancePlaybook')
         .mockResolvedValue(mockPlaybook as any)
-      jest
-        .spyOn(radarPushRepository, 'findOne')
-        .mockResolvedValue(mockRadarPush as RadarPush)
-      const updateSpy = jest
-        .spyOn(radarPushRepository, 'update')
-        .mockResolvedValue(undefined)
+      jest.spyOn(radarPushRepository, 'findOne').mockResolvedValue(mockRadarPush as RadarPush)
+      const updateSpy = jest.spyOn(radarPushRepository, 'update').mockResolvedValue(undefined)
 
       // Act
       await processor.process(job)
 
       // Assert
       expect(updateSpy).toHaveBeenCalledTimes(2)
-      expect(updateSpy).toHaveBeenNthCalledWith(1, { contentId: 'raw-content-uuid' }, {
-        playbookStatus: 'generating',
-      })
-      expect(updateSpy).toHaveBeenNthCalledWith(2, { contentId: 'raw-content-uuid' }, {
-        playbookStatus: 'ready',
-      })
+      expect(updateSpy).toHaveBeenNthCalledWith(
+        1,
+        { contentId: 'raw-content-uuid' },
+        {
+          playbookStatus: 'generating',
+        },
+      )
+      expect(updateSpy).toHaveBeenNthCalledWith(
+        2,
+        { contentId: 'raw-content-uuid' },
+        {
+          playbookStatus: 'ready',
+        },
+      )
     })
 
     it('should transition status from ready to generating to failed on error', async () => {
@@ -420,33 +407,35 @@ describe('PlaybookGenerationProcessor', () => {
         attemptsMade: 0,
       } as Job<typeof jobData>
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest
         .spyOn(analyzedContentService, 'findById')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
       jest
         .spyOn(aiAnalysisService, 'generateCompliancePlaybook')
         .mockRejectedValue(new Error('Playbook generation failed'))
-      jest
-        .spyOn(radarPushRepository, 'findOne')
-        .mockResolvedValue(mockRadarPush as RadarPush)
-      const updateSpy = jest
-        .spyOn(radarPushRepository, 'update')
-        .mockResolvedValue(undefined)
+      jest.spyOn(radarPushRepository, 'findOne').mockResolvedValue(mockRadarPush as RadarPush)
+      const updateSpy = jest.spyOn(radarPushRepository, 'update').mockResolvedValue(undefined)
 
       // Act
       await processor.process(job)
 
       // Assert
       expect(updateSpy).toHaveBeenCalledTimes(2) // generating → failed
-      expect(updateSpy).toHaveBeenNthCalledWith(1, { contentId: 'raw-content-uuid' }, {
-        playbookStatus: 'generating',
-      })
-      expect(updateSpy).toHaveBeenNthCalledWith(2, { contentId: 'raw-content-uuid' }, {
-        playbookStatus: 'failed',
-      })
+      expect(updateSpy).toHaveBeenNthCalledWith(
+        1,
+        { contentId: 'raw-content-uuid' },
+        {
+          playbookStatus: 'generating',
+        },
+      )
+      expect(updateSpy).toHaveBeenNthCalledWith(
+        2,
+        { contentId: 'raw-content-uuid' },
+        {
+          playbookStatus: 'failed',
+        },
+      )
     })
   })
 
@@ -463,21 +452,15 @@ describe('PlaybookGenerationProcessor', () => {
         attemptsMade: 0,
       } as Job<typeof jobData>
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest
         .spyOn(analyzedContentService, 'findById')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
       jest
         .spyOn(aiAnalysisService, 'generateCompliancePlaybook')
         .mockRejectedValue(new Error('AI failure'))
-      jest
-        .spyOn(radarPushRepository, 'findOne')
-        .mockResolvedValue(mockRadarPush as RadarPush)
-      jest
-        .spyOn(radarPushRepository, 'update')
-        .mockResolvedValue(undefined)
+      jest.spyOn(radarPushRepository, 'findOne').mockResolvedValue(mockRadarPush as RadarPush)
+      jest.spyOn(radarPushRepository, 'update').mockResolvedValue(undefined)
 
       // Act & Assert - Should not throw
       await expect(processor.process(job)).resolves.toBeUndefined()
@@ -539,18 +522,14 @@ describe('PlaybookGenerationProcessor', () => {
         generatedAt: new Date(),
       }
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest
         .spyOn(analyzedContentService, 'findById')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
       jest
         .spyOn(aiAnalysisService, 'generateCompliancePlaybook')
         .mockResolvedValue(mockPlaybook as any)
-      jest
-        .spyOn(radarPushRepository, 'findOne')
-        .mockResolvedValue(mockRadarPush as RadarPush)
+      jest.spyOn(radarPushRepository, 'findOne').mockResolvedValue(mockRadarPush as RadarPush)
       jest
         .spyOn(radarPushRepository, 'update')
         .mockRejectedValue(new Error('Database connection lost'))

@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm'
 import { config } from 'dotenv'
 import {
   User,
+  Tenant,
   Organization,
   OrganizationMember,
   Project,
@@ -47,6 +48,7 @@ export const AppDataSource = new DataSource({
   database: process.env.DB_DATABASE || 'csaas',
   entities: [
     User,
+    Tenant,
     Organization,
     OrganizationMember,
     Project,

@@ -61,7 +61,7 @@ describe('Radar Push System (E2E)', () => {
     dataSource = app.get<DataSource>(DataSource)
     relevanceService = app.get<RelevanceService>(RelevanceService)
     pushSchedulerService = app.get<PushSchedulerService>(PushSchedulerService)
-    pushQueue = app.get<Queue>(getQueueToken('radar:push'))
+    pushQueue = app.get<Queue>(getQueueToken('radar-push'))
 
     await app.init()
 
@@ -288,11 +288,7 @@ describe('Radar Push System (E2E)', () => {
   describe('2. 推送调度', () => {
     it('应该获取待推送的内容（status=scheduled, scheduledAt <= now）', async () => {
       // Create a push with past scheduledAt
-      const content = await createTestContent(
-        'Test Content for Scheduling',
-        ['数据安全'],
-        [],
-      )
+      const content = await createTestContent('Test Content for Scheduling', ['数据安全'], [])
 
       const push = dataSource.getRepository(RadarPush).create({
         organizationId: org1Id,
@@ -341,12 +337,8 @@ describe('Radar Push System (E2E)', () => {
       const pendingPushes = await pushSchedulerService.getPendingPushes('tech')
 
       // First push should have higher relevanceScore
-      const sortedPushes = pendingPushes.filter(
-        (p) => p.id === push1.id || p.id === push2.id,
-      )
-      expect(sortedPushes[0].relevanceScore).toBeGreaterThanOrEqual(
-        sortedPushes[1].relevanceScore,
-      )
+      const sortedPushes = pendingPushes.filter((p) => p.id === push1.id || p.id === push2.id)
+      expect(sortedPushes[0].relevanceScore).toBeGreaterThanOrEqual(sortedPushes[1].relevanceScore)
     })
   })
 
@@ -457,11 +449,7 @@ describe('Radar Push System (E2E)', () => {
 
   describe('5. 多组织隔离测试', () => {
     it('应该只为相关组织创建推送', async () => {
-      const content = await createTestContent(
-        'Test Content for Org Isolation',
-        ['数据安全'],
-        [],
-      )
+      const content = await createTestContent('Test Content for Org Isolation', ['数据安全'], [])
 
       // Calculate relevance (should only create push for org1, not org2)
       await relevanceService.calculateRelevance(content.id)

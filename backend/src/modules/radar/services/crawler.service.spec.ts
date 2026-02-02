@@ -109,11 +109,7 @@ describe('CrawlerService', () => {
 
       mockRawContentService.create.mockResolvedValue(savedContent)
 
-      const result = await service.crawlWebsite(
-        crawlData.source,
-        crawlData.category,
-        crawlData.url,
-      )
+      const result = await service.crawlWebsite(crawlData.source, crawlData.category, crawlData.url)
 
       expect(result).toEqual(savedContent)
       expect(mockRawContentService.create).toHaveBeenCalled()

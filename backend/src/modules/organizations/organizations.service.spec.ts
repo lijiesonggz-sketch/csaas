@@ -6,6 +6,8 @@ import { Organization } from '../../database/entities/organization.entity'
 import { OrganizationMember } from '../../database/entities/organization-member.entity'
 import { User } from '../../database/entities/user.entity'
 import { Project } from '../../database/entities/project.entity'
+import { WatchedTopic } from '../../database/entities/watched-topic.entity'
+import { WatchedPeer } from '../../database/entities/watched-peer.entity'
 import { ConflictException, NotFoundException } from '@nestjs/common'
 
 describe('OrganizationsService', () => {
@@ -45,6 +47,22 @@ describe('OrganizationsService', () => {
     count: jest.fn(),
   }
 
+  const mockWatchedTopicRepository = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    delete: jest.fn(),
+  }
+
+  const mockWatchedPeerRepository = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    delete: jest.fn(),
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -64,6 +82,14 @@ describe('OrganizationsService', () => {
         {
           provide: getRepositoryToken(Project),
           useValue: mockProjectRepository,
+        },
+        {
+          provide: getRepositoryToken(WatchedTopic),
+          useValue: mockWatchedTopicRepository,
+        },
+        {
+          provide: getRepositoryToken(WatchedPeer),
+          useValue: mockWatchedPeerRepository,
         },
       ],
     }).compile()

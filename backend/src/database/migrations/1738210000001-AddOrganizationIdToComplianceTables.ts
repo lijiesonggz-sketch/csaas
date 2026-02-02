@@ -17,9 +17,7 @@ import { MigrationInterface, QueryRunner, TableIndex } from 'typeorm'
  * - Layer 3 (Database): PostgreSQL RLS基于organizationId过滤行
  * - Layer 4 (Audit): AuditLog记录所有敏感操作
  */
-export class AddOrganizationIdToComplianceTables1738210000001
-  implements MigrationInterface
-{
+export class AddOrganizationIdToComplianceTables1738210000001 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // ===== 1. 添加organizationId字段到compliance_playbooks表 =====
     await queryRunner.query(`
@@ -130,10 +128,7 @@ export class AddOrganizationIdToComplianceTables1738210000001
     `)
 
     // ===== 回滚索引 =====
-    await queryRunner.dropIndex(
-      'compliance_playbooks',
-      'IDX_compliance_playbooks_organizationId',
-    )
+    await queryRunner.dropIndex('compliance_playbooks', 'IDX_compliance_playbooks_organizationId')
     await queryRunner.dropIndex(
       'compliance_checklist_submissions',
       'IDX_compliance_checklist_submissions_organizationId',

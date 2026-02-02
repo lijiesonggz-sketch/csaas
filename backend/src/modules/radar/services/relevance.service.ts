@@ -123,7 +123,6 @@ export class RelevanceService {
     // 3. 批量加载所有组织的薄弱项和关注领域（避免N+1查询）
     const orgIds = organizations.map((org) => org.id)
 
-
     const [allWeaknesses, allTopics] = await Promise.all([
       this.weaknessSnapshotRepo.find({
         where: { organizationId: In(orgIds) },
@@ -152,7 +151,6 @@ export class RelevanceService {
       topicsByOrg.get(topic.organizationId).push(topic)
     }
 
-
     // 4. 对每个组织计算相关性
     let pushesCreated = 0
     let failedOrganizations = 0
@@ -172,7 +170,8 @@ export class RelevanceService {
         const topicMatch = this.calculateTopicMatch(content, topics)
 
         // 3.3 计算相关性评分
-        const relevanceScore = weaknessMatch * RELEVANCE_WEIGHTS.WEAKNESS + topicMatch * RELEVANCE_WEIGHTS.TOPIC
+        const relevanceScore =
+          weaknessMatch * RELEVANCE_WEIGHTS.WEAKNESS + topicMatch * RELEVANCE_WEIGHTS.TOPIC
 
         this.logger.debug(
           `Organization ${org.name}: weaknessMatch=${weaknessMatch.toFixed(2)}, topicMatch=${topicMatch.toFixed(2)}, relevanceScore=${relevanceScore.toFixed(2)}`,
@@ -181,14 +180,36 @@ export class RelevanceService {
         // 3.4 仅创建高相关推送（≥0.9）
         if (relevanceScore >= RELEVANCE_THRESHOLDS.HIGH) {
           // 确定雷达类型（从 rawContent 的 category 字段）
-          const radarType = (content.rawContent?.category ||
-            'tech') as 'tech' | 'industry' | 'compliance'
+          const radarType = (content.rawContent?.category || 'tech') as
+            | 'tech'
+            | 'industry'
+            | 'compliance'
 
           // 计算优先级
           const priorityLevel = this.calculatePriority(relevanceScore, radarType)
 
           // 计算下次推送时间
           const scheduledAt = this.getNextScheduledTime(radarType)
+
+          // Story 5.2 Task 2.2: 如果是行业雷达，计算匹配的关注同业
+          let matchedPeers: string[] | undefined
+          if (radarType === 'industry') {
+            const watchedPeers = await this.watchedPeerRepo.find({
+              where: { organizationId: org.id },
+            })
+
+            // 使用混合匹配策略（与calculateIndustryRelevance一致）
+            const peerName = content.rawContent?.peerName
+            if (peerName && watchedPeers.some((peer) => peer.peerName === peerName)) {
+              matchedPeers = [peerName]
+            } else if (watchedPeers.length > 0) {
+              const contentText = `${content.rawContent?.title || ''} ${content.rawContent?.summary || ''}`
+              const matched = watchedPeers.filter((peer) => contentText.includes(peer.peerName))
+              if (matched.length > 0) {
+                matchedPeers = matched.map((p) => p.peerName)
+              }
+            }
+          }
 
           // AC 6: 推送去重与频率控制（使用事务保护）
           const pushCreated = await this.createPushWithTransaction(
@@ -199,6 +220,7 @@ export class RelevanceService {
             relevanceScore,
             priorityLevel,
             scheduledAt,
+            matchedPeers,
           )
 
           if (pushCreated) {
@@ -233,10 +255,7 @@ export class RelevanceService {
    * @param weaknesses - 组织的薄弱项快照
    * @returns 匹配度 (0-1)
    */
-  private calculateWeaknessMatch(
-    content: AnalyzedContent,
-    weaknesses: WeaknessSnapshot[],
-  ): number {
+  private calculateWeaknessMatch(content: AnalyzedContent, weaknesses: WeaknessSnapshot[]): number {
     if (weaknesses.length === 0) {
       return 0
     }
@@ -270,7 +289,8 @@ export class RelevanceService {
         // level 3 → weight 0.5
         // level 4 → weight 0.25
         // level 5 → weight 0.0
-        const weight = (WEAKNESS_LEVEL_CONFIG.MAX_LEVEL - weakness.level) / WEAKNESS_LEVEL_CONFIG.WEIGHT_DIVISOR
+        const weight =
+          (WEAKNESS_LEVEL_CONFIG.MAX_LEVEL - weakness.level) / WEAKNESS_LEVEL_CONFIG.WEIGHT_DIVISOR
         matchScore = Math.max(matchScore, weight)
 
         this.logger.debug(
@@ -293,10 +313,7 @@ export class RelevanceService {
    * @param topics - 组织关注的主题
    * @returns 匹配度 (0-1)
    */
-  private calculateTopicMatch(
-    content: AnalyzedContent,
-    topics: WatchedTopic[],
-  ): number {
+  private calculateTopicMatch(content: AnalyzedContent, topics: WatchedTopic[]): number {
     if (topics.length === 0) {
       return 0
     }
@@ -400,9 +417,7 @@ export class RelevanceService {
    * @param radarType - 雷达类型
    * @returns 下次推送时间（UTC时间）
    */
-  private getNextScheduledTime(
-    radarType: 'tech' | 'industry' | 'compliance',
-  ): Date {
+  private getNextScheduledTime(radarType: 'tech' | 'industry' | 'compliance'): Date {
     // 使用UTC+8时区（中国标准时间）
     // 注意：中国不使用夏令时，因此偏移量固定为-480分钟
     const now = new Date()
@@ -485,18 +500,40 @@ export class RelevanceService {
   ): Promise<{
     relevanceScore: number
     priorityLevel: 'high' | 'medium' | 'low'
+    matchedPeers: string[]
   }> {
     // 1. 同业匹配 (权重0.5) - 用户明确关注的同业机构
     const watchedPeers = await this.watchedPeerRepo.find({
       where: { organizationId: organization.id },
     })
 
-    const peerName = content.rawContent?.peerName
-    const peerMatch = peerName && watchedPeers.some((peer) => peer.peerName === peerName) ? 1.0 : 0.0
+    let peerMatch = 0.0
+    let matchedPeerNames: string[] = []
 
-    this.logger.debug(
-      `Peer match for ${peerName}: ${peerMatch} (${watchedPeers.length} watched peers)`,
-    )
+    // 策略1: 优先使用结构化字段 (精确匹配)
+    const peerName = content.rawContent?.peerName
+    if (peerName && watchedPeers.some((peer) => peer.peerName === peerName)) {
+      peerMatch = 1.0
+      matchedPeerNames.push(peerName)
+      this.logger.debug(
+        `Peer match (structured): ${peerName} (${watchedPeers.length} watched peers)`,
+      )
+    }
+    // 策略2: 回退到全文匹配 (容错) - 只搜索标题和摘要
+    else if (watchedPeers.length > 0) {
+      const contentText = `${content.rawContent?.title || ''} ${content.rawContent?.summary || ''}`
+      const matchedPeers = watchedPeers.filter((peer) => contentText.includes(peer.peerName))
+
+      if (matchedPeers.length > 0) {
+        peerMatch = 1.0
+        matchedPeerNames = matchedPeers.map((p) => p.peerName)
+        this.logger.debug(
+          `Peer match (fulltext): ${matchedPeerNames.join(', ')} (${watchedPeers.length} watched peers)`,
+        )
+      } else {
+        this.logger.debug(`No peer match found (${watchedPeers.length} watched peers)`)
+      }
+    }
 
     // 2. 薄弱项匹配 (权重0.3) - 同业案例能解决用户的薄弱项
     const weaknesses = await this.weaknessSnapshotRepo.find({
@@ -505,9 +542,7 @@ export class RelevanceService {
 
     const weaknessMatch = this.calculateWeaknessMatch(content, weaknesses)
 
-    this.logger.debug(
-      `Weakness match: ${weaknessMatch} (${weaknesses.length} weaknesses)`,
-    )
+    this.logger.debug(`Weakness match: ${weaknessMatch} (${weaknesses.length} weaknesses)`)
 
     // 3. 关注领域匹配 (权重0.2) - 用户感兴趣的技术领域
     const topics = await this.watchedTopicRepo.find({
@@ -522,16 +557,16 @@ export class RelevanceService {
     const relevanceScore = peerMatch * 0.5 + weaknessMatch * 0.3 + topicMatch * 0.2
 
     // 5. 确定优先级
-    const priorityLevel =
-      relevanceScore >= 0.9 ? 'high' : relevanceScore >= 0.7 ? 'medium' : 'low'
+    const priorityLevel = relevanceScore >= 0.9 ? 'high' : relevanceScore >= 0.7 ? 'medium' : 'low'
 
     this.logger.log(
-      `Industry relevance for ${organization.name}: score=${relevanceScore.toFixed(2)}, priority=${priorityLevel}`,
+      `Industry relevance for ${organization.name}: score=${relevanceScore.toFixed(2)}, priority=${priorityLevel}, matchedPeers=${matchedPeerNames.join(', ') || 'none'}`,
     )
 
     return {
       relevanceScore: parseFloat(relevanceScore.toFixed(2)),
       priorityLevel,
+      matchedPeers: matchedPeerNames,
     }
   }
 
@@ -579,7 +614,9 @@ export class RelevanceService {
 
         if (categoryMatch) {
           // 薄弱程度越高(level越低)，权重越大
-          const weight = (WEAKNESS_LEVEL_CONFIG.MAX_LEVEL - weakness.level) / WEAKNESS_LEVEL_CONFIG.WEIGHT_DIVISOR
+          const weight =
+            (WEAKNESS_LEVEL_CONFIG.MAX_LEVEL - weakness.level) /
+            WEAKNESS_LEVEL_CONFIG.WEIGHT_DIVISOR
           weaknessMatch = Math.max(weaknessMatch, weight)
 
           this.logger.debug(
@@ -589,7 +626,9 @@ export class RelevanceService {
       }
     }
 
-    this.logger.debug(`Compliance weakness match: ${weaknessMatch} (${weaknesses.length} weaknesses)`)
+    this.logger.debug(
+      `Compliance weakness match: ${weaknessMatch} (${weaknesses.length} weaknesses)`,
+    )
 
     // 2. 关注领域匹配 (权重0.3) - 用户感兴趣的技术领域
     const topics = await this.watchedTopicRepo.find({
@@ -623,8 +662,7 @@ export class RelevanceService {
     const relevanceScore = weaknessMatch * 0.5 + topicMatch * 0.3 + peerMatch * 0.2
 
     // 5. 确定优先级
-    const priorityLevel =
-      relevanceScore >= 0.9 ? 'high' : relevanceScore >= 0.7 ? 'medium' : 'low'
+    const priorityLevel = relevanceScore >= 0.9 ? 'high' : relevanceScore >= 0.7 ? 'medium' : 'low'
 
     this.logger.log(
       `Compliance relevance for ${organization.name}: score=${relevanceScore.toFixed(2)}, priority=${priorityLevel}`,
@@ -646,6 +684,7 @@ export class RelevanceService {
    * @param relevanceScore - 相关性评分
    * @param priorityLevel - 优先级
    * @param scheduledAt - 推送时间
+   * @param matchedPeers - 匹配的关注同业列表 (Story 5.2 Task 2.2)
    * @returns 是否成功创建推送
    */
   private async createPushWithTransaction(
@@ -656,6 +695,7 @@ export class RelevanceService {
     relevanceScore: number,
     priorityLevel: 'high' | 'medium' | 'low',
     scheduledAt: Date,
+    matchedPeers?: string[],
   ): Promise<boolean> {
     const queryRunner = this.dataSource.createQueryRunner()
     await queryRunner.connect()
@@ -673,19 +713,16 @@ export class RelevanceService {
         // 如果推送限制达到5条，检查是否可以替换最低score推送
         if (checkResult.lowestPush && relevanceScore > checkResult.lowestPush.relevanceScore) {
           // 强制插入（替换最低score推送）
-          await this.pushFrequencyControlService.forceInsertPush(
+          await this.pushFrequencyControlService.forceInsertPush(organizationId, scheduledAt, {
             organizationId,
+            radarType,
+            contentId,
+            relevanceScore: parseFloat(relevanceScore.toFixed(2)),
+            priorityLevel,
             scheduledAt,
-            {
-              organizationId,
-              radarType,
-              contentId,
-              relevanceScore: parseFloat(relevanceScore.toFixed(2)),
-              priorityLevel,
-              scheduledAt,
-              status: 'scheduled',
-            },
-          )
+            status: 'scheduled',
+            matchedPeers: matchedPeers || null,
+          })
 
           await queryRunner.commitTransaction()
 
@@ -698,9 +735,7 @@ export class RelevanceService {
           // 重复推送或新score不够高，跳过
           await queryRunner.rollbackTransaction()
 
-          this.logger.debug(
-            `Push not allowed for ${organizationName}: ${checkResult.reason}`,
-          )
+          this.logger.debug(`Push not allowed for ${organizationName}: ${checkResult.reason}`)
 
           return false
         }
@@ -714,6 +749,7 @@ export class RelevanceService {
           priorityLevel,
           scheduledAt,
           status: 'scheduled',
+          matchedPeers: matchedPeers || null,
         })
 
         await queryRunner.manager.save(radarPush)
@@ -727,10 +763,7 @@ export class RelevanceService {
       }
     } catch (error) {
       await queryRunner.rollbackTransaction()
-      this.logger.error(
-        `Failed to create push for ${organizationName}:`,
-        error.stack,
-      )
+      this.logger.error(`Failed to create push for ${organizationName}:`, error.stack)
       return false
     } finally {
       await queryRunner.release()

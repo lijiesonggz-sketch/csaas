@@ -40,9 +40,7 @@ export class CrawlerProcessor extends WorkerHost {
   async process(job: Job<CrawlerJobData>): Promise<any> {
     const { source, category, url } = job.data
 
-    this.logger.log(
-      `Processing crawler job: ${source} - ${url} (Attempt ${job.attemptsMade + 1})`,
-    )
+    this.logger.log(`Processing crawler job: ${source} - ${url} (Attempt ${job.attemptsMade + 1})`)
 
     try {
       // 执行爬虫（CrawlerService内部会触发AI分析任务）

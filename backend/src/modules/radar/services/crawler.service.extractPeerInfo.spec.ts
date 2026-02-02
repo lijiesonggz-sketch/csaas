@@ -123,7 +123,7 @@ describe('CrawlerService - extractPeerInfo', () => {
       expect(result.technicalEffect).toBeDefined()
       expect(result.technicalEffect).toBeTruthy()
       // The regex extracts the first matching effect keyword
-      expect(['缩短', '提升'].some(kw => result.technicalEffect?.includes(kw))).toBe(true)
+      expect(['缩短', '提升'].some((kw) => result.technicalEffect?.includes(kw))).toBe(true)
     })
 
     it('should extract effect with various keywords', () => {
@@ -135,7 +135,7 @@ describe('CrawlerService - extractPeerInfo', () => {
         '通过自动化优化了部署流程',
       ]
 
-      testCases.forEach(text => {
+      testCases.forEach((text) => {
         const result = service.extractPeerInfo(text, '测试银行')
         expect(result.technicalEffect).toBeDefined()
         expect(result.technicalEffect).toBeTruthy()

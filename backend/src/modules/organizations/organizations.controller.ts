@@ -60,7 +60,9 @@ export class OrganizationsController {
    * GET /organizations/me
    */
   @Get('me')
-  async getCurrentUserOrganization(@CurrentUser() user: any): Promise<UserOrganizationResponse | null> {
+  async getCurrentUserOrganization(
+    @CurrentUser() user: any,
+  ): Promise<UserOrganizationResponse | null> {
     const userId = user.userId || user.id
     return this.organizationsService.getUserOrganization(userId)
   }
@@ -303,10 +305,7 @@ export class OrganizationsController {
     @CurrentUser() user: any,
   ) {
     const userId = user.userId || user.id
-    const result = await this.organizationsService.createWatchedTopic(
-      id,
-      body.name,
-    )
+    const result = await this.organizationsService.createWatchedTopic(id, body.name)
 
     // Log audit
     await this.auditLogService.log({
@@ -338,10 +337,7 @@ export class OrganizationsController {
     const userId = user?.userId || user?.id || 'test-user'
 
     try {
-      const results = await this.organizationsService.createWatchedTopics(
-        id,
-        body.names,
-      )
+      const results = await this.organizationsService.createWatchedTopics(id, body.names)
 
       // Log audit
       await this.auditLogService.log({
@@ -521,10 +517,7 @@ export class OrganizationsController {
    */
   @Post(':id/radar-activate')
   @UseGuards(OrganizationGuard)
-  async activateRadar(
-    @Param('id') id: string,
-    @CurrentUser() user: any,
-  ) {
+  async activateRadar(@Param('id') id: string, @CurrentUser() user: any) {
     // TEMPORARY: Handle missing user for testing
     const userId = user?.userId || user?.id || 'test-user'
 
@@ -561,10 +554,7 @@ export class OrganizationsController {
    */
   @Post(':id/radar-deactivate')
   @UseGuards(OrganizationGuard)
-  async deactivateRadar(
-    @Param('id') id: string,
-    @CurrentUser() user: any,
-  ) {
+  async deactivateRadar(@Param('id') id: string, @CurrentUser() user: any) {
     const userId = user.userId || user.id
     const result = await this.organizationsService.deactivateRadar(id)
 

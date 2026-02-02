@@ -78,7 +78,8 @@ describe('PushFrequencyControlService', () => {
 
     it('应该拒绝推送（已达5条限制）', async () => {
       // Arrange
-      jest.spyOn(radarPushRepo, 'findOne')
+      jest
+        .spyOn(radarPushRepo, 'findOne')
         .mockResolvedValueOnce(null) // 去重检查通过
         .mockResolvedValueOnce({
           // 返回最低分推送
@@ -131,7 +132,8 @@ describe('PushFrequencyControlService', () => {
   describe('getPushStats', () => {
     it('应该返回正确的推送统计', async () => {
       // Arrange
-      jest.spyOn(radarPushRepo, 'count')
+      jest
+        .spyOn(radarPushRepo, 'count')
         .mockResolvedValueOnce(10) // total
         .mockResolvedValueOnce(5) // scheduled
         .mockResolvedValueOnce(4) // sent

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, LessThanOrEqual } from 'typeorm'
 import { RadarPush } from '../../../database/entities/radar-push.entity'
+import { PushPreference } from '../../../database/entities/push-preference.entity'
 
 /**
  * PushSchedulerService - 推送调度服务
@@ -27,6 +28,8 @@ export class PushSchedulerService {
   constructor(
     @InjectRepository(RadarPush)
     private readonly radarPushRepo: Repository<RadarPush>,
+    @InjectRepository(PushPreference)
+    private readonly pushPreferenceRepo: Repository<PushPreference>,
   ) {}
 
   /**
@@ -42,7 +45,9 @@ export class PushSchedulerService {
   async getPendingPushes(radarType: 'tech' | 'industry' | 'compliance'): Promise<RadarPush[]> {
     const now = new Date()
 
-    this.logger.log(`Fetching pending pushes for ${radarType} radar (scheduledAt <= ${now.toISOString()})`)
+    this.logger.log(
+      `Fetching pending pushes for ${radarType} radar (scheduledAt <= ${now.toISOString()})`,
+    )
 
     const pushes = await this.radarPushRepo.find({
       where: {
@@ -231,9 +236,7 @@ export class PushSchedulerService {
       },
     })
 
-    this.logger.log(
-      `Organization ${organizationId} has sent ${count} ${radarType} pushes today`,
-    )
+    this.logger.log(`Organization ${organizationId} has sent ${count} ${radarType} pushes today`)
 
     return count
   }
@@ -277,9 +280,103 @@ export class PushSchedulerService {
         scheduledAt: tomorrow9am,
       })
 
-      this.logger.debug(
-        `Push ${push.id} downgraded to ${tomorrow9am.toISOString()}`,
-      )
+      this.logger.debug(`Push ${push.id} downgraded to ${tomorrow9am.toISOString()}`)
     }
+  }
+
+  /**
+   * 检查当前时间是否在推送时段内 (Story 5.3 - AC 5)
+   *
+   * @param preference - 推送偏好设置
+   * @param now - 当前时间
+   * @returns 是否在时段内
+   */
+  isWithinPushWindow(preference: PushPreference, now: Date): boolean {
+    const { pushStartTime, pushEndTime } = preference
+
+    // 防御性编程: 空值检查
+    if (!pushStartTime || !pushEndTime) {
+      this.logger.warn(`PushPreference has invalid time range`)
+      return true // 默认允许推送，避免阻塞
+    }
+
+    const currentTime = this.formatTime(now)
+
+    // 处理跨午夜时段（如 22:00-08:00）
+    if (pushStartTime > pushEndTime) {
+      return currentTime >= pushStartTime || currentTime <= pushEndTime
+    }
+    return currentTime >= pushStartTime && currentTime <= pushEndTime
+  }
+
+  /**
+   * 格式化时间为 HH:mm 字符串
+   */
+  private formatTime(date: Date): string {
+    return date.toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  /**
+   * 综合检查推送限制 (Story 5.3 - AC 5)
+   *
+   * - 检查时段限制 (合规雷达跳过)
+   * - 检查当日推送数量限制
+   * - 如超出限制，调用 downgradeExcessPushes 延迟推送
+   */
+  async checkPushLimitsAndFilter(
+    pushes: RadarPush[],
+    organizationId: string,
+    radarType: 'tech' | 'industry' | 'compliance',
+    now: Date = new Date(),
+  ): Promise<RadarPush[]> {
+    // 1. 获取组织推送偏好
+    const preference = await this.pushPreferenceRepo.findOne({
+      where: { organizationId },
+    })
+
+    // 如果未配置，使用默认值允许推送
+    if (!preference) {
+      return pushes
+    }
+
+    // 2. 时段检查 (合规雷达跳过)
+    if (radarType !== 'compliance') {
+      if (!this.isWithinPushWindow(preference, now)) {
+        this.logger.log(
+          `Organization ${organizationId} outside push window (${preference.pushStartTime}-${preference.pushEndTime}), delaying all pushes`,
+        )
+        // 所有推送延迟到下个时段
+        await this.downgradeExcessPushes(pushes, 0, now)
+        return []
+      }
+    }
+
+    // 3. 数量限制检查
+    const todayCount = await this.countTodayPushes(organizationId, radarType, now)
+    const remainingLimit = Math.max(0, preference.dailyPushLimit - todayCount)
+
+    if (remainingLimit === 0) {
+      this.logger.log(
+        `Organization ${organizationId} reached daily limit (${preference.dailyPushLimit}), delaying all pushes`,
+      )
+      // 所有推送延迟到次日
+      await this.downgradeExcessPushes(pushes, 0, now)
+      return []
+    }
+
+    // 4. 如果超出剩余限制，只发送允许的数量，其余延迟
+    if (pushes.length > remainingLimit) {
+      this.logger.log(
+        `Organization ${organizationId} pushes (${pushes.length}) exceed remaining limit (${remainingLimit}), downgrading excess`,
+      )
+      await this.downgradeExcessPushes(pushes, remainingLimit, now)
+      return pushes.slice(0, remainingLimit)
+    }
+
+    return pushes
   }
 }

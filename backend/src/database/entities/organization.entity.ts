@@ -6,6 +6,8 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm'
 
 import { OrganizationMember } from './organization-member.entity'
@@ -13,6 +15,7 @@ import { Project } from './project.entity'
 import { WeaknessSnapshot } from './weakness-snapshot.entity'
 import { WatchedTopic } from './watched-topic.entity'
 import { WatchedPeer } from './watched-peer.entity'
+import { Tenant } from './tenant.entity'
 
 /**
  * Organization Entity
@@ -39,6 +42,26 @@ export class Organization {
    */
   @Column({ type: 'varchar' })
   name: string
+
+  /**
+   * Tenant ID (Consulting Company)
+   *
+   * Foreign key to the Tenant table. Represents which consulting company
+   * this organization (client) belongs to. Used for multi-tenant data isolation.
+   *
+   * @required After migration completes, this field becomes NOT NULL
+   */
+  @Column({ name: 'tenant_id', type: 'uuid', nullable: false })
+  tenantId: string
+
+  /**
+   * Tenant relationship
+   *
+   * Many organizations belong to one tenant (consulting company)
+   */
+  @ManyToOne(() => Tenant, (tenant) => tenant.organizations)
+  @JoinColumn({ name: 'tenant_id' })
+  tenant: Tenant
 
   /**
    * Radar Service activation status

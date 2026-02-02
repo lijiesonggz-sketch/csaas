@@ -8,9 +8,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  *
  * Story 1.4 - AC 5: 引导步骤3 - 关注同业机构
  */
-export class CreateWatchedPeersTable1768700000002
-  implements MigrationInterface
-{
+export class CreateWatchedPeersTable1768700000002 implements MigrationInterface {
   name = 'CreateWatchedPeersTable1768700000002'
 
   public async up(queryRunner: QueryRunner): Promise<void> {

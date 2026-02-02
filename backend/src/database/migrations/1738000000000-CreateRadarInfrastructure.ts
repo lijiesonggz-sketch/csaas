@@ -72,9 +72,13 @@ export class CreateRadarInfrastructure1738000000000 implements MigrationInterfac
       )
     `)
 
-    await queryRunner.query(`CREATE INDEX "IDX_watched_items_organizationId" ON "watched_items" ("organizationId")`)
+    await queryRunner.query(
+      `CREATE INDEX "IDX_watched_items_organizationId" ON "watched_items" ("organizationId")`,
+    )
     await queryRunner.query(`CREATE INDEX "IDX_watched_items_tagId" ON "watched_items" ("tagId")`)
-    await queryRunner.query(`CREATE INDEX "IDX_watched_items_watchType" ON "watched_items" ("watchType")`)
+    await queryRunner.query(
+      `CREATE INDEX "IDX_watched_items_watchType" ON "watched_items" ("watchType")`,
+    )
 
     // 3. 创建raw_contents表
     await queryRunner.query(`
@@ -96,9 +100,15 @@ export class CreateRadarInfrastructure1738000000000 implements MigrationInterfac
       )
     `)
 
-    await queryRunner.query(`CREATE INDEX "IDX_raw_contents_status_category" ON "raw_contents" ("status", "category")`)
-    await queryRunner.query(`CREATE INDEX "IDX_raw_contents_contentHash" ON "raw_contents" ("contentHash")`)
-    await queryRunner.query(`CREATE INDEX "IDX_raw_contents_organizationId" ON "raw_contents" ("organizationId", "category")`)
+    await queryRunner.query(
+      `CREATE INDEX "IDX_raw_contents_status_category" ON "raw_contents" ("status", "category")`,
+    )
+    await queryRunner.query(
+      `CREATE INDEX "IDX_raw_contents_contentHash" ON "raw_contents" ("contentHash")`,
+    )
+    await queryRunner.query(
+      `CREATE INDEX "IDX_raw_contents_organizationId" ON "raw_contents" ("organizationId", "category")`,
+    )
     await queryRunner.query(`CREATE INDEX "IDX_raw_contents_source" ON "raw_contents" ("source")`)
 
     // 4. 创建analyzed_contents表
@@ -118,7 +128,9 @@ export class CreateRadarInfrastructure1738000000000 implements MigrationInterfac
       )
     `)
 
-    await queryRunner.query(`CREATE INDEX "IDX_analyzed_contents_contentId" ON "analyzed_contents" ("contentId")`)
+    await queryRunner.query(
+      `CREATE INDEX "IDX_analyzed_contents_contentId" ON "analyzed_contents" ("contentId")`,
+    )
 
     // 5. 创建content_tags关联表（多对多）
     await queryRunner.query(`
@@ -131,7 +143,9 @@ export class CreateRadarInfrastructure1738000000000 implements MigrationInterfac
       )
     `)
 
-    await queryRunner.query(`CREATE INDEX "IDX_content_tags_contentId" ON "content_tags" ("contentId")`)
+    await queryRunner.query(
+      `CREATE INDEX "IDX_content_tags_contentId" ON "content_tags" ("contentId")`,
+    )
     await queryRunner.query(`CREATE INDEX "IDX_content_tags_tagId" ON "content_tags" ("tagId")`)
 
     // 6. 创建push_schedule_configs表
@@ -155,7 +169,9 @@ export class CreateRadarInfrastructure1738000000000 implements MigrationInterfac
       )
     `)
 
-    await queryRunner.query(`CREATE INDEX "IDX_push_schedule_configs_organizationId" ON "push_schedule_configs" ("organizationId")`)
+    await queryRunner.query(
+      `CREATE INDEX "IDX_push_schedule_configs_organizationId" ON "push_schedule_configs" ("organizationId")`,
+    )
 
     // 7. 创建radar_pushes表
     await queryRunner.query(`
@@ -181,10 +197,18 @@ export class CreateRadarInfrastructure1738000000000 implements MigrationInterfac
       )
     `)
 
-    await queryRunner.query(`CREATE INDEX "IDX_radar_pushes_organizationId" ON "radar_pushes" ("organizationId")`)
-    await queryRunner.query(`CREATE INDEX "IDX_radar_pushes_org_type_status" ON "radar_pushes" ("organizationId", "radarType", "status")`)
-    await queryRunner.query(`CREATE INDEX "IDX_radar_pushes_scheduled_status" ON "radar_pushes" ("scheduledAt", "status")`)
-    await queryRunner.query(`CREATE INDEX "IDX_radar_pushes_relevanceScore" ON "radar_pushes" ("relevanceScore")`)
+    await queryRunner.query(
+      `CREATE INDEX "IDX_radar_pushes_organizationId" ON "radar_pushes" ("organizationId")`,
+    )
+    await queryRunner.query(
+      `CREATE INDEX "IDX_radar_pushes_org_type_status" ON "radar_pushes" ("organizationId", "radarType", "status")`,
+    )
+    await queryRunner.query(
+      `CREATE INDEX "IDX_radar_pushes_scheduled_status" ON "radar_pushes" ("scheduledAt", "status")`,
+    )
+    await queryRunner.query(
+      `CREATE INDEX "IDX_radar_pushes_relevanceScore" ON "radar_pushes" ("relevanceScore")`,
+    )
 
     // 8. 创建crawler_logs表
     await queryRunner.query(`
@@ -202,8 +226,12 @@ export class CreateRadarInfrastructure1738000000000 implements MigrationInterfac
       )
     `)
 
-    await queryRunner.query(`CREATE INDEX "IDX_crawler_logs_source_status" ON "crawler_logs" ("source", "status")`)
-    await queryRunner.query(`CREATE INDEX "IDX_crawler_logs_executedAt" ON "crawler_logs" ("executedAt")`)
+    await queryRunner.query(
+      `CREATE INDEX "IDX_crawler_logs_source_status" ON "crawler_logs" ("source", "status")`,
+    )
+    await queryRunner.query(
+      `CREATE INDEX "IDX_crawler_logs_executedAt" ON "crawler_logs" ("executedAt")`,
+    )
 
     // 9. 插入默认的推送调度配置（全局配置）
     await queryRunner.query(`

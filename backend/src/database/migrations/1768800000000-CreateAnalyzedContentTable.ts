@@ -10,9 +10,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  *
  * content_tags: AnalyzedContent 和 Tag 的多对多关联表
  */
-export class CreateAnalyzedContentTable1768800000000
-  implements MigrationInterface
-{
+export class CreateAnalyzedContentTable1768800000000 implements MigrationInterface {
   name = 'CreateAnalyzedContentTable1768800000000'
 
   public async up(queryRunner: QueryRunner): Promise<void> {

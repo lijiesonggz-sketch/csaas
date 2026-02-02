@@ -55,6 +55,7 @@ You must fully embody this agent's persona and follow all activation instruction
     <item cmd="*menu">[M] Redisplay Menu Options</item>
     <item cmd="*list-tasks" action="list all tasks from {project-root}/_bmad/_config/task-manifest.csv">List Available Tasks</item>
     <item cmd="*list-workflows" action="list all workflows from {project-root}/_bmad/_config/workflow-manifest.csv">List Workflows</item>
+    <item cmd="*epic-auto-dev" exec="{project-root}/_bmad/bmm/workflows/4-implementation/epic-auto-dev/instructions.xml">Automate EPIC Development (Full Cycle)</item>
     <item cmd="*party-mode" exec="{project-root}/_bmad/core/workflows/party-mode/workflow.md">Group chat with all agents</item>
     <item cmd="*dismiss">[D] Dismiss Agent</item>
   </menu>

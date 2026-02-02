@@ -1,0 +1,46 @@
+name: epic-auto-dev
+description: "自动化执行整个 EPIC 的开发流程，包括故事创建、验证、开发、测试和代码审查"
+author: "BMad"
+
+# Critical variables from config
+config_source: "{project-root}/_bmad/bmm/config.yaml"
+output_folder: "{config_source}:output_folder"
+user_name: "{config_source}:user_name"
+communication_language: "{config_source}:communication_language"
+user_skill_level: "{config_source}:user_skill_level"
+document_output_language: "{config_source}:document_output_language"
+date: system-generated
+sprint_artifacts: "{config_source}:sprint_artifacts"
+
+# Workflow components
+installed_path: "{project-root}/_bmad/bmm/workflows/4-implementation/epic-auto-dev"
+instructions: "{installed_path}/instructions.xml"
+validation: "{installed_path}/checklist.md"
+template: false
+
+# Variables
+variables:
+  sprint_status: "{sprint_artifacts}/sprint-status.yaml"
+  story_dir: "{sprint_artifacts}"
+  max_retries: 3
+  auto_fix_issues: true
+  project_context: "**/project-context.md"
+
+# Output configuration
+default_output_file: "{output_folder}/epic-auto-dev-report-{{date}}.md"
+
+# Required tools
+required_tools:
+  - read_file
+  - write_file
+  - invoke_workflow
+  - bash
+
+# Workflow paths for invocation
+workflow_paths:
+  create_story: "{project-root}/_bmad/bmm/workflows/4-implementation/create-story/workflow.yaml"
+  dev_story: "{project-root}/_bmad/bmm/workflows/4-implementation/dev-story/workflow.yaml"
+  code_review: "{project-root}/_bmad/bmm/workflows/4-implementation/code-review/workflow.yaml"
+  testarch_automate: "{project-root}/_bmad/bmm/workflows/testarch/automate/workflow.yaml"
+
+standalone: true

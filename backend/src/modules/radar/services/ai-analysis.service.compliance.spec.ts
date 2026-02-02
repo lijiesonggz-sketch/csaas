@@ -30,7 +30,8 @@ describe('AIAnalysisService - Compliance Playbook (Story 4.2)', () => {
     title: '数据安全违规处罚案例',
     url: 'https://example.com/penalty-case',
     publishDate: '2026-01-30',
-    fullContent: '某银行因数据安全管理不到位，违反《银行业金融机构数据治理指引》，被处以50万元罚款。',
+    fullContent:
+      '某银行因数据安全管理不到位，违反《银行业金融机构数据治理指引》，被处以50万元罚款。',
     organizationId: 'org-123',
   }
 
@@ -89,9 +90,7 @@ describe('AIAnalysisService - Compliance Playbook (Story 4.2)', () => {
     }).compile()
 
     service = module.get<AIAnalysisService>(AIAnalysisService)
-    rawContentRepo = module.get<Repository<RawContent>>(
-      getRepositoryToken(RawContent),
-    )
+    rawContentRepo = module.get<Repository<RawContent>>(getRepositoryToken(RawContent))
     aiOrchestrator = module.get<AIOrchestrator>(AIOrchestrator)
     crawlerQueue = module.get<Queue>(getQueueToken('radar-crawler'))
   })
@@ -410,9 +409,7 @@ describe('AIAnalysisService - Compliance Playbook (Story 4.2)', () => {
         }
 
         // Act
-        const isValid =
-          playbook.checklistItems.length >= 5 &&
-          playbook.checklistItems.length <= 10
+        const isValid = playbook.checklistItems.length >= 5 && playbook.checklistItems.length <= 10
 
         // Assert
         expect(isValid).toBe(true)
@@ -462,7 +459,11 @@ describe('AIAnalysisService - Compliance Playbook (Story 4.2)', () => {
 
         // Act
         const isValid =
-          item.id && item.text && item.category && typeof item.checked === 'boolean' && typeof item.order === 'number'
+          item.id &&
+          item.text &&
+          item.category &&
+          typeof item.checked === 'boolean' &&
+          typeof item.order === 'number'
 
         // Assert
         expect(isValid).toBe(true)

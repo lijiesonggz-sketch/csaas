@@ -150,9 +150,7 @@ export class PushFrequencyControlService {
 
     // 保存新推送
     const savedPush = await this.radarPushRepo.save(newPush)
-    this.logger.log(
-      `Force inserted new push ${savedPush.id} (score: ${savedPush.relevanceScore})`,
-    )
+    this.logger.log(`Force inserted new push ${savedPush.id} (score: ${savedPush.relevanceScore})`)
 
     return savedPush
   }

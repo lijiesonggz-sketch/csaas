@@ -337,7 +337,11 @@ describe('Compliance Playbook Performance Benchmarks - Unit Tests (Story 4.2)', 
           complianceRiskCategory: ['数据安全', '网络安全', '反洗钱'][i % 3],
           relatedWeaknessCategories: ['数据安全', '个人信息保护'],
         },
-        categories: [['合规', '数据安全'], ['合规', '网络安全'], ['合规', '反洗钱']][i % 3],
+        categories: [
+          ['合规', '数据安全'],
+          ['合规', '网络安全'],
+          ['合规', '反洗钱'],
+        ][i % 3],
         tags: [{ name: '标签' }],
       })) as AnalyzedContent[]
 
@@ -348,7 +352,11 @@ describe('Compliance Playbook Performance Benchmarks - Unit Tests (Story 4.2)', 
 
       // Act: 批量计算相关性评分
       const results = mockAnalyzedContents.map((content) =>
-        service.calculateComplianceRelevance(content, organizationWeaknesses, organizationFocusAreas),
+        service.calculateComplianceRelevance(
+          content,
+          organizationWeaknesses,
+          organizationFocusAreas,
+        ),
       )
 
       const end = performance.now()
@@ -423,7 +431,9 @@ describe('Compliance Playbook Performance Benchmarks - Unit Tests (Story 4.2)', 
       console.log('\n性能要求 (P95):')
       console.log('-'.repeat(70))
       requirements.forEach((req) => {
-        console.log(`   ${req.status} ${req.name.padEnd(25)} 目标: ${req.target.padEnd(8)} 实际: ${req.actual}`)
+        console.log(
+          `   ${req.status} ${req.name.padEnd(25)} 目标: ${req.target.padEnd(8)} 实际: ${req.actual}`,
+        )
       })
 
       console.log('\n' + '='.repeat(70))

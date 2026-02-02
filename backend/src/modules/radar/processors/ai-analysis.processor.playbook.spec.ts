@@ -133,9 +133,7 @@ describe('AIAnalysisProcessor - Compliance Playbook (Phase 2.2)', () => {
         attemptsMade: 0,
       } as Job<typeof jobData>
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest.spyOn(rawContentService, 'updateStatus').mockResolvedValue(undefined)
       jest
         .spyOn(aiAnalysisService, 'analyzeWithCache')
@@ -175,9 +173,7 @@ describe('AIAnalysisProcessor - Compliance Playbook (Phase 2.2)', () => {
         attemptsMade: 0,
       } as Job<typeof jobData>
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest.spyOn(rawContentService, 'updateStatus').mockResolvedValue(undefined)
       jest
         .spyOn(aiAnalysisService, 'analyzeWithCache')
@@ -207,9 +203,7 @@ describe('AIAnalysisProcessor - Compliance Playbook (Phase 2.2)', () => {
         attemptsMade: 0,
       } as Job<typeof jobData>
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest.spyOn(rawContentService, 'updateStatus').mockResolvedValue(undefined)
       jest
         .spyOn(aiAnalysisService, 'analyzeWithCache')
@@ -217,10 +211,7 @@ describe('AIAnalysisProcessor - Compliance Playbook (Phase 2.2)', () => {
 
       // Act & Assert
       await expect(processor.process(job)).rejects.toThrow()
-      expect(rawContentService.updateStatus).toHaveBeenCalledWith(
-        'raw-content-uuid',
-        'failed',
-      )
+      expect(rawContentService.updateStatus).toHaveBeenCalledWith('raw-content-uuid', 'failed')
     })
 
     it('should create playbook job with correct priority', async () => {
@@ -288,9 +279,7 @@ describe('AIAnalysisProcessor - Compliance Playbook (Phase 2.2)', () => {
         attemptsMade: 0,
       } as Job<typeof jobData>
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest.spyOn(rawContentService, 'updateStatus').mockResolvedValue(undefined)
       jest
         .spyOn(aiAnalysisService, 'analyzeWithCache')
@@ -298,9 +287,7 @@ describe('AIAnalysisProcessor - Compliance Playbook (Phase 2.2)', () => {
       jest.spyOn(pushScheduleQueue, 'add').mockResolvedValue({} as any)
 
       // Mock playbook queue failure
-      jest
-        .spyOn(playbookQueue, 'add')
-        .mockRejectedValue(new Error('Queue unavailable'))
+      jest.spyOn(playbookQueue, 'add').mockRejectedValue(new Error('Queue unavailable'))
 
       // Act & Assert - Should still complete successfully, push queue should be created
       await expect(processor.process(job)).resolves.toEqual({
@@ -325,13 +312,9 @@ describe('AIAnalysisProcessor - Compliance Playbook (Phase 2.2)', () => {
         attemptsMade: 0,
       } as Job<typeof jobData>
 
-      const playbookQueueAddSpy = jest
-        .spyOn(playbookQueue, 'add')
-        .mockResolvedValue({} as any)
+      const playbookQueueAddSpy = jest.spyOn(playbookQueue, 'add').mockResolvedValue({} as any)
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest.spyOn(rawContentService, 'updateStatus').mockResolvedValue(undefined)
       jest
         .spyOn(aiAnalysisService, 'analyzeWithCache')
@@ -369,22 +352,16 @@ describe('AIAnalysisProcessor - Compliance Playbook (Phase 2.2)', () => {
         attemptsMade: 0,
       } as Job<typeof jobData>
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest.spyOn(rawContentService, 'updateStatus').mockResolvedValue(undefined)
       jest
         .spyOn(aiAnalysisService, 'analyzeWithCache')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
 
       // Mock playbook queue failure
-      jest
-        .spyOn(playbookQueue, 'add')
-        .mockRejectedValue(new Error('Playbook queue error'))
+      jest.spyOn(playbookQueue, 'add').mockRejectedValue(new Error('Playbook queue error'))
 
-      const pushQueueAddSpy = jest
-        .spyOn(pushScheduleQueue, 'add')
-        .mockResolvedValue({} as any)
+      const pushQueueAddSpy = jest.spyOn(pushScheduleQueue, 'add').mockResolvedValue({} as any)
 
       // Act
       const result = await processor.process(job)
@@ -413,9 +390,7 @@ describe('AIAnalysisProcessor - Compliance Playbook (Phase 2.2)', () => {
         .spyOn(rawContentService, 'updateStatus')
         .mockResolvedValue(undefined)
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest
         .spyOn(aiAnalysisService, 'analyzeWithCache')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
@@ -448,9 +423,7 @@ describe('AIAnalysisProcessor - Compliance Playbook (Phase 2.2)', () => {
         .spyOn(rawContentService, 'updateStatus')
         .mockResolvedValue(undefined)
 
-      jest
-        .spyOn(rawContentService, 'findById')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentService, 'findById').mockResolvedValue(mockRawContent as RawContent)
       jest
         .spyOn(aiAnalysisService, 'analyzeWithCache')
         .mockRejectedValue(new Error('AI analysis failed'))

@@ -13,6 +13,7 @@ import { WeaknessSnapshot } from '../../database/entities/weakness-snapshot.enti
 import { WatchedTopic } from '../../database/entities/watched-topic.entity'
 import { WatchedPeer } from '../../database/entities/watched-peer.entity'
 import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
+import { OrganizationRepository, ProjectRepository } from '../../database/repositories'
 
 /**
  * OrganizationsModule
@@ -41,6 +42,8 @@ import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
     WeaknessSnapshotService,
     OrganizationGuard,
     TasksGateway,
+    OrganizationRepository,
+    ProjectRepository,
     {
       provide: 'AuditLogService',
       useFactory: () => ({
@@ -58,6 +61,8 @@ import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
     OrganizationAutoCreateService,
     WeaknessSnapshotService,
     OrganizationGuard,
+    OrganizationRepository,
+    ProjectRepository,
     'AuditLogService', // Export AuditLogService for OrganizationGuard
   ], // Export for use in other modules
 })

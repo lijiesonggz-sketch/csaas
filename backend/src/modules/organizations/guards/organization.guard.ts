@@ -47,16 +47,15 @@ export class OrganizationGuard implements CanActivate {
     }
 
     // Extract organizationId from multiple possible sources
-    // Priority: query/body params (explicit orgId) > route params (could be entity ID)
+    // Priority: query/body params (explicit orgId) > route params (organizationId/orgId only)
+    // Note: Do NOT use request.params.id as it could be any entity ID (push, content, etc.)
     let orgId =
       request.query?.organizationId ||
       request.body?.organizationId ||
       request.params.organizationId ||
-      request.params.orgId ||
-      request.params.id
+      request.params.orgId
 
     console.log('[OrganizationGuard] Extracted orgId:', orgId, 'from:', {
-      paramsId: request.params.id,
       paramsOrgId: request.params.orgId,
       paramsOrganizationId: request.params.organizationId,
       queryOrganizationId: request.query?.organizationId,

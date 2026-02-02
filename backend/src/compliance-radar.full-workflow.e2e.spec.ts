@@ -58,9 +58,7 @@ describe('Compliance Radar Full Workflow E2E (Phase 6.2)', () => {
     rawContentRepo = app.get<Repository<RawContent>>('RawContentRepository')
     analyzedContentRepo = app.get<Repository<AnalyzedContent>>('AnalyzedContentRepository')
     radarPushRepo = app.get<Repository<RadarPush>>('RadarPushRepository')
-    playbookRepo = app.get<Repository<CompliancePlaybook>>(
-      'CompliancePlaybookRepository',
-    )
+    playbookRepo = app.get<Repository<CompliancePlaybook>>('CompliancePlaybookRepository')
     submissionRepo = app.get<Repository<ComplianceChecklistSubmission>>(
       'ComplianceChecklistSubmissionRepository',
     )

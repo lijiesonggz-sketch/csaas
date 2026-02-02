@@ -15,9 +15,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  * - 记录详细错误信息用于问题排查
  * - 支持推送成功率统计（目标≥98%）
  */
-export class CreateRadarPushAndPushLog1768900000000
-  implements MigrationInterface
-{
+export class CreateRadarPushAndPushLog1768900000000 implements MigrationInterface {
   name = 'CreateRadarPushAndPushLog1768900000000'
 
   public async up(queryRunner: QueryRunner): Promise<void> {

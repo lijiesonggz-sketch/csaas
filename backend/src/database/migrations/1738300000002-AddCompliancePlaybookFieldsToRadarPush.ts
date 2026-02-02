@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
+import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm'
 
 export class AddCompliancePlaybookFieldsToRadarPush1738300000002 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -16,12 +16,12 @@ export class AddCompliancePlaybookFieldsToRadarPush1738300000002 implements Migr
         isNullable: true,
         default: "'ready'",
       }),
-    ]);
+    ])
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Remove compliance playbook fields from radar_pushes table
-    await queryRunner.dropColumn('radar_pushes', 'checklistCompletedAt');
-    await queryRunner.dropColumn('radar_pushes', 'playbookStatus');
+    await queryRunner.dropColumn('radar_pushes', 'checklistCompletedAt')
+    await queryRunner.dropColumn('radar_pushes', 'playbookStatus')
   }
 }

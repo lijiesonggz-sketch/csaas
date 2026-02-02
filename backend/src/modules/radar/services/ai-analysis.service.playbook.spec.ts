@@ -29,7 +29,8 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
     title: '数据安全违规处罚案例',
     url: 'https://example.com/penalty-case',
     publishDate: new Date('2026-01-30'),
-    fullContent: '某银行因数据安全管理不到位，违反《银行业金融机构数据治理指引》，被处以50万元罚款。',
+    fullContent:
+      '某银行因数据安全管理不到位，违反《银行业金融机构数据治理指引》，被处以50万元罚款。',
     organizationId: 'org-123',
   }
 
@@ -88,9 +89,7 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
     }).compile()
 
     service = module.get<AIAnalysisService>(AIAnalysisService)
-    rawContentRepo = module.get<Repository<RawContent>>(
-      getRepositoryToken(RawContent),
-    )
+    rawContentRepo = module.get<Repository<RawContent>>(getRepositoryToken(RawContent))
     aiOrchestrator = module.get<AIOrchestrator>(AIOrchestrator)
     crawlerQueue = module.get<Queue>(getQueueToken('radar-crawler'))
   })
@@ -131,9 +130,7 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       }
 
       // Act & Assert
-      expect(() => service.calculateComplianceROI(solution)).toThrow(
-        'Invalid estimated cost',
-      )
+      expect(() => service.calculateComplianceROI(solution)).toThrow('Invalid estimated cost')
     })
 
     it('should throw error for negative cost', () => {
@@ -144,9 +141,7 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       }
 
       // Act & Assert
-      expect(() => service.calculateComplianceROI(solution)).toThrow(
-        'Invalid estimated cost',
-      )
+      expect(() => service.calculateComplianceROI(solution)).toThrow('Invalid estimated cost')
     })
 
     it('should handle very high ROI', () => {
@@ -192,8 +187,20 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       // Mock AI response
       const aiPlaybookResponse = {
         checklistItems: [
-          { id: uuidv4(), text: '检查数据安全制度', category: '数据安全', checked: false, order: 1 },
-          { id: uuidv4(), text: '建立访问控制机制', category: '数据安全', checked: false, order: 2 },
+          {
+            id: uuidv4(),
+            text: '检查数据安全制度',
+            category: '数据安全',
+            checked: false,
+            order: 1,
+          },
+          {
+            id: uuidv4(),
+            text: '建立访问控制机制',
+            category: '数据安全',
+            checked: false,
+            order: 2,
+          },
           { id: uuidv4(), text: '开展安全培训', category: '数据安全', checked: false, order: 3 },
           { id: uuidv4(), text: '实施数据加密', category: '数据安全', checked: false, order: 4 },
           { id: uuidv4(), text: '定期审计', category: '数据安全', checked: false, order: 5 },
@@ -219,10 +226,7 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       })
 
       // Act
-      const playbook = await service.generateCompliancePlaybook(
-        analyzedContent,
-        rawContent,
-      )
+      const playbook = await service.generateCompliancePlaybook(analyzedContent, rawContent)
 
       // Assert
       expect(playbook).toBeDefined()
@@ -248,15 +252,10 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       }
 
       // Mock cache hit
-      jest.spyOn(redisClient, 'get').mockResolvedValue(
-        JSON.stringify(cachedPlaybook),
-      )
+      jest.spyOn(redisClient, 'get').mockResolvedValue(JSON.stringify(cachedPlaybook))
 
       // Act
-      const playbook = await service.generateCompliancePlaybook(
-        analyzedContent,
-        rawContent,
-      )
+      const playbook = await service.generateCompliancePlaybook(analyzedContent, rawContent)
 
       // Assert
       expect(playbook).toEqual(cachedPlaybook)
@@ -270,15 +269,10 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       const analyzedContent = mockAnalyzedContent as AnalyzedContent
 
       // Mock AI failure
-      jest.spyOn(aiOrchestrator, 'generate').mockRejectedValue(
-        new Error('AI service unavailable'),
-      )
+      jest.spyOn(aiOrchestrator, 'generate').mockRejectedValue(new Error('AI service unavailable'))
 
       // Act
-      const playbook = await service.generateCompliancePlaybook(
-        analyzedContent,
-        rawContent,
-      )
+      const playbook = await service.generateCompliancePlaybook(analyzedContent, rawContent)
 
       // Assert
       expect(playbook).toBeDefined()
@@ -310,10 +304,7 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       })
 
       // Act
-      const playbook = await service.generateCompliancePlaybook(
-        analyzedContent,
-        rawContent,
-      )
+      const playbook = await service.generateCompliancePlaybook(analyzedContent, rawContent)
 
       // Assert - Should return default playbook (fallback strategy)
       expect(playbook).toBeDefined()
@@ -377,9 +368,7 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       }
 
       // Act & Assert
-      expect(() =>
-        service['validatePlaybookStructure'](validPlaybook),
-      ).not.toThrow()
+      expect(() => service['validatePlaybookStructure'](validPlaybook)).not.toThrow()
     })
 
     it('should accept valid playbook with 10 items', () => {
@@ -398,9 +387,7 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       }
 
       // Act & Assert
-      expect(() =>
-        service['validatePlaybookStructure'](validPlaybook),
-      ).not.toThrow()
+      expect(() => service['validatePlaybookStructure'](validPlaybook)).not.toThrow()
     })
 
     it('should reject playbook with less than 5 items', () => {
@@ -419,9 +406,9 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       }
 
       // Act & Assert
-      expect(() =>
-        service['validatePlaybookStructure'](invalidPlaybook),
-      ).toThrow('Checklist items must be 5-10 items')
+      expect(() => service['validatePlaybookStructure'](invalidPlaybook)).toThrow(
+        'Checklist items must be 5-10 items',
+      )
     })
 
     it('should reject playbook with more than 10 items', () => {
@@ -440,9 +427,9 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       }
 
       // Act & Assert
-      expect(() =>
-        service['validatePlaybookStructure'](invalidPlaybook),
-      ).toThrow('Checklist items must be 5-10 items')
+      expect(() => service['validatePlaybookStructure'](invalidPlaybook)).toThrow(
+        'Checklist items must be 5-10 items',
+      )
     })
 
     it('should reject playbook with missing checklistItems', () => {
@@ -454,9 +441,9 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       }
 
       // Act & Assert
-      expect(() =>
-        service['validatePlaybookStructure'](invalidPlaybook),
-      ).toThrow('Invalid playbook structure: missing checklistItems')
+      expect(() => service['validatePlaybookStructure'](invalidPlaybook)).toThrow(
+        'Invalid playbook structure: missing checklistItems',
+      )
     })
 
     it('should validate checklist item required fields', () => {
@@ -472,9 +459,7 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       }
 
       // Act & Assert
-      expect(() =>
-        service['validatePlaybookStructure'](invalidPlaybook),
-      ).toThrow()
+      expect(() => service['validatePlaybookStructure'](invalidPlaybook)).toThrow()
     })
   })
 
@@ -485,10 +470,7 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       const rawContent = mockRawContent as RawContent
 
       // Act
-      const defaultPlaybook = service['getDefaultPlaybook'](
-        analyzedContent,
-        rawContent,
-      )
+      const defaultPlaybook = service['getDefaultPlaybook'](analyzedContent, rawContent)
 
       // Assert
       expect(defaultPlaybook.checklistItems).toHaveLength(5)
@@ -503,10 +485,7 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
       const rawContent = mockRawContent as RawContent
 
       // Act
-      const defaultPlaybook = service['getDefaultPlaybook'](
-        analyzedContent,
-        rawContent,
-      )
+      const defaultPlaybook = service['getDefaultPlaybook'](analyzedContent, rawContent)
 
       // Assert
       expect(defaultPlaybook.solutions).toHaveLength(3)

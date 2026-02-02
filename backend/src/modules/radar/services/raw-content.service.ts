@@ -28,11 +28,7 @@ export class RawContentService {
     data: Omit<RawContent, 'id' | 'contentHash' | 'status' | 'createdAt' | 'updatedAt'>,
   ): Promise<RawContent> {
     // 生成内容哈希（用于去重）
-    const contentHash = this.generateContentHash(
-      data.title,
-      data.url || '',
-      data.publishDate,
-    )
+    const contentHash = this.generateContentHash(data.title, data.url || '', data.publishDate)
 
     // 检查是否已存在相同内容
     const existing = await this.rawContentRepository.findOne({
@@ -90,11 +86,7 @@ export class RawContentService {
    * 生成内容哈希
    * 使用SHA-256哈希（title + url + publishDate）
    */
-  private generateContentHash(
-    title: string,
-    url: string,
-    publishDate: Date | null,
-  ): string {
+  private generateContentHash(title: string, url: string, publishDate: Date | null): string {
     const content = `${title}${url}${publishDate}`
     return createHash('sha256').update(content).digest('hex')
   }

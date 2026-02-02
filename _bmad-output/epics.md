@@ -41,7 +41,7 @@ This document provides the complete epic and story breakdown for Radar Service, 
 
 **FR11**: 系统必须提供白标输出功能，推送内容以咨询公司品牌呈现（logo、公司名称），完全隐藏 Csaas 标识
 
-**FR12**: 系统必须实现多租户数据隔离，咨询公司 A 的客户数据对咨询公司 B 完全不可见，采用 4 层防御机制（API 层权限校验 + 数据库行级安全 + 租户 ID 过滤 + 日志审计）
+**FR12**: 系统必须实现多租户数据隔离，咨询公司 A 的客户数据对咨询公司 B 完全不可见，采用 3 层防御机制（API 层权限校验 + 应用层 Repository 过滤 + 审计日志）
 
 **FR13**: 系统必须提供推送历史查看功能，用户可查看所有历史推送内容，按雷达类型、时间、相关性筛选
 
@@ -127,7 +127,7 @@ This document provides the complete epic and story breakdown for Radar Service, 
 
 **AR11**: 系统必须使用 Zustand 进行前端状态管理，添加 radarStore 管理雷达相关状态
 
-**AR12**: 系统必须实现 4 层多租户防御机制：API 层（NestJS Guards）+ 服务层（TypeORM Repository 过滤）+ 数据库层（PostgreSQL RLS）+ 审计层（操作日志）
+**AR12**: 系统必须实现 3 层多租户防御机制：API 层（NestJS Guards）+ 应用层（BaseTenantRepository 过滤）+ 审计层（操作日志）
 
 **AR13**: 系统必须支持白标输出实现（Growth 阶段），前端动态加载租户品牌配置（logo、主题色），推送内容显示咨询公司品牌
 
@@ -174,7 +174,7 @@ This document provides the complete epic and story breakdown for Radar Service, 
 **FR9** → Epic 2, 3, 4 - 智能相关性过滤机制（AI 评分、高/中/低标注）
 **FR10** → Epic 6 - 咨询公司批量客户管理后台（多客户管理、独立配置）
 **FR11** → Epic 6 - 白标输出功能（咨询公司品牌、隐藏 Csaas 标识）
-**FR12** → Epic 6 - 多租户数据隔离（4 层防御机制）
+**FR12** → Epic 6 - 多租户数据隔离（3 层防御机制）
 **FR13** → Epic 5 - 推送历史查看功能（按雷达类型、时间、相关性筛选）
 **FR14** → Epic 5 - 推送频率控制（配置时段、单日上限）
 **FR15** → Epic 7 - 运营仪表板（系统健康状态、异常告警）
@@ -907,7 +907,7 @@ So that 我可以回顾之前的推送，查找有价值的信息。
 ### Story 6.1: 多租户数据模型与隔离机制
 
 As a 系统架构师,
-I want 实现 4 层多租户防御机制（API 层 + 服务层 + 数据库层 + 审计层）,
+I want 实现 3 层多租户防御机制（API 层 + 应用层 + 审计层）,
 So that 咨询公司 A 的客户数据对咨询公司 B 完全不可见，确保数据安全。
 
 **Acceptance Criteria:**
@@ -924,23 +924,20 @@ So that 咨询公司 A 的客户数据对咨询公司 B 完全不可见，确保
 **And** 如果不属于，返回 403 Forbidden
 **And** 将 tenantId 注入到请求上下文中
 
-**Given** 服务层数据过滤
-**When** TypeORM Repository 查询数据
+**Given** 应用层数据过滤
+**When** 使用 BaseTenantRepository 查询数据
 **Then** 自动添加 WHERE tenantId = :tenantId 条件
-**And** 使用 BaseRepository 封装通用过滤逻辑
-**And** 所有查询方法继承 BaseRepository
-
-**Given** 数据库层行级安全（PostgreSQL RLS）
-**When** 配置 RLS 策略
-**Then** 为所有核心表启用 RLS
-**And** 创建策略：USING (tenantId = current_setting('app.current_tenant')::uuid)
-**And** 应用连接时设置 SET app.current_tenant = '<tenantId>'
+**And** 所有多租户实体的 Repository 继承 BaseTenantRepository
+**And** 使用泛型约束确保类型安全
 
 **Given** 审计层操作日志
 **When** 任何敏感操作执行（创建/更新/删除）
 **Then** 记录审计日志：userId、tenantId、操作类型、数据对象、时间戳
 **And** 日志保留 1 年，任何人无法篡改或删除
 **And** 季度渗透测试跨租户数据访问成功率为 0%
+
+**架构变更说明：**
+原计划使用 PostgreSQL RLS 作为数据库层防御，但经过验证发现 RLS 策略不生效，改用应用层 BaseTenantRepository 过滤，测试通过率 100%。
 
 ### Story 6.2: 咨询公司批量客户管理后台
 

@@ -92,7 +92,7 @@ describe('PushProcessor - Industry Radar (Story 3.2 Task 2.3)', () => {
           id: 'push-2',
           organizationId: 'org-1',
           radarType: 'industry',
-          relevanceScore: 0.90,
+          relevanceScore: 0.9,
           priorityLevel: 'high',
           analyzedContent: {
             id: 'content-2',

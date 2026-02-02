@@ -534,10 +534,7 @@ describe('Authentication and Permissions (E2E)', () => {
 
       // Verify both attempts were logged appropriately
       const logs = await dataSource.getRepository(AuditLog).find({
-        where: [
-          { userId: user1Id },
-          { userId: user2Id },
-        ],
+        where: [{ userId: user1Id }, { userId: user2Id }],
       })
 
       // At least one ACCESS_DENIED log should exist

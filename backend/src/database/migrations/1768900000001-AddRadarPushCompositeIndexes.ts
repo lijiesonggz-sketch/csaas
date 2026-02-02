@@ -15,9 +15,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm'
  * - 推送调度查询 (每周五17:00): 从O(n)优化到O(log n)
  * - 去重查询 (每次相关性计算): 从O(n)优化到O(log n)
  */
-export class AddRadarPushCompositeIndexes1768900000001
-  implements MigrationInterface
-{
+export class AddRadarPushCompositeIndexes1768900000001 implements MigrationInterface {
   name = 'AddRadarPushCompositeIndexes1768900000001'
 
   public async up(queryRunner: QueryRunner): Promise<void> {

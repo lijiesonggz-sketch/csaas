@@ -34,7 +34,9 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material'
-import { Button, Empty, message } from 'antd'
+import { Button, Empty, message, TimePicker, Slider } from 'antd'
+import type { Dayjs } from 'dayjs'
+import dayjs from 'dayjs'
 import { Add, Delete } from '@mui/icons-material'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -48,6 +50,10 @@ import {
   deleteWatchedPeer,
   WatchedPeer,
   CreateWatchedPeerDto,
+  getPushPreference,
+  updatePushPreference,
+  PushPreference,
+  UpdatePushPreferenceDto,
 } from '@/lib/api/radar'
 import { INSTITUTION_PRESETS, INDUSTRY_LABELS, IndustryKey } from '@/lib/constants/institution-presets'
 
@@ -85,6 +91,15 @@ export default function RadarSettingsPage() {
   const [customInstitutionType, setCustomInstitutionType] = useState('')
   const [peerSubmitting, setPeerSubmitting] = useState(false)
 
+  // Story 5.3: PushPreference state
+  const [pushPreference, setPushPreference] = useState<PushPreference | null>(null)
+  const [preferenceLoading, setPreferenceLoading] = useState(true)
+  const [preferenceSaving, setPreferenceSaving] = useState(false)
+  const [pushStartTime, setPushStartTime] = useState<Dayjs | null>(dayjs('09:00', 'HH:mm'))
+  const [pushEndTime, setPushEndTime] = useState<Dayjs | null>(dayjs('18:00', 'HH:mm'))
+  const [dailyPushLimit, setDailyPushLimit] = useState<number>(5)
+  const [relevanceFilter, setRelevanceFilter] = useState<'high_only' | 'high_medium'>('high_only')
+
   // 获取 organizationId：优先从 URL 参数，其次从 localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -111,6 +126,7 @@ export default function RadarSettingsPage() {
     if (organizationId) {
       loadTopics()
       loadPeers()
+      loadPushPreference()
     }
   }, [organizationId])
 
@@ -285,6 +301,77 @@ export default function RadarSettingsPage() {
 
   const getInstitutionTypeLabel = (type: string) => {
     return type
+  }
+
+  // Story 5.3: Load push preference
+  const loadPushPreference = async () => {
+    if (!organizationId) return
+
+    setPreferenceLoading(true)
+    try {
+      const data = await getPushPreference(organizationId)
+      setPushPreference(data)
+      setPushStartTime(dayjs(data.pushStartTime, 'HH:mm'))
+      setPushEndTime(dayjs(data.pushEndTime, 'HH:mm'))
+      setDailyPushLimit(data.dailyPushLimit)
+      setRelevanceFilter(data.relevanceFilter)
+    } catch (error: any) {
+      message.error(error.message || '加载推送偏好失败')
+    } finally {
+      setPreferenceLoading(false)
+    }
+  }
+
+  // Story 5.3: Save push preference
+  const handleSavePreference = async () => {
+    if (!organizationId) {
+      message.error('组织信息缺失，无法保存')
+      return
+    }
+
+    // Validate time range
+    if (!pushStartTime || !pushEndTime) {
+      message.warning('请设置推送时段')
+      return
+    }
+
+    // Check if start time equals end time
+    if (pushStartTime.format('HH:mm') === pushEndTime.format('HH:mm')) {
+      message.warning('开始时间和结束时间不能相同')
+      return
+    }
+
+    // Validate time span (at least 1 hour)
+    const startMinutes = pushStartTime.hour() * 60 + pushStartTime.minute()
+    const endMinutes = pushEndTime.hour() * 60 + pushEndTime.minute()
+    let spanMinutes: number
+    if (startMinutes < endMinutes) {
+      spanMinutes = endMinutes - startMinutes
+    } else {
+      // Overnight: e.g., 22:00-08:00 = (24:00-22:00) + 08:00 = 600 minutes
+      spanMinutes = 24 * 60 - startMinutes + endMinutes
+    }
+    if (spanMinutes < 60) {
+      message.warning('时段跨度至少 1 小时')
+      return
+    }
+
+    setPreferenceSaving(true)
+    try {
+      const dto: UpdatePushPreferenceDto = {
+        pushStartTime: pushStartTime.format('HH:mm'),
+        pushEndTime: pushEndTime.format('HH:mm'),
+        dailyPushLimit,
+        relevanceFilter,
+      }
+      await updatePushPreference(organizationId, dto)
+      message.success('推送偏好已更新')
+      loadPushPreference()
+    } catch (error: any) {
+      message.error(error.message || '保存失败')
+    } finally {
+      setPreferenceSaving(false)
+    }
   }
 
   // 如果认证失败，显示错误状态
@@ -468,6 +555,116 @@ export default function RadarSettingsPage() {
                   </Card>
                 </Grid>
               ))}
+            </Grid>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Story 5.3: 推送偏好配置区域 */}
+      <Card sx={{ mt: 3 }}>
+        <CardHeader
+          title="推送偏好设置"
+          action={
+            <Button
+              type="primary"
+              onClick={handleSavePreference}
+              loading={preferenceSaving}
+            >
+              保存设置
+            </Button>
+          }
+        />
+        <CardContent>
+          {preferenceLoading ? (
+            <Skeleton variant="rectangular" height={200} />
+          ) : (
+            <Grid container spacing={3}>
+              {/* 推送时段设置 */}
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                  推送时段
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <TimePicker
+                    value={pushStartTime}
+                    onChange={setPushStartTime}
+                    format="HH:mm"
+                    placeholder="开始时间"
+                    style={{ width: 120 }}
+                  />
+                  <Typography>至</Typography>
+                  <TimePicker
+                    value={pushEndTime}
+                    onChange={setPushEndTime}
+                    format="HH:mm"
+                    placeholder="结束时间"
+                    style={{ width: 120 }}
+                  />
+                </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  系统仅在设置的时段内推送消息（合规雷达除外）
+                </Typography>
+              </Grid>
+
+              {/* 单日推送上限 */}
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                  单日推送上限: {dailyPushLimit} 条
+                </Typography>
+                <Slider
+                  min={1}
+                  max={20}
+                  value={dailyPushLimit}
+                  onChange={(value) => setDailyPushLimit(value)}
+                  marks={{
+                    1: '1条',
+                    5: '5条',
+                    10: '10条',
+                    15: '15条',
+                    20: '20条',
+                  }}
+                />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  范围：1-20 条，超出上限的推送将自动延迟到次日
+                </Typography>
+              </Grid>
+
+              {/* 相关性过滤 */}
+              <Grid item xs={12}>
+                <Typography variant="subtitle1" sx={{ mb: 2 }}>
+                  相关性过滤
+                </Typography>
+                <RadioGroup
+                  row
+                  value={relevanceFilter}
+                  onChange={(e) => setRelevanceFilter(e.target.value as 'high_only' | 'high_medium')}
+                >
+                  <FormControlLabel
+                    value="high_only"
+                    control={<Radio />}
+                    label={
+                      <Box>
+                        <Typography variant="body1">仅推送高相关内容</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          相关性评分 ≥ 0.9
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                  <FormControlLabel
+                    value="high_medium"
+                    control={<Radio />}
+                    label={
+                      <Box>
+                        <Typography variant="body1">推送高+中相关内容</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          相关性评分 ≥ 0.7
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                </RadioGroup>
+              </Grid>
             </Grid>
           )}
         </CardContent>

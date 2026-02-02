@@ -74,11 +74,13 @@ export class OrganizationsService {
    *
    * @param userId - User ID to create organization for
    * @param organizationName - Organization name (optional, defaults to "用户的组织")
+   * @param tenantId - Tenant ID (optional, defaults to system default tenant)
    * @returns Created or existing organization
    */
   async createOrganizationForUser(
     userId: string,
     organizationName?: string,
+    tenantId?: string,
   ): Promise<Organization> {
     this.logger.log(
       `Creating organization for user: ${userId} (${organizationName || '用户的组织'})`,
@@ -95,13 +97,18 @@ export class OrganizationsService {
       return existingMember.organization
     }
 
-    // Create new organization with custom or default name
+    // Use provided tenantId or default to system default tenant
+    // Default tenant UUID: 00000000-0000-0000-0000-000000000001
+    const finalTenantId = tenantId || '00000000-0000-0000-0000-000000000001'
+
+    // Create new organization with custom or default name and tenantId
     const newOrg = this.orgRepository.create({
       name: organizationName || '用户的组织', // Use custom name or default
+      tenantId: finalTenantId, // ✅ CRITICAL FIX: Add tenantId to satisfy NOT NULL constraint
     })
 
     const savedOrg = await this.orgRepository.save(newOrg)
-    this.logger.log(`Created organization: ${savedOrg.id}`)
+    this.logger.log(`Created organization: ${savedOrg.id} in tenant: ${finalTenantId}`)
 
     // Create admin membership for user
     const newMember = this.memberRepository.create({
@@ -257,6 +264,25 @@ export class OrganizationsService {
       organization: member.organization,
       role: member.role,
     }))
+  }
+
+  /**
+   * Find organization by user ID
+   *
+   * Returns the first organization the user belongs to.
+   * Used by TenantGuard to extract tenantId from user's organization.
+   *
+   * @param userId - User ID
+   * @returns Organization with tenantId, or null if user doesn't belong to any organization
+   * @story 6-1A
+   */
+  async findByUserId(userId: string): Promise<Organization | null> {
+    const member = await this.memberRepository.findOne({
+      where: { userId },
+      relations: ['organization'],
+    })
+
+    return member?.organization || null
   }
 
   /**
@@ -485,10 +511,7 @@ export class OrganizationsService {
    * @param name - Topic name
    * @returns Created watched topic
    */
-  async createWatchedTopic(
-    orgId: string,
-    name: string,
-  ): Promise<WatchedTopic> {
+  async createWatchedTopic(orgId: string, name: string): Promise<WatchedTopic> {
     this.logger.log(`Creating watched topic "${name}" for org ${orgId}`)
 
     // Verify organization exists
@@ -500,9 +523,7 @@ export class OrganizationsService {
     })
 
     if (existing) {
-      throw new ConflictException(
-        `Topic "${name}" already exists for organization ${orgId}`,
-      )
+      throw new ConflictException(`Topic "${name}" already exists for organization ${orgId}`)
     }
 
     // Create topic
@@ -527,17 +548,10 @@ export class OrganizationsService {
    * @param names - Array of topic names
    * @returns Array of created watched topics
    */
-  async createWatchedTopics(
-    orgId: string,
-    names: string[],
-  ): Promise<WatchedTopic[]> {
-    this.logger.log(
-      `Creating ${names.length} watched topics for org ${orgId}`,
-    )
+  async createWatchedTopics(orgId: string, names: string[]): Promise<WatchedTopic[]> {
+    this.logger.log(`Creating ${names.length} watched topics for org ${orgId}`)
 
-    const topics = await Promise.all(
-      names.map((name) => this.createWatchedTopic(orgId, name)),
-    )
+    const topics = await Promise.all(names.map((name) => this.createWatchedTopic(orgId, name)))
 
     return topics
   }
@@ -555,9 +569,7 @@ export class OrganizationsService {
     })
 
     if (!topic) {
-      throw new NotFoundException(
-        `Watched topic ${topicId} not found for organization ${orgId}`,
-      )
+      throw new NotFoundException(`Watched topic ${topicId} not found for organization ${orgId}`)
     }
 
     await this.watchedTopicRepository.remove(topic)
@@ -599,10 +611,7 @@ export class OrganizationsService {
    * @param name - Peer institution name
    * @returns Created watched peer
    */
-  async createWatchedPeer(
-    orgId: string,
-    name: string,
-  ): Promise<WatchedPeer> {
+  async createWatchedPeer(orgId: string, name: string): Promise<WatchedPeer> {
     this.logger.log(`Creating watched peer "${name}" for org ${orgId}`)
 
     // Verify organization exists
@@ -614,9 +623,7 @@ export class OrganizationsService {
     })
 
     if (existing) {
-      throw new ConflictException(
-        `Peer "${name}" already exists for organization ${orgId}`,
-      )
+      throw new ConflictException(`Peer "${name}" already exists for organization ${orgId}`)
     }
 
     // Create peer with default values for new fields
@@ -642,15 +649,10 @@ export class OrganizationsService {
    * @param names - Array of peer names
    * @returns Array of created watched peers
    */
-  async createWatchedPeers(
-    orgId: string,
-    names: string[],
-  ): Promise<WatchedPeer[]> {
+  async createWatchedPeers(orgId: string, names: string[]): Promise<WatchedPeer[]> {
     this.logger.log(`Creating ${names.length} watched peers for org ${orgId}`)
 
-    const peers = await Promise.all(
-      names.map((name) => this.createWatchedPeer(orgId, name)),
-    )
+    const peers = await Promise.all(names.map((name) => this.createWatchedPeer(orgId, name)))
 
     return peers
   }
@@ -668,9 +670,7 @@ export class OrganizationsService {
     })
 
     if (!peer) {
-      throw new NotFoundException(
-        `Watched peer ${peerId} not found for organization ${orgId}`,
-      )
+      throw new NotFoundException(`Watched peer ${peerId} not found for organization ${orgId}`)
     }
 
     await this.watchedPeerRepository.remove(peer)

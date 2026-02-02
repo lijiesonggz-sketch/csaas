@@ -26,9 +26,7 @@ describe('CrawlerLogService', () => {
     }).compile()
 
     service = module.get<CrawlerLogService>(CrawlerLogService)
-    repository = module.get<Repository<CrawlerLog>>(
-      getRepositoryToken(CrawlerLog),
-    )
+    repository = module.get<Repository<CrawlerLog>>(getRepositoryToken(CrawlerLog))
 
     jest.clearAllMocks()
   })

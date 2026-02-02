@@ -106,6 +106,16 @@ export class WatchedTopic {
   organizationId: string
 
   /**
+   * 租户ID（咨询公司）
+   *
+   * 用于多租户数据隔离，确保咨询公司 A 的数据对咨询公司 B 不可见
+   *
+   * @story Story 6.1A - Multi-tenant API/Service Layer Isolation
+   */
+  @Column({ name: 'tenant_id', type: 'uuid' })
+  tenantId: string
+
+  /**
    * Timestamp when topic was added
    */
   @CreateDateColumn({ name: 'created_at' })

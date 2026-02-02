@@ -1,11 +1,4 @@
-import {
-  IsString,
-  IsNotEmpty,
-  MaxLength,
-  IsEnum,
-  IsOptional,
-  Matches,
-} from 'class-validator';
+import { IsString, IsNotEmpty, MaxLength, IsEnum, IsOptional, Matches } from 'class-validator'
 
 /**
  * DTO for creating a new watched topic
@@ -25,7 +18,7 @@ export class CreateWatchedTopicDto {
   @Matches(/^[a-zA-Z0-9\u4e00-\u9fa5\s\-_]+$/, {
     message: '领域名称只能包含字母、数字、中文、空格、连字符和下划线',
   })
-  topicName: string;
+  topicName: string
 
   /**
    * Topic type - tech or industry
@@ -34,7 +27,7 @@ export class CreateWatchedTopicDto {
    */
   @IsEnum(['tech', 'industry'])
   @IsOptional()
-  topicType?: 'tech' | 'industry' = 'tech';
+  topicType?: 'tech' | 'industry' = 'tech'
 
   /**
    * Optional description of the topic
@@ -48,7 +41,7 @@ export class CreateWatchedTopicDto {
   @Matches(/^[a-zA-Z0-9\u4e00-\u9fa5\s\-_,，。、；：""''（）()]+$/, {
     message: '描述只能包含字母、数字、中文和常用标点符号',
   })
-  description?: string;
+  description?: string
 }
 
 /**
@@ -60,35 +53,35 @@ export class WatchedTopicResponseDto {
   /**
    * Topic ID
    */
-  id: string;
+  id: string
 
   /**
    * Organization ID
    */
-  organizationId: string;
+  organizationId: string
 
   /**
    * Topic name
    */
-  topicName: string;
+  topicName: string
 
   /**
    * Topic type
    */
-  topicType: 'tech' | 'industry';
+  topicType: 'tech' | 'industry'
 
   /**
    * Optional description
    */
-  description?: string;
+  description?: string
 
   /**
    * Creation timestamp
    */
-  createdAt: string;
+  createdAt: string
 
   /**
    * Optional count of related pushes
    */
-  relatedPushCount?: number;
+  relatedPushCount?: number
 }

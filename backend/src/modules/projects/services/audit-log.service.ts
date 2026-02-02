@@ -56,9 +56,7 @@ export class AuditLogService {
       })
 
       await this.auditLogRepo.save(auditLog)
-      this.logger.log(
-        `Audit log: ${params.userId} - ${params.action}`,
-      )
+      this.logger.log(`Audit log: ${params.userId} - ${params.action}`)
     } catch (error) {
       this.logger.error(`Failed to create audit log: ${error.message}`)
     }

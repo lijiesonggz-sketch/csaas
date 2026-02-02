@@ -1,4 +1,5 @@
 export { User, UserRole } from './user.entity'
+export { Tenant } from './tenant.entity'
 export { Organization } from './organization.entity'
 export { OrganizationMember } from './organization-member.entity'
 export { Project, ProjectStatus } from './project.entity'
@@ -39,4 +40,3 @@ export { ComplianceChecklistSubmission } from './compliance-checklist-submission
 // 保留旧的实体（向后兼容，待迁移后删除）
 export { WatchedTopic } from './watched-topic.entity'
 export { WatchedPeer } from './watched-peer.entity'
-

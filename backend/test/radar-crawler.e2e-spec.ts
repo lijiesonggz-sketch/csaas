@@ -37,7 +37,8 @@ describe('Radar Crawler and File Import (e2e)', () => {
           password: process.env.DB_PASSWORD || 'postgres',
           database: process.env.DB_NAME || 'csaas_test',
           entities: [RawContent, CrawlerLog],
-          synchronize: true,
+          synchronize: false, // 改为false，避免索引冲突
+          dropSchema: false, // 不删除schema
         }),
         BullModule.forRoot({
           connection: {
@@ -53,26 +54,26 @@ describe('Radar Crawler and File Import (e2e)', () => {
     await app.init()
 
     rawContentService = moduleFixture.get<RawContentService>(RawContentService)
-    crawlerLogService =
-      moduleFixture.get<CrawlerLogService>(CrawlerLogService)
-    fileWatcherService =
-      moduleFixture.get<FileWatcherService>(FileWatcherService)
-    rawContentRepo = moduleFixture.get<Repository<RawContent>>(
-      getRepositoryToken(RawContent),
-    )
-    crawlerLogRepo = moduleFixture.get<Repository<CrawlerLog>>(
-      getRepositoryToken(CrawlerLog),
-    )
+    crawlerLogService = moduleFixture.get<CrawlerLogService>(CrawlerLogService)
+    fileWatcherService = moduleFixture.get<FileWatcherService>(FileWatcherService)
+    rawContentRepo = moduleFixture.get<Repository<RawContent>>(getRepositoryToken(RawContent))
+    crawlerLogRepo = moduleFixture.get<Repository<CrawlerLog>>(getRepositoryToken(CrawlerLog))
   })
 
   afterAll(async () => {
-    await app.close()
+    if (app) {
+      await app.close()
+    }
   })
 
   afterEach(async () => {
-    // Clean up test data
-    await rawContentRepo.delete({})
-    await crawlerLogRepo.delete({})
+    // Clean up test data - 添加空值检查
+    if (rawContentRepo) {
+      await rawContentRepo.delete({})
+    }
+    if (crawlerLogRepo) {
+      await crawlerLogRepo.delete({})
+    }
   })
 
   describe('RawContent CRUD', () => {
@@ -182,13 +183,7 @@ describe('Radar Crawler and File Import (e2e)', () => {
       await crawlerLogService.logSuccess('GARTNER', 'tech', 'https://example.com/1', 1)
       await crawlerLogService.logSuccess('GARTNER', 'tech', 'https://example.com/2', 1)
       await crawlerLogService.logSuccess('GARTNER', 'tech', 'https://example.com/3', 1)
-      await crawlerLogService.logFailure(
-        'GARTNER',
-        'tech',
-        'https://example.com/4',
-        'Error',
-        1,
-      )
+      await crawlerLogService.logFailure('GARTNER', 'tech', 'https://example.com/4', 'Error', 1)
 
       const successRate = await crawlerLogService.getSuccessRate('GARTNER')
 

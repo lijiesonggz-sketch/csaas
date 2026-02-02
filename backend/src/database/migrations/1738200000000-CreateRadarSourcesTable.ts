@@ -39,10 +39,18 @@ export class CreateRadarSourcesTable1738200000000 implements MigrationInterface 
     `)
 
     // 创建索引
-    await queryRunner.query(`CREATE INDEX "idx_radar_sources_category" ON "radar_sources" ("category")`)
-    await queryRunner.query(`CREATE INDEX "idx_radar_sources_is_active" ON "radar_sources" ("isActive")`)
-    await queryRunner.query(`CREATE INDEX "idx_radar_sources_category_active" ON "radar_sources" ("category", "isActive")`)
-    await queryRunner.query(`CREATE INDEX "idx_radar_sources_last_crawl_status" ON "radar_sources" ("lastCrawlStatus")`)
+    await queryRunner.query(
+      `CREATE INDEX "idx_radar_sources_category" ON "radar_sources" ("category")`,
+    )
+    await queryRunner.query(
+      `CREATE INDEX "idx_radar_sources_is_active" ON "radar_sources" ("isActive")`,
+    )
+    await queryRunner.query(
+      `CREATE INDEX "idx_radar_sources_category_active" ON "radar_sources" ("category", "isActive")`,
+    )
+    await queryRunner.query(
+      `CREATE INDEX "idx_radar_sources_last_crawl_status" ON "radar_sources" ("lastCrawlStatus")`,
+    )
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

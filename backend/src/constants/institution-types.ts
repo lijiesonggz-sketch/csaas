@@ -8,20 +8,20 @@
 export const INSTITUTION_TYPE_REGISTRY = {
   banking: {
     displayName: '银行业',
-    types: ['城商行', '股份制银行', '互联网银行', '国有大行', '农商行']
+    types: ['城商行', '股份制银行', '互联网银行', '国有大行', '农商行'],
   },
   securities: {
     displayName: '证券业',
-    types: ['券商', '基金公司', '期货公司']
+    types: ['券商', '基金公司', '期货公司'],
   },
   insurance: {
     displayName: '保险业',
-    types: ['寿险公司', '财险公司', '再保险公司']
+    types: ['寿险公司', '财险公司', '再保险公司'],
   },
   enterprise: {
     displayName: '传统企业',
-    types: ['制造业', '零售业', '物流业', '能源企业']
-  }
+    types: ['制造业', '零售业', '物流业', '能源企业'],
+  },
 } as const
 
 export type Industry = keyof typeof INSTITUTION_TYPE_REGISTRY

@@ -122,12 +122,8 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
     }).compile()
 
     service = module.get<AIAnalysisService>(AIAnalysisService)
-    rawContentRepo = module.get<Repository<RawContent>>(
-      getRepositoryToken(RawContent),
-    )
-    analyzedContentService = module.get<AnalyzedContentService>(
-      AnalyzedContentService,
-    )
+    rawContentRepo = module.get<Repository<RawContent>>(getRepositoryToken(RawContent))
+    analyzedContentService = module.get<AnalyzedContentService>(AnalyzedContentService)
     aiOrchestrator = module.get<AIOrchestrator>(AIOrchestrator)
     crawlerQueue = module.get<Queue>(getQueueToken('radar:crawler'))
   })
@@ -142,9 +138,7 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
       jest
         .spyOn(analyzedContentService, 'findById')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
-      jest
-        .spyOn(rawContentRepo, 'findOne')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentRepo, 'findOne').mockResolvedValue(mockRawContent as RawContent)
       redisClient.get.mockResolvedValue(null) // 缓存未命中
       jest.spyOn(aiOrchestrator, 'generate').mockResolvedValue(mockAIResponse)
       jest.spyOn(analyzedContentService, 'update').mockResolvedValue(undefined)
@@ -154,15 +148,11 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
 
       // Assert
       expect(result).toEqual(mockROIAnalysis)
-      expect(analyzedContentService.findById).toHaveBeenCalledWith(
-        'analyzed-content-1',
-      )
+      expect(analyzedContentService.findById).toHaveBeenCalledWith('analyzed-content-1')
       expect(rawContentRepo.findOne).toHaveBeenCalledWith({
         where: { id: 'raw-content-1' },
       })
-      expect(redisClient.get).toHaveBeenCalledWith(
-        'radar:roi:org-123:analyzed-content-1:数据安全',
-      )
+      expect(redisClient.get).toHaveBeenCalledWith('radar:roi:org-123:analyzed-content-1:数据安全')
       expect(aiOrchestrator.generate).toHaveBeenCalledWith(
         expect.objectContaining({
           systemPrompt: '',
@@ -175,10 +165,9 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
         7 * 24 * 60 * 60, // 7天TTL
         JSON.stringify(mockROIAnalysis),
       )
-      expect(analyzedContentService.update).toHaveBeenCalledWith(
-        'analyzed-content-1',
-        { roiAnalysis: mockROIAnalysis },
-      )
+      expect(analyzedContentService.update).toHaveBeenCalledWith('analyzed-content-1', {
+        roiAnalysis: mockROIAnalysis,
+      })
     })
 
     it('应该从Redis缓存中返回结果', async () => {
@@ -186,9 +175,7 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
       jest
         .spyOn(analyzedContentService, 'findById')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
-      jest
-        .spyOn(rawContentRepo, 'findOne')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentRepo, 'findOne').mockResolvedValue(mockRawContent as RawContent)
       redisClient.get.mockResolvedValue(JSON.stringify(mockROIAnalysis)) // 缓存命中
 
       // Act
@@ -196,9 +183,7 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
 
       // Assert
       expect(result).toEqual(mockROIAnalysis)
-      expect(redisClient.get).toHaveBeenCalledWith(
-        'radar:roi:org-123:analyzed-content-1:general',
-      )
+      expect(redisClient.get).toHaveBeenCalledWith('radar:roi:org-123:analyzed-content-1:general')
       expect(aiOrchestrator.generate).not.toHaveBeenCalled() // 不应调用AI
       expect(analyzedContentService.update).not.toHaveBeenCalled() // 不应更新数据库
     })
@@ -231,18 +216,12 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
       jest
         .spyOn(analyzedContentService, 'findById')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
-      jest
-        .spyOn(rawContentRepo, 'findOne')
-        .mockResolvedValue(mockRawContent as RawContent)
+      jest.spyOn(rawContentRepo, 'findOne').mockResolvedValue(mockRawContent as RawContent)
       redisClient.get.mockResolvedValue(null)
-      jest
-        .spyOn(aiOrchestrator, 'generate')
-        .mockRejectedValue(new Error('AI API timeout'))
+      jest.spyOn(aiOrchestrator, 'generate').mockRejectedValue(new Error('AI API timeout'))
 
       // Act & Assert
-      await expect(service.analyzeROI('analyzed-content-1')).rejects.toThrow(
-        'AI API timeout',
-      )
+      await expect(service.analyzeROI('analyzed-content-1')).rejects.toThrow('AI API timeout')
     })
   })
 
@@ -321,10 +300,7 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
   describe('getROIAnalysisPrompt', () => {
     it('应该生成包含薄弱项的Prompt', () => {
       // Act
-      const prompt = (service as any).getROIAnalysisPrompt(
-        mockRawContent,
-        '数据安全',
-      )
+      const prompt = (service as any).getROIAnalysisPrompt(mockRawContent, '数据安全')
 
       // Assert
       expect(prompt).toContain('零信任架构在金融行业的应用')

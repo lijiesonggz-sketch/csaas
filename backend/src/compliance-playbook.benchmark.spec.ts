@@ -122,10 +122,7 @@ describe('Compliance Playbook Performance Benchmarks (Story 4.2)', () => {
         const start = performance.now()
 
         try {
-          await aiAnalysisService.generateCompliancePlaybook(
-            mockAnalyzedContent,
-            mockRawContent,
-          )
+          await aiAnalysisService.generateCompliancePlaybook(mockAnalyzedContent, mockRawContent)
         } catch (error) {
           // AI调用可能失败，跳过
           continue
@@ -293,10 +290,7 @@ describe('Compliance Playbook Performance Benchmarks (Story 4.2)', () => {
 
       // 预热缓存（第一次调用）
       try {
-        await aiAnalysisService.generateCompliancePlaybook(
-          mockAnalyzedContent,
-          mockRawContent,
-        )
+        await aiAnalysisService.generateCompliancePlaybook(mockAnalyzedContent, mockRawContent)
       } catch (error) {
         // AI可能失败，缓存未建立，跳过测试
         console.log('⚠️ 缓存预热失败，跳过缓存性能测试')
@@ -314,10 +308,7 @@ describe('Compliance Playbook Performance Benchmarks (Story 4.2)', () => {
         const start = performance.now()
 
         try {
-          await aiAnalysisService.generateCompliancePlaybook(
-            mockAnalyzedContent,
-            mockRawContent,
-          )
+          await aiAnalysisService.generateCompliancePlaybook(mockAnalyzedContent, mockRawContent)
         } catch (error) {
           // 忽略错误
         }
@@ -387,10 +378,7 @@ describe('Compliance Playbook Performance Benchmarks (Story 4.2)', () => {
       for (let i = 0; i < iterations; i++) {
         const start = performance.now()
 
-        const playbook = await playbookService.getPlaybookByPushId(
-          'bench-push-1',
-          'org-bench',
-        )
+        const playbook = await playbookService.getPlaybookByPushId('bench-push-1', 'org-bench')
 
         const end = performance.now()
         timings.push(end - start)

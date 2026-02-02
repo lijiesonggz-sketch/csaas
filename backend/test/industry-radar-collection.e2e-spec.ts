@@ -82,7 +82,7 @@ contentType: "article"
       await fs.writeFile(testFilePath, fileContent, 'utf-8')
 
       // 等待文件监控服务处理（模拟异步处理）
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      await new Promise((resolve) => setTimeout(resolve, 3000))
 
       // 验证RawContent是否正确保存
       const rawContentRepo = dataSource.getRepository(RawContent)
@@ -143,7 +143,7 @@ contentType: "recruitment"
       await fs.writeFile(testFilePath, fileContent, 'utf-8')
 
       // 等待处理
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      await new Promise((resolve) => setTimeout(resolve, 3000))
 
       // 验证
       const rawContentRepo = dataSource.getRepository(RawContent)
@@ -212,10 +212,7 @@ contentType: "recruitment"
         项目完成后，系统吞吐量提升60%，故障恢复时间缩短80%。
       `
 
-      const result = crawlerService.extractPeerInfo(
-        content,
-        '招商银行技术分享',
-      )
+      const result = crawlerService.extractPeerInfo(content, '招商银行技术分享')
 
       expect(result.peerName).toBe('招商银行')
       expect(result.estimatedCost).toBe('150万')
@@ -251,7 +248,7 @@ contentType: "article"
       await fs.writeFile(testFilePath, fileContent, 'utf-8')
 
       // 等待处理和队列入队
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      await new Promise((resolve) => setTimeout(resolve, 3000))
 
       // 验证RawContent已创建
       const rawContentRepo = dataSource.getRepository(RawContent)
@@ -319,7 +316,7 @@ source: "测试公众号"
       await fs.writeFile(testFilePath, fileContent, 'utf-8')
 
       // 等待处理
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      await new Promise((resolve) => setTimeout(resolve, 3000))
 
       // 验证文件被移动到failed文件夹
       const failedPath = path.join(
@@ -366,7 +363,7 @@ category: "industry"
       await fs.writeFile(testFilePath, fileContent, 'utf-8')
 
       // 等待处理
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      await new Promise((resolve) => setTimeout(resolve, 3000))
 
       // 验证内容未保存到数据库
       const rawContentRepo = dataSource.getRepository(RawContent)

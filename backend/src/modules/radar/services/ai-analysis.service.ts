@@ -60,10 +60,7 @@ export class AIAnalysisService {
    * @param category - 内容分类（tech/industry/compliance）
    * @returns AI 分析结果
    */
-  async analyzeWithCache(
-    rawContent: RawContent,
-    category: string,
-  ): Promise<AnalyzedContent> {
+  async analyzeWithCache(rawContent: RawContent, category: string): Promise<AnalyzedContent> {
     // 1. 计算内容哈希
     const contentHash = this.calculateContentHash(rawContent)
     // Include organizationId in cache key for multi-tenant isolation
@@ -101,10 +98,7 @@ export class AIAnalysisService {
    * @param category - 内容分类
    * @returns AI 分析结果
    */
-  async analyze(
-    rawContent: RawContent,
-    category: string,
-  ): Promise<AnalyzedContent> {
+  async analyze(rawContent: RawContent, category: string): Promise<AnalyzedContent> {
     try {
       this.logger.log(`Analyzing content ${rawContent.id} (${category})`)
 
@@ -457,10 +451,7 @@ ${rawContent.fullContent}
    * @param weaknessCategory - 薄弱项类别 (如"数据安全")
    * @returns ROI分析Prompt
    */
-  private getROIAnalysisPrompt(
-    rawContent: RawContent,
-    weaknessCategory?: string,
-  ): string {
+  private getROIAnalysisPrompt(rawContent: RawContent, weaknessCategory?: string): string {
     return `你是一位资深的金融IT投资分析专家。请分析以下技术方案的投资回报率(ROI)。
 
 技术方案：
@@ -512,8 +503,7 @@ ${weaknessCategory ? `关联薄弱项：${weaknessCategory}` : ''}
   }> {
     try {
       // 1. 加载AnalyzedContent和RawContent
-      const analyzedContent =
-        await this.analyzedContentService.findById(contentId)
+      const analyzedContent = await this.analyzedContentService.findById(contentId)
       if (!analyzedContent) {
         throw new Error(`AnalyzedContent not found: ${contentId}`)
       }
@@ -570,10 +560,7 @@ ${weaknessCategory ? `关联薄弱项：${weaknessCategory}` : ''}
 
       return roiAnalysis
     } catch (error) {
-      this.logger.error(
-        `ROI analysis failed for content ${contentId}`,
-        error.stack,
-      )
+      this.logger.error(`ROI analysis failed for content ${contentId}`, error.stack)
       throw error
     }
   }
@@ -593,11 +580,7 @@ ${weaknessCategory ? `关联薄弱项：${weaknessCategory}` : ''}
       const parsed = JSON.parse(content)
 
       // 验证必填字段
-      if (
-        !parsed.estimatedCost ||
-        !parsed.expectedBenefit ||
-        !parsed.roiEstimate
-      ) {
+      if (!parsed.estimatedCost || !parsed.expectedBenefit || !parsed.roiEstimate) {
         throw new Error('Missing required ROI fields')
       }
 
@@ -668,9 +651,7 @@ ${weaknessCategory ? `关联薄弱项：${weaknessCategory}` : ''}
       )
 
       // 3. 验证AI响应
-      const validatedPlaybook = this.validatePlaybookStructure(
-        JSON.parse(aiResponse.content),
-      )
+      const validatedPlaybook = this.validatePlaybookStructure(JSON.parse(aiResponse.content))
 
       playbook = {
         ...validatedPlaybook,
@@ -679,11 +660,7 @@ ${weaknessCategory ? `关联薄弱项：${weaknessCategory}` : ''}
       }
 
       // 4. 保存到缓存（TTL=7天）
-      await redisClient.setex(
-        cacheKey,
-        7 * 24 * 60 * 60,
-        JSON.stringify(playbook),
-      )
+      await redisClient.setex(cacheKey, 7 * 24 * 60 * 60, JSON.stringify(playbook))
 
       return playbook
     } catch (error) {
@@ -702,10 +679,7 @@ ${weaknessCategory ? `关联薄弱项：${weaknessCategory}` : ''}
     if (!playbook.checklistItems || !Array.isArray(playbook.checklistItems)) {
       throw new Error('Invalid playbook structure: missing checklistItems')
     }
-    if (
-      playbook.checklistItems.length < 5 ||
-      playbook.checklistItems.length > 10
-    ) {
+    if (playbook.checklistItems.length < 5 || playbook.checklistItems.length > 10) {
       throw new Error('Checklist items must be 5-10 items')
     }
 
@@ -799,8 +773,7 @@ AI分析结果：
   ): Omit<CompliancePlaybook, 'id' | 'pushId' | 'createdAt'> & {
     generatedAt: Date
   } {
-    const category =
-      analyzedContent.complianceAnalysis?.complianceRiskCategory || '合规'
+    const category = analyzedContent.complianceAnalysis?.complianceRiskCategory || '合规'
 
     return {
       organizationId: rawContent.organizationId,
@@ -814,9 +787,7 @@ AI分析结果：
         },
         {
           id: uuidv4(),
-          text:
-            analyzedContent.complianceAnalysis?.remediationSuggestions ||
-            '制定整改计划',
+          text: analyzedContent.complianceAnalysis?.remediationSuggestions || '制定整改计划',
           category,
           checked: false,
           order: 2,
@@ -905,10 +876,7 @@ AI分析结果：
    * @param solution - 整改方案
    * @returns ROI评分 (0-10)
    */
-  calculateComplianceROI(solution: {
-    estimatedCost: number
-    expectedBenefit: number
-  }): number {
+  calculateComplianceROI(solution: { estimatedCost: number; expectedBenefit: number }): number {
     const { estimatedCost, expectedBenefit } = solution
 
     // 输入验证

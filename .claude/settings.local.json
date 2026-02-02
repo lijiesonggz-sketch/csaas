@@ -138,7 +138,16 @@
       "Bash(fi:*)",
       "Bash(done:*)",
       "Bash(D:csaasverify-authorization-fix.bat)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(npm run)",
+      "Bash(npx jest:*)",
+      "Bash(npx playwright install --list)",
+      "Bash(npx playwright test:*)",
+      "mcp__playwright__browser_navigate",
+      "Bash(wsl --list:*)",
+      "Bash(wsl:*)",
+      "Bash(claude:*)",
+      "Bash(PGPASSWORD=postgres psql:*)"
     ]
   }
 }

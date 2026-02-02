@@ -137,9 +137,9 @@ describe('Penetration Testing - Multi-Tenant Isolation (e2e)', () => {
       const victimTopic = await topicRepo.save({
         tenantId: tenantB.id,
         organizationId: orgB.id,
-        keyword: 'Victim Secret Keyword',
-        category: 'technical',
-        priority: 'high',
+        topicName: 'Victim Secret Topic',
+        topicType: 'tech',
+        description: 'Victim secret description',
       });
 
       // WHEN: Tenant A attempts to access Tenant B's WatchedTopic
@@ -161,9 +161,9 @@ describe('Penetration Testing - Multi-Tenant Isolation (e2e)', () => {
       const victimTopic = await topicRepo.save({
         tenantId: tenantB.id,
         organizationId: orgB.id,
-        keyword: 'Original Keyword',
-        category: 'technical',
-        priority: 'medium',
+        topicName: 'Original Topic',
+        topicType: 'tech',
+        description: 'Original description',
       });
 
       // WHEN: Tenant A attempts to update Tenant B's WatchedTopic
@@ -171,15 +171,15 @@ describe('Penetration Testing - Multi-Tenant Isolation (e2e)', () => {
         .patch(`/api/radar/watched-topics/${victimTopic.id}`)
         .set('Authorization', `Bearer ${tokenA}`)
         .send({
-          keyword: 'Hacked Keyword',
-          priority: 'low',
+          topicName: 'Hacked Topic',
+          description: 'Hacked description',
         })
         .expect(404); // Should return 404
 
       // THEN: WatchedTopic should remain unchanged
       const unchangedTopic = await topicRepo.findOne({ where: { id: victimTopic.id } });
-      expect(unchangedTopic.keyword).toBe('Original Keyword');
-      expect(unchangedTopic.priority).toBe('medium');
+      expect(unchangedTopic.topicName).toBe('Original Topic');
+      expect(unchangedTopic.description).toBe('Original description');
 
       // 清理
       await topicRepo.delete(victimTopic.id);
@@ -191,9 +191,9 @@ describe('Penetration Testing - Multi-Tenant Isolation (e2e)', () => {
       const victimTopic = await topicRepo.save({
         tenantId: tenantB.id,
         organizationId: orgB.id,
-        keyword: 'Protected Keyword',
-        category: 'technical',
-        priority: 'high',
+        topicName: 'Protected Topic',
+        topicType: 'tech',
+        description: 'Protected description',
       });
 
       // WHEN: Tenant A attempts to delete Tenant B's WatchedTopic
@@ -205,7 +205,7 @@ describe('Penetration Testing - Multi-Tenant Isolation (e2e)', () => {
       // THEN: WatchedTopic should still exist
       const stillExists = await topicRepo.findOne({ where: { id: victimTopic.id } });
       expect(stillExists).toBeDefined();
-      expect(stillExists.keyword).toBe('Protected Keyword');
+      expect(stillExists.topicName).toBe('Protected Topic');
 
       // 清理
       await topicRepo.delete(victimTopic.id);
@@ -217,16 +217,16 @@ describe('Penetration Testing - Multi-Tenant Isolation (e2e)', () => {
       const topicA = await topicRepo.save({
         tenantId: tenantA.id,
         organizationId: orgA.id,
-        keyword: 'Tenant A Keyword',
-        category: 'technical',
-        priority: 'medium',
+        topicName: 'Tenant A Topic',
+        topicType: 'tech',
+        description: 'Tenant A description',
       });
       const topicB = await topicRepo.save({
         tenantId: tenantB.id,
         organizationId: orgB.id,
-        keyword: 'Tenant B Secret',
-        category: 'technical',
-        priority: 'high',
+        topicName: 'Tenant B Secret',
+        topicType: 'tech',
+        description: 'Tenant B secret description',
       });
 
       // WHEN: Tenant A lists WatchedTopics
@@ -247,32 +247,32 @@ describe('Penetration Testing - Multi-Tenant Isolation (e2e)', () => {
   });
 
   describe('[P0] SQL Injection Attacks', () => {
-    it('should prevent SQL injection via keyword parameter', async () => {
+    it('should prevent SQL injection via topicName parameter', async () => {
       // GIVEN: Tenant B has a WatchedTopic
       const topicRepo = dataSource.getRepository(WatchedTopic);
       const victimTopic = await topicRepo.save({
         tenantId: tenantB.id,
         organizationId: orgB.id,
-        keyword: 'Victim Data',
-        category: 'technical',
-        priority: 'high',
+        topicName: 'Victim Data',
+        topicType: 'tech',
+        description: 'Victim description',
       });
 
-      // WHEN: Tenant A attempts SQL injection via keyword
-      const maliciousKeyword = `'; DROP TABLE watched_topics; --`;
+      // WHEN: Tenant A attempts SQL injection via topicName
+      const maliciousTopicName = `'; DROP TABLE watched_topics; --`;
       const response = await request(app.getHttpServer())
         .post('/api/radar/watched-topics')
         .set('Authorization', `Bearer ${tokenA}`)
         .send({
-          keyword: maliciousKeyword,
-          category: 'technical',
-          priority: 'low',
+          topicName: maliciousTopicName,
+          topicType: 'tech',
+          description: 'Malicious description',
         })
         .expect(201);
 
-      // THEN: SQL injection should be prevented (keyword is escaped)
+      // THEN: SQL injection should be prevented (topicName is escaped)
       const createdTopic = await topicRepo.findOne({ where: { id: response.body.id } });
-      expect(createdTopic.keyword).toBe(maliciousKeyword); // Stored as literal string
+      expect(createdTopic.topicName).toBe(maliciousTopicName); // Stored as literal string
 
       // Verify table still exists
       const tableExists = await dataSource.query(
@@ -305,9 +305,9 @@ describe('Penetration Testing - Multi-Tenant Isolation (e2e)', () => {
       const victimTopic = await topicRepo.save({
         tenantId: tenantB.id,
         organizationId: orgB.id,
-        keyword: 'Protected Data',
-        category: 'technical',
-        priority: 'high',
+        topicName: 'Protected Data',
+        topicType: 'tech',
+        description: 'Protected description',
       });
 
       // WHEN: Attempting to manipulate session variable (TenantGuard uses parameterized query)
@@ -364,16 +364,16 @@ describe('Penetration Testing - Multi-Tenant Isolation (e2e)', () => {
       const victimTopic = await topicRepo.save({
         tenantId: tenantB.id,
         organizationId: orgB.id,
-        keyword: 'Original Value',
-        category: 'technical',
-        priority: 'high',
+        topicName: 'Original Value',
+        topicType: 'tech',
+        description: 'Original description',
       });
 
       // WHEN: Setting session variable to Tenant A and attempting UPDATE
       await dataSource.query(`SET app.current_tenant = $1`, [tenantA.id]);
 
       const updateResult = await dataSource.query(
-        `UPDATE watched_topics SET keyword = $1 WHERE id = $2`,
+        `UPDATE watched_topics SET topic_name = $1 WHERE id = $2`,
         ['Hacked Value', victimTopic.id],
       );
 
@@ -383,7 +383,7 @@ describe('Penetration Testing - Multi-Tenant Isolation (e2e)', () => {
       // Verify data unchanged
       await dataSource.query(`RESET app.current_tenant`);
       const unchangedTopic = await topicRepo.findOne({ where: { id: victimTopic.id } });
-      expect(unchangedTopic.keyword).toBe('Original Value');
+      expect(unchangedTopic.topicName).toBe('Original Value');
 
       // 清理
       await topicRepo.delete(victimTopic.id);
@@ -395,9 +395,9 @@ describe('Penetration Testing - Multi-Tenant Isolation (e2e)', () => {
       const victimTopic = await topicRepo.save({
         tenantId: tenantB.id,
         organizationId: orgB.id,
-        keyword: 'Protected Data',
-        category: 'technical',
-        priority: 'high',
+        topicName: 'Protected Data',
+        topicType: 'tech',
+        description: 'Protected description',
       });
 
       // WHEN: Setting session variable to Tenant A and attempting DELETE

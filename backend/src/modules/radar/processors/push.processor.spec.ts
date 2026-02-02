@@ -233,14 +233,10 @@ describe('PushProcessor - ROI Analysis Integration (Story 2.4)', () => {
       jest
         .spyOn(weaknessSnapshotRepo, 'find')
         .mockResolvedValue([mockWeaknessSnapshot as WeaknessSnapshot])
-      jest
-        .spyOn(aiAnalysisService, 'analyzeROI')
-        .mockRejectedValue(new Error('AI API timeout'))
+      jest.spyOn(aiAnalysisService, 'analyzeROI').mockRejectedValue(new Error('AI API timeout'))
 
       // Act & Assert - 不应抛出错误
-      await expect(
-        (processor as any).sendPushViaWebSocket(pushWithoutROI),
-      ).resolves.not.toThrow()
+      await expect((processor as any).sendPushViaWebSocket(pushWithoutROI)).resolves.not.toThrow()
 
       expect(aiAnalysisService.analyzeROI).toHaveBeenCalled()
       expect(tasksGateway.server.emit).toHaveBeenCalledWith(

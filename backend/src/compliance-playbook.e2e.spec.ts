@@ -54,9 +54,7 @@ describe('CompliancePlaybook E2E (Phase 6.1)', () => {
     await app.init()
 
     playbookService = app.get<CompliancePlaybookService>(CompliancePlaybookService)
-    playbookRepo = app.get<Repository<CompliancePlaybook>>(
-      'CompliancePlaybookRepository',
-    )
+    playbookRepo = app.get<Repository<CompliancePlaybook>>('CompliancePlaybookRepository')
     submissionRepo = app.get<Repository<ComplianceChecklistSubmission>>(
       'ComplianceChecklistSubmissionRepository',
     )

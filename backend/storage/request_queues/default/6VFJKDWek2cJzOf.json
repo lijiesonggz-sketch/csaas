@@ -1,9 +1,0 @@
-{
-	"id": "6VFJKDWek2cJzOf",
-	"json": "{\"id\":\"6VFJKDWek2cJzOf\",\"url\":\"https://mp.weixin.qq.com/s/example\",\"uniqueKey\":\"https://mp.weixin.qq.com/s/example\",\"method\":\"GET\",\"noRetry\":false,\"retryCount\":0,\"errorMessages\":[],\"headers\":{},\"userData\":{}}",
-	"method": "GET",
-	"orderNo": 1769799600116,
-	"retryCount": 0,
-	"uniqueKey": "https://mp.weixin.qq.com/s/example",
-	"url": "https://mp.weixin.qq.com/s/example"
-}

@@ -571,3 +571,190 @@ export async function deleteWatchedPeer(id: string, organizationId: string): Pro
   }
 }
 
+/**
+ * 推送偏好配置API方法 (Story 5.3)
+ */
+
+/**
+ * PushPreference数据结构
+ */
+export interface PushPreference {
+  id: string
+  organizationId: string
+  pushStartTime: string  // "HH:mm"
+  pushEndTime: string    // "HH:mm"
+  dailyPushLimit: number // 1-20
+  relevanceFilter: 'high_only' | 'high_medium'
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * UpdatePushPreferenceDto数据结构
+ */
+export interface UpdatePushPreferenceDto {
+  pushStartTime?: string
+  pushEndTime?: string
+  dailyPushLimit?: number
+  relevanceFilter?: 'high_only' | 'high_medium'
+}
+
+/**
+ * 获取推送偏好设置 (Story 5.3 - AC #2, #3, #4)
+ *
+ * @param organizationId - 组织ID
+ * @returns 推送偏好设置
+ */
+export async function getPushPreference(organizationId: string): Promise<PushPreference> {
+  if (!organizationId) {
+    throw new Error('组织ID不能为空')
+  }
+
+  const data = await apiFetch(`/radar/push-preferences?organizationId=${organizationId}`)
+
+  console.log('[getPushPreference] API返回数据:', data)
+
+  return data
+}
+
+/**
+ * 更新推送偏好设置 (Story 5.3 - AC #2, #3, #4)
+ *
+ * @param organizationId - 组织ID
+ * @param dto - 更新数据
+ * @returns 更新后的推送偏好设置
+ */
+export async function updatePushPreference(
+  organizationId: string,
+  dto: UpdatePushPreferenceDto
+): Promise<PushPreference> {
+  if (!organizationId) {
+    throw new Error('组织ID不能为空')
+  }
+
+  try {
+    const data = await apiFetch(`/radar/push-preferences?organizationId=${organizationId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(dto),
+    })
+
+    console.log('[updatePushPreference] 更新成功:', data)
+
+    return data
+  } catch (error: any) {
+    if (error.status === 400) {
+      throw new Error(error.message || '请求参数错误')
+    }
+    throw error
+  }
+}
+
+/**
+ * 推送历史查看API方法 (Story 5.4)
+ */
+
+/**
+ * PushHistoryItem数据结构
+ */
+export interface PushHistoryItem {
+  id: string
+  radarType: 'tech' | 'industry' | 'compliance'
+  title: string
+  summary: string
+  relevanceScore: number
+  relevanceLevel: 'high' | 'medium' | 'low'
+  sentAt: string
+  readAt: string | null
+  isRead: boolean
+  sourceName?: string
+  sourceUrl?: string
+  weaknessCategories?: string[]
+  roiScore?: number
+  peerName?: string
+  riskLevel?: 'high' | 'medium' | 'low'
+  matchedPeers?: string[]
+}
+
+/**
+ * PushHistoryResponse数据结构
+ */
+export interface PushHistoryResponse {
+  data: PushHistoryItem[]
+  meta: {
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+  }
+}
+
+/**
+ * 获取推送历史列表 (Story 5.4 - AC #2-7)
+ *
+ * 注意：organizationId 由后端 OrganizationGuard 自动从 JWT token 注入，前端无需传递
+ *
+ * @param filters - 筛选条件
+ * @returns 推送历史列表
+ */
+export async function getPushHistory(
+  filters?: {
+    radarType?: 'tech' | 'industry' | 'compliance'
+    timeRange?: '7d' | '30d' | '90d' | 'all'
+    startDate?: string
+    endDate?: string
+    relevance?: 'high' | 'medium' | 'low' | 'all'
+    keyword?: string
+    page?: number
+    limit?: number
+  }
+): Promise<PushHistoryResponse> {
+  const params = new URLSearchParams()
+
+  // 可选筛选参数
+  if (filters?.radarType) params.append('radarType', filters.radarType)
+  if (filters?.timeRange) params.append('timeRange', filters.timeRange)
+  if (filters?.startDate) params.append('startDate', filters.startDate)
+  if (filters?.endDate) params.append('endDate', filters.endDate)
+  if (filters?.relevance) params.append('relevance', filters.relevance)
+  if (filters?.keyword) params.append('keyword', filters.keyword)
+  if (filters?.page) params.append('page', String(filters.page))
+  if (filters?.limit) params.append('limit', String(filters.limit))
+
+  const data = await apiFetch(`/api/radar/pushes?${params.toString()}`)
+
+  return data
+}
+
+/**
+ * 获取未读推送数量 (Story 5.4 - AC #8)
+ *
+ * 注意：organizationId 由后端 OrganizationGuard 自动从 JWT token 注入
+ *
+ * @returns 未读推送数量
+ */
+export async function getUnreadPushCount(): Promise<number> {
+  const data = await apiFetch(`/api/radar/pushes/unread-count`)
+
+  return data.count
+}
+
+/**
+ * 标记推送为已读 (Story 5.4 - AC #8)
+ *
+ * 注意：organizationId 由后端 OrganizationGuard 自动从 JWT token 注入
+ *
+ * @param pushId - 推送ID
+ */
+export async function markPushHistoryAsRead(pushId: string): Promise<void> {
+  if (!pushId) {
+    throw new Error('推送ID不能为空')
+  }
+
+  await apiFetch(`/api/radar/pushes/${pushId}/read`, {
+    method: 'PATCH',
+  })
+}
+

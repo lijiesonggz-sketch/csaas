@@ -172,11 +172,7 @@ describe('TagService', () => {
       await service.incrementUsageCount('tag-1')
 
       // Assert
-      expect(repository.increment).toHaveBeenCalledWith(
-        { id: 'tag-1' },
-        'usageCount',
-        1,
-      )
+      expect(repository.increment).toHaveBeenCalledWith({ id: 'tag-1' }, 'usageCount', 1)
     })
   })
 
@@ -211,9 +207,7 @@ describe('TagService', () => {
         getMany: jest.fn().mockResolvedValue(popularTags),
       }
 
-      jest
-        .spyOn(repository, 'createQueryBuilder')
-        .mockReturnValue(mockQueryBuilder as any)
+      jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
       // Act
       const results = await service.getPopularTags(20)
@@ -221,14 +215,10 @@ describe('TagService', () => {
       // Assert
       expect(results).toHaveLength(3)
       expect(results[0].usageCount).toBe(100)
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
-        'tag.isActive = :isActive',
-        { isActive: true },
-      )
-      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
-        'tag.usageCount',
-        'DESC',
-      )
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('tag.isActive = :isActive', {
+        isActive: true,
+      })
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith('tag.usageCount', 'DESC')
       expect(mockQueryBuilder.limit).toHaveBeenCalledWith(20)
     })
 
@@ -242,18 +232,15 @@ describe('TagService', () => {
         getMany: jest.fn().mockResolvedValue([]),
       }
 
-      jest
-        .spyOn(repository, 'createQueryBuilder')
-        .mockReturnValue(mockQueryBuilder as any)
+      jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
       // Act
       await service.getPopularTags(20, 'tech')
 
       // Assert
-      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'tag.tagType = :tagType',
-        { tagType: 'tech' },
-      )
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('tag.tagType = :tagType', {
+        tagType: 'tech',
+      })
     })
   })
 
@@ -289,11 +276,7 @@ describe('TagService', () => {
 
       // Assert
       expect(results).toHaveLength(3)
-      expect(repository.findByIds).toHaveBeenCalledWith([
-        'tag-1',
-        'tag-2',
-        'tag-3',
-      ])
+      expect(repository.findByIds).toHaveBeenCalledWith(['tag-1', 'tag-2', 'tag-3'])
     })
   })
 })

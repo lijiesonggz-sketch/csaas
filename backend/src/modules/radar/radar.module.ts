@@ -32,11 +32,20 @@ import { RadarSource } from '../../database/entities/radar-source.entity'
 import { CompliancePlaybook } from '../../database/entities/compliance-playbook.entity'
 import { ComplianceChecklistSubmission } from '../../database/entities/compliance-checklist-submission.entity'
 
+// Story 6.1A repositories
+import {
+  RadarPushRepository,
+  WatchedTopicRepository,
+  WatchedPeerRepository,
+  PushPreferenceRepository,
+} from '../../database/repositories'
+
 // Story 1.3 providers
 import { AssessmentEventListener } from './assessment-event.listener'
 import { OrganizationsModule } from '../organizations/organizations.module'
 import { AITasksModule } from '../ai-tasks/ai-tasks.module'
 import { AIClientsModule } from '../ai-clients/ai-clients.module'
+import { AuditModule } from '../audit/audit.module'
 // import { ProjectsModule } from '../projects/projects.module' // 暂时禁用以避免循环依赖
 
 // Story 2.1 providers
@@ -63,6 +72,14 @@ import { WatchedTopicController } from './controllers/watched-topic.controller'
 // Story 5.2 providers
 import { WatchedPeerService } from './services/watched-peer.service'
 import { WatchedPeerController } from './controllers/watched-peer.controller'
+
+// Story 5.3 providers
+import { PushPreference } from '../../database/entities/push-preference.entity'
+import { PushPreferenceService } from './services/push-preference.service'
+import { PushPreferenceController } from './controllers/push-preference.controller'
+
+// Story 5.4 providers
+import { RadarPushService } from './services/radar-push.service'
 
 // Story 2.2 providers
 import { TagService } from './services/tag.service'
@@ -112,6 +129,7 @@ import { PushProcessor } from './processors/push.processor'
       WatchedPeer,
       Organization,
       OrganizationMember,
+      PushPreference,
     ]),
 
     // Story 3.1 entities
@@ -157,14 +175,34 @@ import { PushProcessor } from './processors/push.processor'
           },
         },
       },
+      // Story 6.1B: 审计日志队列（用于 AuditInterceptor）
+      {
+        name: 'audit-log',
+        defaultJobOptions: {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 1000,
+          },
+        },
+      },
     ),
 
     OrganizationsModule,
     AITasksModule, // Story 2.3 - 用于WebSocket推送
     AIClientsModule, // Story 2.2 - AI分析服务依赖
+    AuditModule, // Story 6.1B - 审计日志
     // ProjectsModule, // 暂时禁用以避免循环依赖
   ],
-  controllers: [RadarController, RadarPushController, RadarSourceController, CompliancePlaybookController, WatchedTopicController, WatchedPeerController],
+  controllers: [
+    RadarController,
+    RadarPushController,
+    RadarSourceController,
+    CompliancePlaybookController,
+    WatchedTopicController,
+    WatchedPeerController,
+    PushPreferenceController,
+  ],
   providers: [
     // Story 1.3 providers
     AssessmentEventListener,
@@ -200,6 +238,18 @@ import { PushProcessor } from './processors/push.processor'
 
     // Story 5.2 providers
     WatchedPeerService,
+
+    // Story 5.3 providers
+    PushPreferenceService,
+
+    // Story 5.4 providers
+    RadarPushService,
+
+    // Story 6.1A repositories
+    RadarPushRepository,
+    WatchedTopicRepository,
+    WatchedPeerRepository,
+    PushPreferenceRepository,
   ],
   exports: [
     // Story 1.3 exports
@@ -284,9 +334,7 @@ export class RadarModule implements OnModuleInit, OnModuleDestroy {
 
       if (dbSources.length > 0) {
         // 使用数据库配置
-        this.logger.log(
-          `Setting up crawler jobs from database: ${dbSources.length} sources`,
-        )
+        this.logger.log(`Setting up crawler jobs from database: ${dbSources.length} sources`)
 
         for (const source of dbSources) {
           await this.crawlerQueue.add(
@@ -310,9 +358,7 @@ export class RadarModule implements OnModuleInit, OnModuleDestroy {
         }
       } else {
         // 数据库为空，使用默认配置（向后兼容）
-        this.logger.warn(
-          'No sources found in database, using default configuration',
-        )
+        this.logger.warn('No sources found in database, using default configuration')
 
         const defaultSources = [
           {
@@ -428,9 +474,7 @@ export class RadarModule implements OnModuleInit, OnModuleDestroy {
         },
       )
 
-      this.logger.log(
-        `Scheduled ${schedule.description}: ${schedule.cronPattern}`,
-      )
+      this.logger.log(`Scheduled ${schedule.description}: ${schedule.cronPattern}`)
     }
   }
 }

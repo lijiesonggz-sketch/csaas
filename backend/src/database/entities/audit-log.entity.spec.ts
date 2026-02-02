@@ -85,6 +85,9 @@ describe('AuditLog Entity', () => {
     auditLog.action = AuditAction.PLAYBOOK_VIEW
     auditLog.entityType = 'compliance_playbook'
     auditLog.entityId = 'push-123'
+
+    // @CreateDateColumn() 只在数据库保存时自动设置，在测试中手动设置
+    auditLog.createdAt = new Date()
     const afterDate = new Date()
 
     // Assert

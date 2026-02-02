@@ -1,6 +1,7 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm'
 import {
   User,
+  Tenant,
   Organization,
   OrganizationMember,
   Project,
@@ -44,6 +45,7 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
   database: process.env.DB_DATABASE || 'csaas',
   entities: [
     User,
+    Tenant,
     Organization,
     OrganizationMember,
     Project,

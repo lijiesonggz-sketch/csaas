@@ -149,17 +149,13 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
       const mockPushes = [mockCompliancePush] as RadarPush[]
       const groupedPushes = new Map([['org-123', mockPushes]])
 
-      jest
-        .spyOn(pushSchedulerService, 'getPendingPushes')
-        .mockResolvedValue(mockPushes)
-      jest
-        .spyOn(pushSchedulerService, 'groupByOrganization')
-        .mockReturnValue(groupedPushes)
+      jest.spyOn(pushSchedulerService, 'getPendingPushes').mockResolvedValue(mockPushes)
+      jest.spyOn(pushSchedulerService, 'groupByOrganization').mockReturnValue(groupedPushes)
       jest.spyOn(pushSchedulerService, 'markAsSent').mockResolvedValue(undefined)
       jest.spyOn(pushLogService, 'logSuccess').mockResolvedValue(undefined)
-      jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([
-        mockWeaknessSnapshot as WeaknessSnapshot,
-      ])
+      jest
+        .spyOn(weaknessSnapshotRepo, 'find')
+        .mockResolvedValue([mockWeaknessSnapshot as WeaknessSnapshot])
 
       const toMock = jest.fn().mockReturnThis()
       const emitMock = jest.fn()
@@ -184,17 +180,13 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
       const mockPushes = [mockCompliancePush] as RadarPush[]
       const groupedPushes = new Map([['org-123', mockPushes]])
 
-      jest
-        .spyOn(pushSchedulerService, 'getPendingPushes')
-        .mockResolvedValue(mockPushes)
-      jest
-        .spyOn(pushSchedulerService, 'groupByOrganization')
-        .mockReturnValue(groupedPushes)
+      jest.spyOn(pushSchedulerService, 'getPendingPushes').mockResolvedValue(mockPushes)
+      jest.spyOn(pushSchedulerService, 'groupByOrganization').mockReturnValue(groupedPushes)
       jest.spyOn(pushSchedulerService, 'markAsSent').mockResolvedValue(undefined)
       jest.spyOn(pushLogService, 'logSuccess').mockResolvedValue(undefined)
-      jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([
-        mockWeaknessSnapshot as WeaknessSnapshot,
-      ])
+      jest
+        .spyOn(weaknessSnapshotRepo, 'find')
+        .mockResolvedValue([mockWeaknessSnapshot as WeaknessSnapshot])
 
       const toMock = jest.fn().mockReturnThis()
       const emitMock = jest.fn()
@@ -206,24 +198,27 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
 
       // Assert
       expect(toMock).toHaveBeenCalledWith('org:org-123')
-      expect(emitMock).toHaveBeenCalledWith('radar:push:new', expect.objectContaining({
-        pushId: 'push-compliance-123',
-        radarType: 'compliance',
-        title: '数据安全违规处罚案例',
-        summary: '某银行因数据安全管理不到位被处罚', // aiSummary takes precedence
-        relevanceScore: 0.98,
-        priorityLevel: 1,
-        weaknessCategories: ['数据安全'],
-        url: 'https://example.com/penalty',
-        publishDate: new Date('2026-01-30'),
-        source: '监管机构',
-        tags: ['数据安全'],
-        targetAudience: 'IT部门',
-        // Compliance-specific fields should be included
-        complianceRiskCategory: '数据安全',
-        penaltyCase: '某银行因数据安全管理不到位，被处以50万元罚款',
-        playbookStatus: 'ready',
-      }))
+      expect(emitMock).toHaveBeenCalledWith(
+        'radar:push:new',
+        expect.objectContaining({
+          pushId: 'push-compliance-123',
+          radarType: 'compliance',
+          title: '数据安全违规处罚案例',
+          summary: '某银行因数据安全管理不到位被处罚', // aiSummary takes precedence
+          relevanceScore: 0.98,
+          priorityLevel: 1,
+          weaknessCategories: ['数据安全'],
+          url: 'https://example.com/penalty',
+          publishDate: new Date('2026-01-30'),
+          source: '监管机构',
+          tags: ['数据安全'],
+          targetAudience: 'IT部门',
+          // Compliance-specific fields should be included
+          complianceRiskCategory: '数据安全',
+          penaltyCase: '某银行因数据安全管理不到位，被处以50万元罚款',
+          playbookStatus: 'ready',
+        }),
+      )
     })
 
     it('should handle no pending compliance pushes', async () => {
@@ -253,9 +248,7 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
         id: `push-${i}`,
       })) as RadarPush[]
 
-      jest
-        .spyOn(pushSchedulerService, 'getPendingPushes')
-        .mockResolvedValue(mockPushes)
+      jest.spyOn(pushSchedulerService, 'getPendingPushes').mockResolvedValue(mockPushes)
 
       const groupByOrganizationSpy = jest
         .spyOn(pushSchedulerService, 'groupByOrganization')
@@ -287,9 +280,7 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
         id: `push-${i}`,
       })) as RadarPush[]
 
-      jest
-        .spyOn(pushSchedulerService, 'getPendingPushes')
-        .mockResolvedValue(mockPushes)
+      jest.spyOn(pushSchedulerService, 'getPendingPushes').mockResolvedValue(mockPushes)
 
       // Only 3 should be sent
       const limitedPushes = mockPushes.slice(0, 3)
@@ -325,17 +316,13 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
       const mockPushes = [mockCompliancePush] as RadarPush[]
       const groupedPushes = new Map([['org-123', mockPushes]])
 
-      jest
-        .spyOn(pushSchedulerService, 'getPendingPushes')
-        .mockResolvedValue(mockPushes)
-      jest
-        .spyOn(pushSchedulerService, 'groupByOrganization')
-        .mockReturnValue(groupedPushes)
+      jest.spyOn(pushSchedulerService, 'getPendingPushes').mockResolvedValue(mockPushes)
+      jest.spyOn(pushSchedulerService, 'groupByOrganization').mockReturnValue(groupedPushes)
       jest.spyOn(pushSchedulerService, 'markAsSent').mockResolvedValue(undefined)
       jest.spyOn(pushLogService, 'logSuccess').mockResolvedValue(undefined)
-      jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([
-        mockWeaknessSnapshot as WeaknessSnapshot,
-      ])
+      jest
+        .spyOn(weaknessSnapshotRepo, 'find')
+        .mockResolvedValue([mockWeaknessSnapshot as WeaknessSnapshot])
 
       const toMock = jest.fn().mockReturnThis()
       const emitMock = jest.fn()
@@ -346,7 +333,8 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
       await processor.process(job)
 
       // Assert
-      expect(emitMock).toHaveBeenCalledWith('radar:push:new',
+      expect(emitMock).toHaveBeenCalledWith(
+        'radar:push:new',
         expect.objectContaining({
           pushId: 'push-compliance-123',
           radarType: 'compliance',
@@ -405,12 +393,8 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
       const mockPushes = [pushWithChecklist] as RadarPush[]
       const groupedPushes = new Map([['org-123', mockPushes]])
 
-      jest
-        .spyOn(pushSchedulerService, 'getPendingPushes')
-        .mockResolvedValue(mockPushes)
-      jest
-        .spyOn(pushSchedulerService, 'groupByOrganization')
-        .mockReturnValue(groupedPushes)
+      jest.spyOn(pushSchedulerService, 'getPendingPushes').mockResolvedValue(mockPushes)
+      jest.spyOn(pushSchedulerService, 'groupByOrganization').mockReturnValue(groupedPushes)
       jest.spyOn(pushSchedulerService, 'markAsSent').mockResolvedValue(undefined)
       jest.spyOn(pushLogService, 'logSuccess').mockResolvedValue(undefined)
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
@@ -424,7 +408,8 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
       await processor.process(job)
 
       // Assert
-      expect(emitMock).toHaveBeenCalledWith('radar:push:new',
+      expect(emitMock).toHaveBeenCalledWith(
+        'radar:push:new',
         expect.objectContaining({
           playbookStatus: 'ready',
           checklistItems: [
@@ -464,17 +449,13 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
       const mockPushes = [pushWithoutPlaybook] as RadarPush[]
       const groupedPushes = new Map([['org-123', mockPushes]])
 
-      jest
-        .spyOn(pushSchedulerService, 'getPendingPushes')
-        .mockResolvedValue(mockPushes)
-      jest
-        .spyOn(pushSchedulerService, 'groupByOrganization')
-        .mockReturnValue(groupedPushes)
+      jest.spyOn(pushSchedulerService, 'getPendingPushes').mockResolvedValue(mockPushes)
+      jest.spyOn(pushSchedulerService, 'groupByOrganization').mockReturnValue(groupedPushes)
       jest.spyOn(pushSchedulerService, 'markAsSent').mockResolvedValue(undefined)
       jest.spyOn(pushLogService, 'logSuccess').mockResolvedValue(undefined)
-      jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([
-        mockWeaknessSnapshot as WeaknessSnapshot,
-      ])
+      jest
+        .spyOn(weaknessSnapshotRepo, 'find')
+        .mockResolvedValue([mockWeaknessSnapshot as WeaknessSnapshot])
 
       const toMock = jest.fn().mockReturnThis()
       const emitMock = jest.fn()
@@ -485,7 +466,8 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
       await processor.process(job)
 
       // Assert
-      expect(emitMock).toHaveBeenCalledWith('radar:push:new',
+      expect(emitMock).toHaveBeenCalledWith(
+        'radar:push:new',
         expect.objectContaining({
           playbookStatus: 'generating',
           complianceRiskCategory: '数据安全',
@@ -507,12 +489,8 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
       const mockPushes = [mockCompliancePush] as RadarPush[]
       const groupedPushes = new Map([['org-123', mockPushes]])
 
-      jest
-        .spyOn(pushSchedulerService, 'getPendingPushes')
-        .mockResolvedValue(mockPushes)
-      jest
-        .spyOn(pushSchedulerService, 'groupByOrganization')
-        .mockReturnValue(groupedPushes)
+      jest.spyOn(pushSchedulerService, 'getPendingPushes').mockResolvedValue(mockPushes)
+      jest.spyOn(pushSchedulerService, 'groupByOrganization').mockReturnValue(groupedPushes)
       jest.spyOn(pushSchedulerService, 'markAsFailed').mockResolvedValue(undefined)
       jest.spyOn(pushLogService, 'logFailure').mockResolvedValue(undefined)
       jest.spyOn(weaknessSnapshotRepo, 'find').mockResolvedValue([])
@@ -551,12 +529,8 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
       const mockPushes = [pushWithoutAnalyzedContent] as RadarPush[]
       const groupedPushes = new Map([['org-123', mockPushes]])
 
-      jest
-        .spyOn(pushSchedulerService, 'getPendingPushes')
-        .mockResolvedValue(mockPushes)
-      jest
-        .spyOn(pushSchedulerService, 'groupByOrganization')
-        .mockReturnValue(groupedPushes)
+      jest.spyOn(pushSchedulerService, 'getPendingPushes').mockResolvedValue(mockPushes)
+      jest.spyOn(pushSchedulerService, 'groupByOrganization').mockReturnValue(groupedPushes)
       jest.spyOn(pushSchedulerService, 'markAsFailed').mockResolvedValue(undefined)
       jest.spyOn(pushLogService, 'logFailure').mockResolvedValue(undefined)
 
@@ -586,12 +560,8 @@ describe('PushProcessor - Compliance Radar (Phase 4.2)', () => {
       const mockPushes = [pushWithoutRawContent] as RadarPush[]
       const groupedPushes = new Map([['org-123', mockPushes]])
 
-      jest
-        .spyOn(pushSchedulerService, 'getPendingPushes')
-        .mockResolvedValue(mockPushes)
-      jest
-        .spyOn(pushSchedulerService, 'groupByOrganization')
-        .mockReturnValue(groupedPushes)
+      jest.spyOn(pushSchedulerService, 'getPendingPushes').mockResolvedValue(mockPushes)
+      jest.spyOn(pushSchedulerService, 'groupByOrganization').mockReturnValue(groupedPushes)
       jest.spyOn(pushSchedulerService, 'markAsFailed').mockResolvedValue(undefined)
       jest.spyOn(pushLogService, 'logFailure').mockResolvedValue(undefined)
 

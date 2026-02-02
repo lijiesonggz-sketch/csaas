@@ -1,10 +1,4 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  Index,
-  CreateDateColumn,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, Index, CreateDateColumn } from 'typeorm'
 
 /**
  * ComplianceChecklistSubmission Entity - 合规检查清单提交实体
@@ -23,29 +17,29 @@ import {
 @Index(['organizationId']) // AR12 Layer 3: RLS索引
 export class ComplianceChecklistSubmission {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Column({ type: 'uuid' })
-  pushId: string;
+  pushId: string
 
   @Column({ type: 'uuid' })
-  userId: string;
+  userId: string
 
   @Column({ name: 'organizationId', type: 'uuid', nullable: true }) // AR12 Layer 3: 组织ID
-  organizationId: string | null;
+  organizationId: string | null
 
   @Column({ type: 'json' })
-  checkedItems: string[];
+  checkedItems: string[]
 
   @Column({ type: 'json' })
-  uncheckedItems: string[];
+  uncheckedItems: string[]
 
   @Column({ type: 'text', nullable: true })
-  notes: string; // Story 4.2 - Phase 5: 用户附加备注
+  notes: string // Story 4.2 - Phase 5: 用户附加备注
 
   @CreateDateColumn({ name: 'submittedAt' })
-  submittedAt: Date;
+  submittedAt: Date
 
   @Column({ type: 'timestamp', nullable: true })
-  updatedAt: Date; // ✅ 支持重复提交更新
+  updatedAt: Date // ✅ 支持重复提交更新
 }

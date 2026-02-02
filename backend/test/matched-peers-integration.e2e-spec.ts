@@ -40,7 +40,7 @@ describe('Story 5.2 Task 2.2: matchedPeers Integration Tests', () => {
   const testUserId = '10000000-0000-0000-0000-000000000001'
   let org1Id: string
   let analyzedContentId: string
-  let rawContentMap = new Map<string, any>() // 存储rawContent以便后续使用
+  const rawContentMap = new Map<string, any>() // 存储rawContent以便后续使用
   let testRunTimestamp: number // 用于生成唯一的contentHash
 
   beforeAll(async () => {
@@ -212,11 +212,9 @@ describe('Story 5.2 Task 2.2: matchedPeers Integration Tests', () => {
     // 如果仍然没有找到组织，清理manual-test的rawContent和testUser
     if (!targetOrgId) {
       // 删除原始内容
-      await dataSource.getRepository(RawContent)
-        .delete({ source: 'manual-test' })
+      await dataSource.getRepository(RawContent).delete({ source: 'manual-test' })
       // 删除用户
-      await dataSource.getRepository(User)
-        .delete({ id: testUserId })
+      await dataSource.getRepository(User).delete({ id: testUserId })
       return
     }
 
@@ -224,47 +222,41 @@ describe('Story 5.2 Task 2.2: matchedPeers Integration Tests', () => {
     // 删除顺序：子表 → 父表
 
     // 1. 删除推送记录（最外层）
-    await dataSource.getRepository(RadarPush)
-      .delete({ organizationId: targetOrgId })
+    await dataSource.getRepository(RadarPush).delete({ organizationId: targetOrgId })
 
     // 2. 删除分析内容（依赖RawContent, Tag）
-    await dataSource.createQueryBuilder()
+    await dataSource
+      .createQueryBuilder()
       .delete()
       .from(AnalyzedContent)
-      .where('contentId IN (SELECT id FROM raw_contents WHERE source LIKE :source)', { source: 'manual-test%' })
+      .where('contentId IN (SELECT id FROM raw_contents WHERE source LIKE :source)', {
+        source: 'manual-test%',
+      })
       .execute()
 
     // 3. 删除关注同业（依赖Organization）
-    await dataSource.getRepository(WatchedPeer)
-      .delete({ organizationId: targetOrgId })
+    await dataSource.getRepository(WatchedPeer).delete({ organizationId: targetOrgId })
 
     // 4. 删除关注领域（依赖Organization）
-    await dataSource.getRepository(WatchedTopic)
-      .delete({ organizationId: targetOrgId })
+    await dataSource.getRepository(WatchedTopic).delete({ organizationId: targetOrgId })
 
     // 5. 删除薄弱快照（依赖Organization）
-    await dataSource.getRepository(WeaknessSnapshot)
-      .delete({ organizationId: targetOrgId })
+    await dataSource.getRepository(WeaknessSnapshot).delete({ organizationId: targetOrgId })
 
     // 6. 删除原始内容
-    await dataSource.getRepository(RawContent)
-      .delete({ source: 'manual-test' })
+    await dataSource.getRepository(RawContent).delete({ source: 'manual-test' })
 
     // 7. 删除标签（测试创建的所有标签）
-    await dataSource.getRepository(Tag)
-      .delete({ tagType: 'tech' }) // 删除所有测试用的技术标签
+    await dataSource.getRepository(Tag).delete({ tagType: 'tech' }) // 删除所有测试用的技术标签
 
     // 8. 删除组织成员
-    await dataSource.getRepository(OrganizationMember)
-      .delete({ userId: testUserId })
+    await dataSource.getRepository(OrganizationMember).delete({ userId: testUserId })
 
     // 9. 删除组织
-    await dataSource.getRepository(Organization)
-      .delete({ id: targetOrgId })
+    await dataSource.getRepository(Organization).delete({ id: targetOrgId })
 
     // 10. 删除用户
-    await dataSource.getRepository(User)
-      .delete({ id: testUserId })
+    await dataSource.getRepository(User).delete({ id: testUserId })
   }
 
   /**

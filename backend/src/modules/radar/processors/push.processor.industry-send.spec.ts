@@ -137,8 +137,7 @@ describe('PushProcessor - Industry Radar Push Send (Story 3.2 Task 3.2)', () => 
           priorityLevel: 1, // high = 1
           // 行业雷达特定字段
           peerName: '杭州银行',
-          practiceDescription:
-            '杭州银行于2025年启动容器化改造项目，采用Kubernetes作为核心编排平台',
+          practiceDescription: '杭州银行于2025年启动容器化改造项目，采用Kubernetes作为核心编排平台',
           estimatedCost: '120万',
           implementationPeriod: '6个月',
           technicalEffect: '应用部署时间从2小时缩短到10分钟，运维效率提升60%',
@@ -215,7 +214,7 @@ describe('PushProcessor - Industry Radar Push Send (Story 3.2 Task 3.2)', () => 
           id: `push-${contentType}`,
           organizationId: 'org-1',
           radarType: 'industry',
-          relevanceScore: 0.90,
+          relevanceScore: 0.9,
           priorityLevel: 'high',
           analyzedContent: {
             aiSummary: `${contentType} summary`,

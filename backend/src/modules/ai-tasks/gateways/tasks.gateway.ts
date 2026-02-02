@@ -266,9 +266,7 @@ export class TasksGateway implements OnGatewayConnection, OnGatewayDisconnect {
    * Story 1.2: 发送Radar推送通知
    */
   emitRadarPush(event: RadarPushEvent) {
-    this.logger.log(
-      `Radar push for org ${event.organizationId}: ${event.push.title}`,
-    )
+    this.logger.log(`Radar push for org ${event.organizationId}: ${event.push.title}`)
 
     // 发送到组织特定的房间
     this.server.to(`org:${event.organizationId}`).emit('radar:push:new', event)

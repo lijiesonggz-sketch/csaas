@@ -278,6 +278,40 @@
     file_structure_requirements</template-output>
     <template-output file="{default_output_file}">testing_requirements</template-output>
 
+    <!-- CRITICAL: Playwright E2E Test Requirements for Frontend Features -->
+    <check if="story involves frontend pages or UI components">
+      <action>🎯 MANDATORY PLAYWRIGHT E2E TESTS REQUIRED</action>
+      <action>Analyze story acceptance criteria to identify critical user flows</action>
+      <action>For EACH user-facing feature, generate specific Playwright test scenarios:</action>
+
+      <test-scenario-generation>
+        <action>1. **Basic Functionality Tests** (Priority: P1)
+          - Page navigation and loading
+          - Core feature interactions
+          - Data display and formatting
+        </action>
+
+        <action>2. **Responsive Design Tests** (Priority: P2)
+          - Desktop viewport (1920x1080)
+          - Mobile viewport (375x667)
+          - Layout and component visibility
+        </action>
+
+        <action>3. **Error Handling Tests** (Priority: P2)
+          - Network errors
+          - Invalid inputs
+          - Edge cases
+        </action>
+      </test-scenario-generation>
+
+      <action>Generate test scenarios in Given-When-Then format</action>
+      <action>Reference existing test patterns from: frontend/e2e/push-history.spec.ts</action>
+      <action>Include test file location: frontend/e2e/[feature-name].spec.ts</action>
+      <action>Reference Playwright guide: frontend/PLAYWRIGHT_GUIDE.md</action>
+
+      <critical>⚠️ If story involves frontend but no E2E tests specified, STOP and add them!</critical>
+    </check>
+
     <!-- Previous story intelligence -->
     <check
       if="previous story learnings available">

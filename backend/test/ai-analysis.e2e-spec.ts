@@ -43,11 +43,7 @@ describe('AI Analysis (E2E)', () => {
   /**
    * Helper: Wait for job completion
    */
-  async function waitForJobCompletion(
-    queue: Queue,
-    jobId: string,
-    timeout = 30000,
-  ): Promise<any> {
+  async function waitForJobCompletion(queue: Queue, jobId: string, timeout = 30000): Promise<any> {
     const startTime = Date.now()
     while (Date.now() - startTime < timeout) {
       const job = await queue.getJob(jobId)
@@ -101,9 +97,8 @@ describe('AI Analysis (E2E)', () => {
     dataSource = app.get<DataSource>(DataSource)
     aiAnalysisService = app.get<AIAnalysisService>(AIAnalysisService)
     rawContentService = app.get<RawContentService>(RawContentService)
-    analyzedContentService =
-      app.get<AnalyzedContentService>(AnalyzedContentService)
-    aiAnalysisQueue = app.get<Queue>(getQueueToken('radar:ai-analysis'))
+    analyzedContentService = app.get<AnalyzedContentService>(AnalyzedContentService)
+    aiAnalysisQueue = app.get<Queue>(getQueueToken('radar-ai-analysis'))
 
     await app.init()
 
@@ -131,8 +126,7 @@ describe('AI Analysis (E2E)', () => {
         title: 'Kubernetes 零信任架构实践',
         url: 'https://test.example.com/k8s-zero-trust',
         summary: '本文介绍了在 Kubernetes 环境下实施零信任架构的最佳实践',
-        fullContent:
-          '详细内容：零信任架构是一种安全模型，要求验证每个访问请求...',
+        fullContent: '详细内容：零信任架构是一种安全模型，要求验证每个访问请求...',
         source: 'TEST_SOURCE',
         publishDate: new Date('2024-01-15'),
         category: 'tech',
@@ -142,10 +136,7 @@ describe('AI Analysis (E2E)', () => {
       testRawContentId = rawContent.id
 
       // Step 2: Trigger AI analysis
-      const analyzedContent = await aiAnalysisService.analyze(
-        rawContent,
-        'tech',
-      )
+      const analyzedContent = await aiAnalysisService.analyze(rawContent, 'tech')
       testAnalyzedContentId = analyzedContent.id
 
       // Step 3: Verify AnalyzedContent created
@@ -249,18 +240,12 @@ describe('AI Analysis (E2E)', () => {
       })
 
       // First analysis - should call AI
-      const result1 = await aiAnalysisService.analyzeWithCache(
-        rawContent,
-        'tech',
-      )
+      const result1 = await aiAnalysisService.analyzeWithCache(rawContent, 'tech')
       expect(result1.status).toBe('success')
 
       // Second analysis - should hit cache
       const startTime = Date.now()
-      const result2 = await aiAnalysisService.analyzeWithCache(
-        rawContent,
-        'tech',
-      )
+      const result2 = await aiAnalysisService.analyzeWithCache(rawContent, 'tech')
       const duration = Date.now() - startTime
 
       // Cache hit should be much faster (< 100ms)
@@ -348,18 +333,14 @@ describe('AI Analysis (E2E)', () => {
       await cleanupTestData()
 
       // Verify data cleaned up
-      const remainingRawContent = await dataSource
-        .getRepository(RawContent)
-        .findOne({
-          where: { source: 'TEST_SOURCE' },
-        })
+      const remainingRawContent = await dataSource.getRepository(RawContent).findOne({
+        where: { source: 'TEST_SOURCE' },
+      })
       expect(remainingRawContent).toBeNull()
 
-      const remainingAnalyzedContent = await dataSource
-        .getRepository(AnalyzedContent)
-        .findOne({
-          where: { contentId: rawContent.id },
-        })
+      const remainingAnalyzedContent = await dataSource.getRepository(AnalyzedContent).findOne({
+        where: { contentId: rawContent.id },
+      })
       expect(remainingAnalyzedContent).toBeNull()
     }, 60000)
   })

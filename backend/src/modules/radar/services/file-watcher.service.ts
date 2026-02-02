@@ -6,10 +6,7 @@ import * as matter from 'gray-matter'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { RawContentService } from './raw-content.service'
-import {
-  VALID_CONTENT_TYPES,
-  MAX_PEER_NAME_LENGTH,
-} from '../constants/content.constants'
+import { VALID_CONTENT_TYPES, MAX_PEER_NAME_LENGTH } from '../constants/content.constants'
 
 /**
  * FileWatcherService
@@ -98,10 +95,10 @@ export class FileWatcherService implements OnModuleDestroy {
       const title = this.extractTitle(body)
 
       // 验证 contentType (Story 3.1)
-      const contentType = frontmatter.contentType &&
-        VALID_CONTENT_TYPES.includes(frontmatter.contentType)
-        ? frontmatter.contentType
-        : null
+      const contentType =
+        frontmatter.contentType && VALID_CONTENT_TYPES.includes(frontmatter.contentType)
+          ? frontmatter.contentType
+          : null
 
       // 验证 peerName 长度 (Story 3.1)
       const peerName = frontmatter.peerName
@@ -122,9 +119,7 @@ export class FileWatcherService implements OnModuleDestroy {
         title,
         summary: frontmatter.summary || null,
         fullContent: body,
-        publishDate: frontmatter.publishDate
-          ? new Date(frontmatter.publishDate)
-          : null,
+        publishDate: frontmatter.publishDate ? new Date(frontmatter.publishDate) : null,
         author: frontmatter.author || null,
         organizationId: null, // 公共内容
         // Story 3.1: 支持行业雷达字段
@@ -180,7 +175,10 @@ export class FileWatcherService implements OnModuleDestroy {
 
       // 创建错误日志文件
       const errorLogPath = path.join(failedDir, `${filename}.error.txt`)
-      await fs.writeFile(errorLogPath, `Error: ${errorMessage}\nTimestamp: ${new Date().toISOString()}`)
+      await fs.writeFile(
+        errorLogPath,
+        `Error: ${errorMessage}\nTimestamp: ${new Date().toISOString()}`,
+      )
 
       // 移动原文件
       await fs.rename(filePath, path.join(failedDir, filename))

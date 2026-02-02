@@ -41,7 +41,7 @@ describe('FileWatcherService', () => {
           useValue: mockRawContentService,
         },
         {
-          provide: getQueueToken('radar:ai-analysis'),
+          provide: getQueueToken('radar-ai-analysis'),
           useValue: mockQueue,
         },
       ],

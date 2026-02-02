@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, HttpException, HttpStatus, ForbiddenException } from '@nestjs/common'
+import {
+  Injectable,
+  NotFoundException,
+  HttpException,
+  HttpStatus,
+  ForbiddenException,
+} from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { CompliancePlaybook } from '../../../database/entities/compliance-playbook.entity'
@@ -34,10 +40,7 @@ export class CompliancePlaybookService {
    * @param userOrganizationId - 用户组织ID
    * @throws ForbiddenException - push不属于用户组织
    */
-  private async validatePushAccess(
-    pushId: string,
-    userOrganizationId: string,
-  ): Promise<void> {
+  private async validatePushAccess(pushId: string, userOrganizationId: string): Promise<void> {
     const push = await this.pushRepo.findOne({
       where: { id: pushId },
       select: ['id', 'organizationId'],
@@ -172,10 +175,7 @@ export class CompliancePlaybookService {
 
     // 5. 如果所有项都勾选，更新push的checklistCompletedAt
     if (submitDto.uncheckedItems.length === 0) {
-      await this.pushRepo.update(
-        { id: pushId },
-        { checklistCompletedAt: new Date() },
-      )
+      await this.pushRepo.update({ id: pushId }, { checklistCompletedAt: new Date() })
     }
 
     return savedSubmission
@@ -212,10 +212,7 @@ export class CompliancePlaybookService {
    * @param submitDto - 提交数据
    * @throws HttpException - 验证失败
    */
-  private validateSubmission(
-    playbook: CompliancePlaybook,
-    submitDto: SubmitChecklistDto,
-  ): void {
+  private validateSubmission(playbook: CompliancePlaybook, submitDto: SubmitChecklistDto): void {
     // 1. 检查重复项
     const allItemIds = [...submitDto.checkedItems, ...submitDto.uncheckedItems]
     const uniqueItemIds = new Set(allItemIds)

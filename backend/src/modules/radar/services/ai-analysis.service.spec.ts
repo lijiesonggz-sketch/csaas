@@ -128,15 +128,11 @@ describe('AIAnalysisService', () => {
     }).compile()
 
     service = module.get<AIAnalysisService>(AIAnalysisService)
-    rawContentRepo = module.get<Repository<RawContent>>(
-      getRepositoryToken(RawContent),
-    )
+    rawContentRepo = module.get<Repository<RawContent>>(getRepositoryToken(RawContent))
     crawlerQueue = module.get<Queue>(getQueueToken('radar:crawler'))
     aiOrchestrator = module.get<AIOrchestrator>(AIOrchestrator)
     tagService = module.get<TagService>(TagService)
-    analyzedContentService = module.get<AnalyzedContentService>(
-      AnalyzedContentService,
-    )
+    analyzedContentService = module.get<AnalyzedContentService>(AnalyzedContentService)
 
     // Reset mocks
     jest.clearAllMocks()
@@ -146,20 +142,15 @@ describe('AIAnalysisService', () => {
     it('1. AI分析成功 - 正常流程', async () => {
       // Arrange
       jest.spyOn(aiOrchestrator, 'generate').mockResolvedValue(mockAIResponse)
-      jest
-        .spyOn(tagService, 'findOrCreate')
-        .mockImplementation(async (name: string) => {
-          return mockTags.find((t) => t.name === name) as Tag
-        })
+      jest.spyOn(tagService, 'findOrCreate').mockImplementation(async (name: string) => {
+        return mockTags.find((t) => t.name === name) as Tag
+      })
       jest
         .spyOn(analyzedContentService, 'create')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
 
       // Act
-      const result = await service.analyze(
-        mockRawContent as RawContent,
-        'tech',
-      )
+      const result = await service.analyze(mockRawContent as RawContent, 'tech')
 
       // Assert
       expect(result).toBeDefined()
@@ -226,12 +217,8 @@ describe('AIAnalysisService', () => {
           aiSummary: '测试摘要',
         }),
       }
-      jest
-        .spyOn(aiOrchestrator, 'generate')
-        .mockResolvedValue(duplicateTagResponse)
-      jest
-        .spyOn(tagService, 'findOrCreate')
-        .mockResolvedValue(mockTags[0] as Tag)
+      jest.spyOn(aiOrchestrator, 'generate').mockResolvedValue(duplicateTagResponse)
+      jest.spyOn(tagService, 'findOrCreate').mockResolvedValue(mockTags[0] as Tag)
       jest
         .spyOn(analyzedContentService, 'create')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
@@ -251,9 +238,9 @@ describe('AIAnalysisService', () => {
         .mockRejectedValue(new Error('Request timeout after 300000ms'))
 
       // Act & Assert
-      await expect(
-        service.analyze(mockRawContent as RawContent, 'tech'),
-      ).rejects.toThrow('Request timeout')
+      await expect(service.analyze(mockRawContent as RawContent, 'tech')).rejects.toThrow(
+        'Request timeout',
+      )
     })
 
     it('6. 无效RawContent - 缺少必填字段', async () => {
@@ -268,10 +255,7 @@ describe('AIAnalysisService', () => {
       jest.spyOn(aiOrchestrator, 'generate').mockResolvedValue(mockAIResponse)
 
       // Act
-      const result = await service.analyze(
-        invalidRawContent as RawContent,
-        'tech',
-      )
+      const result = await service.analyze(invalidRawContent as RawContent, 'tech')
 
       // Assert - 应该仍然调用AI，但内容为空
       expect(aiOrchestrator.generate).toHaveBeenCalled()
@@ -285,9 +269,7 @@ describe('AIAnalysisService', () => {
       }
 
       jest.spyOn(aiOrchestrator, 'generate').mockResolvedValue(mockAIResponse)
-      jest
-        .spyOn(tagService, 'findOrCreate')
-        .mockResolvedValue(mockTags[0] as Tag)
+      jest.spyOn(tagService, 'findOrCreate').mockResolvedValue(mockTags[0] as Tag)
       jest
         .spyOn(analyzedContentService, 'create')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
@@ -315,24 +297,15 @@ describe('AIAnalysisService', () => {
           total: 2300, // 超过2000
         },
       }
-      jest
-        .spyOn(aiOrchestrator, 'generate')
-        .mockResolvedValue(highTokenResponse)
-      jest
-        .spyOn(tagService, 'findOrCreate')
-        .mockResolvedValue(mockTags[0] as Tag)
-      jest
-        .spyOn(analyzedContentService, 'create')
-        .mockResolvedValue({
-          ...mockAnalyzedContent,
-          tokensUsed: 2300,
-        } as AnalyzedContent)
+      jest.spyOn(aiOrchestrator, 'generate').mockResolvedValue(highTokenResponse)
+      jest.spyOn(tagService, 'findOrCreate').mockResolvedValue(mockTags[0] as Tag)
+      jest.spyOn(analyzedContentService, 'create').mockResolvedValue({
+        ...mockAnalyzedContent,
+        tokensUsed: 2300,
+      } as AnalyzedContent)
 
       // Act
-      const result = await service.analyze(
-        mockRawContent as RawContent,
-        'tech',
-      )
+      const result = await service.analyze(mockRawContent as RawContent, 'tech')
 
       // Assert
       expect(result.tokensUsed).toBe(2300)
@@ -349,25 +322,18 @@ describe('AIAnalysisService', () => {
         ...mockAIResponse,
         content: 'This is not a valid JSON', // 无效JSON
       }
-      jest
-        .spyOn(aiOrchestrator, 'generate')
-        .mockResolvedValue(invalidJSONResponse)
-      jest
-        .spyOn(analyzedContentService, 'create')
-        .mockResolvedValue({
-          ...mockAnalyzedContent,
-          tags: [],
-          keywords: [],
-          categories: [],
-          targetAudience: null,
-          aiSummary: null,
-        } as AnalyzedContent)
+      jest.spyOn(aiOrchestrator, 'generate').mockResolvedValue(invalidJSONResponse)
+      jest.spyOn(analyzedContentService, 'create').mockResolvedValue({
+        ...mockAnalyzedContent,
+        tags: [],
+        keywords: [],
+        categories: [],
+        targetAudience: null,
+        aiSummary: null,
+      } as AnalyzedContent)
 
       // Act
-      const result = await service.analyze(
-        mockRawContent as RawContent,
-        'tech',
-      )
+      const result = await service.analyze(mockRawContent as RawContent, 'tech')
 
       // Assert - 应该降级处理，返回空结果
       expect(analyzedContentService.create).toHaveBeenCalledWith(
@@ -386,17 +352,13 @@ describe('AIAnalysisService', () => {
       const content3 = { ...mockRawContent, id: 'content-3' }
 
       jest.spyOn(aiOrchestrator, 'generate').mockResolvedValue(mockAIResponse)
-      jest
-        .spyOn(tagService, 'findOrCreate')
-        .mockResolvedValue(mockTags[0] as Tag)
-      jest
-        .spyOn(analyzedContentService, 'create')
-        .mockImplementation(async (data) => {
-          return {
-            ...mockAnalyzedContent,
-            contentId: data.contentId,
-          } as AnalyzedContent
-        })
+      jest.spyOn(tagService, 'findOrCreate').mockResolvedValue(mockTags[0] as Tag)
+      jest.spyOn(analyzedContentService, 'create').mockImplementation(async (data) => {
+        return {
+          ...mockAnalyzedContent,
+          contentId: data.contentId,
+        } as AnalyzedContent
+      })
 
       // Act - 并发执行3个分析任务
       const results = await Promise.all([
@@ -421,10 +383,7 @@ describe('AIAnalysisService', () => {
       mockRedisClient.get.mockResolvedValue(cachedResult)
 
       // Act
-      const result = await service.analyzeWithCache(
-        mockRawContent as RawContent,
-        'tech',
-      )
+      const result = await service.analyzeWithCache(mockRawContent as RawContent, 'tech')
 
       // Assert
       expect(result).toBeDefined()
@@ -437,18 +396,13 @@ describe('AIAnalysisService', () => {
       // Arrange
       mockRedisClient.get.mockResolvedValue(null) // 缓存未命中
       jest.spyOn(aiOrchestrator, 'generate').mockResolvedValue(mockAIResponse)
-      jest
-        .spyOn(tagService, 'findOrCreate')
-        .mockResolvedValue(mockTags[0] as Tag)
+      jest.spyOn(tagService, 'findOrCreate').mockResolvedValue(mockTags[0] as Tag)
       jest
         .spyOn(analyzedContentService, 'create')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
 
       // Act
-      const result = await service.analyzeWithCache(
-        mockRawContent as RawContent,
-        'tech',
-      )
+      const result = await service.analyzeWithCache(mockRawContent as RawContent, 'tech')
 
       // Assert
       expect(result).toBeDefined()
@@ -466,25 +420,20 @@ describe('AIAnalysisService', () => {
     it('应该根据分类返回不同的prompt', async () => {
       // Arrange
       jest.spyOn(aiOrchestrator, 'generate').mockResolvedValue(mockAIResponse)
-      jest
-        .spyOn(tagService, 'findOrCreate')
-        .mockResolvedValue(mockTags[0] as Tag)
+      jest.spyOn(tagService, 'findOrCreate').mockResolvedValue(mockTags[0] as Tag)
       jest
         .spyOn(analyzedContentService, 'create')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
 
       // Act - 测试不同分类
       await service.analyze(mockRawContent as RawContent, 'tech')
-      const techPrompt = (aiOrchestrator.generate as jest.Mock).mock.calls[0][0]
-        .systemPrompt
+      const techPrompt = (aiOrchestrator.generate as jest.Mock).mock.calls[0][0].systemPrompt
 
       await service.analyze(mockRawContent as RawContent, 'industry')
-      const industryPrompt = (aiOrchestrator.generate as jest.Mock).mock
-        .calls[1][0].systemPrompt
+      const industryPrompt = (aiOrchestrator.generate as jest.Mock).mock.calls[1][0].systemPrompt
 
       await service.analyze(mockRawContent as RawContent, 'compliance')
-      const compliancePrompt = (aiOrchestrator.generate as jest.Mock).mock
-        .calls[2][0].systemPrompt
+      const compliancePrompt = (aiOrchestrator.generate as jest.Mock).mock.calls[2][0].systemPrompt
 
       // Assert
       expect(techPrompt).toContain('技术趋势')
@@ -501,9 +450,7 @@ describe('AIAnalysisService', () => {
 
       mockRedisClient.get.mockResolvedValue(null)
       jest.spyOn(aiOrchestrator, 'generate').mockResolvedValue(mockAIResponse)
-      jest
-        .spyOn(tagService, 'findOrCreate')
-        .mockResolvedValue(mockTags[0] as Tag)
+      jest.spyOn(tagService, 'findOrCreate').mockResolvedValue(mockTags[0] as Tag)
       jest
         .spyOn(analyzedContentService, 'create')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)
@@ -525,9 +472,7 @@ describe('AIAnalysisService', () => {
 
       mockRedisClient.get.mockResolvedValue(null)
       jest.spyOn(aiOrchestrator, 'generate').mockResolvedValue(mockAIResponse)
-      jest
-        .spyOn(tagService, 'findOrCreate')
-        .mockResolvedValue(mockTags[0] as Tag)
+      jest.spyOn(tagService, 'findOrCreate').mockResolvedValue(mockTags[0] as Tag)
       jest
         .spyOn(analyzedContentService, 'create')
         .mockResolvedValue(mockAnalyzedContent as AnalyzedContent)

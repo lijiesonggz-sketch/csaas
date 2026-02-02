@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { PushSchedulerService } from './push-scheduler.service'
 import { RadarPush } from '../../../database/entities/radar-push.entity'
+import { PushPreference } from '../../../database/entities/push-preference.entity'
 
 describe('PushSchedulerService - Industry Radar (Story 3.2 Task 2.3)', () => {
   let service: PushSchedulerService
@@ -18,6 +19,12 @@ describe('PushSchedulerService - Industry Radar (Story 3.2 Task 2.3)', () => {
             find: jest.fn(),
             update: jest.fn(),
             count: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(PushPreference),
+          useValue: {
+            findOne: jest.fn(),
           },
         },
       ],
@@ -42,7 +49,7 @@ describe('PushSchedulerService - Industry Radar (Story 3.2 Task 2.3)', () => {
           id: 'push-2',
           organizationId: 'org-1',
           radarType: 'industry',
-          relevanceScore: 0.90,
+          relevanceScore: 0.9,
           priorityLevel: 'high',
         },
         {
@@ -68,11 +75,11 @@ describe('PushSchedulerService - Industry Radar (Story 3.2 Task 2.3)', () => {
       // Arrange: 多个组织，每个组织3条推送
       const pushes = [
         { id: 'push-1', organizationId: 'org-1', radarType: 'industry', relevanceScore: 0.95 },
-        { id: 'push-2', organizationId: 'org-1', radarType: 'industry', relevanceScore: 0.90 },
+        { id: 'push-2', organizationId: 'org-1', radarType: 'industry', relevanceScore: 0.9 },
         { id: 'push-3', organizationId: 'org-1', radarType: 'industry', relevanceScore: 0.85 },
         { id: 'push-4', organizationId: 'org-2', radarType: 'industry', relevanceScore: 0.92 },
         { id: 'push-5', organizationId: 'org-2', radarType: 'industry', relevanceScore: 0.88 },
-        { id: 'push-6', organizationId: 'org-2', radarType: 'industry', relevanceScore: 0.80 },
+        { id: 'push-6', organizationId: 'org-2', radarType: 'industry', relevanceScore: 0.8 },
       ] as RadarPush[]
 
       // Act

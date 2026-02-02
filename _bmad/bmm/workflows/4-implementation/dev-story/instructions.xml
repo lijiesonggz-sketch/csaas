@@ -255,7 +255,32 @@
   <step n="6" goal="Author comprehensive tests">
     <action>Create unit tests for business logic and core functionality introduced/changed by the task</action>
     <action>Add integration tests for component interactions specified in story requirements</action>
+
+    <!-- ENHANCED: Make E2E tests mandatory for frontend features -->
     <action>Include end-to-end tests for critical user flows when story requirements demand them</action>
+
+    <check if="story Dev Notes contains 'E2E Tests (Playwright)' section">
+      <critical>🎯 PLAYWRIGHT E2E TESTS ARE MANDATORY FOR THIS STORY</critical>
+      <action>Read the E2E test scenarios from story Dev Notes</action>
+      <action>Create Playwright test file at: frontend/e2e/[feature-name].spec.ts</action>
+      <action>Follow test patterns from: frontend/PLAYWRIGHT_GUIDE.md</action>
+      <action>Reference example: frontend/e2e/push-history.spec.ts</action>
+
+      <test-implementation-checklist>
+        <action>✓ Use Given-When-Then format for test structure</action>
+        <action>✓ Mark tests with priority tags [P1], [P2]</action>
+        <action>✓ Cover basic functionality (P1)</action>
+        <action>✓ Cover responsive design (P2) - desktop + mobile</action>
+        <action>✓ Cover error handling (P2)</action>
+        <action>✓ Use data-testid for element selection (preferred)</action>
+        <action>✓ Use smart waits (waitForLoadState, waitForSelector)</action>
+        <action>✓ Verify tests pass on all configured browsers (Chromium, Firefox, WebKit)</action>
+      </test-implementation-checklist>
+
+      <action>Run Playwright tests: cd frontend && npx playwright test</action>
+      <action if="Playwright tests fail">STOP and fix before continuing</action>
+    </check>
+
     <action>Cover edge cases and error handling scenarios identified in story Dev Notes</action>
   </step>
 
@@ -263,6 +288,20 @@
     <action>Determine how to run tests for this repo (infer test framework from project structure)</action>
     <action>Run all existing tests to ensure no regressions</action>
     <action>Run the new tests to verify implementation correctness</action>
+
+    <!-- ENHANCED: Explicitly run Playwright tests if required -->
+    <check if="story has Playwright E2E test requirements">
+      <action>🎯 Running Playwright E2E Tests</action>
+      <action>cd frontend && npx playwright test</action>
+      <action>Verify test results:
+        - All tests pass (100%)
+        - No flaky tests
+        - Tests run on all configured browsers
+      </action>
+      <action if="Playwright tests fail">STOP and fix before continuing - E2E tests are mandatory</action>
+      <action>Generate test report: npx playwright show-report</action>
+    </check>
+
     <action>Run linting and code quality checks if configured in project</action>
     <action>Validate implementation meets ALL story acceptance criteria; enforce quantitative thresholds explicitly</action>
     <action if="regression tests fail">STOP and fix before continuing - identify breaking changes immediately</action>

@@ -7,9 +7,7 @@ import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm'
  * 1. compliance_playbooks - 合规剧本表
  * 2. compliance_checklist_submissions - 合规自查清单提交记录表
  */
-export class CreateCompliancePlaybookTables1738210000000
-  implements MigrationInterface
-{
+export class CreateCompliancePlaybookTables1738210000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. 创建 compliance_playbooks 表
     await queryRunner.createTable(
@@ -135,10 +133,7 @@ export class CreateCompliancePlaybookTables1738210000000
     await queryRunner.dropTable('compliance_checklist_submissions')
 
     // 回滚 compliance_playbooks 表
-    await queryRunner.dropIndex(
-      'compliance_playbooks',
-      'IDX_compliance_playbooks_pushId',
-    )
+    await queryRunner.dropIndex('compliance_playbooks', 'IDX_compliance_playbooks_pushId')
     await queryRunner.dropTable('compliance_playbooks')
   }
 }

@@ -6,15 +6,27 @@ import {
   Body,
   Param,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common'
 import { WatchedPeerService } from '../services/watched-peer.service'
 import { CreateWatchedPeerDto, WatchedPeerResponseDto } from '../dto/watched-peer.dto'
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
+import { TenantGuard } from '../../organizations/guards/tenant.guard'
 import { OrganizationGuard } from '../../organizations/guards/organization.guard'
+import { AuditInterceptor } from '../../../common/interceptors/audit.interceptor'
 import { CurrentOrg } from '../../organizations/decorators/current-org.decorator'
+import { CurrentTenant } from '../../organizations/decorators/current-tenant.decorator'
 
+/**
+ * Controller for managing watched peers
+ *
+ * @story Story 5.2 - Configure Focus Peer Institutions
+ * @story Story 6.1A - Multi-tenant API/Service Layer Isolation
+ * @story Story 6.1B - Database Layer RLS & Audit Layer
+ */
 @Controller('radar/watched-peers')
-@UseGuards(JwtAuthGuard, OrganizationGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, OrganizationGuard)
+@UseInterceptors(AuditInterceptor)
 export class WatchedPeerController {
   constructor(private readonly service: WatchedPeerService) {}
 
@@ -25,10 +37,11 @@ export class WatchedPeerController {
    */
   @Post()
   async create(
+    @CurrentTenant() tenantId: string,
     @CurrentOrg() orgId: string,
     @Body() dto: CreateWatchedPeerDto,
   ): Promise<WatchedPeerResponseDto> {
-    const peer = await this.service.create(orgId, dto)
+    const peer = await this.service.create(tenantId, orgId, dto)
     return this.toResponseDto(peer)
   }
 
@@ -39,9 +52,10 @@ export class WatchedPeerController {
    */
   @Get()
   async findAll(
+    @CurrentTenant() tenantId: string,
     @CurrentOrg() orgId: string,
   ): Promise<WatchedPeerResponseDto[]> {
-    const peers = await this.service.findAll(orgId)
+    const peers = await this.service.findAll(tenantId, orgId)
     return peers.map((p) => this.toResponseDto(p))
   }
 
@@ -53,9 +67,10 @@ export class WatchedPeerController {
   @Delete(':id')
   async delete(
     @Param('id') id: string,
+    @CurrentTenant() tenantId: string,
     @CurrentOrg() orgId: string,
   ): Promise<{ message: string }> {
-    await this.service.delete(id, orgId)
+    await this.service.delete(id, tenantId, orgId)
     return { message: '已取消关注' }
   }
 

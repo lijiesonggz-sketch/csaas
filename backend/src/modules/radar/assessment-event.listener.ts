@@ -4,7 +4,10 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Project } from '../../database/entities/project.entity'
 import { AITask } from '../../database/entities/ai-task.entity'
-import { WeaknessSnapshotService, AssessmentResult } from '../organizations/weakness-snapshot.service'
+import {
+  WeaknessSnapshotService,
+  AssessmentResult,
+} from '../organizations/weakness-snapshot.service'
 
 /**
  * Assessment Event Listener
@@ -23,11 +26,7 @@ export class AssessmentEventListener implements OnModuleInit {
   private readonly logger = new Logger(AssessmentEventListener.name)
 
   // Assessment-related task types that may produce weakness data
-  private readonly ASSESSMENT_TASK_TYPES = [
-    'questionnaire',
-    'matrix',
-    'clustering',
-  ]
+  private readonly ASSESSMENT_TASK_TYPES = ['questionnaire', 'matrix', 'clustering']
 
   constructor(
     @InjectRepository(Project)
@@ -77,7 +76,9 @@ export class AssessmentEventListener implements OnModuleInit {
       })
 
       if (!project || !project.organizationId) {
-        this.logger.warn(`Project ${task.projectId} has no organization, skipping weakness detection`)
+        this.logger.warn(
+          `Project ${task.projectId} has no organization, skipping weakness detection`,
+        )
         return
       }
 
@@ -108,7 +109,6 @@ export class AssessmentEventListener implements OnModuleInit {
 
       // Emit assessment:completed event for other consumers
       this.emitAssessmentCompleted(project.id, project.organizationId, assessmentResult)
-
     } catch (error) {
       this.logger.error(
         `Failed to process assessment completion for task ${taskId}: ${error.message}`,

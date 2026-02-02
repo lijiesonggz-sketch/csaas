@@ -68,14 +68,16 @@ development_status:
   # Epic 5: 用户配置与推送管理 (4 stories)
   epic-5: in-progress  # 自动转换：第一个story创建时
   5-1-configure-focus-technical-areas: done  # ✅ 完成 - Phase 1-4全部完成，Code Review通过，7个问题已修复
-  5-2-configure-focus-peer-institutions: in-progress  # 开发中 - Phase 1后端API实现
-  5-3-push-preference-settings: backlog
-  5-4-push-history-viewing: backlog
+  5-2-configure-focus-peer-institutions: done  # ✅ 完成 - Phase 0-4全部完成，Task 2.2已完成(2026-02-01)，所有核心功能已实现
+  5-3-push-preference-settings: done  # ✅ Code Review完成，7个问题已修复 (2026-02-02)
+  5-4-push-history-viewing: done  # ✅ Code Review完成，15个问题已修复，无限滚动和详情弹窗已实现 (2026-02-02)
   epic-5-retrospective: optional
 
-  # Epic 6: 咨询公司多租户与白标输出 (3 stories)
-  epic-6: backlog
-  6-1-multi-tenant-data-model-and-isolation-mechanism: backlog
+  # Epic 6: 咨询公司多租户与白标输出 (5 stories - Story 6-1 已拆分为 6-1A 和 6-1B)
+  epic-6: in-progress
+  6-1-multi-tenant-data-model-and-isolation-mechanism: deprecated  # 已拆分为 6-1A 和 6-1B
+  6-1A-multi-tenant-api-service-layer: done  # ✅ Code Review 完成，所有 CRITICAL/MEDIUM 问题已修复 (2026-02-03)
+  6-1B-audit-layer: done  # ✅ Code Review 完成，审计层功能完整且安全 (2026-02-03)
   6-2-consulting-company-bulk-client-management-backend: backlog
   6-3-white-label-output-functionality: backlog
   epic-6-retrospective: optional

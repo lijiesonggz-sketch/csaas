@@ -150,10 +150,7 @@ describe('CompliancePlaybookService - AR12 Layer 2 Defense', () => {
       jest.spyOn(playbookRepo, 'findOne').mockResolvedValue(mockPlaybook)
 
       // Act
-      const result = await service.getPlaybookByPushId(
-        mockPushId,
-        mockUserOrganizationId,
-      )
+      const result = await service.getPlaybookByPushId(mockPushId, mockUserOrganizationId)
 
       // Assert
       expect(result).toEqual(mockPlaybook)
@@ -224,12 +221,7 @@ describe('CompliancePlaybookService - AR12 Layer 2 Defense', () => {
 
       // Act & Assert
       await expect(
-        service.submitChecklist(
-          mockPushId,
-          mockUserId,
-          mockDifferentOrganizationId,
-          mockSubmitDto,
-        ),
+        service.submitChecklist(mockPushId, mockUserId, mockDifferentOrganizationId, mockSubmitDto),
       ).rejects.toThrow(ForbiddenException)
     })
   })
@@ -272,11 +264,7 @@ describe('CompliancePlaybookService - AR12 Layer 2 Defense', () => {
 
       // Act & Assert
       await expect(
-        service.getChecklistSubmission(
-          mockPushId,
-          mockUserId,
-          mockDifferentOrganizationId,
-        ),
+        service.getChecklistSubmission(mockPushId, mockUserId, mockDifferentOrganizationId),
       ).rejects.toThrow(ForbiddenException)
     })
 
@@ -303,9 +291,7 @@ describe('CompliancePlaybookService - AR12 Layer 2 Defense', () => {
       jest.spyOn(pushRepo, 'findOne').mockResolvedValue(mockPush as any)
 
       // Act & Assert
-      await expect(
-        service.getPlaybookByPushId(mockPushId, null as any),
-      ).rejects.toThrow()
+      await expect(service.getPlaybookByPushId(mockPushId, null as any)).rejects.toThrow()
     })
 
     it('应该拒绝organizationId为undefined的请求', async () => {
@@ -313,16 +299,12 @@ describe('CompliancePlaybookService - AR12 Layer 2 Defense', () => {
       jest.spyOn(pushRepo, 'findOne').mockResolvedValue(mockPush as any)
 
       // Act & Assert
-      await expect(
-        service.getPlaybookByPushId(mockPushId, undefined as any),
-      ).rejects.toThrow()
+      await expect(service.getPlaybookByPushId(mockPushId, undefined as any)).rejects.toThrow()
     })
 
     it('应该拒绝空字符串pushId', async () => {
       // Act & Assert
-      await expect(
-        service.getPlaybookByPushId('', mockUserOrganizationId),
-      ).rejects.toThrow()
+      await expect(service.getPlaybookByPushId('', mockUserOrganizationId)).rejects.toThrow()
     })
 
     it('应该处理push.organizationId为null的情况', async () => {
@@ -331,9 +313,9 @@ describe('CompliancePlaybookService - AR12 Layer 2 Defense', () => {
       jest.spyOn(pushRepo, 'findOne').mockResolvedValue(mockPushWithNullOrg as any)
 
       // Act & Assert
-      await expect(
-        service.getPlaybookByPushId(mockPushId, mockUserOrganizationId),
-      ).rejects.toThrow(ForbiddenException)
+      await expect(service.getPlaybookByPushId(mockPushId, mockUserOrganizationId)).rejects.toThrow(
+        ForbiddenException,
+      )
     })
   })
 

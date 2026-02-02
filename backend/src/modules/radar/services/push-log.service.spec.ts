@@ -117,10 +117,7 @@ describe('PushLogService - Story 3.2 Task 3.3', () => {
       const mockQueryBuilder = {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue([
-          { push_id: 'push-1' },
-          { push_id: 'push-2' },
-        ]),
+        getRawMany: jest.fn().mockResolvedValue([{ push_id: 'push-1' }, { push_id: 'push-2' }]),
       }
       jest.spyOn(radarPushRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
