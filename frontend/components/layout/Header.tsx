@@ -76,7 +76,7 @@ export default function Header() {
                 style={{ background: '#667eea' }}
                 icon={<UserOutlined />}
               />
-              <div>
+              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.4 }}>
                 <div style={{ fontWeight: 500 }}>
                   {session.user.name || session.user.email}
                 </div>
