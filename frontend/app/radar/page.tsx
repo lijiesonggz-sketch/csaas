@@ -10,6 +10,7 @@ import {
   ArrowForward,
   Radar as RadarIcon,
   Settings,
+  ArrowBack,
 } from '@mui/icons-material'
 import OnboardingWizard from '@/components/radar/OnboardingWizard'
 import { useOnboarding } from '@/lib/hooks/useOnboarding'
@@ -99,15 +100,25 @@ function RadarDashboardContent() {
               </Typography>
             </Box>
 
-            {/* Settings Button */}
-            <Button
-              variant="outlined"
-              startIcon={<Settings />}
-              onClick={() => router.push(`/radar/settings${orgId ? `?orgId=${orgId}` : ''}`)}
-              sx={{ minWidth: 120 }}
-            >
-              配置管理
-            </Button>
+            {/* Action Buttons */}
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Button
+                variant="outlined"
+                startIcon={<ArrowBack />}
+                onClick={() => router.push('/dashboard')}
+                sx={{ minWidth: 120 }}
+              >
+                返回首页
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<Settings />}
+                onClick={() => router.push(`/radar/settings${orgId ? `?orgId=${orgId}` : ''}`)}
+                sx={{ minWidth: 120 }}
+              >
+                配置管理
+              </Button>
+            </Box>
           </Box>
 
           {/* Radar activation status badge */}
