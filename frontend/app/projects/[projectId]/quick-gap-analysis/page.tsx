@@ -36,6 +36,7 @@ import { useTaskProgress } from '@/lib/hooks/useTaskProgress'
 import { useAITaskCache } from '@/lib/hooks/useAITaskCache'
 import { TaskAdapter } from '@/lib/adapters/task-adapter'
 import { ProjectsAPI } from '@/lib/api/projects'
+import { apiFetch } from '@/lib/utils/api'
 
 const { TextArea } = Input
 const { TabPane } = Tabs
@@ -113,7 +114,7 @@ export default function QuickGapAnalysisPage() {
 
   const loadProjectData = useCallback(async () => {
     try {
-      const project = await ProjectsAPI.getProject(projectId)
+      const project = await apiFetch(`/projects/${projectId}`)
 
       // 查找标准文档
       if (project.metadata?.uploadedDocuments && project.metadata?.uploadedDocuments.length > 0) {

@@ -12,7 +12,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { Popconfirm, message } from 'antd'
-import { ProjectsAPI } from '@/lib/api/projects'
+import { apiFetch } from '@/lib/utils/api'
 
 interface ProjectCardProps {
   project: Project
@@ -26,7 +26,7 @@ export default function ProjectCard({ project, onClick, onDelete }: ProjectCardP
   const handleDelete = async () => {
     try {
       setDeleting(true)
-      await ProjectsAPI.deleteProject(project.id)
+      await apiFetch(`/projects/${project.id}`, { method: 'DELETE' })
       message.success('项目已删除')
       onDelete?.()
     } catch (error: any) {

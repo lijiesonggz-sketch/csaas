@@ -2,23 +2,41 @@
  * API utility functions for making authenticated requests
  */
 
+// Token缓存
+interface TokenCache {
+  token: string | null
+  expiresAt: number
+}
+
+let tokenCache: TokenCache | null = null
+const TOKEN_CACHE_DURATION = 5 * 60 * 1000 // 5分钟缓存
+
 /**
  * Get authentication token from NextAuth session
  * This works both on client and server side
  */
-async function getAuthToken(): Promise<string | null> {
+async function getAuthToken(forceRefresh = false): Promise<string | null> {
   // Client-side: get from NextAuth cookie
   if (typeof window !== 'undefined') {
-    // Try to get token from session storage or make a request to get session
+    // 检查缓存
+    if (!forceRefresh && tokenCache && tokenCache.expiresAt > Date.now()) {
+      return tokenCache.token
+    }
+
+    // 缓存过期或强制刷新，重新获取
     try {
       const response = await fetch('/api/auth/session')
-      console.log('[getAuthToken] /api/auth/session response:', response.status)
       if (response.ok) {
         const session = await response.json()
-        console.log('[getAuthToken] session data:', session)
-        return session?.accessToken || null
-      } else {
-        console.log('[getAuthToken] failed to get session:', response.status, response.statusText)
+        const token = session?.accessToken || null
+
+        // 更新缓存
+        tokenCache = {
+          token,
+          expiresAt: Date.now() + TOKEN_CACHE_DURATION,
+        }
+
+        return token
       }
     } catch (error) {
       console.error('[getAuthToken] Failed to get auth token:', error)
@@ -38,6 +56,13 @@ async function getAuthToken(): Promise<string | null> {
 }
 
 /**
+ * Clear token cache (call this on logout or 401 errors)
+ */
+export function clearTokenCache() {
+  tokenCache = null
+}
+
+/**
  * Make an authenticated API request to the backend
  *
  * @param endpoint - API endpoint (e.g., '/organizations/:id/radar-status')
@@ -52,10 +77,8 @@ export async function apiFetch(
     ? endpoint
     : `${process.env.NEXT_PUBLIC_API_URL || ''}${endpoint}`
 
-  // Get auth token
+  // Get auth token (from cache if available)
   const token = await getAuthToken()
-
-  console.log('[apiFetch]', endpoint, 'token:', token ? 'present' : 'missing', 'url:', url)
 
   // Prepare headers
   const headers: HeadersInit = {
@@ -73,11 +96,40 @@ export async function apiFetch(
     headers,
   })
 
-  console.log('[apiFetch]', endpoint, 'response:', response.status, response.statusText)
+  // 如果是401错误，清除token缓存并重试一次
+  if (response.status === 401 && tokenCache) {
+    clearTokenCache()
+    const newToken = await getAuthToken(true)
+
+    if (newToken && newToken !== token) {
+      // Token已更新，重试请求
+      headers['Authorization'] = `Bearer ${newToken}`
+      const retryResponse = await fetch(url, {
+        ...options,
+        headers,
+      })
+
+      if (retryResponse.ok) {
+        return handleResponse(retryResponse)
+      }
+    }
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'API request failed' }))
     throw new Error(error.message || 'API request failed')
+  }
+
+  return handleResponse(response)
+}
+
+/**
+ * Handle API response
+ */
+async function handleResponse(response: Response): Promise<any> {
+  // 处理 204 No Content 响应（删除操作等）
+  if (response.status === 204) {
+    return null
   }
 
   const result = await response.json()

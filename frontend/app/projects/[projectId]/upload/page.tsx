@@ -7,6 +7,7 @@ import { SaveOutlined, CheckCircleOutlined, LoadingOutlined, UploadOutlined, Del
 import type { UploadFile } from 'antd/es/upload/interface'
 import { parseFile, SUPPORTED_FILE_EXTENSIONS, detectTextQuality } from '@/lib/utils/fileParser'
 import { ProjectsAPI } from '@/lib/api/projects'
+import { apiFetch } from '@/lib/utils/api'
 import { v4 as uuidv4 } from 'uuid'
 
 interface StandardDocument {
@@ -34,7 +35,7 @@ export default function UploadPage() {
   const loadSavedDocuments = async () => {
     try {
       setLoading(true)
-      const project = await ProjectsAPI.getProject(projectId)
+      const project = await apiFetch(`/projects/${projectId}`)
 
       if (project.metadata?.uploadedDocuments && Array.isArray(project.metadata.uploadedDocuments)) {
         setDocuments(project.metadata.uploadedDocuments)
@@ -105,9 +106,11 @@ export default function UploadPage() {
     setIsSaving(true)
     try {
       // 将文档列表保存到项目的 metadata 字段（JSON格式）
-      await ProjectsAPI.updateProject(projectId, {
-        metadata: {
-          uploadedDocuments: documents
+      await apiFetch(`/projects/${projectId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          metadata: {
+            uploadedDocuments: documents
         }
       })
 

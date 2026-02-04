@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { AIGenerationAPI } from '@/lib/api/ai-generation'
 import { ProjectsAPI } from '@/lib/api/projects'
+import { apiFetch } from '@/lib/utils/api'
+import { useProject } from '@/lib/contexts/ProjectContext'
 import ClusteringResultDisplay from '@/components/features/ClusteringResultDisplay'
 import { Network, Sparkles, AlertCircle } from 'lucide-react'
 import type { GenerationResult } from '@/lib/types/ai-generation'
@@ -13,6 +15,7 @@ import { useTaskProgressPolling } from '@/lib/hooks/useTaskProgressPolling'
 export default function ClusteringPage() {
   const params = useParams()
   const projectId = params.projectId as string
+  const { project } = useProject()
 
   const [taskId, setTaskId] = useState<string | null>(null)
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null)
@@ -58,14 +61,17 @@ export default function ClusteringPage() {
 
   // 页面加载时检查是否有已保存的聚类任务
   useEffect(() => {
-    loadSavedClusteringTask()
-  }, [projectId])
+    if (project) {
+      loadSavedClusteringTask()
+    }
+  }, [project])
 
   const loadSavedClusteringTask = async () => {
+    if (!project) return
+
     try {
       console.log('🔍 [Clustering] 开始加载已保存的聚类任务')
       setInitializing(true)
-      const project = await ProjectsAPI.getProject(projectId)
       console.log('📋 [Clustering] 项目metadata:', project.metadata)
 
       // 加载文档列表
@@ -174,13 +180,13 @@ export default function ClusteringPage() {
   }
 
   const handleGenerate = async () => {
+    if (!project) return
+
     try {
       console.log('🚀 [Clustering] 开始生成聚类')
       setLoading(true)
       setError(null)
 
-      // 获取项目信息，提取文档
-      const project = await ProjectsAPI.getProject(projectId)
       console.log('📋 [Clustering] 当前项目metadata:', project.metadata)
 
       // 从 metadata.uploadedDocuments 解析文档
@@ -212,10 +218,13 @@ export default function ClusteringPage() {
       console.log('✅ [Clustering] 现在保存taskId到项目metadata')
 
       // 保存 taskId 到项目 metadata
-      await ProjectsAPI.updateProject(projectId, {
-        metadata: {
-          clusteringTaskId: task.id,
-        },
+      await apiFetch(`/projects/${projectId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          metadata: {
+            clusteringTaskId: task.id,
+          },
+        }),
       })
 
       console.log('✅ [Clustering] 已保存taskId到数据库')

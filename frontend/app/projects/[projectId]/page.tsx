@@ -17,6 +17,7 @@ import {
   Radar,
 } from '@mui/icons-material'
 import { ProjectsAPI, Project } from '@/lib/api/projects'
+import { apiFetch } from '@/lib/utils/api'
 import { AITasksAPI } from '@/lib/api/ai-tasks'
 import TaskStatusIndicator from '@/components/projects/TaskStatusIndicator'
 
@@ -46,7 +47,7 @@ export default function ProjectWorkbenchPage() {
 
     try {
       setLoading(true)
-      const data = await ProjectsAPI.getProject(projectId)
+      const data = await apiFetch(`/projects/${projectId}`)
       setProject(data)
       // 缓存数据
       projectCacheRef.current = { projectId, data }

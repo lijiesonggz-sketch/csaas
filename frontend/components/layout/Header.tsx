@@ -4,12 +4,18 @@ import { useSession, signOut } from 'next-auth/react'
 import { Layout, Avatar, Dropdown, Space, Typography } from 'antd'
 import { LogoutOutlined, UserOutlined, SettingOutlined } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
+import { clearTokenCache } from '@/lib/utils/api'
 
 const { Header: AntHeader } = Layout
 const { Text } = Typography
 
 export default function Header() {
   const { data: session } = useSession()
+
+  const handleLogout = () => {
+    clearTokenCache()
+    signOut({ callbackUrl: '/login' })
+  }
 
   const menuItems: MenuProps['items'] = [
     {
@@ -30,7 +36,7 @@ export default function Header() {
       label: '退出登录',
       icon: <LogoutOutlined />,
       danger: true,
-      onClick: () => signOut({ callbackUrl: '/login' }),
+      onClick: handleLogout,
     },
   ]
 

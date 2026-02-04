@@ -3,42 +3,25 @@
 import React, { useState, useEffect } from 'react'
 import { Container, Box, AppBar, Toolbar, Typography, Breadcrumbs, Link, IconButton, Divider } from '@mui/material'
 import { ArrowBack, Home } from '@mui/icons-material'
-import { useRouter, useParams } from 'next/navigation'
-import { ProjectsAPI, Project } from '@/lib/api/projects'
+import { useRouter } from 'next/navigation'
+import { ProjectProvider, useProject } from '@/lib/contexts/ProjectContext'
 import StepsTabNavigator, { DEFAULT_STEPS, Step } from '@/components/projects/StepsTabNavigator'
 
-export default function ProjectWorkbenchLayout({ children }: { children: React.ReactNode }) {
+function ProjectWorkbenchContent({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const params = useParams()
-  const projectId = params.projectId as string
-
-  const [project, setProject] = useState<Project | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { project, loading } = useProject()
   const [steps, setSteps] = useState<Step[]>([])
 
   useEffect(() => {
-    loadProject()
-  }, [projectId])
-
-  const loadProject = async () => {
-    try {
-      setLoading(true)
-      const data = await ProjectsAPI.getProject(projectId)
-      setProject(data)
-
+    if (project) {
       // TODO: 根据项目的任务状态更新步骤状态
       const stepsWithRoutes = DEFAULT_STEPS.map((step) => ({
         ...step,
-        route: `/projects/${projectId}/${step.id}`,
+        route: `/projects/${project.id}/${step.id}`,
       }))
       setSteps(stepsWithRoutes)
-    } catch (error) {
-      console.error('Failed to load project:', error)
-      router.push('/projects')
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [project])
 
   if (loading || !project) {
     return (
@@ -85,7 +68,7 @@ export default function ProjectWorkbenchLayout({ children }: { children: React.R
 
       {/* 步骤导航 */}
       <Container maxWidth="xl" sx={{ mt: 3 }}>
-        <StepsTabNavigator projectId={projectId} steps={steps} />
+        <StepsTabNavigator projectId={project.id} steps={steps} />
       </Container>
 
       {/* 主内容区 */}
@@ -93,5 +76,13 @@ export default function ProjectWorkbenchLayout({ children }: { children: React.R
         {children}
       </Container>
     </Box>
+  )
+}
+
+export default function ProjectWorkbenchLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ProjectProvider>
+      <ProjectWorkbenchContent>{children}</ProjectWorkbenchContent>
+    </ProjectProvider>
   )
 }

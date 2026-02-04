@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { ProjectsAPI, Project } from '@/lib/api/projects'
+import { Project } from '@/lib/api/projects'
+import { apiFetch } from '@/lib/utils/api'
 import ProjectCard from './ProjectCard'
 import CreateProjectDialog from './CreateProjectDialog'
 import { Plus, Sparkles } from 'lucide-react'
@@ -20,7 +21,7 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
     try {
       setLoading(true)
       setError(null)
-      const data = await ProjectsAPI.getProjects()
+      const data = await apiFetch('/projects')
       setProjects(data)
     } catch (err: any) {
       console.error('Failed to load projects:', err)

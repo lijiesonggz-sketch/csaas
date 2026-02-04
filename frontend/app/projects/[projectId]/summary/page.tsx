@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { AIGenerationAPI } from '@/lib/api/ai-generation'
 import { detectTextQuality } from '@/lib/utils/fileParser'
 import { ProjectsAPI } from '@/lib/api/projects'
+import { apiFetch } from '@/lib/utils/api'
 import SummaryResultDisplay from '@/components/features/SummaryResultDisplay'
 import { FileText, Sparkles, AlertCircle } from 'lucide-react'
 import type { GenerationResult } from '@/lib/types/ai-generation'
@@ -93,7 +94,7 @@ export default function SummaryPage() {
     try {
       console.log('🔍 [Summary] 开始加载已保存的综述任务')
       setInitializing(true)
-      const project = await ProjectsAPI.getProject(projectId)
+      const project = await apiFetch(`/projects/${projectId}`)
       console.log('📋 [Summary] 项目metadata:', project.metadata)
 
       // 检查是否有已保存的综述任务ID
@@ -231,7 +232,7 @@ export default function SummaryPage() {
       setError(null)
 
       // 获取项目信息，提取文档
-      const project = await ProjectsAPI.getProject(projectId)
+      const project = await apiFetch(`/projects/${projectId}`)
       console.log('📋 [Summary] 当前项目metadata:', project.metadata)
 
       // 从 metadata.uploadedDocuments 解析文档
@@ -285,10 +286,13 @@ export default function SummaryPage() {
       console.log('✅ [Summary] 现在保存taskId到项目metadata')
 
       // 保存 taskId 到项目 metadata
-      await ProjectsAPI.updateProject(projectId, {
-        metadata: {
-          summaryTaskId: task.id,
-        },
+      await apiFetch(`/projects/${projectId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          metadata: {
+            summaryTaskId: task.id,
+          },
+        }),
       })
 
       console.log('✅ [Summary] 已保存taskId到数据库')
