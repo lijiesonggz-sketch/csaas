@@ -9,12 +9,18 @@
 #   - backlog → in-progress: Automatically when first story is created (via create-story)
 #   - in-progress → done: Manually when all stories reach 'done' status
 #
-# Story Status:
+# Story Status (细粒度状态流转 - 自动修复完成后才更新):
 #   - backlog: Story only exists in epic file
-#   - ready-for-dev: Story file created in stories folder
-#   - in-progress: Developer actively working on implementation
-#   - review: Ready for code review (via Dev's code-review workflow)
-#   - done: Story completed
+#   - story-created: Story file created (step 2.1 complete)
+#   - story-validated: Story validated AND all quality issues fixed (step 2.2 complete)
+#   - dev-completed: Developer completed implementation (step 2.3 complete)
+#   - test-automated: Test coverage expanded AND all tests passing (step 2.4 complete)
+#   - done: Story completed after code review AND all issues fixed (step 2.5 complete)
+#
+# 状态流转必须是线性的，自动修复完成后才更新:
+#   backlog → story-created → story-validated → dev-completed → test-automated → done
+#
+# 重要: 状态只在确认所有问题修复后才更新，不是在发现问题时更新
 #
 # Retrospective Status:
 #   - optional: Can be completed but not required
@@ -52,21 +58,21 @@ development_status:
   epic-2-retrospective: done
 
   # Epic 3: 行业雷达 - 同业标杆学习 (3 stories)
-  epic-3: in-progress  # 自动转换：第一个story创建时
+  epic-3: done  # ✅ 所有 stories 已完成
   3-1-configure-industry-radar-information-sources: done  # ✅ 完成 - Code Review通过，42个单元测试通过(100%)，所有CRITICAL/HIGH/MEDIUM问题已修复，代码质量显著提升
   3-2-peer-case-matching-and-push: done  # ✅ 完成 - Phase 1-4全部完成，40个单元测试通过(100%)，Code Review通过，7个代码质量问题已修复
   3-3-industry-radar-frontend-display: done  # ✅ 完成 - Phase 1-6全部完成，96个单元测试通过，Code Review通过(9.1/10)，2个MEDIUM问题已修复
   epic-3-retrospective: optional
 
   # Epic 4: 合规雷达 - 风险预警与应对剧本 (3 stories)
-  epic-4: in-progress  # 自动转换：第一个story创建时
-  4-1-configure-compliance-radar-information-sources: review  # ✅ 完成 - Phase 1-8全部完成，数据库迁移、种子数据、测试、文档全部就绪
+  epic-4: done  # ✅ 所有 stories 已完成
+  4-1-configure-compliance-radar-information-sources: done  # ✅ 完成 - Phase 1-8全部完成，数据库迁移、种子数据、测试、文档全部就绪
   4-2-compliance-risk-analysis-and-playbook-generation: done  # ✅ 完成 - 代码验证通过(2026-01-30)，13/14 HIGH问题已实现，所有AC和Phase完成，质量评分9.5/10，详见STORY_4.2_VERIFICATION_REPORT.md
   4-3-compliance-radar-frontend-display-and-playbook: done  # ✅ 完成 - Phase 1-6全部完成，所有核心功能已实现，Code Review通过(2026-01-30)，9个问题已修复，编译通过
   epic-4-retrospective: optional
 
   # Epic 5: 用户配置与推送管理 (4 stories)
-  epic-5: in-progress  # 自动转换：第一个story创建时
+  epic-5: done  # ✅ 所有 stories 已完成
   5-1-configure-focus-technical-areas: done  # ✅ 完成 - Phase 1-4全部完成，Code Review通过，7个问题已修复
   5-2-configure-focus-peer-institutions: done  # ✅ 完成 - Phase 0-4全部完成，Task 2.2已完成(2026-02-01)，所有核心功能已实现
   5-3-push-preference-settings: done  # ✅ Code Review完成，7个问题已修复 (2026-02-02)
@@ -74,18 +80,18 @@ development_status:
   epic-5-retrospective: optional
 
   # Epic 6: 咨询公司多租户与白标输出 (5 stories - Story 6-1 已拆分为 6-1A 和 6-1B)
-  epic-6: in-progress
+  epic-6: done  # ✅ 所有故事完成
   6-1-multi-tenant-data-model-and-isolation-mechanism: deprecated  # 已拆分为 6-1A 和 6-1B
   6-1A-multi-tenant-api-service-layer: done  # ✅ Code Review 完成，所有 CRITICAL/MEDIUM 问题已修复 (2026-02-03)
   6-1B-audit-layer: done  # ✅ Code Review 完成，审计层功能完整且安全 (2026-02-03)
-  6-2-consulting-company-bulk-client-management-backend: backlog
-  6-3-white-label-output-functionality: backlog
+  6-2-consulting-company-bulk-client-management-backend: done  # ✅ 完成 - 后端API实现，CSV导入，邮件服务，Swagger文档，数据库索引，8个单元测试通过(100%)
+  6-3-white-label-output-functionality: done  # ✅ 完成 - Code Review通过，10个安全漏洞已修复，27个测试通过 (2026-02-03)
   epic-6-retrospective: optional
 
   # Epic 7: 运营管理与成本优化 (4 stories)
-  epic-7: backlog
-  7-1-operations-dashboard-system-health-monitoring: backlog
-  7-2-content-quality-management: backlog
-  7-3-customer-management-and-churn-risk-warning: backlog
-  7-4-ai-cost-optimization-tools: backlog
+  epic-7: done  # ✅ 所有 stories 已完成
+  7-1-operations-dashboard-system-health-monitoring: done  # ✅ 完成 - 67个单元测试通过，覆盖率85%，代码审查已执行 (2026-02-04)
+  7-2-content-quality-management: done  # ✅ 完成 - Code Review通过，8个问题已修复（2个HIGH，4个MEDIUM，2个LOW），65个单元测试全部通过（36个ContentQualityService + 29个PushFeedbackService），构建通过
+  7-3-customer-management-and-churn-risk-warning: done  # ✅ Code Review完成，10个问题已修复（4个HIGH，5个MEDIUM，1个LOW），14个单元测试全部通过
+  7-4-ai-cost-optimization-tools: done  # ✅ 完成 - 全部8个Phase完成，后端6个API端点，前端完整实现，10个E2E测试通过
   epic-7-retrospective: optional

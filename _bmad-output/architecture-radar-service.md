@@ -1028,3 +1028,290 @@ export class WeaknessAggregatorService {
   }
 }
 ```
+
+## AI Cost Optimization System Architecture
+
+### Overview
+
+The AI Cost Optimization System (Story 7.4) provides comprehensive monitoring, analysis, and optimization of AI usage costs across the platform. This system helps administrators control AI expenses while maintaining service quality.
+
+### System Components
+
+#### 1. Cost Tracking Layer
+
+**AI Usage Interceptor:**
+- Intercepts all AI API calls across the platform
+- Records usage metrics: tokens, model, cost, duration
+- Implements transparent logging without affecting performance
+- Supports multiple AI providers (OpenAI, Anthropic, Alibaba Cloud)
+
+**Data Model:**
+```typescript
+AiUsageLog {
+  id: string;
+  organizationId: string;
+  taskType: string; // 'tech_analysis', 'industry_analysis', etc.
+  model: string; // 'gpt-4', 'claude-3', 'qwen-plus'
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  cost: number; // CNY
+  duration: number; // milliseconds
+  createdAt: Date;
+}
+```
+
+#### 2. Cost Analysis Engine
+
+**Metrics Calculation:**
+- Total cost aggregation by time period
+- Average cost per organization
+- Cost breakdown by task type
+- Top cost organizations identification
+
+**Trend Analysis:**
+- Daily cost trends over configurable periods
+- Cost growth rate calculation
+- Anomaly detection for unusual spending patterns
+
+**Cost Thresholds:**
+- Organization-level cost limits (default: 500 CNY/month)
+- Automatic threshold breach detection
+- Alert generation for exceeded limits
+
+#### 3. Optimization Recommendation Engine
+
+**Analysis Algorithms:**
+- High-cost organization identification (>500 CNY/month)
+- Inefficient model usage detection (expensive models for simple tasks)
+- Excessive usage pattern recognition (>100 calls/day)
+- Low-value task identification (low ROI scores)
+
+**Recommendation Types:**
+```typescript
+enum OptimizationType {
+  SWITCH_MODEL = 'switch_model',        // Switch to cheaper model
+  REDUCE_FREQUENCY = 'reduce_frequency', // Reduce analysis frequency
+  OPTIMIZE_PROMPTS = 'optimize_prompts', // Improve prompt efficiency
+  CACHE_RESULTS = 'cache_results'        // Implement result caching
+}
+```
+
+**Savings Calculation:**
+- Potential monthly savings estimation
+- ROI impact assessment
+- Implementation difficulty scoring
+
+#### 4. Alert System
+
+**Alert Triggers:**
+- Cost threshold exceeded (>500 CNY/month)
+- Unusual cost spike (>50% increase day-over-day)
+- Model degradation (excessive fallback to cheaper models)
+
+**Alert Delivery:**
+- Real-time in-app notifications
+- Email alerts for critical thresholds
+- Dashboard alert indicators
+
+**Alert Management:**
+```typescript
+Alert {
+  id: string;
+  type: 'cost_exceeded' | 'cost_spike' | 'model_degradation';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  organizationId: string;
+  message: string;
+  metadata: object; // Additional context
+  status: 'active' | 'acknowledged' | 'resolved';
+  createdAt: Date;
+}
+```
+
+#### 5. Batch Optimization Controller
+
+**Supported Actions:**
+- Model switching (e.g., GPT-4 → Qwen-Plus)
+- Frequency adjustment (e.g., daily → weekly)
+- Feature disabling (temporarily pause non-critical features)
+
+**Batch Processing:**
+- Multi-organization operation support
+- Transaction-based updates for consistency
+- Rollback capability for failed operations
+- Audit logging for all changes
+
+**Intervention Tracking:**
+```typescript
+CustomerIntervention {
+  id: string;
+  organizationId: string;
+  interventionType: 'model_switch' | 'frequency_change' | 'feature_disable';
+  reason: string;
+  performedBy: string; // Admin user ID
+  performedAt: Date;
+  notes: string;
+}
+```
+
+#### 6. Reporting & Export System
+
+**Report Types:**
+- Cost summary reports (daily, weekly, monthly)
+- Organization-level detailed reports
+- Task type breakdown reports
+- Optimization impact reports
+
+**Export Formats:**
+- CSV: Simple tabular data export
+- Excel: Multi-sheet reports with charts
+- PDF: Executive summary reports (future)
+
+**Report Contents:**
+```typescript
+CostReport {
+  period: { startDate: Date; endDate: Date };
+  totalCost: number;
+  organizationCount: number;
+  averageCostPerOrg: number;
+  topCostOrganizations: Array<{
+    name: string;
+    cost: number;
+    percentage: number;
+  }>;
+  costByTaskType: Array<{
+    taskType: string;
+    cost: number;
+    count: number;
+  }>;
+  trends: Array<{
+    date: string;
+    cost: number;
+  }>;
+}
+```
+
+### Data Flow Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     AI Service Layer                         │
+│  (Tech Analysis, Industry Analysis, Compliance Analysis)     │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              AI Usage Interceptor (Middleware)               │
+│  • Capture request/response                                  │
+│  • Calculate tokens & cost                                   │
+│  • Log to database                                           │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│                   AiUsageLog Repository                      │
+│  • Store usage records                                       │
+│  • Index by organization, date, task type                    │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Cost Analysis Engine (Scheduled)                │
+│  • Aggregate metrics (hourly)                                │
+│  • Calculate trends (daily)                                  │
+│  • Generate recommendations (daily)                          │
+│  • Check thresholds (real-time)                              │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Alert System                              │
+│  • Create alerts for threshold breaches                      │
+│  • Send notifications                                        │
+│  • Track alert status                                        │
+└─────────────────────────────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              Admin Dashboard (Frontend)                      │
+│  • Display cost metrics                                      │
+│  • Show trends & charts                                      │
+│  • List optimization suggestions                             │
+│  • Batch optimization controls                               │
+│  • Export reports                                            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### API Endpoints
+
+**Cost Metrics:**
+- `GET /api/v1/admin/cost-optimization/metrics` - Get cost overview
+- `GET /api/v1/admin/cost-optimization/trends` - Get cost trends
+- `GET /api/v1/admin/cost-optimization/organizations/:id/cost` - Get org details
+
+**Optimization:**
+- `GET /api/v1/admin/cost-optimization/suggestions` - Get recommendations
+- `POST /api/v1/admin/cost-optimization/batch-optimize` - Batch optimize
+
+**Reporting:**
+- `GET /api/v1/admin/cost-optimization/export` - Export cost report
+
+### Performance Considerations
+
+**Database Optimization:**
+- Indexes on `organizationId`, `createdAt`, `taskType`
+- Partitioning by date for large datasets
+- Aggregation tables for frequently accessed metrics
+
+**Caching Strategy:**
+- Redis cache for current month metrics (TTL: 5 minutes)
+- Cache invalidation on new usage logs
+- Pre-calculated daily aggregates
+
+**Query Optimization:**
+- Use database aggregation functions (SUM, AVG, COUNT)
+- Limit date ranges for trend queries
+- Pagination for large result sets
+
+### Security & Access Control
+
+**Authorization:**
+- Admin-only access to all cost optimization endpoints
+- Role-based access control (RBAC)
+- JWT authentication required
+
+**Data Privacy:**
+- Organization-level data isolation
+- Audit logging for all optimization actions
+- Sensitive data masking in exports
+
+### Monitoring & Observability
+
+**Metrics to Track:**
+- Total AI cost per day/week/month
+- Cost per organization distribution
+- Alert generation rate
+- Optimization action success rate
+- Report generation performance
+
+**Logging:**
+- All cost calculations logged
+- Optimization actions audited
+- Alert generation tracked
+- Export operations logged
+
+### Future Enhancements
+
+**Planned Features:**
+- Predictive cost forecasting using ML
+- Automated optimization actions (with approval workflow)
+- Cost allocation by project within organizations
+- Budget planning and allocation tools
+- Integration with billing systems
+- Real-time cost dashboards with WebSocket updates
+
+**Scalability Improvements:**
+- Time-series database for usage logs (InfluxDB/TimescaleDB)
+- Distributed caching (Redis Cluster)
+- Async report generation with job queues
+- Data archival strategy for historical data
