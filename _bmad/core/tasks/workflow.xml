@@ -61,9 +61,9 @@
           <tag>check if="condition" xml tag → Conditional block wrapping actions (requires closing &lt;/check&gt;)</tag>
           <tag>ask xml tag → Prompt user and WAIT for response</tag>
           <tag>invoke-workflow xml tag → Execute another workflow with given inputs and the workflow.xml runner</tag>
-          <tag>invoke-task xml tag → Execute specified task</tag>
+          <tag>invoke-task xml tag → Create subagent with clean context for isolated execution with auto-fix capability</tag>
           <tag>invoke-protocol name="protocol_name" xml tag → Execute reusable protocol from protocols section</tag>
-          <tag>goto step="x" → Jump to specified step</tag>
+          <tag>goto step="x" → Jump to specified step or anchor</tag>
         </execute-tags>
       </substep>
 
@@ -124,7 +124,7 @@
       <tag>ask - Get user input (ALWAYS wait for response before continuing)</tag>
       <tag>goto - Jump to another step</tag>
       <tag>invoke-workflow - Call another workflow</tag>
-      <tag>invoke-task - Call a task</tag>
+      <tag>invoke-task - Create subagent with clean context for isolated execution. Supports auto-fix loops.</tag>
       <tag>invoke-protocol - Execute a reusable protocol (e.g., discover_inputs)</tag>
     </execution>
     <output>

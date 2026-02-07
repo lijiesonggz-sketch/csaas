@@ -1,0 +1,21 @@
+<workflow>
+  <critical>The workflow execution engine is governed by: {project-root}/_bmad/core/tasks/workflow.xml</critical>
+  <critical>You MUST have already loaded and processed: {installed_path}/workflow.yaml</critical>
+
+  <step n="1" goal="Load story and validate">
+    <action>Load story file: {story_dir}/{{story_key}}.md</action>
+    <action>Load SM agent from: {project-root}/_bmad/bmm/agents/sm.md</action>
+    <action>Execute SM command: *validate-create-story</action>
+    <action>Pass story file path: {story_dir}/{{story_key}}.md</action>
+
+    <check if="validation passed">
+      <output>✅ Story validation passed</output>
+      <return>SUCCESS</return>
+    </check>
+
+    <check if="validation failed">
+      <output>❌ Story validation failed</output>
+      <return>FAILURE</return>
+    </check>
+  </step>
+</workflow>

@@ -258,24 +258,43 @@
 
   <step n="5" goal="Create comprehensive story file">
     <critical>📝 CREATE ULTIMATE STORY FILE - The developer's master implementation guide!</critical>
+    <critical>⚠️ 内容质量优先，但每个 template-output 部分控制在合理长度</critical>
+    <critical>⚠️ 建议每个部分：800-1500字。如果内容过多，优先保留关键信息</critical>
 
     <action>Initialize from template.md:
     {default_output_file}</action>
+
+    <!-- Part 1: Story header -->
+    <critical>生成简洁的文件头（200-300字）：story ID, title, status</critical>
     <template-output file="{default_output_file}">story_header</template-output>
 
-    <!-- Story foundation from epics analysis -->
+    <!-- Part 2: Story foundation from epics analysis -->
+    <critical>包含完整的用户故事、验收标准、任务分解（600-1000字）</critical>
     <template-output
       file="{default_output_file}">story_requirements</template-output>
 
-    <!-- Developer context section - MOST IMPORTANT PART -->
+    <!-- Part 3: Developer context section - MOST IMPORTANT PART -->
+    <critical>Developer Context 总体指导（800-1200字）：关键架构决策、约束、模式</critical>
     <template-output file="{default_output_file}">
-    developer_context_section</template-output> **DEV AGENT GUARDRAILS:** <template-output file="{default_output_file}">
+    developer_context_section</template-output>
+
+    <!-- Part 4-8: DEV AGENT GUARDRAILS -->
+    <critical>技术栈、库、框架的具体要求（600-900字）</critical>
+    <template-output file="{default_output_file}">
     technical_requirements</template-output>
+
+    <critical>架构模式、约束、必须遵循的规则（600-900字）</critical>
     <template-output file="{default_output_file}">architecture_compliance</template-output>
+
+    <critical>具体库和框架的版本、用法、注意事项（500-800字）</critical>
     <template-output
       file="{default_output_file}">library_framework_requirements</template-output>
+
+    <critical>文件位置、命名规范、目录结构（400-600字）</critical>
     <template-output file="{default_output_file}">
     file_structure_requirements</template-output>
+
+    <critical>测试策略、覆盖率要求、测试框架（700-1000字，包括 Playwright E2E）</critical>
     <template-output file="{default_output_file}">testing_requirements</template-output>
 
     <!-- CRITICAL: Playwright E2E Test Requirements for Frontend Features -->
@@ -315,25 +334,30 @@
     <!-- Previous story intelligence -->
     <check
       if="previous story learnings available">
+      <critical>之前故事的经验教训和模式（300-500字）</critical>
       <template-output file="{default_output_file}">previous_story_intelligence</template-output>
     </check>
 
     <!-- Git intelligence -->
     <check
       if="git analysis completed">
+      <critical>Git 历史分析和最近的代码模式（300-500字）</critical>
       <template-output file="{default_output_file}">git_intelligence_summary</template-output>
     </check>
 
     <!-- Latest technical specifics -->
     <check if="web research completed">
+      <critical>最新技术信息、版本更新、最佳实践（300-500字）</critical>
       <template-output file="{default_output_file}">latest_tech_information</template-output>
     </check>
 
     <!-- Project context reference -->
+    <critical>项目上下文引用（200-300字）</critical>
     <template-output
       file="{default_output_file}">project_context_reference</template-output>
 
     <!-- Final status update -->
+    <critical>故事状态和完成信息（100-200字）</critical>
     <template-output file="{default_output_file}">
     story_completion_status</template-output>
 

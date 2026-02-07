@@ -1,0 +1,35 @@
+name: validate-story
+description: "使用增量编辑策略验证和修复故事质量 - 避免大文件写入问题"
+author: "BMad"
+
+# 从主配置继承
+config_source: "{project-root}/_bmad/core/config.yaml"
+output_folder: "{config_source}:output_folder"
+communication_language: "{config_source}:communication_language"
+document_output_language: "{config_source}:document_output_language"
+sprint_artifacts: "{config_source}:sprint_artifacts"
+
+# 工作流组件
+installed_path: "{project-root}/_bmad/bmm/workflows/4-implementation/create-story"
+instructions: "{installed_path}/validate-story-instructions.xml"
+checklist: "{installed_path}/checklist.md"
+template: false
+
+# 变量配置
+variables:
+  story_key: ""  # 从 epic-auto-dev 传入
+  story_dir: "{sprint_artifacts}"
+  max_edit_size: 100  # 每次 Edit 操作的最大行数
+  max_chunk_size: 50  # 分块时的最大块大小
+  max_retries: 3  # 每个编辑操作的最大重试次数
+
+# 输出配置
+default_output_file: "{output_folder}/validate-story-{{story_key}}-{{date}}.md"
+
+# 需要的工具
+required_tools:
+  - read_file
+  - edit_file  # 使用 Edit 而非 Write
+  - bash
+
+standalone: false  # 设计为被 epic-auto-dev 调用
