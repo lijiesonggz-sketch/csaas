@@ -52,3 +52,18 @@ frontend.log
 
 # Temp files
 nul
+
+# Test results & reports
+test-results/
+frontend/test-results/
+frontend/playwright-report/data/
+**/playwright-report/data/
+
+# Crawler storage (runtime data)
+backend/storage/
+
+# Playwright MCP
+.playwright-mcp/
+
+# Office temp files
+~$*
