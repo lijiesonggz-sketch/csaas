@@ -2,6 +2,7 @@ export enum UserRole {
   CONSULTANT = 'consultant', // 主咨询师
   CLIENT_PM = 'client_pm', // 企业PM
   RESPONDENT = 'respondent', // 被调研者
+  ADMIN = 'admin', // 管理员
 }
 
 export interface User {
@@ -9,6 +10,7 @@ export interface User {
   email: string
   name: string
   role: UserRole
+  tenantId?: string
 }
 
 declare module 'next-auth' {
@@ -22,6 +24,7 @@ declare module 'next-auth' {
     email: string
     name: string
     role: UserRole
+    tenantId?: string
     accessToken?: string
   }
 }
@@ -32,6 +35,7 @@ declare module 'next-auth/jwt' {
     email: string
     name: string
     role: UserRole
+    tenantId?: string
     accessToken: string
   }
 }

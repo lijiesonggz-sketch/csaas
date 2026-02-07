@@ -82,6 +82,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        tenantId: user.tenantId, // Add tenantId to login response
       },
     }
   }

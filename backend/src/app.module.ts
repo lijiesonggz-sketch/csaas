@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { BullModule } from '@nestjs/bullmq'
+import { CacheModule } from '@nestjs/cache-manager'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { databaseConfig } from './config/database.config'
@@ -17,12 +18,18 @@ import { FilesModule } from './modules/files/files.module'
 import { CurrentStateModule } from './modules/current-state/current-state.module'
 import { OrganizationsModule } from './modules/organizations/organizations.module'
 import { RadarModule } from './modules/radar/radar.module'
+import { AdminModule } from './modules/admin/admin.module'
+import { CostOptimizationModule } from './modules/admin/cost-optimization/cost-optimization.module'
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: `.env.${process.env.NODE_ENV || 'development'}`,
+    }),
+    CacheModule.register({
+      isGlobal: true,
+      ttl: 300000, // 5 minutes default TTL
     }),
     TypeOrmModule.forRootAsync({
       useFactory: databaseConfig,
@@ -60,6 +67,8 @@ import { RadarModule } from './modules/radar/radar.module'
     CurrentStateModule,
     OrganizationsModule,
     RadarModule,
+    AdminModule,
+    CostOptimizationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

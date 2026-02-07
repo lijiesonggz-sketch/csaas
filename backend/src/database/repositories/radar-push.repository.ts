@@ -101,4 +101,22 @@ export class RadarPushRepository extends BaseTenantRepository<RadarPush> {
 
     return qb.orderBy('push.scheduledAt', 'DESC').getMany();
   }
+
+  /**
+   * Find recent pushes by organization (platform-level, no tenant filter)
+   */
+  async findRecentByOrganization(
+    organizationId: string,
+    days: number = 30,
+  ): Promise<RadarPush[]> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    return this.getRawRepository()
+      .createQueryBuilder('push')
+      .where('push.organizationId = :organizationId', { organizationId })
+      .andWhere('push.createdAt >= :startDate', { startDate })
+      .orderBy('push.createdAt', 'DESC')
+      .getMany();
+  }
 }

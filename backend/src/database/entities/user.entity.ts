@@ -14,6 +14,7 @@ export enum UserRole {
   CONSULTANT = 'consultant', // 主咨询师
   CLIENT_PM = 'client_pm', // 企业PM
   RESPONDENT = 'respondent', // 被调研者
+  ADMIN = 'admin', // 管理员 (Story 6-2)
 }
 
 @Entity('users')

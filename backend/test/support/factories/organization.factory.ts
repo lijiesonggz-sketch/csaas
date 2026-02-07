@@ -118,9 +118,9 @@ export class OrganizationFactory {
     if (createWatchedTopics) {
       for (const topic of watchedTopics) {
         const watchedTopic = this.dataSource.getRepository(WatchedTopic).create({
-          organizationId: result.organization.id,
+          organization: result.organization,
           topicName: topic.topicName,
-          topicType: topic.topicType,
+          topicType: topic.topicType as 'tech' | 'industry',
         })
         const savedTopic = await this.dataSource.getRepository(WatchedTopic).save(watchedTopic)
         result.watchedTopics.push(savedTopic)

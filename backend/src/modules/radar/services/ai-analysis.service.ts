@@ -14,6 +14,8 @@ import { AIModel } from '../../../database/entities/ai-generation-event.entity'
 import { TagService } from './tag.service'
 import { AnalyzedContentService } from './analyzed-content.service'
 import { CompliancePlaybook } from '../../../database/entities/compliance-playbook.entity'
+import { AIUsageService } from '../../admin/cost-optimization/ai-usage.service'
+import { AIUsageTaskType } from '../../../database/entities/ai-usage-log.entity'
 
 /**
  * AIAnalysisService - AI 分析服务
@@ -51,6 +53,7 @@ export class AIAnalysisService {
     private readonly aiOrchestrator: AIOrchestrator,
     private readonly tagService: TagService,
     private readonly analyzedContentService: AnalyzedContentService,
+    private readonly aiUsageService: AIUsageService,
   ) {}
 
   /**
@@ -114,6 +117,22 @@ export class AIAnalysisService {
         },
         AIModel.DOMESTIC, // 使用通义千问
       )
+
+      // Story 7.4: Log AI usage for cost tracking
+      try {
+        const taskType = this.getTaskTypeByCategory(category)
+        await this.aiUsageService.logAIUsage({
+          organizationId: rawContent.organizationId,
+          taskType,
+          inputTokens: aiResponse.tokens.prompt,
+          outputTokens: aiResponse.tokens.completion,
+          modelName: aiResponse.model,
+          requestId: rawContent.id,
+        })
+      } catch (error) {
+        // Don't fail the analysis if logging fails
+        this.logger.warn(`Failed to log AI usage for content ${rawContent.id}`, error)
+      }
 
       // 3. 解析 AI 响应
       const parsedResult = this.parseAIResponse(aiResponse.content)
@@ -1019,6 +1038,25 @@ AI分析结果：
       hits: this.cacheStats.hits,
       misses: this.cacheStats.misses,
       totalRequests,
+    }
+  }
+
+  /**
+   * Map category to AI usage task type (Story 7.4)
+   *
+   * @param category - Content category
+   * @returns AI usage task type
+   */
+  private getTaskTypeByCategory(category: string): AIUsageTaskType {
+    switch (category) {
+      case 'tech':
+        return AIUsageTaskType.TECH_ANALYSIS
+      case 'industry':
+        return AIUsageTaskType.INDUSTRY_ANALYSIS
+      case 'compliance':
+        return AIUsageTaskType.COMPLIANCE_ANALYSIS
+      default:
+        return AIUsageTaskType.TECH_ANALYSIS // Default fallback
     }
   }
 

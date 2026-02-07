@@ -30,12 +30,25 @@ export { AnalyzedContent } from './analyzed-content.entity'
 export { RadarPush } from './radar-push.entity'
 export { PushLog } from './push-log.entity'
 export { PushScheduleConfig } from './push-schedule-config.entity'
+export { PushPreference } from './push-preference.entity'
 export { CrawlerLog } from './crawler-log.entity'
 export { RadarSource } from './radar-source.entity'
 
 // Epic 4: 合规雷达 - 风险预警与应对剧本
 export { CompliancePlaybook } from './compliance-playbook.entity'
 export { ComplianceChecklistSubmission } from './compliance-checklist-submission.entity'
+
+// Epic 6: 咨询公司多租户与白标输出
+export { ClientGroup } from './client-group.entity'
+export { ClientGroupMembership } from './client-group-membership.entity'
+
+// Epic 7: 运营管理与成本优化
+export { SystemHealthLog } from './system-health-log.entity'
+export { Alert } from './alert.entity'
+export { PushFeedback } from './push-feedback.entity'
+export { CustomerActivityLog } from './customer-activity-log.entity'
+export { CustomerIntervention } from './customer-intervention.entity'
+export { AIUsageLog, AIUsageTaskType } from './ai-usage-log.entity'
 
 // 保留旧的实体（向后兼容，待迁移后删除）
 export { WatchedTopic } from './watched-topic.entity'

@@ -6,15 +6,22 @@ import { loggerConfig } from './config/logger.config'
 import { TransformInterceptor } from './common/interceptors/transform.interceptor'
 import { NotFoundFilter } from './common/filters/not-found.filter'
 import * as Sentry from '@sentry/node'
+import { NestExpressApplication } from '@nestjs/platform-express'
+import { join } from 'path'
 
 async function bootstrap() {
   // 初始化Sentry错误监控
   initSentry()
 
   // 创建应用实例，使用Winston日志
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: loggerConfig(),
     bodyParser: true,
+  })
+
+  // 配置静态资源服务 (Story 6.3 - 文件上传)
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
   })
 
   // 增加请求体大小限制（解决矩阵数据传递问题）

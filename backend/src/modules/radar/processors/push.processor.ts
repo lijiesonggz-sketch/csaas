@@ -138,6 +138,7 @@ export class PushProcessor extends WorkerHost {
    * - 发送 radar:push:new 事件到组织房间
    * - 包含完整的推送信息：标题、摘要、相关性评分、优先级、关联薄弱项等
    * - Story 2.4: 按需计算ROI分析
+   * - Story 6.3: 添加品牌信息 (brandName)
    *
    * @param push - 推送记录
    */
@@ -181,6 +182,23 @@ export class PushProcessor extends WorkerHost {
       }
     }
 
+    // Story 6.3: 获取品牌信息
+    let brandName = 'Csaas' // 默认品牌名称
+    try {
+      // 通过 organization 关系获取 tenant 品牌配置
+      const organization = await this.weaknessSnapshotRepo.manager.findOne('organizations', {
+        where: { id: push.organizationId },
+        relations: ['tenant'],
+      }) as any
+
+      if (organization?.tenant?.brandConfig?.companyName) {
+        brandName = organization.tenant.brandConfig.companyName
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to load brand name for push ${push.id}`, error.message)
+      // 使用默认品牌名称
+    }
+
     // 构建基础事件数据
     const eventData: any = {
       pushId: push.id,
@@ -197,6 +215,7 @@ export class PushProcessor extends WorkerHost {
       tags: content.tags.map((tag) => tag.name), // 标签列表
       targetAudience: content.targetAudience, // 目标受众
       roiAnalysis: content.roiAnalysis, // Story 2.4: ROI分析结果
+      brandName, // Story 6.3: 品牌名称
       timestamp: new Date().toISOString(),
     }
 

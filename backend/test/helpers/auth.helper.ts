@@ -2,7 +2,7 @@ import { JwtService } from '@nestjs/jwt'
 import { Test, TestingModule } from '@nestjs/testing'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { JwtModule } from '@nestjs/jwt'
-import { User } from '../../src/database/entities'
+import { User, UserRole } from '../../src/database/entities'
 import { DataSource } from 'typeorm'
 import { INestApplication } from '@nestjs/common'
 import * as bcrypt from 'bcrypt'
@@ -130,7 +130,7 @@ export async function createTestUser(
     passwordHash,
     name: userData.name,
     tenantId: userData.tenantId || '00000000-0000-0000-0000-000000000000',
-    role: 'USER',
+    role: UserRole.RESPONDENT,
   })
 
   return user

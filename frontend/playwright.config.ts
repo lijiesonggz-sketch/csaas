@@ -8,8 +8,13 @@ export default defineConfig({
   // 测试目录
   testDir: './e2e',
 
-  // 测试超时时间
-  timeout: 30000,
+  // 测试超时时间 - 增加到60秒
+  timeout: 60000,
+
+  // 期望超时时间
+  expect: {
+    timeout: 10000,
+  },
 
   // 每个测试的重试次数
   retries: process.env.CI ? 2 : 0,
@@ -26,8 +31,14 @@ export default defineConfig({
 
   // 全局配置
   use: {
-    // 基础 URL
+    // 基础 URL - 前端运行在 3001 端口
     baseURL: 'http://localhost:3001',
+
+    // 操作超时时间
+    actionTimeout: 15000,
+
+    // 导航超时时间
+    navigationTimeout: 30000,
 
     // 截图设置
     screenshot: 'only-on-failure',

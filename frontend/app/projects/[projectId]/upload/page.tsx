@@ -111,7 +111,8 @@ export default function UploadPage() {
         body: JSON.stringify({
           metadata: {
             uploadedDocuments: documents
-        }
+          }
+        })
       })
 
       setSaved(true)

@@ -54,12 +54,14 @@ export const authOptions: NextAuthOptions = {
             email: data.data.user.email,
             name: data.data.user.name,
             role: data.data.user.role,
+            tenantId: data.data.user.tenantId,
             accessToken: data.data.access_token,
           }
 
           console.log('[NextAuth] Returning user:', {
             id: user.id,
             email: user.email,
+            tenantId: user.tenantId,
             hasAccessToken: !!user.accessToken
           })
 
@@ -83,6 +85,7 @@ export const authOptions: NextAuthOptions = {
         token.email = user.email
         token.name = user.name
         token.role = user.role
+        token.tenantId = user.tenantId
         token.accessToken = user.accessToken
       }
       return token
@@ -94,6 +97,7 @@ export const authOptions: NextAuthOptions = {
         email: token.email as string,
         name: token.name as string,
         role: token.role as UserRole,
+        tenantId: token.tenantId as string,
       }
       session.accessToken = token.accessToken as string
       return session

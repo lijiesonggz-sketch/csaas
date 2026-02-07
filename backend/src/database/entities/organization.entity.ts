@@ -16,6 +16,7 @@ import { WeaknessSnapshot } from './weakness-snapshot.entity'
 import { WatchedTopic } from './watched-topic.entity'
 import { WatchedPeer } from './watched-peer.entity'
 import { Tenant } from './tenant.entity'
+import { ClientGroupMembership } from './client-group-membership.entity'
 
 /**
  * Organization Entity
@@ -89,8 +90,75 @@ export class Organization {
    *
    * @default null
    */
+  @Column({ name: 'industry_type', type: 'varchar', length: 50, nullable: true })
+  industryType?: string
+
+  /**
+   * Contact person name
+   *
+   * Primary contact person for this organization (client).
+   * Used in consulting company client management.
+   *
+   * @story 6-2
+   * @default null
+   */
+  @Column({ name: 'contact_person', type: 'varchar', length: 255, nullable: true })
+  contactPerson?: string
+
+  /**
+   * Contact email address
+   *
+   * Primary contact email for this organization (client).
+   * Used for sending welcome emails and notifications.
+   *
+   * @story 6-2
+   * @default null
+   */
+  @Column({ name: 'contact_email', type: 'varchar', length: 255, nullable: true })
+  contactEmail?: string
+
+  /**
+   * Organization scale/size
+   *
+   * Indicates the size category of this organization.
+   *
+   * Supported values:
+   * - large: 大型机构
+   * - medium: 中型机构
+   * - small: 小型机构
+   *
+   * @story 6-2
+   * @default null
+   */
   @Column({ type: 'varchar', length: 50, nullable: true })
-  industry?: string
+  scale?: 'large' | 'medium' | 'small'
+
+  /**
+   * Organization status
+   *
+   * Current status of this organization in the system.
+   *
+   * Supported values:
+   * - active: 已激活
+   * - inactive: 未激活
+   * - trial: 试用期
+   *
+   * @story 6-2
+   * @default 'trial'
+   */
+  @Column({ type: 'varchar', length: 50, default: 'trial' })
+  status: 'active' | 'inactive' | 'trial'
+
+  /**
+   * Timestamp when organization was activated
+   *
+   * Set when status changes from trial/inactive to active.
+   *
+   * @story 6-2
+   * @default null
+   */
+  @Column({ name: 'activated_at', type: 'timestamp', nullable: true })
+  activatedAt?: Date
 
   /**
    * Timestamp when organization was created
@@ -156,4 +224,53 @@ export class Organization {
     onDelete: 'CASCADE',
   })
   watchedPeers: WatchedPeer[]
+
+  /**
+   * Client group memberships for this organization
+   *
+   * Links this organization to client groups for bulk management.
+   *
+   * @story 6-2
+   */
+  @OneToMany(() => ClientGroupMembership, (membership) => membership.organization, {
+    onDelete: 'CASCADE',
+  })
+  groupMemberships: ClientGroupMembership[]
+
+  /**
+   * Timestamp when organization was last active
+   *
+   * Updated when any user activity is recorded (login, push view, feedback).
+   *
+   * @story 7-3
+   * @default null
+   */
+  @Column({ name: 'last_active_at', type: 'timestamp', nullable: true })
+  lastActiveAt?: Date
+
+  /**
+   * Monthly activity rate (MAU percentage)
+   *
+   * Calculated as: (active days in last 30 days / 30) * 100
+   * Updated periodically by a background job.
+   *
+   * @story 7-3
+   * @default null
+   */
+  @Column({ name: 'monthly_activity_rate', type: 'decimal', precision: 5, scale: 2, nullable: true })
+  monthlyActivityRate?: number
+
+  /**
+   * Activity status based on monthly activity rate
+   *
+   * - high_active: > 85%
+   * - medium_active: 60-85%
+   * - low_active: < 60% (at risk)
+   * - churn_risk: < 60% with declining trend
+   *
+   * @story 7-3
+   * @default null
+   */
+  @Column({ name: 'activity_status', type: 'varchar', length: 50, nullable: true })
+  activityStatus?: 'high_active' | 'medium_active' | 'low_active' | 'churn_risk'
 }

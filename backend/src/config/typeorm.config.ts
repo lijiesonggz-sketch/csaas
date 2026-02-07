@@ -29,11 +29,22 @@ import {
   RadarPush,
   PushLog,
   PushScheduleConfig,
+  PushPreference,
   CrawlerLog,
   RadarSource,
   // Epic 4: 合规雷达实体
   CompliancePlaybook,
   ComplianceChecklistSubmission,
+  // Epic 6: 咨询公司多租户与白标输出
+  ClientGroup,
+  ClientGroupMembership,
+  // Epic 7: 运营管理与成本优化
+  SystemHealthLog,
+  Alert,
+  PushFeedback,
+  CustomerActivityLog,
+  CustomerIntervention,
+  AIUsageLog,
 } from '../database/entities'
 
 // Load environment variables
@@ -75,11 +86,22 @@ export const AppDataSource = new DataSource({
     RadarPush,
     PushLog,
     PushScheduleConfig,
+    PushPreference,
     CrawlerLog,
     RadarSource,
     // Epic 4: 合规雷达实体
     CompliancePlaybook,
     ComplianceChecklistSubmission,
+    // Epic 6: 咨询公司多租户与白标输出
+    ClientGroup,
+    ClientGroupMembership,
+    // Epic 7: 运营管理与成本优化
+    SystemHealthLog,
+    Alert,
+    PushFeedback,
+    CustomerActivityLog,
+    CustomerIntervention,
+    AIUsageLog,
   ],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false, // Migrations will handle schema changes

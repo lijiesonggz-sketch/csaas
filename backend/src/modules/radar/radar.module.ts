@@ -38,6 +38,7 @@ import {
   WatchedTopicRepository,
   WatchedPeerRepository,
   PushPreferenceRepository,
+  PushFeedbackRepository,
 } from '../../database/repositories'
 
 // Story 1.3 providers
@@ -80,6 +81,14 @@ import { PushPreferenceController } from './controllers/push-preference.controll
 
 // Story 5.4 providers
 import { RadarPushService } from './services/radar-push.service'
+
+// Story 7.2 providers
+import { PushFeedbackController } from './controllers/push-feedback.controller'
+import { PushFeedbackService } from './services/push-feedback.service'
+import { PushFeedback } from '../../database/entities/push-feedback.entity'
+
+// Story 7.4 providers
+import { CostOptimizationModule } from '../admin/cost-optimization/cost-optimization.module'
 
 // Story 2.2 providers
 import { TagService } from './services/tag.service'
@@ -131,6 +140,9 @@ import { PushProcessor } from './processors/push.processor'
       OrganizationMember,
       PushPreference,
     ]),
+
+    // Story 7.2 entities
+    TypeOrmModule.forFeature([PushFeedback]),
 
     // Story 3.1 entities
     TypeOrmModule.forFeature([RadarSource]),
@@ -192,6 +204,7 @@ import { PushProcessor } from './processors/push.processor'
     AITasksModule, // Story 2.3 - 用于WebSocket推送
     AIClientsModule, // Story 2.2 - AI分析服务依赖
     AuditModule, // Story 6.1B - 审计日志
+    CostOptimizationModule, // Story 7.4 - AI成本追踪
     // ProjectsModule, // 暂时禁用以避免循环依赖
   ],
   controllers: [
@@ -202,6 +215,7 @@ import { PushProcessor } from './processors/push.processor'
     WatchedTopicController,
     WatchedPeerController,
     PushPreferenceController,
+    PushFeedbackController,
   ],
   providers: [
     // Story 1.3 providers
@@ -250,6 +264,10 @@ import { PushProcessor } from './processors/push.processor'
     WatchedTopicRepository,
     WatchedPeerRepository,
     PushPreferenceRepository,
+
+    // Story 7.2 providers
+    PushFeedbackService,
+    PushFeedbackRepository,
   ],
   exports: [
     // Story 1.3 exports

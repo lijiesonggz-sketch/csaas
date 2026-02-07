@@ -1,6 +1,4 @@
 import { DataSource } from 'typeorm'
-import { RadarPushFactory } from '../factories/radar-push.factory'
-import { OrganizationFactory } from '../factories/organization.factory'
 
 /**
  * Test Helper
@@ -9,19 +7,13 @@ import { OrganizationFactory } from '../factories/organization.factory'
  */
 
 export class TestHelper {
-  public radarPushFactory: RadarPushFactory
-  public organizationFactory: OrganizationFactory
-
-  constructor(private readonly dataSource: DataSource) {
-    this.radarPushFactory = new RadarPushFactory(dataSource)
-    this.organizationFactory = new OrganizationFactory(dataSource)
-  }
+  constructor(private readonly dataSource: DataSource) {}
 
   /**
    * 清理所有测试数据
    */
   async cleanupAll(): Promise<void> {
-    await this.radarPushFactory.cleanupAll()
+    // TODO: Implement cleanup logic when factories are available
   }
 
   /**

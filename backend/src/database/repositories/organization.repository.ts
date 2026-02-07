@@ -41,9 +41,9 @@ export class OrganizationRepository extends BaseTenantRepository<Organization> {
   /**
    * 根据行业查找组织
    */
-  async findByIndustry(tenantId: string, industry: string): Promise<Organization[]> {
+  async findByIndustry(tenantId: string, industryType: string): Promise<Organization[]> {
     return this.find(tenantId, {
-      where: { industry },
+      where: { industryType },
       order: { name: 'ASC' },
     });
   }
@@ -56,5 +56,35 @@ export class OrganizationRepository extends BaseTenantRepository<Organization> {
       where: { radarActivated: true },
       order: { name: 'ASC' },
     });
+  }
+
+  /**
+   * Find all organizations (platform-level, no tenant filter)
+   * For admin operations that need to see all clients
+   */
+  async findAllPlatform(options?: { select?: string[] }): Promise<Organization[]> {
+    const qb = this.getRawRepository().createQueryBuilder('org');
+
+    if (options?.select) {
+      qb.select(options.select.map(field => `org.${field}`));
+    }
+
+    return qb.getMany();
+  }
+
+  /**
+   * Find organization by ID (platform-level, no tenant filter)
+   */
+  async findByIdPlatform(id: string): Promise<Organization | null> {
+    return this.getRawRepository().findOne({
+      where: { id },
+    });
+  }
+
+  /**
+   * Update organization (platform-level, no tenant filter)
+   */
+  async updatePlatform(id: string, data: Partial<Organization>): Promise<void> {
+    await this.getRawRepository().update(id, data);
   }
 }

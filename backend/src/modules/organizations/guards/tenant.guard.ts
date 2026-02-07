@@ -52,6 +52,7 @@ export class TenantGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest()
     const userId = request.user?.id // Extracted from JWT by AuthGuard
+    const userRole = request.user?.role // User role from JWT
 
     if (!userId) {
       this.logger.warn('TenantGuard: User not authenticated')
@@ -59,7 +60,28 @@ export class TenantGuard implements CanActivate {
     }
 
     try {
-      // Query user's organization (includes tenantId)
+      // For admin users, get tenantId directly from users table
+      if (userRole === 'admin') {
+        const userRepository = this.dataSource.getRepository('User')
+        const user = await userRepository.findOne({
+          where: { id: userId },
+          select: ['id', 'tenantId'],
+        })
+
+        if (!user || !user.tenantId) {
+          this.logger.warn(`TenantGuard: Admin user ${userId} has no tenantId`)
+          throw new ForbiddenException('Admin user has no tenant')
+        }
+
+        request.tenantId = user.tenantId
+        request.organizationId = null // Admin users don't need organizationId
+
+        this.logger.debug(`TenantGuard: Admin user ${userId} → Tenant ${user.tenantId}`)
+
+        return true
+      }
+
+      // For non-admin users, query organization membership
       const organization = await this.organizationService.findByUserId(userId)
 
       if (!organization) {

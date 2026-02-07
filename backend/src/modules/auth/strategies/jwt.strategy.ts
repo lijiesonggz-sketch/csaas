@@ -25,11 +25,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
    * Validate JWT payload and extract user information
    *
    * @param payload - JWT token payload
-   * @returns User object with userId, email, and role
+   * @returns User object with id, email, and role
    */
   async validate(payload: any) {
     return {
-      userId: payload.sub,
+      id: payload.sub,
       email: payload.email,
       role: payload.role,
     }

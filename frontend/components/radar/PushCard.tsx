@@ -62,6 +62,8 @@ interface PushCardProps {
     hasPlaybook?: boolean
     playbookStatus?: 'ready' | 'generating' | 'failed'
     sentAt?: string
+    // Story 6.3: 品牌信息
+    brandName?: string
   }
   variant?: 'tech' | 'industry' | 'compliance'  // Story 3.3: 添加variant属性
   isWatchedPeer?: boolean  // Story 3.3: 是否为关注的同业
@@ -558,8 +560,20 @@ export const PushCard = React.memo(
             pt: 1,
             borderTop: '1px solid',
             borderColor: 'divider',
+            flexWrap: 'wrap',
           }}
         >
+          {/* Story 6.3: 显示品牌信息 */}
+          {push.brandName && (
+            <>
+              <Typography variant="caption" sx={{ color: 'primary.main', fontSize: '0.75rem', fontWeight: 600 }}>
+                来自 {push.brandName} 的推送
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                •
+              </Typography>
+            </>
+          )}
           <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
             来源: {push.source}
           </Typography>

@@ -20,6 +20,7 @@ import {
   WeaknessSnapshot,
   WatchedTopic,
   WatchedPeer,
+  WatchedItem,
   // Story 2.1 entities
   RawContent,
   CrawlerLog,
@@ -29,11 +30,27 @@ import {
   // Story 2.3 entities
   RadarPush,
   PushScheduleConfig,
+  PushLog,
   // Story 3.1 entities
   RadarSource,
   // Story 4.2 entities
   CompliancePlaybook,
   ComplianceChecklistSubmission,
+  // Story 5.3 entities
+  PushPreference,
+  // Story 6.2 entities
+  ClientGroup,
+  ClientGroupMembership,
+  // Story 7.1 entities
+  SystemHealthLog,
+  Alert,
+  // Story 7.2 entities
+  PushFeedback,
+  // Story 7.3 entities
+  CustomerActivityLog,
+  CustomerIntervention,
+  // Story 7.4 entities
+  AIUsageLog,
 } from '../database/entities'
 
 export const databaseConfig = (): TypeOrmModuleOptions => ({
@@ -64,6 +81,7 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
     WeaknessSnapshot,
     WatchedTopic,
     WatchedPeer,
+    WatchedItem,
     // Story 2.1 entities
     RawContent,
     CrawlerLog,
@@ -73,11 +91,27 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
     // Story 2.3 entities
     RadarPush,
     PushScheduleConfig,
+    PushLog,
     // Story 3.1 entities
     RadarSource,
     // Story 4.2 entities
     CompliancePlaybook,
     ComplianceChecklistSubmission,
+    // Story 5.3 entities
+    PushPreference,
+    // Story 6.2 entities
+    ClientGroup,
+    ClientGroupMembership,
+    // Story 7.1 entities
+    SystemHealthLog,
+    Alert,
+    // Story 7.2 entities
+    PushFeedback,
+    // Story 7.3 entities
+    CustomerActivityLog,
+    CustomerIntervention,
+    // Story 7.4 entities
+    AIUsageLog,
   ],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false, // Use migrations for schema changes

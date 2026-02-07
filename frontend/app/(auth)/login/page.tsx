@@ -65,6 +65,7 @@ export default function LoginPage() {
             ]}
           >
             <Input
+              data-testid="email-input"
               prefix={<MailOutlined />}
               placeholder="邮箱"
               size="large"
@@ -76,6 +77,7 @@ export default function LoginPage() {
             rules={[{ required: true, message: '请输入密码' }]}
           >
             <Input.Password
+              data-testid="password-input"
               prefix={<LockOutlined />}
               placeholder="密码"
               size="large"
@@ -84,6 +86,7 @@ export default function LoginPage() {
 
           <Form.Item>
             <Button
+              data-testid="login-button"
               type="primary"
               htmlType="submit"
               loading={loading}

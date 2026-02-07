@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -11,10 +12,16 @@ import {
   Chip,
   Divider,
   IconButton,
+  Rating,
+  TextField,
+  Alert,
+  CircularProgress,
 } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import dayjs from 'dayjs'
+import { useSession } from 'next-auth/react'
 import { PushHistoryItem } from '@/lib/api/radar'
+import { submitPushFeedback, getUserFeedback, PushFeedback } from '@/lib/api/feedback'
 
 interface PushDetailModalProps {
   open: boolean
@@ -27,7 +34,8 @@ interface PushDetailModalProps {
  * 推送详情弹窗组件
  *
  * Story 5.4 - AC 6: 推送详情查看
- * HIGH-2 修复: 实现推送详情弹窗
+ * Story 7.2 - 用户反馈功能
+ * HIGH-2 修复: 实现推送详情弹窗和反馈表单
  */
 export default function PushDetailModal({
   open,
@@ -35,7 +43,85 @@ export default function PushDetailModal({
   onClose,
   onMarkAsRead,
 }: PushDetailModalProps) {
+  const { data: session } = useSession()
+
+  // 反馈状态
+  const [rating, setRating] = useState<number | null>(null)
+  const [comment, setComment] = useState('')
+  const [existingFeedback, setExistingFeedback] = useState<PushFeedback | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [loadingFeedback, setLoadingFeedback] = useState(false)
+  const [feedbackError, setFeedbackError] = useState<string | null>(null)
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false)
+
   if (!push) return null
+
+  // 加载用户已有的反馈
+  useEffect(() => {
+    if (open && push && session?.accessToken) {
+      loadUserFeedback()
+    }
+  }, [open, push?.id, session?.accessToken])
+
+  const loadUserFeedback = async () => {
+    if (!push || !session?.accessToken) return
+
+    try {
+      setLoadingFeedback(true)
+      setFeedbackError(null)
+      const feedback = await getUserFeedback(session.accessToken, push.id)
+
+      if (feedback) {
+        setExistingFeedback(feedback)
+        setRating(feedback.rating)
+        setComment(feedback.comment || '')
+      } else {
+        setExistingFeedback(null)
+        setRating(null)
+        setComment('')
+      }
+    } catch (error: any) {
+      console.error('加载反馈失败:', error)
+      setFeedbackError('加载反馈失败')
+    } finally {
+      setLoadingFeedback(false)
+    }
+  }
+
+  const handleSubmitFeedback = async () => {
+    if (!push || !session?.accessToken || rating === null) return
+
+    try {
+      setSubmitting(true)
+      setFeedbackError(null)
+      setFeedbackSuccess(false)
+
+      await submitPushFeedback(session.accessToken, push.id, {
+        rating,
+        comment: comment.trim() || undefined,
+      })
+
+      setFeedbackSuccess(true)
+      setExistingFeedback({
+        id: 'temp',
+        pushId: push.id,
+        userId: session.user?.id || '',
+        rating,
+        comment: comment.trim() || null,
+        createdAt: new Date().toISOString(),
+      })
+
+      // 3秒后关闭成功提示
+      setTimeout(() => {
+        setFeedbackSuccess(false)
+      }, 3000)
+    } catch (error: any) {
+      console.error('提交反馈失败:', error)
+      setFeedbackError(error.message || '提交反馈失败')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const handleMarkAsRead = () => {
     if (onMarkAsRead && !push.isRead) {
@@ -208,6 +294,79 @@ export default function PushDetailModal({
           <Typography variant="body2" color="text.secondary">
             {(push.relevanceScore * 100).toFixed(0)}% - {getRelevanceLabel(push.relevanceLevel)}
           </Typography>
+        </Box>
+
+        <Divider sx={{ my: 3 }} />
+
+        {/* 用户反馈表单 - Story 7.2 */}
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            内容反馈
+          </Typography>
+
+          {loadingFeedback && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+              <CircularProgress size={24} />
+            </Box>
+          )}
+
+          {!loadingFeedback && existingFeedback && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              您已经对该推送提交过反馈（评分: {existingFeedback.rating} 星）
+            </Alert>
+          )}
+
+          {!loadingFeedback && !existingFeedback && (
+            <>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  请为这条推送内容评分（1-5星）
+                </Typography>
+                <Rating
+                  value={rating}
+                  onChange={(event, newValue) => {
+                    setRating(newValue)
+                    setFeedbackError(null)
+                  }}
+                  size="large"
+                />
+              </Box>
+
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="评论（可选）"
+                placeholder="请分享您对这条推送内容的看法..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                disabled={submitting}
+                sx={{ mb: 2 }}
+              />
+
+              {feedbackError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {feedbackError}
+                </Alert>
+              )}
+
+              {feedbackSuccess && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  反馈提交成功！感谢您的反馈。
+                </Alert>
+              )}
+
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSubmitFeedback}
+                disabled={rating === null || submitting}
+                fullWidth
+              >
+                {submitting ? '提交中...' : '提交反馈'}
+              </Button>
+            </>
+          )}
         </Box>
       </DialogContent>
 

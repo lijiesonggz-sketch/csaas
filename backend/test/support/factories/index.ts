@@ -10,3 +10,6 @@ export {
   CreateOrganizationOptions,
   OrganizationTestData,
 } from './organization.factory'
+export { ClientFactory, CreateClientOptions, ClientTestData } from './client.factory'
+export { BrandingFactory, CreateBrandingOptions, BrandingTestData } from './branding.factory'
+export { ClientGroupFactory, CreateClientGroupOptions, ClientGroupTestData } from './client-group.factory'

@@ -58,6 +58,10 @@ export class Tenant {
     logo?: string
     companyName?: string
     themeColor?: string
+    secondaryColor?: string
+    contactEmail?: string
+    contactPhone?: string
+    emailSignature?: string
   }
 
   /**

@@ -10,6 +10,7 @@ import {
   SettingOutlined,
   TeamOutlined,
   RadarChartOutlined,
+  StarOutlined,
 } from '@ant-design/icons'
 import type { MenuProps } from 'antd'
 
@@ -44,10 +45,30 @@ const items: MenuItem[] = [
     label: '团队管理',
   },
   {
-    key: '/settings',
+    key: '/admin',
     icon: <SettingOutlined />,
-    label: '系统设置',
+    label: '系统管理',
     children: [
+      {
+        key: '/admin/dashboard',
+        label: '运营仪表板',
+      },
+      {
+        key: '/admin/content-quality',
+        label: '内容质量管理',
+      },
+      {
+        key: '/admin/clients',
+        label: '客户管理',
+      },
+      {
+        key: '/admin/cost-optimization',
+        label: '成本优化',
+      },
+      {
+        key: '/admin/branding',
+        label: '品牌配置',
+      },
       {
         key: '/admin/radar-sources',
         label: '信息源配置',

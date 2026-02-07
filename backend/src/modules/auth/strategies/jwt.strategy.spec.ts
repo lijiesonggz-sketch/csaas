@@ -43,13 +43,13 @@ describe('JwtStrategy', () => {
       const result = await strategy.validate(payload)
 
       expect(result).toEqual({
-        userId: 'user-123',
+        id: 'user-123',
         email: 'test@example.com',
         role: 'CONSULTANT',
       })
     })
 
-    it('should map sub to userId', async () => {
+    it('should map sub to id', async () => {
       const payload = {
         sub: 'user-456',
         email: 'another@example.com',
@@ -58,7 +58,7 @@ describe('JwtStrategy', () => {
 
       const result = await strategy.validate(payload)
 
-      expect(result.userId).toBe('user-456')
+      expect(result.id).toBe('user-456')
     })
   })
 
