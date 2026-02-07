@@ -147,7 +147,29 @@
       "Bash(wsl --list:*)",
       "Bash(wsl:*)",
       "Bash(claude:*)",
-      "Bash(PGPASSWORD=postgres psql:*)"
+      "Bash(PGPASSWORD=postgres psql:*)",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_close",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_press_key",
+      "Bash(npx playwright:*)",
+      "mcp__playwright__browser_run_code",
+      "Bash(lsof:*)",
+      "Bash(npm run typeorm:migration:run:*)",
+      "Bash(npm run typeorm:migration:show:*)",
+      "Bash(git --no-pager status)",
+      "Bash(git --no-pager log --oneline -1)",
+      "Bash(npx wait-on:*)",
+      "Bash(while ! grep -q \"Test Suites:\" C:Users27937AppDataLocalTempclaudeD--csaastasksbe6fa68.output)",
+      "Bash(do sleep:*)",
+      "mcp__playwright__browser_fill_form",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlYTc2MzdjMy05Y2U1LTRiOWMtODhkYi04MGY5NDJiZTIwYTYiLCJlbWFpbCI6ImFkbWluQHRlc3QuY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzcwMzExODE4LCJleHAiOjE3NzA5MTY2MTh9.JW3wIeUN8oJnNNGJgb9ctHHYG6gIexUY8eboCmNTBaQ\")",
+      "mcp__playwright__browser_network_requests",
+      "Bash(git rm:*)"
     ]
   }
 }
