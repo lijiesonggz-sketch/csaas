@@ -73,6 +73,14 @@ const items: MenuItem[] = [
         key: '/admin/radar-sources',
         label: '信息源配置',
       },
+      {
+        key: '/admin/peer-crawler',
+        label: '同业爬虫管理',
+      },
+      {
+        key: '/admin/peer-crawler/health',
+        label: '爬虫健康监控',
+      },
     ],
   },
 ]
