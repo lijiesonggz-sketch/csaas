@@ -199,4 +199,26 @@ export class RadarPush {
    */
   @Column({ type: 'jsonb', nullable: true, name: 'matched_peers' })
   matchedPeers: string[] | null
+
+  /**
+   * 推送类型
+   * Story 8.4: 同业动态推送生成
+   *
+   * - regular: 常规推送
+   * - peer-monitoring: 同业监控推送
+   * - compliance-playbook: 合规剧本推送
+   */
+  @Column({
+    type: 'enum',
+    enum: ['regular', 'peer-monitoring', 'compliance-playbook'],
+    default: 'regular',
+  })
+  pushType: 'regular' | 'peer-monitoring' | 'compliance-playbook'
+
+  /**
+   * 同业机构名称
+   * Story 8.4: 同业监控推送时记录关联的同业机构
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  peerName: string | null
 }

@@ -21,3 +21,4 @@ export { AIUsageLogRepository } from './ai-usage-log.repository';
 export { AuditLogRepository } from './audit-log.repository';
 export { SystemHealthLogRepository } from './system-health-log.repository';
 export { AlertRepository } from './alert.repository';
+export { PeerCrawlerTaskRepository } from './peer-crawler-task.repository';

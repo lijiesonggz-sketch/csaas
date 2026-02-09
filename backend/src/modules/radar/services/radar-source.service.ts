@@ -4,6 +4,8 @@ import { Repository } from 'typeorm'
 import { RadarSource } from '../../../database/entities/radar-source.entity'
 import { CrawlerService } from './crawler.service'
 import { RawContent } from '../../../database/entities/raw-content.entity'
+import { RadarSourceSchedulerService } from './radar-source-scheduler.service'
+import { CrawlerLogService } from './crawler-log.service'
 
 /**
  * RadarSourceService - 雷达信息源管理服务
@@ -24,6 +26,8 @@ export class RadarSourceService {
     @InjectRepository(RadarSource)
     private readonly radarSourceRepository: Repository<RadarSource>,
     private readonly crawlerService: CrawlerService,
+    private readonly schedulerService: RadarSourceSchedulerService,
+    private readonly crawlerLogService: CrawlerLogService,
   ) {}
 
   /**
@@ -82,6 +86,16 @@ export class RadarSourceService {
     peerName?: string
     isActive?: boolean
     crawlSchedule?: string
+    crawlConfig?: {
+      selector?: string
+      listSelector?: string
+      titleSelector?: string
+      contentSelector?: string
+      dateSelector?: string
+      authorSelector?: string
+      paginationPattern?: string
+      maxPages?: number
+    }
   }): Promise<RadarSource> {
     const radarSource = this.radarSourceRepository.create({
       ...data,
@@ -92,6 +106,11 @@ export class RadarSourceService {
 
     const saved = await this.radarSourceRepository.save(radarSource)
     this.logger.log(`Created new radar source: ${saved.source} (${saved.id})`)
+
+    // Story 8.1: 如果启用，添加到调度队列
+    if (saved.isActive) {
+      await this.schedulerService.scheduleCrawlerJob(saved)
+    }
 
     return saved
   }
@@ -111,14 +130,31 @@ export class RadarSourceService {
       peerName?: string
       isActive?: boolean
       crawlSchedule?: string
+      crawlConfig?: {
+        selector?: string
+        listSelector?: string
+        titleSelector?: string
+        contentSelector?: string
+        dateSelector?: string
+        authorSelector?: string
+        paginationPattern?: string
+        maxPages?: number
+      }
     },
   ): Promise<RadarSource> {
     const source = await this.findById(id)
+
+    // 记录旧值用于判断是否需要重新调度
+    const oldSchedule = source.crawlSchedule
+    const wasActive = source.isActive
 
     Object.assign(source, data)
 
     const updated = await this.radarSourceRepository.save(source)
     this.logger.log(`Updated radar source: ${updated.source} (${updated.id})`)
+
+    // Story 8.1: 如果调度时间或启用状态变更，重新调度
+    await this.schedulerService.rescheduleCrawlerJob(updated, oldSchedule, wasActive)
 
     return updated
   }
@@ -129,6 +165,9 @@ export class RadarSourceService {
    */
   async delete(id: string): Promise<void> {
     const source = await this.findById(id)
+
+    // Story 8.1: 从调度队列中移除
+    await this.schedulerService.removeCrawlerJob(id)
 
     await this.radarSourceRepository.remove(source)
     this.logger.log(`Deleted radar source: ${source.source} (${id})`)
@@ -224,6 +263,16 @@ export class RadarSourceService {
       peerName?: string
       isActive?: boolean
       crawlSchedule?: string
+      crawlConfig?: {
+        selector?: string
+        listSelector?: string
+        titleSelector?: string
+        contentSelector?: string
+        dateSelector?: string
+        authorSelector?: string
+        paginationPattern?: string
+        maxPages?: number
+      }
     }>,
   ): Promise<RadarSource[]> {
     const radarSources = sources.map((data) =>
@@ -244,39 +293,146 @@ export class RadarSourceService {
   /**
    * 测试爬虫
    * 立即触发一次爬取，用于测试信息源配置
+   * 测试采集的内容不保存到 RawContent（仅预览）
+   *
+   * Story 8.1: 同业采集源管理
    *
    * @param source - 信息源
-   * @returns RawContent - 爬取的内容
+   * @returns 预览数据（不保存）
    */
-  async testCrawl(source: RadarSource): Promise<RawContent> {
+  async testCrawl(source: RadarSource): Promise<{
+    success: boolean
+    title?: string
+    summary?: string | null
+    contentPreview: string
+    url: string
+    publishDate?: Date | null
+    author?: string | null
+    duration: number
+    error?: string
+  }> {
     this.logger.log(`Testing crawl for source: ${source.source} (${source.id})`)
+    const startTime = Date.now()
 
     try {
-      // 调用爬虫服务进行爬取
-      const result = await this.crawlerService.crawlWebsite(
+      // 调用爬虫服务进行爬取（预览模式，不保存）
+      const result = await this.crawlerService.crawlWebsitePreview(
         source.source,
         source.category,
         source.url,
-        0, // retryCount
         {
           contentType: source.type,
           peerName: source.peerName,
+          crawlConfig: source.crawlConfig,
         },
       )
+
+      const duration = Date.now() - startTime
 
       // 更新最后爬取状态为成功
       await this.updateCrawlStatus(source.id, 'success')
 
-      this.logger.log(`Test crawl successful for ${source.source}: ${result.title}`)
+      this.logger.log(`Test crawl successful for ${source.source}: ${result.title} (${duration}ms)`)
 
-      return result
+      return {
+        success: true,
+        title: result.title,
+        summary: result.summary,
+        contentPreview: result.fullContent?.substring(0, 500) || '',
+        url: result.url,
+        publishDate: result.publishDate,
+        author: result.author,
+        duration,
+      }
     } catch (error) {
-      // 更新最后爬取状态为失败
-      await this.updateCrawlStatus(source.id, 'failed', error.message)
+      const duration = Date.now() - startTime
+      const errorMessage = error instanceof Error ? error.message : String(error)
 
-      this.logger.error(`Test crawl failed for ${source.source}: ${error.message}`)
+      // 更新最后爬取状态为失败（仅在 source.id 存在时）
+      if (source.id) {
+        try {
+          await this.updateCrawlStatus(source.id, 'failed', errorMessage)
+        } catch (updateError) {
+          this.logger.warn(`Failed to update crawl status for ${source.source}: ${updateError.message}`)
+        }
+      }
 
-      throw error
+      this.logger.error(`Test crawl failed for ${source.source}: ${errorMessage}`)
+
+      return {
+        success: false,
+        contentPreview: '',
+        url: source.url,
+        duration,
+        error: errorMessage,
+      }
+    }
+  }
+
+  /**
+   * 检查并自动禁用连续失败的信息源
+   * Story 8.1: 同业采集源管理 - 自动禁用逻辑
+   *
+   * @param sourceId - 信息源 ID
+   * @param consecutiveFailures - 当前连续失败次数
+   * @returns 是否被自动禁用
+   */
+  async checkAndAutoDisable(sourceId: string, consecutiveFailures: number): Promise<boolean> {
+    const AUTO_DISABLE_THRESHOLD = 3
+
+    if (consecutiveFailures >= AUTO_DISABLE_THRESHOLD) {
+      const source = await this.findById(sourceId)
+
+      if (source.isActive) {
+        source.isActive = false
+        source.lastCrawlError = `自动禁用：连续失败 ${consecutiveFailures} 次`
+        await this.radarSourceRepository.save(source)
+
+        // 从调度队列中移除
+        await this.schedulerService.removeCrawlerJob(sourceId)
+
+        this.logger.warn(
+          `Auto-disabled radar source ${source.source} (${sourceId}) after ${consecutiveFailures} consecutive failures`,
+        )
+
+        // TODO: 发送告警通知管理员
+
+        return true
+      }
+    }
+
+    return false
+  }
+
+  /**
+   * 获取信息源统计信息
+   * Story 8.1: 同业采集源管理 - 显示成功率
+   *
+   * @param sourceId - 信息源 ID
+   * @returns 统计信息
+   */
+  async getSourceStats(sourceId: string): Promise<{
+    source: RadarSource
+    totalRuns: number
+    successCount: number
+    failureCount: number
+    successRate: number
+    consecutiveFailures: number
+    lastCrawledAt: Date | null
+  }> {
+    const source = await this.findById(sourceId)
+
+    // 从 CrawlerLogService 获取统计信息
+    const stats = await this.crawlerLogService.getSourceStats(source.source)
+
+    return {
+      source,
+      totalRuns: stats.totalRuns,
+      successCount: stats.successCount,
+      failureCount: stats.failureCount,
+      successRate: stats.successRate,
+      consecutiveFailures: stats.consecutiveFailures,
+      lastCrawledAt: stats.lastCrawledAt || source.lastCrawledAt,
     }
   }
 }

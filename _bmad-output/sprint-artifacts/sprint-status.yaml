@@ -95,3 +95,13 @@ development_status:
   7-3-customer-management-and-churn-risk-warning: done  # ✅ Code Review完成，10个问题已修复（4个HIGH，5个MEDIUM，1个LOW），14个单元测试全部通过
   7-4-ai-cost-optimization-tools: done  # ✅ 完成 - 全部8个Phase完成，后端6个API端点，前端完整实现，10个E2E测试通过
   epic-7-retrospective: optional
+
+  # Epic 8: 关注同业自动监控与智能分析 (6 stories)
+  epic-8: in-progress  # 🆕 新Epic，开发中
+  8-1-peer-crawler-source-management: done  # ✅ 完成 - Code Review通过，8个问题已修复，106个测试通过
+  8-2-peer-crawler-task-scheduling: done             # ✅ 完成 - Code Review通过，7个问题已修复，110个测试通过
+  8-3-peer-content-ai-analysis: done               # ✅ 完成 - Code Review通过，所有AC已实现，17个测试全部通过
+  8-4-peer-dynamic-push-generation: done             # ✅ 完成 - Code Review通过，4个问题已修复，81个测试全部通过
+  8-5-crawler-health-monitoring: done             # 爬虫健康度监控与告警 - Code Review通过，4个问题已修复，56个测试全部通过
+  8-6-peer-monitoring-frontend: story-created        # 同业动态前端展示增强
+  epic-8-retrospective: optional

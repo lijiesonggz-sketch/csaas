@@ -7,7 +7,18 @@ import { Box, Container, Typography, Button, Alert, CircularProgress, Grid, Brea
 import { Business, Refresh, ArrowBack, Home } from '@mui/icons-material'
 import { PushCard } from '@/components/radar/PushCard'
 import { PushDetailModal } from '@/components/radar/PushDetailModal'
-import { getIndustryPushes, getWatchedPeers, RadarPush } from '@/lib/api/radar'
+import { PeerMonitoringCard, PeerMonitoringPush } from '@/components/radar/PeerMonitoringCard'
+import { PeerMonitoringDetailModal } from '@/components/radar/PeerMonitoringDetailModal'
+import { PeerMonitoringFilter } from '@/components/radar/PeerMonitoringFilter'
+import {
+  getIndustryPushes,
+  getWatchedPeers,
+  getPeerMonitoringPushes,
+  markPeerMonitoringPushAsRead,
+  bookmarkPeerMonitoringPush,
+  RadarPush,
+  WatchedPeer,
+} from '@/lib/api/radar'
 import { useWebSocket } from '@/lib/hooks/useWebSocket'
 import { useOrganizationStore } from '@/lib/stores/useOrganizationStore'
 
@@ -18,45 +29,46 @@ export const dynamic = 'force-dynamic'
  * Industry Radar Page - 行业雷达
  *
  * Story 3.3 - Phase 1 Task 1.1: 创建行业雷达页面组件
+ * Story 8.6 - 同业动态前端展示增强
+ *
+ * 功能：
  * - 复用技术雷达页面布局 (Story 2.5)
  * - 从后端API加载行业推送列表
  * - 使用PushCard组件展示同业案例
  * - WebSocket实时监听新推送（过滤radarType === 'industry'）
  * - 筛选器状态持久化（使用URL查询参数）
+ * - 同业动态推送展示（Story 8.6）
+ * - 同业动态详情弹窗（Story 8.6 - AC3）
+ * - 与我关注的同业相关筛选（Story 8.6 - AC4）
  */
 export default function IndustryRadarPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
   const [selectedPushId, setSelectedPushId] = useState<string | null>(null)
+  const [selectedPeerPush, setSelectedPeerPush] = useState<PeerMonitoringPush | null>(null)
   const [pushes, setPushes] = useState<RadarPush[]>([])
-  const [watchedPeers, setWatchedPeers] = useState<string[]>([])
+  const [peerPushes, setPeerPushes] = useState<PeerMonitoringPush[]>([])
+  const [watchedPeers, setWatchedPeers] = useState<WatchedPeer[]>([])
+  const [watchedPeerNames, setWatchedPeerNames] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [filter, setFilter] = useState(searchParams.get('filter') || 'all')
+  const [peerFilter, setPeerFilter] = useState<'all' | 'watched' | 'specific-peer'>(
+    (searchParams.get('peerFilter') as 'all' | 'watched' | 'specific-peer') || 'all'
+  )
+  const [selectedPeer, setSelectedPeer] = useState<string>(searchParams.get('selectedPeer') || '')
+  const [activeTab, setActiveTab] = useState<'industry' | 'peer-monitoring'>(
+    (searchParams.get('tab') as 'industry' | 'peer-monitoring') || 'industry'
+  )
 
   const currentOrganization = useOrganizationStore((state) => state.currentOrganization)
   const organizationId = currentOrganization?.id
 
   const { socket, isConnected } = useWebSocket(organizationId)
 
-  // 加载关注的同业列表
-  const fetchWatchedPeers = async () => {
-    if (!organizationId) return
-
-    try {
-      const response = await getWatchedPeers(organizationId)
-      const peerNames = response.data.map((peer) => peer.name)
-      setWatchedPeers(peerNames)
-    } catch (err) {
-      // 不影响主流程，静默失败
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to fetch watched peers:', err)
-      }
-    }
-  }
-
-  // 加载推送列表
+  // 加载行业推送列表
   const fetchPushes = async () => {
     if (!organizationId) {
       setIsLoading(false)
@@ -75,9 +87,9 @@ export default function IndustryRadarPage() {
 
       // 如果是"我关注的同业"筛选，前端再次过滤
       let filteredPushes = response.data
-      if (filter === 'watched' && watchedPeers.length > 0) {
+      if (filter === 'watched' && watchedPeerNames.length > 0) {
         filteredPushes = response.data.filter((push) =>
-          push.peerName && watchedPeers.includes(push.peerName)
+          push.peerName && watchedPeerNames.includes(push.peerName)
         )
       }
 
@@ -89,6 +101,73 @@ export default function IndustryRadarPage() {
       setError(err instanceof Error ? err.message : '加载推送失败')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // 加载同业动态推送列表 (Story 8.6)
+  const fetchPeerMonitoringPushes = async () => {
+    if (!organizationId) {
+      setIsLoading(false)
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      const response = await getPeerMonitoringPushes(organizationId, {
+        watchedOnly: peerFilter === 'watched',
+        peerName: peerFilter === 'specific-peer' ? selectedPeer : undefined,
+        page: 1,
+        limit: 20,
+      })
+
+      setPeerPushes(response.data)
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch peer monitoring pushes:', err)
+      }
+      setError(err instanceof Error ? err.message : '加载同业动态失败')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 标记同业动态为已读 (Story 8.6)
+  const handleMarkPeerPushAsRead = async (pushId: string) => {
+    try {
+      await markPeerMonitoringPushAsRead(pushId)
+      setPeerPushes((prev) =>
+        prev.map((push) =>
+          push.id === pushId ? { ...push, isRead: true } : push
+        )
+      )
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to mark peer push as read:', err)
+      }
+    }
+  }
+
+  // 收藏/取消收藏同业动态 (Story 8.6)
+  const handleBookmarkPeerPush = async (pushId: string, bookmark: boolean) => {
+    try {
+      setActionError(null)
+      await bookmarkPeerMonitoringPush(pushId, bookmark)
+      setPeerPushes((prev) =>
+        prev.map((push) =>
+          push.id === pushId ? { ...push, isBookmarked: bookmark } : push
+        )
+      )
+      if (selectedPeerPush && selectedPeerPush.id === pushId) {
+        setSelectedPeerPush({ ...selectedPeerPush, isBookmarked: bookmark })
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : '收藏操作失败，请稍后重试'
+      setActionError(errorMessage)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to bookmark peer push:', err)
+      }
     }
   }
 
@@ -107,15 +186,33 @@ export default function IndustryRadarPage() {
         org = useOrganizationStore.getState().currentOrganization
       }
 
-      // 加载关注的同业列表和推送列表
-      await fetchWatchedPeers()
-      await fetchPushes()
+      // 加载关注的同业列表 (定义在useEffect内部避免依赖问题)
+      if (org?.id) {
+        try {
+          const response = await getWatchedPeers(org.id)
+          setWatchedPeers(response)
+          setWatchedPeerNames(response.map((peer) => peer.peerName))
+        } catch (err) {
+          // 不影响主流程，静默失败
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to fetch watched peers:', err)
+          }
+        }
+      }
+
+      // 根据当前标签加载对应数据
+      if (activeTab === 'industry') {
+        await fetchPushes()
+      } else {
+        await fetchPeerMonitoringPushes()
+      }
     }
 
     loadInitialData()
-  }, [filter])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, peerFilter, selectedPeer, activeTab])
 
-  // WebSocket监听新推送（过滤radarType === 'industry'）
+  // WebSocket监听新推送（过滤radarType === 'industry' 或 pushType === 'peer-monitoring'）
   useEffect(() => {
     if (!socket) return
 
@@ -135,8 +232,22 @@ export default function IndustryRadarPage() {
       }
     })
 
+    // 监听同业动态推送事件 (Story 8.6)
+    socket.on('radar:peer-monitoring:new', (newPush: PeerMonitoringPush) => {
+      setPeerPushes((prev) => [newPush, ...prev])
+
+      // 显示浏览器通知
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('同业动态新推送', {
+          body: `${newPush.peerName} - ${newPush.practiceDescription.substring(0, 50)}...`,
+          icon: '/radar-icon.png',
+        })
+      }
+    })
+
     return () => {
       socket.off('radar:push:new')
+      socket.off('radar:peer-monitoring:new')
     }
   }, [socket])
 
@@ -148,7 +259,11 @@ export default function IndustryRadarPage() {
   }, [])
 
   const handleRefresh = () => {
-    fetchPushes()
+    if (activeTab === 'industry') {
+      fetchPushes()
+    } else {
+      fetchPeerMonitoringPushes()
+    }
   }
 
   // 筛选器切换（状态持久化到URL）
@@ -156,6 +271,30 @@ export default function IndustryRadarPage() {
     setFilter(newFilter)
     const params = new URLSearchParams(searchParams.toString())
     params.set('filter', newFilter)
+    router.push(`/radar/industry?${params.toString()}`)
+  }
+
+  // 同业筛选器切换 (Story 8.6)
+  const handlePeerFilterChange = (newFilter: 'all' | 'watched' | 'specific-peer') => {
+    setPeerFilter(newFilter)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('peerFilter', newFilter)
+    router.push(`/radar/industry?${params.toString()}`)
+  }
+
+  // 特定同业选择 (Story 8.6)
+  const handlePeerChange = (peer: string) => {
+    setSelectedPeer(peer)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('selectedPeer', peer)
+    router.push(`/radar/industry?${params.toString()}`)
+  }
+
+  // 标签切换
+  const handleTabChange = (tab: 'industry' | 'peer-monitoring') => {
+    setActiveTab(tab)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', tab)
     router.push(`/radar/industry?${params.toString()}`)
   }
 
@@ -202,35 +341,76 @@ export default function IndustryRadarPage() {
         </Typography>
       </Box>
 
-      {/* 筛选器 */}
-      <Box sx={{ mb: 3 }}>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+      {/* 标签切换 */}
+      <Box sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ display: 'flex', gap: 2 }}>
           <Chip
-            label="全部"
-            color={filter === 'all' ? 'success' : 'default'}
-            onClick={() => handleFilterChange('all')}
-            sx={{ fontWeight: filter === 'all' ? 600 : 400, cursor: 'pointer' }}
+            label="行业动态"
+            color={activeTab === 'industry' ? 'success' : 'default'}
+            onClick={() => handleTabChange('industry')}
+            sx={{
+              fontWeight: activeTab === 'industry' ? 600 : 400,
+              cursor: 'pointer',
+              borderRadius: '4px 4px 0 0',
+              mb: -0.5,
+            }}
           />
           <Chip
-            label="我关注的同业"
-            color={filter === 'watched' ? 'success' : 'default'}
-            onClick={() => handleFilterChange('watched')}
-            sx={{ fontWeight: filter === 'watched' ? 600 : 400, cursor: 'pointer' }}
-          />
-          <Chip
-            label="同规模机构"
-            color={filter === 'same-scale' ? 'success' : 'default'}
-            onClick={() => handleFilterChange('same-scale')}
-            sx={{ fontWeight: filter === 'same-scale' ? 600 : 400, cursor: 'pointer' }}
-          />
-          <Chip
-            label="同地区机构"
-            color={filter === 'same-region' ? 'success' : 'default'}
-            onClick={() => handleFilterChange('same-region')}
-            sx={{ fontWeight: filter === 'same-region' ? 600 : 400, cursor: 'pointer' }}
+            label="同业动态"
+            color={activeTab === 'peer-monitoring' ? 'primary' : 'default'}
+            onClick={() => handleTabChange('peer-monitoring')}
+            sx={{
+              fontWeight: activeTab === 'peer-monitoring' ? 600 : 400,
+              cursor: 'pointer',
+              borderRadius: '4px 4px 0 0',
+              mb: -0.5,
+            }}
           />
         </Box>
       </Box>
+
+      {/* 行业动态筛选器 */}
+      {activeTab === 'industry' && (
+        <Box sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Chip
+              label="全部"
+              color={filter === 'all' ? 'success' : 'default'}
+              onClick={() => handleFilterChange('all')}
+              sx={{ fontWeight: filter === 'all' ? 600 : 400, cursor: 'pointer' }}
+            />
+            <Chip
+              label="我关注的同业"
+              color={filter === 'watched' ? 'success' : 'default'}
+              onClick={() => handleFilterChange('watched')}
+              sx={{ fontWeight: filter === 'watched' ? 600 : 400, cursor: 'pointer' }}
+            />
+            <Chip
+              label="同规模机构"
+              color={filter === 'same-scale' ? 'success' : 'default'}
+              onClick={() => handleFilterChange('same-scale')}
+              sx={{ fontWeight: filter === 'same-scale' ? 600 : 400, cursor: 'pointer' }}
+            />
+            <Chip
+              label="同地区机构"
+              color={filter === 'same-region' ? 'success' : 'default'}
+              onClick={() => handleFilterChange('same-region')}
+              sx={{ fontWeight: filter === 'same-region' ? 600 : 400, cursor: 'pointer' }}
+            />
+          </Box>
+        </Box>
+      )}
+
+      {/* 同业动态筛选器 (Story 8.6 - AC4) */}
+      {activeTab === 'peer-monitoring' && (
+        <PeerMonitoringFilter
+          filter={peerFilter}
+          selectedPeer={selectedPeer}
+          watchedPeers={watchedPeerNames}
+          onFilterChange={handlePeerFilterChange}
+          onPeerChange={handlePeerChange}
+        />
+      )}
 
       {/* 操作按钮和状态 */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, justifyContent: 'space-between', alignItems: 'center' }}>
@@ -246,7 +426,7 @@ export default function IndustryRadarPage() {
             </Typography>
           )}
           <Typography variant="caption" color="text.secondary">
-            共 {pushes.length} 条推送
+            共 {activeTab === 'industry' ? pushes.length : peerPushes.length} 条推送
           </Typography>
         </Box>
         <Button
@@ -266,22 +446,29 @@ export default function IndustryRadarPage() {
         </Alert>
       )}
 
+      {/* 操作错误提示 */}
+      {actionError && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setActionError(null)}>
+          {actionError}
+        </Alert>
+      )}
+
       {/* 加载状态 */}
       {isLoading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress color="success" />
+          <CircularProgress color={activeTab === 'industry' ? 'success' : 'primary'} />
         </Box>
       )}
 
-      {/* 推送列表 */}
-      {!isLoading && pushes.length > 0 && (
+      {/* 行业动态推送列表 */}
+      {!isLoading && activeTab === 'industry' && pushes.length > 0 && (
         <Grid container spacing={4} justifyContent="center">
           {pushes.map((push) => (
-            <Grid item xs={12} lg={6} xl={6} key={push.pushId}>
+            <Grid size={{ xs: 12, lg: 6, xl: 6 }} key={push.pushId}>
               <PushCard
                 push={push}
                 variant="industry"
-                isWatchedPeer={push.peerName ? watchedPeers.includes(push.peerName) : false}
+                isWatchedPeer={push.peerName ? watchedPeerNames.includes(push.peerName) : false}
                 onViewDetail={setSelectedPushId}
               />
             </Grid>
@@ -289,8 +476,24 @@ export default function IndustryRadarPage() {
         </Grid>
       )}
 
-      {/* 空状态 */}
-      {!isLoading && pushes.length === 0 && !error && (
+      {/* 同业动态推送列表 (Story 8.6 - AC1, AC2) */}
+      {!isLoading && activeTab === 'peer-monitoring' && peerPushes.length > 0 && (
+        <Grid container spacing={4} justifyContent="center">
+          {peerPushes.map((push) => (
+            <Grid size={{ xs: 12, lg: 6, xl: 6 }} key={push.id}>
+              <PeerMonitoringCard
+                push={push}
+                isWatchedPeer={watchedPeerNames.includes(push.peerName)}
+                onMarkAsRead={() => handleMarkPeerPushAsRead(push.id)}
+                onViewDetail={() => setSelectedPeerPush(push)}
+              />
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      {/* 行业动态空状态 */}
+      {!isLoading && activeTab === 'industry' && pushes.length === 0 && !error && (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <Typography variant="h6" color="text.secondary" gutterBottom>
             暂无行业雷达推送，请配置关注的同业机构
@@ -309,12 +512,46 @@ export default function IndustryRadarPage() {
         </Box>
       )}
 
-      {/* 详情弹窗 */}
+      {/* 同业动态空状态 (Story 8.6) */}
+      {!isLoading && activeTab === 'peer-monitoring' && peerPushes.length === 0 && !error && (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            暂无关注的同业动态，请先在设置中添加关注的同业机构
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            系统会实时监控您关注的同业机构动态并推送相关信息
+          </Typography>
+          <Button
+            component={Link}
+            href="/radar/settings"
+            variant="contained"
+            color="primary"
+          >
+            前往配置
+          </Button>
+        </Box>
+      )}
+
+      {/* 行业动态详情弹窗 */}
       {selectedPushId && (
         <PushDetailModal
           pushId={selectedPushId}
           isOpen={!!selectedPushId}
           onClose={() => setSelectedPushId(null)}
+        />
+      )}
+
+      {/* 同业动态详情弹窗 (Story 8.6 - AC3) */}
+      {selectedPeerPush && (
+        <PeerMonitoringDetailModal
+          open={!!selectedPeerPush}
+          push={{
+            ...selectedPeerPush,
+            isBookmarked: selectedPeerPush.isBookmarked || false,
+          }}
+          onClose={() => setSelectedPeerPush(null)}
+          onBookmark={() => handleBookmarkPeerPush(selectedPeerPush.id, !selectedPeerPush.isBookmarked)}
+          onMarkAsRead={() => handleMarkPeerPushAsRead(selectedPeerPush.id)}
         />
       )}
     </Container>

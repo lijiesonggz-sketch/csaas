@@ -28,6 +28,9 @@ import { OrganizationMember } from '../../database/entities/organization-member.
 // Story 3.1 entities
 import { RadarSource } from '../../database/entities/radar-source.entity'
 
+// Story 8.2 entities
+import { PeerCrawlerTask } from '../../database/entities/peer-crawler-task.entity'
+
 // Story 4.2 entities
 import { CompliancePlaybook } from '../../database/entities/compliance-playbook.entity'
 import { ComplianceChecklistSubmission } from '../../database/entities/compliance-checklist-submission.entity'
@@ -47,6 +50,7 @@ import { OrganizationsModule } from '../organizations/organizations.module'
 import { AITasksModule } from '../ai-tasks/ai-tasks.module'
 import { AIClientsModule } from '../ai-clients/ai-clients.module'
 import { AuditModule } from '../audit/audit.module'
+import { AdminModule } from '../admin/admin.module'
 // import { ProjectsModule } from '../projects/projects.module' // 暂时禁用以避免循环依赖
 
 // Story 2.1 providers
@@ -60,7 +64,13 @@ import { RadarPushController } from './controllers/radar-push.controller'
 
 // Story 3.1 providers
 import { RadarSourceService } from './services/radar-source.service'
+import { RadarSourceSchedulerService } from './services/radar-source-scheduler.service'
 import { RadarSourceController } from './controllers/radar-source.controller'
+
+// Story 8.2 providers
+import { PeerCrawlerService } from './services/peer-crawler.service'
+import { PeerCrawlerScheduler } from './services/peer-crawler-scheduler.service'
+import { PeerCrawlerTaskRepository } from '../../database/repositories/peer-crawler-task.repository'
 
 // Story 4.2 providers
 import { CompliancePlaybookService } from './services/compliance-playbook.service'
@@ -89,6 +99,24 @@ import { PushFeedback } from '../../database/entities/push-feedback.entity'
 
 // Story 7.4 providers
 import { CostOptimizationModule } from '../admin/cost-optimization/cost-optimization.module'
+
+// Story 8.3 providers
+import { PeerContentAnalyzerService } from './services/peer-content-analyzer.service'
+import { PeerContentAnalysisProcessor } from './processors/peer-content-analysis.processor'
+
+// Story 8.4 providers
+import { PeerRelevanceService } from './services/peer-relevance.service'
+import { PeerPushSchedulerService } from './services/peer-push-scheduler.service'
+import { PeerPushGenerationProcessor } from './processors/peer-push-generation.processor'
+import { PeerPushScheduler } from './schedulers/peer-push.scheduler'
+
+// Story 8.5 providers
+import { CrawlerHealthService } from './services/crawler-health.service'
+import { CrawlerHealthMonitorService } from './services/crawler-health-monitor.service'
+import { PeerCrawlerHealthController } from './controllers/peer-crawler-health.controller'
+
+// Story 7.1 entities (for Alert)
+import { Alert } from '../../database/entities/alert.entity'
 
 // Story 2.2 providers
 import { TagService } from './services/tag.service'
@@ -147,6 +175,12 @@ import { PushProcessor } from './processors/push.processor'
     // Story 3.1 entities
     TypeOrmModule.forFeature([RadarSource]),
 
+    // Story 8.2 entities
+    TypeOrmModule.forFeature([PeerCrawlerTask]),
+
+    // Story 8.3 entities
+    TypeOrmModule.forFeature([Alert]),
+
     // Story 4.2 entities
     TypeOrmModule.forFeature([CompliancePlaybook, ComplianceChecklistSubmission]),
 
@@ -198,6 +232,17 @@ import { PushProcessor } from './processors/push.processor'
           },
         },
       },
+      // Story 8.3: 同业推送生成队列
+      {
+        name: 'radar-push-generation',
+        defaultJobOptions: {
+          attempts: 2,
+          backoff: {
+            type: 'fixed',
+            delay: 60000, // 1分钟后重试
+          },
+        },
+      },
     ),
 
     OrganizationsModule,
@@ -205,6 +250,7 @@ import { PushProcessor } from './processors/push.processor'
     AIClientsModule, // Story 2.2 - AI分析服务依赖
     AuditModule, // Story 6.1B - 审计日志
     CostOptimizationModule, // Story 7.4 - AI成本追踪
+    AdminModule, // Story 8.5 - 告警服务依赖
     // ProjectsModule, // 暂时禁用以避免循环依赖
   ],
   controllers: [
@@ -216,6 +262,7 @@ import { PushProcessor } from './processors/push.processor'
     WatchedPeerController,
     PushPreferenceController,
     PushFeedbackController,
+    PeerCrawlerHealthController,
   ],
   providers: [
     // Story 1.3 providers
@@ -243,6 +290,22 @@ import { PushProcessor } from './processors/push.processor'
 
     // Story 3.1 providers
     RadarSourceService,
+    RadarSourceSchedulerService,
+
+    // Story 8.2 providers
+    PeerCrawlerService,
+    PeerCrawlerScheduler,
+    PeerCrawlerTaskRepository,
+
+    // Story 8.3 providers
+    PeerContentAnalyzerService,
+    PeerContentAnalysisProcessor,
+
+    // Story 8.4 providers
+    PeerRelevanceService,
+    PeerPushSchedulerService,
+    PeerPushGenerationProcessor,
+    PeerPushScheduler,
 
     // Story 4.2 providers
     CompliancePlaybookService,
@@ -268,6 +331,10 @@ import { PushProcessor } from './processors/push.processor'
     // Story 7.2 providers
     PushFeedbackService,
     PushFeedbackRepository,
+
+    // Story 8.5 providers
+    CrawlerHealthService,
+    CrawlerHealthMonitorService,
   ],
   exports: [
     // Story 1.3 exports

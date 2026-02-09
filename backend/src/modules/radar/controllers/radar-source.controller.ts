@@ -59,6 +59,49 @@ export class RadarSourceController {
   }
 
   /**
+   * 获取按类别分组的信息源统计
+   * GET /api/admin/radar-sources/stats/by-category
+   *
+   * 注意：此路由必须在 :id 路由之前定义，以避免 'stats' 被解析为 ID
+   */
+  @Get('stats/by-category')
+  async getStatsByCategory() {
+    const allSources = await this.radarSourceService.findAll()
+
+    const stats = {
+      tech: {
+        total: 0,
+        active: 0,
+        inactive: 0,
+      },
+      industry: {
+        total: 0,
+        active: 0,
+        inactive: 0,
+      },
+      compliance: {
+        total: 0,
+        active: 0,
+        inactive: 0,
+      },
+    }
+
+    allSources.forEach((source) => {
+      stats[source.category].total++
+      if (source.isActive) {
+        stats[source.category].active++
+      } else {
+        stats[source.category].inactive++
+      }
+    })
+
+    return {
+      success: true,
+      data: stats,
+    }
+  }
+
+  /**
    * 获取单个信息源
    * GET /api/admin/radar-sources/:id
    *
@@ -149,6 +192,7 @@ export class RadarSourceController {
    * POST /api/admin/radar-sources/:id/test-crawl
    *
    * 触发一次性爬虫测试，验证信息源配置是否正确
+   * Story 8.1: 同业采集源管理
    *
    * @param id - 信息源 ID
    */
@@ -156,78 +200,29 @@ export class RadarSourceController {
   async testCrawl(@Param('id') id: string) {
     const source = await this.radarSourceService.findById(id)
 
-    try {
-      // 调用爬虫服务进行测试爬取
-      const result = await this.radarSourceService.testCrawl(source)
-
-      return {
-        success: true,
-        data: {
-          sourceId: source.id,
-          source: source.source,
-          url: source.url,
-          status: 'success',
-          message: 'Test crawl completed successfully',
-          result: {
-            contentId: result.id,
-            title: result.title,
-            contentLength: result.fullContent?.length || 0,
-            url: result.url,
-          },
-        },
-      }
-    } catch (error) {
-      return {
-        success: false,
-        data: {
-          sourceId: source.id,
-          source: source.source,
-          url: source.url,
-          status: 'failed',
-          message: error.message || 'Test crawl failed',
-        },
-      }
-    }
-  }
-
-  /**
-   * 获取按类别分组的信息源统计
-   * GET /api/admin/radar-sources/stats/by-category
-   */
-  @Get('stats/by-category')
-  async getStatsByCategory() {
-    const allSources = await this.radarSourceService.findAll()
-
-    const stats = {
-      tech: {
-        total: 0,
-        active: 0,
-        inactive: 0,
-      },
-      industry: {
-        total: 0,
-        active: 0,
-        inactive: 0,
-      },
-      compliance: {
-        total: 0,
-        active: 0,
-        inactive: 0,
-      },
-    }
-
-    allSources.forEach((source) => {
-      stats[source.category].total++
-      if (source.isActive) {
-        stats[source.category].active++
-      } else {
-        stats[source.category].inactive++
-      }
-    })
+    // 调用爬虫服务进行测试爬取
+    const result = await this.radarSourceService.testCrawl(source)
 
     return {
-      success: true,
-      data: stats,
+      success: result.success,
+      data: {
+        sourceId: source.id,
+        source: source.source,
+        url: source.url,
+        status: result.success ? 'success' : 'failed',
+        message: result.success ? 'Test crawl completed successfully' : result.error,
+        result: result.success
+          ? {
+              title: result.title,
+              summary: result.summary,
+              contentPreview: result.contentPreview,
+              publishDate: result.publishDate,
+              author: result.author,
+              duration: result.duration,
+            }
+          : null,
+        error: result.error,
+      },
     }
   }
 }

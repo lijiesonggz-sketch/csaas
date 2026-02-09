@@ -53,6 +53,160 @@ export class CrawlerService {
   }
 
   /**
+   * 爬取网站内容（预览模式，不保存到数据库）
+   * Story 8.1: 同业采集源管理 - 测试采集功能
+   *
+   * @param source - 信息源名称
+   * @param category - 雷达类别
+   * @param url - 目标URL
+   * @param options - 可选配置，包含 crawlConfig 选择器配置
+   * @returns 预览数据（不保存）
+   */
+  async crawlWebsitePreview(
+    source: string,
+    category: 'tech' | 'industry' | 'compliance',
+    url: string,
+    options?: {
+      contentType?: string
+      peerName?: string
+      crawlConfig?: {
+        selector?: string
+        listSelector?: string
+        titleSelector?: string
+        contentSelector?: string
+        dateSelector?: string
+        authorSelector?: string
+      }
+    },
+  ): Promise<{
+    title: string
+    summary: string | null
+    fullContent: string
+    url: string
+    publishDate: Date | null
+    author: string | null
+  }> {
+    this.logger.log(`Starting preview crawl: ${source} - ${url}`)
+
+    try {
+      let crawledData: any = null
+
+      const crawler = new CheerioCrawler({
+        maxRequestRetries: 3,
+        requestHandlerTimeoutSecs: 60,
+        requestHandler: async ({ $, request }) => {
+          // 如果有自定义选择器配置，使用自定义选择器
+          if (options?.crawlConfig) {
+            crawledData = this.parseArticleWithCustomSelectors($, options.crawlConfig)
+          } else {
+            crawledData = this.parseArticleFromCheerio($)
+          }
+          crawledData.url = request.url
+        },
+        preNavigationHooks: [
+          async ({ request }) => {
+            request.headers = {
+              ...request.headers,
+              'User-Agent': this.getRandomUserAgent(),
+              Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+              'Accept-Encoding': 'gzip, deflate, br',
+              Connection: 'keep-alive',
+              'Upgrade-Insecure-Requests': '1',
+            }
+          },
+        ],
+      })
+
+      await crawler.run([url])
+
+      if (!crawledData) {
+        throw new Error('Failed to extract content from page')
+      }
+
+      this.logger.log(`Preview crawl successful: ${source} - ${url}`)
+      return crawledData
+    } catch (error) {
+      this.logger.error(`Preview crawl failed: ${source} - ${url}`, error.stack)
+      throw error
+    }
+  }
+
+  /**
+   * 使用自定义选择器解析文章
+   * Story 8.1: 同业采集源管理
+   */
+  private parseArticleWithCustomSelectors(
+    $: cheerio.CheerioAPI,
+    config: {
+      selector?: string
+      titleSelector?: string
+      contentSelector?: string
+      dateSelector?: string
+      authorSelector?: string
+    },
+  ): {
+    title: string
+    summary: string | null
+    fullContent: string
+    publishDate: Date | null
+    author: string | null
+  } {
+    // 使用自定义选择器或回退到默认选择器
+    const title = config.titleSelector
+      ? $(config.titleSelector).first().text().trim()
+      : $('h1').first().text().trim() ||
+        $('title').text().trim() ||
+        $('meta[property="og:title"]').attr('content') ||
+        'Untitled'
+
+    const fullContent = config.contentSelector
+      ? $(config.contentSelector).text().trim()
+      : $('article').text().trim() ||
+        $('.article-content').text().trim() ||
+        $('.post-content').text().trim() ||
+        $('.content').text().trim() ||
+        $('main').text().trim() ||
+        ''
+
+    // 提取摘要
+    const summary =
+      $('meta[name="description"]').attr('content') ||
+      $('meta[property="og:description"]').attr('content') ||
+      null
+
+    // 提取发布日期
+    let publishDate: Date | null = null
+    const timeElement = config.dateSelector
+      ? $(config.dateSelector).first().text().trim()
+      : $('time').attr('datetime') ||
+        $('meta[property="article:published_time"]').attr('content') ||
+        null
+
+    if (timeElement) {
+      const parsed = new Date(timeElement)
+      if (!isNaN(parsed.getTime())) {
+        publishDate = parsed
+      }
+    }
+
+    // 提取作者
+    const author = config.authorSelector
+      ? $(config.authorSelector).first().text().trim()
+      : $('.author').first().text().trim() ||
+        $('meta[name="author"]').attr('content') ||
+        null
+
+    return {
+      title,
+      summary,
+      fullContent: fullContent.replace(/\s+/g, ' ').trim(),
+      publishDate,
+      author,
+    }
+  }
+
+  /**
    * 爬取网站内容
    */
   async crawlWebsite(

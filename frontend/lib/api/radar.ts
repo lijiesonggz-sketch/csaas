@@ -758,3 +758,102 @@ export async function markPushHistoryAsRead(pushId: string): Promise<void> {
   })
 }
 
+/**
+ * 同业动态API方法 (Story 8.6)
+ */
+
+/**
+ * 同业动态推送数据结构
+ */
+export interface PeerMonitoringPush {
+  id: string
+  pushType: 'peer-monitoring' | 'industry' | 'tech' | 'compliance'
+  peerName: string
+  peerLogo?: string
+  practiceDescription: string
+  estimatedCost: string
+  implementationPeriod: string
+  technicalEffect: string
+  relevanceScore: number
+  priorityLevel: 'high' | 'medium' | 'low'
+  sentAt: string
+  isRead: boolean
+  source?: string
+  publishDate?: string
+  tags?: string[]
+  peerBackground?: string
+  learnablePoints?: string[]
+  isBookmarked?: boolean
+}
+
+/**
+ * 获取同业动态推送列表 (Story 8.6 - AC1, AC4)
+ *
+ * @param organizationId - 组织ID
+ * @param filters - 筛选条件
+ * @returns 同业动态推送列表
+ */
+export async function getPeerMonitoringPushes(
+  organizationId: string,
+  filters?: {
+    watchedOnly?: boolean
+    peerName?: string
+    page?: number
+    limit?: number
+  }
+): Promise<{ data: PeerMonitoringPush[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> {
+  if (!organizationId) {
+    throw new Error('组织ID不能为空')
+  }
+
+  const params = new URLSearchParams()
+  params.append('organizationId', organizationId)
+  params.append('pushType', 'peer-monitoring')
+
+  if (filters?.watchedOnly) params.append('watchedOnly', 'true')
+  if (filters?.peerName) params.append('peerName', filters.peerName)
+  if (filters?.page) params.append('page', String(filters.page))
+  if (filters?.limit) params.append('limit', String(filters.limit))
+
+  const data = await apiFetch(`/api/radar/pushes?${params.toString()}`)
+
+  console.log('[getPeerMonitoringPushes] API返回数据:', data)
+
+  return data
+}
+
+/**
+ * 标记同业动态推送为已读 (Story 8.6)
+ *
+ * @param pushId - 推送ID
+ */
+export async function markPeerMonitoringPushAsRead(pushId: string): Promise<void> {
+  if (!pushId) {
+    throw new Error('推送ID不能为空')
+  }
+
+  await apiFetch(`/api/radar/pushes/${pushId}/read`, {
+    method: 'POST',
+  })
+}
+
+/**
+ * 收藏/取消收藏同业动态推送 (Story 8.6)
+ *
+ * @param pushId - 推送ID
+ * @param bookmark - 是否收藏
+ */
+export async function bookmarkPeerMonitoringPush(pushId: string, bookmark: boolean): Promise<void> {
+  if (!pushId) {
+    throw new Error('推送ID不能为空')
+  }
+
+  await apiFetch(`/api/radar/pushes/${pushId}/bookmark`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ bookmark }),
+  })
+}
+

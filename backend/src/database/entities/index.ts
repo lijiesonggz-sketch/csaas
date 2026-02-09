@@ -50,6 +50,9 @@ export { CustomerActivityLog } from './customer-activity-log.entity'
 export { CustomerIntervention } from './customer-intervention.entity'
 export { AIUsageLog, AIUsageTaskType } from './ai-usage-log.entity'
 
+// Epic 8: 同业情报雷达
+export { PeerCrawlerTask } from './peer-crawler-task.entity'
+
 // 保留旧的实体（向后兼容，待迁移后删除）
 export { WatchedTopic } from './watched-topic.entity'
 export { WatchedPeer } from './watched-peer.entity'

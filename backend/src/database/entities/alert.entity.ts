@@ -34,7 +34,8 @@ export class Alert {
     | 'ai_cost_exceeded'
     | 'customer_churn_risk'
     | 'push_failure_high'
-    | 'system_downtime';
+    | 'system_downtime'
+    | 'peer_content_review'; // Story 8.3: 低置信度同业内容审核告警
 
   @Column({
     type: 'varchar',

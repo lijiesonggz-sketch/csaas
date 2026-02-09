@@ -39,6 +39,18 @@ export class CreateRadarSourceDto {
     },
   )
   crawlSchedule?: string
+
+  @IsOptional()
+  crawlConfig?: {
+    selector?: string
+    listSelector?: string
+    titleSelector?: string
+    contentSelector?: string
+    dateSelector?: string
+    authorSelector?: string
+    paginationPattern?: string
+    maxPages?: number
+  }
 }
 
 /**
@@ -80,6 +92,18 @@ export class UpdateRadarSourceDto {
     },
   )
   crawlSchedule?: string
+
+  @IsOptional()
+  crawlConfig?: {
+    selector?: string
+    listSelector?: string
+    titleSelector?: string
+    contentSelector?: string
+    dateSelector?: string
+    authorSelector?: string
+    paginationPattern?: string
+    maxPages?: number
+  }
 }
 
 /**

@@ -112,6 +112,23 @@ export class RadarSource {
   @Column({ type: 'text', nullable: true })
   lastCrawlError?: string
 
+  /**
+   * 爬虫配置（JSONB）
+   * 用于同业采集源的选择器配置
+   * Story 8.1: 同业采集源管理
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  crawlConfig?: {
+    selector?: string
+    listSelector?: string
+    titleSelector?: string
+    contentSelector?: string
+    dateSelector?: string
+    authorSelector?: string
+    paginationPattern?: string
+    maxPages?: number
+  }
+
   @CreateDateColumn()
   createdAt: Date
 

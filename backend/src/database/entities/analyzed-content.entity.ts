@@ -210,4 +210,111 @@ export class AnalyzedContent {
 
   @CreateDateColumn()
   createdAt: Date
+
+  // ==================== Story 8.3: 同业内容三模型AI分析新增字段 ====================
+
+  /**
+   * 关联的AI任务ID（可选）
+   */
+  @Column({ type: 'uuid', nullable: true })
+  taskId?: string
+
+  /**
+   * 同业机构名称（Story 8.3）
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  peerName?: string
+
+  /**
+   * 关键技术（Story 8.3）
+   */
+  @Column({ type: 'simple-array', nullable: true })
+  keyTechnologies?: string[]
+
+  /**
+   * 适用场景（Story 8.3）
+   */
+  @Column({ type: 'text', nullable: true })
+  applicableScenarios?: string
+
+  /**
+   * 置信度等级（Story 8.3）
+   * - high: 3模型成功且 overallScore >= 0.85
+   * - medium: 3模型成功且 overallScore >= 0.75，或2模型成功且 overallScore >= 0.75
+   * - low: 单模型成功，或 overallScore < 0.75
+   */
+  @Column({
+    type: 'enum',
+    enum: ['high', 'medium', 'low'],
+    nullable: true,
+  })
+  confidence?: 'high' | 'medium' | 'low'
+
+  /**
+   * 整体相似度分数（Story 8.3）
+   * 三层验证的加权总分
+   */
+  @Column({ type: 'float', nullable: true })
+  overallSimilarity?: number
+
+  /**
+   * 质量分数详情（Story 8.3）
+   * {
+   *   structural: number  // 结构一致性分数
+   *   semantic: number    // 语义等价性分数
+   *   detail: number      // 细节一致性分数
+   * }
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  qualityScores?: {
+    structural: number
+    semantic: number
+    detail: number
+  }
+
+  /**
+   * 三模型原始结果（Story 8.3）
+   * {
+   *   gpt4?: Record<string, any>
+   *   claude?: Record<string, any>
+   *   tongyi?: Record<string, any>
+   * }
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  modelResults?: {
+    gpt4?: Record<string, any>
+    claude?: Record<string, any>
+    tongyi?: Record<string, any>
+  }
+
+  /**
+   * 最终选择的模型（Story 8.3）
+   * 优先级：GPT4 > Claude > Tongyi
+   */
+  @Column({
+    type: 'enum',
+    enum: ['gpt4', 'claude', 'tongyi'],
+    nullable: true,
+  })
+  selectedModel?: 'gpt4' | 'claude' | 'tongyi'
+
+  /**
+   * 审核状态（Story 8.3）
+   * - pending: 待审核（低置信度内容）
+   * - approved: 已批准
+   * - rejected: 已拒绝
+   */
+  @Column({
+    type: 'enum',
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending',
+  })
+  reviewStatus?: 'pending' | 'approved' | 'rejected'
+
+  /**
+   * 模型间差异点（Story 8.3）
+   * 低置信度时记录分歧点
+   */
+  @Column({ type: 'simple-array', nullable: true })
+  discrepancies?: string[]
 }

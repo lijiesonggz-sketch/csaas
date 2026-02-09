@@ -271,4 +271,15 @@ export class TasksGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // 发送到组织特定的房间
     this.server.to(`org:${event.organizationId}`).emit('radar:push:new', event)
   }
+
+  /**
+   * 检查组织是否有在线用户
+   *
+   * @param organizationId 组织ID
+   * @returns 是否有在线用户
+   */
+  hasOnlineUsers(organizationId: string): boolean {
+    const subscribers = this.organizationSubscriptions.get(organizationId)
+    return subscribers !== undefined && subscribers.size > 0
+  }
 }

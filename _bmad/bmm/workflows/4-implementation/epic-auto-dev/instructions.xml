@@ -65,22 +65,15 @@ Will process all stories in SEQUENCE (not parallel) until EPIC is complete.
 - Done: {{done_count}}
 {{/each}}
 
-**Which EPIC should I automate?**
+**AUTO-SELECT: Processing all in-progress EPICs sequentially**
       </output>
 
-      <ask>Enter EPIC number (e.g., "3" for epic-3) or "all" to process all EPICs sequentially:</ask>
-
-      <check if="user enters specific EPIC number">
-        <action>Set {{selected_epic}} = "epic-{{user_input}}"</action>
-        <action>Validate EPIC exists and is in-progress</action>
-        <action if="EPIC not found or not in-progress">HALT with error message</action>
-      </check>
-
-      <check if="user enters 'all'">
-        <action>Set {{process_all_epics}} = true</action>
-        <action>Set {{selected_epic}} = first in-progress EPIC with pending stories</action>
-        <output>🔄 Will process all in-progress EPICs sequentially</output>
-      </check>
+      <!-- FULLY AUTOMATED: Auto-select "all" mode -->
+      <action>Set {{process_all_epics}} = true</action>
+      <action>Set {{selected_epic}} = first in-progress EPIC with pending stories</action>
+      <action>Set {{epic_key}} = {{selected_epic}}</action>
+      <action>Extract {{epic_number}} from {{epic_key}}</action>
+      <output>🔄 Auto-selected EPIC {{epic_number}} (first in-progress with pending stories)</output>
     </check>
 
     <action>Store {{epic_key}} = {{selected_epic}}</action>
@@ -379,31 +372,62 @@ Invoking code-review workflow with FULL auto-fix via subagent...
 This will find 3-10 issues and automatically fix ALL problems.
         </output>
 
-        <invoke-task subagent_type="general-purpose" description="Code review with auto-fix for {{current_story_key}}">
+        <invoke-task subagent_type="general-purpose" description="Code review with STRICT execution for {{current_story_key}}">
           <prompt>
-Execute code-review with FULL auto-fix for {{current_story_key}}.
+**MANDATORY: Execute code-review with STRICT adherence to instructions.xml**
+
+You MUST follow these steps EXACTLY - DO NOT SKIP ANY:
+
+## Step 1: Load Required Files (MANDATORY)
+1. Read COMPLETE story file: {story_dir}/{{current_story_key}}.md
+2. Read COMPLETE instructions: {project-root}/_bmad/bmm/workflows/4-implementation/code-review/instructions.xml
+3. Run git commands to find changed files:
+   - `git status --porcelain`
+   - `git diff --name-only`
+   - `git diff --cached --name-only`
+
+## Step 2: Execute Each Step from instructions.xml (MANDATORY)
+FOR EACH STEP in instructions.xml:
+- Execute the step EXACTLY as written
+- Read ALL files mentioned
+- Do NOT simplify or skip
+
+## Step 3: Detailed Code Review (CRITICAL - DO NOT SKIP)
+FOR EACH file in story File List:
+- Read COMPLETE file content
+- Check line-by-line for bugs
+- Verify AC implementation with specific line numbers
+- Check: Security, Performance, Error Handling, Code Quality
+
+## Step 4: Find Issues (MANDATORY - MINIMUM 3-10 ISSUES)
+**YOU MUST FIND MINIMUM 3-10 SPECIFIC ISSUES**
+For each issue:
+- Severity: HIGH/MEDIUM/LOW
+- File: exact path
+- Line: specific line number
+- Description: specific problem
+- Evidence: code snippet
+
+## Step 5: Fix Issues (AUTO-FIX)
+- Fix ALL HIGH and MEDIUM issues
+- Run ALL tests after fixes
+- Re-review to confirm fixes
+
+## Step 6: Return Result
+- SUCCESS: All issues found and fixed, tests passing
+- ISSUES_REMAIN: Could not fix all issues (will retry if iterations remain)
+- TESTS_FAILED: Tests failing after fixes (will retry if iterations remain)
+- FAILURE: Critical error
+
+**ABSOLUTELY DO NOT**:
+- Just run tests and report results
+- Skip reading files
+- Say "looks good" without finding issues
+- Simplify the review process
+- Skip any step from instructions.xml
 
 **CRITICAL: This is iteration {{code_review_iteration}} of {{max_code_review_iterations}}**
 **CRITICAL: Fix ALL issues - this may be the last iteration**
-
-1. Load the story file: {story_dir}/{{current_story_key}}.md
-2. Load and execute: {workflow_paths:code_review}
-3. Perform adversarial code review finding 3-10 issues
-4. **AUTO-FIX ALL ISSUES**:
-   - HIGH priority: MUST fix
-   - MEDIUM priority: MUST fix
-   - LOW priority: Fix if straightforward
-5. After fixing ALL issues:
-   a. Re-run ALL tests
-   b. Verify ALL tests pass
-   c. Re-review code to confirm fixes
-6. If new issues found during re-review, fix them too
-7. Do NOT stop due to token/time limits
-8. Return result:
-   - SUCCESS: All issues found and fixed, tests passing
-   - ISSUES_REMAIN: Could not fix all issues (will retry if iterations remain)
-   - TESTS_FAILED: Tests failing after fixes (will retry if iterations remain)
-   - FAILURE: Critical error
           </prompt>
         </invoke-task>
 

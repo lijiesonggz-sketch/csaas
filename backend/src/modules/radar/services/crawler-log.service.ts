@@ -92,4 +92,76 @@ export class CrawlerLogService {
     const successCount = logs.filter((log) => log.status === 'success').length
     return (successCount / logs.length) * 100
   }
+
+  /**
+   * 获取最近的连续失败次数
+   * Story 8.1: 同业采集源管理 - 自动禁用逻辑
+   *
+   * @param source - 信息源名称
+   * @returns 连续失败次数
+   */
+  async getConsecutiveFailures(source: string): Promise<number> {
+    const logs = await this.crawlerLogRepository.find({
+      where: { source },
+      order: { crawledAt: 'DESC' },
+      take: 10, // 检查最近10条记录
+    })
+
+    let consecutiveFailures = 0
+    for (const log of logs) {
+      if (log.status === 'failed') {
+        consecutiveFailures++
+      } else {
+        // 遇到成功记录，停止计数
+        break
+      }
+    }
+
+    return consecutiveFailures
+  }
+
+  /**
+   * 获取信息源统计信息
+   * Story 8.1: 同业采集源管理 - 显示成功率
+   *
+   * @param source - 信息源名称
+   * @returns 统计信息
+   */
+  async getSourceStats(source: string): Promise<{
+    totalRuns: number
+    successCount: number
+    failureCount: number
+    successRate: number
+    consecutiveFailures: number
+    lastCrawledAt: Date | null
+  }> {
+    const logs = await this.crawlerLogRepository.find({
+      where: { source },
+      order: { crawledAt: 'DESC' },
+    })
+
+    const totalRuns = logs.length
+    const successCount = logs.filter((log) => log.status === 'success').length
+    const failureCount = totalRuns - successCount
+    const successRate = totalRuns > 0 ? (successCount / totalRuns) * 100 : 0
+
+    // 计算连续失败次数
+    let consecutiveFailures = 0
+    for (const log of logs) {
+      if (log.status === 'failed') {
+        consecutiveFailures++
+      } else {
+        break
+      }
+    }
+
+    return {
+      totalRuns,
+      successCount,
+      failureCount,
+      successRate,
+      consecutiveFailures,
+      lastCrawledAt: logs.length > 0 ? logs[0].crawledAt : null,
+    }
+  }
 }

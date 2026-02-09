@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="typescript_check" desc="Universal TypeScript type checking with multi-layer recovery and auto-fix">
+  <objective>Run TypeScript compiler type check for ALL discovered tsconfig.json files with intelligent recovery and auto-fix attempts</objective>
+
+  <critical>Type errors BLOCK task completion - this protocol attempts multiple recovery strategies before reporting failure</critical>
+
+  <step n="1" title="Discover all TypeScript configurations">
+    <action>Search for ALL tsconfig.json files: find {project-root} -name "tsconfig.json" -type f 2>/dev/null</action>
+    <action>Store found configs in {{tsconfig_list}}</action>
+    <action>Initialize {{results}} = {passed: [], errors: [], failures: []}</action>
+
+    <check if="{{tsconfig_list}} is empty">
+      <action>ℹ️ No TypeScript configuration found in project</action>
+      <action>Return: NO_TYPESCRIPT</action>
+    </check>
+  </step>
+
+  <step n="2" title="Type check each config with multi-layer recovery">
+    <for-each item="tsconfig_path" in="{{tsconfig_list}}">
+      <action>Extract directory: {{config_dir}} = dirname({{tsconfig_path}})</action>
+      <action>Extract name: {{config_name}} = basename({{config_dir}})</action>
+      <action>Initialize {{retry_count}} = 0</action>
+      <action>Max retries: 3</action>
+
+      <anchor id="retry_loop" />
+
+      <!-- LAYER 1: Standard execution -->
+      <check if="{{retry_count}} == 0">
+        <action>Attempt 1: Standard type check from config directory</action>
+        <action>Execute: cd {{config_dir}} && npx tsc --noEmit 2>&1</action>
+        <action>Store: {{tsc_output}}, {{tsc_exit_code}}</action>
+      </check>
+
+      <!-- LAYER 2: Explicit config path -->
+      <check if="{{retry_count}} == 1">
+        <action>Attempt 2: Using explicit config path</action>
+        <action>Execute: npx tsc -p {{tsconfig_path}} --noEmit 2>&1</action>
+        <action>Store: {{tsc_output}}, {{tsc_exit_code}}</action>
+      </check>
+
+      <!-- LAYER 3: Dependency recovery -->
+      <check if="{{retry_count}} == 2">
+        <action>Attempt 3: Dependency and cache recovery</action>
+        <action>Check if {{config_dir}}/node_modules exists</action>
+
+        <check if="node_modules missing">
+          <action>Install dependencies: cd {{config_dir}} && npm install 2>&1 | tail -20</action>
+        </check>
+
+        <check if="node_modules exists">
+          <action>Clear TypeScript cache: rm -rf {{config_dir}}/node_modules/.cache 2>/dev/null</action>
+          <action>Clear tsbuildinfo: rm -f {{config_dir}}/*.tsbuildinfo 2>/dev/null</action>
+        </check>
+
+        <action>Re-run: cd {{config_dir}} && npx tsc --noEmit 2>&1</action>
+        <action>Store: {{tsc_output}}, {{tsc_exit_code}}</action>
+      </check>
+
+      <!-- DIAGNOSE OUTPUT -->
+      <check if="{{tsc_output}} contains 'Version' AND 'COMMON COMMANDS'">
+        <action>⚠️ Working directory issue detected (showing help text)</action>
+        <action>{{retry_count}}++</action>
+
+        <check if="{{retry_count}} < 3">
+          <action>Retrying with alternative method...</action>
+          <goto anchor="retry_loop" />
+        </check>
+
+        <check if="{{retry_count}} >= 3">
+          <action>❌ All recovery attempts failed for {{config_name}}</action>
+          <action>Add to {{results.failures}}: {config: {{config_name}}, path: {{tsconfig_path}}, reason: working_directory_issue, attempts: 3}</action>
+        </check>
+      </check>
+
+      <!-- CHECK ACTUAL RESULTS -->
+      <check if="{{tsc_exit_code}} == 0">
+        <action>✅ Type check passed for {{config_name}}</action>
+        <action>Add to {{results.passed}}: {{config_name}}</action>
+      </check>
+
+      <check if="{{tsc_exit_code}} != 0 AND contains actual type errors">
+        <action>📝 Type errors found in {{config_name}}</action>
+        <action>Attempt AUTO-FIX:</action>
+
+        <!-- AUTO-FIX 1: Missing type declarations -->
+        <check if="errors contain 'Could not find a declaration file'">
+          <action>Installing missing @types packages...</action>
+          <action>cd {{config_dir}} && npm install --save-dev @types/node @types/jest @types/express 2>&1 | tail -10</action>
+          <action>Re-run type check</action>
+
+          <check if="now passing">
+            <action>✅ Fixed by installing type declarations</action>
+            <action>Add to {{results.passed}}: {{config_name}} (auto-fixed)</action>
+          </check>
+          <check if="still failing">
+            <action>Add to {{results.errors}}: {config: {{config_name}}, errors: {{tsc_output}}, fix_attempted: types_installed}</action>
+          </check>
+        </check>
+
+        <!-- AUTO-FIX 2: Missing imports -->
+        <check if="errors contain 'Cannot find module'">
+          <action>Extract missing module names from errors</action>
+          <action>Check if modules are in package.json dependencies</action>
+          <action>If missing, install: npm install --save <module> 2>&1 | tail -10</action>
+          <action>Re-run type check</action>
+
+          <check if="now passing">
+            <action>✅ Fixed by installing missing dependencies</action>
+            <action>Add to {{results.passed}}: {{config_name}} (auto-fixed)</action>
+          </check>
+          <check if="still failing">
+            <action>Add to {{results.errors}}: {config: {{config_name}}, errors: {{tsc_output}}, fix_attempted: deps_installed}</action>
+          </check>
+        </check>
+
+        <!-- Cannot auto-fix -->
+        <check if="errors are not auto-fixable">
+          <action>Add to {{results.errors}}: {config: {{config_name}}, errors: {{tsc_output}}, fix_attempted: none}</action>
+        </check>
+      </check>
+    </for-each>
+  </step>
+
+  <step n="3" title="Report and return results">
+    <action>Generate summary:</action>
+    <action>  - Passed: {{results.passed.length}}</action>
+    <action>  - Errors (need manual fix): {{results.errors.length}}</action>
+    <action>  - Failures (could not run): {{results.failures.length}}</action>
+
+    <check if="{{results.errors.length}} > 0 OR {{results.failures.length}} > 0">
+      <action>⚠️ TypeScript issues found that require attention</action>
+      <action>These will BLOCK task completion in Step 8</action>
+    </check>
+
+    <output>
+🔍 **TypeScript Type Check Results**
+
+Configs checked: {{tsconfig_list.length}}
+✅ Passed: {{results.passed.length}}
+❌ Errors (need fix): {{results.errors.length}}
+⚠️  Failures (could not run): {{results.failures.length}}
+
+{{#if results.errors.length > 0}}
+**Configs with type errors (BLOCKING):**
+{{#each results.errors}}
+- {{config}}: {{error_count}} errors{{#if fix_attempted}} (tried: {{fix_attempted}}){{/if}}
+{{/each}}
+{{/if}}
+
+{{#if results.failures.length > 0}}
+**Configs that could not be checked:**
+{{#each results.failures}}
+- {{config}}: {{reason}} ({{attempts}} attempts)
+{{/each}}
+{{/if}}
+    </output>
+
+    <action>Return: {{results}}</action>
+  </step>
+
+  <usage-example>
+    <invoke-protocol name="typescript_check">
+      <param name="project_root">{project-root}</param>
+      <param name="auto_fix">true</param>
+    </invoke-protocol>
+  </usage-example>
+</protocol>

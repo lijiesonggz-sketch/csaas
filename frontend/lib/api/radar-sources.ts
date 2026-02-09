@@ -9,6 +9,21 @@
 import { apiFetch } from '../utils/api'
 
 /**
+ * CrawlConfig 选择器配置
+ * Story 8.1: 同业采集源管理
+ */
+export interface CrawlConfig {
+  selector?: string
+  listSelector?: string
+  titleSelector?: string
+  contentSelector?: string
+  dateSelector?: string
+  authorSelector?: string
+  paginationPattern?: string
+  maxPages?: number
+}
+
+/**
  * 雷达信息源数据结构
  */
 export interface RadarSource {
@@ -23,6 +38,7 @@ export interface RadarSource {
   lastCrawledAt?: string
   lastCrawlStatus: 'pending' | 'success' | 'failed'
   lastCrawlError?: string
+  crawlConfig?: CrawlConfig
   createdAt: string
   updatedAt: string
 }
@@ -38,6 +54,7 @@ export interface CreateRadarSourceData {
   peerName?: string
   isActive?: boolean
   crawlSchedule?: string
+  crawlConfig?: CrawlConfig
 }
 
 /**
@@ -50,6 +67,7 @@ export interface UpdateRadarSourceData {
   peerName?: string
   isActive?: boolean
   crawlSchedule?: string
+  crawlConfig?: CrawlConfig
 }
 
 /**

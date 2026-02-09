@@ -14,3 +14,10 @@ user_name: "27937"
 communication_language: Chinese
 document_output_language: Chinese
 output_folder: "{project-root}/_bmad-output"
+
+# Automation Configuration
+# Workflows will auto-detect project structure - no hardcoded paths needed
+automation_settings:
+  typescript_check: auto_detect                   # Auto-find all tsconfig.json files
+  test_execution: auto_detect                     # Auto-detect test framework and config
+  continue_on_error: true                         # Never block automation - log and continue
