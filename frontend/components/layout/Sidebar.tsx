@@ -2,154 +2,340 @@
 
 import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { Layout, Menu } from 'antd'
 import {
-  DashboardOutlined,
-  ProjectOutlined,
-  FileTextOutlined,
-  SettingOutlined,
-  TeamOutlined,
-  RadarChartOutlined,
-  StarOutlined,
-} from '@ant-design/icons'
-import type { MenuProps } from 'antd'
+  Box,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Collapse,
+  Tooltip,
+  IconButton,
+} from '@mui/material'
+import {
+  Dashboard as DashboardIcon,
+  Folder as FolderIcon,
+  Description as DescriptionIcon,
+  Settings as SettingsIcon,
+  People as PeopleIcon,
+  Radar as RadarIcon,
+  ExpandLess,
+  ExpandMore,
+  ChevronLeft,
+  ChevronRight,
+} from '@mui/icons-material'
 
-const { Sider } = Layout
+interface MenuItem {
+  key: string
+  icon: React.ReactNode
+  label: string
+  children?: MenuItem[]
+}
 
-type MenuItem = Required<MenuProps>['items'][number]
-
-const items: MenuItem[] = [
+const menuItems: MenuItem[] = [
   {
     key: '/dashboard',
-    icon: <DashboardOutlined />,
+    icon: <DashboardIcon />,
     label: '工作台',
   },
   {
     key: '/projects',
-    icon: <ProjectOutlined />,
+    icon: <FolderIcon />,
     label: '项目管理',
   },
   {
     key: '/radar',
-    icon: <RadarChartOutlined />,
+    icon: <RadarIcon />,
     label: '技术雷达',
   },
   {
     key: '/reports',
-    icon: <FileTextOutlined />,
+    icon: <DescriptionIcon />,
     label: '报告中心',
   },
   {
     key: '/team',
-    icon: <TeamOutlined />,
+    icon: <PeopleIcon />,
     label: '团队管理',
   },
   {
     key: '/admin',
-    icon: <SettingOutlined />,
+    icon: <SettingsIcon />,
     label: '系统管理',
     children: [
-      {
-        key: '/admin/dashboard',
-        label: '运营仪表板',
-      },
-      {
-        key: '/admin/content-quality',
-        label: '内容质量管理',
-      },
-      {
-        key: '/admin/clients',
-        label: '客户管理',
-      },
-      {
-        key: '/admin/cost-optimization',
-        label: '成本优化',
-      },
-      {
-        key: '/admin/branding',
-        label: '品牌配置',
-      },
-      {
-        key: '/admin/radar-sources',
-        label: '信息源配置',
-      },
-      {
-        key: '/admin/peer-crawler',
-        label: '同业爬虫管理',
-      },
-      {
-        key: '/admin/peer-crawler/health',
-        label: '爬虫健康监控',
-      },
+      { key: '/admin/dashboard', icon: <DashboardIcon />, label: '运营仪表板' },
+      { key: '/admin/content-quality', icon: <DescriptionIcon />, label: '内容质量管理' },
+      { key: '/admin/clients', icon: <PeopleIcon />, label: '客户管理' },
+      { key: '/admin/cost-optimization', icon: <SettingsIcon />, label: '成本优化' },
+      { key: '/admin/branding', icon: <SettingsIcon />, label: '品牌配置' },
+      { key: '/admin/radar-sources', icon: <RadarIcon />, label: '信息源配置' },
+      { key: '/admin/peer-crawler', icon: <SettingsIcon />, label: '同业爬虫管理' },
+      { key: '/admin/peer-crawler/health', icon: <SettingsIcon />, label: '爬虫健康监控' },
     ],
   },
 ]
 
-export default function Sidebar() {
+interface SidebarProps {
+  collapsed?: boolean
+  onCollapseChange?: (collapsed: boolean) => void
+  width?: number
+  collapsedWidth?: number
+}
+
+export default function Sidebar({
+  collapsed = false,
+  onCollapseChange,
+  width = 200,
+  collapsedWidth = 64,
+}: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const [collapsed, setCollapsed] = useState(false)
+  const [expandedKeys, setExpandedKeys] = useState<string[]>(['/admin'])
 
-  const handleMenuClick: MenuProps['onClick'] = async (e) => {
-    // 特殊处理雷达导航：自动获取用户的组织ID
-    if (e.key === '/radar') {
-      console.log('[Sidebar] 点击技术雷达导航')
+  const handleToggleCollapse = () => {
+    onCollapseChange?.(!collapsed)
+  }
+
+  const handleExpandToggle = (key: string) => {
+    setExpandedKeys((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    )
+  }
+
+  const handleNavigation = async (key: string) => {
+    // Special handling for radar navigation: auto-get user's organization ID
+    if (key === '/radar') {
+      console.log('[Sidebar] Clicked tech radar navigation')
       try {
-        // 获取用户的组织
         const response = await fetch('/api/organizations/me')
         console.log('[Sidebar] /api/organizations/me response status:', response.status)
 
         if (response.ok) {
           const data = await response.json()
-          console.log('[Sidebar] 组织数据:', data)
+          console.log('[Sidebar] Organization data:', data)
 
           const orgId = data.data?.organization?.id
-          console.log('[Sidebar] 提取的orgId:', orgId)
+          console.log('[Sidebar] Extracted orgId:', orgId)
 
           if (orgId) {
             const targetUrl = `/radar?orgId=${orgId}`
-            console.log('[Sidebar] 跳转到:', targetUrl)
+            console.log('[Sidebar] Navigating to:', targetUrl)
             router.push(targetUrl)
             return
           } else {
-            console.warn('[Sidebar] 未找到orgId，使用默认跳转')
+            console.warn('[Sidebar] orgId not found, using default navigation')
           }
         } else {
-          console.warn('[Sidebar] API调用失败，状态码:', response.status)
+          console.warn('[Sidebar] API call failed, status:', response.status)
         }
       } catch (error) {
-        console.error('[Sidebar] 获取组织失败:', error)
+        console.error('[Sidebar] Failed to get organization:', error)
       }
-      // 如果获取失败，仍然跳转到 /radar，让页面自己处理
-      console.log('[Sidebar] 使用默认跳转到 /radar')
+      // If fetch fails, still navigate to /radar and let the page handle it
+      console.log('[Sidebar] Using default navigation to /radar')
       router.push('/radar')
     } else {
-      router.push(e.key)
+      router.push(key)
     }
   }
 
+  const isSelected = (key: string) => pathname === key || pathname.startsWith(`${key}/`)
+  const isExpanded = (key: string) => expandedKeys.includes(key)
+
+  const renderMenuItem = (item: MenuItem, level = 0) => {
+    const hasChildren = item.children && item.children.length > 0
+    const selected = isSelected(item.key)
+    const expanded = isExpanded(item.key)
+
+    if (hasChildren) {
+      return (
+        <Box key={item.key}>
+          <ListItem disablePadding>
+            {collapsed ? (
+              <Tooltip title={item.label} placement="right">
+                <ListItemButton
+                  onClick={() => handleExpandToggle(item.key)}
+                  selected={selected}
+                  sx={{
+                    minHeight: 48,
+                    px: 2.5,
+                    justifyContent: 'center',
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 0,
+                      justifyContent: 'center',
+                      color: selected ? 'primary.main' : 'inherit',
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                </ListItemButton>
+              </Tooltip>
+            ) : (
+              <ListItemButton
+                onClick={() => handleExpandToggle(item.key)}
+                selected={selected}
+                sx={{
+                  minHeight: 48,
+                  px: 2.5,
+                  pl: level * 2 + 2,
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    minWidth: 0,
+                    mr: 2,
+                    justifyContent: 'center',
+                    color: selected ? 'primary.main' : 'inherit',
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.label}
+                  primaryTypographyProps={{
+                    fontSize: 14,
+                    fontWeight: selected ? 600 : 400,
+                  }}
+                />
+                {expanded ? <ExpandLess /> : <ExpandMore />}
+              </ListItemButton>
+            )}
+          </ListItem>
+          {!collapsed && (
+            <Collapse in={expanded} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding>
+                {item.children!.map((child) => (
+                  <ListItem key={child.key} disablePadding>
+                    <ListItemButton
+                      onClick={() => handleNavigation(child.key)}
+                      selected={pathname === child.key}
+                      sx={{
+                        minHeight: 40,
+                        pl: (level + 1) * 2 + 3,
+                      }}
+                    >
+                      <ListItemText
+                        primary={child.label}
+                        primaryTypographyProps={{
+                          fontSize: 13,
+                          fontWeight: pathname === child.key ? 500 : 400,
+                          color: pathname === child.key ? 'primary.main' : 'text.secondary',
+                        }}
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            </Collapse>
+          )}
+        </Box>
+      )
+    }
+
+    return (
+      <ListItem key={item.key} disablePadding>
+        {collapsed ? (
+          <Tooltip title={item.label} placement="right">
+            <ListItemButton
+              onClick={() => handleNavigation(item.key)}
+              selected={selected}
+              sx={{
+                minHeight: 48,
+                px: 2.5,
+                justifyContent: 'center',
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: 0,
+                  justifyContent: 'center',
+                  color: selected ? 'primary.main' : 'inherit',
+                }}
+              >
+                {item.icon}
+              </ListItemIcon>
+            </ListItemButton>
+          </Tooltip>
+        ) : (
+          <ListItemButton
+            onClick={() => handleNavigation(item.key)}
+            selected={selected}
+            sx={{
+              minHeight: 48,
+              px: 2.5,
+              pl: level * 2 + 2,
+            }}
+          >
+            <ListItemIcon
+              sx={{
+                minWidth: 0,
+                mr: 2,
+                justifyContent: 'center',
+                color: selected ? 'primary.main' : 'inherit',
+              }}
+            >
+              {item.icon}
+            </ListItemIcon>
+            <ListItemText
+              primary={item.label}
+              primaryTypographyProps={{
+                fontSize: 14,
+                fontWeight: selected ? 600 : 400,
+              }}
+            />
+          </ListItemButton>
+        )}
+      </ListItem>
+    )
+  }
+
   return (
-    <Sider
-      collapsible
-      collapsed={collapsed}
-      onCollapse={setCollapsed}
-      style={{
-        overflow: 'auto',
-        height: '100vh',
-        position: 'fixed',
-        left: 0,
-        top: 64,
-        bottom: 0,
+    <Drawer
+      variant="permanent"
+      sx={{
+        width: collapsed ? collapsedWidth : width,
+        flexShrink: 0,
+        '& .MuiDrawer-paper': {
+          width: collapsed ? collapsedWidth : width,
+          boxSizing: 'border-box',
+          position: 'fixed',
+          left: 0,
+          top: 64,
+          bottom: 0,
+          height: 'calc(100vh - 64px)',
+          bgcolor: 'grey.900',
+          color: 'common.white',
+          transition: (theme) =>
+            theme.transitions.create('width', {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
+          overflowX: 'hidden',
+        },
       }}
     >
-      <Menu
-        theme="dark"
-        mode="inline"
-        selectedKeys={[pathname]}
-        items={items}
-        onClick={handleMenuClick}
-        style={{ borderRight: 0 }}
-      />
-    </Sider>
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <List sx={{ flexGrow: 1, pt: 2 }}>
+          {menuItems.map((item) => renderMenuItem(item))}
+        </List>
+        <Box sx={{ p: 1, borderTop: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+          <IconButton
+            onClick={handleToggleCollapse}
+            sx={{
+              color: 'common.white',
+              width: '100%',
+              justifyContent: 'center',
+            }}
+          >
+            {collapsed ? <ChevronRight /> : <ChevronLeft />}
+          </IconButton>
+        </Box>
+      </Box>
+    </Drawer>
   )
 }

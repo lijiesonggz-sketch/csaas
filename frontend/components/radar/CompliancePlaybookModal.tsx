@@ -49,7 +49,7 @@ import {
   submitChecklist,
   markCompliancePushAsRead,
 } from '@/lib/api/radar'
-import { message } from 'antd'
+import { message } from '@/lib/message'
 
 /**
  * 应对剧本弹窗属性

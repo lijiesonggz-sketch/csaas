@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { ThemeProvider } from '@mui/material/styles'
 import { createTheme, Theme } from '@mui/material/styles'
 import Breadcrumb from './Breadcrumb'
-import { NavigateNextIcon } from '@mui/icons-material/NavigateNext'
+import NavigateNextIcon from '@mui/icons-material/NavigateNext'
 
 // Mock Next.js router
 jest.mock('next/navigation', () => ({

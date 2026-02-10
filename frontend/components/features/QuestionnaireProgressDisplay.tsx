@@ -1,7 +1,11 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { CheckCircle2, XCircle, Clock, RefreshCw, AlertCircle } from 'lucide-react'
+import { useState } from 'react'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import CancelIcon from '@mui/icons-material/Cancel'
+import ScheduleIcon from '@mui/icons-material/Schedule'
+import RefreshIcon from '@mui/icons-material/Refresh'
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import { AITasksAPI } from '@/lib/api/ai-tasks'
 import { toast } from 'sonner'
 
@@ -114,14 +118,14 @@ export function QuestionnaireProgressDisplay({
   const getClusterStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle2 className="w-5 h-5 text-green-500" />
+        return <CheckCircleIcon sx={{ fontSize: 20 }} className="text-green-500" />
       case 'failed':
-        return <XCircle className="w-5 h-5 text-red-500" />
+        return <CancelIcon sx={{ fontSize: 20 }} className="text-red-500" />
       case 'generating':
-        return <RefreshCw className="w-5 h-5 text-blue-500 animate-spin" />
+        return <RefreshIcon sx={{ fontSize: 20 }} className="text-blue-500 animate-spin" />
       case 'pending':
       default:
-        return <Clock className="w-5 h-5 text-gray-400" />
+        return <ScheduleIcon sx={{ fontSize: 20 }} className="text-gray-400" />
     }
   }
 
@@ -186,28 +190,28 @@ export function QuestionnaireProgressDisplay({
         {/* 统计信息 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-green-500" />
+            <CheckCircleIcon sx={{ fontSize: 16 }} className="text-green-500" />
             <span className="text-gray-600 dark:text-gray-400">已完成</span>
             <span className="font-medium text-gray-900 dark:text-white">
               {clusterStatus.completedClusters.length}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-gray-400" />
+            <ScheduleIcon sx={{ fontSize: 16 }} className="text-gray-400" />
             <span className="text-gray-600 dark:text-gray-400">待生成</span>
             <span className="font-medium text-gray-900 dark:text-white">
               {clusterStatus.pendingClusters.length}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <XCircle className="w-4 h-4 text-red-500" />
+            <CancelIcon sx={{ fontSize: 16 }} className="text-red-500" />
             <span className="text-gray-600 dark:text-gray-400">失败</span>
             <span className="font-medium text-gray-900 dark:text-white">
               {clusterStatus.failedClusters.length}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-blue-500" />
+            <ErrorOutlineIcon sx={{ fontSize: 16 }} className="text-blue-500" />
             <span className="text-gray-600 dark:text-gray-400">总计</span>
             <span className="font-medium text-gray-900 dark:text-white">
               {clusterStatus.totalClusters}
@@ -233,12 +237,12 @@ export function QuestionnaireProgressDisplay({
             >
               {isResuming ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <RefreshIcon sx={{ fontSize: 16 }} className="animate-spin" />
                   创建中...
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircleIcon sx={{ fontSize: 16 }} />
                   继续生成
                 </>
               )}
@@ -312,12 +316,12 @@ export function QuestionnaireProgressDisplay({
               >
                 {regeneratingCluster === cluster.clusterId ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <RefreshIcon sx={{ fontSize: 16 }} className="animate-spin" />
                     生成中...
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="w-4 h-4" />
+                    <RefreshIcon sx={{ fontSize: 16 }} />
                     重新生成
                   </>
                 )}

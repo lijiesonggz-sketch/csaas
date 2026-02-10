@@ -3,7 +3,7 @@ const path = require('path')
 
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['antd', '@ant-design/icons', '@ant-design/cssinjs', '@ant-design/cssinjs-utils'],
+  transpilePackages: [],
   eslint: {
     // 暂时禁用构建时的ESLint检查，以便快速测试
     ignoreDuringBuilds: true,
@@ -12,8 +12,6 @@ const nextConfig = {
     // 暂时禁用构建时的类型检查
     ignoreBuildErrors: true,
   },
-  // Note: optimizePackageImports for antd causes issues in monorepo setup
-  // antd is hoisted to root node_modules, Next.js can't find it during optimization
   experimental: {
     serverActions: {
       bodySizeLimit: '50mb',

@@ -5,7 +5,9 @@
  * 直接展示后端 AI Tasks 返回的综述结果
  */
 
-import { FileText, CheckCircle2, AlertCircle, TrendingUp } from 'lucide-react'
+import DescriptionIcon from '@mui/icons-material/Description'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 
 interface KeyArea {
   name: string
@@ -23,9 +25,18 @@ interface Props {
 
 export default function SimpleSummaryDisplay({ result }: Props) {
   // 解析 selectedResult
-  const summaryResult = typeof result.selectedResult === 'string'
-    ? JSON.parse(result.selectedResult)
-    : result.selectedResult
+  let summaryResult: any
+  try {
+    summaryResult = typeof result.selectedResult === 'string'
+      ? JSON.parse(result.selectedResult)
+      : result.selectedResult
+  } catch (e) {
+    return (
+      <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+        <p className="text-red-600 dark:text-red-400">数据解析失败，请检查数据格式。</p>
+      </div>
+    )
+  }
 
   const { title, overview, key_areas = [], key_requirements = [], compliance_level } = summaryResult
 
@@ -53,7 +64,7 @@ export default function SimpleSummaryDisplay({ result }: Props) {
       {/* 合规等级 */}
       {compliance_level && (
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 flex items-center gap-3">
-          <CheckCircle2 className="w-6 h-6 text-green-600" />
+          <CheckCircleIcon sx={{ fontSize: 24, color: 'green' }} />
           <div>
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">当前合规等级</p>
             <p className="text-lg font-semibold text-green-700 dark:text-green-400">{compliance_level}</p>
@@ -65,7 +76,7 @@ export default function SimpleSummaryDisplay({ result }: Props) {
       {key_areas && key_areas.length > 0 && (
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-blue-600" />
+            <TrendingUpIcon sx={{ fontSize: 20 }} className="text-blue-600" />
             关键领域
           </h3>
           <div className="grid grid-cols-1 gap-4">
@@ -97,7 +108,7 @@ export default function SimpleSummaryDisplay({ result }: Props) {
       {key_requirements && key_requirements.length > 0 && (
         <div className="bg-white dark:bg-gray-900 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-blue-600" />
+            <DescriptionIcon sx={{ fontSize: 20 }} className="text-blue-600" />
             关键要求
           </h3>
           <ul className="space-y-2">

@@ -6,15 +6,22 @@
  */
 
 import { useState } from 'react'
-import { Card, Button, message, Steps, Upload } from 'antd'
-import {
-  FileTextOutlined,
-  ThunderboltOutlined,
-  CheckOutlined,
-  UploadOutlined,
-  DeleteOutlined,
-} from '@ant-design/icons'
-import type { UploadFile } from 'antd/es/upload/interface'
+import { toast } from 'sonner'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import CardHeader from '@mui/material/CardHeader'
+import Button from '@mui/material/Button'
+import Stepper from '@mui/material/Stepper'
+import Step from '@mui/material/Step'
+import StepLabel from '@mui/material/StepLabel'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import IconButton from '@mui/material/IconButton'
+import DescriptionIcon from '@mui/icons-material/Description'
+import FlashOnIcon from '@mui/icons-material/FlashOn'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import CloudUploadIcon from '@mui/icons-material/CloudUpload'
+import DeleteIcon from '@mui/icons-material/Delete'
 import TaskProgressBar from '@/components/features/TaskProgressBar'
 import ClusteringResultDisplay from '@/components/features/ClusteringResultDisplay'
 import { AIGenerationAPI } from '@/lib/api/ai-generation'
@@ -28,13 +35,30 @@ interface StandardDocument {
   content: string
 }
 
+const steps = [
+  {
+    label: '上传文档',
+    description: '上传多个标准文档',
+    icon: DescriptionIcon,
+  },
+  {
+    label: '生成聚类',
+    description: '三模型并行分析',
+    icon: FlashOnIcon,
+  },
+  {
+    label: '查看结果',
+    description: '聚类结果和覆盖率',
+    icon: CheckCircleIcon,
+  },
+]
+
 export default function ClusteringGenerationPage() {
   const [currentStep, setCurrentStep] = useState(0)
   const [documents, setDocuments] = useState<StandardDocument[]>([])
   const [taskId, setTaskId] = useState<string | null>(null)
   const [result, setResult] = useState<GenerationResult | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [fileList, setFileList] = useState<UploadFile[]>([])
 
   // 处理文件上传
   const handleFileUpload = async (file: File) => {
@@ -43,7 +67,7 @@ export default function ClusteringGenerationPage() {
       const content = await parseFile(file)
 
       if (content.length < 100) {
-        message.error(`文件 ${file.name} 内容太短，至少需要100字符`)
+        toast.error(`文件 ${file.name} 内容太短，至少需要100字符`)
         return false
       }
 
@@ -54,11 +78,11 @@ export default function ClusteringGenerationPage() {
       }
 
       setDocuments((prev) => [...prev, newDoc])
-      message.success(`文件 ${file.name} 已加载`)
+      toast.success(`文件 ${file.name} 已加载`)
       return false // 阻止自动上传
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : '未知错误'
-      message.error(`读取文件 ${file.name} 失败: ${errorMsg}`)
+      toast.error(`读取文件 ${file.name} 失败: ${errorMsg}`)
       return false
     }
   }
@@ -66,13 +90,12 @@ export default function ClusteringGenerationPage() {
   // 删除文档
   const handleRemoveDocument = (docId: string) => {
     setDocuments((prev) => prev.filter((doc) => doc.id !== docId))
-    setFileList((prev) => prev.filter((file) => file.uid !== docId))
   }
 
   // 开始生成聚类
   const handleStartGeneration = async () => {
     if (documents.length < 2) {
-      message.error('请至少上传2个标准文档')
+      toast.error('请至少上传2个标准文档')
       return
     }
 
@@ -90,10 +113,10 @@ export default function ClusteringGenerationPage() {
       })
 
       if (response.success) {
-        message.success('聚类任务已启动，请等待完成...')
+        toast.success('聚类任务已启动，请等待完成...')
       }
     } catch (error: any) {
-      message.error(error.message || '启动聚类任务失败')
+      toast.error(error.message || '启动聚类任务失败')
       setIsGenerating(false)
       setCurrentStep(0)
       setTaskId(null)
@@ -110,16 +133,16 @@ export default function ClusteringGenerationPage() {
         setResult(response.data)
         setCurrentStep(2)
         setIsGenerating(false)
-        message.success('聚类生成完成！')
+        toast.success('聚类生成完成！')
       }
     } catch (error: any) {
-      message.error(error.message || '获取生成结果失败')
+      toast.error(error.message || '获取生成结果失败')
     }
   }
 
   // 生成失败回调
   const handleGenerationFailed = (error: string) => {
-    message.error(`生成失败：${error}`)
+    toast.error(`生成失败：${error}`)
     setIsGenerating(false)
     setCurrentStep(0)
     setTaskId(null)
@@ -131,148 +154,222 @@ export default function ClusteringGenerationPage() {
     setTaskId(null)
     setResult(null)
     setDocuments([])
-    setFileList([])
     setIsGenerating(false)
   }
 
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    if (isGenerating) return
+
+    const files = Array.from(e.dataTransfer.files)
+    for (const file of files) {
+      await handleFileUpload(file)
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+  }
+
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files) {
+      for (const file of Array.from(files)) {
+        await handleFileUpload(file)
+      }
+    }
+  }
+
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">AI 智能聚类分析</h1>
-        <p className="text-gray-600">
+    <Box sx={{ maxWidth: 'lg', mx: 'auto', px: 2, py: 4 }}>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom fontWeight="bold" color="text.primary">
+          AI 智能聚类分析
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
           上传多个IT标准文档（如ISO 27001、等保2.0等），系统将自动识别相似要求并进行跨标准聚类合并
-        </p>
-      </div>
+        </Typography>
+      </Box>
 
       {/* 步骤指示器 */}
-      <Card className="mb-6">
-        <Steps
-          current={currentStep}
-          items={[
-            {
-              title: '上传文档',
-              icon: <FileTextOutlined />,
-              description: '上传多个标准文档',
-            },
-            {
-              title: '生成聚类',
-              icon: <ThunderboltOutlined />,
-              description: '三模型并行分析',
-            },
-            {
-              title: '查看结果',
-              icon: <CheckOutlined />,
-              description: '聚类结果和覆盖率',
-            },
-          ]}
-        />
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Stepper activeStep={currentStep} alternativeLabel>
+            {steps.map((step, index) => {
+              const Icon = step.icon
+              return (
+                <Step key={index}>
+                  <StepLabel
+                    StepIconComponent={() => (
+                      <Box
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          bgcolor: currentStep >= index ? 'primary.main' : 'grey.300',
+                          color: currentStep >= index ? 'white' : 'grey.600',
+                        }}
+                      >
+                        <Icon fontSize="small" />
+                      </Box>
+                    )}
+                  >
+                    <Typography variant="subtitle2">{step.label}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {step.description}
+                    </Typography>
+                  </StepLabel>
+                </Step>
+              )
+            })}
+          </Stepper>
+        </CardContent>
       </Card>
 
       {/* 步骤 1: 文档上传 */}
       {currentStep === 0 && (
-        <Card title="步骤 1: 上传标准文档" className="mb-6">
-          <div className="mb-4">
-            <Upload
-              beforeUpload={handleFileUpload}
-              fileList={fileList}
-              onRemove={(file) => handleRemoveDocument(file.uid)}
-              accept={SUPPORTED_FILE_EXTENSIONS}
-              multiple
-            >
-              <Button icon={<UploadOutlined />} disabled={isGenerating}>
-                选择文件
+        <Card>
+          <CardHeader title="步骤 1: 上传标准文档" />
+          <CardContent>
+            <Box sx={{ mb: 3 }}>
+              <Box
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                sx={{
+                  border: '2px dashed',
+                  borderColor: 'grey.300',
+                  borderRadius: 2,
+                  p: 3,
+                  textAlign: 'center',
+                  bgcolor: 'grey.50',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    bgcolor: 'primary.50',
+                  },
+                }}
+              >
+                <input
+                  type="file"
+                  accept={SUPPORTED_FILE_EXTENSIONS}
+                  onChange={handleFileInputChange}
+                  disabled={isGenerating}
+                  style={{ display: 'none' }}
+                  id="clustering-file-upload"
+                  multiple
+                />
+                <label htmlFor="clustering-file-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    startIcon={<CloudUploadIcon />}
+                    disabled={isGenerating}
+                  >
+                    选择文件
+                  </Button>
+                </label>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                支持 .txt、.md、.pdf、.docx、.doc 文件，每个文件至少100字符。建议上传2-5个标准文档。
+              </Typography>
+            </Box>
+
+            {/* 已上传文档列表 */}
+            {documents.length > 0 && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  已上传文档 ({documents.length})
+                </Typography>
+                {documents.map((doc) => (
+                  <Card key={doc.id} variant="outlined" sx={{ mb: 1, bgcolor: 'grey.50' }}>
+                    <CardContent sx={{ py: 1, px: 2, '&:last-child': { pb: 1 } }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="subtitle2">{doc.name}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            文档ID: {doc.id} | 长度: {doc.content.length} 字符
+                          </Typography>
+                        </Box>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleRemoveDocument(doc.id)}
+                          disabled={isGenerating}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            )}
+
+            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                {documents.length > 0 && (
+                  <span>
+                    已上传 <strong>{documents.length}</strong> 个文档
+                  </span>
+                )}
+              </Typography>
+              <Button
+                variant="contained"
+                size="large"
+                onClick={handleStartGeneration}
+                disabled={documents.length < 2 || isGenerating}
+              >
+                开始聚类分析
               </Button>
-            </Upload>
-            <p className="text-sm text-gray-500 mt-2">
-              支持 .txt、.md、.pdf、.docx、.doc 文件，每个文件至少100字符。建议上传2-5个标准文档。
-            </p>
-          </div>
-
-          {/* 已上传文档列表 */}
-          {documents.length > 0 && (
-            <div className="space-y-2 mb-4">
-              <h3 className="font-semibold text-gray-700">已上传文档 ({documents.length})</h3>
-              {documents.map((doc) => (
-                <Card key={doc.id} size="small" className="bg-gray-50">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-800">{doc.name}</h4>
-                      <p className="text-sm text-gray-500">
-                        文档ID: {doc.id} | 长度: {doc.content.length} 字符
-                      </p>
-                    </div>
-                    <Button
-                      type="text"
-                      danger
-                      size="small"
-                      icon={<DeleteOutlined />}
-                      onClick={() => handleRemoveDocument(doc.id)}
-                      disabled={isGenerating}
-                    >
-                      删除
-                    </Button>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          <div className="mt-6 flex justify-between items-center">
-            <div className="text-sm text-gray-500">
-              {documents.length > 0 && (
-                <span>
-                  已上传 <strong>{documents.length}</strong> 个文档
-                </span>
-              )}
-            </div>
-            <Button
-              type="primary"
-              size="large"
-              onClick={handleStartGeneration}
-              disabled={documents.length < 2 || isGenerating}
-            >
-              开始聚类分析
-            </Button>
-          </div>
+            </Box>
+          </CardContent>
         </Card>
       )}
 
       {/* 步骤 2: 生成中 */}
       {currentStep === 1 && (
-        <Card title="步骤 2: 正在生成聚类" className="mb-6">
-          <TaskProgressBar
-            taskId={taskId}
-            onCompleted={handleGenerationCompleted}
-            onFailed={handleGenerationFailed}
-          />
+        <Card>
+          <CardHeader title="步骤 2: 正在生成聚类" />
+          <CardContent>
+            <TaskProgressBar
+              taskId={taskId}
+              onCompleted={handleGenerationCompleted}
+              onFailed={handleGenerationFailed}
+            />
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500 mb-4">
-              系统正在使用GPT-4、Claude和通义千问三个模型并行分析
-              {documents.length}个文档，这可能需要3-5分钟...
-            </p>
-            <Button onClick={handleRestart} disabled={isGenerating}>
-              取消并返回
-            </Button>
-          </div>
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                系统正在使用GPT-4、Claude和通义千问三个模型并行分析
+                {documents.length}个文档，这可能需要3-5分钟...
+              </Typography>
+              <Button variant="outlined" onClick={handleRestart} disabled={isGenerating}>
+                取消并返回
+              </Button>
+            </Box>
+          </CardContent>
         </Card>
       )}
 
       {/* 步骤 3: 查看结果 */}
       {currentStep === 2 && result && (
-        <div className="space-y-6">
-          <Card
-            title="步骤 3: 查看聚类结果"
-            extra={
-              <Button type="default" onClick={handleRestart}>
-                重新分析
-              </Button>
-            }
-          >
-            <ClusteringResultDisplay result={result} documents={documents} />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Card>
+            <CardHeader
+              title="步骤 3: 查看聚类结果"
+              action={
+                <Button variant="outlined" onClick={handleRestart}>
+                  重新分析
+                </Button>
+              }
+            />
+            <CardContent>
+              <ClusteringResultDisplay result={result} documents={documents} />
+            </CardContent>
           </Card>
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   )
 }

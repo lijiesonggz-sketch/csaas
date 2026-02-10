@@ -6,19 +6,31 @@
  */
 
 import React, { useState } from 'react'
-import { Card, Collapse, Tag, Progress, Badge, Space, Statistic, Row, Col, Alert } from 'antd'
-import {
-  ClusterOutlined,
-  FileTextOutlined,
-  ExclamationCircleOutlined,
-  CheckCircleOutlined,
-  WarningOutlined,
-  RobotOutlined,
-} from '@ant-design/icons'
+import { toast } from 'sonner'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import CardHeader from '@mui/material/CardHeader'
+import Chip from '@mui/material/Chip'
+import LinearProgress from '@mui/material/LinearProgress'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import Alert from '@mui/material/Alert'
+import Accordion from '@mui/material/Accordion'
+import AccordionSummary from '@mui/material/AccordionSummary'
+import AccordionDetails from '@mui/material/AccordionDetails'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import Grid from '@mui/material/Grid'
+import Button from '@mui/material/Button'
+import Badge from '@mui/material/Badge'
+import Stack from '@mui/material/Stack'
+import WarningIcon from '@mui/icons-material/Warning'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import ClusterIcon from '@mui/icons-material/AccountTree'
+import FileTextIcon from '@mui/icons-material/Description'
+import RobotIcon from '@mui/icons-material/SmartToy'
+import CircularProgress from '@mui/material/CircularProgress'
 import type { GenerationResult } from '@/lib/types/ai-generation'
 import MissingClausesHandler from './MissingClausesHandler'
-
-const { Panel } = Collapse
 
 interface StandardDocument {
   id: string
@@ -76,12 +88,6 @@ interface Props {
 }
 
 export default function ClusteringResultDisplay({ result, documents = [] }: Props) {
-  // 🔍 调试：打印result对象的结构
-  console.log('🔍 ClusteringResultDisplay received result:', result)
-  console.log('🔍 result.taskId:', result.taskId)
-  console.log('🔍 result.content exists:', !!result.content)
-  console.log('🔍 result.selectedResult exists:', !!result.selectedResult)
-
   // 解析聚类结果 - 支持新旧两种数据格式
   let clusteringResult: ClusteringResult
 
@@ -89,81 +95,64 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
     // 新格式：result.content 包含 JSON 字符串
     if (result.content) {
       if (typeof result.content === 'string') {
-        console.log('📦 Parsing content string, length:', result.content.length)
-        clusteringResult = JSON.parse(result.content)
+        clusteringResult = JSON.parse(result.content) as ClusteringResult
       } else {
-        clusteringResult = result.content
+        clusteringResult = result.content as ClusteringResult
       }
     }
     // 旧格式：result.selectedResult
     else if (result.selectedResult) {
       if (typeof result.selectedResult === 'string') {
-        clusteringResult = JSON.parse(result.selectedResult)
+        clusteringResult = JSON.parse(result.selectedResult) as ClusteringResult
       } else {
-        clusteringResult = result.selectedResult
+        clusteringResult = result.selectedResult as ClusteringResult
       }
     }
     // 直接就是聚类结果
     else {
-      clusteringResult = result as any
+      clusteringResult = result as unknown as ClusteringResult
     }
   } catch (parseError) {
-    console.error('❌ Failed to parse clustering result:', parseError)
-    console.log('📄 Raw result:', result)
+    console.error('Failed to parse clustering result:', parseError)
     return (
-      <Alert
-        message="数据解析失败"
-        description={
-          <div>
-            <p>无法解析聚类结果数据</p>
-            <p>错误: {parseError.message}</p>
-            <details>
-              <summary>查看原始数据</summary>
-              <pre style={{ maxHeight: '300px', overflow: 'auto' }}>
-                {JSON.stringify(result, null, 2)}
-              </pre>
-            </details>
-          </div>
-        }
-        type="error"
-        showIcon
-      />
+      <Alert severity="error">
+        <Typography variant="subtitle1" fontWeight="bold">数据解析失败</Typography>
+        <Typography variant="body2">无法解析聚类结果数据</Typography>
+        <Typography variant="body2">错误: {(parseError as Error).message}</Typography>
+        <details>
+          <summary>查看原始数据</summary>
+          <pre style={{ maxHeight: '300px', overflow: 'auto' }}>
+            {JSON.stringify(result, null, 2)}
+          </pre>
+        </details>
+      </Alert>
     )
   }
 
   // 检查数据有效性
   if (!clusteringResult) {
     return (
-      <Alert
-        message="数据为空"
-        description="聚类结果数据为空"
-        type="error"
-        showIcon
-      />
+      <Alert severity="error">
+        <Typography variant="subtitle1" fontWeight="bold">数据为空</Typography>
+        <Typography variant="body2">聚类结果数据为空</Typography>
+      </Alert>
     )
   }
 
   if (!clusteringResult.categories) {
-    console.warn('⚠️ Missing categories in clustering result')
-    console.log('📦 Available keys:', Object.keys(clusteringResult))
+    console.warn('Missing categories in clustering result')
     return (
-      <Alert
-        message="数据格式错误"
-        description={
-          <div>
-            <p>聚类结果数据格式不正确，缺少 categories 字段</p>
-            <p>可用字段: {Object.keys(clusteringResult).join(', ')}</p>
-            <details>
-              <summary>查看完整数据</summary>
-              <pre style={{ maxHeight: '400px', overflow: 'auto' }}>
-                {JSON.stringify(clusteringResult, null, 2)}
-              </pre>
-            </details>
-          </div>
-        }
-        type="error"
-        showIcon
-      />
+      <Alert severity="error">
+        <Typography variant="subtitle1" fontWeight="bold">数据格式错误</Typography>
+        <Typography variant="body2">聚类结果数据格式不正确，缺少 categories 字段</Typography>
+        <Typography variant="body2">可用字段: {Object.keys(clusteringResult).join(', ')}</Typography>
+        <details>
+          <summary>查看完整数据</summary>
+          <pre style={{ maxHeight: '400px', overflow: 'auto' }}>
+            {JSON.stringify(clusteringResult, null, 2)}
+          </pre>
+        </details>
+      </Alert>
     )
   }
 
@@ -173,16 +162,16 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
 
   // 风险级别颜色映射
   const riskColorMap = {
-    HIGH: 'red',
-    MEDIUM: 'orange',
-    LOW: 'green',
+    HIGH: 'error' as const,
+    MEDIUM: 'warning' as const,
+    LOW: 'success' as const,
   }
 
   // 重要性颜色映射
   const importanceColorMap = {
-    HIGH: 'purple',
-    MEDIUM: 'blue',
-    LOW: 'default',
+    HIGH: 'secondary' as const,
+    MEDIUM: 'primary' as const,
+    LOW: 'default' as const,
   }
 
   // 从三层结构中提取所有聚类
@@ -196,7 +185,7 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
   const handleCopyTaskId = () => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(result.taskId)
-      alert('任务ID已复制到剪贴板！')
+      toast.success('任务ID已复制到剪贴板！')
     }
   }
 
@@ -239,35 +228,20 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
       link.click()
       URL.revokeObjectURL(url)
 
-      alert('聚类结果已导出为CSV文件！')
+      toast.success('聚类结果已导出为CSV文件！')
     } catch (error) {
-      alert('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
+      toast.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
     }
   }
 
   // 跳转到矩阵生成页面
   const handleGenerateMatrix = async () => {
-    console.log('🚀 handleGenerateMatrix called')
-    console.log('🔍 result:', result)
-    console.log('🔍 result.taskId:', result.taskId)
-    console.log('🔍 result.projectId:', result.projectId)
-
     // 直接使用 result.taskId
     let effectiveTaskId = result.taskId
     let projectId = result.projectId
-    console.log('🔍 effectiveTaskId:', effectiveTaskId)
-    console.log('🔍 projectId:', projectId)
 
-    // ✅ 如果taskId缺失，强制从API刷新数据
-    console.log('🔍 Checking conditions for refresh:')
-    console.log('  - !effectiveTaskId:', !effectiveTaskId)
-    console.log('  - result.generationType:', result.generationType)
-    console.log('  - result.id:', result.id)
-    console.log('  - result keys:', Object.keys(result))
-
+    // 如果taskId缺失，强制从API刷新数据
     if (!effectiveTaskId) {
-      console.log('⚠️ taskId is missing, forcing API refresh...')
-
       try {
         // 从result.content解析聚类任务ID
         let clusteringTaskId: string | null = null
@@ -278,46 +252,30 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
             ? JSON.parse(result.content)
             : result.content
 
-          console.log('📦 contentData keys:', Object.keys(contentData))
-          console.log('📦 contentData.taskId:', contentData.taskId)
-          console.log('📦 result.id:', result.id)
-
           // 尝试从多个可能的字段获取taskId
           clusteringTaskId = contentData.taskId || result.id || result.taskId || (result as any).clusteringTaskId
-          console.log('📝 Extracted clusteringTaskId:', clusteringTaskId)
         } else {
           // 如果没有content，直接使用result.id
           clusteringTaskId = result.id || result.taskId
-          console.log('📝 Using result.id as clusteringTaskId:', clusteringTaskId)
         }
 
         if (clusteringTaskId) {
-          console.log('🔄 Fetching latest result from API for taskId:', clusteringTaskId)
-
           // 强制从API获取最新数据
           const response = await fetch(`/api/ai-generation/result/${clusteringTaskId}`)
           const data = await response.json()
 
-          console.log('📦 API response:', data)
-
           if (data.success && data.data) {
             effectiveTaskId = data.data.taskId
             projectId = data.data.projectId
-            console.log('✅ API returned taskId:', effectiveTaskId, 'projectId:', projectId)
-          } else {
-            console.error('❌ API request failed:', data)
           }
-        } else {
-          console.error('❌ Could not determine clusteringTaskId from result')
-          console.log('📄 Full result object:', JSON.stringify(result, null, 2))
         }
       } catch (error) {
-        console.error('❌ Failed to refresh data from API:', error)
+        console.error('Failed to refresh data from API:', error)
       }
     }
 
     if (!effectiveTaskId) {
-      alert('错误：无法获取任务ID，请刷新页面重试')
+      toast.error('错误：无法获取任务ID，请刷新页面重试')
       return
     }
 
@@ -353,9 +311,9 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
         .flatMap((cluster) => cluster.clauses || [])
         .filter((clause: any) => clause.source_document_id === doc.id)
 
-      // ✅ 修复：统计文档实际条款数（去重）
+      // 统计文档实际条款数（去重）
       const allClauseMatches = doc.content.match(/第[一二三四五六七八九十百千]+条/g) || []
-      const allClauseIds = [...new Set(allClauseMatches)] // 去重
+      const allClauseIds = Array.from(new Set(allClauseMatches)) // 去重
       const actualClauseCount = allClauseIds.length
 
       // 统计唯一提取的条款（从聚类中）
@@ -364,7 +322,7 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
         uniqueClusteredIds.add(clause.clause_id)
       })
 
-      // ✅ 修复：过滤掉AI生成的、文档中不存在的条款
+      // 过滤掉AI生成的、文档中不存在的条款
       const validClusteredIds = Array.from(uniqueClusteredIds).filter(id =>
         allClauseIds.includes(id)
       )
@@ -374,8 +332,8 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
       const missingClauseIds = allClauseIds.filter((id) => !uniqueClusteredIds.has(id))
 
       byDocument[doc.id] = {
-        total_clauses: actualClauseCount, // ✅ 使用去重后的条款数
-        clustered_clauses: finalClusteredCount, // ✅ 确保不超过total_clauses
+        total_clauses: actualClauseCount,
+        clustered_clauses: finalClusteredCount,
         missing_clause_ids: missingClauseIds,
       }
     })
@@ -393,329 +351,367 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
     }
   }
 
+  const coverageRate = coverageSummary?.overall?.coverage_rate ? (coverageSummary.overall.coverage_rate * 100) : 0
+
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* 任务ID显示（重要：用于下一步矩阵生成） */}
-      <Alert
-        message={
-          <div>
-            <strong>✅ 聚类任务完成！下一步：生成成熟度矩阵</strong>
-          </div>
-        }
-        description={
-          <div className="space-y-3">
-            <div>
-              <span className="text-sm text-gray-600">任务ID：</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="bg-gray-100 px-3 py-2 rounded font-mono text-sm flex-1 select-all">
-                {result.taskId}
-              </code>
-              <button
-                onClick={handleCopyTaskId}
-                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm whitespace-nowrap"
-              >
-                复制ID
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleGenerateMatrix}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-              >
-                🎯 生成成熟度矩阵
-              </button>
-              <button
-                onClick={handleExportCSV}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 whitespace-nowrap"
-              >
-                📊 导出CSV
-              </button>
-            </div>
-          </div>
-        }
-        type="success"
-        showIcon
-        icon={<CheckCircleOutlined />}
-      />
+      <Alert severity="success" icon={<CheckCircleIcon />}>
+        <Typography variant="subtitle1" fontWeight="bold">
+          聚类任务完成！下一步：生成成熟度矩阵
+        </Typography>
+        <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" color="text.secondary">任务ID：</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              component="code"
+              sx={{
+                bgcolor: 'grey.100',
+                px: 2,
+                py: 1,
+                borderRadius: 1,
+                fontFamily: 'monospace',
+                flex: 1,
+                userSelect: 'all',
+              }}
+            >
+              {result.taskId}
+            </Box>
+            <Button variant="outlined" size="small" onClick={handleCopyTaskId}>
+              复制ID
+            </Button>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button variant="contained" fullWidth onClick={handleGenerateMatrix}>
+              生成成熟度矩阵
+            </Button>
+            <Button variant="contained" color="success" onClick={handleExportCSV}>
+              导出CSV
+            </Button>
+          </Box>
+        </Box>
+      </Alert>
 
       {/* 基本信息 */}
       <Card>
-        <Row gutter={16}>
-          <Col span={4}>
-            <Statistic
-              title="大类数量"
-              value={categories.length}
-              prefix={<FileTextOutlined />}
-              suffix="个"
-            />
-          </Col>
-          <Col span={5}>
-            <Statistic
-              title="聚类数量"
-              value={totalClusters}
-              prefix={<ClusterOutlined />}
-              suffix="个"
-            />
-          </Col>
-          <Col span={5}>
-            <Statistic
-              title="覆盖率"
-              value={coverageSummary?.overall?.coverage_rate ? (coverageSummary.overall.coverage_rate * 100).toFixed(1) : '0.0'}
-              suffix="%"
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: coverageSummary?.overall?.coverage_rate && coverageSummary.overall.coverage_rate >= 0.95 ? '#3f8600' : '#faad14' }}
-            />
-          </Col>
-          <Col span={5}>
-            <Statistic
-              title="高风险聚类"
-              value={highRiskClusters.length}
-              prefix={<ExclamationCircleOutlined />}
-              valueStyle={{ color: '#cf1322' }}
-            />
-          </Col>
-          <Col span={5}>
-            <Statistic
-              title="AI模型"
-              value={(result as any).selectedModel || 'GPT4'}
-              prefix={<RobotOutlined />}
-            />
-          </Col>
-        </Row>
+        <CardContent>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <FileTextIcon color="action" />
+                <Typography variant="h6">{categories.length}</Typography>
+                <Typography variant="caption" color="text.secondary">大类数量</Typography>
+              </Box>
+            </Grid>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <ClusterIcon color="action" />
+                <Typography variant="h6">{totalClusters}</Typography>
+                <Typography variant="caption" color="text.secondary">聚类数量</Typography>
+              </Box>
+            </Grid>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <CheckCircleIcon color={coverageRate >= 95 ? 'success' : 'warning'} />
+                <Typography variant="h6" color={coverageRate >= 95 ? 'success.main' : 'warning.main'}>
+                  {coverageRate.toFixed(1)}%
+                </Typography>
+                <Typography variant="caption" color="text.secondary">覆盖率</Typography>
+              </Box>
+            </Grid>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <WarningIcon color="error" />
+                <Typography variant="h6" color="error.main">{highRiskClusters.length}</Typography>
+                <Typography variant="caption" color="text.secondary">高风险聚类</Typography>
+              </Box>
+            </Grid>
+            <Grid size={{ xs: 6, md: 2 }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <RobotIcon color="action" />
+                <Typography variant="h6">{(result as any).selectedModel || 'GPT4'}</Typography>
+                <Typography variant="caption" color="text.secondary">AI模型</Typography>
+              </Box>
+            </Grid>
+          </Grid>
+        </CardContent>
       </Card>
 
       {/* 质量分数 - 仅在存在时显示 */}
       {result.qualityScores && (
-        <Card title="质量评分" size="small">
-          <Row gutter={16}>
-            <Col span={8}>
-              <div className="text-center">
-                <p className="text-sm text-gray-600 mb-2">结构一致性</p>
-                <Progress
-                  type="circle"
-                  percent={(result.qualityScores.structural * 100).toFixed(1) as any}
-                  size={80}
-                  strokeColor="#52c41a"
-                />
-              </div>
-            </Col>
-            <Col span={8}>
-              <div className="text-center">
-                <p className="text-sm text-gray-600 mb-2">语义一致性</p>
-                <Progress
-                  type="circle"
-                  percent={(result.qualityScores.semantic * 100).toFixed(1) as any}
-                  size={80}
-                  strokeColor="#1890ff"
-                />
-              </div>
-            </Col>
-            <Col span={8}>
-              <div className="text-center">
-                <p className="text-sm text-gray-600 mb-2">细节一致性</p>
-                <Progress
-                  type="circle"
-                  percent={(result.qualityScores.detail * 100).toFixed(1) as any}
-                  size={80}
-                  strokeColor="#722ed1"
-                />
-              </div>
-            </Col>
-          </Row>
+        <Card>
+          <CardHeader title="质量评分" />
+          <CardContent>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 4 }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">结构一致性</Typography>
+                  <Box sx={{ position: 'relative', display: 'inline-flex', mt: 1 }}>
+                    <CircularProgress
+                      variant="determinate"
+                      value={result.qualityScores.structural * 100}
+                      size={80}
+                      color="success"
+                    />
+                    <Box sx={{
+                      top: 0, left: 0, bottom: 0, right: 0,
+                      position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <Typography variant="caption" fontWeight="bold">
+                        {(result.qualityScores.structural * 100).toFixed(1)}%
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Grid>
+              <Grid size={{ xs: 4 }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">语义一致性</Typography>
+                  <Box sx={{ position: 'relative', display: 'inline-flex', mt: 1 }}>
+                    <CircularProgress
+                      variant="determinate"
+                      value={result.qualityScores.semantic * 100}
+                      size={80}
+                      color="info"
+                    />
+                    <Box sx={{
+                      top: 0, left: 0, bottom: 0, right: 0,
+                      position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <Typography variant="caption" fontWeight="bold">
+                        {(result.qualityScores.semantic * 100).toFixed(1)}%
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Grid>
+              <Grid size={{ xs: 4 }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">细节一致性</Typography>
+                  <Box sx={{ position: 'relative', display: 'inline-flex', mt: 1 }}>
+                    <CircularProgress
+                      variant="determinate"
+                      value={result.qualityScores.detail * 100}
+                      size={80}
+                      color="secondary"
+                    />
+                    <Box sx={{
+                      top: 0, left: 0, bottom: 0, right: 0,
+                      position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    }}>
+                      <Typography variant="caption" fontWeight="bold">
+                        {(result.qualityScores.detail * 100).toFixed(1)}%
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              </Grid>
+            </Grid>
+          </CardContent>
         </Card>
       )}
 
       {/* 覆盖率统计 */}
-      <Card title="覆盖率统计">
-        <div className="space-y-4">
-          {/* 总体覆盖率 */}
-          <div>
-            <h4 className="font-semibold mb-2">总体覆盖率</h4>
-            <Progress
-              percent={coverageSummary?.overall?.coverage_rate ? (coverageSummary.overall.coverage_rate * 100).toFixed(1) as any : 0}
-              status={coverageSummary?.overall?.coverage_rate && coverageSummary.overall.coverage_rate >= 0.95 ? 'success' : 'normal'}
-              format={(percent) => `${percent}% (${coverageSummary?.overall?.clustered_clauses || 0}/${coverageSummary?.overall?.total_clauses || 0})`}
-            />
-          </div>
+      <Card>
+        <CardHeader title="覆盖率统计" />
+        <CardContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* 总体覆盖率 */}
+            <Box>
+              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>总体覆盖率</Typography>
+              <LinearProgress
+                variant="determinate"
+                value={coverageRate}
+                color={coverageRate >= 95 ? 'success' : 'primary'}
+                sx={{ height: 10, borderRadius: 1 }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                {coverageRate.toFixed(1)}% ({coverageSummary?.overall?.clustered_clauses || 0}/{coverageSummary?.overall?.total_clauses || 0})
+              </Typography>
+            </Box>
 
-          {/* 按文档覆盖率 */}
-          <div>
-            <h4 className="font-semibold mb-2">各文档覆盖率</h4>
-            {coverageSummary?.by_document && Object.entries(coverageSummary.by_document).map(([docId, stats]) => {
-              const doc = documents.find((d) => d.id === docId)
-              const coverageRate = stats.total_clauses > 0
-                ? (stats.clustered_clauses / stats.total_clauses) * 100
-                : 0
+            {/* 按文档覆盖率 */}
+            <Box>
+              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>各文档覆盖率</Typography>
+              {coverageSummary?.by_document && Object.entries(coverageSummary.by_document).map(([docId, stats]) => {
+                const doc = documents.find((d) => d.id === docId)
+                const coverageRate = stats.total_clauses > 0
+                  ? (stats.clustered_clauses / stats.total_clauses) * 100
+                  : 0
 
-              return (
-                <div key={docId} className="mb-3">
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="text-sm font-medium">
-                      {doc?.name || docId}
-                    </span>
-                    <span className="text-sm text-gray-500">
-                      {stats.clustered_clauses}/{stats.total_clauses}
-                    </span>
-                  </div>
-                  <Progress
-                    percent={coverageRate.toFixed(1) as any}
-                    size="small"
-                    status={coverageRate >= 95 ? 'success' : 'normal'}
-                  />
-                  {stats.missing_clause_ids?.length > 0 && (
-                    <p className="text-xs text-red-500 mt-1">
-                      遗漏条款: {stats.missing_clause_ids.join(', ')}
-                    </p>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
+                return (
+                  <Box key={docId} sx={{ mb: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                      <Typography variant="body2" fontWeight="medium">
+                        {doc?.name || docId}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {stats.clustered_clauses}/{stats.total_clauses}
+                      </Typography>
+                    </Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={coverageRate}
+                      color={coverageRate >= 95 ? 'success' : 'primary'}
+                      sx={{ height: 6, borderRadius: 1 }}
+                    />
+                    {stats.missing_clause_ids?.length > 0 && (
+                      <Typography variant="caption" color="error">
+                        遗漏条款: {stats.missing_clause_ids.join(', ')}
+                      </Typography>
+                    )}
+                  </Box>
+                )
+              })}
+            </Box>
+          </Box>
+        </CardContent>
       </Card>
 
       {/* 聚类逻辑说明 */}
-      <Card title="聚类逻辑" size="small">
-        <p className="text-sm text-gray-700 whitespace-pre-wrap">{clustering_logic}</p>
+      <Card>
+        <CardHeader title="聚类逻辑" />
+        <CardContent>
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+            {clustering_logic}
+          </Typography>
+        </CardContent>
       </Card>
 
       {/* 聚类详情（三层结构展示）*/}
-      <Card
-        title={
-          <Space>
-            <span>聚类详情（三层结构）</span>
-            <Tag color="purple">{categories.length}个大类</Tag>
-            <Tag color="blue">{totalClusters}个聚类</Tag>
-          </Space>
-        }
-      >
-        <Collapse accordion defaultActiveKey={categories[0]?.id}>
+      <Card>
+        <CardHeader
+          title={
+            <Stack direction="row" spacing={1} alignItems="center">
+              <span>聚类详情（三层结构）</span>
+              <Chip label={`${categories.length}个大类`} color="secondary" size="small" />
+              <Chip label={`${totalClusters}个聚类`} color="primary" size="small" />
+            </Stack>
+          }
+        />
+        <CardContent>
           {categories.map((category, categoryIndex) => (
-            <Panel
-              key={category.id}
-              header={
-                <div className="flex items-center justify-between w-full pr-4">
-                  <Space>
-                    <Badge
-                      count={categoryIndex + 1}
-                      style={{ backgroundColor: '#722ed1' }}
-                    />
-                    <span className="font-bold text-lg">{category.name}</span>
-                    <Tag color="purple">大类</Tag>
-                  </Space>
-                  <Tag color="blue">{category.clusters.length}个聚类</Tag>
-                </div>
-              }
-            >
-              <div className="space-y-4">
-                {/* 大类描述 */}
-                <Alert
-                  message="大类描述"
-                  description={category.description}
-                  type="info"
-                  showIcon
-                  className="mb-4"
-                />
+            <Accordion key={category.id} defaultExpanded={categoryIndex === 0}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%', pr: 2 }}>
+                  <Badge badgeContent={categoryIndex + 1} color="secondary" />
+                  <Typography variant="subtitle1" fontWeight="bold">{category.name}</Typography>
+                  <Chip label="大类" color="secondary" size="small" />
+                  <Box sx={{ flex: 1 }} />
+                  <Chip label={`${category.clusters.length}个聚类`} color="primary" size="small" />
+                </Stack>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {/* 大类描述 */}
+                  <Alert severity="info">
+                    <Typography variant="subtitle2" fontWeight="bold">大类描述</Typography>
+                    <Typography variant="body2">{category.description}</Typography>
+                  </Alert>
 
-                {/* 该大类下的所有聚类 */}
-                <Collapse accordion>
+                  {/* 该大类下的所有聚类 */}
                   {category.clusters.map((cluster, clusterIndex) => (
-                    <Panel
-                      key={cluster.id}
-                      header={
-                        <div className="flex items-center justify-between w-full pr-4">
-                          <Space>
-                            <Badge
-                              count={clusterIndex + 1}
-                              style={{ backgroundColor: '#52c41a' }}
-                            />
-                            <span className="font-semibold">{cluster.name}</span>
-                            <Tag color={importanceColorMap[cluster.importance]}>
-                              {cluster.importance}
-                            </Tag>
-                            <Tag
-                              color={riskColorMap[cluster.risk_level]}
-                              icon={cluster.risk_level === 'HIGH' ? <WarningOutlined /> : null}
-                            >
-                              风险: {cluster.risk_level}
-                            </Tag>
-                          </Space>
-                          <Tag>{cluster.clauses.length}个条款</Tag>
-                        </div>
-                      }
-                    >
-                      <div className="space-y-4">
-                        {/* 聚类描述 */}
-                        <Alert
-                          message="聚类描述"
-                          description={cluster.description}
-                          type="success"
-                          showIcon
-                        />
+                    <Accordion key={cluster.id}>
+                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%', pr: 2 }}>
+                          <Badge badgeContent={clusterIndex + 1} color="success" />
+                          <Typography variant="subtitle2" fontWeight="bold">{cluster.name}</Typography>
+                          <Chip
+                            label={cluster.importance}
+                            color={importanceColorMap[cluster.importance]}
+                            size="small"
+                          />
+                          <Chip
+                            label={`风险: ${cluster.risk_level}`}
+                            color={riskColorMap[cluster.risk_level]}
+                            size="small"
+                            icon={cluster.risk_level === 'HIGH' ? <WarningIcon /> : undefined}
+                          />
+                          <Box sx={{ flex: 1 }} />
+                          <Chip label={`${cluster.clauses.length}个条款`} size="small" />
+                        </Stack>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {/* 聚类描述 */}
+                          <Alert severity="success">
+                            <Typography variant="subtitle2" fontWeight="bold">聚类描述</Typography>
+                            <Typography variant="body2">{cluster.description}</Typography>
+                          </Alert>
 
-                        {/* 条款列表 */}
-                        <div className="space-y-3">
-                          <h4 className="font-semibold text-gray-700">包含条款：</h4>
-                          {cluster.clauses.map((clause) => (
-                            <Card
-                              key={`${clause.source_document_id}-${clause.clause_id}`}
-                              size="small"
-                              className={
-                                cluster.risk_level === 'HIGH'
-                                  ? 'border-red-300 bg-red-50'
-                                  : cluster.risk_level === 'MEDIUM'
-                                  ? 'border-orange-300 bg-orange-50'
-                                  : 'border-gray-200'
-                              }
-                            >
-                              <div className="space-y-2">
-                                {/* 条款头部 */}
-                                <div className="flex items-start justify-between">
-                                  <Space>
-                                    <Tag color="blue">{clause.source_document_name}</Tag>
-                                    <span className="font-mono text-sm font-semibold">
-                                      {clause.clause_id}
-                                    </span>
-                                  </Space>
-                                  {cluster.risk_level === 'HIGH' && (
-                                    <Tag color="red" icon={<WarningOutlined />}>
-                                      高风险
-                                    </Tag>
-                                  )}
-                                </div>
+                          {/* 条款列表 */}
+                          <Box>
+                            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>包含条款：</Typography>
+                            <Stack spacing={2}>
+                              {cluster.clauses.map((clause) => (
+                                <Card
+                                  key={`${clause.source_document_id}-${clause.clause_id}`}
+                                  variant="outlined"
+                                  sx={{
+                                    borderColor: cluster.risk_level === 'HIGH'
+                                      ? 'error.main'
+                                      : cluster.risk_level === 'MEDIUM'
+                                        ? 'warning.main'
+                                        : 'grey.300',
+                                    bgcolor: cluster.risk_level === 'HIGH'
+                                      ? 'error.50'
+                                      : cluster.risk_level === 'MEDIUM'
+                                        ? 'warning.50'
+                                        : 'inherit',
+                                  }}
+                                >
+                                  <CardContent>
+                                    <Stack spacing={1}>
+                                      {/* 条款头部 */}
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                          <Chip label={clause.source_document_name} color="primary" size="small" />
+                                          <Typography variant="body2" fontFamily="monospace" fontWeight="bold">
+                                            {clause.clause_id}
+                                          </Typography>
+                                        </Stack>
+                                        {cluster.risk_level === 'HIGH' && (
+                                          <Chip label="高风险" color="error" size="small" icon={<WarningIcon />} />
+                                        )}
+                                      </Box>
 
-                                {/* 条款内容 */}
-                                <p className="text-sm text-gray-700">{clause.clause_text}</p>
+                                      {/* 条款内容 */}
+                                      <Typography variant="body2" color="text.secondary">
+                                        {clause.clause_text}
+                                      </Typography>
 
-                                {/* 归类理由 */}
-                                <div className="text-xs text-gray-500 bg-gray-100 p-2 rounded">
-                                  <strong>归类理由：</strong>
-                                  {clause.rationale}
-                                </div>
-                              </div>
-                            </Card>
-                          ))}
-                        </div>
-                      </div>
-                    </Panel>
+                                      {/* 归类理由 */}
+                                      <Box sx={{ bgcolor: 'grey.100', p: 1, borderRadius: 1 }}>
+                                        <Typography variant="caption">
+                                          <strong>归类理由：</strong>{clause.rationale}
+                                        </Typography>
+                                      </Box>
+                                    </Stack>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </Stack>
+                          </Box>
+                        </Box>
+                      </AccordionDetails>
+                    </Accordion>
                   ))}
-                </Collapse>
-              </div>
-            </Panel>
+                </Box>
+              </AccordionDetails>
+            </Accordion>
           ))}
-        </Collapse>
+        </CardContent>
       </Card>
 
       {/* 高风险提醒 */}
       {highRiskClusters.length > 0 && (
-        <Alert
-          message="高风险提醒"
-          description={`检测到 ${highRiskClusters.length} 个高风险聚类，建议优先审查：${highRiskClusters.map((c) => c.name).join('、')}`}
-          type="warning"
-          showIcon
-          icon={<WarningOutlined />}
-        />
+        <Alert severity="warning" icon={<WarningIcon />}>
+          <Typography variant="subtitle1" fontWeight="bold">高风险提醒</Typography>
+          <Typography variant="body2">
+            检测到 {highRiskClusters.length} 个高风险聚类，建议优先审查：
+            {highRiskClusters.map((c) => c.name).join('、')}
+          </Typography>
+        </Alert>
       )}
 
       {/* 缺失条款处理 */}
@@ -728,6 +724,6 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
           onUpdateClustering={handleUpdateClustering}
         />
       )}
-    </div>
+    </Box>
   )
 }

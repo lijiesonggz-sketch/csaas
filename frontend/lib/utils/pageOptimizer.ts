@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { message } from 'antd'
+import { message } from '@/lib/message'
 import { useAITaskCache } from '@/lib/hooks/useAITaskCache'
 
 /**

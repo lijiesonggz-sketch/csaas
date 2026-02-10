@@ -5,7 +5,11 @@
  * 直接展示后端 AI Tasks 返回的改进措施
  */
 
-import { ListTodo, TrendingUp, Clock, Users, Target } from 'lucide-react'
+import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import ScheduleIcon from '@mui/icons-material/Schedule'
+import GroupIcon from '@mui/icons-material/Group'
+import GpsFixedIcon from '@mui/icons-material/GpsFixed'
 
 interface Improvement {
   priority: string
@@ -64,7 +68,7 @@ export default function SimpleActionPlanDisplay({ result }: Props) {
       {result.summary && (
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-6">
           <div className="flex items-center gap-2 mb-2">
-            <ListTodo className="w-6 h-6 text-blue-600" />
+            <FormatListBulletedIcon sx={{ fontSize: 24 }} className="text-blue-600" />
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">改进措施概述</h2>
           </div>
           <p className="text-gray-700 dark:text-gray-300">{result.summary}</p>
@@ -76,7 +80,7 @@ export default function SimpleActionPlanDisplay({ result }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Target className="w-5 h-5 text-purple-600" />
+              <GpsFixedIcon sx={{ fontSize: 20 }} className="text-purple-600" />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">改进领域</span>
             </div>
             <p className="text-2xl font-bold text-purple-600">{result.improvements.length}</p>
@@ -84,7 +88,7 @@ export default function SimpleActionPlanDisplay({ result }: Props) {
 
           <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
-              <ListTodo className="w-5 h-5 text-blue-600" />
+              <FormatListBulletedIcon sx={{ fontSize: 20 }} className="text-blue-600" />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">总措施数</span>
             </div>
             <p className="text-2xl font-bold text-blue-600">{result.totalMeasures}</p>
@@ -92,7 +96,7 @@ export default function SimpleActionPlanDisplay({ result }: Props) {
 
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="w-5 h-5 text-green-600" />
+              <TrendingUpIcon sx={{ fontSize: 20 }} className="text-green-600" />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">高优先级</span>
             </div>
             <p className="text-2xl font-bold text-green-600">
@@ -138,7 +142,7 @@ export default function SimpleActionPlanDisplay({ result }: Props) {
               {/* 建议行动 */}
               <div>
                 <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                  <ListTodo className="w-5 h-5 text-blue-600" />
+                  <FormatListBulletedIcon sx={{ fontSize: 20 }} className="text-blue-600" />
                   建议行动
                 </h4>
                 <div className="grid grid-cols-1 gap-2">
@@ -160,7 +164,7 @@ export default function SimpleActionPlanDisplay({ result }: Props) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                 {improvement.timeline && (
                   <div className="flex items-start gap-2">
-                    <Clock className="w-5 h-5 text-orange-600 mt-0.5" />
+                    <ScheduleIcon sx={{ fontSize: 20 }} className="text-orange-600 mt-0.5" />
                     <div>
                       <p className="text-xs text-gray-600 dark:text-gray-400">时间周期</p>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">{improvement.timeline}</p>
@@ -170,7 +174,7 @@ export default function SimpleActionPlanDisplay({ result }: Props) {
 
                 {improvement.resources && (
                   <div className="flex items-start gap-2">
-                    <Users className="w-5 h-5 text-blue-600 mt-0.5" />
+                    <GroupIcon sx={{ fontSize: 20 }} className="text-blue-600 mt-0.5" />
                     <div>
                       <p className="text-xs text-gray-600 dark:text-gray-400">所需资源</p>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">{improvement.resources}</p>
@@ -180,7 +184,7 @@ export default function SimpleActionPlanDisplay({ result }: Props) {
 
                 {improvement.expectedOutcome && (
                   <div className="flex items-start gap-2">
-                    <Target className="w-5 h-5 text-green-600 mt-0.5" />
+                    <GpsFixedIcon sx={{ fontSize: 20 }} className="text-green-600 mt-0.5" />
                     <div>
                       <p className="text-xs text-gray-600 dark:text-gray-400">预期成果</p>
                       <p className="text-sm font-semibold text-gray-900 dark:text-white">{improvement.expectedOutcome}</p>

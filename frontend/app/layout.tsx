@@ -1,7 +1,14 @@
 import type { Metadata } from 'next'
-import { AntdRegistry } from '@ant-design/nextjs-registry'
+import { Inter } from 'next/font/google'
 import { Providers } from '@/lib/providers'
+import { Toaster } from 'sonner'
 import './globals.css'
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+})
 
 export const metadata: Metadata = {
   title: 'Csaas - AI驱动的IT咨询成熟度评估平台',
@@ -14,10 +21,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" className={inter.variable}>
       <body>
         <Providers>
-          <AntdRegistry>{children}</AntdRegistry>
+          {children}
+          <Toaster position="top-center" richColors />
         </Providers>
       </body>
     </html>

@@ -6,12 +6,30 @@
  */
 
 import { useState } from 'react'
-import { Card, Table, Tag, Collapse, Button, Modal, Input, message, Alert } from 'antd'
-import { EditOutlined, SaveOutlined, CloseOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { toast } from 'sonner'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import CardHeader from '@mui/material/CardHeader'
+import Chip from '@mui/material/Chip'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import Alert from '@mui/material/Alert'
+import Button from '@mui/material/Button'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableContainer from '@mui/material/TableContainer'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
+import Paper from '@mui/material/Paper'
+import IconButton from '@mui/material/IconButton'
+import TextField from '@mui/material/TextField'
+import Stack from '@mui/material/Stack'
+import EditIcon from '@mui/icons-material/Edit'
+import SaveIcon from '@mui/icons-material/Save'
+import CloseIcon from '@mui/icons-material/Close'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import type { GenerationResult } from '@/lib/types/ai-generation'
-
-const { Panel } = Collapse
-const { TextArea } = Input
 
 interface MatrixRow {
   cluster_id: string
@@ -48,7 +66,7 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
   const handleCopyTaskId = () => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(result.taskId)
-      alert('任务ID已复制到剪贴板！')
+      toast.success('任务ID已复制到剪贴板！')
     }
   }
 
@@ -90,15 +108,15 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
       link.click()
       URL.revokeObjectURL(url)
 
-      alert('成熟度矩阵已导出为CSV文件！')
+      toast.success('成熟度矩阵已导出为CSV文件！')
     } catch (error) {
-      alert('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
+      toast.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
     }
   }
 
   // 跳转到问卷生成页面
   const handleGenerateQuestionnaire = () => {
-    // ✅ 跳转到项目工作台的问卷生成页面，传递 matrixTaskId 和 projectId
+    // 跳转到项目工作台的问卷生成页面，传递 matrixTaskId 和 projectId
     if (result.projectId) {
       window.location.href = `/projects/${result.projectId}/questionnaire?matrixTaskId=${result.taskId}`
     } else {
@@ -115,7 +133,7 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
   // 保存单元格编辑
   const handleSaveCell = () => {
     setEditingCell(null)
-    message.success('编辑已保存（本地）')
+    toast.success('编辑已保存（本地）')
   }
 
   // 取消编辑
@@ -178,34 +196,36 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
       editingCell?.rowId === row.cluster_id && editingCell?.levelKey === levelKey
 
     if (!level) {
-      return <div className="text-gray-400 text-sm">暂无数据</div>
+      return <Typography variant="body2" color="text.secondary">暂无数据</Typography>
     }
 
     return (
-      <div className="space-y-2">
-        <div className="flex justify-between items-start">
-          <div className="font-semibold text-gray-700 flex-1">{level.name}</div>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Typography variant="subtitle2" fontWeight="bold" sx={{ flex: 1 }}>
+            {level.name}
+          </Typography>
           {!isEditing && (
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => handleEditCell(row.cluster_id, levelKey)}
-            />
+            <IconButton size="small" onClick={() => handleEditCell(row.cluster_id, levelKey)}>
+              <EditIcon fontSize="small" />
+            </IconButton>
           )}
-        </div>
+        </Box>
 
         {isEditing ? (
-          <div className="space-y-2">
-            <TextArea
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <TextField
               value={level.description}
               onChange={(e) =>
                 handleUpdateDescription(row.cluster_id, levelKey, e.target.value)
               }
+              multiline
               rows={3}
               placeholder="级别描述"
+              size="small"
+              fullWidth
             />
-            <TextArea
+            <TextField
               value={level.key_practices.join('\n')}
               onChange={(e) =>
                 handleUpdatePractices(
@@ -214,220 +234,236 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
                   e.target.value.split('\n').filter((p) => p.trim())
                 )
               }
+              multiline
               rows={4}
               placeholder="关键实践（每行一条）"
+              size="small"
+              fullWidth
             />
-            <div className="flex gap-2">
+            <Stack direction="row" spacing={1}>
               <Button
-                type="primary"
+                variant="contained"
                 size="small"
-                icon={<SaveOutlined />}
+                startIcon={<SaveIcon />}
                 onClick={handleSaveCell}
               >
                 保存
               </Button>
               <Button
+                variant="outlined"
                 size="small"
-                icon={<CloseOutlined />}
+                startIcon={<CloseIcon />}
                 onClick={handleCancelEdit}
               >
                 取消
               </Button>
-            </div>
-          </div>
+            </Stack>
+          </Box>
         ) : (
           <>
-            <p className="text-sm text-gray-600">{level.description}</p>
-            <div className="text-xs text-gray-500 space-y-1">
-              <div className="font-medium">关键实践：</div>
-              <ul className="list-disc list-inside pl-2">
+            <Typography variant="body2" color="text.secondary">
+              {level.description}
+            </Typography>
+            <Box>
+              <Typography variant="caption" fontWeight="bold" display="block" gutterBottom>
+                关键实践：
+              </Typography>
+              <Box component="ul" sx={{ pl: 2, m: 0 }}>
                 {level.key_practices.map((practice, index) => (
-                  <li key={index}>{practice}</li>
+                  <Typography component="li" variant="caption" key={index}>
+                    {practice}
+                  </Typography>
                 ))}
-              </ul>
-            </div>
+              </Box>
+            </Box>
           </>
         )}
-      </div>
+      </Box>
     )
   }
 
-  // 表格列定义
-  const columns = [
-    {
-      title: '聚类',
-      dataIndex: 'cluster_name',
-      key: 'cluster_name',
-      width: 200,
-      fixed: 'left' as const,
-      render: (text: string, record: MatrixRow) => (
-        <div>
-          <div className="font-semibold text-gray-800">{text}</div>
-          <div className="text-xs text-gray-500 mt-1">{record.cluster_id}</div>
-        </div>
-      ),
-    },
-    {
-      title: 'Level 1 (初始级)',
-      key: 'level_1',
-      width: 300,
-      render: (_: any, record: MatrixRow) => renderCellContent(record, 'level_1'),
-    },
-    {
-      title: 'Level 2 (可重复级)',
-      key: 'level_2',
-      width: 300,
-      render: (_: any, record: MatrixRow) => renderCellContent(record, 'level_2'),
-    },
-    {
-      title: 'Level 3 (已定义级)',
-      key: 'level_3',
-      width: 300,
-      render: (_: any, record: MatrixRow) => renderCellContent(record, 'level_3'),
-    },
-    {
-      title: 'Level 4 (可管理级)',
-      key: 'level_4',
-      width: 300,
-      render: (_: any, record: MatrixRow) => renderCellContent(record, 'level_4'),
-    },
-    {
-      title: 'Level 5 (优化级)',
-      key: 'level_5',
-      width: 300,
-      render: (_: any, record: MatrixRow) => renderCellContent(record, 'level_5'),
-    },
-  ]
+  const getConfidenceColor = (level: string): 'success' | 'warning' | 'error' => {
+    switch (level) {
+      case 'HIGH':
+        return 'success'
+      case 'MEDIUM':
+        return 'warning'
+      case 'LOW':
+        return 'error'
+      default:
+        return 'warning'
+    }
+  }
 
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* 任务ID显示（重要：用于下一步问卷生成） */}
-      <Alert
-        message={
-          <div>
-            <strong>✅ 矩阵生成完成！下一步：生成调研问卷</strong>
-          </div>
-        }
-        description={
-          <div className="space-y-3">
-            <div>
-              <span className="text-sm text-gray-600">任务ID：</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="bg-gray-100 px-3 py-2 rounded font-mono text-sm flex-1 select-all">
-                {result.taskId}
-              </code>
-              <button
-                onClick={handleCopyTaskId}
-                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm whitespace-nowrap"
-              >
-                复制ID
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleGenerateQuestionnaire}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-medium"
-              >
-                🎯 生成调研问卷
-              </button>
-              <button
-                onClick={handleExportCSV}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 whitespace-nowrap"
-              >
-                📊 导出CSV
-              </button>
-            </div>
-          </div>
-        }
-        type="success"
-        showIcon
-        icon={<CheckCircleOutlined />}
-      />
+      <Alert severity="success" icon={<CheckCircleIcon />}>
+        <Typography variant="subtitle1" fontWeight="bold">
+          矩阵生成完成！下一步：生成调研问卷
+        </Typography>
+        <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" color="text.secondary">任务ID：</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              component="code"
+              sx={{
+                bgcolor: 'grey.100',
+                px: 2,
+                py: 1,
+                borderRadius: 1,
+                fontFamily: 'monospace',
+                flex: 1,
+                userSelect: 'all',
+              }}
+            >
+              {result.taskId}
+            </Box>
+            <Button variant="outlined" size="small" onClick={handleCopyTaskId}>
+              复制ID
+            </Button>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button variant="contained" fullWidth onClick={handleGenerateQuestionnaire}>
+              生成调研问卷
+            </Button>
+            <Button variant="contained" color="success" onClick={handleExportCSV}>
+              导出CSV
+            </Button>
+          </Box>
+        </Box>
+      </Alert>
 
       {/* 元数据信息 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card size="small">
-          <div className="text-xs text-gray-500">任务ID</div>
-          <div className="text-sm font-mono truncate">{result.taskId}</div>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
+        <Card>
+          <CardContent>
+            <Typography variant="caption" color="text.secondary">任务ID</Typography>
+            <Typography variant="body2" fontFamily="monospace" noWrap>
+              {result.taskId}
+            </Typography>
+          </CardContent>
         </Card>
-        <Card size="small">
-          <div className="text-xs text-gray-500">选中模型</div>
-          <div className="text-sm font-semibold">
-            <Tag color="blue">{result.selectedModel}</Tag>
-          </div>
+        <Card>
+          <CardContent>
+            <Typography variant="caption" color="text.secondary">选中模型</Typography>
+            <Box sx={{ mt: 0.5 }}>
+              <Chip label={result.selectedModel} color="primary" size="small" />
+            </Box>
+          </CardContent>
         </Card>
-        <Card size="small">
-          <div className="text-xs text-gray-500">置信度</div>
-          <div className="text-sm">
-            <Tag
-              color={
-                result.confidenceLevel === 'HIGH'
-                  ? 'green'
-                  : result.confidenceLevel === 'MEDIUM'
-                    ? 'orange'
-                    : 'red'
-              }
-            >
-              {result.confidenceLevel}
-            </Tag>
-          </div>
+        <Card>
+          <CardContent>
+            <Typography variant="caption" color="text.secondary">置信度</Typography>
+            <Box sx={{ mt: 0.5 }}>
+              <Chip
+                label={result.confidenceLevel}
+                color={getConfidenceColor(result.confidenceLevel)}
+                size="small"
+              />
+            </Box>
+          </CardContent>
         </Card>
-        <Card size="small">
-          <div className="text-xs text-gray-500">矩阵规模</div>
-          <div className="text-sm font-semibold">
-            {matrixData.length} 聚类 × 5 级
-          </div>
+        <Card>
+          <CardContent>
+            <Typography variant="caption" color="text.secondary">矩阵规模</Typography>
+            <Typography variant="body2" fontWeight="bold">
+              {matrixData.length} 聚类 × 5 级
+            </Typography>
+          </CardContent>
         </Card>
-      </div>
+      </Box>
 
       {/* 质量评分 */}
       {result.qualityScores && (
-        <Card title="质量评分" size="small">
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <div className="text-xs text-gray-500">结构质量</div>
-              <div className="text-xl font-bold text-blue-600">
-                {(result.qualityScores.structural * 100).toFixed(1)}%
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">语义质量</div>
-              <div className="text-xl font-bold text-green-600">
-                {(result.qualityScores.semantic * 100).toFixed(1)}%
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">细节质量</div>
-              <div className="text-xl font-bold text-purple-600">
-                {(result.qualityScores.detail * 100).toFixed(1)}%
-              </div>
-            </div>
-          </div>
+        <Card>
+          <CardHeader title="质量评分" />
+          <CardContent>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">结构质量</Typography>
+                <Typography variant="h5" fontWeight="bold" color="primary.main">
+                  {(result.qualityScores.structural * 100).toFixed(1)}%
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">语义质量</Typography>
+                <Typography variant="h5" fontWeight="bold" color="success.main">
+                  {(result.qualityScores.semantic * 100).toFixed(1)}%
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">细节质量</Typography>
+                <Typography variant="h5" fontWeight="bold" color="secondary.main">
+                  {(result.qualityScores.detail * 100).toFixed(1)}%
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
         </Card>
       )}
 
       {/* 成熟度模型说明 */}
       {modelDescription && (
-        <Card title="成熟度模型说明" size="small">
-          <p className="text-sm text-gray-700">{modelDescription}</p>
+        <Card>
+          <CardHeader title="成熟度模型说明" />
+          <CardContent>
+            <Typography variant="body2" color="text.secondary">
+              {modelDescription}
+            </Typography>
+          </CardContent>
         </Card>
       )}
 
       {/* 成熟度矩阵表格 */}
-      <Card title={`成熟度矩阵 (${matrixData.length} 行 × 5 列)`}>
-        <div className="overflow-x-auto">
-          <Table
-            columns={columns}
-            dataSource={matrixData}
-            rowKey="cluster_id"
-            pagination={false}
-            scroll={{ x: 1800 }}
-            size="small"
-            bordered
-          />
-        </div>
+      <Card>
+        <CardHeader title={`成熟度矩阵 (${matrixData.length} 行 × 5 列)`} />
+        <CardContent>
+          <TableContainer component={Paper} sx={{ maxWidth: '100%', overflowX: 'auto' }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ minWidth: 200, fontWeight: 'bold' }}>聚类</TableCell>
+                  <TableCell sx={{ minWidth: 300 }}>Level 1 (初始级)</TableCell>
+                  <TableCell sx={{ minWidth: 300 }}>Level 2 (可重复级)</TableCell>
+                  <TableCell sx={{ minWidth: 300 }}>Level 3 (已定义级)</TableCell>
+                  <TableCell sx={{ minWidth: 300 }}>Level 4 (可管理级)</TableCell>
+                  <TableCell sx={{ minWidth: 300 }}>Level 5 (优化级)</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {matrixData.map((row) => (
+                  <TableRow key={row.cluster_id}>
+                    <TableCell sx={{ verticalAlign: 'top' }}>
+                      <Typography variant="subtitle2" fontWeight="bold">
+                        {row.cluster_name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {row.cluster_id}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ verticalAlign: 'top' }}>
+                      {renderCellContent(row, 'level_1')}
+                    </TableCell>
+                    <TableCell sx={{ verticalAlign: 'top' }}>
+                      {renderCellContent(row, 'level_2')}
+                    </TableCell>
+                    <TableCell sx={{ verticalAlign: 'top' }}>
+                      {renderCellContent(row, 'level_3')}
+                    </TableCell>
+                    <TableCell sx={{ verticalAlign: 'top' }}>
+                      {renderCellContent(row, 'level_4')}
+                    </TableCell>
+                    <TableCell sx={{ verticalAlign: 'top' }}>
+                      {renderCellContent(row, 'level_5')}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </CardContent>
       </Card>
-    </div>
+    </Box>
   )
 }

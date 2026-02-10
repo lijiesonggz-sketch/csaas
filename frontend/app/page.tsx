@@ -1,31 +1,30 @@
-import Button from 'antd/es/button'
-import Title from 'antd/es/typography/Title'
-import Paragraph from 'antd/es/typography/Paragraph'
+import Button from '@mui/material/Button'
+import Typography from '@mui/material/Typography'
 import Link from 'next/link'
-
-// Import antd CSS
-import 'antd/es/button/style'
-import 'antd/es/typography/style'
 
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24">
       <div className="text-center">
-        <Title level={1}>Csaas</Title>
-        <Title level={3} type="secondary">
+        <Typography variant="h1" component="h1" sx={{ fontSize: '3rem', fontWeight: 'bold', mb: 2 }}>
+          Csaas
+        </Typography>
+        <Typography variant="h3" component="h2" color="text.secondary" sx={{ mb: 2 }}>
           AI驱动的IT咨询成熟度评估平台
-        </Title>
-        <Paragraph className="mt-4 text-lg">
+        </Typography>
+        <Typography className="mt-4 text-lg">
           三模型协同架构 (GPT-4 + Claude + 国产模型)
-        </Paragraph>
+        </Typography>
         <div className="mt-8 flex gap-4 justify-center">
           <Link href="/login">
-            <Button type="primary" size="large">
+            <Button variant="contained" size="large">
               登录
             </Button>
           </Link>
           <Link href="/register">
-            <Button size="large">注册</Button>
+            <Button variant="outlined" size="large">
+              注册
+            </Button>
           </Link>
         </div>
       </div>

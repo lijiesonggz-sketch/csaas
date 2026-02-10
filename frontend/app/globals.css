@@ -31,3 +31,316 @@ body {
     text-wrap: balance;
   }
 }
+
+/* ============================================
+   打印样式 - 差距分析报告导出
+   ============================================ */
+
+@media print {
+  /* 隐藏非打印元素 - 使用更具体的选择器避免误伤 */
+  .no-print,
+  nav,
+  .ant-layout-sider,
+  .ant-layout-header,
+  aside.sidebar,
+  .navigation,
+  [class*="layout-sider"],
+  [class*="layout-header"],
+  .report-preview-modal .ant-modal-footer,
+  .report-preview-modal .ant-modal-close {
+    display: none !important;
+  }
+
+  /* 显示打印专用元素 */
+  .print-only {
+    display: block !important;
+  }
+
+  /* 隐藏打印按钮 */
+  button,
+  .ant-btn,
+  [class*="btn"],
+  [class*="button"] {
+    display: none !important;
+  }
+
+  /* 重置布局 */
+  .ant-layout,
+  .ant-layout-content,
+  main,
+  [class*="layout"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* 确保内容可见 */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* 分页控制 */
+  .print-page-break {
+    page-break-after: always;
+  }
+
+  .print-avoid-break {
+    page-break-inside: avoid;
+  }
+
+  /* 避免在元素内部分页 */
+  .report-card,
+  .report-section,
+  .report-ranked-item,
+  .report-suggestion-item,
+  .ant-card,
+  table,
+  tr {
+    page-break-inside: avoid;
+  }
+
+  /* 页眉页脚设置 */
+  @page {
+    margin: 2cm;
+    size: A4;
+
+    @top-center {
+      content: attr(data-project-name);
+      font-size: 10pt;
+      color: #666;
+    }
+
+    @bottom-center {
+      content: "第 " counter(page) " 页";
+      font-size: 10pt;
+      color: #666;
+    }
+  }
+
+  /* 第一页使用不同的页眉 */
+  @page :first {
+    @top-center {
+      content: none;
+    }
+  }
+
+  /* 确保雷达图正确渲染 */
+  .recharts-responsive-container,
+  .recharts-wrapper,
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* 表格样式优化 */
+  table {
+    width: 100% !important;
+    border-collapse: collapse;
+  }
+
+  th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+  }
+
+  /* 链接显示为纯文本 */
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  a[href]:after {
+    content: none;
+  }
+}
+
+/* ============================================
+   差距分析报告组件样式
+   ============================================ */
+
+.gap-analysis-report {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+  background: white;
+}
+
+/* 封面页样式 */
+.report-cover {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  page-break-after: always;
+}
+
+.report-cover-content {
+  text-align: center;
+  padding: 60px 40px;
+}
+
+.report-cover-icon {
+  font-size: 80px;
+  color: #1890ff;
+  margin-bottom: 32px;
+}
+
+.report-cover-title {
+  font-size: 42px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 24px;
+  letter-spacing: 4px;
+}
+
+.report-cover-project {
+  font-size: 28px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 16px;
+}
+
+.report-cover-date {
+  font-size: 18px;
+  color: #666;
+  margin-bottom: 32px;
+}
+
+.report-cover-divider {
+  width: 120px;
+  height: 4px;
+  background: linear-gradient(90deg, #1890ff, #52c41a);
+  margin: 0 auto 32px;
+  border-radius: 2px;
+}
+
+.report-cover-subtitle {
+  font-size: 16px;
+  color: #888;
+}
+
+/* 报告内容样式 */
+.report-content {
+  padding: 24px 0;
+}
+
+.report-section {
+  margin-bottom: 32px;
+  page-break-inside: avoid;
+}
+
+.report-section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-card {
+  margin-bottom: 16px;
+}
+
+.report-card .ant-card-body {
+  padding: 24px;
+}
+
+.report-code {
+  background-color: #f5f5f5;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  font-size: 13px;
+}
+
+/* 排名项样式 */
+.report-ranked-item {
+  padding: 16px;
+  margin-bottom: 12px;
+  background: #fafafa;
+  border-radius: 8px;
+  border-left: 4px solid #1890ff;
+}
+
+.report-ranked-item-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.report-rank-tag {
+  min-width: 32px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.report-item-name {
+  font-weight: 600;
+  font-size: 16px;
+  color: #1a1a1a;
+}
+
+.report-item-details {
+  font-size: 14px;
+  color: #666;
+  padding-left: 44px;
+}
+
+/* 建议项样式 */
+.report-suggestion-item {
+  padding: 16px 0;
+}
+
+.report-suggestion-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.report-suggestion-list {
+  padding-left: 32px;
+  margin: 0;
+}
+
+.report-suggestion-list li {
+  margin-bottom: 8px;
+  color: #555;
+  line-height: 1.6;
+}
+
+/* 报告页脚 */
+.report-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  text-align: center;
+}
+
+.report-footer-text {
+  color: #999;
+  font-size: 12px;
+}
+
+/* 响应式调整 */
+@media screen and (max-width: 768px) {
+  .gap-analysis-report {
+    padding: 16px;
+  }
+
+  .report-cover-title {
+    font-size: 28px;
+  }
+
+  .report-cover-project {
+    font-size: 20px;
+  }
+
+  .report-section-title {
+    font-size: 18px;
+  }
+}

@@ -6,33 +6,39 @@
  */
 
 import { useState } from 'react'
-import {
-  Card,
-  Collapse,
-  Tag,
-  Button,
-  Modal,
-  Input,
-  Select,
-  message,
-  Radio,
-  Checkbox,
-  Progress,
-  Alert,
-} from 'antd'
-import {
-  EditOutlined,
-  SaveOutlined,
-  CloseOutlined,
-  PieChartOutlined,
-  QuestionCircleOutlined,
-  CheckCircleOutlined,
-} from '@ant-design/icons'
+import { toast } from 'sonner'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import CardHeader from '@mui/material/CardHeader'
+import Chip from '@mui/material/Chip'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import Alert from '@mui/material/Alert'
+import Button from '@mui/material/Button'
+import Accordion from '@mui/material/Accordion'
+import AccordionSummary from '@mui/material/AccordionSummary'
+import AccordionDetails from '@mui/material/AccordionDetails'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import LinearProgress from '@mui/material/LinearProgress'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import IconButton from '@mui/material/IconButton'
+import TextField from '@mui/material/TextField'
+import Stack from '@mui/material/Stack'
+import FormControl from '@mui/material/FormControl'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import Radio from '@mui/material/Radio'
+import RadioGroup from '@mui/material/RadioGroup'
+import Checkbox from '@mui/material/Checkbox'
+import EditIcon from '@mui/icons-material/Edit'
+import SaveIcon from '@mui/icons-material/Save'
+import CloseIcon from '@mui/icons-material/Close'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import PieChartIcon from '@mui/icons-material/PieChart'
+import HelpIcon from '@mui/icons-material/Help'
 import type { GenerationResult } from '@/lib/types/ai-generation'
-
-const { Panel } = Collapse
-const { TextArea } = Input
-const { Option } = Select
 
 interface Question {
   question_id: string
@@ -44,6 +50,7 @@ interface Question {
   required: boolean
   guidance: string
   expected_answer?: boolean  // 判断题的期望答案
+  dimension?: string
 }
 
 interface QuestionOption {
@@ -97,7 +104,7 @@ export default function QuestionnaireResultDisplay({
   // 保存题目编辑
   const handleSaveQuestion = () => {
     setEditingQuestion(null)
-    message.success('题目编辑已保存（本地）')
+    toast.success('题目编辑已保存（本地）')
   }
 
   // 取消编辑
@@ -159,9 +166,9 @@ export default function QuestionnaireResultDisplay({
       link.download = `questionnaire_${result.taskId}.csv`
       link.click()
       URL.revokeObjectURL(url)
-      message.success('问卷已导出为CSV文件！')
+      toast.success('问卷已导出为CSV文件！')
     } catch (error) {
-      message.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
+      toast.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
     }
   }
 
@@ -171,29 +178,29 @@ export default function QuestionnaireResultDisplay({
       navigator.clipboard
         .writeText(result.taskId)
         .then(() => {
-          message.success('任务ID已复制到剪贴板！')
+          toast.success('任务ID已复制到剪贴板！')
         })
         .catch(() => {
-          message.error('复制失败，请手动复制')
+          toast.error('复制失败，请手动复制')
         })
     } else {
-      message.warning('您的浏览器不支持自动复制，请手动复制任务ID')
+      toast.warning('您的浏览器不支持自动复制，请手动复制任务ID')
     }
   }
 
   // 渲染题目类型图标
   const renderQuestionTypeTag = (type: string) => {
     const config = {
-      SINGLE_CHOICE: { color: 'blue', text: '单选题' },
-      MULTIPLE_CHOICE: { color: 'green', text: '多选题' },
-      RATING: { color: 'orange', text: '评分题' },
-      BINARY: { color: 'purple', text: '判断题' },
+      SINGLE_CHOICE: { color: 'primary' as const, text: '单选题' },
+      MULTIPLE_CHOICE: { color: 'success' as const, text: '多选题' },
+      RATING: { color: 'warning' as const, text: '评分题' },
+      BINARY: { color: 'secondary' as const, text: '判断题' },
     }
     const { color, text } = config[type as keyof typeof config] || {
-      color: 'default',
+      color: 'default' as const,
       text: type,
     }
-    return <Tag color={color}>{text}</Tag>
+    return <Chip label={text} color={color} size="small" />
   }
 
   // 渲染题目选项
@@ -201,98 +208,122 @@ export default function QuestionnaireResultDisplay({
     // 判断题类型
     if (question.question_type === 'BINARY') {
       return (
-        <Radio.Group disabled className="w-full">
-          <Space direction="vertical" className="w-full">
-            <Radio value="true" className="w-full p-2 border rounded hover:bg-gray-50">
-              <div className="flex items-start">
-                <span className="font-medium mr-2">A.</span>
-                <div className="flex-1">
-                  <div className="text-lg">有</div>
-                  <div className="text-xs text-gray-500 mt-1">组织已具备此能力或已实施此要求</div>
-                </div>
-              </div>
-            </Radio>
-            <Radio value="false" className="w-full p-2 border rounded hover:bg-gray-50">
-              <div className="flex items-start">
-                <span className="font-medium mr-2">B.</span>
-                <div className="flex-1">
-                  <div className="text-lg">没有</div>
-                  <div className="text-xs text-gray-500 mt-1">组织未具备此能力或未实施此要求</div>
-                </div>
-              </div>
-            </Radio>
-          </Space>
-        </Radio.Group>
+        <FormControl component="fieldset" disabled fullWidth>
+          <RadioGroup>
+            <Stack spacing={1}>
+              <FormControlLabel
+                value="true"
+                control={<Radio />}
+                label={
+                  <Box sx={{ p: 1, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                    <Typography variant="body1" fontWeight="medium">A. 有</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      组织已具备此能力或已实施此要求
+                    </Typography>
+                  </Box>
+                }
+              />
+              <FormControlLabel
+                value="false"
+                control={<Radio />}
+                label={
+                  <Box sx={{ p: 1, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                    <Typography variant="body1" fontWeight="medium">B. 没有</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      组织未具备此能力或未实施此要求
+                    </Typography>
+                  </Box>
+                }
+              />
+            </Stack>
+          </RadioGroup>
+        </FormControl>
       )
     }
 
     if (question.question_type === 'SINGLE_CHOICE') {
       return (
-        <Radio.Group disabled className="w-full space-y-2">
-          {question.options.map((option) => (
-            <div key={option.option_id} className="block">
-              <Radio value={option.option_id} className="w-full">
-                <div className="flex items-start">
-                  <span className="font-medium mr-2">{option.option_id}.</span>
-                  <div className="flex-1">
-                    <div>{option.text}</div>
-                    {option.description && (
-                      <div className="text-xs text-gray-500 mt-1">{option.description}</div>
-                    )}
-                    {option.level && (
-                      <Tag size="small" color="purple" className="mt-1">
-                        {option.level}
-                      </Tag>
-                    )}
-                  </div>
-                  <Tag color="blue" className="ml-2">
-                    {option.score}分
-                  </Tag>
-                </div>
-              </Radio>
-            </div>
-          ))}
-        </Radio.Group>
+        <FormControl component="fieldset" disabled fullWidth>
+          <RadioGroup>
+            <Stack spacing={1}>
+              {question.options.map((option) => (
+                <FormControlLabel
+                  key={option.option_id}
+                  value={option.option_id}
+                  control={<Radio />}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                      <Typography variant="body2" fontWeight="medium">
+                        {option.option_id}.
+                      </Typography>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body2">{option.text}</Typography>
+                        {option.description && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            {option.description}
+                          </Typography>
+                        )}
+                        {option.level && (
+                          <Chip label={option.level} color="secondary" size="small" sx={{ mt: 0.5 }} />
+                        )}
+                      </Box>
+                      <Chip label={`${option.score}分`} color="primary" size="small" />
+                    </Box>
+                  }
+                />
+              ))}
+            </Stack>
+          </RadioGroup>
+        </FormControl>
       )
     }
 
     if (question.question_type === 'MULTIPLE_CHOICE') {
       return (
-        <Checkbox.Group disabled className="w-full space-y-2">
-          {question.options.map((option) => (
-            <div key={option.option_id} className="block">
-              <Checkbox value={option.option_id} className="w-full">
-                <div className="flex items-start">
-                  <span className="font-medium mr-2">{option.option_id}.</span>
-                  <div className="flex-1">
-                    <div>{option.text}</div>
-                    {option.description && (
-                      <div className="text-xs text-gray-500 mt-1">{option.description}</div>
-                    )}
-                  </div>
-                  <Tag color="blue" className="ml-2">
-                    {option.score}分
-                  </Tag>
-                </div>
-              </Checkbox>
-            </div>
-          ))}
-        </Checkbox.Group>
+        <FormControl component="fieldset" disabled fullWidth>
+          <Stack spacing={1}>
+            {question.options.map((option) => (
+              <FormControlLabel
+                key={option.option_id}
+                value={option.option_id}
+                control={<Checkbox />}
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                    <Typography variant="body2" fontWeight="medium">
+                      {option.option_id}.
+                    </Typography>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2">{option.text}</Typography>
+                      {option.description && (
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {option.description}
+                        </Typography>
+                      )}
+                    </Box>
+                    <Chip label={`${option.score}分`} color="primary" size="small" />
+                  </Box>
+                }
+              />
+            ))}
+          </Stack>
+        </FormControl>
       )
     }
 
     if (question.question_type === 'RATING') {
       return (
-        <div className="space-y-2">
-          <div className="text-sm text-gray-600">请选择评分（1-10分）：</div>
-          <div className="flex gap-2">
+        <Box>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            请选择评分（1-10分）：
+          </Typography>
+          <Stack direction="row" spacing={1}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((score) => (
-              <Button key={score} disabled size="small">
+              <Button key={score} disabled size="small" variant="outlined">
                 {score}
               </Button>
             ))}
-          </div>
-        </div>
+          </Stack>
+        </Box>
       )
     }
 
@@ -304,81 +335,90 @@ export default function QuestionnaireResultDisplay({
     const isEditing = editingQuestion === question.question_id
 
     return (
-      <div className="space-y-4">
-        <div className="flex justify-between items-start">
-          <div className="flex-1 space-y-2">
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Box sx={{ flex: 1 }}>
             {isEditing ? (
-              <>
-                <TextArea
+              <Stack spacing={2}>
+                <TextField
                   value={question.question_text}
                   onChange={(e) =>
                     handleUpdateQuestionText(question.question_id, e.target.value)
                   }
+                  multiline
                   rows={2}
                   placeholder="题目文本"
+                  fullWidth
+                  size="small"
                 />
-                <TextArea
+                <TextField
                   value={question.guidance}
                   onChange={(e) => handleUpdateGuidance(question.question_id, e.target.value)}
+                  multiline
                   rows={2}
                   placeholder="填写引导"
+                  fullWidth
+                  size="small"
                 />
-                <div className="flex gap-2">
+                <Stack direction="row" spacing={1}>
                   <Button
-                    type="primary"
+                    variant="contained"
                     size="small"
-                    icon={<SaveOutlined />}
+                    startIcon={<SaveIcon />}
                     onClick={handleSaveQuestion}
                   >
                     保存
                   </Button>
                   <Button
+                    variant="outlined"
                     size="small"
-                    icon={<CloseOutlined />}
+                    startIcon={<CloseIcon />}
                     onClick={handleCancelEdit}
                   >
                     取消
                   </Button>
-                </div>
-              </>
+                </Stack>
+              </Stack>
             ) : (
               <>
-                <div className="flex items-start gap-3">
-                  <span className="font-semibold text-gray-700 text-base">
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                  <Typography variant="subtitle1" fontWeight="bold">
                     {question.question_id}.
-                  </span>
-                  <div className="flex-1">
-                    <div className="text-base text-gray-800">{question.question_text}</div>
+                  </Typography>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body1">{question.question_text}</Typography>
                     {question.required && (
-                      <Tag color="red" size="small" className="mt-1">
-                        必答
-                      </Tag>
+                      <Chip label="必答" color="error" size="small" sx={{ mt: 0.5 }} />
                     )}
-                  </div>
-                </div>
+                  </Box>
+                </Box>
                 {question.guidance && (
-                  <div className="text-sm text-gray-500 pl-8">
-                    <QuestionCircleOutlined className="mr-1" />
-                    {question.guidance}
-                  </div>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1, pl: 3 }}>
+                    <HelpIcon fontSize="small" color="action" />
+                    <Typography variant="caption" color="text.secondary">
+                      {question.guidance}
+                    </Typography>
+                  </Box>
                 )}
               </>
             )}
-          </div>
+          </Box>
           {!isEditing && (
-            <Button
-              type="text"
+            <IconButton
               size="small"
-              icon={<EditOutlined />}
               onClick={() => handleEditQuestion(question.question_id)}
-            />
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
           )}
-        </div>
+        </Box>
 
         {!isEditing && (
-          <div className="pl-8">{renderOptions(question, isEditing)}</div>
+          <Box sx={{ pl: 3 }}>
+            {renderOptions(question, isEditing)}
+          </Box>
         )}
-      </div>
+      </Box>
     )
   }
 
@@ -390,34 +430,52 @@ export default function QuestionnaireResultDisplay({
     }))
 
     return (
-      <Modal
-        title="覆盖率统计"
+      <Dialog
         open={showCoverageModal}
-        onCancel={() => setShowCoverageModal(false)}
-        footer={[
-          <Button key="close" onClick={() => setShowCoverageModal(false)}>
-            关闭
-          </Button>,
-        ]}
-        width={700}
+        onClose={() => setShowCoverageModal(false)}
+        maxWidth="md"
+        fullWidth
       >
-        <div className="space-y-4">
-          {coverageData.map(({ clusterId, count }) => (
-            <div key={clusterId} className="flex items-center gap-4">
-              <div className="w-48 text-sm truncate" title={clusterId}>
-                {clusterId}
-              </div>
-              <div className="flex-1">
-                <Progress
-                  percent={(count / metadata.total_questions) * 100}
-                  format={() => `${count} 题`}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </Modal>
+        <DialogTitle>覆盖率统计</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            {coverageData.map(({ clusterId, count }) => (
+              <Box key={clusterId} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Typography variant="body2" sx={{ width: 200 }} noWrap title={clusterId}>
+                  {clusterId}
+                </Typography>
+                <Box sx={{ flex: 1 }}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={(count / metadata.total_questions) * 100}
+                    sx={{ height: 8, borderRadius: 1 }}
+                  />
+                </Box>
+                <Typography variant="caption" sx={{ width: 60 }}>
+                  {count} 题
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowCoverageModal(false)}>关闭</Button>
+        </DialogActions>
+      </Dialog>
     )
+  }
+
+  const getConfidenceColor = (level: string): 'success' | 'warning' | 'error' => {
+    switch (level) {
+      case 'HIGH':
+        return 'success'
+      case 'MEDIUM':
+        return 'warning'
+      case 'LOW':
+        return 'error'
+      default:
+        return 'warning'
+    }
   }
 
   // 按聚类分组题目
@@ -433,193 +491,216 @@ export default function QuestionnaireResultDisplay({
   )
 
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* 成功提示和导出 */}
-      <Alert
-        message={
-          <div>
-            <strong>✅ 问卷生成完成！</strong>
-          </div>
-        }
-        description={
-          <div className="space-y-3">
-            <div>
-              <span className="text-sm text-gray-600">任务ID：</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <code className="bg-gray-100 px-3 py-2 rounded font-mono text-sm flex-1 select-all">
-                {result.taskId}
-              </code>
-              <Button
-                onClick={handleCopyTaskId}
-                size="small"
-                className="whitespace-nowrap"
-              >
-                复制ID
-              </Button>
-            </div>
-            <div>
-              <Button
-                type="primary"
-                onClick={handleExportCSV}
-                className="w-full bg-green-600 hover:bg-green-700"
-              >
-                📊 导出CSV
-              </Button>
-            </div>
-          </div>
-        }
-        type="success"
-        showIcon
-        icon={<CheckCircleOutlined />}
-      />
+      <Alert severity="success" icon={<CheckCircleIcon />}>
+        <Typography variant="subtitle1" fontWeight="bold">
+          问卷生成完成！
+        </Typography>
+        <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" color="text.secondary">任务ID：</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              component="code"
+              sx={{
+                bgcolor: 'grey.100',
+                px: 2,
+                py: 1,
+                borderRadius: 1,
+                fontFamily: 'monospace',
+                flex: 1,
+                userSelect: 'all',
+              }}
+            >
+              {result.taskId}
+            </Box>
+            <Button variant="outlined" size="small" onClick={handleCopyTaskId}>
+              复制ID
+            </Button>
+          </Box>
+          <Box>
+            <Button variant="contained" color="success" fullWidth onClick={handleExportCSV}>
+              导出CSV
+            </Button>
+          </Box>
+        </Box>
+      </Alert>
 
       {/* 元数据信息 */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card size="small">
-          <div className="text-xs text-gray-500">任务ID</div>
-          <div className="text-sm font-mono truncate">{result.taskId}</div>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
+        <Card>
+          <CardContent>
+            <Typography variant="caption" color="text.secondary">任务ID</Typography>
+            <Typography variant="body2" fontFamily="monospace" noWrap>
+              {result.taskId}
+            </Typography>
+          </CardContent>
         </Card>
-        <Card size="small">
-          <div className="text-xs text-gray-500">选中模型</div>
-          <div className="text-sm font-semibold">
-            <Tag color="blue">{result.selectedModel}</Tag>
-          </div>
+        <Card>
+          <CardContent>
+            <Typography variant="caption" color="text.secondary">选中模型</Typography>
+            <Box sx={{ mt: 0.5 }}>
+              <Chip label={result.selectedModel} color="primary" size="small" />
+            </Box>
+          </CardContent>
         </Card>
-        <Card size="small">
-          <div className="text-xs text-gray-500">置信度</div>
-          <div className="text-sm">
-            <Tag
-              color={
-                result.confidenceLevel === 'HIGH'
-                  ? 'green'
-                  : result.confidenceLevel === 'MEDIUM'
-                    ? 'orange'
-                    : 'red'
-              }
-            >
-              {result.confidenceLevel}
-            </Tag>
-          </div>
+        <Card>
+          <CardContent>
+            <Typography variant="caption" color="text.secondary">置信度</Typography>
+            <Box sx={{ mt: 0.5 }}>
+              <Chip
+                label={result.confidenceLevel}
+                color={getConfidenceColor(result.confidenceLevel)}
+                size="small"
+              />
+            </Box>
+          </CardContent>
         </Card>
-        <Card size="small">
-          <div className="text-xs text-gray-500">总题数</div>
-          <div className="text-sm font-semibold">{metadata.total_questions} 题</div>
+        <Card>
+          <CardContent>
+            <Typography variant="caption" color="text.secondary">总题数</Typography>
+            <Typography variant="body2" fontWeight="bold">
+              {metadata.total_questions} 题
+            </Typography>
+          </CardContent>
         </Card>
-        <Card size="small">
-          <div className="text-xs text-gray-500">预估时间</div>
-          <div className="text-sm font-semibold">{metadata.estimated_time_minutes} 分钟</div>
+        <Card>
+          <CardContent>
+            <Typography variant="caption" color="text.secondary">预估时间</Typography>
+            <Typography variant="body2" fontWeight="bold">
+              {metadata.estimated_time_minutes} 分钟
+            </Typography>
+          </CardContent>
         </Card>
-      </div>
+      </Box>
 
       {/* 题型统计 */}
-      <Card
-        title="题型统计"
-        extra={
-          <Button
-            type="link"
-            size="small"
-            icon={<PieChartOutlined />}
-            onClick={() => setShowCoverageModal(true)}
-          >
-            查看覆盖率
-          </Button>
-        }
-      >
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <div className="text-xs text-gray-500">单选题</div>
-            <div className="text-2xl font-bold text-blue-600">
-              {questionTypeStats.SINGLE_CHOICE}
-            </div>
-            <div className="text-xs text-gray-500">
-              占比{' '}
-              {((questionTypeStats.SINGLE_CHOICE / metadata.total_questions) * 100).toFixed(1)}%
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">多选题</div>
-            <div className="text-2xl font-bold text-green-600">
-              {questionTypeStats.MULTIPLE_CHOICE}
-            </div>
-            <div className="text-xs text-gray-500">
-              占比{' '}
-              {((questionTypeStats.MULTIPLE_CHOICE / metadata.total_questions) * 100).toFixed(1)}%
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">评分题</div>
-            <div className="text-2xl font-bold text-orange-600">{questionTypeStats.RATING}</div>
-            <div className="text-xs text-gray-500">
-              占比 {((questionTypeStats.RATING / metadata.total_questions) * 100).toFixed(1)}%
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-gray-500">判断题</div>
-            <div className="text-2xl font-bold text-purple-600">{questionTypeStats.BINARY}</div>
-            <div className="text-xs text-gray-500">
-              占比 {((questionTypeStats.BINARY / metadata.total_questions) * 100).toFixed(1)}%
-            </div>
-          </div>
-        </div>
+      <Card>
+        <CardHeader
+          title="题型统计"
+          action={
+            <Button
+              variant="text"
+              size="small"
+              startIcon={<PieChartIcon />}
+              onClick={() => setShowCoverageModal(true)}
+            >
+              查看覆盖率
+            </Button>
+          }
+        />
+        <CardContent>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">单选题</Typography>
+              <Typography variant="h5" fontWeight="bold" color="primary.main">
+                {questionTypeStats.SINGLE_CHOICE}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                占比 {((questionTypeStats.SINGLE_CHOICE / metadata.total_questions) * 100).toFixed(1)}%
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">多选题</Typography>
+              <Typography variant="h5" fontWeight="bold" color="success.main">
+                {questionTypeStats.MULTIPLE_CHOICE}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                占比 {((questionTypeStats.MULTIPLE_CHOICE / metadata.total_questions) * 100).toFixed(1)}%
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">评分题</Typography>
+              <Typography variant="h5" fontWeight="bold" color="warning.main">
+                {questionTypeStats.RATING}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                占比 {((questionTypeStats.RATING / metadata.total_questions) * 100).toFixed(1)}%
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">判断题</Typography>
+              <Typography variant="h5" fontWeight="bold" color="secondary.main">
+                {questionTypeStats.BINARY}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                占比 {((questionTypeStats.BINARY / metadata.total_questions) * 100).toFixed(1)}%
+              </Typography>
+            </Box>
+          </Box>
+        </CardContent>
       </Card>
 
       {/* 质量评分 */}
       {result.qualityScores && (
-        <Card title="质量评分" size="small">
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <div className="text-xs text-gray-500">结构质量</div>
-              <div className="text-xl font-bold text-blue-600">
-                {(result.qualityScores.structural * 100).toFixed(1)}%
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">语义质量</div>
-              <div className="text-xl font-bold text-green-600">
-                {(result.qualityScores.semantic * 100).toFixed(1)}%
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">细节质量</div>
-              <div className="text-xl font-bold text-purple-600">
-                {(result.qualityScores.detail * 100).toFixed(1)}%
-              </div>
-            </div>
-          </div>
+        <Card>
+          <CardHeader title="质量评分" />
+          <CardContent>
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">结构质量</Typography>
+                <Typography variant="h5" fontWeight="bold" color="primary.main">
+                  {(result.qualityScores.structural * 100).toFixed(1)}%
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">语义质量</Typography>
+                <Typography variant="h5" fontWeight="bold" color="success.main">
+                  {(result.qualityScores.semantic * 100).toFixed(1)}%
+                </Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">细节质量</Typography>
+                <Typography variant="h5" fontWeight="bold" color="secondary.main">
+                  {(result.qualityScores.detail * 100).toFixed(1)}%
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
         </Card>
       )}
 
       {/* 问卷题目列表（按聚类分组） */}
-      <Card title={`调研问卷 (${metadata.total_questions} 题)`}>
-        <Collapse accordion>
+      <Card>
+        <CardHeader title={`调研问卷 (${metadata.total_questions} 题)`} />
+        <CardContent>
           {Object.entries(questionsByCluster).map(([clusterId, clusterQuestions]) => (
-            <Panel
-              header={
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">{clusterQuestions[0].cluster_name}</span>
-                  <Tag color="blue">{clusterQuestions.length} 题</Tag>
-                </div>
-              }
-              key={clusterId}
-            >
-              <div className="space-y-6">
-                {clusterQuestions.map((question, index) => (
-                  <div key={question.question_id} className="border-b border-gray-200 pb-4 last:border-0">
-                    <div className="mb-2">
-                      {renderQuestionTypeTag(question.question_type)}
-                    </div>
-                    {renderQuestionContent(question)}
-                  </div>
-                ))}
-              </div>
-            </Panel>
+            <Accordion key={clusterId} defaultExpanded>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 2 }}>
+                  <Typography variant="subtitle1" fontWeight="medium">
+                    {clusterQuestions[0].cluster_name}
+                  </Typography>
+                  <Chip label={`${clusterQuestions.length} 题`} color="primary" size="small" />
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Stack spacing={3}>
+                  {clusterQuestions.map((question) => (
+                    <Box
+                      key={question.question_id}
+                      sx={{
+                        borderBottom: 1,
+                        borderColor: 'divider',
+                        pb: 2,
+                        '&:last-child': { borderBottom: 0 },
+                      }}
+                    >
+                      <Box sx={{ mb: 1 }}>
+                        {renderQuestionTypeTag(question.question_type)}
+                      </Box>
+                      {renderQuestionContent(question)}
+                    </Box>
+                  ))}
+                </Stack>
+              </AccordionDetails>
+            </Accordion>
           ))}
-        </Collapse>
+        </CardContent>
       </Card>
 
       {/* 覆盖率统计模态框 */}
       {renderCoverageModal()}
-    </div>
+    </Box>
   )
 }

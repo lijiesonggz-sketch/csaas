@@ -5,38 +5,39 @@
  * 展示完整的改进措施计划，支持导出功能
  */
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import * as XLSX from 'xlsx'
-import {
-  Card,
-  Button,
-  Tag,
-  Collapse,
-  Timeline,
-  Row,
-  Col,
-  Statistic,
-  Progress,
-  Space,
-  Descriptions,
-  Alert,
-  message,
-} from 'antd'
-import {
-  DownloadOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  TeamOutlined,
-  DollarOutlined,
-  RocketOutlined,
-  SafetyOutlined,
-  ThunderboltOutlined,
-  LineChartOutlined,
-  BulbOutlined,
-} from '@ant-design/icons'
+import { toast } from 'sonner'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import CardHeader from '@mui/material/CardHeader'
+import Chip from '@mui/material/Chip'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import Alert from '@mui/material/Alert'
+import Button from '@mui/material/Button'
+import Accordion from '@mui/material/Accordion'
+import AccordionSummary from '@mui/material/AccordionSummary'
+import AccordionDetails from '@mui/material/AccordionDetails'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import Grid from '@mui/material/Grid'
+import Stack from '@mui/material/Stack'
+import LinearProgress from '@mui/material/LinearProgress'
+import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
+import ListItemText from '@mui/material/ListItemText'
+import ListItemIcon from '@mui/material/ListItemIcon'
+import DownloadIcon from '@mui/icons-material/Download'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import ClockIcon from '@mui/icons-material/AccessTime'
+import TeamIcon from '@mui/icons-material/Group'
+import DollarIcon from '@mui/icons-material/AttachMoney'
+import RocketIcon from '@mui/icons-material/Rocket'
+import SafetyIcon from '@mui/icons-material/Security'
+import ThunderIcon from '@mui/icons-material/FlashOn'
+import ChartIcon from '@mui/icons-material/BarChart'
+import LightbulbIcon from '@mui/icons-material/Lightbulb'
 import type { GenerationResult } from '@/lib/types/ai-generation'
-
-const { Panel } = Collapse
 
 interface Improvement {
   area: string
@@ -98,32 +99,30 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
   // 优先级配置
   const getPriorityConfig = (priority: string) => {
     const configs = {
-      高: { color: 'red', icon: '🔴', text: '高优先级' },
-      中: { color: 'orange', icon: '🟡', text: '中优先级' },
-      低: { color: 'blue', icon: '🟢', text: '低优先级' },
+      高: { color: 'error' as const, icon: '🔴', text: '高优先级' },
+      中: { color: 'warning' as const, icon: '🟡', text: '中优先级' },
+      低: { color: 'info' as const, icon: '🟢', text: '低优先级' },
     }
-    return configs[priority as keyof typeof configs] || { color: 'default', icon: '⚪', text: priority }
+    return configs[priority as keyof typeof configs] || { color: 'default' as const, icon: '⚪', text: priority }
   }
 
   // ========================================
   // 两层导航状态管理
   // ========================================
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null) // 当前展开的一层分类（用于展开其二级导航）
-  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set()) // 展开的二级聚类集合（用于展开其措施列表）
-  const [expandedAllCategories, setExpandedAllCategories] = useState<Set<string>>(new Set()) // 展开所有措施的一级分类集合
-  const [expandedAll, setExpandedAll] = useState(false) // 是否展开所有措施
-  const [highlightedCluster, setHighlightedCluster] = useState<string | null>(null) // 当前高亮的二层聚类
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const [expandedClusters, setExpandedClusters] = useState<Set<string>>(new Set())
+  const [expandedAllCategories, setExpandedAllCategories] = useState<Set<string>>(new Set())
+  const [expandedAll, setExpandedAll] = useState(false)
+  const [highlightedCluster, setHighlightedCluster] = useState<string | null>(null)
 
   // ========================================
-  // 层级数据处理（暂时使用硬编码，后续从API获取）
+  // 层级数据处理
   // ========================================
   const categoryHierarchy = useMemo(() => {
     if (!useDetailedMeasures || !detailedMeasures || detailedMeasures.length === 0) {
       return []
     }
 
-    // 硬编码的层级结构（从之前的聚类分析中获取）
-    // TODO: 后续从后端API或metadata中获取
     const hardcodedCategories = [
       {
         id: 'category_1',
@@ -171,7 +170,6 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
       }
     ]
 
-    // 过滤出实际存在于措施中的聚类
     const existingClusterNames = new Set(detailedMeasures.map((m: any) => m.clusterName))
 
     return hardcodedCategories
@@ -201,7 +199,6 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
         ? categoryMeasures.reduce((sum: number, m: any) => sum + m.targetLevel, 0) / categoryMeasures.length
         : 0
 
-      // 计算每个聚类的统计数据
       const clustersWithStats = category.clusters.map((cluster: any) => {
         const clusterMeasures = detailedMeasures.filter((m: any) => m.clusterName === cluster.name)
         const clusterAvgCurrent = clusterMeasures.length > 0
@@ -241,16 +238,14 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
   // ========================================
   // 交互处理函数
   // ========================================
-  // 处理一级分类点击（展开/收起其二级导航）
   const handleCategoryExpand = (categoryName: string) => {
     if (expandedCategory === categoryName) {
-      setExpandedCategory(null) // 收起
+      setExpandedCategory(null)
     } else {
-      setExpandedCategory(categoryName) // 展开
+      setExpandedCategory(categoryName)
     }
   }
 
-  // 处理展开某一级分类的所有措施
   const handleExpandAllInCategory = (categoryName: string) => {
     const newExpanded = new Set(expandedAllCategories)
     if (newExpanded.has(categoryName)) {
@@ -261,7 +256,6 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
     setExpandedAllCategories(newExpanded)
   }
 
-  // 处理展开/收起所有措施
   const handleExpandAll = () => {
     if (expandedAll) {
       setExpandedAll(false)
@@ -269,16 +263,13 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
       setExpandedClusters(new Set())
     } else {
       setExpandedAll(true)
-      // 展开所有分类的所有措施
       const allCategories = new Set(categoryHierarchy.map((cat: any) => cat.name))
       setExpandedAllCategories(allCategories)
-      // 展开所有聚类的措施
-      const allClusters = new Set(detailedMeasures.map((m: any) => m.clusterName))
+      const allClusters = new Set((detailedMeasures || []).map((m: any) => m.clusterName))
       setExpandedClusters(allClusters)
     }
   }
 
-  // 处理二级聚类点击（展开/收起其措施列表）
   const handleClusterExpand = (clusterName: string) => {
     const newExpanded = new Set(expandedClusters)
     if (newExpanded.has(clusterName)) {
@@ -287,11 +278,8 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
       newExpanded.add(clusterName)
     }
     setExpandedClusters(newExpanded)
-
-    // 高亮该聚类
     setHighlightedCluster(clusterName)
 
-    // 平滑滚动到措施区域
     setTimeout(() => {
       const element = document.getElementById(`cluster-measures-${clusterName}`)
       if (element) {
@@ -300,21 +288,10 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
     }, 100)
   }
 
-  // 判断某个聚类是否应该显示措施
   const shouldShowClusterMeasures = (clusterName: string, categoryName?: string) => {
-    // 1. 如果展开了所有，返回true
     if (expandedAll) return true
-
-    // 2. 如果展开了该聚类所在的一级分类的所有措施，返回true
-    if (categoryName && expandedAllCategories.has(categoryName)) {
-      return true
-    }
-
-    // 3. 如果展开了该特定聚类，返回true
-    if (expandedClusters.has(clusterName)) {
-      return true
-    }
-
+    if (categoryName && expandedAllCategories.has(categoryName)) return true
+    if (expandedClusters.has(clusterName)) return true
     return false
   }
 
@@ -324,8 +301,6 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
       const csvRows: string[] = []
 
       if (useDetailedMeasures && detailedMeasures) {
-        // 使用详细措施（90条）
-        // CSV Header - 增强版
         csvRows.push([
           '序号',
           '聚类',
@@ -346,19 +321,13 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
           '缓解措施'
         ].join(','))
 
-        // 遍历详细措施
         detailedMeasures.forEach((measure, index) => {
           const config = getPriorityConfig(measure.priority === 'high' ? '高' : measure.priority === 'medium' ? '中' : '低')
 
-          // 提取资源需求
           const budget = measure.resourcesNeeded?.budget || '-'
           const personnel = measure.resourcesNeeded?.personnel?.join('; ') || '-'
           const technology = measure.resourcesNeeded?.technology?.join('; ') || '-'
-
-          // 提取外部依赖
           const externalDeps = measure.dependencies?.externalDependencies?.join('; ') || '-'
-
-          // 提取风险和缓解措施（可能有多个）
           const risks = measure.risks?.map((r: any) => r.risk).join('; ') || '-'
           const mitigations = measure.risks?.map((r: any) => r.mitigation).join('; ') || '-'
 
@@ -384,11 +353,8 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
           csvRows.push(csvRow.join(','))
         })
       } else {
-        // 使用简化措施
-        // CSV Header
         csvRows.push('优先级,领域,当前级别,目标级别,时间周期,所需资源,预期成果,改进措施')
 
-        // 遍历改进措施
         improvements.forEach((improvement) => {
           const config = getPriorityConfig(improvement.priority)
           const actions = improvement.actions.join('; ')
@@ -406,7 +372,6 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
         })
       }
 
-      // 创建下载
       const csvContent = csvRows.join('\n')
       const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
@@ -416,13 +381,13 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
       link.click()
       URL.revokeObjectURL(url)
 
-      message.success('改进措施已导出为CSV文件！')
+      toast.success('改进措施已导出为CSV文件！')
     } catch (error) {
-      message.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
+      toast.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
     }
   }
 
-  // 导出为 Word (简化版，实际导出HTML)
+  // 导出为 Word
   const handleExportWord = () => {
     try {
       let htmlContent = `
@@ -433,7 +398,7 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
           <title>数据安全改进措施计划</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 40px; }
-            h1 { color: #1890ff; }
+            h1 { color: #1976d2; }
             h2 { color: #262626; margin-top: 30px; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
             th, td { border: 1px solid #d9d9d9; padding: 12px; text-align: left; }
@@ -498,17 +463,17 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
       link.click()
       URL.revokeObjectURL(url)
 
-      message.success('改进措施已导出为Word文件！')
+      toast.success('改进措施已导出为Word文件！')
     } catch (error) {
-      message.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
+      toast.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
     }
   }
 
-  // 导出为 Excel (多 Sheet 格式，参考 2025-12-31 Excel 文件结构)
+  // 导出为 Excel
   const handleExportExcel = () => {
     try {
       if (!useDetailedMeasures || !detailedMeasures || detailedMeasures.length === 0) {
-        message.warning('请先生成详细改进措施后再导出 Excel')
+        toast.warning('请先生成详细改进措施后再导出 Excel')
         return
       }
 
@@ -516,9 +481,7 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
       const sheetNames: string[] = []
       const sheets: XLSX.WorkSheet[] = []
 
-      // ========================================
       // Sheet 1: 概览统计
-      // ========================================
       const overviewData = [
         ['成熟度改进措施计划'],
         ['生成时间', new Date().toLocaleString('zh-CN')],
@@ -549,9 +512,7 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
       sheetNames.push('概览统计')
       sheets.push(overviewSheet)
 
-      // ========================================
       // Sheet 2: 措施汇总表
-      // ========================================
       const summaryData = [
         ['序号', '聚类', '优先级', '措施标题', '当前级别', '目标级别', '差距', '预期提升', '时间周期', '负责部门', '预算', '人员'],
         ...detailedMeasures.map((measure, index) => [
@@ -573,9 +534,7 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
       sheetNames.push('措施汇总')
       sheets.push(summarySheet)
 
-      // ========================================
       // Sheet 3-N: 按聚类分组的详细措施
-      // ========================================
       const uniqueClusters = Array.from(new Set(detailedMeasures.map(m => m.clusterName)))
       uniqueClusters.forEach((clusterName, clusterIndex) => {
         const clusterMeasures = detailedMeasures.filter(m => m.clusterName === clusterName)
@@ -622,13 +581,11 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
         ]
 
         const clusterSheet = XLSX.utils.aoa_to_sheet(clusterData)
-        sheetNames.push(clusterName.length > 31 ? clusterName.substring(0, 31) : clusterName) // Excel sheet name max 31 chars
+        sheetNames.push(clusterName.length > 31 ? clusterName.substring(0, 31) : clusterName)
         sheets.push(clusterSheet)
       })
 
-      // ========================================
       // Sheet N+1: 实施步骤汇总
-      // ========================================
       const implementationSteps: any[][] = []
       detailedMeasures.forEach((measure) => {
         if (measure.implementationSteps && measure.implementationSteps.length > 0) {
@@ -653,9 +610,7 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
       sheetNames.push('实施步骤')
       sheets.push(stepsSheet)
 
-      // ========================================
       // Sheet N+2: 资源与KPI汇总
-      // ========================================
       const resourceData = [
         ['聚类', '措施', '优先级', '负责部门', '预算', '人员', '技术/工具', 'KPI指标', '目标值', '测量方法'],
         ...detailedMeasures.map((measure) => {
@@ -681,682 +636,745 @@ export default function ActionPlanResultDisplay({ result, detailedMeasures }: Ac
       sheetNames.push('资源与KPI')
       sheets.push(resourceSheet)
 
-      // 将所有 sheet 添加到 workbook
       sheets.forEach((sheet, index) => {
         XLSX.utils.book_append_sheet(workbook, sheet, sheetNames[index])
       })
 
-      // 生成文件并下载
       const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '')
       XLSX.writeFile(workbook, `成熟度改进措施计划_${dateStr}.xlsx`)
 
-      message.success('改进措施已导出为 Excel 文件（多 Sheet 格式）！')
+      toast.success('改进措施已导出为 Excel 文件（多 Sheet 格式）！')
     } catch (error) {
       console.error('Excel 导出错误:', error)
-      message.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
+      toast.error('导出失败：' + (error instanceof Error ? error.message : '未知错误'))
     }
   }
 
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* 概述信息 */}
       {summary && (
-        <Alert
-          message="改进措施概述"
-          description={summary}
-          type="info"
-          showIcon
-          icon={<RocketOutlined />}
-        />
+        <Alert severity="info" icon={<RocketIcon />}>
+          <Typography variant="subtitle1" fontWeight="bold">改进措施概述</Typography>
+          <Typography variant="body2">{summary}</Typography>
+        </Alert>
       )}
 
       {/* 成熟度概览统计 */}
       {useDetailedMeasures && detailedMeasures.length > 0 && (
-        <Card bordered={false} title="📊 成熟度概览">
-          <Row gutter={16}>
-            <Col span={6}>
-              <Statistic
-                title="当前成熟度"
-                value={(() => {
-                  const scores = detailedMeasures.map(m => m.currentLevel)
-                  return (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)
-                })()}
-                suffix="分"
-                valueStyle={{ color: '#cf1322' }}
-              />
-            </Col>
-            <Col span={6}>
-              <Statistic
-                title="目标成熟度"
-                value={(() => {
-                  const scores = detailedMeasures.map(m => m.targetLevel)
-                  return (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)
-                })()}
-                suffix="分"
-                valueStyle={{ color: '#3f8600' }}
-              />
-            </Col>
-            <Col span={6}>
-              <Statistic
-                title="平均差距"
-                value={(() => {
-                  const gaps = detailedMeasures.map(m => m.gap)
-                  return (gaps.reduce((a, b) => a + b, 0) / gaps.length).toFixed(2)
-                })()}
-                suffix="分"
-                valueStyle={{ color: '#faad14' }}
-              />
-            </Col>
-            <Col span={6}>
-              <Statistic
-                title="预期总提升"
-                value={(() => {
-                  const improvements = detailedMeasures.map(m => m.expectedImprovement || 0)
-                  return (improvements.reduce((a, b) => a + b, 0)).toFixed(2)
-                })()}
-                suffix="分"
-                valueStyle={{ color: '#1890ff' }}
-              />
-            </Col>
-          </Row>
+        <Card>
+          <CardHeader title="📊 成熟度概览" />
+          <CardContent>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 6, md: 3 }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">当前成熟度</Typography>
+                  <Typography variant="h4" fontWeight="bold" color="error.main">
+                    {(() => {
+                      const scores = detailedMeasures.map(m => m.currentLevel)
+                      return (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)
+                    })()}
+                  </Typography>
+                  <Typography variant="caption">分</Typography>
+                </Box>
+              </Grid>
+              <Grid size={{ xs: 6, md: 3 }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">目标成熟度</Typography>
+                  <Typography variant="h4" fontWeight="bold" color="success.main">
+                    {(() => {
+                      const scores = detailedMeasures.map(m => m.targetLevel)
+                      return (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2)
+                    })()}
+                  </Typography>
+                  <Typography variant="caption">分</Typography>
+                </Box>
+              </Grid>
+              <Grid size={{ xs: 6, md: 3 }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">平均差距</Typography>
+                  <Typography variant="h4" fontWeight="bold" color="warning.main">
+                    {(() => {
+                      const gaps = detailedMeasures.map(m => m.gap)
+                      return (gaps.reduce((a, b) => a + b, 0) / gaps.length).toFixed(2)
+                    })()}
+                  </Typography>
+                  <Typography variant="caption">分</Typography>
+                </Box>
+              </Grid>
+              <Grid size={{ xs: 6, md: 3 }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">预期总提升</Typography>
+                  <Typography variant="h4" fontWeight="bold" color="info.main">
+                    {(() => {
+                      const improvements = detailedMeasures.map(m => m.expectedImprovement || 0)
+                      return (improvements.reduce((a, b) => a + b, 0)).toFixed(2)
+                    })()}
+                  </Typography>
+                  <Typography variant="caption">分</Typography>
+                </Box>
+              </Grid>
+            </Grid>
+          </CardContent>
         </Card>
       )}
 
       {/* 两层导航 */}
       {useDetailedMeasures && detailedMeasures.length > 0 && categoryStats.length > 0 && (
-        <div className="space-y-4">
-          {/* 一层分类导航 */}
-          <Card bordered={false} title="📁 一层分类导航">
-            <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              {categoryStats.map((category, catIndex) => {
-                const isExpanded = expandedCategory === category.name
-                const isExpandedAll = expandedAllCategories.has(category.name)
-                const categoryIcon = ['🛡️', '🔄', '🔐', '📊'][catIndex] || '📋'
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Card>
+            <CardHeader title="📁 一层分类导航" />
+            <CardContent>
+              <Stack spacing={2}>
+                {categoryStats.map((category: any, catIndex: number) => {
+                  const isExpanded = expandedCategory === category.name
+                  const isExpandedAll = expandedAllCategories.has(category.name)
+                  const categoryIcon = ['🛡️', '🔄', '🔐', '📊'][catIndex] || '📋'
 
-                return (
-                  <div key={category.id}>
-                    <Card
-                      size="small"
-                      style={{
-                        borderColor: isExpanded ? '#1890ff' : '#d9d9d9',
-                        backgroundColor: isExpanded ? '#f0f5ff' : '#ffffff',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s'
-                      }}
-                      hoverable
-                      onClick={() => handleCategoryExpand(category.name)}
-                    >
-                      <Space direction="vertical" style={{ width: '100%' }} size="small">
-                        <div className="flex items-center justify-between">
-                          <Space>
-                            <span style={{ fontSize: '20px' }}>{categoryIcon}</span>
-                            <span className="text-lg font-medium">{category.name}</span>
-                          </Space>
-                          <Space>
-                            <Button
-                              type="link"
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleExpandAllInCategory(category.name)
-                              }}
-                            >
-                              {isExpandedAll ? '收起' : '展开所有'}
-                            </Button>
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={isExpanded ? <span>▲</span> : <span>▼</span>}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleCategoryExpand(category.name)
-                              }}
-                            />
-                          </Space>
-                        </div>
-
-                        <div className="text-sm text-gray-500">
-                          {category.description}
-                        </div>
-
+                  return (
+                    <Box key={category.id}>
                       <Card
-                        size="small"
-                        style={{ backgroundColor: '#fafafa', border: 'none' }}
+                        variant="outlined"
+                        sx={{
+                          cursor: 'pointer',
+                          borderColor: isExpanded ? 'primary.main' : 'divider',
+                          bgcolor: isExpanded ? 'primary.50' : 'background.paper',
+                          transition: 'all 0.3s',
+                        }}
+                        onClick={() => handleCategoryExpand(category.name)}
                       >
-                        <Row gutter={16}>
-                          <Col span={6}>
-                            <div className="text-center">
-                              <div className="text-xs text-gray-500 mb-1">当前成熟度</div>
-                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#cf1322' }}>
-                                {category.avgCurrent}
-                              </div>
-                            </div>
-                          </Col>
-                          <Col span={6}>
-                            <div className="text-center">
-                              <div className="text-xs text-gray-500 mb-1">目标成熟度</div>
-                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#3f8600' }}>
-                                {category.avgTarget}
-                              </div>
-                            </div>
-                          </Col>
-                          <Col span={6}>
-                            <div className="text-center">
-                              <div className="text-xs text-gray-500 mb-1">平均差距</div>
-                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#faad14' }}>
-                                {category.avgGap}
-                              </div>
-                            </div>
-                          </Col>
-                          <Col span={6}>
-                            <div className="text-center">
-                              <div className="text-xs text-gray-500 mb-1">措施数量</div>
-                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1890ff' }}>
-                                {category.measureCount}条
-                              </div>
-                            </div>
-                          </Col>
-                        </Row>
+                        <CardContent>
+                          <Stack spacing={1}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Typography variant="h6">{categoryIcon}</Typography>
+                                <Typography variant="h6">{category.name}</Typography>
+                              </Stack>
+                              <Stack direction="row" spacing={1}>
+                                <Button
+                                  variant="text"
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleExpandAllInCategory(category.name)
+                                  }}
+                                >
+                                  {isExpandedAll ? '收起' : '展开所有'}
+                                </Button>
+                                <Button
+                                  variant="text"
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleCategoryExpand(category.name)
+                                  }}
+                                >
+                                  {isExpanded ? '▲' : '▼'}
+                                </Button>
+                              </Stack>
+                            </Box>
+
+                            <Typography variant="body2" color="text.secondary">
+                              {category.description}
+                            </Typography>
+
+                            <Card variant="outlined" sx={{ bgcolor: 'grey.50' }}>
+                              <CardContent>
+                                <Grid container spacing={2}>
+                                  <Grid size={{ xs: 6, md: 3 }}>
+                                    <Box sx={{ textAlign: 'center' }}>
+                                      <Typography variant="caption" color="text.secondary">当前成熟度</Typography>
+                                      <Typography variant="h6" fontWeight="bold" color="error.main">
+                                        {category.avgCurrent}
+                                      </Typography>
+                                    </Box>
+                                  </Grid>
+                                  <Grid size={{ xs: 6, md: 3 }}>
+                                    <Box sx={{ textAlign: 'center' }}>
+                                      <Typography variant="caption" color="text.secondary">目标成熟度</Typography>
+                                      <Typography variant="h6" fontWeight="bold" color="success.main">
+                                        {category.avgTarget}
+                                      </Typography>
+                                    </Box>
+                                  </Grid>
+                                  <Grid size={{ xs: 6, md: 3 }}>
+                                    <Box sx={{ textAlign: 'center' }}>
+                                      <Typography variant="caption" color="text.secondary">平均差距</Typography>
+                                      <Typography variant="h6" fontWeight="bold" color="warning.main">
+                                        {category.avgGap}
+                                      </Typography>
+                                    </Box>
+                                  </Grid>
+                                  <Grid size={{ xs: 6, md: 3 }}>
+                                    <Box sx={{ textAlign: 'center' }}>
+                                      <Typography variant="caption" color="text.secondary">措施数量</Typography>
+                                      <Typography variant="h6" fontWeight="bold" color="info.main">
+                                        {category.measureCount}条
+                                      </Typography>
+                                    </Box>
+                                  </Grid>
+                                </Grid>
+                              </CardContent>
+                            </Card>
+
+                            <Typography variant="caption" color="text.secondary" textAlign="center">
+                              包含 {category.clusters.length} 个聚类
+                              {isExpanded ? ' [点击收起]' : ' [点击展开]'}
+                            </Typography>
+                          </Stack>
+                        </CardContent>
                       </Card>
 
-                      <div className="text-xs text-gray-400 text-center">
-                        包含 {category.clusters.length} 个聚类
-                        {isExpanded ? ' [点击收起]' : ' [点击展开]'}
-                      </div>
-                    </Space>
-                  </Card>
+                      {/* 二层聚类导航 */}
+                      {isExpanded && (
+                        <Card
+                          variant="outlined"
+                          sx={{
+                            mt: 1,
+                            ml: 2,
+                            bgcolor: 'grey.50',
+                            borderLeft: 3,
+                            borderLeftColor: 'primary.main',
+                          }}
+                        >
+                          <CardContent>
+                            <Typography variant="subtitle2" color="primary.main" gutterBottom>
+                              📂 {category.name} - 二层聚类导航
+                            </Typography>
+                            <Grid container spacing={2}>
+                              {category.clusters.map((cluster: any, clusterIndex: number) => {
+                                const isClusterExpanded = expandedClusters.has(cluster.name)
 
-                  {/* 二层聚类导航（在该一级分类下展开） */}
-                  {isExpanded && (
-                    <Card
-                      bordered={false}
-                      style={{
-                        marginTop: 12,
-                        backgroundColor: '#f5f5f5',
-                        borderLeft: '3px solid #1890ff'
-                      }}
-                    >
-                      <div className="text-sm font-medium mb-3" style={{ color: '#1890ff' }}>
-                        📂 {category.name} - 二层聚类导航
-                      </div>
-                      <Row gutter={[12, 12]}>
-                        {category.clusters.map((cluster: any, clusterIndex: number) => {
-                          const isClusterExpanded = expandedClusters.has(cluster.name)
+                                return (
+                                  <Grid size={{ xs: 12, sm: 6, md: 4 }} key={cluster.id}>
+                                    <Card
+                                      variant="outlined"
+                                      sx={{
+                                        cursor: 'pointer',
+                                        borderColor: isClusterExpanded ? 'warning.main' : 'divider',
+                                        bgcolor: isClusterExpanded ? 'warning.50' : 'background.paper',
+                                        transition: 'all 0.3s',
+                                      }}
+                                      onClick={() => handleClusterExpand(cluster.name)}
+                                    >
+                                      <CardContent>
+                                        <Stack spacing={1}>
+                                          <Typography variant="subtitle2" fontWeight="medium">
+                                            {clusterIndex + 1}. {cluster.name}
+                                          </Typography>
 
-                          return (
-                            <Col xs={24} sm={12} md={8} key={cluster.id}>
-                              <Card
-                                size="small"
-                                style={{
-                                  cursor: 'pointer',
-                                  borderColor: isClusterExpanded ? '#faad14' : '#d9d9d9',
-                                  backgroundColor: isClusterExpanded ? '#fffbe6' : '#ffffff',
-                                  transition: 'all 0.3s'
-                                }}
-                                hoverable
-                                onClick={() => handleClusterExpand(cluster.name)}
-                              >
-                                <Space direction="vertical" style={{ width: '100%' }} size="small">
-                                  <div className="font-medium text-sm">
-                                    {clusterIndex + 1}. {cluster.name}
-                                  </div>
+                                          <Box sx={{
+                                            p: 1,
+                                            bgcolor: 'grey.100',
+                                            borderRadius: 1,
+                                            border: 1,
+                                            borderColor: 'divider',
+                                          }}>
+                                            <Typography variant="caption" display="block">
+                                              当前: {cluster.avgCurrent} → 目标: {cluster.avgTarget}
+                                            </Typography>
+                                            <Typography variant="caption" color="warning.main" fontWeight="bold">
+                                              差距: {cluster.avgGap}
+                                            </Typography>
+                                          </Box>
 
-                                  <div
-                                    style={{
-                                      fontSize: '11px',
-                                      color: '#666',
-                                      backgroundColor: '#f9f9f9',
-                                      padding: '6px',
-                                      borderRadius: '3px',
-                                      border: '1px solid #e8e8e8'
-                                    }}
-                                  >
-                                    <div>当前: {cluster.avgCurrent} → 目标: {cluster.avgTarget}</div>
-                                    <div style={{ color: '#faad14', fontWeight: 'bold' }}>
-                                      差距: {cluster.avgGap}
-                                    </div>
-                                  </div>
+                                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Chip label={`${cluster.measureCount} 条措施`} color="primary" size="small" />
+                                            <Stack direction="row" spacing={0.5}>
+                                              {cluster.highPriority > 0 && <Chip label={`高: ${cluster.highPriority}`} color="error" size="small" />}
+                                              {cluster.mediumPriority > 0 && <Chip label={`中: ${cluster.mediumPriority}`} color="warning" size="small" />}
+                                              {cluster.lowPriority > 0 && <Chip label={`低: ${cluster.lowPriority}`} color="info" size="small" />}
+                                            </Stack>
+                                          </Box>
 
-                                  <div className="flex items-center justify-between">
-                                    <Tag color="blue">{cluster.measureCount} 条措施</Tag>
-                                    <Space size="small">
-                                      {cluster.highPriority > 0 && <Tag color="red">高: {cluster.highPriority}</Tag>}
-                                      {cluster.mediumPriority > 0 && <Tag color="orange">中: {cluster.mediumPriority}</Tag>}
-                                      {cluster.lowPriority > 0 && <Tag color="blue">低: {cluster.lowPriority}</Tag>}
-                                    </Space>
-                                  </div>
-
-                                  <div className="text-center">
-                                    <Button type="primary" size="small">
-                                      {isClusterExpanded ? '收起措施' : '查看措施'}
-                                    </Button>
-                                  </div>
-                                </Space>
-                              </Card>
-                            </Col>
-                          )
-                        })}
-                      </Row>
-                    </Card>
-                  )}
-                  </div>
-                )
-              })}
-            </Space>
+                                          <Button variant="contained" size="small" fullWidth>
+                                            {isClusterExpanded ? '收起措施' : '查看措施'}
+                                          </Button>
+                                        </Stack>
+                                      </CardContent>
+                                    </Card>
+                                  </Grid>
+                                )
+                              })}
+                            </Grid>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </Box>
+                  )
+                })}
+              </Stack>
+            </CardContent>
           </Card>
-        </div>
+        </Box>
       )}
 
       {/* 统计概览 */}
-      <Row gutter={16}>
-        <Col span={8}>
-          <Card bordered={false}>
-            <Statistic
-              title="改进领域"
-              value={useDetailedMeasures
-                ? Array.from(new Set(detailedMeasures.map(m => m.clusterName))).length
-                : improvements.length
-              }
-              prefix={<SafetyOutlined />}
-              valueStyle={{ color: '#3f8600' }}
-            />
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Card>
+            <CardContent>
+              <Box sx={{ textAlign: 'center' }}>
+                <SafetyIcon color="success" sx={{ fontSize: 40 }} />
+                <Typography variant="h4" fontWeight="bold" color="success.main">
+                  {useDetailedMeasures
+                    ? Array.from(new Set(detailedMeasures.map(m => m.clusterName))).length
+                    : improvements.length
+                  }
+                </Typography>
+                <Typography variant="body2" color="text.secondary">改进领域</Typography>
+              </Box>
+            </CardContent>
           </Card>
-        </Col>
-        <Col span={8}>
-          <Card bordered={false}>
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Statistic
-                title="总措施数"
-                value={totalMeasures}
-                prefix={<CheckCircleOutlined />}
-                valueStyle={{ color: '#1890ff' }}
-              />
-              {useDetailedMeasures && (
-                <Button
-                  type="link"
-                  size="small"
-                  onClick={handleExpandAll}
-                  style={{ padding: 0, height: 'auto' }}
-                >
-                  {expandedAll ? '收起所有' : '展开所有'}
-                </Button>
-              )}
-            </Space>
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Card>
+            <CardContent>
+              <Box sx={{ textAlign: 'center' }}>
+                <CheckCircleIcon color="primary" sx={{ fontSize: 40 }} />
+                <Typography variant="h4" fontWeight="bold" color="primary.main">
+                  {totalMeasures}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">总措施数</Typography>
+                {useDetailedMeasures && (
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={handleExpandAll}
+                    sx={{ mt: 1 }}
+                  >
+                    {expandedAll ? '收起所有' : '展开所有'}
+                  </Button>
+                )}
+              </Box>
+            </CardContent>
           </Card>
-        </Col>
-        <Col span={8}>
-          <Card bordered={false}>
-            <Statistic
-              title="高优先级"
-              value={useDetailedMeasures
-                ? detailedMeasures.filter(m => m.priority === 'high').length
-                : improvements.filter(i => i.priority === '高').length
-              }
-              prefix={<ThunderboltOutlined />}
-              valueStyle={{ color: '#cf1322' }}
-            />
+        </Grid>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Card>
+            <CardContent>
+              <Box sx={{ textAlign: 'center' }}>
+                <ThunderIcon color="error" sx={{ fontSize: 40 }} />
+                <Typography variant="h4" fontWeight="bold" color="error.main">
+                  {useDetailedMeasures
+                    ? detailedMeasures.filter(m => m.priority === 'high').length
+                    : improvements.filter(i => i.priority === '高').length
+                  }
+                </Typography>
+                <Typography variant="body2" color="text.secondary">高优先级</Typography>
+              </Box>
+            </CardContent>
           </Card>
-        </Col>
-      </Row>
+        </Grid>
+      </Grid>
 
       {/* 元数据 */}
       {metadata.timeline && (
-        <Card bordered={false} title="实施计划">
-          <Descriptions column={2} size="small">
-            <Descriptions.Item label="时间周期">{metadata.timeline}</Descriptions.Item>
-            <Descriptions.Item label="聚类数量">{metadata.clusterCount || '-'}</Descriptions.Item>
-            <Descriptions.Item label="生成时间">
-              {metadata.generatedAt ? new Date(metadata.generatedAt).toLocaleString('zh-CN') : '-'}
-            </Descriptions.Item>
-          </Descriptions>
+        <Card>
+          <CardHeader title="实施计划" />
+          <CardContent>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 6, md: 3 }}>
+                <Typography variant="caption" color="text.secondary">时间周期</Typography>
+                <Typography variant="body1">{metadata.timeline}</Typography>
+              </Grid>
+              <Grid size={{ xs: 6, md: 3 }}>
+                <Typography variant="caption" color="text.secondary">聚类数量</Typography>
+                <Typography variant="body1">{metadata.clusterCount || '-'}</Typography>
+              </Grid>
+              <Grid size={{ xs: 6, md: 3 }}>
+                <Typography variant="caption" color="text.secondary">生成时间</Typography>
+                <Typography variant="body1">
+                  {metadata.generatedAt ? new Date(metadata.generatedAt).toLocaleString('zh-CN') : '-'}
+                </Typography>
+              </Grid>
+            </Grid>
+          </CardContent>
         </Card>
       )}
 
       {/* 导出按钮 */}
-      <Card bordered={false}>
-        <Space>
-          <Button
-            type="primary"
-            icon={<DownloadOutlined />}
-            onClick={handleExportCSV}
-          >
-            导出CSV
-          </Button>
-          <Button
-            type="primary"
-            icon={<DownloadOutlined />}
-            onClick={handleExportExcel}
-            style={{ backgroundColor: '#217346' }}
-          >
-            导出Excel
-          </Button>
-          <Button
-            icon={<DownloadOutlined />}
-            onClick={handleExportWord}
-          >
-            导出Word
-          </Button>
-        </Space>
+      <Card>
+        <CardContent>
+          <Stack direction="row" spacing={2}>
+            <Button variant="contained" startIcon={<DownloadIcon />} onClick={handleExportCSV}>
+              导出CSV
+            </Button>
+            <Button variant="contained" startIcon={<DownloadIcon />} onClick={handleExportExcel} sx={{ bgcolor: '#217346', '&:hover': { bgcolor: '#1a5c38' } }}>
+              导出Excel
+            </Button>
+            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportWord}>
+              导出Word
+            </Button>
+          </Stack>
+        </CardContent>
       </Card>
 
       {/* 改进措施列表 */}
-      <Card bordered={false} title="改进措施详情">
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
-          {useDetailedMeasures ? (
-            // 使用详细措施列表（90条）- 按聚类分组展示
-            categoryStats.map((category: any) =>
-              category.clusters.map((cluster: any, clusterIndex: number) => {
-                const clusterMeasures = detailedMeasures.filter((m: any) => m.clusterName === cluster.name)
-                const isHighlighted = highlightedCluster === cluster.name
-                const showMeasures = shouldShowClusterMeasures(cluster.name, category.name)
+      <Card>
+        <CardHeader title="改进措施详情" />
+        <CardContent>
+          <Stack spacing={3}>
+            {useDetailedMeasures ? (
+              categoryStats.map((category: any) =>
+                category.clusters.map((cluster: any, clusterIndex: number) => {
+                  const clusterMeasures = detailedMeasures.filter((m: any) => m.clusterName === cluster.name)
+                  const isHighlighted = highlightedCluster === cluster.name
+                  const showMeasures = shouldShowClusterMeasures(cluster.name, category.name)
+
+                  return (
+                    <Box
+                      key={cluster.name}
+                      id={`cluster-measures-${cluster.name}`}
+                      sx={{ scrollMarginTop: 100 }}
+                    >
+                      {/* 聚类标题 */}
+                      <Card
+                        variant="outlined"
+                        sx={{
+                          mb: 2,
+                          bgcolor: isHighlighted ? 'warning.50' : 'primary.50',
+                          borderColor: isHighlighted ? 'warning.main' : 'primary.main',
+                          borderLeftWidth: 4,
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => handleClusterExpand(cluster.name)}
+                      >
+                        <CardContent>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Typography variant="h6" fontWeight="bold">
+                              {clusterIndex + 1}. {cluster.name}
+                            </Typography>
+                            <Chip label={`${clusterMeasures.length} 条措施`} color="primary" size="small" />
+                            {isHighlighted && <Chip label="🔍 正在查看" color="warning" size="small" />}
+                            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                              {showMeasures ? '▼ 收起措施' : '▶ 展开措施'}
+                            </Typography>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+
+                      {/* 该聚类下的所有措施 */}
+                      {showMeasures && clusterMeasures.map((measure: any, measureIndex: number) => {
+                        const config = getPriorityConfig(measure.priority === 'high' ? '高' : measure.priority === 'medium' ? '中' : '低')
+
+                        return (
+                          <Card
+                            key={`${cluster.name}-${measureIndex}`}
+                            variant="outlined"
+                            sx={{
+                              mb: 2,
+                              borderLeftWidth: 4,
+                              borderLeftStyle: 'solid',
+                              borderLeftColor: config.color === 'error' ? 'error.main' : config.color === 'warning' ? 'warning.main' : 'info.main',
+                              bgcolor: isHighlighted ? 'warning.50' : 'inherit',
+                            }}
+                          >
+                            <CardHeader
+                              title={
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                  <Typography>{config.icon}</Typography>
+                                  <Typography>{measureIndex + 1}. {measure.title}</Typography>
+                                  <Chip label={config.text} color={config.color} size="small" />
+                                </Stack>
+                              }
+                            />
+                            <CardContent>
+                              <Stack spacing={2}>
+                                {/* 措施描述 */}
+                                {measure.description && (
+                                  <Alert severity="info" icon={<LightbulbIcon />}>
+                                    {measure.description}
+                                  </Alert>
+                                )}
+
+                                {/* 级别对比 */}
+                                <Box>
+                                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    成熟度提升路径
+                                  </Typography>
+                                  <LinearProgress
+                                    variant="determinate"
+                                    value={75}
+                                    sx={{
+                                      height: 10,
+                                      borderRadius: 1,
+                                      bgcolor: 'grey.200',
+                                      '& .MuiLinearProgress-bar': {
+                                        background: 'linear-gradient(90deg, #1976d2, #4caf50)',
+                                      }
+                                    }}
+                                  />
+                                  <Box sx={{ mt: 0.5 }}>
+                                    <Chip label={measure.currentLevel.toFixed(1)} color="primary" size="small" />
+                                    <Typography component="span" sx={{ mx: 1 }}>→</Typography>
+                                    <Chip label={measure.targetLevel.toFixed(1)} color="success" size="small" />
+                                    <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                      差距: {measure.gap.toFixed(1)}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+
+                                {/* 实施步骤 */}
+                                {measure.implementationSteps && measure.implementationSteps.length > 0 && (
+                                  <Box>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                      <ChartIcon fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
+                                      实施步骤 ({measure.implementationSteps.length}项)
+                                    </Typography>
+                                    <List dense>
+                                      {measure.implementationSteps.map((step: any, stepIndex: number) => (
+                                        <ListItem key={stepIndex}>
+                                          <ListItemIcon>
+                                            <CheckCircleIcon color="primary" fontSize="small" />
+                                          </ListItemIcon>
+                                          <ListItemText
+                                            primary={`${step.stepNumber}. ${step.title}`}
+                                            secondary={
+                                              <>
+                                                <Typography variant="caption" display="block">{step.description}</Typography>
+                                                <Chip label={`预计耗时: ${step.duration}`} color="info" size="small" sx={{ mt: 0.5 }} />
+                                              </>
+                                            }
+                                          />
+                                        </ListItem>
+                                      ))}
+                                    </List>
+                                  </Box>
+                                )}
+
+                                {/* 详细信息折叠面板 */}
+                                <Accordion>
+                                  {measure.responsibleDepartment && (
+                                    <Accordion>
+                                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                          <TeamIcon />
+                                          <Typography>负责部门</Typography>
+                                        </Stack>
+                                      </AccordionSummary>
+                                      <AccordionDetails>
+                                        <Typography>{measure.responsibleDepartment}</Typography>
+                                      </AccordionDetails>
+                                    </Accordion>
+                                  )}
+
+                                  {measure.timeline && (
+                                    <Accordion>
+                                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                          <ClockIcon />
+                                          <Typography>时间周期</Typography>
+                                        </Stack>
+                                      </AccordionSummary>
+                                      <AccordionDetails>
+                                        <Typography>{measure.timeline}</Typography>
+                                      </AccordionDetails>
+                                    </Accordion>
+                                  )}
+
+                                  {measure.resourcesNeeded && (
+                                    <Accordion>
+                                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                          <DollarIcon />
+                                          <Typography>资源需求</Typography>
+                                        </Stack>
+                                      </AccordionSummary>
+                                      <AccordionDetails>
+                                        <Stack spacing={1}>
+                                          {measure.resourcesNeeded.budget && (
+                                            <Typography variant="body2">
+                                              <strong>预算:</strong> {measure.resourcesNeeded.budget}
+                                            </Typography>
+                                          )}
+                                          {measure.resourcesNeeded.personnel && measure.resourcesNeeded.personnel.length > 0 && (
+                                            <Typography variant="body2">
+                                              <strong>人员:</strong> {measure.resourcesNeeded.personnel.join(', ')}
+                                            </Typography>
+                                          )}
+                                          {measure.resourcesNeeded.technology && measure.resourcesNeeded.technology.length > 0 && (
+                                            <Box>
+                                              <Typography variant="body2" component="span"><strong>技术/工具:</strong> </Typography>
+                                              {measure.resourcesNeeded.technology.map((tech: string, i: number) => (
+                                                <Chip key={i} label={tech} color="primary" size="small" sx={{ mr: 0.5 }} />
+                                              ))}
+                                            </Box>
+                                          )}
+                                          {measure.resourcesNeeded.training && (
+                                            <Typography variant="body2">
+                                              <strong>培训需求:</strong> {measure.resourcesNeeded.training}
+                                            </Typography>
+                                          )}
+                                        </Stack>
+                                      </AccordionDetails>
+                                    </Accordion>
+                                  )}
+
+                                  {measure.risks && measure.risks.length > 0 && (
+                                    <Accordion>
+                                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Typography color="error">⚠️ 风险与缓解</Typography>
+                                      </AccordionSummary>
+                                      <AccordionDetails>
+                                        <List dense>
+                                          {measure.risks.map((risk: any, i: number) => (
+                                            <ListItem key={i}>
+                                              <ListItemText
+                                                primary={<Typography color="error" fontWeight="bold">风险: {risk.risk}</Typography>}
+                                                secondary={<Typography color="success.main">✓ 缓解措施: {risk.mitigation}</Typography>}
+                                              />
+                                            </ListItem>
+                                          ))}
+                                        </List>
+                                      </AccordionDetails>
+                                    </Accordion>
+                                  )}
+
+                                  {measure.kpiMetrics && measure.kpiMetrics.length > 0 && (
+                                    <Accordion>
+                                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Typography>📊 KPI指标</Typography>
+                                      </AccordionSummary>
+                                      <AccordionDetails>
+                                        <Stack spacing={1}>
+                                          {measure.kpiMetrics.map((kpi: any, i: number) => (
+                                            <Card key={i} variant="outlined" sx={{ bgcolor: 'primary.50' }}>
+                                              <CardContent>
+                                                <Typography variant="subtitle2" fontWeight="bold">{kpi.metric}</Typography>
+                                                <Typography variant="body2">目标值: <Chip label={kpi.target} color="success" size="small" /></Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                  测量方法: {kpi.measurementMethod}
+                                                </Typography>
+                                              </CardContent>
+                                            </Card>
+                                          ))}
+                                        </Stack>
+                                      </AccordionDetails>
+                                    </Accordion>
+                                  )}
+
+                                  {measure.dependencies && (
+                                    <Accordion>
+                                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                                        <Typography>🔗 依赖关系</Typography>
+                                      </AccordionSummary>
+                                      <AccordionDetails>
+                                        <Stack spacing={1}>
+                                          {measure.dependencies.prerequisiteMeasures && measure.dependencies.prerequisiteMeasures.length > 0 && (
+                                            <Box>
+                                              <Typography variant="body2" fontWeight="bold">前置措施:</Typography>
+                                              <Box component="ul" sx={{ pl: 2, m: 0 }}>
+                                                {measure.dependencies.prerequisiteMeasures.map((dep: string, i: number) => (
+                                                  <Typography component="li" variant="body2" key={i}>{dep}</Typography>
+                                                ))}
+                                              </Box>
+                                            </Box>
+                                          )}
+                                          {measure.dependencies.externalDependencies && measure.dependencies.externalDependencies.length > 0 && (
+                                            <Box>
+                                              <Typography variant="body2" fontWeight="bold">外部依赖:</Typography>
+                                              <Box component="ul" sx={{ pl: 2, m: 0 }}>
+                                                {measure.dependencies.externalDependencies.map((dep: string, i: number) => (
+                                                  <Typography component="li" variant="body2" key={i}>{dep}</Typography>
+                                                ))}
+                                              </Box>
+                                            </Box>
+                                          )}
+                                        </Stack>
+                                      </AccordionDetails>
+                                    </Accordion>
+                                  )}
+                                </Accordion>
+                              </Stack>
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </Box>
+                  )
+                })
+              )
+            ) : (
+              improvements.map((improvement, index) => {
+                const config = getPriorityConfig(improvement.priority)
 
                 return (
-                  <div
-                    key={cluster.name}
-                    id={`cluster-measures-${cluster.name}`}
-                    style={{
-                      scrollMarginTop: 100, // 为固定头部留出空间
-                      transition: 'all 0.3s'
-                    }}
-                  >
-                    {/* 聚类标题 */}
-                    <Card
-                      size="small"
-                      style={{
-                        marginBottom: 16,
-                        backgroundColor: isHighlighted ? '#fffbe6' : '#f0f5ff',
-                        borderColor: isHighlighted ? '#faad14' : '#1890ff',
-                        borderLeftWidth: 4,
-                        borderLeftStyle: 'solid',
-                        cursor: 'pointer'
-                      }}
-                      onClick={() => handleClusterExpand(cluster.name)}
+                  <Card key={index} variant="outlined">
+                    <CardHeader
                       title={
-                        <Space>
-                          <span style={{ fontSize: '16px', fontWeight: 'bold' }}>
-                            {clusterIndex + 1}. {cluster.name}
-                          </span>
-                          <Tag color="blue">{clusterMeasures.length} 条措施</Tag>
-                          {isHighlighted && <Tag color="orange">🔍 正在查看</Tag>}
-                          <span style={{ fontSize: '12px', color: '#999', marginLeft: '8px' }}>
-                            {showMeasures ? '▼ 收起措施' : '▶ 展开措施'}
-                          </span>
-                        </Space>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography>{config.icon}</Typography>
+                          <Typography>{index + 1}. {improvement.area}</Typography>
+                          <Chip label={config.text} color={config.color} size="small" />
+                        </Stack>
                       }
                     />
-
-                    {/* 该聚类下的所有措施（根据展开状态显示） */}
-                    {showMeasures && clusterMeasures.map((measure: any, measureIndex: number) => {
-                    const config = getPriorityConfig(measure.priority === 'high' ? '高' : measure.priority === 'medium' ? '中' : '低')
-
-                    return (
-                      <Card
-                        key={`${cluster.name}-${measureIndex}`}
-                        type="inner"
-                        style={{
-                          marginBottom: 16,
-                          borderLeftWidth: 4,
-                          borderLeftStyle: 'solid',
-                          borderLeftColor: config.color === 'red' ? '#ef4444' : config.color === 'orange' ? '#f59e0b' : '#3b82f6',
-                          backgroundColor: isHighlighted ? '#fffbe6' : 'transparent',
-                          transition: 'all 0.3s'
-                        }}
-                        title={
-                          <Space>
-                            <span>{config.icon}</span>
-                            <span>{measureIndex + 1}. {measure.title}</span>
-                            <Tag color={config.color}>{config.text}</Tag>
-                          </Space>
-                        }
-                      >
-                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                    {/* 措施描述 */}
-                    {measure.description && (
-                      <Alert
-                        message={measure.description}
-                        type="info"
-                        showIcon
-                        icon={<BulbOutlined />}
-                      />
-                    )}
-
-                    {/* 级别对比 */}
-                    <div>
-                      <div className="text-sm text-gray-500 mb-2">成熟度提升路径</div>
-                      <Progress
-                        percent={75}
-                        strokeColor={{
-                          '0%': '#108ee9',
-                          '100%': '#87d068',
-                        }}
-                        format={() => (
-                          <span>
-                            <Tag color="blue">{measure.currentLevel.toFixed(1)}</Tag>
-                            <span className="mx-2">→</span>
-                            <Tag color="green">{measure.targetLevel.toFixed(1)}</Tag>
-                            <span className="ml-2 text-xs text-gray-500">差距: {measure.gap.toFixed(1)}</span>
-                          </span>
-                        )}
-                      />
-                    </div>
-
-                    {/* 实施步骤 */}
-                    {measure.implementationSteps && measure.implementationSteps.length > 0 && (
-                      <div>
-                        <div className="text-sm text-gray-500 mb-2">
-                          <LineChartOutlined className="mr-1" />
-                          实施步骤 ({measure.implementationSteps.length}项)
-                        </div>
-                        <Timeline
-                          items={measure.implementationSteps.map((step: any, stepIndex: number) => ({
-                            color: 'blue',
-                            dot: <CheckCircleOutlined style={{ fontSize: '16px' }} />,
-                            children: (
-                              <div>
-                                <div className="text-sm font-medium">
-                                  {step.stepNumber}. {step.title}
-                                </div>
-                                <div className="text-xs text-gray-600 mt-1">{step.description}</div>
-                                <Tag color="cyan" className="mt-1">预计耗时: {step.duration}</Tag>
-                              </div>
-                            ),
-                          }))}
-                        />
-                      </div>
-                    )}
-
-                    {/* 详细信息折叠面板 */}
-                    <Collapse ghost>
-                      {measure.responsibleDepartment && (
-                        <Panel header="👥 负责部门" key="responsible">
-                          <Space><TeamOutlined /> {measure.responsibleDepartment}</Space>
-                        </Panel>
-                      )}
-
-                      {measure.timeline && (
-                        <Panel header="⏱️ 时间周期" key="timeline">
-                          <Space><ClockCircleOutlined /> {measure.timeline}</Space>
-                        </Panel>
-                      )}
-
-                      {measure.resourcesNeeded && (
-                        <Panel header="💰 资源需求" key="resources">
-                          <Descriptions column={1} bordered size="small">
-                            {measure.resourcesNeeded.budget && (
-                              <Descriptions.Item label={<Space><DollarOutlined /> 预算</Space>}>
-                                {measure.resourcesNeeded.budget}
-                              </Descriptions.Item>
-                            )}
-                            {measure.resourcesNeeded.personnel && measure.resourcesNeeded.personnel.length > 0 && (
-                              <Descriptions.Item label={<Space><TeamOutlined /> 人员</Space>}>
-                                {measure.resourcesNeeded.personnel.join(', ')}
-                              </Descriptions.Item>
-                            )}
-                            {measure.resourcesNeeded.technology && measure.resourcesNeeded.technology.length > 0 && (
-                              <Descriptions.Item label="技术/工具">
-                                {measure.resourcesNeeded.technology.map((tech: string, i: number) => (
-                                  <Tag key={i} color="blue">{tech}</Tag>
-                                ))}
-                              </Descriptions.Item>
-                            )}
-                            {measure.resourcesNeeded.training && (
-                              <Descriptions.Item label="培训需求">
-                                {measure.resourcesNeeded.training}
-                              </Descriptions.Item>
-                            )}
-                          </Descriptions>
-                        </Panel>
-                      )}
-
-                      {measure.risks && measure.risks.length > 0 && (
-                        <Panel header="⚠️ 风险与缓解" key="risks">
-                          <Timeline
-                            items={measure.risks.map((risk: any, i: number) => ({
-                              color: 'red',
-                              children: (
-                                <div>
-                                  <strong style={{ color: '#ff4d4f' }}>风险: {risk.risk}</strong>
-                                  <br />
-                                  <span style={{ color: '#52c41a' }}>✓ 缓解措施: {risk.mitigation}</span>
-                                </div>
-                              ),
-                            }))}
-                          />
-                        </Panel>
-                      )}
-
-                      {measure.kpiMetrics && measure.kpiMetrics.length > 0 && (
-                        <Panel header="📊 KPI指标" key="kpi">
-                          <Space direction="vertical" style={{ width: '100%' }}>
-                            {measure.kpiMetrics.map((kpi: any, i: number) => (
-                              <Card key={i} size="small" style={{ background: '#f0f5ff' }}>
-                                <Space direction="vertical" style={{ width: '100%' }}>
-                                  <strong>{kpi.metric}</strong>
-                                  <div>目标值: <Tag color="green">{kpi.target}</Tag></div>
-                                  <div style={{ fontSize: 12, color: '#666' }}>
-                                    测量方法: {kpi.measurementMethod}
-                                  </div>
-                                </Space>
-                              </Card>
+                    <CardContent>
+                      <Stack spacing={2}>
+                        {/* 改进措施 */}
+                        <Box>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            <ChartIcon fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />
+                            改进措施 ({improvement.actions.length}项)
+                          </Typography>
+                          <List dense>
+                            {improvement.actions.map((action, actionIndex) => (
+                              <ListItem key={actionIndex}>
+                                <ListItemIcon>
+                                  <CheckCircleIcon color="primary" fontSize="small" />
+                                </ListItemIcon>
+                                <ListItemText primary={action} />
+                              </ListItem>
                             ))}
-                          </Space>
-                        </Panel>
-                      )}
+                          </List>
+                        </Box>
 
-                      {measure.dependencies && (
-                        <Panel header="🔗 依赖关系" key="dependencies">
-                          <Space direction="vertical" style={{ width: '100%' }}>
-                            {measure.dependencies.prerequisiteMeasures && measure.dependencies.prerequisiteMeasures.length > 0 && (
-                              <div>
-                                <strong>前置措施:</strong>
-                                <ul>
-                                  {measure.dependencies.prerequisiteMeasures.map((dep: string, i: number) => (
-                                    <li key={i}>{dep}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            {measure.dependencies.externalDependencies && measure.dependencies.externalDependencies.length > 0 && (
-                              <div>
-                                <strong>外部依赖:</strong>
-                                <ul>
-                                  {measure.dependencies.externalDependencies.map((dep: string, i: number) => (
-                                    <li key={i}>{dep}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </Space>
-                        </Panel>
-                      )}
-                    </Collapse>
-                  </Space>
-                </Card>
-                )
-              })}
-                </div>
+                        {/* 详细信息 */}
+                        <Grid container spacing={2}>
+                          {improvement.timeline && (
+                            <Grid size={{ xs: 12, md: 4 }}>
+                              <Stack direction="row" spacing={1} alignItems="flex-start">
+                                <ClockIcon color="primary" sx={{ mt: 0.5 }} />
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary">时间周期</Typography>
+                                  <Typography variant="body2" fontWeight="medium">{improvement.timeline}</Typography>
+                                </Box>
+                              </Stack>
+                            </Grid>
+                          )}
+                          {improvement.resources && (
+                            <Grid size={{ xs: 12, md: 4 }}>
+                              <Stack direction="row" spacing={1} alignItems="flex-start">
+                                <TeamIcon color="success" sx={{ mt: 0.5 }} />
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary">所需资源</Typography>
+                                  <Typography variant="body2" fontWeight="medium">{improvement.resources}</Typography>
+                                </Box>
+                              </Stack>
+                            </Grid>
+                          )}
+                          {improvement.expectedOutcome && (
+                            <Grid size={{ xs: 12, md: 4 }}>
+                              <Stack direction="row" spacing={1} alignItems="flex-start">
+                                <RocketIcon color="warning" sx={{ mt: 0.5 }} />
+                                <Box>
+                                  <Typography variant="caption" color="text.secondary">预期成果</Typography>
+                                  <Typography variant="body2" fontWeight="medium">{improvement.expectedOutcome}</Typography>
+                                </Box>
+                              </Stack>
+                            </Grid>
+                          )}
+                        </Grid>
+                      </Stack>
+                    </CardContent>
+                  </Card>
                 )
               })
-            )) : (
-            // 使用简化的improvements
-            improvements.map((improvement, index) => {
-              const config = getPriorityConfig(improvement.priority)
-
-              return (
-                <Card
-                  key={index}
-                  type="inner"
-                  title={
-                    <Space>
-                      <span>{config.icon}</span>
-                      <span>{index + 1}. {improvement.area}</span>
-                      <Tag color={config.color}>{config.text}</Tag>
-                    </Space>
-                  }
-                >
-                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
-                    {/* 改进措施 */}
-                    <div>
-                      <div className="text-sm text-gray-500 mb-2">
-                        <LineChartOutlined className="mr-1" />
-                        改进措施 ({improvement.actions.length}项)
-                      </div>
-                      <Timeline
-                        items={improvement.actions.map((action, actionIndex) => ({
-                          color: 'blue',
-                          dot: <CheckCircleOutlined style={{ fontSize: '16px' }} />,
-                          children: (
-                            <div>
-                              <div className="text-sm font-medium">{action}</div>
-                            </div>
-                          ),
-                        }))}
-                      />
-                    </div>
-
-                    {/* 详细信息 */}
-                    <Row gutter={16}>
-                      {improvement.timeline && (
-                        <Col span={8}>
-                          <div className="flex items-start">
-                            <ClockCircleOutlined className="mt-1 mr-2" style={{ color: '#1890ff' }} />
-                            <div>
-                              <div className="text-xs text-gray-500">时间周期</div>
-                              <div className="text-sm font-medium">{improvement.timeline}</div>
-                            </div>
-                          </div>
-                        </Col>
-                      )}
-                      {improvement.resources && (
-                        <Col span={8}>
-                          <div className="flex items-start">
-                            <TeamOutlined className="mt-1 mr-2" style={{ color: '#52c41a' }} />
-                            <div>
-                              <div className="text-xs text-gray-500">所需资源</div>
-                              <div className="text-sm font-medium">{improvement.resources}</div>
-                            </div>
-                          </div>
-                        </Col>
-                      )}
-                      {improvement.expectedOutcome && (
-                        <Col span={8}>
-                          <div className="flex items-start">
-                            <RocketOutlined className="mt-1 mr-2" style={{ color: '#fa8c16' }} />
-                            <div>
-                              <div className="text-xs text-gray-500">预期成果</div>
-                              <div className="text-sm font-medium">{improvement.expectedOutcome}</div>
-                            </div>
-                          </div>
-                        </Col>
-                      )}
-                    </Row>
-                  </Space>
-                </Card>
-              )
-            })
-          )}
-        </Space>
+            )}
+          </Stack>
+        </CardContent>
       </Card>
-    </div>
+    </Box>
   )
 }

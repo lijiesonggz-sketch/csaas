@@ -6,6 +6,7 @@ import { AITasksAPI, AITask } from '@/lib/api/ai-tasks'
 import { useTaskProgress } from '@/lib/hooks/useTaskProgress'
 import ActionPlanResultDisplay from '@/components/features/ActionPlanResultDisplay'
 import RollbackButton from '@/components/projects/RollbackButton'
+import MaturityRadarChart, { MaturityRadarData, RADAR_DIMENSIONS } from '@/components/features/MaturityRadarChart'
 import { ListTodo, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { TaskAdapter } from '@/lib/adapters/task-adapter'
 import type { GenerationResult } from '@/lib/types/ai-generation'
@@ -275,6 +276,32 @@ export default function ActionPlanPage() {
     loadExistingTasks()
   }
 
+  /**
+   * 生成当前成熟度雷达图数据
+   * 使用默认数据（实际项目中应该从API获取详细数据）
+   */
+  const getCurrentRadarData = (): MaturityRadarData[] => {
+    // 基于目标成熟度和差距计算当前成熟度
+    // 这是一个简化版本，实际项目中应该从API获取详细的各维度数据
+    const estimatedCurrent = Math.max(1, targetMaturity - 1.5)
+    return RADAR_DIMENSIONS.map((name) => ({
+      name,
+      value: Number(estimatedCurrent.toFixed(2)),
+      fullMark: 5,
+    }))
+  }
+
+  /**
+   * 生成目标成熟度雷达图数据
+   */
+  const getTargetRadarData = (): MaturityRadarData[] => {
+    return RADAR_DIMENSIONS.map((name) => ({
+      name,
+      value: Number(targetMaturity.toFixed(2)),
+      fullMark: 5,
+    }))
+  }
+
   return (
     <main className="max-w-[1920px] mx-auto px-6 py-8">
       {/* 头部：标题 + 操作按钮 */}
@@ -349,6 +376,19 @@ export default function ActionPlanPage() {
           <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
             <CheckCircle2 className="w-6 h-6 text-green-500" strokeWidth={2} />
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">改进措施生成完成</h2>
+          </div>
+
+          {/* 成熟度对比雷达图 */}
+          <div className="mb-8">
+            <MaturityRadarChart
+              data={getCurrentRadarData()}
+              comparisonData={getTargetRadarData()}
+              title="当前成熟度 vs 目标成熟度"
+              currentName="当前成熟度"
+              comparisonName={`目标成熟度 (${targetMaturity.toFixed(1)})`}
+              height={400}
+              showLegend={true}
+            />
           </div>
 
           {/* 显示改进措施结果 */}

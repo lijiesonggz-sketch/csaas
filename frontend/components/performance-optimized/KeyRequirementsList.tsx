@@ -5,12 +5,27 @@
 'use client'
 
 import React, { useMemo, useCallback, useState } from 'react'
-import { List, Tag, Space, Card, Collapse, Row, Col, Statistic, Button } from 'antd'
 import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  BookOutlined,
-} from '@ant-design/icons'
+  List,
+  ListItem,
+  Card,
+  CardContent,
+  Chip,
+  IconButton,
+  Collapse,
+  Grid,
+  Typography,
+  Box,
+  Divider,
+  Pagination,
+} from '@mui/material'
+import {
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  MenuBook as MenuBookIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+} from '@mui/icons-material'
 
 interface KeyRequirement {
   clause_id: string
@@ -81,12 +96,12 @@ const RequirementDetail = React.memo<{
   }, [item.compliance_criteria])
 
   const getPriorityColor = useCallback((priority: string) => {
-    const colors = {
-      HIGH: 'red',
-      MEDIUM: 'orange',
-      LOW: 'blue',
+    const colors: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
+      HIGH: 'error',
+      MEDIUM: 'warning',
+      LOW: 'info',
     }
-    return colors[priority as keyof typeof colors] || 'default'
+    return colors[priority] || 'default'
   }, [])
 
   const hasInterpretation = useMemo(() => {
@@ -100,108 +115,109 @@ const RequirementDetail = React.memo<{
   }, [item.interpretation])
 
   return (
-    <List.Item style={{ width: '100%' }}>
-      <Card
-        size="small"
-        title={
-          <Space>
-            <Tag color={getPriorityColor(item.priority)}>{item.clause_id}</Tag>
-            <span>{item.clause_text}</span>
-            {hasInterpretation && (
-              <Tag color="green" icon={<CheckCircleOutlined />}>
-                已解读
-              </Tag>
-            )}
-          </Space>
-        }
-        extra={
-          <Button
-            type="link"
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation()
-              setExpanded(!expanded)
-            }}
-          >
-            {expanded ? '收起' : '展开详情'}
-          </Button>
-        }
-      >
-        {expanded && (
-          <div style={{ marginTop: 12 }}>
-            {/* 解读 */}
-            <div style={{ marginBottom: 12 }}>
-              <p style={{ marginBottom: 8 }}>
-                <strong>💡 解读：</strong>
-              </p>
-              <div style={{
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                backgroundColor: hasInterpretation ? '#f6ffed' : '#fff2e8',
-                padding: '8px',
-                borderRadius: '4px'
-              }}>
-                {interpretationText || '暂无解读'}
-              </div>
-            </div>
-
-            {/* 合规标准 */}
-            <div style={{ marginBottom: 12 }}>
-              <p style={{ marginBottom: 8 }}>
-                <strong>📋 合规标准：</strong>
-              </p>
-              <div style={{
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-                fontSize: '13px'
-              }}>
-                {criteriaText || '无'}
-              </div>
-            </div>
-
-            {/* 额外信息 */}
-            <Row gutter={16}>
-              {item.estimated_effort && (
-                <Col span={8}>
-                  <Tag color="blue">预估工期：{item.estimated_effort}</Tag>
-                </Col>
+    <ListItem sx={{ width: '100%', px: 0 }}>
+      <Card sx={{ width: '100%' }} variant="outlined">
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Chip color={getPriorityColor(item.priority)} label={item.clause_id} size="small" />
+              <Typography variant="body1">{item.clause_text}</Typography>
+              {hasInterpretation && (
+                <Chip
+                  color="success"
+                  icon={<CheckCircleIcon />}
+                  label="已解读"
+                  size="small"
+                />
               )}
-              {item.dependencies && item.dependencies.length > 0 && (
-                <Col span={8}>
-                  <Tag color="orange">依赖：{item.dependencies.join(', ')}</Tag>
-                </Col>
-              )}
-            </Row>
+            </Box>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation()
+                setExpanded(!expanded)
+              }}
+            >
+              {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </IconButton>
+          </Box>
 
-            {/* 最佳实践和常见错误 */}
-            {item.best_practices && item.best_practices.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <p style={{ marginBottom: 8 }}>
-                  <strong>💡 最佳实践：</strong>
-                </p>
-                <ul style={{ marginBottom: 0 }}>
-                  {item.best_practices.map((practice, idx) => (
-                    <li key={idx}>{practice}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {item.common_mistakes && item.common_mistakes.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <p style={{ marginBottom: 8 }}>
-                  <strong>⚠️ 常见错误：</strong>
-                </p>
-                <ul style={{ marginBottom: 0 }}>
-                  {item.common_mistakes.map((mistake, idx) => (
-                    <li key={idx} style={{ color: '#cf1322' }}>{mistake}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
+          <Collapse in={expanded}>
+            <Box sx={{ mt: 2 }}>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                  解读：
+                </Typography>
+                <Box
+                  sx={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    backgroundColor: hasInterpretation ? '#f6ffed' : '#fff2e8',
+                    padding: '8px',
+                    borderRadius: '4px',
+                  }}
+                >
+                  {interpretationText || '暂无解读'}
+                </Box>
+              </Box>
+
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                  合规标准：
+                </Typography>
+                <Box
+                  sx={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    fontSize: '13px',
+                  }}
+                >
+                  {criteriaText || '无'}
+                </Box>
+              </Box>
+
+              <Grid container spacing={2}>
+                {item.estimated_effort && (
+                  <Grid item xs={12} sm={4}>
+                    <Chip color="info" label={`预估工期：${item.estimated_effort}`} size="small" />
+                  </Grid>
+                )}
+                {item.dependencies && item.dependencies.length > 0 && (
+                  <Grid item xs={12} sm={4}>
+                    <Chip color="warning" label={`依赖：${item.dependencies.join(', ')}`} size="small" />
+                  </Grid>
+                )}
+              </Grid>
+
+              {item.best_practices && item.best_practices.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                    最佳实践：
+                  </Typography>
+                  <ul style={{ marginBottom: 0 }}>
+                    {item.best_practices.map((practice, idx) => (
+                      <li key={idx}>{practice}</li>
+                    ))}
+                  </ul>
+                </Box>
+              )}
+              {item.common_mistakes && item.common_mistakes.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                    常见错误：
+                  </Typography>
+                  <ul style={{ marginBottom: 0 }}>
+                    {item.common_mistakes.map((mistake, idx) => (
+                      <li key={idx} style={{ color: '#d32f2f' }}>{mistake}</li>
+                    ))}
+                  </ul>
+                </Box>
+              )}
+            </Box>
+          </Collapse>
+        </CardContent>
       </Card>
-    </List.Item>
+    </ListItem>
   )
 })
 
@@ -238,88 +254,107 @@ export const KeyRequirementsList = React.memo<KeyRequirementsListProps>(({
     return requirements.slice(start, end)
   }, [requirements, currentPage, pageSize])
 
-  const handlePageChange = useCallback((page: number, size: number) => {
+  const handlePageChange = useCallback((_: React.ChangeEvent<unknown>, page: number) => {
     setCurrentPage(page)
-    setPageSize(size)
     // 滚动到顶部
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
+  const completionRate = stats.total > 0 ? ((stats.interpreted / stats.total) * 100).toFixed(1) : '0.0'
+
   return (
-    <div>
+    <Box>
       {/* 统计信息 */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}>
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card>
-            <Statistic
-              title="总条款数"
-              value={stats.total}
-              prefix={<BookOutlined />}
-            />
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <MenuBookIcon color="action" />
+                <Box>
+                  <Typography variant="body2" color="text.secondary">总条款数</Typography>
+                  <Typography variant="h5">{stats.total}</Typography>
+                </Box>
+              </Box>
+            </CardContent>
           </Card>
-        </Col>
-        <Col span={6}>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
           <Card>
-            <Statistic
-              title="已解读"
-              value={stats.interpreted}
-              valueStyle={{ color: '#3f8600' }}
-              prefix={<CheckCircleOutlined />}
-            />
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CheckCircleIcon color="success" />
+                <Box>
+                  <Typography variant="body2" color="text.secondary">已解读</Typography>
+                  <Typography variant="h5" color="success.main">{stats.interpreted}</Typography>
+                </Box>
+              </Box>
+            </CardContent>
           </Card>
-        </Col>
-        <Col span={6}>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
           <Card>
-            <Statistic
-              title="未解读"
-              value={stats.notInterpreted}
-              valueStyle={{ color: '#cf1322' }}
-              prefix={<CloseCircleOutlined />}
-            />
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CancelIcon color="error" />
+                <Box>
+                  <Typography variant="body2" color="text.secondary">未解读</Typography>
+                  <Typography variant="h5" color="error.main">{stats.notInterpreted}</Typography>
+                </Box>
+              </Box>
+            </CardContent>
           </Card>
-        </Col>
-        <Col span={6}>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
           <Card>
-            <Statistic
-              title="完成率"
-              value={((stats.interpreted / stats.total) * 100).toFixed(1)}
-              suffix="%"
-              valueStyle={{
-                color:
-                  stats.interpreted / stats.total >= 0.8
-                    ? '#3f8600'
-                    : stats.interpreted / stats.total >= 0.5
-                      ? '#faad14'
-                      : '#cf1322'
-              }}
-            />
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">完成率</Typography>
+                  <Typography
+                    variant="h5"
+                    color={
+                      stats.interpreted / stats.total >= 0.8
+                        ? 'success.main'
+                        : stats.interpreted / stats.total >= 0.5
+                          ? 'warning.main'
+                          : 'error.main'
+                    }
+                  >
+                    {completionRate}%
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
           </Card>
-        </Col>
-      </Row>
+        </Grid>
+      </Grid>
+
+      <Divider sx={{ my: 2 }} />
 
       {/* 分页列表 */}
-      <List
-        loading={loading}
-        itemLayout="vertical"
-        pagination={{
-          current: currentPage,
-          pageSize: pageSize,
-          total: requirements.length,
-          onChange: handlePageChange,
-          showSizeChanger: true,
-          showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
-          pageSizeOptions: ['10', '20', '50', '100'],
-        }}
-        dataSource={paginatedData}
-        renderItem={(item, index) => (
+      <List>
+        {paginatedData.map((item, index) => (
           <RequirementDetail
             key={item.clause_id}
             item={item}
             index={(currentPage - 1) * pageSize + index}
           />
-        )}
-      />
-    </div>
+        ))}
+      </List>
+
+      {/* 分页 */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+        <Pagination
+          count={Math.ceil(requirements.length / pageSize)}
+          page={currentPage}
+          onChange={handlePageChange}
+          color="primary"
+          showFirstButton
+          showLastButton
+        />
+      </Box>
+    </Box>
   )
 })
 

@@ -5,7 +5,10 @@
  * 直接展示后端 AI Tasks 返回的问卷结果
  */
 
-import { ClipboardList, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import AssignmentIcon from '@mui/icons-material/Assignment'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import CancelIcon from '@mui/icons-material/Cancel'
+import WarningIcon from '@mui/icons-material/Warning'
 import { useState } from 'react'
 
 interface Question {
@@ -49,11 +52,11 @@ export default function SimpleQuestionnaireDisplay({ result }: Props) {
 
   const getAnswerIcon = (answer: string) => {
     if (answer === 'yes') {
-      return <CheckCircle2 className="w-5 h-5 text-green-600" />
+      return <CheckCircleIcon sx={{ fontSize: 20 }} className="text-green-600" />
     } else if (answer === 'no') {
-      return <XCircle className="w-5 h-5 text-red-600" />
+      return <CancelIcon sx={{ fontSize: 20 }} className="text-red-600" />
     } else {
-      return <AlertTriangle className="w-5 h-5 text-yellow-600" />
+      return <WarningIcon sx={{ fontSize: 20 }} className="text-yellow-600" />
     }
   }
 
@@ -82,7 +85,7 @@ export default function SimpleQuestionnaireDisplay({ result }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <ClipboardList className="w-5 h-5 text-blue-600" />
+            <AssignmentIcon sx={{ fontSize: 20 }} className="text-blue-600" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">总问题数</span>
           </div>
           <p className="text-2xl font-bold text-blue-600">{result.totalQuestions}</p>
@@ -90,7 +93,7 @@ export default function SimpleQuestionnaireDisplay({ result }: Props) {
 
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
+            <CheckCircleIcon sx={{ fontSize: 20 }} className="text-green-600" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">已回答</span>
           </div>
           <p className="text-2xl font-bold text-green-600">{result.answeredQuestions}</p>
@@ -98,7 +101,7 @@ export default function SimpleQuestionnaireDisplay({ result }: Props) {
 
         <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <CheckCircle2 className="w-5 h-5 text-purple-600" />
+            <CheckCircleIcon sx={{ fontSize: 20 }} className="text-purple-600" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">完成率</span>
           </div>
           <p className="text-2xl font-bold text-purple-600">{completionRate}%</p>

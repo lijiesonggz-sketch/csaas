@@ -5,7 +5,9 @@
  * 直接展示后端 AI Tasks 返回的矩阵结果
  */
 
-import { Grid3x3, TrendingUp, CheckCircle2 } from 'lucide-react'
+import GridOnIcon from '@mui/icons-material/GridOn'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { useState } from 'react'
 
 interface Dimension {
@@ -54,7 +56,7 @@ export default function SimpleMatrixDisplay({ result }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg p-6">
           <div className="flex items-center gap-2 mb-2">
-            <Grid3x3 className="w-5 h-5 text-blue-600" />
+            <GridOnIcon sx={{ fontSize: 20 }} className="text-blue-600" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">评估维度</span>
           </div>
           <p className="text-3xl font-bold text-blue-600">{result.dimensions.length}</p>
@@ -62,7 +64,7 @@ export default function SimpleMatrixDisplay({ result }: Props) {
 
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 rounded-lg p-6">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-purple-600" />
+            <TrendingUpIcon sx={{ fontSize: 20 }} className="text-purple-600" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">平均分数</span>
           </div>
           <p className="text-3xl font-bold text-purple-600">{result.averageScore.toFixed(1)}</p>
@@ -70,7 +72,7 @@ export default function SimpleMatrixDisplay({ result }: Props) {
 
         <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 rounded-lg p-6">
           <div className="flex items-center gap-2 mb-2">
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
+            <CheckCircleIcon sx={{ fontSize: 20 }} className="text-green-600" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">整体成熟度</span>
           </div>
           <p className="text-xl font-bold text-green-600">{result.overallMaturity}</p>
@@ -176,7 +178,7 @@ export default function SimpleMatrixDisplay({ result }: Props) {
       {/* 目标等级 */}
       {result.targetLevel && (
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 flex items-center gap-3">
-          <CheckCircle2 className="w-6 h-6 text-green-600" />
+          <CheckCircleIcon sx={{ fontSize: 24 }} className="text-green-600" />
           <div>
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">目标成熟度等级</p>
             <p className="text-lg font-semibold text-green-700 dark:text-green-400">{result.targetLevel}</p>

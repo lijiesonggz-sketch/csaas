@@ -1,25 +1,17 @@
 'use client'
 
 import { SessionProvider } from 'next-auth/react'
-import { ConfigProvider } from 'antd'
-import zhCN from 'antd/locale/zh_CN'
+import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles'
 import { BrandProvider } from '@/components/layout/BrandProvider'
+import { theme } from './theme'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <BrandProvider>
-        <ConfigProvider
-          locale={zhCN}
-          theme={{
-            token: {
-              colorPrimary: '#667eea',
-              borderRadius: 8,
-            },
-          }}
-        >
+        <MuiThemeProvider theme={theme}>
           {children}
-        </ConfigProvider>
+        </MuiThemeProvider>
       </BrandProvider>
     </SessionProvider>
   )

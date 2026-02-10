@@ -34,11 +34,15 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material'
-import { Button, Empty, message, TimePicker, Slider } from 'antd'
+import { TimePicker } from '@mui/x-date-pickers/TimePicker'
+import { Slider } from '@mui/material'
 import type { Dayjs } from 'dayjs'
 import dayjs from 'dayjs'
+import { message } from '@/lib/message'
 import { Add, Delete } from '@mui/icons-material'
+import { EmptyState } from '@/components/common/EmptyState'
 import { useRouter, useSearchParams } from 'next/navigation'
+import MuiButton from '@mui/material/Button'
 import {
   getWatchedTopics,
   createWatchedTopic,
@@ -56,6 +60,7 @@ import {
   UpdatePushPreferenceDto,
 } from '@/lib/api/radar'
 import { INSTITUTION_PRESETS, INDUSTRY_LABELS, IndustryKey } from '@/lib/constants/institution-presets'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 
 // 预设技术领域选项
 const PRESET_TOPICS = [
@@ -95,6 +100,8 @@ export default function RadarSettingsPage() {
   const [pushPreference, setPushPreference] = useState<PushPreference | null>(null)
   const [preferenceLoading, setPreferenceLoading] = useState(true)
   const [preferenceSaving, setPreferenceSaving] = useState(false)
+  const [deleteTopicDialog, setDeleteTopicDialog] = useState<{ open: boolean; topicId: string; topicName: string }>({ open: false, topicId: '', topicName: '' })
+  const [deletePeerDialog, setDeletePeerDialog] = useState<{ open: boolean; peerId: string; peerName: string }>({ open: false, peerId: '', peerName: '' })
   const [pushStartTime, setPushStartTime] = useState<Dayjs | null>(dayjs('09:00', 'HH:mm'))
   const [pushEndTime, setPushEndTime] = useState<Dayjs | null>(dayjs('18:00', 'HH:mm'))
   const [dailyPushLimit, setDailyPushLimit] = useState<number>(5)
@@ -175,28 +182,22 @@ export default function RadarSettingsPage() {
   }
 
   const handleDelete = (topicId: string, topicName: string) => {
-    // 使用Ant Design的Modal.confirm
-    const { Modal: AntModal } = require('antd')
-    AntModal.confirm({
-      title: '确定取消关注该领域吗?',
-      content: `取消后,系统将不再推送"${topicName}"相关内容`,
-      okText: '确定',
-      cancelText: '取消',
-      okButtonProps: { danger: true },
-      onOk: async () => {
-        if (!organizationId) {
-          message.error('组织信息缺失')
-          return
-        }
-        try {
-          await deleteWatchedTopic(topicId, organizationId)
-          message.success('已取消关注')
-          loadTopics()
-        } catch (error: any) {
-          message.error(error.message || '删除失败')
-        }
-      },
-    })
+    setDeleteTopicDialog({ open: true, topicId, topicName })
+  }
+
+  const handleConfirmDeleteTopic = async () => {
+    if (!organizationId) {
+      message.error('组织信息缺失')
+      return
+    }
+    try {
+      await deleteWatchedTopic(deleteTopicDialog.topicId, organizationId)
+      message.success('已取消关注')
+      setDeleteTopicDialog({ open: false, topicId: '', topicName: '' })
+      loadTopics()
+    } catch (error: any) {
+      message.error(error.message || '删除失败')
+    }
   }
 
   const formatDate = (dateString: string) => {
@@ -271,27 +272,22 @@ export default function RadarSettingsPage() {
 
   // Story 5.2: Delete watched peer
   const handleDeletePeer = (peerId: string, peerName: string) => {
-    const { Modal: AntModal } = require('antd')
-    AntModal.confirm({
-      title: '确定取消关注该同业机构吗?',
-      content: `取消后,系统将不再推送"${peerName}"相关内容`,
-      okText: '确定',
-      cancelText: '取消',
-      okButtonProps: { danger: true },
-      onOk: async () => {
-        if (!organizationId) {
-          message.error('组织信息缺失')
-          return
-        }
-        try {
-          await deleteWatchedPeer(peerId, organizationId)
-          message.success('已取消关注')
-          loadPeers()
-        } catch (error: any) {
-          message.error(error.message || '删除失败')
-        }
-      },
-    })
+    setDeletePeerDialog({ open: true, peerId, peerName })
+  }
+
+  const handleConfirmDeletePeer = async () => {
+    if (!organizationId) {
+      message.error('组织信息缺失')
+      return
+    }
+    try {
+      await deleteWatchedPeer(deletePeerDialog.peerId, organizationId)
+      message.success('已取消关注')
+      setDeletePeerDialog({ open: false, peerId: '', peerName: '' })
+      loadPeers()
+    } catch (error: any) {
+      message.error(error.message || '删除失败')
+    }
   }
 
   // Story 5.2: Get industry and institution type labels
@@ -384,9 +380,9 @@ export default function RadarSettingsPage() {
         <Typography variant="body1" color="text.secondary">
           未找到组织信息，请从雷达首页进入
         </Typography>
-        <Button type="primary" onClick={() => router.push('/radar')} sx={{ mt: 2 }}>
+        <MuiButton variant="contained" onClick={() => router.push('/radar')} sx={{ mt: 2 }}>
           返回雷达首页
-        </Button>
+        </MuiButton>
       </Box>
     )
   }
@@ -429,13 +425,13 @@ export default function RadarSettingsPage() {
         <CardHeader
           title="关注技术领域"
           action={
-            <Button
-              type="primary"
-              icon={<Add />}
+            <MuiButton
+              variant="contained"
+              startIcon={<Add />}
               onClick={() => setAddModalVisible(true)}
             >
               添加关注领域
-            </Button>
+            </MuiButton>
           }
         />
         <CardContent>
@@ -448,7 +444,7 @@ export default function RadarSettingsPage() {
               ))}
             </Grid>
           ) : topics.length === 0 ? (
-            <Empty description="暂无关注领域,点击上方按钮添加" />
+            <EmptyState description="暂无关注领域,点击上方按钮添加" />
           ) : (
             <Grid container spacing={2}>
               {topics.map((topic) => (
@@ -489,13 +485,13 @@ export default function RadarSettingsPage() {
         <CardHeader
           title="关注同业机构"
           action={
-            <Button
-              type="primary"
-              icon={<Add />}
+            <MuiButton
+              variant="contained"
+              startIcon={<Add />}
               onClick={() => setAddPeerModalVisible(true)}
             >
               添加关注同业
-            </Button>
+            </MuiButton>
           }
         />
         <CardContent>
@@ -508,7 +504,7 @@ export default function RadarSettingsPage() {
               ))}
             </Grid>
           ) : peers.length === 0 ? (
-            <Empty description="暂无关注同业,点击上方按钮添加" />
+            <EmptyState description="暂无关注同业,点击上方按钮添加" />
           ) : (
             <Grid container spacing={2}>
               {peers.map((peer) => (
@@ -565,13 +561,13 @@ export default function RadarSettingsPage() {
         <CardHeader
           title="推送偏好设置"
           action={
-            <Button
-              type="primary"
+            <MuiButton
+              variant="contained"
               onClick={handleSavePreference}
-              loading={preferenceSaving}
+              disabled={preferenceSaving}
             >
-              保存设置
-            </Button>
+              {preferenceSaving ? '保存中...' : '保存设置'}
+            </MuiButton>
           }
         />
         <CardContent>
@@ -589,16 +585,14 @@ export default function RadarSettingsPage() {
                     value={pushStartTime}
                     onChange={setPushStartTime}
                     format="HH:mm"
-                    placeholder="开始时间"
-                    style={{ width: 120 }}
+                    slotProps={{ textField: { size: 'small', placeholder: '开始时间', sx: { width: 120 } } }}
                   />
                   <Typography>至</Typography>
                   <TimePicker
                     value={pushEndTime}
                     onChange={setPushEndTime}
                     format="HH:mm"
-                    placeholder="结束时间"
-                    style={{ width: 120 }}
+                    slotProps={{ textField: { size: 'small', placeholder: '结束时间', sx: { width: 120 } } }}
                   />
                 </Box>
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
@@ -615,14 +609,15 @@ export default function RadarSettingsPage() {
                   min={1}
                   max={20}
                   value={dailyPushLimit}
-                  onChange={(value) => setDailyPushLimit(value)}
-                  marks={{
-                    1: '1条',
-                    5: '5条',
-                    10: '10条',
-                    15: '15条',
-                    20: '20条',
-                  }}
+                  onChange={(_, value) => setDailyPushLimit(value as number)}
+                  marks={[
+                    { value: 1, label: '1条' },
+                    { value: 5, label: '5条' },
+                    { value: 10, label: '10条' },
+                    { value: 15, label: '15条' },
+                    { value: 20, label: '20条' },
+                  ]}
+                  valueLabelDisplay="auto"
                 />
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                   范围：1-20 条，超出上限的推送将自动延迟到次日
@@ -738,12 +733,12 @@ export default function RadarSettingsPage() {
 
           {/* 操作按钮 */}
           <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button onClick={() => setAddModalVisible(false)} disabled={submitting}>
+            <MuiButton onClick={() => setAddModalVisible(false)} disabled={submitting}>
               取消
-            </Button>
-            <Button type="primary" onClick={handleAdd} loading={submitting}>
-              确认
-            </Button>
+            </MuiButton>
+            <MuiButton variant="contained" onClick={handleAdd} disabled={submitting}>
+              {submitting ? '提交中...' : '确认'}
+            </MuiButton>
           </Box>
         </Box>
       </Modal>
@@ -849,15 +844,39 @@ export default function RadarSettingsPage() {
 
           {/* 操作按钮 */}
           <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button onClick={() => setAddPeerModalVisible(false)} disabled={peerSubmitting}>
+            <MuiButton onClick={() => setAddPeerModalVisible(false)} disabled={peerSubmitting}>
               取消
-            </Button>
-            <Button type="primary" onClick={handleAddPeer} loading={peerSubmitting}>
-              确认
-            </Button>
+            </MuiButton>
+            <MuiButton variant="contained" onClick={handleAddPeer} disabled={peerSubmitting}>
+              {peerSubmitting ? '提交中...' : '确认'}
+            </MuiButton>
           </Box>
         </Box>
       </Modal>
+
+      {/* 删除关注领域确认对话框 */}
+      <ConfirmDialog
+        open={deleteTopicDialog.open}
+        title="确定取消关注该领域吗?"
+        content={`取消后,系统将不再推送"${deleteTopicDialog.topicName}"相关内容`}
+        confirmText="确定"
+        cancelText="取消"
+        confirmColor="error"
+        onConfirm={handleConfirmDeleteTopic}
+        onCancel={() => setDeleteTopicDialog({ open: false, topicId: '', topicName: '' })}
+      />
+
+      {/* 删除关注同业确认对话框 */}
+      <ConfirmDialog
+        open={deletePeerDialog.open}
+        title="确定取消关注该同业机构吗?"
+        content={`取消后,系统将不再推送"${deletePeerDialog.peerName}"相关内容`}
+        confirmText="确定"
+        cancelText="取消"
+        confirmColor="error"
+        onConfirm={handleConfirmDeletePeer}
+        onCancel={() => setDeletePeerDialog({ open: false, peerId: '', peerName: '' })}
+      />
     </Box>
   )
 }

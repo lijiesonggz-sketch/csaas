@@ -2,14 +2,16 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Layout, Spin } from 'antd'
+import { Box, Container, CircularProgress } from '@mui/material'
 import { useEffect, useState } from 'react'
 import Header from './Header'
 import Sidebar from './Sidebar'
 
-const { Content } = Layout
+interface MainLayoutProps {
+  children: React.ReactNode
+}
 
-export default function MainLayout({ children }: { children: React.ReactNode }) {
+export default function MainLayout({ children }: MainLayoutProps) {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -22,16 +24,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
   if (status === 'loading') {
     return (
-      <div
-        style={{
+      <Box
+        sx={{
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           height: '100vh',
         }}
       >
-        <Spin size="large" />
-      </div>
+        <CircularProgress />
+      </Box>
     )
   }
 
@@ -40,24 +42,35 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       <Header />
-      <Layout style={{ marginTop: 64 }}>
-        <Sidebar />
-        <Layout style={{ marginLeft: sidebarCollapsed ? 80 : 200, transition: 'all 0.2s' }}>
-          <Content
-            style={{
-              margin: 24,
-              padding: 24,
-              background: '#fff',
-              borderRadius: 8,
-              minHeight: 'calc(100vh - 112px)',
-            }}
-          >
-            {children}
-          </Content>
-        </Layout>
-      </Layout>
-    </Layout>
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        onCollapseChange={setSidebarCollapsed}
+      />
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          mt: 8, // Header height (64px = 8 * 8px)
+          ml: sidebarCollapsed ? 8 : 25, // 64px or 200px
+          transition: (theme) =>
+            theme.transitions.create('margin-left', {
+              easing: theme.transitions.easing.sharp,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
+        }}
+      >
+        <Container
+          maxWidth={false}
+          sx={{
+            p: 3,
+            minHeight: 'calc(100vh - 64px)',
+          }}
+        >
+          {children}
+        </Container>
+      </Box>
+    </Box>
   )
 }

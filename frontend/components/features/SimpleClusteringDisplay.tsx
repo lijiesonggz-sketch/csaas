@@ -6,7 +6,10 @@
  */
 
 import { useState } from 'react'
-import { CheckCircle2, AlertTriangle, FileText, TrendingUp } from 'lucide-react'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import WarningIcon from '@mui/icons-material/Warning'
+import DescriptionIcon from '@mui/icons-material/Description'
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 
 interface ClusterClause {
   source_document_id: string
@@ -107,7 +110,7 @@ export default function SimpleClusteringDisplay({ result }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <FileText className="w-5 h-5 text-blue-600" />
+            <DescriptionIcon sx={{ fontSize: 20 }} className="text-blue-600" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">分类数量</span>
           </div>
           <p className="text-2xl font-bold text-blue-600">{result.categories.length}</p>
@@ -115,7 +118,7 @@ export default function SimpleClusteringDisplay({ result }: Props) {
 
         <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-purple-600" />
+            <TrendingUpIcon sx={{ fontSize: 20 }} className="text-purple-600" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">聚类数量</span>
           </div>
           <p className="text-2xl font-bold text-purple-600">{totalClusters}</p>
@@ -123,7 +126,7 @@ export default function SimpleClusteringDisplay({ result }: Props) {
 
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
+            <CheckCircleIcon sx={{ fontSize: 20 }} className="text-green-600" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">条款总数</span>
           </div>
           <p className="text-2xl font-bold text-green-600">{totalClauses}</p>
@@ -131,7 +134,7 @@ export default function SimpleClusteringDisplay({ result }: Props) {
 
         <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-5 h-5 text-orange-600" />
+            <WarningIcon sx={{ fontSize: 20 }} className="text-orange-600" />
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">覆盖率</span>
           </div>
           <p className="text-2xl font-bold text-orange-600">{coverageRate}%</p>

@@ -10,24 +10,21 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          50: '#e6f7ff',
-          100: '#bae7ff',
-          200: '#91d5ff',
-          300: '#69c0ff',
-          400: '#40a9ff',
-          500: '#1890ff',
-          600: '#096dd9',
-          700: '#0050b3',
-          800: '#003a8c',
-          900: '#002766',
+          50: '#eef2ff',
+          100: '#e0e7ff',
+          200: '#c7d2fe',
+          300: '#a5b4fc',
+          400: '#818cf8',
+          500: '#667eea',
+          600: '#4f46e5',
+          700: '#4338ca',
+          800: '#3730a3',
+          900: '#312e81',
         },
       },
     },
   },
   plugins: [],
-  corePlugins: {
-    preflight: false, // Disable Tailwind's reset to avoid conflicts with Ant Design
-  },
 }
 
 export default config

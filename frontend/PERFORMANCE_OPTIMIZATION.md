@@ -154,12 +154,15 @@ import { FixedSizeList } from 'react-window'
 
 **实现方案**:
 ```typescript
-import { Skeleton } from 'antd'
+import { Skeleton } from '@mui/material'
 
 {loading && (
   <div>
-    <Skeleton active />
-    <Skeleton count={5} />
+    <Skeleton variant="rectangular" height={60} />
+    <Skeleton variant="text" />
+    <Skeleton variant="text" />
+    <Skeleton variant="text" />
+    <Skeleton variant="text" />
   </div>
 )}
 ```
@@ -204,11 +207,13 @@ async function fetchWithDedup(key, fetcher) {
 
 **实现方案**:
 ```typescript
+import { Skeleton } from '@mui/material'
+
 const KeyRequirementsList = React.lazy(() =>
   import('@/components/performance-optimized/KeyRequirementsList')
 )
 
-<Suspense fallback={<Skeleton />}>
+<Suspense fallback={<Skeleton variant="rectangular" height={200} />}>
   <KeyRequirementsList requirements={data} />
 </Suspense>
 ```

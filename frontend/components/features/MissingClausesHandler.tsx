@@ -6,8 +6,29 @@
  */
 
 import { useState } from 'react'
-import { Card, Select, Button, Modal, Form, Input, Space, Alert, Tag, Divider } from 'antd'
-import { PlusOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
+import { toast } from 'sonner'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import CardHeader from '@mui/material/CardHeader'
+import Button from '@mui/material/Button'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
+import TextField from '@mui/material/TextField'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
+import Alert from '@mui/material/Alert'
+import Chip from '@mui/material/Chip'
+import Divider from '@mui/material/Divider'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import Stack from '@mui/material/Stack'
+import AddIcon from '@mui/icons-material/Add'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import WarningIcon from '@mui/icons-material/Warning'
 
 interface ClusterClause {
   source_document_id: string
@@ -68,7 +89,13 @@ export default function MissingClausesHandler({
   const [assignments, setAssignments] = useState<Record<string, string>>({}) // clauseId -> clusterId
   const [saving, setSaving] = useState(false) // 保存到后端的状态
   const [saveError, setSaveError] = useState<string | null>(null) // 保存错误
-  const [form] = Form.useForm()
+  const [formData, setFormData] = useState({
+    clusterName: '',
+    clusterDescription: '',
+    rationale: '',
+    importance: 'MEDIUM' as 'HIGH' | 'MEDIUM' | 'LOW',
+    riskLevel: 'MEDIUM' as 'HIGH' | 'MEDIUM' | 'LOW',
+  })
 
   // 提取所有缺失条款信息
   const extractMissingClauses = (): MissingClauseInfo[] => {
@@ -167,29 +194,28 @@ export default function MissingClausesHandler({
   // 确认新建聚类
   const confirmCreateCluster = async () => {
     if (!selectedMissingClause) return
+    if (!formData.clusterName.trim()) return
 
     try {
-      const values = await form.validateFields()
-
       // 找到第一个大类，或者让用户选择
       const targetCategory = categories[0]
 
       // 创建新聚类
       const newCluster: Cluster = {
         id: `cluster_${Date.now()}`,
-        name: values.clusterName,
-        description: values.clusterDescription || '用户手动创建的聚类',
+        name: formData.clusterName,
+        description: formData.clusterDescription || '用户手动创建的聚类',
         clauses: [
           {
             source_document_id: selectedMissingClause.documentId,
             source_document_name: selectedMissingClause.documentName,
             clause_id: selectedMissingClause.clauseId,
             clause_text: selectedMissingClause.clauseText,
-            rationale: values.rationale || '用户手动添加的缺失条款',
+            rationale: formData.rationale || '用户手动添加的缺失条款',
           },
         ],
-        importance: values.importance || 'MEDIUM',
-        risk_level: values.riskLevel || 'MEDIUM',
+        importance: formData.importance || 'MEDIUM',
+        risk_level: formData.riskLevel || 'MEDIUM',
       }
 
       // 更新categories
@@ -213,7 +239,13 @@ export default function MissingClausesHandler({
       onUpdateClustering(updatedCategories)
 
       setNewClusterModalVisible(false)
-      form.resetFields()
+      setFormData({
+        clusterName: '',
+        clusterDescription: '',
+        rationale: '',
+        importance: 'MEDIUM',
+        riskLevel: 'MEDIUM',
+      })
       setSelectedMissingClause(null)
     } catch (error) {
       console.error('Failed to create cluster:', error)
@@ -256,10 +288,12 @@ export default function MissingClausesHandler({
 
       // 2. 保存到后端
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
       const response = await fetch(`${apiUrl}/ai-generation/clustering/${taskId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           categories: updatedCategories,
@@ -280,11 +314,11 @@ export default function MissingClausesHandler({
       setAssignments({})
 
       // 4. 显示成功消息
-      alert('✅ 聚类结果已保存到数据库！')
+      toast.success('聚类结果已保存到数据库！')
     } catch (error: any) {
       console.error('保存聚类结果失败:', error)
       setSaveError(error.message || '保存失败，请重试')
-      alert(`❌ 保存失败: ${error.message}`)
+      toast.error(`保存失败: ${error.message}`)
     } finally {
       setSaving(false)
     }
@@ -301,224 +335,231 @@ export default function MissingClausesHandler({
         })
 
       return (
-        <Alert
-          message="ℹ️ 覆盖率统计信息"
-          description={
-            <div>
-              <p>以下文档的覆盖率统计显示可能存在差异：</p>
-              <ul className="list-disc ml-5 mt-2">
-                {incompleteDocs.map((doc, idx) => (
-                  <li key={idx}>{doc}</li>
-                ))}
-              </ul>
-              <p className="mt-2 text-sm text-gray-600">
-                注意：文档中所有"第XX条"格式的条款都已被聚类。差异可能来自统计方法或非标准格式的条款。
-              </p>
-            </div>
-          }
-          type="info"
-          showIcon
-        />
+        <Alert severity="info">
+          <Typography variant="subtitle2" gutterBottom>覆盖率统计信息</Typography>
+          <div>
+            <p>以下文档的覆盖率统计显示可能存在差异：</p>
+            <ul className="list-disc ml-5 mt-2">
+              {incompleteDocs.map((doc, idx) => (
+                <li key={idx}>{doc}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-sm text-gray-600">
+              注意：文档中所有"第XX条"格式的条款都已被聚类。差异可能来自统计方法或非标准格式的条款。
+            </p>
+          </div>
+        </Alert>
       )
     }
 
     return (
-      <Alert
-        message="✅ 所有条款已完整覆盖"
-        description="没有缺失的条款需要处理"
-        type="success"
-        showIcon
-        icon={<CheckCircleOutlined />}
-      />
+      <Alert severity="success" icon={<CheckCircleIcon />}>
+        所有条款已完整覆盖 - 没有缺失的条款需要处理
+      </Alert>
     )
   }
 
   return (
     <div className="space-y-4">
-      <Alert
-        message="⚠️ 发现缺失条款"
-        description={`共发现 ${missingClauses.length} 个缺失条款，您可以手动将其分配到现有聚类或新建聚类`}
-        type="warning"
-        showIcon
-        icon={<ExclamationCircleOutlined />}
-      />
+      <Alert severity="warning" icon={<WarningIcon />}>
+        发现缺失条款 - 共发现 {missingClauses.length} 个缺失条款，您可以手动将其分配到现有聚类或新建聚类
+      </Alert>
 
-      <Card title="缺失条款列表" size="small">
-        <div className="space-y-4">
-          {missingClauses.map((missingClause, index) => {
-            const isAssigned = assignments[missingClause.clauseId]
+      <Card>
+        <CardHeader title="缺失条款列表" titleTypographyProps={{ variant: 'subtitle1' }} />
+        <CardContent>
+          <div className="space-y-4">
+            {missingClauses.map((missingClause, index) => {
+              const isAssigned = assignments[missingClause.clauseId]
 
-            return (
-              <Card
-                key={missingClause.clauseId}
-                size="small"
-                type="inner"
-                className={isAssigned ? 'border-green-400 bg-green-50' : ''}
-              >
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between">
-                    <Space>
-                      <Tag color="blue">{missingClause.documentName}</Tag>
-                      <span className="font-mono font-semibold">{missingClause.clauseId}</span>
-                      {isAssigned && (
-                        <Tag color="green" icon={<CheckCircleOutlined />}>
-                          已分配
-                        </Tag>
+              return (
+                <Card
+                  key={missingClause.clauseId}
+                  variant="outlined"
+                  sx={isAssigned ? { borderColor: 'success.main', bgcolor: 'success.50' } : {}}
+                >
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between">
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Chip label={missingClause.documentName} color="primary" size="small" />
+                          <span className="font-mono font-semibold">{missingClause.clauseId}</span>
+                          {isAssigned && (
+                            <Chip label="已分配" color="success" size="small" icon={<CheckCircleIcon />} />
+                          )}
+                        </Stack>
+                      </div>
+
+                      <p className="text-sm text-gray-700">{missingClause.clauseText}</p>
+
+                      {!isAssigned && (
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => handleAssignToCluster(missingClause)}
+                          >
+                            分配到现有聚类
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<AddIcon />}
+                            onClick={() => handleCreateNewCluster(missingClause)}
+                          >
+                            新建聚类
+                          </Button>
+                        </Stack>
                       )}
-                    </Space>
-                  </div>
-
-                  <p className="text-sm text-gray-700">{missingClause.clauseText}</p>
-
-                  {!isAssigned && (
-                    <div className="flex gap-2">
-                      <Button
-                        size="small"
-                        type="primary"
-                        onClick={() => handleAssignToCluster(missingClause)}
-                      >
-                        分配到现有聚类
-                      </Button>
-                      <Button
-                        size="small"
-                        icon={<PlusOutlined />}
-                        onClick={() => handleCreateNewCluster(missingClause)}
-                      >
-                        新建聚类
-                      </Button>
                     </div>
-                  )}
-                </div>
-              </Card>
-            )
-          })}
-        </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
 
-        {Object.keys(assignments).length > 0 && (
-          <>
-            <Divider />
-            <div className="flex justify-end">
-              <Button type="primary" size="large" onClick={handleApplyAllAssignments}>
-                应用所有分配 ({Object.keys(assignments).length})
-              </Button>
-            </div>
-          </>
-        )}
+          {Object.keys(assignments).length > 0 && (
+            <>
+              <Divider sx={{ my: 2 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button variant="contained" size="large" onClick={handleApplyAllAssignments}>
+                  应用所有分配 ({Object.keys(assignments).length})
+                </Button>
+              </Box>
+            </>
+          )}
+        </CardContent>
       </Card>
 
       {/* 分配到现有聚类的对话框 */}
-      <Modal
-        title={`分配条款到聚类: ${selectedMissingClause?.clauseId}`}
+      <Dialog
         open={assignModalVisible}
-        onOk={confirmAssign}
-        onCancel={() => {
+        onClose={() => {
           setAssignModalVisible(false)
           setSelectedMissingClause(null)
           setSelectedClusterId(null)
         }}
-        width={800}
+        maxWidth="md"
+        fullWidth
       >
-        <div className="space-y-4">
-          {selectedMissingClause && (
-            <>
-              <Alert
-                message="条款内容"
-                description={selectedMissingClause.clauseText}
-                type="info"
-              />
-
-              <div>
-                <label className="block text-sm font-medium mb-2">选择目标聚类：</label>
-                <Select
-                  placeholder="请选择聚类"
-                  size="large"
-                  className="w-full"
-                  value={selectedClusterId}
-                  onChange={setSelectedClusterId}
-                  showSearch
-                  optionFilterProp="label"
-                >
-                  {getClusterOptions().map(({ category, clusters }) => (
-                    <Select.OptGroup key={category.id} label={category.name}>
-                      {clusters.map((cluster) => (
-                        <Select.Option
-                          key={cluster.id}
-                          value={cluster.id}
-                          label={`${category.name} / ${cluster.name}`}
-                        >
-                          {cluster.name} ({cluster.clauses.length}个条款)
-                        </Select.Option>
-                      ))}
-                    </Select.OptGroup>
-                  ))}
-                </Select>
-              </div>
-            </>
-          )}
-        </div>
-      </Modal>
+        <DialogTitle>分配条款到聚类: {selectedMissingClause?.clauseId}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {selectedMissingClause && (
+              <>
+                <Alert severity="info">
+                  <Typography variant="body2">{selectedMissingClause.clauseText}</Typography>
+                </Alert>
+                <FormControl fullWidth>
+                  <InputLabel>选择目标聚类</InputLabel>
+                  <Select
+                    label="选择目标聚类"
+                    value={selectedClusterId || ''}
+                    onChange={(e) => setSelectedClusterId(e.target.value as string)}
+                  >
+                    {getClusterOptions().map(({ category, clusters }) =>
+                      clusters.map((cluster) => (
+                        <MenuItem key={cluster.id} value={cluster.id}>
+                          {category.name} / {cluster.name} ({cluster.clauses.length}个条款)
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                </FormControl>
+              </>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setAssignModalVisible(false)
+            setSelectedMissingClause(null)
+            setSelectedClusterId(null)
+          }}>取消</Button>
+          <Button variant="contained" onClick={confirmAssign}>确定</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* 新建聚类的对话框 */}
-      <Modal
-        title={`新建聚类: ${selectedMissingClause?.clauseId}`}
+      <Dialog
         open={newClusterModalVisible}
-        onOk={confirmCreateCluster}
-        onCancel={() => {
+        onClose={() => {
           setNewClusterModalVisible(false)
-          form.resetFields()
+          setFormData({ clusterName: '', clusterDescription: '', rationale: '', importance: 'MEDIUM', riskLevel: 'MEDIUM' })
           setSelectedMissingClause(null)
         }}
-        width={700}
+        maxWidth="sm"
+        fullWidth
       >
-        {selectedMissingClause && (
-          <Form form={form} layout="vertical">
-            <Alert
-              message="条款内容"
-              description={selectedMissingClause.clauseText}
-              type="info"
-              className="mb-4"
-            />
-
-            <Form.Item
-              label="聚类名称"
-              name="clusterName"
-              rules={[{ required: true, message: '请输入聚类名称' }]}
-            >
-              <Input placeholder="例如：访问控制管理" />
-            </Form.Item>
-
-            <Form.Item label="聚类描述" name="clusterDescription">
-              <Input.TextArea
+        <DialogTitle>新建聚类: {selectedMissingClause?.clauseId}</DialogTitle>
+        <DialogContent>
+          {selectedMissingClause && (
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Alert severity="info">
+                <Typography variant="body2">{selectedMissingClause.clauseText}</Typography>
+              </Alert>
+              <TextField
+                label="聚类名称"
+                required
+                fullWidth
+                placeholder="例如：访问控制管理"
+                value={formData.clusterName}
+                onChange={(e) => setFormData({ ...formData, clusterName: e.target.value })}
+              />
+              <TextField
+                label="聚类描述"
+                fullWidth
+                multiline
                 rows={3}
                 placeholder="描述该聚类的作用和范围（可选）"
+                value={formData.clusterDescription}
+                onChange={(e) => setFormData({ ...formData, clusterDescription: e.target.value })}
               />
-            </Form.Item>
-
-            <Form.Item label="归类理由" name="rationale">
-              <Input.TextArea
+              <TextField
+                label="归类理由"
+                fullWidth
+                multiline
                 rows={2}
                 placeholder="说明为什么将这些条款归入此聚类（可选）"
+                value={formData.rationale}
+                onChange={(e) => setFormData({ ...formData, rationale: e.target.value })}
               />
-            </Form.Item>
-
-            <Form.Item label="重要性" name="importance" initialValue="MEDIUM">
-              <Select>
-                <Select.Option value="HIGH">高</Select.Option>
-                <Select.Option value="MEDIUM">中</Select.Option>
-                <Select.Option value="LOW">低</Select.Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item label="风险级别" name="riskLevel" initialValue="MEDIUM">
-              <Select>
-                <Select.Option value="HIGH">高</Select.Option>
-                <Select.Option value="MEDIUM">中</Select.Option>
-                <Select.Option value="LOW">低</Select.Option>
-              </Select>
-            </Form.Item>
-          </Form>
-        )}
-      </Modal>
+              <FormControl fullWidth>
+                <InputLabel>重要性</InputLabel>
+                <Select
+                  label="重要性"
+                  value={formData.importance}
+                  onChange={(e) => setFormData({ ...formData, importance: e.target.value as 'HIGH' | 'MEDIUM' | 'LOW' })}
+                >
+                  <MenuItem value="HIGH">高</MenuItem>
+                  <MenuItem value="MEDIUM">中</MenuItem>
+                  <MenuItem value="LOW">低</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth>
+                <InputLabel>风险级别</InputLabel>
+                <Select
+                  label="风险级别"
+                  value={formData.riskLevel}
+                  onChange={(e) => setFormData({ ...formData, riskLevel: e.target.value as 'HIGH' | 'MEDIUM' | 'LOW' })}
+                >
+                  <MenuItem value="HIGH">高</MenuItem>
+                  <MenuItem value="MEDIUM">中</MenuItem>
+                  <MenuItem value="LOW">低</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setNewClusterModalVisible(false)
+            setFormData({ clusterName: '', clusterDescription: '', rationale: '', importance: 'MEDIUM', riskLevel: 'MEDIUM' })
+            setSelectedMissingClause(null)
+          }}>取消</Button>
+          <Button variant="contained" onClick={confirmCreateCluster}>确定</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   )
 }
