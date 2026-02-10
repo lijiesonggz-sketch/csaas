@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import {
   Box,
   Drawer,
@@ -32,9 +33,11 @@ interface MenuItem {
   icon: React.ReactNode
   label: string
   children?: MenuItem[]
+  adminOnly?: boolean
 }
 
-const menuItems: MenuItem[] = [
+// 定义所有菜单项（包括管理员专属）
+const allMenuItems: MenuItem[] = [
   {
     key: '/dashboard',
     icon: <DashboardIcon />,
@@ -64,6 +67,7 @@ const menuItems: MenuItem[] = [
     key: '/admin',
     icon: <SettingsIcon />,
     label: '系统管理',
+    adminOnly: true,
     children: [
       { key: '/admin/dashboard', icon: <DashboardIcon />, label: '运营仪表板' },
       { key: '/admin/content-quality', icon: <DescriptionIcon />, label: '内容质量管理' },
@@ -77,6 +81,10 @@ const menuItems: MenuItem[] = [
   },
 ]
 
+// Sidebar width constants - must match MainLayout component
+export const SIDEBAR_WIDTH = 200
+export const SIDEBAR_COLLAPSED_WIDTH = 64
+
 interface SidebarProps {
   collapsed?: boolean
   onCollapseChange?: (collapsed: boolean) => void
@@ -87,12 +95,20 @@ interface SidebarProps {
 export default function Sidebar({
   collapsed = false,
   onCollapseChange,
-  width = 200,
-  collapsedWidth = 64,
+  width = SIDEBAR_WIDTH,
+  collapsedWidth = SIDEBAR_COLLAPSED_WIDTH,
 }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { data: session } = useSession()
   const [expandedKeys, setExpandedKeys] = useState<string[]>(['/admin'])
+
+  // 根据用户角色过滤菜单项
+  const isAdmin = session?.user?.role === 'admin'
+  const visibleMenuItems = allMenuItems.filter((item) => {
+    if (item.adminOnly && !isAdmin) return false
+    return true
+  })
 
   const handleToggleCollapse = () => {
     onCollapseChange?.(!collapsed)
@@ -224,7 +240,10 @@ export default function Sidebar({
                         primaryTypographyProps={{
                           fontSize: 13,
                           fontWeight: pathname === child.key ? 500 : 400,
-                          color: pathname === child.key ? 'primary.main' : 'text.secondary',
+                          color: pathname === child.key ? 'primary.main' : 'rgba(255,255,255,0.7)',
+                        }}
+                        sx={{
+                          color: pathname === child.key ? 'primary.main' : 'rgba(255,255,255,0.7)',
                         }}
                       />
                     </ListItemButton>
@@ -321,7 +340,7 @@ export default function Sidebar({
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <List sx={{ flexGrow: 1, pt: 2 }}>
-          {menuItems.map((item) => renderMenuItem(item))}
+          {visibleMenuItems.map((item) => renderMenuItem(item))}
         </List>
         <Box sx={{ p: 1, borderTop: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
           <IconButton
