@@ -3,6 +3,7 @@ import { ValidationPipe, BadRequestException } from '@nestjs/common'
 import { AppModule } from './app.module'
 import { initSentry } from './config/sentry.config'
 import { loggerConfig } from './config/logger.config'
+import { validateJwtConfig } from './config/jwt.config'
 import { TransformInterceptor } from './common/interceptors/transform.interceptor'
 import { NotFoundFilter } from './common/filters/not-found.filter'
 import * as Sentry from '@sentry/node'
@@ -10,6 +11,9 @@ import { NestExpressApplication } from '@nestjs/platform-express'
 import { join } from 'path'
 
 async function bootstrap() {
+  // 验证 JWT 配置（必须在应用启动前完成）
+  validateJwtConfig()
+
   // 初始化Sentry错误监控
   initSentry()
 

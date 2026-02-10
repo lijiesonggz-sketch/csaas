@@ -12,12 +12,18 @@ import { JwtStrategy } from './strategies/jwt.strategy'
     TypeOrmModule.forFeature([User]),
     JwtModule.registerAsync({
       imports: [],
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'default-secret',
-        signOptions: {
-          expiresIn: (configService.get<string>('JWT_EXPIRES_IN') || '7d') as any,
-        },
-      }),
+      useFactory: (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET')
+        if (!secret) {
+          throw new Error('JWT_SECRET is not configured. Ensure validateJwtConfig() is called before AuthModule initialization.')
+        }
+        return {
+          secret,
+          signOptions: {
+            expiresIn: (configService.get<string>('JWT_EXPIRES_IN') || '2h') as `${number}h` | `${number}d` | `${number}m` | `${number}s`,
+          },
+        }
+      },
       inject: [ConfigService],
     }),
   ],

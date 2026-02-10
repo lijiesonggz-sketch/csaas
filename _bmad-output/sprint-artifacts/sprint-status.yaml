@@ -103,5 +103,28 @@ development_status:
   8-3-peer-content-ai-analysis: done               # ✅ 完成 - Code Review通过，所有AC已实现，17个测试全部通过
   8-4-peer-dynamic-push-generation: done             # ✅ 完成 - Code Review通过，4个问题已修复，81个测试全部通过
   8-5-crawler-health-monitoring: done             # 爬虫健康度监控与告警 - Code Review通过，4个问题已修复，56个测试全部通过
-  8-6-peer-monitoring-frontend: story-created        # 同业动态前端展示增强
+  8-6-peer-monitoring-frontend: done                 # ✅ 完成 - 同业动态前端展示增强已实现
+  epic-8: done                                       # ✅ 所有 stories 已完成
   epic-8-retrospective: optional
+
+  # Epic 9: 安全加固与认证增强 (2 stories)
+  epic-9: done                                        # ✅ 所有 stories 已完成
+  9-1-jwt-security-hardening: done                    # ✅ JWT Secret 和会话超时加固 - Code Review通过，26个测试通过
+  9-2-login-failure-lockout: done                     # ✅ 登录失败锁定机制 - Code Review通过，54个测试通过，用户枚举漏洞已修复
+  epic-9-retrospective: optional
+
+  # Epic 10: 报告导出与可视化增强 (2 stories)
+  epic-10: done                                       # ✅ 所有 stories 已完成
+  10-1-maturity-radar-chart: done                     # ✅ 成熟度雷达图组件 - Code Review通过，5个问题已修复，50个测试通过
+  10-2-pdf-report-export: done                       # ✅ PDF 报告导出功能 - Code Review通过，10个问题已修复，91个单元测试通过(46+45)
+  epic-10-retrospective: optional
+
+  # Epic 11: UI 框架统一（MUI + Tailwind）(6 stories)
+  epic-11: done                                      # ✅ 所有 stories 已完成，EPIC自动化开发完成
+  11-1-mui-theme-setup: done                        # MUI 主题配置和基础组件 - Code Review通过，8个问题已修复，23个测试全部通过
+  11-2-layout-migration: done                         # 布局组件迁移 - Code Review通过，1个问题已修复，32个测试全部通过
+  11-3-ai-generation-migration: done                  # ✅ AI Generation 页面迁移 - 已完成，所有测试通过
+  11-4-features-migration: done                          # ✅ Features 组件迁移 - Code Review通过，8个问题已修复，17个套件267个测试全部通过
+  11-5-auth-migration: done                            # 认证页面迁移 - Code Review通过，8个问题已修复，40单元测试全部通过
+  11-6-cleanup-antd: done                           # 清理 Ant Design 依赖 - Code Review通过，所有antd引用已清理，配置已更新
+  epic-11-retrospective: optional

@@ -55,6 +55,15 @@ export class User {
   @DeleteDateColumn({ name: 'deleted_at' })
   deletedAt: Date
 
+  @Column({ name: 'failed_login_attempts', default: 0 })
+  failedLoginAttempts: number
+
+  @Column({ name: 'locked_until', nullable: true })
+  lockedUntil: Date
+
+  @Column({ name: 'last_login_at', nullable: true })
+  lastLoginAt: Date
+
   @OneToMany(() => Project, (project) => project.owner)
   projects: Project[]
 

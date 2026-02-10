@@ -1,18 +1,24 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common'
+import { Injectable, UnauthorizedException, ConflictException, ForbiddenException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { Repository, DataSource } from 'typeorm'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcrypt'
 import { User } from '../../database/entities'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
+import { AccountLockedException } from '../../common/exceptions/account-locked.exception'
 
 @Injectable()
 export class AuthService {
+  // Security configuration
+  private readonly MAX_FAILED_ATTEMPTS = 5
+  private readonly LOCKOUT_DURATION_MINUTES = 30
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private jwtService: JwtService,
+    private dataSource: DataSource,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<User> {
@@ -39,20 +45,155 @@ export class AuthService {
     return await this.userRepository.save(user)
   }
 
+  /**
+   * Check if user account is currently locked
+   * @param user - User entity to check
+   * @returns Object with isLocked status and remaining seconds if locked
+   */
+  isAccountLocked(user: User): { isLocked: boolean; lockExpiresIn?: number } {
+    if (!user.lockedUntil) {
+      return { isLocked: false }
+    }
+
+    const now = new Date()
+    const lockedUntil = new Date(user.lockedUntil)
+
+    if (lockedUntil > now) {
+      const lockExpiresIn = Math.ceil((lockedUntil.getTime() - now.getTime()) / 1000)
+      return { isLocked: true, lockExpiresIn }
+    }
+
+    return { isLocked: false }
+  }
+
+  /**
+   * Lock user account for specified duration
+   * @param user - User to lock
+   * @param queryRunner - Optional query runner for transaction
+   */
+  async lockAccount(user: User, queryRunner?: any): Promise<void> {
+    const lockedUntil = new Date()
+    lockedUntil.setMinutes(lockedUntil.getMinutes() + this.LOCKOUT_DURATION_MINUTES)
+
+    user.lockedUntil = lockedUntil
+
+    if (queryRunner) {
+      await queryRunner.manager.save(user)
+    } else {
+      await this.userRepository.save(user)
+    }
+  }
+
+  /**
+   * Reset login attempts and clear lock status
+   * @param user - User to reset
+   * @param queryRunner - Optional query runner for transaction
+   */
+  async resetLoginAttempts(user: User, queryRunner?: any): Promise<void> {
+    user.failedLoginAttempts = 0
+    user.lockedUntil = null
+    user.lastLoginAt = new Date()
+
+    if (queryRunner) {
+      await queryRunner.manager.save(user)
+    } else {
+      await this.userRepository.save(user)
+    }
+  }
+
+  /**
+   * Increment failed login attempts and lock if threshold reached
+   * @param user - User to increment attempts for
+   * @param queryRunner - Optional query runner for transaction
+   * @returns Object indicating if account was locked
+   */
+  async incrementFailedAttempts(user: User, queryRunner?: any): Promise<{ locked: boolean; lockExpiresIn?: number }> {
+    user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1
+
+    let locked = false
+    let lockExpiresIn: number | undefined
+
+    if (user.failedLoginAttempts >= this.MAX_FAILED_ATTEMPTS) {
+      await this.lockAccount(user, queryRunner)
+      locked = true
+      lockExpiresIn = this.LOCKOUT_DURATION_MINUTES * 60
+    } else {
+      if (queryRunner) {
+        await queryRunner.manager.save(user)
+      } else {
+        await this.userRepository.save(user)
+      }
+    }
+
+    return { locked, lockExpiresIn }
+  }
+
   async validateUser(loginDto: LoginDto): Promise<User> {
     const { email, password } = loginDto
 
-    const user = await this.userRepository.findOne({ where: { email } })
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials')
-    }
+    // Use transaction with row lock to prevent race conditions
+    const queryRunner = this.dataSource.createQueryRunner()
+    await queryRunner.connect()
+    await queryRunner.startTransaction()
 
-    const isPasswordValid = await bcrypt.compare(password, user.passwordHash)
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials')
-    }
+    try {
+      // Lock the user row for update to prevent concurrent modification
+      const user = await queryRunner.manager.findOne(User, {
+        where: { email },
+        lock: { mode: 'pessimistic_write' },
+      })
 
-    return user
+      // Check if account is locked BEFORE user existence check to prevent user enumeration
+      // If user doesn't exist, we still check a dummy lock status to prevent timing attacks
+      const lockStatus = user ? this.isAccountLocked(user) : { isLocked: false }
+
+      if (lockStatus.isLocked) {
+        await queryRunner.commitTransaction()
+        throw new AccountLockedException(lockStatus.lockExpiresIn)
+      }
+
+      if (!user) {
+        await queryRunner.commitTransaction()
+        throw new UnauthorizedException('Invalid credentials')
+      }
+
+      // If lock has expired, reset the failed attempts counter
+      if (user.lockedUntil && !lockStatus.isLocked) {
+        user.failedLoginAttempts = 0
+        user.lockedUntil = null
+      }
+
+      // If lock has expired, reset the failed attempts counter
+      if (user.lockedUntil && !lockStatus.isLocked) {
+        user.failedLoginAttempts = 0
+        user.lockedUntil = null
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.passwordHash)
+
+      if (!isPasswordValid) {
+        // Increment failed attempts
+        const result = await this.incrementFailedAttempts(user, queryRunner)
+        await queryRunner.commitTransaction()
+
+        if (result.locked) {
+          throw new AccountLockedException(result.lockExpiresIn)
+        }
+
+        throw new UnauthorizedException('Invalid credentials')
+      }
+
+      // Password correct - reset attempts and update last login
+      await this.resetLoginAttempts(user, queryRunner)
+      await queryRunner.commitTransaction()
+
+      return user
+    } catch (error) {
+      await queryRunner.rollbackTransaction()
+      throw error
+    } finally {
+      await queryRunner.release()
+    }
   }
 
   async findById(id: string): Promise<User> {

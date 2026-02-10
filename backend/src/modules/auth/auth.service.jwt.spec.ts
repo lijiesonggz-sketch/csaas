@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { JwtService } from '@nestjs/jwt'
 import { getRepositoryToken } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { Repository, DataSource } from 'typeorm'
 import { UnauthorizedException } from '@nestjs/common'
 import * as bcrypt from 'bcrypt'
 import { AuthService } from './auth.service'
@@ -19,6 +19,18 @@ describe('AuthService - JWT Authentication', () => {
     passwordHash: '$2b$10$test-hash',
     name: 'Test User',
     role: 'CONSULTANT',
+  }
+
+  const mockQueryRunner = {
+    connect: jest.fn().mockResolvedValue(undefined),
+    startTransaction: jest.fn().mockResolvedValue(undefined),
+    commitTransaction: jest.fn().mockResolvedValue(undefined),
+    rollbackTransaction: jest.fn().mockResolvedValue(undefined),
+    release: jest.fn().mockResolvedValue(undefined),
+    manager: {
+      findOne: jest.fn(),
+      save: jest.fn(),
+    },
   }
 
   beforeEach(async () => {
@@ -40,6 +52,12 @@ describe('AuthService - JWT Authentication', () => {
             save: jest.fn(),
           },
         },
+        {
+          provide: DataSource,
+          useValue: {
+            createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
+          },
+        },
       ],
     }).compile()
 
@@ -56,8 +74,9 @@ describe('AuthService - JWT Authentication', () => {
         password: 'password123',
       }
 
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User)
+      jest.spyOn(mockQueryRunner.manager, 'findOne').mockResolvedValue(mockUser as User)
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never)
+      jest.spyOn(mockQueryRunner.manager, 'save').mockResolvedValue(mockUser as User)
       jest.spyOn(jwtService, 'sign').mockReturnValue('signed-jwt-token')
 
       // Act
@@ -71,6 +90,7 @@ describe('AuthService - JWT Authentication', () => {
         email: mockUser.email,
         name: mockUser.name,
         role: mockUser.role,
+        tenantId: undefined,
       })
     })
 
@@ -81,7 +101,7 @@ describe('AuthService - JWT Authentication', () => {
         password: 'password123',
       }
 
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(null)
+      jest.spyOn(mockQueryRunner.manager, 'findOne').mockResolvedValue(null)
 
       // Act & Assert
       await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException)
@@ -95,8 +115,9 @@ describe('AuthService - JWT Authentication', () => {
         password: 'wrong-password',
       }
 
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User)
+      jest.spyOn(mockQueryRunner.manager, 'findOne').mockResolvedValue(mockUser as User)
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never)
+      jest.spyOn(mockQueryRunner.manager, 'save').mockResolvedValue(mockUser as User)
 
       // Act & Assert
       await expect(service.login(loginDto)).rejects.toThrow(UnauthorizedException)
@@ -109,8 +130,9 @@ describe('AuthService - JWT Authentication', () => {
         password: 'password123',
       }
 
-      jest.spyOn(userRepository, 'findOne').mockResolvedValue(mockUser as User)
+      jest.spyOn(mockQueryRunner.manager, 'findOne').mockResolvedValue(mockUser as User)
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never)
+      jest.spyOn(mockQueryRunner.manager, 'save').mockResolvedValue(mockUser as User)
 
       const signSpy = jest.spyOn(jwtService, 'sign').mockReturnValue('jwt-token')
 
