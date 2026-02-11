@@ -5,15 +5,28 @@ import {
   UploadedFile,
   BadRequestException,
   Logger,
+  Body,
+  Param,
+  Req,
+  UseGuards,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
 import { FilesService } from '../services/files.service'
+import { StandardDocument } from '@/database/entities/standard-document.entity'
+import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard'
 
 @Controller('files')
+@UseGuards(JwtAuthGuard)
 export class FilesController {
   private readonly logger = new Logger(FilesController.name)
 
-  constructor(private readonly filesService: FilesService) {}
+  constructor(
+    private readonly filesService: FilesService,
+    @InjectRepository(StandardDocument)
+    private readonly standardDocumentRepo: Repository<StandardDocument>,
+  ) {}
 
   /**
    * Parse PDF file and extract text content
@@ -56,6 +69,118 @@ export class FilesController {
     } catch (error) {
       this.logger.error('PDF解析失败:', error)
       throw error
+    }
+  }
+
+  /**
+   * Upload and save standard document for a project
+   * POST /files/projects/:projectId/documents
+   */
+  @Post('projects/:projectId/documents')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadProjectDocument(
+    @Param('projectId') projectId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('standardName') standardName?: string,
+  ) {
+    this.logger.log(`收到项目文档上传请求: projectId=${projectId}, filename=${file?.originalname}`)
+
+    if (!file) {
+      throw new BadRequestException('请上传文件')
+    }
+
+    // 支持的文件类型
+    const supportedTypes = [
+      'application/pdf',
+      'text/plain',
+      'text/markdown',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ]
+
+    if (!supportedTypes.includes(file.mimetype)) {
+      throw new BadRequestException('只支持 PDF、TXT、MD、DOCX 文件')
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      throw new BadRequestException('文件大小不能超过10MB')
+    }
+
+    try {
+      // 提取文本内容
+      let content = ''
+      if (file.mimetype === 'application/pdf') {
+        content = await this.filesService.parsePdf(file.buffer)
+      } else {
+        // 文本文件直接读取
+        content = file.buffer.toString('utf-8')
+      }
+
+      if (!content || content.trim().length === 0) {
+        throw new BadRequestException('文件内容为空')
+      }
+
+      // 保存到标准文档表
+      const doc = this.standardDocumentRepo.create({
+        name: standardName || file.originalname,
+        content,
+        projectId,
+        metadata: {
+          original_filename: file.originalname,
+          mime_type: file.mimetype,
+          size: file.size,
+          uploaded_at: new Date().toISOString(),
+        },
+      })
+
+      await this.standardDocumentRepo.save(doc)
+
+      this.logger.log(`文档上传成功: docId=${doc.id}, 字数=${content.length}`)
+
+      return {
+        success: true,
+        data: {
+          id: doc.id,
+          name: doc.name,
+          filename: file.originalname,
+          size: file.size,
+          charCount: content.length,
+          createdAt: doc.createdAt,
+        },
+        message: '文档上传成功',
+      }
+    } catch (error) {
+      this.logger.error('文档上传失败:', error)
+      if (error instanceof BadRequestException) {
+        throw error
+      }
+      throw new BadRequestException(
+        `文档上传失败: ${error instanceof Error ? error.message : '未知错误'}`,
+      )
+    }
+  }
+
+  /**
+   * Get documents for a project
+   * GET /files/projects/:projectId/documents
+   */
+  @Post('projects/:projectId/documents/list')
+  async getProjectDocuments(@Param('projectId') projectId: string) {
+    this.logger.log(`获取项目文档列表: projectId=${projectId}`)
+
+    const docs = await this.standardDocumentRepo.find({
+      where: { projectId },
+      order: { createdAt: 'DESC' },
+    })
+
+    return {
+      success: true,
+      data: docs.map((doc) => ({
+        id: doc.id,
+        name: doc.name,
+        charCount: doc.content.length,
+        createdAt: doc.createdAt,
+        metadata: doc.metadata,
+      })),
     }
   }
 }
