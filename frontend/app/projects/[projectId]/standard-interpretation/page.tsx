@@ -240,8 +240,12 @@ export default function StandardInterpretationPage() {
         projectId,
         type: 'standard_interpretation',
         input: {
-          standardDocument: documentsText,
-          standardName: project.name || '未知标准',
+          standardDocument: {
+            id: uploadedDocs[0]?.id || 'doc-1',
+            name: uploadedDocs[0]?.name || project.name || '标准文档',
+            content: documentsText,
+          },
+          interpretationMode: 'enterprise',
         },
       })
 
