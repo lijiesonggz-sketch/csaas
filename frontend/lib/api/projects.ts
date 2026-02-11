@@ -2,16 +2,18 @@
  * Projects API Client
  */
 
+import { getAuthHeadersAsync, getUserIdFromSessionAsync } from '@/lib/utils/jwt'
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
-// 默认用户ID（测试用）
-const DEFAULT_USER_ID = '65fefcd7-3b4b-49d7-a56f-8db474314c62'
-
 // 获取通用headers
-const getHeaders = () => ({
-  'Content-Type': 'application/json',
-  'x-user-id': DEFAULT_USER_ID,
-})
+async function getHeaders(): Promise<Record<string, string>> {
+  const userId = await getUserIdFromSessionAsync()
+  return {
+    'Content-Type': 'application/json',
+    ...(userId && { 'x-user-id': userId }),
+  }
+}
 
 export interface Project {
   id: string
@@ -78,13 +80,8 @@ export class ProjectsAPI {
   /**
    * 获取认证headers
    */
-  private static getAuthHeaders(): HeadersInit {
-    const token = localStorage.getItem('next-auth.session-token')
-    return {
-      'Content-Type': 'application/json',
-      'x-user-id': DEFAULT_USER_ID, // 添加默认用户ID
-      ...(token && { Authorization: `Bearer ${token}` }),
-    }
+  private static async getAuthHeaders(): Promise<HeadersInit> {
+    return getAuthHeadersAsync()
   }
 
   /**
@@ -93,7 +90,7 @@ export class ProjectsAPI {
   static async createProject(request: CreateProjectRequest): Promise<Project> {
     const response = await fetch(`${API_BASE_URL}/projects`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
       body: JSON.stringify(request),
     })
 
@@ -112,7 +109,7 @@ export class ProjectsAPI {
   static async getProjects(): Promise<Project[]> {
     const response = await fetch(`${API_BASE_URL}/projects`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     })
 
     if (!response.ok) {
@@ -130,7 +127,7 @@ export class ProjectsAPI {
   static async getProject(projectId: string): Promise<Project> {
     const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     })
 
     if (!response.ok) {
@@ -151,7 +148,7 @@ export class ProjectsAPI {
   ): Promise<Project> {
     const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
       method: 'PATCH',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
       body: JSON.stringify(request),
     })
 
@@ -170,7 +167,7 @@ export class ProjectsAPI {
   static async deleteProject(projectId: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
       method: 'DELETE',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     })
 
     if (!response.ok) {
@@ -185,7 +182,7 @@ export class ProjectsAPI {
   static async getProjectMembers(projectId: string): Promise<ProjectMember[]> {
     const response = await fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     })
 
     if (!response.ok) {
@@ -206,7 +203,7 @@ export class ProjectsAPI {
   ): Promise<ProjectMember> {
     const response = await fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
       body: JSON.stringify(request),
     })
 
@@ -231,7 +228,7 @@ export class ProjectsAPI {
       `${API_BASE_URL}/projects/${projectId}/members/${userId}`,
       {
         method: 'PATCH',
-        headers: this.getAuthHeaders(),
+        headers: await this.getAuthHeaders(),
         body: JSON.stringify({ role }),
       },
     )
@@ -253,7 +250,7 @@ export class ProjectsAPI {
       `${API_BASE_URL}/projects/${projectId}/members/${userId}`,
       {
         method: 'DELETE',
-        headers: this.getAuthHeaders(),
+        headers: await this.getAuthHeaders(),
       },
     )
 
@@ -272,7 +269,7 @@ export class ProjectsAPI {
   ): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/projects/${projectId}/rerun`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
       body: JSON.stringify(request),
     })
 
@@ -294,7 +291,7 @@ export class ProjectsAPI {
   ): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/projects/${projectId}/rollback`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
       body: JSON.stringify(request),
     })
 
@@ -315,7 +312,7 @@ export class ProjectsAPI {
       `${API_BASE_URL}/projects/${projectId}/backup/${taskType}`,
       {
         method: 'GET',
-        headers: this.getAuthHeaders(),
+        headers: await this.getAuthHeaders(),
       },
     )
 

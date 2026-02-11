@@ -3,10 +3,9 @@
  * 与后端 AITasks 模块交互
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+import { getAuthHeadersAsync } from '@/lib/utils/jwt'
 
-// 默认用户ID（测试用）
-const DEFAULT_USER_ID = '65fefcd7-3b4b-49d7-a56f-8db474314c62'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
 export interface CreateAITaskRequest {
   projectId: string
@@ -49,11 +48,8 @@ export class AITasksAPI {
   /**
    * 获取认证headers
    */
-  private static getAuthHeaders(): HeadersInit {
-    return {
-      'Content-Type': 'application/json',
-      'x-user-id': DEFAULT_USER_ID,
-    }
+  private static async getAuthHeaders(): Promise<HeadersInit> {
+    return getAuthHeadersAsync()
   }
 
   /**
@@ -62,7 +58,7 @@ export class AITasksAPI {
   static async createTask(request: CreateAITaskRequest): Promise<AITask> {
     const response = await fetch(`${API_BASE_URL}/ai-tasks`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
       body: JSON.stringify(request),
     })
 
@@ -81,7 +77,7 @@ export class AITasksAPI {
   static async getTask(taskId: string): Promise<AITask> {
     const response = await fetch(`${API_BASE_URL}/ai-tasks/${taskId}`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     })
 
     if (!response.ok) {
@@ -110,7 +106,7 @@ export class AITasksAPI {
   }> {
     const response = await fetch(`${API_BASE_URL}/ai-tasks/${taskId}/status`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     })
 
     if (!response.ok) {
@@ -128,7 +124,7 @@ export class AITasksAPI {
     console.log('🌐 [AITasksAPI] 正在获取项目任务:', projectId)
     const response = await fetch(`${API_BASE_URL}/ai-tasks/project/${projectId}`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     })
 
     if (!response.ok) {
@@ -147,7 +143,7 @@ export class AITasksAPI {
   static async retryTask(taskId: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/ai-tasks/${taskId}/retry`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     })
 
     if (!response.ok) {
@@ -162,7 +158,7 @@ export class AITasksAPI {
     console.log('🌐 [AITasksAPI] 正在获取改进措施详情:', taskId)
     const response = await fetch(`${API_BASE_URL}/ai-tasks/${taskId}/measures`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     })
 
     if (!response.ok) {
@@ -196,7 +192,7 @@ export class AITasksAPI {
   }> {
     const response = await fetch(`${API_BASE_URL}/ai-tasks/${taskId}/cluster-status`, {
       method: 'GET',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     })
 
     if (!response.ok) {
@@ -221,7 +217,7 @@ export class AITasksAPI {
   }> {
     const response = await fetch(`${API_BASE_URL}/ai-tasks/${taskId}/resume`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
     })
 
     if (!response.ok) {
@@ -245,7 +241,7 @@ export class AITasksAPI {
   }> {
     const response = await fetch(`${API_BASE_URL}/ai-tasks/${taskId}/regenerate-cluster`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: await this.getAuthHeaders(),
       body: JSON.stringify({ clusterId }),
     })
 
