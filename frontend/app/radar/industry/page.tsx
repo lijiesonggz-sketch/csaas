@@ -69,8 +69,9 @@ export default function IndustryRadarPage() {
   const { socket, isConnected } = useWebSocket(organizationId)
 
   // 加载行业推送列表
-  const fetchPushes = async () => {
-    if (!organizationId) {
+  const fetchPushes = async (orgId?: string) => {
+    const effectiveOrgId = orgId || organizationId
+    if (!effectiveOrgId) {
       setIsLoading(false)
       return
     }
@@ -79,7 +80,7 @@ export default function IndustryRadarPage() {
     setError(null)
 
     try {
-      const response = await getIndustryPushes(organizationId, {
+      const response = await getIndustryPushes(effectiveOrgId, {
         filter: filter as 'all' | 'watched' | 'same-scale' | 'same-region',
         page: 1,
         limit: 20,
@@ -105,8 +106,9 @@ export default function IndustryRadarPage() {
   }
 
   // 加载同业动态推送列表 (Story 8.6)
-  const fetchPeerMonitoringPushes = async () => {
-    if (!organizationId) {
+  const fetchPeerMonitoringPushes = async (orgId?: string) => {
+    const effectiveOrgId = orgId || organizationId
+    if (!effectiveOrgId) {
       setIsLoading(false)
       return
     }
@@ -115,7 +117,7 @@ export default function IndustryRadarPage() {
     setError(null)
 
     try {
-      const response = await getPeerMonitoringPushes(organizationId, {
+      const response = await getPeerMonitoringPushes(effectiveOrgId, {
         watchedOnly: peerFilter === 'watched',
         peerName: peerFilter === 'specific-peer' ? selectedPeer : undefined,
         page: 1,
@@ -202,9 +204,9 @@ export default function IndustryRadarPage() {
 
       // 根据当前标签加载对应数据
       if (activeTab === 'industry') {
-        await fetchPushes()
+        await fetchPushes(org?.id)
       } else {
-        await fetchPeerMonitoringPushes()
+        await fetchPeerMonitoringPushes(org?.id)
       }
     }
 

@@ -21,13 +21,9 @@ export class OrganizationsApi {
   async getUserOrganizations(): Promise<Organization> {
     const response = await apiFetch('/organizations/me')
 
-    console.log('[OrganizationsApi] /organizations/me response:', response)
-
     // API返回: { organization: {...}, role: "admin" }
     // apiFetch已经提取了result.data，所以response就是data对象
     const orgData = (response as any).organization
-
-    console.log('[OrganizationsApi] Extracted organization:', orgData)
 
     return orgData
   }
@@ -37,12 +33,7 @@ export class OrganizationsApi {
    * GET /organizations/:id
    */
   async getOrganizationById(id: string): Promise<Organization> {
-    const response = await fetch(`${this.baseUrl}/organizations/${id}`, {
-      headers: this.getAuthHeaders(),
-      credentials: 'include',
-    })
-
-    return this.handleResponse<Organization>(response)
+    return apiFetch(`/organizations/${id}`)
   }
 
   /**
@@ -55,12 +46,7 @@ export class OrganizationsApi {
     projectCount: number
     weaknessSnapshotCount: number
   }> {
-    const response = await fetch(`${this.baseUrl}/organizations/${id}/stats`, {
-      headers: this.getAuthHeaders(),
-      credentials: 'include',
-    })
-
-    return this.handleResponse<any>(response)
+    return apiFetch(`/organizations/${id}/stats`)
   }
 
   /**
@@ -70,15 +56,7 @@ export class OrganizationsApi {
   async getOrganizationWeaknesses(
     organizationId: string,
   ): Promise<WeaknessSnapshot[]> {
-    const response = await fetch(
-      `${this.baseUrl}/organizations/${organizationId}/weaknesses`,
-      {
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-      },
-    )
-
-    return this.handleResponse<WeaknessSnapshot[]>(response)
+    return apiFetch(`/organizations/${organizationId}/weaknesses`)
   }
 
   /**
@@ -88,15 +66,7 @@ export class OrganizationsApi {
   async getAggregatedWeaknesses(
     organizationId: string,
   ): Promise<AggregatedWeakness[]> {
-    const response = await fetch(
-      `${this.baseUrl}/organizations/${organizationId}/weaknesses/aggregated`,
-      {
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-      },
-    )
-
-    return this.handleResponse<AggregatedWeakness[]>(response)
+    return apiFetch(`/organizations/${organizationId}/weaknesses/aggregated`)
   }
 
   /**
@@ -112,16 +82,7 @@ export class OrganizationsApi {
       page: page.toString(),
       limit: limit.toString(),
     })
-
-    const response = await fetch(
-      `${this.baseUrl}/organizations/${organizationId}/projects?${params}`,
-      {
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-      },
-    )
-
-    return this.handleResponse<PaginatedResponse<any>>(response)
+    return apiFetch(`/organizations/${organizationId}/projects?${params}`)
   }
 
   /**
@@ -137,16 +98,7 @@ export class OrganizationsApi {
       page: page.toString(),
       limit: limit.toString(),
     })
-
-    const response = await fetch(
-      `${this.baseUrl}/organizations/${organizationId}/members?${params}`,
-      {
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-      },
-    )
-
-    return this.handleResponse<PaginatedResponse<any>>(response)
+    return apiFetch(`/organizations/${organizationId}/members?${params}`)
   }
 
   /**
@@ -158,17 +110,10 @@ export class OrganizationsApi {
     userId: string,
     role: 'admin' | 'member' = 'member',
   ): Promise<any> {
-    const response = await fetch(
-      `${this.baseUrl}/organizations/${organizationId}/members`,
-      {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-        body: JSON.stringify({ userId, role }),
-      },
-    )
-
-    return this.handleResponse<any>(response)
+    return apiFetch(`/organizations/${organizationId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ userId, role }),
+    })
   }
 
   /**
@@ -176,16 +121,48 @@ export class OrganizationsApi {
    * DELETE /organizations/:id/members/:userId
    */
   async removeMember(organizationId: string, userId: string): Promise<void> {
-    const response = await fetch(
-      `${this.baseUrl}/organizations/${organizationId}/members/${userId}`,
-      {
-        method: 'DELETE',
-        headers: this.getAuthHeaders(),
-        credentials: 'include',
-      },
-    )
+    await apiFetch(`/organizations/${organizationId}/members/${userId}`, {
+      method: 'DELETE',
+    })
+  }
 
-    return this.handleResponse<void>(response)
+  /**
+   * Update a member's role in organization
+   * PATCH /organizations/:id/members/:userId
+   */
+  async updateMemberRole(
+    organizationId: string,
+    userId: string,
+    role: 'admin' | 'member',
+  ): Promise<any> {
+    return apiFetch(`/organizations/${organizationId}/members/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    })
+  }
+
+  /**
+   * Lookup a user by email address
+   * GET /organizations/users/lookup?email=xxx
+   */
+  async lookupUserByEmail(email: string): Promise<{ id: string; name: string; email: string }> {
+    return apiFetch(`/organizations/users/lookup?email=${encodeURIComponent(email)}`)
+  }
+
+  /**
+   * Add a member to organization by email
+   * First looks up user by email, then adds to organization
+   */
+  async addMemberByEmail(
+    organizationId: string,
+    email: string,
+    role: 'admin' | 'member' = 'member',
+  ): Promise<any> {
+    const user = await this.lookupUserByEmail(email)
+    return apiFetch(`/organizations/${organizationId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ userId: user.id, role }),
+    })
   }
 
   /**
@@ -193,14 +170,10 @@ export class OrganizationsApi {
    * POST /organizations/link-project
    */
   async linkProject(projectId: string): Promise<{ message: string }> {
-    const response = await fetch(`${this.baseUrl}/organizations/link-project`, {
+    return apiFetch('/organizations/link-project', {
       method: 'POST',
-      headers: this.getAuthHeaders(),
-      credentials: 'include',
       body: JSON.stringify({ projectId }),
     })
-
-    return this.handleResponse<{ message: string }>(response)
   }
 
   /**
@@ -211,14 +184,10 @@ export class OrganizationsApi {
     id: string,
     data: { name?: string },
   ): Promise<Organization> {
-    const response = await fetch(`${this.baseUrl}/organizations/${id}`, {
+    return apiFetch(`/organizations/${id}`, {
       method: 'PUT',
-      headers: this.getAuthHeaders(),
-      credentials: 'include',
       body: JSON.stringify(data),
     })
-
-    return this.handleResponse<Organization>(response)
   }
 }
 

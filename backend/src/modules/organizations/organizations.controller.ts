@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -15,6 +16,7 @@ import {
   Inject,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common'
 import { OrganizationsService } from './organizations.service'
 import { OrganizationAutoCreateService } from './organization-auto-create.service'
@@ -29,6 +31,8 @@ import {
   UpdateOrganizationDto,
   OrganizationStatsDto,
   UserOrganizationResponse,
+  AddMemberDto,
+  UpdateMemberRoleDto,
 } from './dto/create-organization.dto'
 import { AuditAction } from '../../database/entities/audit-log.entity'
 
@@ -65,6 +69,20 @@ export class OrganizationsController {
   ): Promise<UserOrganizationResponse | null> {
     const userId = user.userId || user.id
     return this.organizationsService.getUserOrganization(userId)
+  }
+
+  /**
+   * Lookup a user by email address
+   * GET /organizations/users/lookup?email=xxx
+   *
+   * Note: This must be defined BEFORE :id routes to avoid route conflict
+   */
+  @Get('users/lookup')
+  async lookupUserByEmail(@Query('email') email: string) {
+    if (!email || !email.trim()) {
+      throw new BadRequestException('Email parameter is required')
+    }
+    return this.organizationsService.lookupUserByEmail(email.trim())
   }
 
   /**
@@ -136,7 +154,7 @@ export class OrganizationsController {
   @UseGuards(OrganizationGuard)
   async addMember(
     @Param('id') orgId: string,
-    @Body() body: { userId: string; role?: 'admin' | 'member' },
+    @Body() body: AddMemberDto,
   ) {
     return this.organizationsService.addMember(orgId, body.userId, body.role || 'member')
   }
@@ -166,6 +184,34 @@ export class OrganizationsController {
       success: true,
       req: null,
     })
+  }
+
+  /**
+   * Update a member's role in an organization
+   * PATCH /organizations/:id/members/:userId
+   */
+  @Patch(':id/members/:userId')
+  @UseGuards(OrganizationGuard)
+  async updateMemberRole(
+    @Param('id') orgId: string,
+    @Param('userId') userId: string,
+    @Body() body: UpdateMemberRoleDto,
+    @CurrentUser() user: any,
+  ) {
+    const currentUserId = user.userId || user.id
+    const result = await this.organizationsService.updateMemberRole(orgId, userId, body.role)
+
+    // Log audit
+    await this.auditLogService.log({
+      userId: currentUserId,
+      action: AuditAction.UPDATE,
+      entityType: 'OrganizationMember',
+      entityId: userId,
+      success: true,
+      req: null,
+    })
+
+    return result
   }
 
   /**

@@ -55,6 +55,8 @@ export const authOptions: NextAuthOptions = {
             name: data.data.user.name,
             role: data.data.user.role,
             tenantId: data.data.user.tenantId,
+            organizationId: data.data.user.organizationId,
+            organizationRole: data.data.user.organizationRole,
             accessToken: data.data.access_token,
           }
 
@@ -86,6 +88,8 @@ export const authOptions: NextAuthOptions = {
         token.name = user.name
         token.role = user.role
         token.tenantId = user.tenantId
+        token.organizationId = user.organizationId
+        token.organizationRole = user.organizationRole
         token.accessToken = user.accessToken
       }
       return token
@@ -98,6 +102,8 @@ export const authOptions: NextAuthOptions = {
         name: token.name as string,
         role: token.role as UserRole,
         tenantId: token.tenantId as string,
+        organizationId: token.organizationId as string,
+        organizationRole: token.organizationRole as string,
       }
       session.accessToken = token.accessToken as string
       return session

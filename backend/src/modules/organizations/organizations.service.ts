@@ -356,6 +356,55 @@ export class OrganizationsService {
   }
 
   /**
+   * Update a member's role in an organization
+   *
+   * @param orgId - Organization ID
+   * @param userId - User ID to update
+   * @param role - New role
+   * @returns Updated organization member
+   * @throws NotFoundException if membership not found
+   */
+  async updateMemberRole(
+    orgId: string,
+    userId: string,
+    role: 'admin' | 'member',
+  ): Promise<OrganizationMember> {
+    const member = await this.memberRepository.findOne({
+      where: { organizationId: orgId, userId },
+    })
+
+    if (!member) {
+      throw new NotFoundException(`User ${userId} is not a member of organization ${orgId}`)
+    }
+
+    member.role = role
+    const updated = await this.memberRepository.save(member)
+    this.logger.log(`Updated member ${userId} role to ${role} in organization ${orgId}`)
+
+    return updated
+  }
+
+  /**
+   * Lookup a user by email address
+   *
+   * @param email - Email address to search for
+   * @returns User basic info (id, name, email)
+   * @throws NotFoundException if user not found
+   */
+  async lookupUserByEmail(email: string): Promise<{ id: string; name: string; email: string }> {
+    const user = await this.userRepository.findOne({
+      where: { email },
+      select: ['id', 'name', 'email'],
+    })
+
+    if (!user) {
+      throw new NotFoundException('找不到该用户，请检查邮箱地址')
+    }
+
+    return { id: user.id, name: user.name, email: user.email }
+  }
+
+  /**
    * Get organization members with pagination
    *
    * @param orgId - Organization ID
@@ -367,7 +416,7 @@ export class OrganizationsService {
     orgId: string,
     page: number = DEFAULT_PAGE,
     limit: number = DEFAULT_LIMIT,
-  ): Promise<PaginatedResponse<OrganizationMember & { user?: User }>> {
+  ): Promise<PaginatedResponse<any>> {
     // Validate pagination parameters
     if (page < 1) {
       throw new BadRequestException('Page must be >= 1')
@@ -379,9 +428,10 @@ export class OrganizationsService {
     // Calculate pagination
     const skip = (page - 1) * limit
 
-    // Get members
+    // Get members with user details in a single query (avoids N+1)
     const members = await this.memberRepository.find({
       where: { organizationId: orgId },
+      relations: ['user'],
       skip,
       take: limit,
       order: { createdAt: 'DESC' },
@@ -392,17 +442,6 @@ export class OrganizationsService {
       where: { organizationId: orgId },
     })
 
-    // Fetch user details for each member
-    const membersWithUsers = await Promise.all(
-      members.map(async (member) => {
-        const user = await this.userRepository.findOne({
-          where: { id: member.userId },
-          select: ['id', 'name', 'email'],
-        })
-        return { ...member, user }
-      }),
-    )
-
     // Calculate total pages
     const totalPages = Math.ceil(total / limit)
 
@@ -411,7 +450,7 @@ export class OrganizationsService {
     )
 
     return {
-      data: membersWithUsers,
+      data: members,
       pagination: {
         page,
         limit,

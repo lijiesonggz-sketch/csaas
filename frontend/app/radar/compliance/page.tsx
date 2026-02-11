@@ -39,8 +39,9 @@ export default function ComplianceRadarPage() {
   const { socket, isConnected } = useWebSocket(organizationId)
 
   // 加载推送列表
-  const fetchPushes = async () => {
-    if (!organizationId) {
+  const fetchPushes = async (orgId?: string) => {
+    const effectiveOrgId = orgId || organizationId
+    if (!effectiveOrgId) {
       setIsLoading(false)
       return
     }
@@ -49,7 +50,7 @@ export default function ComplianceRadarPage() {
     setError(null)
 
     try {
-      const response = await getCompliancePushes(organizationId, {
+      const response = await getCompliancePushes(effectiveOrgId, {
         page: 1,
         limit: 20,
       })
@@ -85,8 +86,8 @@ export default function ComplianceRadarPage() {
         }
       }
 
-      // 加载推送列表（fetchPushes内部会检查organizationId）
-      await fetchPushes()
+      // 加载推送列表
+      await fetchPushes(org?.id)
     }
 
     loadInitialData()

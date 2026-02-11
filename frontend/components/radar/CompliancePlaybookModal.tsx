@@ -87,7 +87,7 @@ export const CompliancePlaybookModal: React.FC<CompliancePlaybookModalProps> = (
   onClose,
 }) => {
   // 状态管理
-  const [playbookStatus, setPlaybookStatus] = useState<'loading' | 'generating' | 'ready' | 'failed'>('loading')
+  const [playbookStatus, setPlaybookStatus] = useState<'loading' | 'generating' | 'ready' | 'failed' | 'not_found'>('loading')
   const [playbook, setPlaybook] = useState<CompliancePlaybook | null>(null)
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set())
   const [submitted, setSubmitted] = useState(false)
@@ -115,6 +115,10 @@ export const CompliancePlaybookModal: React.FC<CompliancePlaybookModalProps> = (
         if (error.status === 202) {
           setPlaybookStatus('generating')
           setTimeout(() => loadPlaybook(), 3000)
+        }
+        // 剧本不存在（尚未生成）
+        else if (error.status === 404) {
+          setPlaybookStatus('not_found')
         }
         // 剧本生成失败
         else if (error.status === 500) {
@@ -269,6 +273,15 @@ export const CompliancePlaybookModal: React.FC<CompliancePlaybookModalProps> = (
             <Typography variant="caption" color="text.secondary">
               (系统将在3秒后自动重试)
             </Typography>
+          </Box>
+        )}
+
+        {/* 剧本尚未生成 */}
+        {playbookStatus === 'not_found' && (
+          <Box sx={{ py: 4 }}>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              该推送暂无应对剧本数据
+            </Alert>
           </Box>
         )}
 

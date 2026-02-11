@@ -92,7 +92,7 @@ export default function DashboardPage() {
 
   return (
     <MainLayout>
-      <Container sx={{ maxWidth: 1400, px: 3, py: 4 }}>
+      <Box sx={{ width: '100%', p: 3 }}>
         {/* Header */}
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" gutterBottom>
@@ -298,7 +298,7 @@ export default function DashboardPage() {
             </Typography>
           </CardContent>
         </Card>
-      </Container>
+      </Box>
     </MainLayout>
   )
 }

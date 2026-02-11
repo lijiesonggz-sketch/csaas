@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUUID, MinLength, MaxLength, Matches } from 'class-validator'
+import { IsString, IsOptional, IsUUID, IsIn, MinLength, MaxLength, Matches } from 'class-validator'
 
 /**
  * DTO for creating a new organization
@@ -52,3 +52,25 @@ export interface UserOrganizationResponse {
 }
 
 import { Organization } from '../../../database/entities/organization.entity'
+
+/**
+ * DTO for adding a member to an organization
+ */
+export class AddMemberDto {
+  @IsUUID()
+  userId: string
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['admin', 'member'], { message: 'Role must be admin or member' })
+  role?: 'admin' | 'member'
+}
+
+/**
+ * DTO for updating a member's role
+ */
+export class UpdateMemberRoleDto {
+  @IsString()
+  @IsIn(['admin', 'member'], { message: 'Role must be admin or member' })
+  role: 'admin' | 'member'
+}

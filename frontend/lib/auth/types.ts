@@ -11,6 +11,8 @@ export interface User {
   name: string
   role: UserRole
   tenantId?: string
+  organizationId?: string
+  organizationRole?: string
 }
 
 declare module 'next-auth' {
@@ -25,6 +27,8 @@ declare module 'next-auth' {
     name: string
     role: UserRole
     tenantId?: string
+    organizationId?: string
+    organizationRole?: string
     accessToken?: string
   }
 }
@@ -36,6 +40,8 @@ declare module 'next-auth/jwt' {
     name: string
     role: UserRole
     tenantId?: string
+    organizationId?: string
+    organizationRole?: string
     accessToken: string
   }
 }

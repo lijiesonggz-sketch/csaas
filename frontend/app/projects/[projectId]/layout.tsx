@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Container, Box, AppBar, Toolbar, Typography, Breadcrumbs, Link, IconButton, Divider } from '@mui/material'
-import { ArrowBack, Home } from '@mui/icons-material'
+import { ArrowBack, Home, Dashboard } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
 import { ProjectProvider, useProject } from '@/lib/contexts/ProjectContext'
 import StepsTabNavigator, { DEFAULT_STEPS, Step } from '@/components/projects/StepsTabNavigator'
@@ -42,6 +42,10 @@ function ProjectWorkbenchContent({ children }: { children: React.ReactNode }) {
             </IconButton>
 
             <Breadcrumbs aria-label="breadcrumb">
+              <Link underline="hover" color="inherit" href="/dashboard" display="flex" alignItems="center" gap={0.5}>
+                <Dashboard fontSize="inherit" />
+                工作台
+              </Link>
               <Link underline="hover" color="inherit" href="/projects" display="flex" alignItems="center" gap={0.5}>
                 <Home fontSize="inherit" />
                 项目列表

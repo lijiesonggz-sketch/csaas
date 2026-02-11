@@ -5,13 +5,15 @@ import { Project } from '@/lib/api/projects'
 import { apiFetch } from '@/lib/utils/api'
 import ProjectCard from './ProjectCard'
 import CreateProjectDialog from './CreateProjectDialog'
-import { Plus, Sparkles } from 'lucide-react'
+import { Plus, Sparkles, ArrowLeft } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 interface ProjectListProps {
   onProjectClick?: (project: Project) => void
 }
 
 export default function ProjectList({ onProjectClick }: ProjectListProps) {
+  const router = useRouter()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -77,13 +79,24 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
 
   return (
     <main className="max-w-[1920px] mx-auto px-6 py-8">
-      {/* 头部：标题 + 创建按钮 */}
+      {/* 头部：返回按钮 + 标题 + 创建按钮 */}
       <header className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">我的项目</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            管理您的合规咨询项目
-          </p>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors min-h-[44px]"
+            aria-label="返回工作台"
+          >
+            <ArrowLeft className="w-5 h-5" strokeWidth={2} />
+            <span className="text-sm font-medium">返回工作台</span>
+          </button>
+          <div className="h-8 w-px bg-gray-200" />
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">我的项目</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              管理您的合规咨询项目
+            </p>
+          </div>
         </div>
         <button
           onClick={() => setCreateDialogOpen(true)}

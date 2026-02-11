@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, DataSource } from 'typeorm'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcrypt'
-import { User } from '../../database/entities'
+import { User, OrganizationMember } from '../../database/entities'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
 import { AccountLockedException } from '../../common/exceptions/account-locked.exception'
@@ -17,6 +17,8 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(OrganizationMember)
+    private orgMemberRepository: Repository<OrganizationMember>,
     private jwtService: JwtService,
     private dataSource: DataSource,
   ) {}
@@ -136,6 +138,8 @@ export class AuthService {
     await queryRunner.connect()
     await queryRunner.startTransaction()
 
+    let committed = false
+
     try {
       // Lock the user row for update to prevent concurrent modification
       const user = await queryRunner.manager.findOne(User, {
@@ -149,18 +153,14 @@ export class AuthService {
 
       if (lockStatus.isLocked) {
         await queryRunner.commitTransaction()
+        committed = true
         throw new AccountLockedException(lockStatus.lockExpiresIn)
       }
 
       if (!user) {
         await queryRunner.commitTransaction()
+        committed = true
         throw new UnauthorizedException('Invalid credentials')
-      }
-
-      // If lock has expired, reset the failed attempts counter
-      if (user.lockedUntil && !lockStatus.isLocked) {
-        user.failedLoginAttempts = 0
-        user.lockedUntil = null
       }
 
       // If lock has expired, reset the failed attempts counter
@@ -175,6 +175,7 @@ export class AuthService {
         // Increment failed attempts
         const result = await this.incrementFailedAttempts(user, queryRunner)
         await queryRunner.commitTransaction()
+        committed = true
 
         if (result.locked) {
           throw new AccountLockedException(result.lockExpiresIn)
@@ -186,10 +187,13 @@ export class AuthService {
       // Password correct - reset attempts and update last login
       await this.resetLoginAttempts(user, queryRunner)
       await queryRunner.commitTransaction()
+      committed = true
 
       return user
     } catch (error) {
-      await queryRunner.rollbackTransaction()
+      if (!committed) {
+        await queryRunner.rollbackTransaction()
+      }
       throw error
     } finally {
       await queryRunner.release()
@@ -210,6 +214,12 @@ export class AuthService {
   async login(loginDto: LoginDto) {
     const user = await this.validateUser(loginDto)
 
+    // Query user's organization membership
+    const membership = await this.orgMemberRepository.findOne({
+      where: { userId: user.id },
+      order: { createdAt: 'ASC' },
+    })
+
     const payload = {
       sub: user.id,
       email: user.email,
@@ -223,7 +233,9 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
-        tenantId: user.tenantId, // Add tenantId to login response
+        tenantId: user.tenantId,
+        organizationId: membership?.organizationId || null,
+        organizationRole: membership?.role || null,
       },
     }
   }

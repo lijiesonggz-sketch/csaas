@@ -7,6 +7,10 @@ import { useEffect, useState } from 'react'
 import Header from './Header'
 import Sidebar from './Sidebar'
 
+// Sidebar width constants - must match Sidebar component
+export const SIDEBAR_WIDTH = 200
+export const SIDEBAR_COLLAPSED_WIDTH = 64
+
 interface MainLayoutProps {
   children: React.ReactNode
 }
@@ -53,23 +57,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
         sx={{
           flexGrow: 1,
           mt: 8, // Header height (64px = 8 * 8px)
-          ml: sidebarCollapsed ? 8 : 25, // 64px or 200px
-          transition: (theme) =>
-            theme.transitions.create('margin-left', {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.enteringScreen,
-            }),
+          minHeight: 'calc(100vh - 64px)',
+          boxSizing: 'border-box',
         }}
       >
-        <Container
-          maxWidth={false}
-          sx={{
-            p: 3,
-            minHeight: 'calc(100vh - 64px)',
-          }}
-        >
-          {children}
-        </Container>
+        {children}
       </Box>
     </Box>
   )

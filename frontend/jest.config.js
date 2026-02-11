@@ -42,7 +42,7 @@ const config = {
     }],
   },
   transformIgnorePatterns: [
-    '/node_modules/(?!(@testing-library|react|react-dom|recharts|antd|@ant-design|@mui|@emotion|sonner)/)',
+    '/node_modules/(?!(@testing-library|react|react-dom|recharts|antd|@ant-design|@mui|@emotion|sonner|@tanstack)/)',
     '^.+\.module\.(css|sass|scss)$',
   ],
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
