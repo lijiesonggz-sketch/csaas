@@ -5,10 +5,11 @@ import { MulterModule } from '@nestjs/platform-express'
 import { memoryStorage } from 'multer'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { StandardDocument } from '@/database/entities/standard-document.entity'
+import { Project } from '@/database/entities/project.entity'
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([StandardDocument]),
+    TypeOrmModule.forFeature([StandardDocument, Project]),
     MulterModule.register({
       storage: memoryStorage(),
       limits: {

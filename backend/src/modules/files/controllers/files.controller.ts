@@ -17,6 +17,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { FilesService } from '../services/files.service'
 import { StandardDocument } from '@/database/entities/standard-document.entity'
+import { Project } from '@/database/entities/project.entity'
 import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard'
 
 @Controller('files')
@@ -28,6 +29,8 @@ export class FilesController {
     private readonly filesService: FilesService,
     @InjectRepository(StandardDocument)
     private readonly standardDocumentRepo: Repository<StandardDocument>,
+    @InjectRepository(Project)
+    private readonly projectRepo: Repository<Project>,
   ) {}
 
   /**
@@ -151,6 +154,28 @@ export class FilesController {
 
       await this.standardDocumentRepo.save(doc)
 
+      // 更新项目 metadata 中的 uploadedDocuments
+      const project = await this.projectRepo.findOne({ where: { id: projectId } })
+      if (project) {
+        const existingDocs = (project.metadata as any)?.uploadedDocuments || []
+        const updatedDocs = [
+          ...existingDocs,
+          {
+            id: doc.id,
+            name: doc.name,
+            filename: file.originalname,
+            content: doc.content,
+            uploadedAt: doc.createdAt,
+          },
+        ]
+        project.metadata = {
+          ...(project.metadata || {}),
+          uploadedDocuments: updatedDocs,
+        }
+        await this.projectRepo.save(project)
+        this.logger.log(`已更新项目 ${projectId} 的 uploadedDocuments，现有 ${updatedDocs.length} 个文档`)
+      }
+
       this.logger.log(`文档上传成功: docId=${doc.id}, 字数=${content.length}`)
 
       return {
@@ -223,6 +248,19 @@ export class FilesController {
 
     // 删除文档
     await this.standardDocumentRepo.remove(doc)
+
+    // 更新项目 metadata，移除已删除的文档
+    const project = await this.projectRepo.findOne({ where: { id: projectId } })
+    if (project) {
+      const existingDocs = (project.metadata as any)?.uploadedDocuments || []
+      const updatedDocs = existingDocs.filter((d: any) => d.id !== docId)
+      project.metadata = {
+        ...(project.metadata || {}),
+        uploadedDocuments: updatedDocs,
+      }
+      await this.projectRepo.save(project)
+      this.logger.log(`已从项目 ${projectId} 的 uploadedDocuments 中移除文档 ${docId}`)
+    }
 
     this.logger.log(`文档删除成功: docId=${docId}`)
 

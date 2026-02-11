@@ -9,7 +9,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
 export interface CreateAITaskRequest {
   projectId: string
-  type: 'summary' | 'clustering' | 'matrix' | 'questionnaire' | 'action_plan'
+  type: 'summary' | 'clustering' | 'matrix' | 'questionnaire' | 'action_plan' | 'standard_interpretation' | 'standard_related_search' | 'standard_version_compare'
   input: any
 }
 

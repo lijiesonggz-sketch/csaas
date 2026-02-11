@@ -287,7 +287,7 @@ export default function SummaryPage() {
 
       // 保存 taskId 到项目 metadata
       await apiFetch(`/projects/${projectId}`, {
-        method: 'PUT',
+        method: 'PATCH',
         body: JSON.stringify({
           metadata: {
             summaryTaskId: task.id,
