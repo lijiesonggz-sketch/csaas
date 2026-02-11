@@ -52,78 +52,69 @@ export class OrganizationAutoCreateService {
   ): Promise<Organization> {
     this.logger.log(`Ensuring organization for project ${projectId} (user: ${userId})`)
 
-    // Execute in transaction for atomicity
-    return this.orgRepository.manager.transaction(async (manager: EntityManager): Promise<Organization> => {
-      try {
-        // Step 1: Check if user already has organization
-        const existingMember = await manager.findOne(OrganizationMember, {
-          where: { userId },
-          relations: ['organization'],
+    try {
+      // Step 1: Check if user already has organization
+      const existingMember = await this.orgMemberRepository.findOne({
+        where: { userId },
+        relations: ['organization'],
+      })
+
+      let organization: Organization
+
+      if (existingMember) {
+        // AC 1.2: Reuse existing organization
+        this.logger.log(
+          `User ${userId} has existing organization: ${existingMember.organizationId}`,
+        )
+        organization = existingMember.organization
+      } else {
+        // AC 1.1: Create new organization
+        this.logger.log(`Creating new organization for user ${userId}`)
+
+        // Create organization
+        organization = this.orgRepository.create({
+          name: organizationName || '用户的组织',
         })
 
-        let organization: Organization
+        const savedOrg = await this.orgRepository.save(organization)
+        this.logger.log(`Created organization: ${savedOrg.id}`)
 
-        if (existingMember) {
-          // AC 1.2: Reuse existing organization
-          this.logger.log(
-            `User ${userId} has existing organization: ${existingMember.organizationId}`,
-          )
-          organization = existingMember.organization
-        } else {
-          // AC 1.1: Create new organization
-          this.logger.log(`Creating new organization for user ${userId}`)
+        // Create admin membership
+        const newMember = this.orgMemberRepository.create({
+          organizationId: savedOrg.id,
+          userId,
+          role: 'admin',
+        })
 
-          // Create organization directly in transaction
-          organization = manager.create(Organization, {
-            name: organizationName || '用户的组织',
-          })
+        await this.orgMemberRepository.save(newMember)
+        this.logger.log(`Created admin membership for user: ${userId}`)
 
-          const savedOrg = await manager.save(organization)
-          this.logger.log(`Created organization: ${savedOrg.id}`)
-
-          // Create admin membership
-          const newMember = manager.create(OrganizationMember, {
-            organizationId: savedOrg.id,
-            userId,
-            role: 'admin',
-          })
-
-          await manager.save(newMember)
-          this.logger.log(`Created admin membership for user: ${userId}`)
-
-          organization = savedOrg
-        }
-
-        // Step 2: Link project to organization
-        await manager.update(
-          Project,
-          { id: projectId, ownerId: userId },
-          { organizationId: organization.id },
-        )
-
-        this.logger.log(`Project ${projectId} linked to organization ${organization.id}`)
-
-        return organization
-      } catch (error) {
-        this.logger.error(
-          `Transaction failed for project ${projectId}: ${error.message}`,
-          error.stack,
-        )
-
-        // Handle specific error codes
-        if (error.code === '23505') {
-          // Unique violation
-          throw new ConflictException(`组织创建失败：用户 ${userId} 已存在组织`)
-        }
-
-        if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
-          // Connection errors
-          throw new Error(`数据库连接失败，请稍后重试。错误：${error.message}`)
-        }
-
-        throw error
+        organization = savedOrg
       }
-    })
+
+      // Step 2: Link project to organization
+      await this.projectRepository.update(
+        { id: projectId, ownerId: userId },
+        { organizationId: organization.id },
+      )
+
+      this.logger.log(`Project ${projectId} linked to organization ${organization.id}`)
+
+      return organization
+    } catch (error) {
+      this.logger.error(
+        `Failed to ensure organization for project ${projectId}: ${error.message}`,
+        error.stack,
+      )
+
+      // Handle specific error codes
+      if (error.code === '23505') {
+        // Unique violation
+        throw new ConflictException(`组织创建失败：用户 ${userId} 已存在组织`)
+      }
+
+      throw error
+    }
   }
 
   /**
