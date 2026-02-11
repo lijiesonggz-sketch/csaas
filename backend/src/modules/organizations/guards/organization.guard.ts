@@ -41,7 +41,9 @@ export class OrganizationGuard implements CanActivate {
     console.log('[OrganizationGuard] Request user:', user)
 
     // Skip if no user info (e.g., public routes)
-    if (!user || !user.userId) {
+    // JWT strategy returns user with 'id' field (from payload.sub)
+    const userId = user?.id || user?.userId
+    if (!user || !userId) {
       console.log('[OrganizationGuard] No user or userId, returning false')
       return false
     }
@@ -66,7 +68,7 @@ export class OrganizationGuard implements CanActivate {
     if (!orgId) {
       console.log('[OrganizationGuard] No orgId in request, fetching user organization')
       const userMembership = await this.memberRepository.findOne({
-        where: { userId: user.userId },
+        where: { userId: userId },
       })
 
       if (!userMembership) {
@@ -86,10 +88,10 @@ export class OrganizationGuard implements CanActivate {
     }
 
     // Check if user is a member of the organization
-    console.log('[OrganizationGuard] Checking membership for userId:', user.userId, 'orgId:', orgId)
+    console.log('[OrganizationGuard] Checking membership for userId:', userId, 'orgId:', orgId)
     const member = await this.memberRepository.findOne({
       where: {
-        userId: user.userId,
+        userId: userId,
         organizationId: orgId,
       },
     })
@@ -99,7 +101,7 @@ export class OrganizationGuard implements CanActivate {
     if (!member) {
       // 记录审计日志 (Story 1.2 - AC 3)
       await this.auditLogService.log({
-        userId: user.userId,
+        userId: userId,
         organizationId: orgId,
         action: 'ACCESS_DENIED',
         entityType: 'Organization',

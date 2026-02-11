@@ -42,10 +42,10 @@ export class WatchedTopicController {
   @Post()
   async create(
     @CurrentTenant() tenantId: string,
-    @CurrentOrg() orgId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
     @Body() dto: CreateWatchedTopicDto,
   ): Promise<WatchedTopicResponseDto> {
-    const topic = await this.service.create(tenantId, orgId, dto);
+    const topic = await this.service.create(tenantId, currentOrg.organizationId, dto);
     return this.toResponseDto(topic);
   }
 
@@ -57,9 +57,9 @@ export class WatchedTopicController {
   @Get()
   async findAll(
     @CurrentTenant() tenantId: string,
-    @CurrentOrg() orgId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
   ): Promise<WatchedTopicResponseDto[]> {
-    const topics = await this.service.findAll(tenantId, orgId);
+    const topics = await this.service.findAll(tenantId, currentOrg.organizationId);
     return topics.map((t) => this.toResponseDto(t));
   }
 
@@ -72,9 +72,9 @@ export class WatchedTopicController {
   async delete(
     @Param('id') id: string,
     @CurrentTenant() tenantId: string,
-    @CurrentOrg() orgId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
   ): Promise<{ message: string }> {
-    await this.service.delete(id, tenantId, orgId);
+    await this.service.delete(id, tenantId, currentOrg.organizationId);
     return { message: '已取消关注' };
   }
 

@@ -35,9 +35,9 @@ export class PushPreferenceController {
   @Get()
   async getPreference(
     @CurrentTenant() tenantId: string,
-    @CurrentOrg() organizationId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
   ): Promise<PushPreferenceResponseDto> {
-    return this.pushPreferenceService.getOrCreatePreference(tenantId, organizationId)
+    return this.pushPreferenceService.getOrCreatePreference(tenantId, currentOrg.organizationId)
   }
 
   /**
@@ -50,9 +50,9 @@ export class PushPreferenceController {
   @HttpCode(HttpStatus.OK)
   async updatePreference(
     @CurrentTenant() tenantId: string,
-    @CurrentOrg() organizationId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
     @Body() dto: UpdatePushPreferenceDto,
   ): Promise<PushPreferenceResponseDto> {
-    return this.pushPreferenceService.updatePreference(tenantId, organizationId, dto)
+    return this.pushPreferenceService.updatePreference(tenantId, currentOrg.organizationId, dto)
   }
 }

@@ -38,10 +38,10 @@ export class WatchedPeerController {
   @Post()
   async create(
     @CurrentTenant() tenantId: string,
-    @CurrentOrg() orgId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
     @Body() dto: CreateWatchedPeerDto,
   ): Promise<WatchedPeerResponseDto> {
-    const peer = await this.service.create(tenantId, orgId, dto)
+    const peer = await this.service.create(tenantId, currentOrg.organizationId, dto)
     return this.toResponseDto(peer)
   }
 
@@ -53,9 +53,9 @@ export class WatchedPeerController {
   @Get()
   async findAll(
     @CurrentTenant() tenantId: string,
-    @CurrentOrg() orgId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
   ): Promise<WatchedPeerResponseDto[]> {
-    const peers = await this.service.findAll(tenantId, orgId)
+    const peers = await this.service.findAll(tenantId, currentOrg.organizationId)
     return peers.map((p) => this.toResponseDto(p))
   }
 
@@ -68,9 +68,9 @@ export class WatchedPeerController {
   async delete(
     @Param('id') id: string,
     @CurrentTenant() tenantId: string,
-    @CurrentOrg() orgId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
   ): Promise<{ message: string }> {
-    await this.service.delete(id, tenantId, orgId)
+    await this.service.delete(id, tenantId, currentOrg.organizationId)
     return { message: '已取消关注' }
   }
 

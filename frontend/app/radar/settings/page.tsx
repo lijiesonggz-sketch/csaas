@@ -34,6 +34,8 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { TimePicker } from '@mui/x-date-pickers/TimePicker'
 import { Slider } from '@mui/material'
 import type { Dayjs } from 'dayjs'
@@ -397,6 +399,7 @@ export default function RadarSettingsPage() {
   }
 
   return (
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
     <Box sx={{ p: 3 }}>
       {/* 面包屑导航 */}
       <Breadcrumbs sx={{ mb: 2 }}>
@@ -878,5 +881,6 @@ export default function RadarSettingsPage() {
         onCancel={() => setDeletePeerDialog({ open: false, peerId: '', peerName: '' })}
       />
     </Box>
+    </LocalizationProvider>
   )
 }

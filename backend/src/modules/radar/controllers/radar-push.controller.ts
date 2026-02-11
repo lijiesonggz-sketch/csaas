@@ -10,8 +10,10 @@ import {
   Logger,
 } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { Repository, In } from 'typeorm'
 import { RadarPush } from '../../../database/entities/radar-push.entity'
+import { AnalyzedContent } from '../../../database/entities/analyzed-content.entity'
+import { RawContent } from '../../../database/entities/raw-content.entity'
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { TenantGuard } from '../../organizations/guards/tenant.guard'
 import { OrganizationGuard } from '../../organizations/guards/organization.guard'
@@ -84,6 +86,10 @@ export class RadarPushController {
   constructor(
     @InjectRepository(RadarPush)
     private readonly radarPushRepo: Repository<RadarPush>,
+    @InjectRepository(AnalyzedContent)
+    private readonly analyzedContentRepo: Repository<AnalyzedContent>,
+    @InjectRepository(RawContent)
+    private readonly rawContentRepo: Repository<RawContent>,
   ) {}
 
   /**
@@ -104,11 +110,12 @@ export class RadarPushController {
   @Get()
   async getPushHistory(
     @CurrentTenant() tenantId: string,
-    @CurrentOrg() organizationId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
     @Query() query: GetPushHistoryDto,
   ) {
     try {
-      const { page = 1, limit = 20, radarType, status, organizationId } = query
+      const { page = 1, limit = 20, radarType, status, organizationId: queryOrgId } = query
+      const organizationId = queryOrgId || currentOrg.organizationId
 
       this.logger.log(`getPushHistory called with:`, { tenantId, page, limit, radarType, status, organizationId })
 
@@ -132,7 +139,7 @@ export class RadarPushController {
 
       this.logger.log(`Query conditions:`, where)
 
-      // 分页查询 - 使用left join处理可能缺失的关联数据
+      // 分页查询 - 先查询推送记录
       const [pushes, total] = await this.radarPushRepo.findAndCount({
         where,
         order: {
@@ -142,17 +149,32 @@ export class RadarPushController {
         },
         skip: (page - 1) * limit,
         take: limit,
-        relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags'],
-        // 使用left join (relationLoadStrategy是TypeORM 0.3+的新特性)
-        relationLoadStrategy: 'join',
       })
 
       this.logger.log(`Found ${pushes.length} pushes, total: ${total}`)
 
+      // 获取所有 contentId 并查询关联数据
+      const contentIds = pushes.map(p => p.contentId).filter(Boolean)
+      const analyzedContents = contentIds.length > 0
+        ? await this.analyzedContentRepo.find({
+            where: { id: In(contentIds) },
+            relations: ['tags'],
+          })
+        : []
+      const analyzedMap = new Map(analyzedContents.map(a => [a.id, a]))
+
+      const rawContentIds = analyzedContents.map(a => a.contentId).filter(Boolean)
+      const rawContents = rawContentIds.length > 0
+        ? await this.rawContentRepo.find({
+            where: { id: In(rawContentIds) },
+          })
+        : []
+      const rawMap = new Map(rawContents.map(r => [r.id, r]))
+
       // Transform database entities to frontend response format
       const transformedPushes = pushes.map(push => {
-        const analyzed = push.analyzedContent
-        const raw = analyzed?.rawContent
+        const analyzed = analyzedMap.get(push.contentId)
+        const raw = analyzed ? rawMap.get(analyzed.contentId) : null
 
         // Transform priority level from string to number
         const priorityMap: Record<string, 1 | 2 | 3> = {
@@ -215,20 +237,24 @@ export class RadarPushController {
   ) {
     const push = await this.radarPushRepo.findOne({
       where: { id, tenantId }, // ✅ 添加 tenantId 过滤（Layer 2 防御）
-      relations: [
-        'analyzedContent',
-        'analyzedContent.rawContent',
-        'analyzedContent.tags',
-      ],
     })
 
     if (!push) {
       throw new NotFoundException('Push not found')
     }
 
-    // Transform database entity to frontend response format
-    const analyzed = push.analyzedContent
-    const raw = analyzed?.rawContent
+    // 单独查询关联数据
+    const analyzed = push.contentId
+      ? await this.analyzedContentRepo.findOne({
+          where: { id: push.contentId },
+          relations: ['tags'],
+        })
+      : null
+    const raw = analyzed?.contentId
+      ? await this.rawContentRepo.findOne({
+          where: { id: analyzed.contentId },
+        })
+      : null
 
     // Transform priority level from string to number
     const priorityMap: Record<string, 1 | 2 | 3> = {
