@@ -29,28 +29,26 @@ export class ProjectsService {
   ) {}
 
   async create(userId: string, dto: CreateProjectDto): Promise<Project> {
-    // Create project first
+    // Auto-create or reuse organization for user (Story 1.1 - AC 1.1 & 1.2)
+    // Get organization first to obtain tenant_id
+    const organization = await this.organizationAutoCreateService.ensureOrganizationForProject(
+      userId,
+      dto.clientName ? `${dto.clientName}的组织` : undefined,
+    )
+
+    // Create project with organization and tenant_id
     const project = this.projectRepo.create({
       name: dto.name,
       description: dto.description,
       clientName: dto.clientName,
       standardName: dto.standardName,
       ownerId: userId,
+      organizationId: organization.id,
+      tenantId: organization.tenantId,
       status: ProjectStatus.DRAFT,
       metadata: {},
     })
 
-    await this.projectRepo.save(project)
-
-    // Auto-create or reuse organization for user (Story 1.1 - AC 1.1 & 1.2)
-    const organization = await this.organizationAutoCreateService.ensureOrganizationForProject(
-      userId,
-      project.id,
-      dto.clientName ? `${dto.clientName}的组织` : undefined,
-    )
-
-    // Link project to organization
-    project.organizationId = organization.id
     await this.projectRepo.save(project)
 
     // 创建者自动成为OWNER

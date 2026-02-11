@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException, ConflictException, ForbiddenExceptio
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, DataSource } from 'typeorm'
 import { JwtService } from '@nestjs/jwt'
-import * as bcrypt from 'bcrypt'
+import * as bcrypt from 'bcryptjs'
 import { User, OrganizationMember } from '../../database/entities'
 import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'

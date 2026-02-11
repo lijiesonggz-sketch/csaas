@@ -95,7 +95,7 @@ describe('OrganizationAutoCreateService', () => {
       })
 
       // Act
-      const result = await service.ensureOrganizationForProject(userId, projectId, orgName)
+      const result = await service.ensureOrganizationForProject(userId, orgName)
 
       // Assert - verify transaction was called and organization was created
       expect(mockDataSource.transaction).toHaveBeenCalled()
@@ -136,7 +136,7 @@ describe('OrganizationAutoCreateService', () => {
       })
 
       // Act
-      const result = await service.ensureOrganizationForProject(userId, projectId, orgName)
+      const result = await service.ensureOrganizationForProject(userId, orgName)
 
       // Assert
       expect(result.id).toBe(existingOrg.id)

@@ -63,7 +63,7 @@ describe('RadarPushController', () => {
 
       mockRepo.findAndCount.mockResolvedValue([mockPushes, mockTotal])
 
-      const result = await controller.getPushHistory('tenant-123', 'org-123', query)
+      const result = await controller.getPushHistory('tenant-123', { organizationId: 'org-123', userId: 'user-123' }, query)
 
       expect(result).toEqual({
         data: [],
@@ -124,7 +124,7 @@ describe('RadarPushController', () => {
 
       mockRepo.findAndCount.mockResolvedValue([mockPushes, mockTotal])
 
-      const result = await controller.getPushHistory('tenant-123', 'org-123', query)
+      const result = await controller.getPushHistory('tenant-123', { organizationId: 'org-123', userId: 'user-123' }, query)
 
       expect(result).toEqual({
         data: [
@@ -178,7 +178,7 @@ describe('RadarPushController', () => {
 
       mockRepo.findAndCount.mockResolvedValue([mockPushes, mockTotal])
 
-      const result = await controller.getPushHistory('tenant-123', 'org-123', query)
+      const result = await controller.getPushHistory('tenant-123', { organizationId: 'org-123', userId: 'user-123' }, query)
 
       expect(result).toEqual({
         data: [],
@@ -214,7 +214,7 @@ describe('RadarPushController', () => {
 
       mockRepo.findAndCount.mockResolvedValue([mockPushes, mockTotal])
 
-      await controller.getPushHistory('tenant-123', 'org-123', query)
+      await controller.getPushHistory('tenant-123', { organizationId: 'org-123', userId: 'user-123' }, query)
 
       expect(mockRepo.findAndCount).toHaveBeenCalledWith({
         where: { tenantId: 'tenant-123', radarType: 'industry' },
@@ -280,7 +280,7 @@ describe('RadarPushController', () => {
 
       mockRepo.findAndCount.mockResolvedValue([mockPushes, mockTotal])
 
-      const result = await controller.getPushHistory('tenant-123', 'org-123', query)
+      const result = await controller.getPushHistory('tenant-123', { organizationId: 'org-123', userId: 'user-123' }, query)
 
       expect(result.data[0].priorityLevel).toBe(1)
       expect(result.data[1].priorityLevel).toBe(2)
@@ -305,7 +305,7 @@ describe('RadarPushController', () => {
 
       mockRepo.findAndCount.mockResolvedValue([mockPushes, mockTotal])
 
-      const result = await controller.getPushHistory('tenant-123', 'org-123', query)
+      const result = await controller.getPushHistory('tenant-123', { organizationId: 'org-123', userId: 'user-123' }, query)
 
       expect(result.data[0]).toEqual({
         pushId: 'push-1',
@@ -441,7 +441,7 @@ describe('RadarPushController', () => {
       const query: QueryPushHistoryDto = { radarType: 'tech' }
       mockRepo.findAndCount.mockResolvedValue([[], 0])
 
-      await controller.getPushHistory('tenant-456', 'org-123', query)
+      await controller.getPushHistory('tenant-456', { organizationId: 'org-123', userId: 'user-123' }, query)
 
       const callArgs = mockRepo.findAndCount.mock.calls[0][0]
       expect(callArgs.where.tenantId).toBe('tenant-456')

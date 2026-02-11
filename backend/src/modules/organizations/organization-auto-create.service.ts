@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { EntityManager, Repository } from 'typeorm'
 import { Organization } from '../../database/entities/organization.entity'
 import { OrganizationMember } from '../../database/entities/organization-member.entity'
-import { Project } from '../../database/entities/project.entity'
 
 /**
  * OrganizationAutoCreateService
@@ -22,35 +21,25 @@ export class OrganizationAutoCreateService {
     private readonly orgRepository: Repository<Organization>,
     @InjectRepository(OrganizationMember)
     private readonly orgMemberRepository: Repository<OrganizationMember>,
-    @InjectRepository(Project)
-    private readonly projectRepository: Repository<Project>,
   ) {}
 
   /**
-   * Ensure organization exists for project creation
+   * Ensure organization exists for user
    *
    * This is the main entry point for AC 1.1 and AC 1.2:
    * - AC 1.1: Auto-create organization if user doesn't have one
    * - AC 1.2: Reuse existing organization if user already has one
-   * - Links project to organization
    *
-   * Uses transaction to ensure atomicity:
-   * 1. Create organization (if needed)
-   * 2. Link project to organization
-   * 3. Commit transaction
-   *
-   * @param userId - User ID creating the project
-   * @param projectId - Project ID to link
+   * @param userId - User ID
    * @param organizationName - Organization name (optional, default: "用户的组织")
    * @returns Created or existing organization
-   * @throws Error if transaction fails
+   * @throws Error if operation fails
    */
   async ensureOrganizationForProject(
     userId: string,
-    projectId: string,
     organizationName?: string,
   ): Promise<Organization> {
-    this.logger.log(`Ensuring organization for project ${projectId} (user: ${userId})`)
+    this.logger.log(`Ensuring organization for user: ${userId}`)
 
     try {
       // Step 1: Check if user already has organization
@@ -71,9 +60,10 @@ export class OrganizationAutoCreateService {
         // AC 1.1: Create new organization
         this.logger.log(`Creating new organization for user ${userId}`)
 
-        // Create organization
+        // Create organization with tenant_id (use default tenant for now)
         organization = this.orgRepository.create({
           name: organizationName || '用户的组织',
+          tenantId: '00000000-0000-0000-0000-000000000001', // Default tenant ID
         })
 
         const savedOrg = await this.orgRepository.save(organization)
@@ -92,18 +82,10 @@ export class OrganizationAutoCreateService {
         organization = savedOrg
       }
 
-      // Step 2: Link project to organization
-      await this.projectRepository.update(
-        { id: projectId, ownerId: userId },
-        { organizationId: organization.id },
-      )
-
-      this.logger.log(`Project ${projectId} linked to organization ${organization.id}`)
-
       return organization
     } catch (error) {
       this.logger.error(
-        `Failed to ensure organization for project ${projectId}: ${error.message}`,
+        `Failed to ensure organization for user ${userId}: ${error.message}`,
         error.stack,
       )
 
@@ -126,13 +108,13 @@ export class OrganizationAutoCreateService {
    * @returns Array of organizations
    */
   async batchEnsureOrganizations(
-    projects: Array<{ userId: string; projectId: string; organizationName?: string }>,
-  ): Promise<Array<{ projectId: string; organization: Organization }>> {
-    this.logger.log(`Batch ensuring organizations for ${projects.length} projects`)
+    items: Array<{ userId: string; organizationName?: string }>,
+  ): Promise<Array<{ userId: string; organization: Organization | null }>> {
+    this.logger.log(`Batch ensuring organizations for ${items.length} users`)
 
     const results = await Promise.allSettled(
-      projects.map(({ userId, projectId, organizationName }) =>
-        this.ensureOrganizationForProject(userId, projectId, organizationName),
+      items.map(({ userId, organizationName }) =>
+        this.ensureOrganizationForProject(userId, organizationName),
       ),
     )
 
@@ -145,7 +127,7 @@ export class OrganizationAutoCreateService {
       const errors = results
         .filter((r) => r.status === 'rejected')
         .map((r, i) => ({
-          project: projects[i].projectId,
+          userId: items[i].userId,
           error: r.status === 'rejected' ? r.reason.message : 'Unknown',
         }))
 
@@ -153,7 +135,7 @@ export class OrganizationAutoCreateService {
     }
 
     return results.map((result, index) => ({
-      projectId: projects[index].projectId,
+      userId: items[index].userId,
       organization: result.status === 'fulfilled' ? result.value : null,
     }))
   }

@@ -73,7 +73,7 @@ describe('WatchedTopicController', () => {
 
       mockService.create.mockResolvedValue(mockTopic);
 
-      const result = await controller.create(mockTenantId, mockOrgId, dto);
+      const result = await controller.create(mockTenantId, { organizationId: mockOrgId, userId: 'user-123' }, dto);
 
       expect(result.id).toBe('topic-1');
       expect(result.topicName).toBe('云原生');
@@ -106,7 +106,7 @@ describe('WatchedTopicController', () => {
 
       mockService.findAll.mockResolvedValue(mockTopics);
 
-      const result = await controller.findAll(mockTenantId, mockOrgId);
+      const result = await controller.findAll(mockTenantId, { organizationId: mockOrgId, userId: 'user-123' });
 
       expect(result).toHaveLength(2);
       expect(result[0].topicName).toBe('云原生');
@@ -122,7 +122,7 @@ describe('WatchedTopicController', () => {
 
       mockService.delete.mockResolvedValue(undefined);
 
-      const result = await controller.delete(topicId, mockTenantId, mockOrgId);
+      const result = await controller.delete(topicId, mockTenantId, { organizationId: mockOrgId, userId: 'user-123' });
 
       expect(result.message).toBe('已取消关注');
       expect(mockService.delete).toHaveBeenCalledWith(topicId, mockTenantId, mockOrgId);
