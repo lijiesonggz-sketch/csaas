@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException, ConflictException } from '@nestjs/common'
-import { InjectEntityManager } from '@nestjs/typeorm'
-import { EntityManager } from 'typeorm'
+import { InjectRepository } from '@nestjs/typeorm'
+import { EntityManager, Repository } from 'typeorm'
 import { Organization } from '../../database/entities/organization.entity'
 import { OrganizationMember } from '../../database/entities/organization-member.entity'
 import { Project } from '../../database/entities/project.entity'
@@ -17,7 +17,14 @@ import { Project } from '../../database/entities/project.entity'
 export class OrganizationAutoCreateService {
   private readonly logger = new Logger(OrganizationAutoCreateService.name)
 
-  constructor(@InjectEntityManager() private readonly entityManager: EntityManager) {}
+  constructor(
+    @InjectRepository(Organization)
+    private readonly orgRepository: Repository<Organization>,
+    @InjectRepository(OrganizationMember)
+    private readonly orgMemberRepository: Repository<OrganizationMember>,
+    @InjectRepository(Project)
+    private readonly projectRepository: Repository<Project>,
+  ) {}
 
   /**
    * Ensure organization exists for project creation
@@ -46,7 +53,7 @@ export class OrganizationAutoCreateService {
     this.logger.log(`Ensuring organization for project ${projectId} (user: ${userId})`)
 
     // Execute in transaction for atomicity
-    return this.entityManager.transaction(async (manager: EntityManager): Promise<Organization> => {
+    return this.orgRepository.manager.transaction(async (manager: EntityManager): Promise<Organization> => {
       try {
         // Step 1: Check if user already has organization
         const existingMember = await manager.findOne(OrganizationMember, {
@@ -168,7 +175,7 @@ export class OrganizationAutoCreateService {
    * @throws NotFoundException if user has no organization
    */
   async validateUserOrganization(userId: string): Promise<Organization> {
-    const member = await this.entityManager.getRepository(OrganizationMember).findOne({
+    const member = await this.orgMemberRepository.findOne({
       where: { userId },
       relations: ['organization'],
     })
