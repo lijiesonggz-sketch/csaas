@@ -259,6 +259,37 @@ export default function UploadPage() {
     })
   }
 
+  // 删除文档
+  const handleDelete = async (docId: string) => {
+    try {
+      const headers = await getAuthHeadersAsync()
+      const response = await fetch(
+        `${API_BASE_URL}/files/projects/${projectId}/documents/${docId}`,
+        {
+          method: 'DELETE',
+          headers,
+        }
+      )
+
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          message.success('文档删除成功')
+          // 从列表中移除
+          setUploadedDocs((prev) => prev.filter((doc) => doc.id !== docId))
+        } else {
+          throw new Error(result.message || '删除失败')
+        }
+      } else {
+        const error = await response.json()
+        throw new Error(error.message || '删除失败')
+      }
+    } catch (err: any) {
+      message.error(err.message || '删除文档失败')
+      console.error('删除错误:', err)
+    }
+  }
+
   return (
     <main className="max-w-[1920px] mx-auto px-6 py-8">
       <header className="flex items-start justify-between mb-8">
@@ -368,9 +399,26 @@ export default function UploadPage() {
                     mb: 1,
                     border: '1px solid',
                     borderColor: 'divider',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    py: 1.5,
                   }}
-                  secondaryAction={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                >
+                  <Box sx={{ display: 'flex', width: '100%', alignItems: 'flex-start' }}>
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <Article color="primary" />
+                    </ListItemIcon>
+                    <Box sx={{ flex: 1, minWidth: 0, pr: 1 }}>
+                      <Typography variant="subtitle2" noWrap>
+                        {doc.filename}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        文档名: {doc.name} · {formatFileSize(doc.size)} ·{' '}
+                        {doc.charCount} 字符 · 上传于{' '}
+                        {formatDate(doc.createdAt)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
                       <Chip
                         icon={<CheckCircle />}
                         label="上传成功"
@@ -378,28 +426,16 @@ export default function UploadPage() {
                         size="small"
                         variant="outlined"
                       />
+                      <IconButton
+                        aria-label="delete"
+                        onClick={() => handleDelete(doc.id)}
+                        size="small"
+                        color="error"
+                      >
+                        <Delete />
+                      </IconButton>
                     </Box>
-                  }
-                >
-                  <ListItemIcon>
-                    <Article color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Typography variant="subtitle2" noWrap>
-                        {doc.filename}
-                      </Typography>
-                    }
-                    secondary={
-                      <Box sx={{ mt: 0.5 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          文档名: {doc.name} · {formatFileSize(doc.size)} ·{' '}
-                          {doc.charCount} 字符 · 上传于{' '}
-                          {formatDate(doc.createdAt)}
-                        </Typography>
-                      </Box>
-                    }
-                  />
+                  </Box>
                 </ListItem>
               ))}
             </List>

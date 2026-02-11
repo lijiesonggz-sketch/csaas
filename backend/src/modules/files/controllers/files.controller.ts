@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Delete,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
@@ -9,6 +10,7 @@ import {
   Param,
   Req,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { InjectRepository } from '@nestjs/typeorm'
@@ -110,9 +112,24 @@ export class FilesController {
       let content = ''
       if (file.mimetype === 'application/pdf') {
         content = await this.filesService.parsePdf(file.buffer)
+      } else if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        // DOCX 文件 - 使用 mammoth 解析
+        content = await this.filesService.parseDocx(file.buffer)
       } else {
-        // 文本文件直接读取
-        content = file.buffer.toString('utf-8')
+        // 文本文件读取，处理编码问题
+        try {
+          // 尝试 UTF-8 解码，替换无效字符
+          const decoder = new TextDecoder('utf-8', { fatal: false, ignoreBOM: false })
+          content = decoder.decode(file.buffer)
+
+          // 移除 null 字节和其他控制字符（保留换行符 \n 和 \r）
+          content = content.replace(/\x00/g, '')  // null 字节
+          content = content.replace(/[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '') // 其他控制字符
+
+        } catch (decodeError) {
+          this.logger.error('文件解码失败:', decodeError)
+          throw new BadRequestException('文件编码错误，请确保文件是 UTF-8 编码')
+        }
       }
 
       if (!content || content.trim().length === 0) {
@@ -181,6 +198,41 @@ export class FilesController {
         createdAt: doc.createdAt,
         metadata: doc.metadata,
       })),
+    }
+  }
+
+  /**
+   * Delete a document
+   * DELETE /files/projects/:projectId/documents/:docId
+   */
+  @Delete('projects/:projectId/documents/:docId')
+  async deleteDocument(
+    @Param('projectId') projectId: string,
+    @Param('docId') docId: string,
+  ) {
+    this.logger.log(`删除文档请求: projectId=${projectId}, docId=${docId}`)
+
+    // 查找文档
+    const doc = await this.standardDocumentRepo.findOne({
+      where: { id: docId, projectId },
+    })
+
+    if (!doc) {
+      throw new NotFoundException('文档不存在或已被删除')
+    }
+
+    // 删除文档
+    await this.standardDocumentRepo.remove(doc)
+
+    this.logger.log(`文档删除成功: docId=${docId}`)
+
+    return {
+      success: true,
+      message: '文档删除成功',
+      data: {
+        id: docId,
+        name: doc.name,
+      },
     }
   }
 }

@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common'
+import * as mammoth from 'mammoth'
 
 // 使用require导入pdf-parse v2
 // pdf-parse v2使用PDFParse类，支持data参数加载buffer
@@ -69,6 +70,44 @@ export class FilesService {
 
       throw new BadRequestException(
         `PDF解析失败: ${error instanceof Error ? error.message : '未知错误'}`,
+      )
+    }
+  }
+
+  /**
+   * Parse DOCX file and extract text content
+   * @param fileBuffer Buffer containing DOCX file data
+   * @returns Extracted text content
+   */
+  async parseDocx(fileBuffer: Buffer): Promise<string> {
+    // 验证输入
+    if (!fileBuffer) {
+      throw new BadRequestException('DOCX文件内容不能为空')
+    }
+
+    if (fileBuffer.length === 0) {
+      throw new BadRequestException('DOCX文件大小为0')
+    }
+
+    if (fileBuffer.length > this.MAX_FILE_SIZE) {
+      throw new BadRequestException(`DOCX文件过大。最大支持${this.MAX_FILE_SIZE / 1024 / 1024}MB`)
+    }
+
+    try {
+      this.logger.log(`开始解析DOCX，大小: ${fileBuffer.length} bytes`)
+
+      // 使用mammoth解析DOCX
+      const result = await mammoth.extractRawText({ buffer: fileBuffer })
+
+      this.logger.log(`DOCX解析成功，文本长度: ${result.value.length}`)
+
+      // 返回提取的文本
+      return result.value
+    } catch (error) {
+      this.logger.error('DOCX解析失败:', error)
+
+      throw new BadRequestException(
+        `DOCX解析失败: ${error instanceof Error ? error.message : '未知错误'}`
       )
     }
   }
