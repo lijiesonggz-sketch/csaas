@@ -34,7 +34,7 @@ import {
  */
 @Controller('api/admin/radar-sources')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.CONSULTANT)
+@Roles(UserRole.ADMIN, UserRole.CONSULTANT)
 export class RadarSourceController {
   constructor(private readonly radarSourceService: RadarSourceService) {}
 

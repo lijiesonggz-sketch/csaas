@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import {
   Container,
   Box,
@@ -42,6 +43,15 @@ import {
  */
 export default function PeerCrawlerPage() {
   const router = useRouter()
+  const { data: session } = useSession()
+
+  // 权限检查：只允许 admin 和 consultant 访问
+  useEffect(() => {
+    if (session?.user && !['admin', 'consultant'].includes(session.user.role)) {
+      router.push('/')
+    }
+  }, [session, router])
+
   const [sources, setSources] = useState<RadarSource[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

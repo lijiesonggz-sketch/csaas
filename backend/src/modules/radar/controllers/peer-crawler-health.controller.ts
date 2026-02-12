@@ -79,7 +79,7 @@ export interface PeerCrawlerTaskDto {
 @ApiTags('Peer Crawler Health')
 @Controller('api/admin/peer-crawler')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.CONSULTANT)
+@Roles(UserRole.ADMIN, UserRole.CONSULTANT)
 @ApiBearerAuth()
 export class PeerCrawlerHealthController {
   constructor(

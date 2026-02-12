@@ -75,6 +75,7 @@ const allMenuItems: MenuItem[] = [
       { key: '/admin/cost-optimization', icon: <SettingsIcon />, label: '成本优化' },
       { key: '/admin/branding', icon: <SettingsIcon />, label: '品牌配置' },
       { key: '/admin/radar-sources', icon: <RadarIcon />, label: '信息源配置' },
+      { key: '/admin/raw-contents', icon: <DescriptionIcon />, label: '文件导入管理' },
       { key: '/admin/peer-crawler', icon: <SettingsIcon />, label: '同业爬虫管理' },
       { key: '/admin/peer-crawler/health', icon: <SettingsIcon />, label: '爬虫健康监控' },
     ],

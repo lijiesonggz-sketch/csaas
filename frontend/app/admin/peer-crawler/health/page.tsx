@@ -46,11 +46,11 @@ export default function PeerCrawlerHealthPage() {
     peerName?: string
   }>({})
 
-  // Redirect if not authenticated or not admin
+  // Redirect if not authenticated or not admin/consultant
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login')
-    } else if (session?.user && session.user.role !== 'admin') {
+    } else if (session?.user && !['admin', 'consultant'].includes(session.user.role)) {
       router.push('/')
     }
   }, [status, session, router])

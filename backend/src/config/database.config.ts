@@ -1,4 +1,5 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm'
+import { CustomTypeORMLogger } from './typeorm-logger.config'
 import {
   User,
   Tenant,
@@ -51,6 +52,8 @@ import {
   CustomerIntervention,
   // Story 7.4 entities
   AIUsageLog,
+  // Story 8.2 entities
+  PeerCrawlerTask,
 } from '../database/entities'
 
 export const databaseConfig = (): TypeOrmModuleOptions => ({
@@ -112,10 +115,13 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
     CustomerIntervention,
     // Story 7.4 entities
     AIUsageLog,
+    // Story 8.2 entities
+    PeerCrawlerTask,
   ],
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false, // Use migrations for schema changes
   logging: process.env.NODE_ENV === 'development',
+  logger: new CustomTypeORMLogger(), // 使用自定义日志器，将 UTC 时间显示为北京时间
   extra: {
     // 设置时区为中国时区
     options: '--timezone=Asia/Shanghai',

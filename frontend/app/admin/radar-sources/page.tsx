@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { Container, Box, Alert, Snackbar, IconButton } from '@mui/material'
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
 import { RadarSourceList } from '@/components/admin/RadarSourceList'
@@ -31,6 +32,15 @@ import {
  */
 export default function RadarSourcesPage() {
   const router = useRouter()
+  const { data: session } = useSession()
+
+  // 权限检查：只允许 admin 和 consultant 访问
+  useEffect(() => {
+    if (session?.user && !['admin', 'consultant'].includes(session.user.role)) {
+      router.push('/')
+    }
+  }, [session, router])
+
   const [sources, setSources] = useState<RadarSource[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

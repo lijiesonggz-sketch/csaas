@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { Repository, Between } from 'typeorm'
 import { RawContent } from '../../../database/entities/raw-content.entity'
 import { createHash } from 'crypto'
 
@@ -89,5 +89,144 @@ export class RawContentService {
   private generateContentHash(title: string, url: string, publishDate: Date | null): string {
     const content = `${title}${url}${publishDate}`
     return createHash('sha256').update(content).digest('hex')
+  }
+
+  /**
+   * 分页查询原始内容，支持筛选
+   *
+   * @param filters - 筛选条件
+   * @returns 分页结果
+   */
+  async findWithFilters(filters: {
+    status?: 'pending' | 'analyzing' | 'analyzed' | 'failed'
+    category?: 'tech' | 'industry' | 'compliance'
+    source?: string
+    organizationId?: string
+    search?: string
+    page?: number
+    limit?: number
+  }): Promise<{ items: RawContent[]; total: number; page: number; limit: number }> {
+    const { status, category, source, organizationId, search, page = 1, limit = 20 } = filters
+
+    const queryBuilder = this.rawContentRepository.createQueryBuilder('rawContent')
+
+    // 应用筛选条件
+    if (status) {
+      queryBuilder.andWhere('rawContent.status = :status', { status })
+    }
+
+    if (category) {
+      queryBuilder.andWhere('rawContent.category = :category', { category })
+    }
+
+    if (source) {
+      queryBuilder.andWhere('rawContent.source = :source', { source })
+    }
+
+    if (organizationId) {
+      queryBuilder.andWhere('rawContent.organizationId = :organizationId', { organizationId })
+    }
+
+    // 搜索标题
+    if (search) {
+      queryBuilder.andWhere('rawContent.title LIKE :search', { search: `%${search}%` })
+    }
+
+    // 计算总数
+    const total = await queryBuilder.getCount()
+
+    // 分页查询
+    const items = await queryBuilder
+      .orderBy('rawContent.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany()
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+    }
+  }
+
+  /**
+   * 获取统计信息
+   *
+   * @returns 各状态统计数量和今日导入数量
+   */
+  async getStats(): Promise<{
+    pending: number
+    analyzing: number
+    analyzed: number
+    failed: number
+    todayImported: number
+  }> {
+    // 获取各状态数量
+    const [pending, analyzing, analyzed, failed] = await Promise.all([
+      this.rawContentRepository.count({ where: { status: 'pending' } }),
+      this.rawContentRepository.count({ where: { status: 'analyzing' } }),
+      this.rawContentRepository.count({ where: { status: 'analyzed' } }),
+      this.rawContentRepository.count({ where: { status: 'failed' } }),
+    ])
+
+    // 获取今日导入数量
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    const todayImported = await this.rawContentRepository.count({
+      where: {
+        createdAt: Between(today, tomorrow),
+      },
+    })
+
+    return {
+      pending,
+      analyzing,
+      analyzed,
+      failed,
+      todayImported,
+    }
+  }
+
+  /**
+   * 重新触发AI分析
+   * 将状态重置为pending
+   *
+   * @param id - 内容ID
+   * @returns 更新后的内容
+   */
+  async reanalyze(id: string): Promise<RawContent> {
+    const content = await this.findById(id)
+
+    if (!content) {
+      throw new NotFoundException(`Raw content with id ${id} not found`)
+    }
+
+    // 重置状态为pending
+    await this.rawContentRepository.update(id, { status: 'pending' })
+
+    // 返回更新后的内容
+    const updated = await this.findById(id)
+    if (!updated) {
+      throw new NotFoundException(`Raw content with id ${id} not found after update`)
+    }
+
+    return updated
+  }
+
+  /**
+   * 删除原始内容
+   *
+   * @param id - 内容ID
+   */
+  async delete(id: string): Promise<void> {
+    const result = await this.rawContentRepository.delete(id)
+
+    if (result.affected === 0) {
+      throw new NotFoundException(`Raw content with id ${id} not found`)
+    }
   }
 }
