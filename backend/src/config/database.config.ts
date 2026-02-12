@@ -116,4 +116,8 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
   migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
   synchronize: false, // Use migrations for schema changes
   logging: process.env.NODE_ENV === 'development',
+  extra: {
+    // 设置时区为中国时区
+    options: '--timezone=Asia/Shanghai',
+  },
 })

@@ -23,6 +23,7 @@ import {
   Gavel,
   PlaylistAddCheck,
 } from '@mui/icons-material'
+import { formatChinaDate } from '@/lib/utils/dateTime'
 
 /**
  * ROI分析数据结构
@@ -581,7 +582,7 @@ export const PushCard = React.memo(
             •
           </Typography>
           <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-            {new Date(push.publishDate).toLocaleDateString('zh-CN')}
+            {formatChinaDate(push.publishDate)}
           </Typography>
         </Box>
       </CardContent>

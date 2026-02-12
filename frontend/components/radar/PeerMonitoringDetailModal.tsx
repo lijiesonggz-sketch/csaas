@@ -30,6 +30,7 @@ import {
   TrendingUp,
 } from '@mui/icons-material'
 import { PeerMonitoringPush } from './PeerMonitoringCard'
+import { formatChinaDate } from '@/lib/utils/dateTime'
 
 /**
  * 详情弹窗扩展的数据结构
@@ -319,7 +320,7 @@ export const PeerMonitoringDetailModal = React.memo(function PeerMonitoringDetai
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CalendarToday color="action" fontSize="small" />
                 <Typography variant="body2" color="text.secondary">
-                  发布日期: {new Date(push.publishDate).toLocaleDateString('zh-CN')}
+                  发布日期: {formatChinaDate(push.publishDate)}
                 </Typography>
               </Box>
             )}

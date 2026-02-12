@@ -63,6 +63,7 @@ import {
 } from '@/lib/api/radar'
 import { INSTITUTION_PRESETS, INDUSTRY_LABELS, IndustryKey } from '@/lib/constants/institution-presets'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { formatChinaDate } from '@/lib/utils/dateTime'
 
 // 预设技术领域选项
 const PRESET_TOPICS = [
@@ -203,7 +204,7 @@ export default function RadarSettingsPage() {
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('zh-CN', {
+    return formatChinaDate(dateString, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',

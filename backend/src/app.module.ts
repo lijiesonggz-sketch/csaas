@@ -6,6 +6,8 @@ import { CacheModule } from '@nestjs/cache-manager'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { databaseConfig } from './config/database.config'
+import { TestTimezoneController } from './config/test-timezone.controller'
+import { TimezoneSubscriber } from './config/timezone.subscriber'
 import { AuthModule } from './modules/auth/auth.module'
 import { AITasksModule } from './modules/ai-tasks/ai-tasks.module'
 import { HealthModule } from './modules/health/health.module'
@@ -70,7 +72,7 @@ import { CostOptimizationModule } from './modules/admin/cost-optimization/cost-o
     AdminModule,
     CostOptimizationModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, TestTimezoneController],
+  providers: [AppService, TimezoneSubscriber],
 })
 export class AppModule {}

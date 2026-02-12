@@ -13,6 +13,7 @@
 import React, { useState } from 'react';
 import { PushFeedbackDetail } from '@/lib/api/content-quality';
 import { StarIcon, LightBulbIcon, CheckCircleIcon, XCircleIcon, XMarkIcon } from '@heroicons/react/24/solid';
+import { formatChinaDate } from '@/lib/utils/dateTime';
 
 interface PushFeedbackDetailDialogProps {
   isOpen: boolean;
@@ -179,7 +180,7 @@ export function PushFeedbackDetailDialog({
                             <span className="ml-2 text-sm font-medium text-gray-900">{item.user.name}</span>
                           </div>
                           <span className="text-xs text-gray-500">
-                            {new Date(item.createdAt).toLocaleDateString('zh-CN')}
+                            {formatChinaDate(item.createdAt)}
                           </span>
                         </div>
                         {item.comment && (

@@ -33,6 +33,7 @@ import { HighCostClientList } from '@/components/admin/HighCostClientList';
 import { OptimizationSuggestionsList } from '@/components/admin/OptimizationSuggestionsList';
 import { BatchOptimizeDialog } from '@/components/admin/BatchOptimizeDialog';
 import { ArrowPathIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { formatChinaDate } from '@/lib/utils/dateTime';
 
 export default function CostOptimizationPage() {
   const { data: session, status } = useSession();
@@ -289,7 +290,7 @@ export default function CostOptimizationPage() {
                 metrics.averageCostPerOrganization * (metrics.topCostOrganizations?.length || 0),
               )}
               unit="元"
-              subtitle={metrics.period ? `本月累计 (${new Date(metrics.period.startDate).toLocaleDateString('zh-CN')} - ${new Date(metrics.period.endDate).toLocaleDateString('zh-CN')})` : '本月累计'}
+              subtitle={metrics.period ? `本月累计 (${formatChinaDate(metrics.period.startDate)} - ${formatChinaDate(metrics.period.endDate)})` : '本月累计'}
             />
 
             <HealthMetricCard

@@ -111,5 +111,7 @@ export const AppDataSource = new DataSource({
     max: 10, // 最大连接数
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000,
+    // 设置时区为中国时区
+    options: '--timezone=Asia/Shanghai',
   },
 })

@@ -12,6 +12,7 @@
 import React, { useState } from 'react';
 import { LowRatedPush } from '@/lib/api/content-quality';
 import { StarIcon, EyeIcon, ExclamationTriangleIcon } from '@heroicons/react/24/solid';
+import { formatChinaDate } from '@/lib/utils/dateTime';
 
 interface LowRatedPushListProps {
   pushes: LowRatedPush[];
@@ -107,7 +108,7 @@ export function LowRatedPushList({ pushes, onViewDetails, loading }: LowRatedPus
                       {getRadarTypeLabel(push.radarType)}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {new Date(push.createdAt).toLocaleDateString('zh-CN')}
+                      {formatChinaDate(push.createdAt)}
                     </span>
                   </div>
                   <h4 className="text-sm font-medium text-gray-900 truncate" title={push.title}>

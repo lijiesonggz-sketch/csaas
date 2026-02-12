@@ -28,6 +28,7 @@ import {
   Calculate,
 } from '@mui/icons-material'
 import { getRadarPush, markPushAsRead, RadarPush, ROIAnalysis } from '@/lib/api/radar'
+import { formatChinaDate } from '@/lib/utils/dateTime'
 
 /**
  * PushDetailModal属性
@@ -153,7 +154,7 @@ export const PushDetailModal = React.memo(function PushDetailModal({
             •
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {new Date(push.publishDate).toLocaleDateString('zh-CN')}
+            {formatChinaDate(push.publishDate)}
           </Typography>
         </Box>
       </DialogTitle>

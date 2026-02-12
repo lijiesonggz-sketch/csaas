@@ -20,6 +20,7 @@ import {
 } from '@mui/material'
 import { apiFetch } from '@/lib/utils/api'
 import { message } from '@/lib/message'
+import { formatChinaDate } from '@/lib/utils/dateTime'
 
 interface ProjectCardProps {
   project: Project
@@ -186,7 +187,7 @@ export default function ProjectCard({ project, onClick, onDelete }: ProjectCardP
             <div className="flex items-center gap-2.5 text-sm">
               <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" strokeWidth={2} />
               <span className="text-gray-500 dark:text-gray-500 text-xs">
-                {new Date(project.createdAt).toLocaleDateString('zh-CN')}
+                {formatChinaDate(project.createdAt)}
               </span>
             </div>
           </div>

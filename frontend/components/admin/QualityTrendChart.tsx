@@ -23,6 +23,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { QualityTrendDataPoint } from '@/lib/api/content-quality';
+import { formatChinaDate } from '@/lib/utils/dateTime';
 
 interface QualityTrendChartProps {
   averageRatingTrend: QualityTrendDataPoint[];
@@ -70,7 +71,7 @@ export function QualityTrendChart({
               <XAxis
                 dataKey="date"
                 tick={{ fill: '#6b7280', fontSize: 11 }}
-                tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                tickFormatter={(value) => formatChinaDate(value, { month: 'short', day: 'numeric' })}
               />
               <YAxis
                 domain={[0, 5]}
@@ -102,7 +103,7 @@ export function QualityTrendChart({
               <XAxis
                 dataKey="date"
                 tick={{ fill: '#6b7280', fontSize: 11 }}
-                tickFormatter={(value) => new Date(value).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
+                tickFormatter={(value) => formatChinaDate(value, { month: 'short', day: 'numeric' })}
               />
               <YAxis
                 tick={{ fill: '#6b7280', fontSize: 11 }}

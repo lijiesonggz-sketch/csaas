@@ -20,6 +20,7 @@ import {
   Business,
   Star,
 } from '@mui/icons-material'
+import { formatChinaDate } from '@/lib/utils/dateTime'
 
 /**
  * 同业动态推送数据结构
@@ -365,7 +366,7 @@ export const PeerMonitoringCard = React.memo(function PeerMonitoringCard({
           )}
           {push.publishDate && (
             <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
-              {new Date(push.publishDate).toLocaleDateString('zh-CN')}
+              {formatChinaDate(push.publishDate)}
             </Typography>
           )}
           {push.isRead && (

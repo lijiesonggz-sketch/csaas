@@ -36,6 +36,7 @@ import {
 import { toast } from 'sonner'
 import { organizationsApi } from '@/lib/api/organizations'
 import { OrganizationMember, PaginatedResponse } from '@/lib/types/organization'
+import { formatChinaDate } from '@/lib/utils/dateTime'
 import { AddMemberDialog } from './components/AddMemberDialog'
 import { EditMemberDialog } from './components/EditMemberDialog'
 import { ConfirmRemoveDialog } from './components/ConfirmRemoveDialog'
@@ -246,7 +247,7 @@ export default function TeamManagementPage() {
                       </TableCell>
 
                       <TableCell>
-                        {new Date(member.createdAt).toLocaleDateString('zh-CN')}
+                        {formatChinaDate(member.createdAt)}
                       </TableCell>
                       {isAdmin && (
                         <TableCell align="right">
