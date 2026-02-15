@@ -32,7 +32,7 @@ import { CostBreakdownChart } from '@/components/admin/CostBreakdownChart';
 import { HighCostClientList } from '@/components/admin/HighCostClientList';
 import { OptimizationSuggestionsList } from '@/components/admin/OptimizationSuggestionsList';
 import { BatchOptimizeDialog } from '@/components/admin/BatchOptimizeDialog';
-import { ArrowPathIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, ArrowDownTrayIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { formatChinaDate } from '@/lib/utils/dateTime';
 
 export default function CostOptimizationPage() {
@@ -112,6 +112,11 @@ export default function CostOptimizationPage() {
       fetchTrends();
     }
   }, [selectedDays, session?.accessToken]);
+
+  // Handle back navigation
+  const handleBack = () => {
+    router.push('/dashboard');
+  };
 
   // Handle manual refresh
   const handleRefresh = () => {
@@ -238,6 +243,17 @@ export default function CostOptimizationPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
+        {/* Back Button */}
+        <div className="mb-4">
+          <button
+            onClick={handleBack}
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeftIcon className="h-5 w-5" />
+            <span>返回仪表板</span>
+          </button>
+        </div>
+
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between">

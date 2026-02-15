@@ -1,6 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+
+// Constants
+const DEFAULT_PAGE_SIZE = 10
+const CONTENT_PREVIEW_LENGTH = 500
+const SNACKBAR_DURATION = 6000
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
@@ -58,6 +63,14 @@ import {
 // 配置 dayjs
 dayjs.locale('zh-cn')
 
+// 解码 HTML 实体
+function decodeHtmlEntities(text: string | null | undefined): string {
+  if (!text) return ''
+  const textarea = document.createElement('textarea')
+  textarea.innerHTML = text
+  return textarea.value
+}
+
 /**
  * RawContent 管理页面
  *
@@ -85,7 +98,7 @@ export default function RawContentsPage() {
   const [error, setError] = useState<string | null>(null)
   const [pagination, setPagination] = useState({
     page: 1,
-    limit: 10,
+    limit: DEFAULT_PAGE_SIZE,
     total: 0,
     totalPages: 0,
   })
@@ -134,6 +147,7 @@ export default function RawContentsPage() {
       setStats(data)
     } catch (err: any) {
       console.error('加载统计数据失败:', err)
+      showSnackbar('加载统计数据失败: ' + (err.message || '未知错误'), 'error')
     } finally {
       setStatsLoading(false)
     }
@@ -536,17 +550,15 @@ export default function RawContentsPage() {
                         </IconButton>
                       </Tooltip>
 
-                      {/* 重新分析按钮 - 仅对failed/pending状态显示 */}
-                      {(content.status === 'failed' || content.status === 'pending') && (
-                        <Tooltip title="重新分析">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleReanalyze(content.id)}
-                          >
-                            <RefreshIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
+                      {/* 重新分析按钮 */}
+                      <Tooltip title="重新分析">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleReanalyze(content.id)}
+                        >
+                          <RefreshIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
 
                       {/* 删除按钮 */}
                       <Tooltip title="删除">
@@ -662,13 +674,13 @@ export default function RawContentsPage() {
 
               {/* 内容预览 */}
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                内容预览
+                内容预览（共 {selectedContent.fullContent?.length || 0} 字符）
               </Typography>
               <Paper
                 variant="outlined"
                 sx={{
                   p: 2,
-                  maxHeight: 300,
+                  maxHeight: 400,
                   overflow: 'auto',
                   backgroundColor: 'grey.50',
                 }}
@@ -680,32 +692,160 @@ export default function RawContentsPage() {
                     wordBreak: 'break-word',
                   }}
                 >
-                  {selectedContent.fullContent?.slice(0, 500)}
-                  {(selectedContent.fullContent?.length || 0) > 500 && '...'}
+                  {decodeHtmlEntities(selectedContent.fullContent)}
                 </Typography>
               </Paper>
-              {(selectedContent.fullContent?.length || 0) > 500 && (
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  仅显示前500字符，共 {selectedContent.fullContent?.length || 0} 字符
-                </Typography>
+
+              {/* AI分析结果 */}
+              {(selectedContent.aiSummary || selectedContent.aiAnalysisStatus || selectedContent.complianceAnalysis) && (
+                <Box sx={{ mt: 4 }}>
+                  <Typography variant="h6" gutterBottom>
+                    AI分析结果
+                  </Typography>
+
+                  {/* AI摘要 */}
+                  {selectedContent.aiSummary && (
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        AI摘要
+                      </Typography>
+                      <Paper variant="outlined" sx={{ p: 2, backgroundColor: 'primary.50' }}>
+                        <Typography variant="body2">{selectedContent.aiSummary}</Typography>
+                      </Paper>
+                    </Box>
+                  )}
+
+                  {/* AI模型和状态 */}
+                  <Grid container spacing={2} sx={{ mb: 3 }}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        AI模型
+                      </Typography>
+                      <Chip
+                        label={selectedContent.aiModel || '未知'}
+                        size="small"
+                        color="info"
+                        variant="outlined"
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        分析状态
+                      </Typography>
+                      <Chip
+                        label={selectedContent.aiAnalysisStatus === 'success' ? '成功' : selectedContent.aiAnalysisStatus}
+                        size="small"
+                        color={selectedContent.aiAnalysisStatus === 'success' ? 'success' : 'default'}
+                      />
+                    </Grid>
+                  </Grid>
+
+                  {/* 关键词 */}
+                  {selectedContent.keywords && selectedContent.keywords.length > 0 && (
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        关键词
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {selectedContent.keywords.map((keyword, index) => (
+                          <Chip key={index} label={keyword} size="small" variant="outlined" />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* 技术分类 */}
+                  {selectedContent.categories && selectedContent.categories.length > 0 && (
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        技术分类
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {selectedContent.categories.map((category, index) => (
+                          <Chip key={index} label={category} size="small" color="primary" variant="outlined" />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* 合规分析结果 */}
+                  {selectedContent.complianceAnalysis && (
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                        合规分析
+                      </Typography>
+                      <Paper variant="outlined" sx={{ p: 2, backgroundColor: 'warning.50' }}>
+                        {selectedContent.complianceAnalysis.complianceRiskCategory && (
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant="caption" color="text.secondary">风险类别：</Typography>
+                            <Chip
+                              label={selectedContent.complianceAnalysis.complianceRiskCategory}
+                              size="small"
+                              color="warning"
+                              variant="outlined"
+                            />
+                          </Box>
+                        )}
+                        {selectedContent.complianceAnalysis.penaltyCase && (
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant="caption" color="text.secondary">处罚案例：</Typography>
+                            <Typography variant="body2">{selectedContent.complianceAnalysis.penaltyCase}</Typography>
+                          </Box>
+                        )}
+                        {selectedContent.complianceAnalysis.policyRequirements && (
+                          <Box sx={{ mb: 1 }}>
+                            <Typography variant="caption" color="text.secondary">政策要求：</Typography>
+                            <Typography variant="body2">{selectedContent.complianceAnalysis.policyRequirements}</Typography>
+                          </Box>
+                        )}
+                        {selectedContent.complianceAnalysis.remediationSuggestions && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">整改建议：</Typography>
+                            <Typography variant="body2">{selectedContent.complianceAnalysis.remediationSuggestions}</Typography>
+                          </Box>
+                        )}
+                      </Paper>
+                    </Box>
+                  )}
+                </Box>
               )}
             </Box>
           )}
         </DialogContent>
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-          {selectedContent &&
-            (selectedContent.status === 'failed' || selectedContent.status === 'pending') && (
-              <Button
-                variant="outlined"
-                startIcon={<RefreshIcon />}
-                onClick={() => {
-                  handleCloseDetail()
-                  handleReanalyze(selectedContent.id)
-                }}
-              >
-                重新分析
-              </Button>
-            )}
+          {selectedContent && (
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={async () => {
+                try {
+                  setDetailLoading(true)
+                  const detail = await getRawContentById(selectedContent.id)
+                  setSelectedContent(detail)
+                  showSnackbar('详情已刷新', 'success')
+                } catch (err: any) {
+                  showSnackbar(err.message || '刷新失败', 'error')
+                } finally {
+                  setDetailLoading(false)
+                }
+              }}
+              disabled={detailLoading}
+            >
+              刷新
+            </Button>
+          )}
+          {selectedContent && (
+            <Button
+              variant="outlined"
+              startIcon={<RefreshIcon />}
+              onClick={() => {
+                handleCloseDetail()
+                handleReanalyze(selectedContent.id)
+              }}
+            >
+              重新分析
+            </Button>
+          )}
           <Button variant="contained" onClick={handleCloseDetail}>
             关闭
           </Button>
@@ -715,7 +855,7 @@ export default function RawContentsPage() {
       {/* 提示消息 */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
+        autoHideDuration={SNACKBAR_DURATION}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >

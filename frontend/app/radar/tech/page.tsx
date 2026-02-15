@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { Box, Container, Typography, Button, Alert, CircularProgress, Grid, Breadcrumbs } from '@mui/material'
-import { TrendingUp, Refresh, ArrowBack, Home } from '@mui/icons-material'
+import { TrendingUp, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react'
 import { PushCard } from '@/components/radar/PushCard'
 import { PushDetailModal } from '@/components/radar/PushDetailModal'
 import { getRadarPushes, RadarPush } from '@/lib/api/radar'
 import { useWebSocket } from '@/lib/hooks/useWebSocket'
 import { useOrganizationStore } from '@/lib/stores/useOrganizationStore'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Card, CardContent } from '@/components/ui/card'
 
 // 禁用静态生成，因为这个页面需要动态数据
 export const dynamic = 'force-dynamic'
@@ -29,9 +30,6 @@ export default function TechRadarPage() {
   const [error, setError] = useState<string | null>(null)
   const currentOrganization = useOrganizationStore((state) => state.currentOrganization)
   const organizationId = currentOrganization?.id
-
-  console.log('[TechRadarPage] Current organization:', currentOrganization)
-  console.log('[TechRadarPage] Organization ID:', organizationId)
 
   const { socket, isConnected } = useWebSocket(organizationId)
 
@@ -59,23 +57,14 @@ export default function TechRadarPage() {
   // 初始加载
   useEffect(() => {
     const loadInitialData = async () => {
-      // 先加载组织
       const { fetchOrganizations } = useOrganizationStore.getState()
-
       let org = currentOrganization
 
       if (!org) {
-        console.log('[TechRadarPage] No organization found, fetching...')
         await fetchOrganizations()
-
-        // 手动获取加载后的组织
         org = useOrganizationStore.getState().currentOrganization
-        console.log('[TechRadarPage] Organization loaded:', org)
       }
 
-      console.log('[TechRadarPage] Final organization ID:', org?.id)
-
-      // 再加载推送列表
       fetchPushes()
     }
 
@@ -86,15 +75,10 @@ export default function TechRadarPage() {
   useEffect(() => {
     if (!socket || !isConnected) return
 
-    // 监听新推送事件
     socket.on('radar:push:new', (newPush: RadarPush) => {
       if (newPush.radarType === 'tech') {
-        console.log('New tech radar push received:', newPush)
-
-        // 添加到列表顶部
         setPushes((prev) => [newPush, ...prev])
 
-        // 显示浏览器通知
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('技术雷达新推送', {
             body: newPush.title,
@@ -121,113 +105,93 @@ export default function TechRadarPage() {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* 面包屑导航 */}
-      <Box sx={{ mb: 3 }}>
-        <Breadcrumbs aria-label="breadcrumb">
-          <Link href="/radar" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'primary.main' }}>
-              <Home sx={{ fontSize: 18 }} />
-              <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 500 }}>
-                雷达首页
-              </Typography>
-            </Box>
-          </Link>
-          <Typography variant="body2" color="text.secondary">
-            技术雷达
-          </Typography>
-        </Breadcrumbs>
-      </Box>
+    <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      {/* Page Header */}
+      <Card className="mb-6 bg-gradient-to-br from-indigo-500 via-purple-500 to-purple-600 text-white border-0">
+        <CardContent className="p-6 sm:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                <TrendingUp className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold">技术雷达 - ROI导向的技术决策支持</h1>
+                <p className="text-sm text-white/80 mt-1">
+                  基于您的薄弱项和关注领域，为您推荐最具性价比的技术方案
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="bg-white/20 text-white hover:bg-white/30 border-0"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              刷新
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* 页面标题 */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TrendingUp fontSize="large" />
-            <Typography variant="h4" fontWeight="bold">
-              技术雷达 - ROI导向的技术决策支持
-            </Typography>
-          </Box>
-          <Button
-            component={Link}
-            href="/radar"
-            variant="outlined"
-            startIcon={<ArrowBack />}
-            sx={{ minWidth: 120 }}
-          >
-            返回雷达
-          </Button>
-        </Box>
-        <Typography variant="body1" color="text.secondary">
-          基于您的薄弱项和关注领域，为您推荐最具性价比的技术方案
-        </Typography>
-      </Box>
+      {/* Connection Status */}
+      <div className="mb-4">
+        {!isConnected && (
+          <Alert variant="destructive" className="rounded-lg">
+            <AlertDescription>实时推送连接中断，正在重新连接...</AlertDescription>
+          </Alert>
+        )}
+        {isConnected && (
+          <div className="inline-flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1.5 rounded-lg text-sm font-medium">
+            <CheckCircle className="w-4 h-4" />
+            实时推送已连接
+          </div>
+        )}
+      </div>
 
-      {/* 操作按钮 */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          {!isConnected && (
-            <Typography variant="caption" color="warning.main">
-              ⚠️ 实时推送连接中断，正在重新连接...
-            </Typography>
-          )}
-          {isConnected && (
-            <Typography variant="caption" color="success.main">
-              ✓ 实时推送已连接
-            </Typography>
-          )}
-        </Box>
-        <Button
-          variant="outlined"
-          startIcon={<Refresh />}
-          onClick={handleRefresh}
-          disabled={isLoading}
-        >
-          刷新
-        </Button>
-      </Box>
-
-      {/* 错误提示 */}
+      {/* Error Alert */}
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
+        <Alert variant="destructive" className="mb-4 rounded-lg">
+          <AlertCircle className="w-4 h-4" />
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      {/* 加载状态 */}
+      {/* Loading State */}
       {isLoading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress />
-        </Box>
+        <div className="flex justify-center py-12">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
       )}
 
-      {/* 推送列表 */}
+      {/* Push List - 响应式三列布局 */}
       {!isLoading && pushes.length > 0 && (
-        <Grid container spacing={4} justifyContent="center">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {pushes.map((push) => (
-            <Grid item xs={12} lg={6} xl={6} key={push.pushId}>
-              <PushCard
-                push={push}
-                onViewDetail={setSelectedPushId}
-              />
-            </Grid>
+            <PushCard
+              key={push.pushId}
+              push={push}
+              onViewDetail={setSelectedPushId}
+            />
           ))}
-        </Grid>
+        </div>
       )}
 
-      {/* 空状态 */}
+      {/* Empty State */}
       {!isLoading && pushes.length === 0 && !error && (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            暂无推送内容
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
+        <Card className="p-8 sm:p-12 text-center">
+          <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+            <TrendingUp className="w-10 h-10 text-primary" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-2">暂无推送内容</h3>
+          <p className="text-sm text-muted-foreground">
             系统会根据您的薄弱项和关注领域自动推送相关技术方案
-          </Typography>
-        </Box>
+          </p>
+        </Card>
       )}
 
-      {/* 详情弹窗 */}
+      {/* Detail Modal */}
       {selectedPushId && (
         <PushDetailModal
           pushId={selectedPushId}
@@ -235,6 +199,6 @@ export default function TechRadarPage() {
           onClose={() => setSelectedPushId(null)}
         />
       )}
-    </Container>
+    </div>
   )
 }

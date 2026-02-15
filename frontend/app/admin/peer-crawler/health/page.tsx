@@ -24,7 +24,7 @@ import { getAlerts, resolveAlert, Alert } from '@/lib/api/dashboard'
 import { CrawlerHealthDashboard } from '@/components/admin/CrawlerHealthDashboard'
 import { CrawlerTaskLogList } from '@/components/admin/CrawlerTaskLogList'
 import { AlertList } from '@/components/admin/AlertList'
-import { ArrowPathIcon } from '@heroicons/react/24/outline'
+import { ArrowPathIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 
 export default function PeerCrawlerHealthPage() {
   const { data: session, status } = useSession()
@@ -99,6 +99,11 @@ export default function PeerCrawlerHealthPage() {
     }
   }, [session?.accessToken, taskPage, taskFilters])
 
+  // Handle back navigation
+  const handleBack = () => {
+    router.push('/dashboard')
+  }
+
   // Handle manual refresh
   const handleRefresh = () => {
     fetchData(true)
@@ -159,6 +164,17 @@ export default function PeerCrawlerHealthPage() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
+        {/* Back Button */}
+        <div className="mb-4">
+          <button
+            onClick={handleBack}
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeftIcon className="h-5 w-5" />
+            <span>返回仪表板</span>
+          </button>
+        </div>
+
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between">

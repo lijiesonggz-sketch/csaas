@@ -67,21 +67,25 @@ export class ProjectsService {
   }
 
   async findAll(userId: string): Promise<Project[]> {
-    // 简化权限检查：返回用户拥有的所有项目
+    // 查询用户拥有的项目 + 用户作为成员的项目
     const projects = await this.projectRepo
       .createQueryBuilder('project')
-      .where('project.owner_id = :userId', { userId })
+      .leftJoin('project.members', 'member')
+      .where('(project.owner_id = :userId OR member.user_id = :userId)', { userId })
       .andWhere('project.deleted_at IS NULL')
       .leftJoinAndSelect('project.owner', 'owner')
       .orderBy('project.updated_at', 'DESC')
       .getMany()
 
+    // 去重（用户可能同时是owner和member）
+    const uniqueProjects = Array.from(new Map(projects.map(p => [p.id, p])).values())
+
     // 为每个项目添加进度信息
-    for (const project of projects) {
+    for (const project of uniqueProjects) {
       ;(project as any).progress = await this.calculateProgress(project.id)
     }
 
-    return projects
+    return uniqueProjects
   }
 
   async findOne(projectId: string, userId: string): Promise<Project> {
