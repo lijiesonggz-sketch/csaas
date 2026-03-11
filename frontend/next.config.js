@@ -17,6 +17,8 @@ const nextConfig = {
       bodySizeLimit: '50mb',
     },
   },
+  // Docker 部署支持
+  output: 'standalone',
   // Add webpack configuration to help resolve hoisted dependencies in monorepo
   webpack: (config, { isServer }) => {
     // Add root node_modules to webpack's resolve path
