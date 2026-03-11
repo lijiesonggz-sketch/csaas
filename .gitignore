@@ -26,6 +26,8 @@ yarn-error.log*
 .env
 .env.local
 .env*.local
+backend/.env.development
+backend/.env.production
 
 # Vercel
 .vercel
@@ -40,6 +42,11 @@ next-env.d.ts
 *.swp
 *.swo
 *~
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/skills/
+.claude/teams/
 
 # OS
 .DS_Store
@@ -67,3 +74,66 @@ backend/storage/
 
 # Office temp files
 ~$*
+
+# ===== GitHub 推送前清理 =====
+
+# Screenshots and temp images (project root)
+/*.png
+/*.jpg
+
+# Test/debug scripts (backend root)
+backend/check-*.js
+backend/test-*.js
+backend/diagnose-*.js
+backend/trigger-*.js
+backend/fix-*.js
+backend/reset-*.js
+backend/verify-*.js
+backend/compare-*.js
+backend/get-*.js
+backend/clean-*.js
+backend/create-table.sql
+backend/debug-*.txt
+/test-*.js
+/test-*.txt
+
+# Data import (runtime data)
+backend/data-import/
+
+# BMAD output artifacts
+_bmad-output/
+
+# Auth tokens (sensitive!)
+auth.json
+
+# IDE/AI agent directories
+.agent/
+.codebuddy/
+.codex/
+.continue/
+.cursor/
+.gemini/
+.kiro/
+.opencode/
+.qoder/
+.roo/
+.trae/
+.windsurf/
+.github/
+
+# Playwright CLI
+.playwright-cli/
+
+# Report files
+*-REPORT.md
+*-TODO.md
+*-SUMMARY.md
+REFACTORING-TODO.md
+
+# Design system artifacts
+design-system/
+
+# Misc temp
+create-peer-crawler-tasks.sql
+ui-ux-pro-max-skill/
+docs/
