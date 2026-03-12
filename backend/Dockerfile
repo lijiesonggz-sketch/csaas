@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # 安装依赖
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # 复制源代码
 COPY . .
@@ -24,7 +24,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # 只安装生产依赖
-RUN npm ci --only=production
+RUN npm ci --omit=dev --legacy-peer-deps
 
 # 从构建阶段复制编译后的代码
 COPY --from=builder /app/dist ./dist
