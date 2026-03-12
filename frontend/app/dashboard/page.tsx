@@ -2,27 +2,22 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import MainLayout from '@/components/layout/MainLayout'
 import {
-  Box,
-  Container,
-  Typography,
-  Card,
-  CardContent,
-  Button,
-  CircularProgress,
-  Grid,
-  Chip,
-  Divider,
-} from '@mui/material'
-import {
-  BusinessCenter,
+  LayoutDashboard,
+  Briefcase,
   CheckCircle,
-  Schedule,
-  RocketLaunch,
+  Clock,
+  Rocket,
   TrendingUp,
-  ArrowForward,
-} from '@mui/icons-material'
+  ArrowRight,
+  RefreshCw,
+  Plus,
+  Radar,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import MainLayout from '@/components/layout/MainLayout'
 import { apiFetch } from '@/lib/utils/api'
 
 interface Project {
@@ -33,6 +28,19 @@ interface Project {
   organization?: {
     id: string
     name: string
+  }
+}
+
+function getStatusConfig(status: string) {
+  switch (status) {
+    case 'completed':
+      return { color: 'bg-emerald-100 text-emerald-700', label: '已完成' }
+    case 'in_progress':
+      return { color: 'bg-indigo-100 text-indigo-700', label: '进行中' }
+    case 'pending':
+      return { color: 'bg-slate-100 text-slate-700', label: '待启动' }
+    default:
+      return { color: 'bg-slate-100 text-slate-700', label: status }
   }
 }
 
@@ -60,245 +68,194 @@ export default function DashboardPage() {
     }
   }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'success'
-      case 'in_progress':
-        return 'warning'
-      case 'pending':
-        return 'default'
-      default:
-        return 'default'
-    }
-  }
+  const completedCount = projects.filter((p) => p.status === 'completed').length
+  const inProgressCount = projects.filter((p) => p.status === 'in_progress').length
+  const pendingCount = projects.filter((p) => p.status === 'pending').length
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return '已完成'
-      case 'in_progress':
-        return '进行中'
-      case 'pending':
-        return '待启动'
-      default:
-        return status
-    }
-  }
-
-  const completedCount = projects.filter(p => p.status === 'completed').length
-  const inProgressCount = projects.filter(p => p.status === 'in_progress').length
-  const pendingCount = projects.filter(p => p.status === 'pending').length
+  const stats = [
+    {
+      icon: Briefcase,
+      value: projects.length,
+      label: '总项目数',
+      iconBg: 'bg-gradient-to-br from-indigo-500 to-purple-600',
+      iconColor: 'text-white',
+    },
+    {
+      icon: CheckCircle,
+      value: completedCount,
+      label: '已完成',
+      iconBg: 'bg-emerald-100',
+      iconColor: 'text-emerald-600',
+    },
+    {
+      icon: Clock,
+      value: inProgressCount,
+      label: '进行中',
+      iconBg: 'bg-indigo-100',
+      iconColor: 'text-indigo-600',
+    },
+    {
+      icon: Rocket,
+      value: pendingCount,
+      label: '待启动',
+      iconBg: 'bg-slate-100',
+      iconColor: 'text-slate-600',
+    },
+  ]
 
   return (
     <MainLayout>
-      <Box sx={{ width: '100%', p: 3 }}>
+      <div className="w-full px-6 py-8">
         {/* Header */}
-        <Box sx={{ mb: 4 }}>
-          <Typography variant="h4" gutterBottom>
-            工作台
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            欢迎使用 Csaas - AI驱动的IT咨询成熟度评估平台
-          </Typography>
-        </Box>
+        <Card className="mb-6 border-0 shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                <LayoutDashboard className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold">工作台</h1>
+                <p className="text-white/90 text-sm">
+                  欢迎使用 Csaas - AI驱动的IT咨询成熟度评估平台
+                </p>
+              </div>
+              <Button
+                onClick={() => router.push('/projects/new')}
+                className="bg-white text-indigo-600 hover:bg-white/90"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                新建项目
+              </Button>
+            </div>
+          </div>
+        </Card>
 
         {/* Statistics Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box sx={{
-                    p: 1.5,
-                    borderRadius: 2,
-                    bgcolor: 'primary.light',
-                    color: 'primary.dark',
-                  }}>
-                    <BusinessCenter />
-                  </Box>
-                  <Box>
-                    <Typography variant="h4" color="primary.main">
-                      {projects.length}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      总项目数
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {stats.map((stat, idx) => {
+            const Icon = stat.icon
+            return (
+              <Card key={idx} className="border-0 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-14 h-14 rounded-xl ${stat.iconBg} flex items-center justify-center`}>
+                      <Icon className={`w-7 h-7 ${stat.iconColor}`} />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-slate-900">{stat.value}</div>
+                      <div className="text-sm text-slate-500">{stat.label}</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
 
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box sx={{
-                    p: 1.5,
-                    borderRadius: 2,
-                    bgcolor: 'success.light',
-                    color: 'success.dark',
-                  }}>
-                    <CheckCircle />
-                  </Box>
-                  <Box>
-                    <Typography variant="h4" color="success.main">
-                      {completedCount}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      已完成
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box sx={{
-                    p: 1.5,
-                    borderRadius: 2,
-                    bgcolor: 'warning.light',
-                    color: 'warning.dark',
-                  }}>
-                    <Schedule />
-                  </Box>
-                  <Box>
-                    <Typography variant="h4" color="warning.main">
-                      {inProgressCount}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      进行中
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box sx={{
-                    p: 1.5,
-                    borderRadius: 2,
-                    bgcolor: 'info.light',
-                    color: 'info.dark',
-                  }}>
-                    <RocketLaunch />
-                  </Box>
-                  <Box>
-                    <Typography variant="h4" color="info.main">
-                      {pendingCount}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      待启动
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* Radar Service Entry */}
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <Box sx={{
-                p: 1.5,
-                borderRadius: 2,
-                bgcolor: 'secondary.light',
-                color: 'secondary.dark',
-              }}>
-                <TrendingUp />
-              </Box>
-              <Box sx={{ flexGrow: 1 }}>
-                <Typography variant="h6">
+        {/* Radar Service Section */}
+        <Card className="mb-6 border-0 shadow-sm">
+          <div className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <Radar className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold text-slate-900">
                   Radar Service - 技术雷达推送
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
+                </h2>
+                <p className="text-sm text-slate-500">
                   基于您的评估结果，智能推送技术趋势、行业标杆和合规预警
-                </Typography>
-              </Box>
-            </Box>
+                </p>
+              </div>
+              <button
+                onClick={fetchProjects}
+                disabled={loading}
+                className="p-2 text-slate-400 hover:text-slate-600 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
 
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : projects.length > 0 ? (
-              <Box>
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
-                  选择项目查看Radar推送
-                </Typography>
-                <Grid container spacing={2}>
-                  {projects.map((project) => (
-                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={project.id}>
-                      <Card
-                        variant="outlined"
-                        sx={{
-                          transition: 'transform 0.2s, box-shadow 0.2s',
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: 2,
-                          },
-                        }}
-                      >
-                        <CardContent sx={{ pb: 1 }}>
-                          <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+            {projects.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {projects.slice(0, 6).map((project) => {
+                  const statusConfig = getStatusConfig(project.status)
+                  return (
+                    <Card
+                      key={project.id}
+                      className="cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border-slate-100"
+                      onClick={() => router.push(`/radar?orgId=${project.organizationId}`)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-slate-900 truncate flex-1">
                             {project.name}
-                          </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
-                            <Chip
-                              size="small"
-                              label={getStatusLabel(project.status)}
-                              color={getStatusColor(project.status) as any}
-                            />
-                            <Button
-                              size="small"
-                              variant="contained"
-                              endIcon={<ArrowForward />}
-                              onClick={() => router.push(`/radar?orgId=${project.organizationId}`)}
-                            >
-                              进入Radar
-                            </Button>
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              </Box>
+                          </h3>
+                          <ArrowRight className="w-4 h-4 text-indigo-600 ml-2 flex-shrink-0" />
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Badge className={statusConfig.color}>
+                            {statusConfig.label}
+                          </Badge>
+                          {project.organization && (
+                            <span className="text-xs text-slate-500">
+                              {project.organization.name}
+                            </span>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
             ) : (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography variant="body2" color="text.secondary">
-                  暂无项目，请先创建项目
-                </Typography>
-              </Box>
+              <div className="text-center py-12 bg-slate-50 rounded-xl">
+                <TrendingUp className="w-12 h-12 text-slate-400 mx-auto mb-3 opacity-50" />
+                <p className="text-slate-600 mb-1">暂无项目</p>
+                <p className="text-sm text-slate-500 mb-4">
+                  创建项目后即可查看Radar推送
+                </p>
+                <Button
+                  onClick={() => router.push('/projects/new')}
+                  className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  创建第一个项目
+                </Button>
+              </div>
             )}
-          </CardContent>
+          </div>
         </Card>
 
-        {/* Quick Start Card */}
-        <Card>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              快速开始
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              从上方选择一个项目，进入Radar Service查看智能推送内容。
-              Radar会根据您的评估结果自动识别薄弱项，并推送相关技术趋势、行业标杆和合规预警。
-            </Typography>
-          </CardContent>
+        {/* Quick Start */}
+        <Card className="border-0 shadow-sm">
+          <div className="p-6">
+            <h2 className="text-lg font-semibold text-slate-900 mb-2">快速开始</h2>
+            <p className="text-sm text-slate-500 mb-4">
+              按照以下步骤开始使用 Csaas 平台
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { step: 1, title: '创建项目', desc: '设置项目基本信息', link: '/projects/new' },
+                { step: 2, title: '上传文档', desc: '上传标准文档进行解读', link: '/projects' },
+                { step: 3, title: '查看雷达', desc: '获取技术趋势推送', link: '/radar' },
+              ].map((item) => (
+                <div
+                  key={item.step}
+                  className="p-4 rounded-xl bg-slate-50 hover:bg-indigo-50 cursor-pointer transition-colors"
+                  onClick={() => router.push(item.link)}
+                >
+                  <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-semibold text-sm mb-3">
+                    {item.step}
+                  </div>
+                  <h3 className="font-semibold text-slate-900 mb-1">{item.title}</h3>
+                  <p className="text-sm text-slate-500">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </Card>
-      </Box>
+      </div>
     </MainLayout>
   )
 }

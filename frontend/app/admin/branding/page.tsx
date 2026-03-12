@@ -113,7 +113,7 @@ export default function BrandingPage() {
       if (config) {
         setConfig({
           ...config,
-          brandLogoUrl: response.data.brandLogoUrl,
+          logoUrl: response.data.logoUrl,
         })
       }
 

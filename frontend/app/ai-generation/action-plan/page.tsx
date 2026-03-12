@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * 落地措施生成与展示页面
  * 基于成熟度分析结果生成具体的改进措施

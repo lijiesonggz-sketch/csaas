@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { useRouter } from 'next/navigation'
-import ProjectList from '@/components/projects/ProjectList'
+import ProjectListShadcn from '@/components/projects/ProjectListShadcn'
 import { Project } from '@/lib/api/projects'
 
 export default function ProjectsPage() {
@@ -12,5 +12,5 @@ export default function ProjectsPage() {
     router.push(`/projects/${project.id}`)
   }
 
-  return <ProjectList onProjectClick={handleProjectClick} />
+  return <ProjectListShadcn onProjectClick={handleProjectClick} />
 }

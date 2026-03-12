@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * 雷达配置管理页面 (Story 5.1 - Phase 3)
  *

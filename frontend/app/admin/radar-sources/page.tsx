@@ -36,8 +36,12 @@ export default function RadarSourcesPage() {
 
   // 权限检查：只允许 admin 和 consultant 访问
   useEffect(() => {
+    let isMounted = true
     if (session?.user && !['admin', 'consultant'].includes(session.user.role)) {
       router.push('/')
+    }
+    return () => {
+      isMounted = false
     }
   }, [session, router])
 

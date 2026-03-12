@@ -10,34 +10,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Container,
-  Box,
-  Paper,
-  Typography,
-  Button,
-  IconButton,
-  Grid,
-  Chip,
-  Stack,
-  Alert,
-  Snackbar,
-  CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Tooltip,
-} from '@mui/material'
-import {
-  ArrowBack as ArrowBackIcon,
-  Refresh as RefreshIcon,
-  Phone as PhoneIcon,
-  TrendingDown as TrendingDownIcon,
-  Warning as WarningIcon,
-} from '@mui/icons-material'
+import { ArrowLeft, RefreshCw, Phone, TrendingDown, AlertTriangle } from 'lucide-react'
 import {
   ClientActivity,
   ClientSegment,
@@ -45,15 +18,28 @@ import {
   getClientSegmentation,
   getInterventionSuggestions,
   createIntervention,
-  ACTIVITY_STATUS_LABELS,
 } from '@/lib/api/clients-activity'
 import { ActivityStatusBadge } from '@/components/admin/ActivityStatusBadge'
 import { ClientSegmentationChart } from '@/components/admin/ClientSegmentationChart'
 import { ChurnRiskDetailDialog } from '@/components/admin/ChurnRiskDetailDialog'
 import { InterventionDialog } from '@/components/admin/InterventionDialog'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { useToast } from '@/hooks/use-toast'
 
 export default function ChurnRiskPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [clients, setClients] = useState<ClientActivity[]>([])
   const [segments, setSegments] = useState<ClientSegment[]>([])
   const [loading, setLoading] = useState(true)
@@ -61,15 +47,6 @@ export default function ChurnRiskPage() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [interventionDialogOpen, setInterventionDialogOpen] = useState(false)
   const [interventionSuggestions, setInterventionSuggestions] = useState<any[]>([])
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean
-    message: string
-    severity: 'success' | 'error' | 'info'
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  })
 
   // 加载数据
   const loadData = async () => {
@@ -82,7 +59,11 @@ export default function ChurnRiskPage() {
       setClients(clientsData.data)
       setSegments(segmentationData.segments)
     } catch (err: any) {
-      showSnackbar(err.message || '加载数据失败', 'error')
+      toast({
+        title: '错误',
+        description: err.message || '加载数据失败',
+        variant: 'destructive',
+      })
     } finally {
       setLoading(false)
     }
@@ -91,13 +72,6 @@ export default function ChurnRiskPage() {
   useEffect(() => {
     loadData()
   }, [])
-
-  const showSnackbar = (
-    message: string,
-    severity: 'success' | 'error' | 'info' = 'success'
-  ) => {
-    setSnackbar({ open: true, message, severity })
-  }
 
   const handleBack = () => {
     router.push('/admin/clients')
@@ -118,17 +92,20 @@ export default function ChurnRiskPage() {
   const handleCreateIntervention = async (data: any) => {
     if (!selectedClient) return
     await createIntervention(selectedClient.organizationId, data)
-    showSnackbar('干预记录已保存')
+    toast({
+      title: '成功',
+      description: '干预记录已保存',
+    })
     loadData()
   }
 
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress />
-        </Box>
-      </Container>
+      <div className="container mx-auto py-8 px-4">
+        <div className="flex justify-center items-center min-h-[400px]">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
     )
   }
 
@@ -139,134 +116,111 @@ export default function ChurnRiskPage() {
     : 0
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box>
-        {/* 返回按钮 */}
-        <Box sx={{ mb: 2 }}>
-          <IconButton
-            onClick={handleBack}
-            sx={{
-              color: 'primary.main',
-              '&:hover': {
-                backgroundColor: 'primary.light',
-                color: 'white',
-              },
-            }}
-          >
-            <ArrowBackIcon />
-          </IconButton>
-        </Box>
+    <div className="container mx-auto py-8 px-4">
+      {/* 返回按钮 */}
+      <div className="mb-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleBack}
+          className="text-primary hover:text-primary hover:bg-primary/10"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+      </div>
 
-        {/* 页面标题 */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box>
-            <Typography variant="h4" component="h1" gutterBottom>
-              <WarningIcon color="error" sx={{ mr: 1, verticalAlign: 'middle' }} />
-              流失风险客户
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              月活率低于 60% 的客户需要关注和干预
-            </Typography>
-          </Box>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={loadData}
-          >
-            刷新
-          </Button>
-        </Box>
+      {/* 页面标题 */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+            <AlertTriangle className="w-8 h-8 text-destructive" />
+            流失风险客户
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            月活率低于 60% 的客户需要关注和干预
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={loadData}
+        >
+          <RefreshCw className="w-4 h-4 mr-2" />
+          刷新
+        </Button>
+      </div>
 
-        {/* 统计概览 */}
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid xs={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper sx={{ p: 2, textAlign: 'center', borderLeft: 4, borderColor: 'error.main' }}>
-              <Typography variant="h4" color="error">
-                {churnRiskCount}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                风险客户数
-              </Typography>
-            </Paper>
-          </Grid>
-          <Grid xs={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h4" color="warning.main">
-                {churnRiskPercentage}%
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                风险客户占比
-              </Typography>
-            </Paper>
-          </Grid>
-          <Grid xs={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h4" color="info.main">
-                {clients.length > 0
-                  ? (clients.reduce((sum, c) => sum + c.monthlyActivityRate, 0) / clients.length).toFixed(1)
-                  : 0}%
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                平均月活率
-              </Typography>
-            </Paper>
-          </Grid>
-          <Grid xs={{ xs: 12, sm: 6, md: 3 }}>
-            <Paper sx={{ p: 2, textAlign: 'center' }}>
-              <Typography variant="h4" color="success.main">
-                {totalCustomers - churnRiskCount}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                健康客户数
-              </Typography>
-            </Paper>
-          </Grid>
-        </Grid>
+      {/* 统计概览 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card className="border-l-4 border-l-destructive">
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold text-destructive">{churnRiskCount}</div>
+            <div className="text-sm text-muted-foreground">风险客户数</div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-amber-500">
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold text-amber-500">{churnRiskPercentage}%</div>
+            <div className="text-sm text-muted-foreground">风险客户占比</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold text-blue-600">
+              {clients.length > 0
+                ? (clients.reduce((sum, c) => sum + c.monthlyActivityRate, 0) / clients.length).toFixed(1)
+                : 0}%
+            </div>
+            <div className="text-sm text-muted-foreground">平均月活率</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <div className="text-3xl font-bold text-green-600">
+              {totalCustomers - churnRiskCount}
+            </div>
+            <div className="text-sm text-muted-foreground">健康客户数</div>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* 图表和客户列表 */}
-        <Grid container spacing={3}>
-          {/* 分布图表 */}
-          <Grid xs={{ xs: 12, md: 4 }}>
-            <ClientSegmentationChart data={segments} />
-          </Grid>
+      {/* 图表和客户列表 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* 分布图表 */}
+        <div className="lg:col-span-1">
+          <ClientSegmentationChart data={segments} />
+        </div>
 
-          {/* 风险客户列表 */}
-          <Grid xs={{ xs: 12, md: 8 }}>
-            <Paper sx={{ p: 2 }}>
-              <Typography variant="h6" gutterBottom>
-                风险客户列表
-                <Chip
-                  label={`${clients.length} 家`}
-                  size="small"
-                  color="error"
-                  sx={{ ml: 1 }}
-                />
-              </Typography>
+        {/* 风险客户列表 */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <h2 className="text-lg font-semibold">风险客户列表</h2>
+                <Badge variant="destructive">{clients.length} 家</Badge>
+              </div>
 
               {clients.length === 0 ? (
-                <Alert severity="success" sx={{ mt: 2 }}>
-                  太好了！当前没有流失风险客户。
+                <Alert className="bg-green-50 border-green-200">
+                  <AlertDescription className="text-green-800">
+                    太好了！当前没有流失风险客户。
+                  </AlertDescription>
                 </Alert>
               ) : (
-                <TableContainer sx={{ mt: 2 }}>
-                  <Table size="small">
-                    <TableHead>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell>客户名称</TableCell>
-                        <TableCell>月活率</TableCell>
-                        <TableCell>流失原因</TableCell>
-                        <TableCell>联系人</TableCell>
-                        <TableCell align="right">操作</TableCell>
+                        <TableHead>客户名称</TableHead>
+                        <TableHead>月活率</TableHead>
+                        <TableHead>流失原因</TableHead>
+                        <TableHead>联系人</TableHead>
+                        <TableHead className="text-right">操作</TableHead>
                       </TableRow>
-                    </TableHead>
+                    </TableHeader>
                     <TableBody>
                       {clients.map((client) => (
-                        <TableRow key={client.organizationId} hover>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight="medium">
-                              {client.name}
-                            </Typography>
-                          </TableCell>
+                        <TableRow key={client.organizationId}>
+                          <TableCell className="font-medium">{client.name}</TableCell>
                           <TableCell>
                             <ActivityStatusBadge
                               status={client.activityStatus}
@@ -275,60 +229,55 @@ export default function ChurnRiskPage() {
                             />
                           </TableCell>
                           <TableCell>
-                            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                            <div className="flex flex-wrap gap-1">
                               {client.churnRiskFactors.slice(0, 2).map((factor, idx) => (
-                                <Chip
+                                <Badge
                                   key={idx}
-                                  label={factor}
-                                  size="small"
-                                  variant="outlined"
-                                  color="error"
-                                />
+                                  variant="outline"
+                                  className="text-destructive border-destructive/30"
+                                >
+                                  {factor}
+                                </Badge>
                               ))}
                               {client.churnRiskFactors.length > 2 && (
-                                <Chip
-                                  label={`+${client.churnRiskFactors.length - 2}`}
-                                  size="small"
-                                  variant="outlined"
-                                />
+                                <Badge variant="outline">
+                                  +{client.churnRiskFactors.length - 2}
+                                </Badge>
                               )}
-                            </Stack>
+                            </div>
                           </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" color="text.secondary">
-                              {client.contactPerson || '-'}
-                            </Typography>
+                          <TableCell className="text-muted-foreground">
+                            {client.contactPerson || '-'}
                           </TableCell>
-                          <TableCell align="right">
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
                               <Button
-                                size="small"
-                                variant="outlined"
+                                size="sm"
+                                variant="outline"
                                 onClick={() => handleViewDetails(client)}
                               >
                                 详情
                               </Button>
                               <Button
-                                size="small"
-                                variant="contained"
-                                color="error"
-                                startIcon={<PhoneIcon />}
+                                size="sm"
+                                variant="destructive"
                                 onClick={() => handleQuickIntervention(client)}
                               >
+                                <Phone className="w-4 h-4 mr-1" />
                                 干预
                               </Button>
-                            </Stack>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
-                </TableContainer>
+                </div>
               )}
-            </Paper>
-          </Grid>
-        </Grid>
-      </Box>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* 详情对话框 */}
       <ChurnRiskDetailDialog
@@ -349,22 +298,6 @@ export default function ChurnRiskPage() {
           onSubmit={handleCreateIntervention}
         />
       )}
-
-      {/* 提示消息 */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Container>
+    </div>
   )
 }

@@ -35,8 +35,18 @@ import {
 } from '@mui/icons-material'
 import { toast } from 'sonner'
 import { organizationsApi } from '@/lib/api/organizations'
-import { OrganizationMember, PaginatedResponse } from '@/lib/types/organization'
+import { OrganizationMember } from '@/lib/types/organization'
 import { formatChinaDate } from '@/lib/utils/dateTime'
+
+// Extended session user type with organization data
+interface SessionUser {
+  id?: string
+  name?: string
+  email?: string
+  role?: string
+  organizationId?: string
+  organizationRole?: 'admin' | 'member'
+}
 import { AddMemberDialog } from './components/AddMemberDialog'
 import { EditMemberDialog } from './components/EditMemberDialog'
 import { ConfirmRemoveDialog } from './components/ConfirmRemoveDialog'
@@ -62,8 +72,9 @@ export default function TeamManagementPage() {
   const [mutating, setMutating] = useState(false)
 
   // Get organization ID and role from session
-  const organizationId = (session?.user as any)?.organizationId
-  const organizationRole = (session?.user as any)?.organizationRole
+  const user = session?.user as SessionUser | undefined
+  const organizationId = user?.organizationId
+  const organizationRole = user?.organizationRole
   const isAdmin = organizationRole === 'admin'
 
   // Fetch members

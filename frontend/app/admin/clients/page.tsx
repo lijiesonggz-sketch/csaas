@@ -2,36 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Container,
-  Box,
-  Paper,
-  Typography,
-  Button,
-  IconButton,
-  Grid,
-  TextField,
-  MenuItem,
-  InputAdornment,
-  Chip,
-  Stack,
-  Alert,
-  Snackbar,
-  CircularProgress,
-  Checkbox,
-  Tooltip,
-  Divider,
-} from '@mui/material'
-import {
-  ArrowBack as ArrowBackIcon,
-  Add as AddIcon,
-  Upload as UploadIcon,
-  Settings as SettingsIcon,
-  Group as GroupIcon,
-  Search as SearchIcon,
-  Refresh as RefreshIcon,
-  FilterList as FilterIcon,
-} from '@mui/icons-material'
+import { ArrowLeft, Plus, Upload, Settings, Users, Search, RefreshCw, Filter } from 'lucide-react'
 import { ClientCard } from '@/components/admin/ClientCard'
 import { AddClientDialog } from '@/components/admin/AddClientDialog'
 import { BulkConfigDialog } from '@/components/admin/BulkConfigDialog'
@@ -59,6 +30,19 @@ import {
   removeClientFromGroup,
   CreateClientGroupData,
 } from '@/lib/api/clients'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useToast } from '@/hooks/use-toast'
 
 /**
  * 客户管理页面
@@ -75,6 +59,7 @@ import {
  */
 export default function ClientsPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [clients, setClients] = useState<Client[]>([])
   const [groups, setGroups] = useState<ClientGroup[]>([])
   const [loading, setLoading] = useState(true)
@@ -90,33 +75,21 @@ export default function ClientsPage() {
   const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false)
   const [groupDialogOpen, setGroupDialogOpen] = useState(false)
 
-  // 提示消息
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean
-    message: string
-    severity: 'success' | 'error' | 'info' | 'warning'
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  })
-
   // 返回上一页
   const handleBack = () => {
     router.push('/dashboard')
   }
 
   // 显示提示消息
-  const showSnackbar = (
+  const showToast = (
     message: string,
-    severity: 'success' | 'error' | 'info' | 'warning' = 'success',
+    variant: 'default' | 'destructive' = 'default',
   ) => {
-    setSnackbar({ open: true, message, severity })
-  }
-
-  // 关闭提示消息
-  const handleCloseSnackbar = () => {
-    setSnackbar((prev) => ({ ...prev, open: false }))
+    toast({
+      title: variant === 'destructive' ? '错误' : '成功',
+      description: message,
+      variant,
+    })
   }
 
   // 加载客户列表
@@ -126,7 +99,7 @@ export default function ClientsPage() {
       const data = await getClients()
       setClients(data)
     } catch (err: any) {
-      showSnackbar(err.message || '加载客户列表失败', 'error')
+      showToast(err.message || '加载客户列表失败', 'destructive')
     } finally {
       setLoading(false)
     }
@@ -151,7 +124,7 @@ export default function ClientsPage() {
   // 创建客户
   const handleCreateClient = async (data: CreateClientData) => {
     await createClient(data)
-    showSnackbar('客户创建成功')
+    showToast('客户创建成功')
     loadClients()
   }
 
@@ -159,7 +132,7 @@ export default function ClientsPage() {
   const handleUpdateClient = async (data: UpdateClientData) => {
     if (!editingClient) return
     await updateClient(editingClient.id, data)
-    showSnackbar('客户更新成功')
+    showToast('客户更新成功')
     setEditingClient(null)
     loadClients()
   }
@@ -172,19 +145,19 @@ export default function ClientsPage() {
 
     try {
       await deleteClient(client.id)
-      showSnackbar('客户删除成功')
+      showToast('客户删除成功')
       loadClients()
     } catch (err: any) {
-      showSnackbar(err.message || '删除失败', 'error')
+      showToast(err.message || '删除失败', 'destructive')
     }
   }
 
   // 批量导入
   const handleBulkImport = async (file: File) => {
     const result = await bulkImportFromCsv(file)
-    showSnackbar(
+    showToast(
       `导入完成: 成功 ${result.success} 个，失败 ${result.failed} 个`,
-      result.failed > 0 ? 'warning' : 'success',
+      result.failed > 0 ? 'destructive' : 'default',
     )
     loadClients()
     return result
@@ -193,7 +166,7 @@ export default function ClientsPage() {
   // 批量配置
   const handleBulkConfig = async (data: BulkConfigData) => {
     await bulkConfigClients(data)
-    showSnackbar(`已成功配置 ${data.organizationIds.length} 个客户`)
+    showToast(`已成功配置 ${data.organizationIds.length} 个客户`)
     setSelectedClients([])
     loadClients()
   }
@@ -201,7 +174,7 @@ export default function ClientsPage() {
   // 创建分组
   const handleCreateGroup = async (data: CreateClientGroupData) => {
     const group = await createClientGroup(data)
-    showSnackbar('分组创建成功')
+    showToast('分组创建成功')
     loadGroups()
     return group
   }
@@ -209,21 +182,21 @@ export default function ClientsPage() {
   // 删除分组
   const handleDeleteGroup = async (groupId: string) => {
     await deleteClientGroup(groupId)
-    showSnackbar('分组删除成功')
+    showToast('分组删除成功')
     loadGroups()
   }
 
   // 添加客户到分组
   const handleAddClientsToGroup = async (groupId: string, clientIds: string[]) => {
     await addClientsToGroup(groupId, clientIds)
-    showSnackbar('客户已添加到分组')
+    showToast('客户已添加到分组')
     loadGroups()
   }
 
   // 从分组移除客户
   const handleRemoveClientFromGroup = async (groupId: string, clientId: string) => {
     await removeClientFromGroup(groupId, clientId)
-    showSnackbar('客户已从分组移除')
+    showToast('客户已从分组移除')
     loadGroups()
   }
 
@@ -273,311 +246,269 @@ export default function ClientsPage() {
 
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress />
-        </Box>
-      </Container>
+      <div className="container mx-auto py-8 px-4">
+        <div className="flex justify-center items-center min-h-[400px]">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
     )
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box>
-        {/* 返回按钮 */}
-        <Box sx={{ mb: 2 }}>
-          <IconButton
-            onClick={handleBack}
-            sx={{
-              color: 'primary.main',
-              '&:hover': {
-                backgroundColor: 'primary.light',
-                color: 'white',
-              },
-            }}
+    <div className="container mx-auto py-8 px-4">
+      {/* 返回按钮 */}
+      <div className="mb-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleBack}
+          className="text-primary hover:text-primary hover:bg-primary/10"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+      </div>
+
+      {/* 页面标题和操作按钮 */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold" data-testid="page-title">
+            客户管理
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            管理您的客户组织，配置推送设置和分组
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            data-testid="bulk-import-button"
+            variant="outline"
+            onClick={() => setBulkImportDialogOpen(true)}
           >
-            <ArrowBackIcon />
-          </IconButton>
-        </Box>
+            <Upload className="w-4 h-4 mr-2" />
+            批量导入
+          </Button>
+          <Button
+            data-testid="group-management-button"
+            variant="outline"
+            onClick={() => setGroupDialogOpen(true)}
+          >
+            <Users className="w-4 h-4 mr-2" />
+            分组管理
+          </Button>
+          <Button
+            data-testid="add-client-button"
+            onClick={() => setAddDialogOpen(true)}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            添加客户
+          </Button>
+        </div>
+      </div>
 
-        {/* 页面标题和操作按钮 */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box>
-            <Typography variant="h4" component="h1" gutterBottom data-testid="page-title">
-              客户管理
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              管理您的客户组织，配置推送设置和分组
-            </Typography>
-          </Box>
-          <Stack direction="row" spacing={2}>
-            <Button
-              data-testid="bulk-import-button"
-              variant="outlined"
-              startIcon={<UploadIcon />}
-              onClick={() => setBulkImportDialogOpen(true)}
-            >
-              批量导入
-            </Button>
-            <Button
-              data-testid="group-management-button"
-              variant="outlined"
-              startIcon={<GroupIcon />}
-              onClick={() => setGroupDialogOpen(true)}
-            >
-              分组管理
-            </Button>
-            <Button
-              data-testid="add-client-button"
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setAddDialogOpen(true)}
-            >
-              添加客户
-            </Button>
-          </Stack>
-        </Box>
+      {/* 统计信息 */}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-primary">{clients.length}</div>
+              <div className="text-sm text-muted-foreground">总客户数</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-green-600">
+                {clients.filter((c) => c.status === 'active').length}
+              </div>
+              <div className="text-sm text-muted-foreground">活跃客户</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-amber-500">
+                {clients.filter((c) => c.status === 'trial').length}
+              </div>
+              <div className="text-sm text-muted-foreground">试用客户</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-600">{groups.length}</div>
+              <div className="text-sm text-muted-foreground">客户分组</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* 统计信息 */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h4" color="primary">
-                  {clients.length}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  总客户数
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h4" color="success.main">
-                  {clients.filter((c) => c.status === 'active').length}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  活跃客户
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h4" color="warning.main">
-                  {clients.filter((c) => c.status === 'trial').length}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  试用客户
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="h4" color="info.main">
-                  {groups.length}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  客户分组
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
-        </Paper>
-
-        {/* 搜索和筛选 */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}>
-              <TextField
-                data-testid="search-input"
-                fullWidth
-                size="small"
-                placeholder="搜索客户名称、联系人或邮箱"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                data-testid="industry-filter"
-                fullWidth
-                select
-                size="small"
-                label="行业类型"
+      {/* 搜索和筛选 */}
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="md:col-span-1">
+              <Label htmlFor="search" className="sr-only">搜索</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  data-testid="search-input"
+                  placeholder="搜索客户名称、联系人或邮箱"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="industry" className="sr-only">行业类型</Label>
+              <Select
                 value={filterIndustry}
-                onChange={(e) => setFilterIndustry(e.target.value as IndustryType | '')}
+                onValueChange={(value) => setFilterIndustry(value as IndustryType | '')}
               >
-                <MenuItem value="">全部</MenuItem>
-                <MenuItem data-testid="industry-option-banking" value={IndustryType.BANKING}>银行</MenuItem>
-                <MenuItem data-testid="industry-option-securities" value={IndustryType.SECURITIES}>证券</MenuItem>
-                <MenuItem data-testid="industry-option-insurance" value={IndustryType.INSURANCE}>保险</MenuItem>
-                <MenuItem data-testid="industry-option-enterprise" value={IndustryType.ENTERPRISE}>企业</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                data-testid="status-filter"
-                fullWidth
-                select
-                size="small"
-                label="状态"
+                <SelectTrigger id="industry" data-testid="industry-filter">
+                  <SelectValue placeholder="全部行业" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">全部</SelectItem>
+                  <SelectItem data-testid="industry-option-banking" value={IndustryType.BANKING}>银行</SelectItem>
+                  <SelectItem data-testid="industry-option-securities" value={IndustryType.SECURITIES}>证券</SelectItem>
+                  <SelectItem data-testid="industry-option-insurance" value={IndustryType.INSURANCE}>保险</SelectItem>
+                  <SelectItem data-testid="industry-option-enterprise" value={IndustryType.ENTERPRISE}>企业</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="status" className="sr-only">状态</Label>
+              <Select
                 value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as OrganizationStatus | '')}
+                onValueChange={(value) => setFilterStatus(value as OrganizationStatus | '')}
               >
-                <MenuItem value="">全部</MenuItem>
-                <MenuItem data-testid="status-option-active" value={OrganizationStatus.ACTIVE}>活跃</MenuItem>
-                <MenuItem data-testid="status-option-inactive" value={OrganizationStatus.INACTIVE}>停用</MenuItem>
-                <MenuItem data-testid="status-option-trial" value={OrganizationStatus.TRIAL}>试用</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<RefreshIcon />}
-                onClick={loadClients}
-              >
-                刷新
-              </Button>
-            </Grid>
-          </Grid>
-        </Paper>
+                <SelectTrigger id="status" data-testid="status-filter">
+                  <SelectValue placeholder="全部状态" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">全部</SelectItem>
+                  <SelectItem data-testid="status-option-active" value={OrganizationStatus.ACTIVE}>活跃</SelectItem>
+                  <SelectItem data-testid="status-option-inactive" value={OrganizationStatus.INACTIVE}>停用</SelectItem>
+                  <SelectItem data-testid="status-option-trial" value={OrganizationStatus.TRIAL}>试用</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              variant="outline"
+              onClick={loadClients}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              刷新
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* 批量操作栏 */}
-        {selectedClients.length > 0 && (
-          <Paper sx={{ p: 2, mb: 3, backgroundColor: 'primary.light' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      {/* 批量操作栏 */}
+      {selectedClients.length > 0 && (
+        <Card className="mb-6 bg-primary/5 border-primary/20">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-2">
                 <Checkbox
                   checked={selectedClients.length === filteredClients.length}
-                  indeterminate={
-                    selectedClients.length > 0 && selectedClients.length < filteredClients.length
-                  }
-                  onChange={handleSelectAll}
+                  onCheckedChange={handleSelectAll}
                 />
-                <Typography variant="body1">
-                  已选择 {selectedClients.length} 个客户
-                </Typography>
-              </Box>
-              <Stack direction="row" spacing={2}>
+                <span>已选择 {selectedClients.length} 个客户</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
                 <Button
-                  variant="contained"
-                  startIcon={<SettingsIcon />}
                   onClick={() => setBulkConfigDialogOpen(true)}
                 >
+                  <Settings className="w-4 h-4 mr-2" />
                   批量配置
                 </Button>
                 <Button
-                  variant="outlined"
-                  startIcon={<GroupIcon />}
+                  variant="outline"
                   onClick={() => setGroupDialogOpen(true)}
                 >
+                  <Users className="w-4 h-4 mr-2" />
                   添加到分组
                 </Button>
-                <Button variant="outlined" onClick={() => setSelectedClients([])}>
+                <Button variant="outline" onClick={() => setSelectedClients([])}>
                   取消选择
                 </Button>
-              </Stack>
-            </Box>
-          </Paper>
-        )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-        {/* 客户列表 */}
-        {filteredClients.length === 0 ? (
-          <Paper sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              {searchQuery || filterIndustry || filterStatus
-                ? '没有找到符合条件的客户'
-                : '暂无客户，请添加客户'}
-            </Typography>
-          </Paper>
-        ) : (
-          <Grid container spacing={3}>
-            {filteredClients.map((client) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={client.id}>
-                <ClientCard
-                  client={client}
-                  onEdit={(c) => {
-                    setEditingClient(c)
-                    setAddDialogOpen(true)
-                  }}
-                  onDelete={handleDeleteClient}
-                  onConfig={(c) => {
-                    setSelectedClients([c])
-                    setBulkConfigDialogOpen(true)
-                  }}
-                  selected={selectedClients.some((c) => c.id === client.id)}
-                  onSelect={handleSelectClient}
-                />
-              </Grid>
-            ))}
-          </Grid>
-        )}
+      {/* 客户列表 */}
+      {filteredClients.length === 0 ? (
+        <Card className="p-8 text-center">
+          <p className="text-muted-foreground">
+            {searchQuery || filterIndustry || filterStatus
+              ? '没有找到符合条件的客户'
+              : '暂无客户，请添加客户'}
+          </p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredClients.map((client) => (
+            <ClientCard
+              key={client.id}
+              client={client}
+              onEdit={(c) => {
+                setEditingClient(c)
+                setAddDialogOpen(true)
+              }}
+              onDelete={handleDeleteClient}
+              onConfig={(c) => {
+                setSelectedClients([c])
+                setBulkConfigDialogOpen(true)
+              }}
+              selected={selectedClients.some((c) => c.id === client.id)}
+              onSelect={handleSelectClient}
+            />
+          ))}
+        </div>
+      )}
 
-        {/* 添加/编辑客户对话框 */}
-        <AddClientDialog
-          open={addDialogOpen}
-          onClose={() => {
-            setAddDialogOpen(false)
-            setEditingClient(null)
-          }}
-          onSubmit={editingClient ? handleUpdateClient : handleCreateClient}
-          client={editingClient}
-          mode={editingClient ? 'edit' : 'create'}
-        />
+      {/* 添加/编辑客户对话框 */}
+      <AddClientDialog
+        open={addDialogOpen}
+        onClose={() => {
+          setAddDialogOpen(false)
+          setEditingClient(null)
+        }}
+        onSubmit={async (data: CreateClientData | UpdateClientData) => {
+          if (editingClient) {
+            await handleUpdateClient(data as UpdateClientData)
+          } else {
+            await handleCreateClient(data as CreateClientData)
+          }
+        }}
+        client={editingClient}
+        mode={editingClient ? 'edit' : 'create'}
+      />
 
-        {/* 批量配置对话框 */}
-        <BulkConfigDialog
-          open={bulkConfigDialogOpen}
-          onClose={() => setBulkConfigDialogOpen(false)}
-          onSubmit={handleBulkConfig}
-          selectedClients={selectedClients}
-        />
+      {/* 批量配置对话框 */}
+      <BulkConfigDialog
+        open={bulkConfigDialogOpen}
+        onClose={() => setBulkConfigDialogOpen(false)}
+        onSubmit={handleBulkConfig}
+        selectedClients={selectedClients}
+      />
 
-        {/* 批量导入对话框 */}
-        <BulkImportDialog
-          open={bulkImportDialogOpen}
-          onClose={() => setBulkImportDialogOpen(false)}
-          onImport={handleBulkImport}
-          onDownloadTemplate={downloadCsvTemplate}
-        />
+      {/* 批量导入对话框 */}
+      <BulkImportDialog
+        open={bulkImportDialogOpen}
+        onClose={() => setBulkImportDialogOpen(false)}
+        onImport={handleBulkImport}
+        onDownloadTemplate={downloadCsvTemplate}
+      />
 
-        {/* 分组管理对话框 */}
-        <ClientGroupDialog
-          open={groupDialogOpen}
-          onClose={() => setGroupDialogOpen(false)}
-          onCreateGroup={handleCreateGroup}
-          onDeleteGroup={handleDeleteGroup}
-          onAddClientsToGroup={handleAddClientsToGroup}
-          onRemoveClientFromGroup={handleRemoveClientFromGroup}
-          groups={groups}
-          clients={clients}
-          selectedClients={selectedClients}
-        />
-
-        {/* 提示消息 */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert
-            onClose={handleCloseSnackbar}
-            severity={snackbar.severity}
-            sx={{ width: '100%' }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </Container>
+      {/* 分组管理对话框 */}
+      <ClientGroupDialog
+        open={groupDialogOpen}
+        onClose={() => setGroupDialogOpen(false)}
+        onCreateGroup={handleCreateGroup}
+        onDeleteGroup={handleDeleteGroup}
+        onAddClientsToGroup={handleAddClientsToGroup}
+        onRemoveClientFromGroup={handleRemoveClientFromGroup}
+        groups={groups}
+        clients={clients}
+        selectedClients={selectedClients}
+      />
+    </div>
   )
 }

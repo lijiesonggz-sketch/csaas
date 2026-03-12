@@ -2,23 +2,19 @@
 
 import { useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import Box from '@mui/material/Box'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import TextField from '@mui/material/TextField'
-import Button from '@mui/material/Button'
-import Typography from '@mui/material/Typography'
-import InputAdornment from '@mui/material/InputAdornment'
-import IconButton from '@mui/material/IconButton'
-import CircularProgress from '@mui/material/CircularProgress'
-import MenuItem from '@mui/material/MenuItem'
-import PersonOutlined from '@mui/icons-material/PersonOutlined'
-import EmailOutlined from '@mui/icons-material/EmailOutlined'
-import LockOutlined from '@mui/icons-material/LockOutlined'
-import Visibility from '@mui/icons-material/Visibility'
-import VisibilityOff from '@mui/icons-material/VisibilityOff'
 import Link from 'next/link'
-import { useTheme } from '@mui/material/styles'
+import {
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Select } from '@/components/ui/select'
 import { message } from '@/lib/message'
 
 interface FormValues {
@@ -31,7 +27,6 @@ interface FormValues {
 
 export default function RegisterPage() {
   const router = useRouter()
-  const theme = useTheme()
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -78,7 +73,6 @@ export default function RegisterPage() {
     if (touched[field]) {
       validateField(field, value, newForm)
     }
-    // Re-validate confirmPassword when password changes
     if (field === 'password' && touched.confirmPassword) {
       validateField('confirmPassword', newForm.confirmPassword, newForm)
     }
@@ -92,7 +86,6 @@ export default function RegisterPage() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
-    // Validate all fields
     const allTouched: Record<string, boolean> = {}
     const allErrors: Record<string, string> = {}
     let hasError = false
@@ -139,185 +132,199 @@ export default function RegisterPage() {
   }
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      }}
-    >
-      <Card sx={{ width: 400, boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>
-        <CardContent sx={{ p: 3 }}>
-          <Typography
-            variant="h5"
-            sx={{ textAlign: 'center', fontWeight: 600, mb: 3 }}
+    <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 py-8 flex items-center">
+      <div className="w-full max-w-md mx-auto px-4">
+        <Card className="border-0 shadow-lg overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 py-8 px-6 text-center">
+            <div className="relative z-10">
+              <h1 className="text-2xl font-bold text-white mb-1">
+                Csaas 注册
+              </h1>
+              <p className="text-white/90 text-sm">
+                创建您的账号，开始使用
+              </p>
+            </div>
+          </div>
+
+          {/* Form */}
+          <CardContent className="p-6 pt-4">
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">姓名</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Input
+                    id="name"
+                    name="name"
+                    placeholder="请输入姓名"
+                    autoComplete="name"
+                    value={form.name}
+                    onChange={(e) => handleChange('name', e.target.value)}
+                    onBlur={() => handleBlur('name')}
+                    className={`pl-10 h-11 rounded-lg bg-white ${
+                      touched.name && errors.name
+                        ? 'border-red-500 focus-visible:ring-red-500'
+                        : ''
+                    }`}
+                  />
+                </div>
+                {touched.name && errors.name && (
+                  <p className="text-sm text-red-500">{errors.name}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">邮箱</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="请输入邮箱"
+                    autoComplete="email"
+                    value={form.email}
+                    onChange={(e) => handleChange('email', e.target.value)}
+                    onBlur={() => handleBlur('email')}
+                    className={`pl-10 h-11 rounded-lg bg-white ${
+                      touched.email && errors.email
+                        ? 'border-red-500 focus-visible:ring-red-500'
+                        : ''
+                    }`}
+                  />
+                </div>
+                {touched.email && errors.email && (
+                  <p className="text-sm text-red-500">{errors.email}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">密码</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="请输入密码（至少8个字符）"
+                    autoComplete="new-password"
+                    value={form.password}
+                    onChange={(e) => handleChange('password', e.target.value)}
+                    onBlur={() => handleBlur('password')}
+                    className={`pl-10 pr-10 h-11 rounded-lg bg-white ${
+                      touched.password && errors.password
+                        ? 'border-red-500 focus-visible:ring-red-500'
+                        : ''
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+                {touched.password && errors.password && (
+                  <p className="text-sm text-red-500">{errors.password}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">确认密码</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    placeholder="请再次输入密码"
+                    autoComplete="new-password"
+                    value={form.confirmPassword}
+                    onChange={(e) => handleChange('confirmPassword', e.target.value)}
+                    onBlur={() => handleBlur('confirmPassword')}
+                    className={`pl-10 pr-10 h-11 rounded-lg bg-white ${
+                      touched.confirmPassword && errors.confirmPassword
+                        ? 'border-red-500 focus-visible:ring-red-500'
+                        : ''
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
+                {touched.confirmPassword && errors.confirmPassword && (
+                  <p className="text-sm text-red-500">{errors.confirmPassword}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role">角色</Label>
+                <Select
+                  id="role"
+                  name="role"
+                  value={form.role}
+                  onChange={(e) => handleChange('role', e.target.value)}
+                  onBlur={() => handleBlur('role')}
+                  className={`h-11 rounded-lg bg-white ${
+                    touched.role && errors.role
+                      ? 'border-red-500 focus-visible:ring-red-500'
+                      : ''
+                  }`}
+                >
+                  <option value="consultant">主咨询师</option>
+                  <option value="client_pm">企业PM</option>
+                  <option value="respondent">被调研者</option>
+                </Select>
+                {touched.role && errors.role && (
+                  <p className="text-sm text-red-500">{errors.role}</p>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full h-11 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium rounded-lg"
+              >
+                {loading ? '注册中...' : '注册'}
+              </Button>
+
+              <p className="text-sm text-slate-500 text-center">
+                已有账号？{' '}
+                <Link
+                  href="/login"
+                  className="text-indigo-600 font-semibold hover:underline"
+                >
+                  立即登录
+                </Link>
+              </p>
+            </form>
+          </CardContent>
+        </Card>
+
+        {/* Back to home */}
+        <p className="text-sm text-slate-500 text-center mt-6">
+          <Link
+            href="/"
+            className="text-slate-500 hover:text-slate-700"
           >
-            Csaas 注册
-          </Typography>
-
-          <Box component="form" onSubmit={handleSubmit} noValidate>
-            <TextField
-              id="name"
-              name="name"
-              fullWidth
-              label="姓名"
-              placeholder="姓名"
-              autoComplete="name"
-              value={form.name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              onBlur={() => handleBlur('name')}
-              error={touched.name && !!errors.name}
-              helperText={touched.name && errors.name}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonOutlined />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              id="email"
-              name="email"
-              fullWidth
-              label="邮箱"
-              placeholder="邮箱"
-              autoComplete="email"
-              value={form.email}
-              onChange={(e) => handleChange('email', e.target.value)}
-              onBlur={() => handleBlur('email')}
-              error={touched.email && !!errors.email}
-              helperText={touched.email && errors.email}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <EmailOutlined />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              id="password"
-              name="password"
-              fullWidth
-              label="密码"
-              placeholder="密码"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              value={form.password}
-              onChange={(e) => handleChange('password', e.target.value)}
-              onBlur={() => handleBlur('password')}
-              error={touched.password && !!errors.password}
-              helperText={touched.password && errors.password}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LockOutlined />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="切换密码可见性"
-                        onClick={() => setShowPassword(!showPassword)}
-                        edge="end"
-                        size="small"
-                      >
-                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              id="confirmPassword"
-              name="confirmPassword"
-              fullWidth
-              label="确认密码"
-              placeholder="确认密码"
-              type={showConfirmPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              value={form.confirmPassword}
-              onChange={(e) => handleChange('confirmPassword', e.target.value)}
-              onBlur={() => handleBlur('confirmPassword')}
-              error={touched.confirmPassword && !!errors.confirmPassword}
-              helperText={touched.confirmPassword && errors.confirmPassword}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <LockOutlined />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label="切换确认密码可见性"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        edge="end"
-                        size="small"
-                      >
-                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              id="role"
-              name="role"
-              fullWidth
-              select
-              label="角色"
-              value={form.role}
-              onChange={(e) => handleChange('role', e.target.value)}
-              onBlur={() => handleBlur('role')}
-              error={touched.role && !!errors.role}
-              helperText={touched.role && errors.role}
-              sx={{ mb: 3 }}
-            >
-              <MenuItem value="consultant">主咨询师</MenuItem>
-              <MenuItem value="client_pm">企业PM</MenuItem>
-              <MenuItem value="respondent">被调研者</MenuItem>
-            </TextField>
-
-            <Button
-              type="submit"
-              variant="contained"
-              fullWidth
-              size="large"
-              disabled={loading}
-              sx={{ mb: 2, py: 1.2 }}
-            >
-              {loading ? <CircularProgress size={24} color="inherit" /> : '注册'}
-            </Button>
-
-            <Typography variant="body2" sx={{ textAlign: 'center' }}>
-              已有账号？{' '}
-              <Link href="/login" style={{ color: theme.palette.primary.main }}>
-                立即登录
-              </Link>
-            </Typography>
-          </Box>
-        </CardContent>
-      </Card>
-    </Box>
+            ← 返回首页
+          </Link>
+        </p>
+      </div>
+    </div>
   )
 }

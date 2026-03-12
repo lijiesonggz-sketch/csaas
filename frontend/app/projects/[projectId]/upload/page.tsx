@@ -3,34 +3,19 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
-  Card,
-  CardContent,
-  Button,
-  Alert,
-  AlertTitle,
-  Box,
-  Typography,
-  LinearProgress,
-  Chip,
-  Divider,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  IconButton,
-} from '@mui/material'
-import {
-  ArrowBack,
-  UploadFile,
-  InsertDriveFile,
+  ArrowLeft,
+  UploadCloud,
+  FileText,
   CheckCircle,
-  Error as ErrorIcon,
-  CloudUpload,
-  Delete,
-  Article,
-} from '@mui/icons-material'
+  Trash2,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { message } from '@/lib/message'
-import { getAuthHeadersAsync, getUserIdFromSessionAsync, getAuthTokenAsync } from '@/lib/utils/jwt'
+import { getAuthHeadersAsync } from '@/lib/utils/jwt'
 
 // 从 jwt.ts 复制 fetchSession 函数
 let sessionCache: { token: string | null; userId: string | null; timestamp: number } | null = null
@@ -193,11 +178,11 @@ export default function UploadPage() {
         xhr.send(formData)
       })
 
-      const result = await uploadPromise
+      const result = await uploadPromise as { success: boolean; data?: any; message?: string }
 
       if (result.success) {
         message.success(
-          `文件 "${file.name}" 上传成功！共 ${result.data.charCount} 字符`
+          `文件 "${file.name}" 上传成功！共 ${result.data?.charCount || 0} 字符`
         )
         setUploadedDocs((prev) => [result.data, ...prev])
         setCurrentFile(null)
@@ -291,154 +276,139 @@ export default function UploadPage() {
   }
 
   return (
-    <main className="max-w-[1920px] mx-auto px-6 py-8">
-      <header className="flex items-start justify-between mb-8">
-        <div>
-          <Typography variant="h4" component="h1" sx={{ mb: 1 }}>
-            上传文档
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            上传项目相关文档，支持 PDF、Word、Excel 等格式
-          </Typography>
-        </div>
+    <main className="w-full px-6 py-8">
+      {/* 渐变头部 */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 mb-8">
+        {/* 装饰性径向渐变 */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
 
-        <Button startIcon={<ArrowBack />} onClick={() => router.back()}>
-          返回
-        </Button>
-      </header>
+        <div className="relative flex items-start justify-between">
+          <div className="flex items-center gap-4">
+            {/* 毛玻璃图标背景 */}
+            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+              <UploadCloud className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white mb-1">上传文档</h1>
+              <p className="text-sm text-white/80">
+                上传项目相关文档，支持 PDF、Word、Excel 等格式
+              </p>
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={() => router.back()}
+            className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            返回
+          </Button>
+        </div>
+      </div>
 
       {/* 上传区域 */}
-      <Card sx={{ mb: 4 }}>
-        <CardContent>
-          <Box
+      <Card className="mb-6 shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)] hover:shadow-[0_10px_15px_-3px_rgba(99,102,241,0.2),0_4px_6px_-2px_rgba(99,102,241,0.05)] transition-all duration-200">
+        <CardContent className="p-6">
+          <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            sx={{
-              border: '2px dashed',
-              borderColor: dragOver ? 'primary.main' : 'divider',
-              borderRadius: 2,
-              p: 6,
-              textAlign: 'center',
-              bgcolor: dragOver ? 'primary.50' : 'background.paper',
-              transition: 'all 0.2s ease',
-            }}
+            className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 ${
+              dragOver
+                ? 'border-indigo-500 bg-indigo-50'
+                : 'border-slate-200 bg-white'
+            }`}
           >
             <input
               type="file"
               onChange={handleFileSelect}
-              style={{ display: 'none' }}
+              className="hidden"
               id="file-upload"
               disabled={uploading}
               accept=".pdf,.txt,.md,.docx"
             />
-            <label htmlFor="file-upload">
+            <label htmlFor="file-upload" className="cursor-pointer">
               <Button
-                component="span"
-                variant="contained"
-                size="large"
-                startIcon={<CloudUpload />}
                 disabled={uploading}
-                sx={{ mb: 2 }}
+                className="mb-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                asChild
               >
-                {uploading ? '上传中...' : '选择文件或拖拽到此处'}
+                <span>
+                  <UploadCloud className="w-4 h-4 mr-2" />
+                  {uploading ? '上传中...' : '选择文件或拖拽到此处'}
+                </span>
               </Button>
             </label>
 
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            <p className="text-sm text-slate-500 mt-2">
               支持 PDF、TXT、MD、DOCX 格式，最大 10MB
-            </Typography>
+            </p>
 
             {uploading && currentFile && (
-              <Box sx={{ mt: 3, maxWidth: 400, mx: 'auto' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <InsertDriveFile color="primary" sx={{ mr: 1 }} />
-                  <Typography variant="body2" noWrap sx={{ flex: 1 }}>
+              <div className="mt-6 max-w-md mx-auto">
+                <div className="flex items-center mb-2">
+                  <FileText className="w-4 h-4 text-indigo-500 mr-2" />
+                  <span className="text-sm text-slate-700 flex-1 truncate">
                     {currentFile.name}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  </span>
+                  <span className="text-xs text-slate-500">
                     {formatFileSize(currentFile.size)}
-                  </Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={progress}
-                  sx={{ height: 8, borderRadius: 4 }}
-                />
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {progress}%
-                </Typography>
-              </Box>
+                  </span>
+                </div>
+                <Progress value={progress} className="h-2" />
+                <p className="text-xs text-slate-500 mt-1">{progress}%</p>
+              </div>
             )}
-          </Box>
+          </div>
 
-          <Alert severity="info" sx={{ mt: 3 }}>
+          <Alert className="mt-4">
             <AlertTitle>提示</AlertTitle>
-            <Typography variant="body2">
+            <AlertDescription>
               上传的文档将用于AI分析和文档处理。建议上传完整的IT标准文档（如ISO 27001、COBIT等），文档长度建议在1000-10000字之间。
-            </Typography>
+            </AlertDescription>
           </Alert>
         </CardContent>
       </Card>
 
       {/* 已上传文档列表 */}
       {uploadedDocs.length > 0 && (
-        <Card>
+        <Card className="shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)] hover:shadow-[0_10px_15px_-3px_rgba(99,102,241,0.2),0_4px_6px_-2px_rgba(99,102,241,0.05)] transition-all duration-200">
+          <CardHeader>
+            <CardTitle>已上传文档 ({uploadedDocs.length})</CardTitle>
+          </CardHeader>
           <CardContent>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              已上传文档 ({uploadedDocs.length})
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <List>
-              {uploadedDocs.map((doc, index) => (
-                <ListItem
+            <div className="space-y-3">
+              {uploadedDocs.map((doc) => (
+                <div
                   key={doc.id}
-                  sx={{
-                    bgcolor: 'background.paper',
-                    borderRadius: 1,
-                    mb: 1,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    py: 1.5,
-                  }}
+                  className="flex items-start gap-3 p-4 rounded-lg border border-slate-200 bg-white"
                 >
-                  <Box sx={{ display: 'flex', width: '100%', alignItems: 'flex-start' }}>
-                    <ListItemIcon sx={{ minWidth: 40 }}>
-                      <Article color="primary" />
-                    </ListItemIcon>
-                    <Box sx={{ flex: 1, minWidth: 0, pr: 1 }}>
-                      <Typography variant="subtitle2" noWrap>
-                        {doc.filename}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        文档名: {doc.name} · {formatFileSize(doc.size)} ·{' '}
-                        {doc.charCount} 字符 · 上传于{' '}
-                        {formatDate(doc.createdAt)}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                      <Chip
-                        icon={<CheckCircle />}
-                        label="上传成功"
-                        color="success"
-                        size="small"
-                        variant="outlined"
-                      />
-                      <IconButton
-                        aria-label="delete"
-                        onClick={() => handleDelete(doc.id)}
-                        size="small"
-                        color="error"
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Box>
-                  </Box>
-                </ListItem>
+                  <FileText className="w-5 h-5 text-indigo-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-900 truncate">
+                      {doc.filename}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      文档名: {doc.name} · {formatFileSize(doc.size)} ·{' '}
+                      {doc.charCount} 字符 · 上传于 {formatDate(doc.createdAt)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      上传成功
+                    </Badge>
+                    <button
+                      onClick={() => handleDelete(doc.id)}
+                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               ))}
-            </List>
+            </div>
           </CardContent>
         </Card>
       )}

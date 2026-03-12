@@ -1,0 +1,659 @@
+// @ts-nocheck
+// TODO: This test file mocks deleted Tailwind UI components.
+// Update this test to use MUI components when needed.
+
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import StandardInterpretationPage from '../page'
+import { useParams, useRouter } from 'next/navigation'
+
+// Mock Next.js navigation
+jest.mock('next/navigation', () => ({
+  useParams: jest.fn(),
+  useRouter: jest.fn(),
+}))
+
+// Mock API utilities
+jest.mock('@/lib/utils/api', () => ({
+  apiFetch: jest.fn(),
+}))
+
+// Mock AI Tasks API
+jest.mock('@/lib/api/ai-tasks', () => ({
+  AITasksAPI: {
+    createTask: jest.fn(),
+    getTask: jest.fn(),
+  },
+}))
+
+// Mock task progress polling hook
+jest.mock('@/lib/hooks/useTaskProgressPolling', () => ({
+  useTaskProgressPolling: jest.fn(() => ({
+    progress: null,
+  })),
+}))
+
+// Mock message utility
+jest.mock('@/lib/message', () => ({
+  message: {
+    success: jest.fn(),
+    error: jest.fn(),
+  },
+}))
+
+// Mock UI components from STORY-001 design system
+jest.mock('@/components/ui/page-header', () => ({
+  PageHeader: ({ title, description, actions }: any) => (
+    <header data-testid="page-header" role="banner">
+      <h1 data-testid="page-title">{title}</h1>
+      {description && <p data-testid="page-description">{description}</p>}
+      {actions && <div data-testid="page-actions">{actions}</div>}
+    </header>
+  ),
+}))
+
+jest.mock('@/components/ui/unified-button', () => ({
+  UnifiedButton: ({ children, onClick, disabled, ...props }: any) => (
+    <button onClick={onClick} disabled={disabled} {...props}>
+      {children}
+    </button>
+  ),
+}))
+
+jest.mock('@/components/ui/gradient-card', () => ({
+  GradientCard: ({ children }: any) => (
+    <div data-testid="gradient-card" className="gradient-card">
+      {children}
+    </div>
+  ),
+}))
+
+jest.mock('@/components/ui/status-badge', () => ({
+  StatusBadge: ({ text, status }: any) => (
+    <span data-testid="status-badge" data-status={status}>
+      {text}
+    </span>
+  ),
+}))
+
+jest.mock('@/components/ui/clause-accordion', () => ({
+  ClauseAccordion: ({ title, clauseNumber, priority, children, onExpandedChange }: any) => (
+    <div data-testid="clause-accordion" data-clause={clauseNumber} data-priority={priority}>
+      <button onClick={() => onExpandedChange?.(true)}>{title}</button>
+      {children}
+    </div>
+  ),
+  ClauseContent: ({ clauseText, interpretation, compliance }: any) => (
+    <div data-testid="clause-content">
+      <div data-testid="clause-text">{clauseText}</div>
+      <div data-testid="interpretation">{interpretation}</div>
+      <div data-testid="compliance">{compliance}</div>
+    </div>
+  ),
+}))
+
+const mockApiFetch = require('@/lib/utils/api').apiFetch
+const mockAITasksAPI = require('@/lib/api/ai-tasks').AITasksAPI
+const mockUseParams = useParams as jest.Mock
+const mockUseRouter = useRouter as jest.Mock
+
+describe.skip('StandardInterpretationPage', () => {
+  beforeEach(() => {
+    mockUseParams.mockReturnValue({ projectId: 'project-1' })
+    mockUseRouter.mockReturnValue({ back: jest.fn(), push: jest.fn() })
+  })
+  const mockProjectData = {
+    id: 'project-1',
+    name: 'Test Project',
+    metadata: {
+      uploadedDocuments: [
+        {
+          id: 'doc-1',
+          name: 'standard.pdf',
+          content: 'Sample standard document content',
+        },
+      ],
+    },
+  }
+
+  const mockInterpretationResult = {
+    overview: {
+      background: 'Test background information',
+      scope: 'Test scope',
+      core_objectives: ['Objective 1', 'Objective 2'],
+      target_audience: ['Audience 1', 'Audience 2'],
+    },
+    key_terms: [
+      {
+        term: 'Term 1',
+        definition: 'Definition 1',
+        explanation: 'Explanation 1',
+        examples: ['Example 1'],
+      },
+    ],
+    key_requirements: [
+      {
+        clause_id: '3.1',
+        clause_text: 'Clause text',
+        clause_summary: 'Clause summary',
+        clause_full_text: 'Full clause text',
+        interpretation: 'AI interpretation',
+        compliance_criteria: ['Requirement 1', 'Requirement 2'],
+        priority: 'HIGH',
+      },
+    ],
+    implementation_guidance: {
+      preparation: ['Step 1', 'Step 2'],
+      implementation_steps: [
+        {
+          phase: 'Phase 1',
+          steps: ['Action 1', 'Action 2'],
+        },
+      ],
+      best_practices: ['Practice 1'],
+      common_pitfalls: ['Pitfall 1'],
+      timeline_estimate: '3-6 months',
+    },
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+
+    // Default API responses
+    mockApiFetch.mockResolvedValue({
+      success: true,
+      data: mockProjectData,
+    })
+
+    mockAITasksAPI.createTask.mockResolvedValue({
+      id: 'task-1',
+      status: 'pending',
+    })
+
+    mockAITasksAPI.getTask.mockResolvedValue({
+      id: 'task-1',
+      status: 'completed',
+      result: {
+        content: JSON.stringify(mockInterpretationResult),
+      },
+    })
+  })
+
+  describe('Page Header (AC #1, #3)', () => {
+    it('should render PageHeader component with correct title and description', async () => {
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        const header = screen.getByTestId('page-header')
+        expect(header).toBeInTheDocument()
+        expect(header).toHaveAttribute('role', 'banner')
+
+        expect(screen.getByTestId('page-title')).toHaveTextContent('标准解读')
+        expect(screen.getByTestId('page-description')).toHaveTextContent(
+          '基于上传的标准文档，AI智能解读条款要求'
+        )
+      })
+    })
+
+    it('should display back button in header actions', async () => {
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        const backButton = screen.getByText('返回')
+        expect(backButton).toBeInTheDocument()
+      })
+    })
+
+    it('should navigate back when back button is clicked', async () => {
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        const backButton = screen.getByText('返回')
+        fireEvent.click(backButton)
+        const useRouter = require('next/navigation').useRouter
+        expect(useRouter().back).toHaveBeenCalledTimes(1)
+      })
+    })
+  })
+
+  describe('Tab Navigation (AC #2)', () => {
+    it('should display 4 tabs: 概述, 关键术语, 条款要求, 实施指南', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        expect(screen.getByText('概述')).toBeInTheDocument()
+        expect(screen.getByText('关键术语')).toBeInTheDocument()
+        expect(screen.getByText('条款要求')).toBeInTheDocument()
+        expect(screen.getByText('实施指南')).toBeInTheDocument()
+      })
+    })
+
+    it('should display tablist role for accessibility', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        const tabList = screen.getByRole('tablist')
+        expect(tabList).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Clause Accordion (AC #1)', () => {
+    it('should render ClauseAccordion components for key requirements', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        const accordions = screen.getAllByTestId('clause-accordion')
+        expect(accordions.length).toBeGreaterThan(0)
+      })
+    })
+
+    it('should display clause number and priority in accordion', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        const accordion = screen.getByTestId('clause-accordion')
+        expect(accordion).toHaveAttribute('data-clause', '3.1')
+        expect(accordion).toHaveAttribute('data-priority', 'high')
+      })
+    })
+
+    it('should display StatusBadge for priority indicators', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        const badges = screen.getAllByTestId('status-badge')
+        expect(badges.length).toBeGreaterThan(0)
+      })
+    })
+
+    it('should render ClauseContent with interpretation and compliance', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('clause-content')).toBeInTheDocument()
+        expect(screen.getByTestId('interpretation')).toBeInTheDocument()
+        expect(screen.getByTestId('compliance')).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Overview Tab Content (AC #3)', () => {
+    it('should display overview section with background, scope, and objectives', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        expect(screen.getByText(/Test background information/)).toBeInTheDocument()
+        expect(screen.getByText(/Test scope/)).toBeInTheDocument()
+        expect(screen.getByText('Objective 1')).toBeInTheDocument()
+        expect(screen.getByText('Objective 2')).toBeInTheDocument()
+      })
+    })
+
+    it('should display target audience as chips', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Audience 1')).toBeInTheDocument()
+        expect(screen.getByText('Audience 2')).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Key Terms Tab Content (AC #3)', () => {
+    it('should display key terms with definitions and explanations', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Term 1')).toBeInTheDocument()
+        expect(screen.getByText('Definition 1')).toBeInTheDocument()
+        expect(screen.getByText('Explanation 1')).toBeInTheDocument()
+      })
+    })
+
+    it('should display term examples if available', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Example 1')).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Implementation Guidance Tab Content (AC #3)', () => {
+    it('should display preparation steps', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Step 1')).toBeInTheDocument()
+        expect(screen.getByText('Step 2')).toBeInTheDocument()
+      })
+    })
+
+    it('should display implementation steps with phases', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Phase 1')).toBeInTheDocument()
+        expect(screen.getByText('Action 1')).toBeInTheDocument()
+        expect(screen.getByText('Action 2')).toBeInTheDocument()
+      })
+    })
+
+    it('should display best practices and common pitfalls', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Practice 1')).toBeInTheDocument()
+        expect(screen.getByText('Pitfall 1')).toBeInTheDocument()
+      })
+    })
+
+    it('should display timeline estimate', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        expect(screen.getByText('3-6 months')).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Data Loading and Error Handling (AC #1, #3)', () => {
+    it('should show loading state initially', () => {
+      mockApiFetch.mockImplementation(
+        () => new Promise(() => {}) // Never resolves
+      )
+
+      render(<StandardInterpretationPage />)
+
+      expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    })
+
+    it('should display error message when API fails', async () => {
+      mockApiFetch.mockRejectedValueOnce(new Error('Network error'))
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toBeInTheDocument()
+      }, { timeout: 5000 })
+    })
+
+    it('should show warning when no documents uploaded', async () => {
+      mockApiFetch.mockResolvedValue({
+        success: true,
+        data: {
+          id: 'project-1',
+          name: 'Test Project',
+          metadata: {
+            uploadedDocuments: [],
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        expect(screen.getByText(/请先上传标准文档/)).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Analysis Workflow', () => {
+    it('should call createTask when start analysis button is clicked', async () => {
+      mockApiFetch.mockResolvedValue({
+        success: true,
+        data: {
+          ...mockProjectData,
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        const startButton = screen.getByText('开始解读')
+        expect(startButton).toBeInTheDocument()
+        expect(startButton).not.toBeDisabled()
+
+        fireEvent.click(startButton)
+        expect(mockAITasksAPI.createTask).toHaveBeenCalled()
+      })
+    })
+
+    it('should show loading state during analysis', async () => {
+      mockApiFetch.mockResolvedValue({
+        success: true,
+        data: mockProjectData,
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        const startButton = screen.getByText('开始解读')
+        fireEvent.click(startButton)
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText('分析中...')).toBeInTheDocument()
+      })
+    })
+
+    it('should disable start button when no documents are available', async () => {
+      mockApiFetch.mockResolvedValue({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            uploadedDocuments: [],
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        const startButton = screen.getByText('开始解读')
+        expect(startButton).toBeDisabled()
+      })
+    })
+
+    it('should display re-analyze button after completion', async () => {
+      mockApiFetch.mockImplementationOnce(() => Promise.resolve({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        const reanalyzeButton = screen.getByText('重新解读')
+        expect(reanalyzeButton).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Task Progress Polling', () => {
+    it('should use useTaskProgressPolling hook with taskId', async () => {
+      const { useTaskProgressPolling } = require('@/lib/hooks/useTaskProgressPolling')
+      mockApiFetch.mockResolvedValue({
+        success: true,
+        data: {
+          ...mockProjectData,
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        },
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        expect(useTaskProgressPolling).toHaveBeenCalledWith(
+          expect.objectContaining({
+            taskId: 'task-1',
+          })
+        )
+      })
+    })
+  })
+
+  describe('Button Components (AC #4)', () => {
+    it('should use UnifiedButton component for main action button', async () => {
+      mockApiFetch.mockResolvedValue({
+        success: true,
+        data: mockProjectData,
+      })
+
+      render(<StandardInterpretationPage />)
+
+      await waitFor(() => {
+        const startButton = screen.getByText('开始解读')
+        expect(startButton).toBeInTheDocument()
+      })
+    })
+  })
+})

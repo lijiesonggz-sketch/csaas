@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * 问卷填写页面
  * 企业用户填写调研问卷
