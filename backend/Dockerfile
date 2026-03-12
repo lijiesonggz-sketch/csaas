@@ -8,12 +8,13 @@ COPY package*.json ./
 
 # 配置 npm 使用淘宝镜像并增加超时时间
 RUN npm config set registry https://registry.npmmirror.com && \
-    npm config set fetch-timeout 600000
+    npm config set fetch-timeout 600000 && \
+    npm config set fetch-retries 5
 
 # 跳过 Puppeteer 下载 Chrome（容器内单独安装 chromium）
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
-# 安装依赖
+# 安装依赖（只执行一次，生产阶段直接复制）
 RUN npm install --legacy-peer-deps
 
 # 复制源代码
@@ -32,18 +33,10 @@ RUN apk add --no-cache chromium
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
-# 复制 package 文件
-COPY package*.json ./
-
-# 配置 npm 使用淘宝镜像并增加超时时间
-RUN npm config set registry https://registry.npmmirror.com && \
-    npm config set fetch-timeout 600000
-
-# 只安装生产依赖
-RUN npm install --omit=dev --legacy-peer-deps
-
-# 从构建阶段复制编译后的代码
+# 从构建阶段复制编译后的代码和依赖
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
 
 # 暴露端口
 EXPOSE 3000
