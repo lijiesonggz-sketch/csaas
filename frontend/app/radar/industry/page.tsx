@@ -26,8 +26,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
-export const dynamic = 'force-dynamic'
-
 export default function IndustryRadarPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
