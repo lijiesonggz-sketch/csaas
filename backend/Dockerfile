@@ -29,7 +29,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # 安装 chromium 供 Puppeteer 使用
-RUN apk add --no-cache chromium
+RUN apk add --no-cache chromium curl
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
@@ -42,4 +42,4 @@ COPY --from=builder /app/package.json ./package.json
 EXPOSE 3000
 
 # 启动应用
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main"]
