@@ -6,6 +6,9 @@ WORKDIR /app
 # 复制 package 文件
 COPY package*.json ./
 
+# 跳过 Puppeteer 下载 Chrome（容器内单独安装 chromium）
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+
 # 安装依赖
 RUN npm install --legacy-peer-deps
 
@@ -19,6 +22,11 @@ RUN npm run build
 FROM node:20-alpine
 
 WORKDIR /app
+
+# 安装 chromium 供 Puppeteer 使用
+RUN apk add --no-cache chromium
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # 复制 package 文件
 COPY package*.json ./
