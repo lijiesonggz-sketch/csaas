@@ -2,6 +2,8 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm config set fetch-timeout 600000
 RUN npm install --legacy-peer-deps
 
 # 构建阶段

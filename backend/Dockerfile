@@ -6,6 +6,10 @@ WORKDIR /app
 # 复制 package 文件
 COPY package*.json ./
 
+# 配置 npm 使用淘宝镜像并增加超时时间
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm config set fetch-timeout 600000
+
 # 跳过 Puppeteer 下载 Chrome（容器内单独安装 chromium）
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
@@ -30,6 +34,10 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # 复制 package 文件
 COPY package*.json ./
+
+# 配置 npm 使用淘宝镜像并增加超时时间
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm config set fetch-timeout 600000
 
 # 只安装生产依赖
 RUN npm install --omit=dev --legacy-peer-deps
