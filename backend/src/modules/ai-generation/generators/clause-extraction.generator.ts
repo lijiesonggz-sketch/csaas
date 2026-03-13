@@ -133,7 +133,7 @@ export class ClauseExtractionGenerator {
       standardDocument,
       expectedClauseCount,
       temperature = 0.3, // 降低温度以提高提取准确性
-      maxTokens = 30000, // 增加到30000以避免响应被截断
+      maxTokens = 80000, // 增加到80000以支持完整输出
     } = input
 
     this.logger.log(
@@ -144,25 +144,25 @@ export class ClauseExtractionGenerator {
     // 构建Prompt
     const prompt = fillClauseExtractionPrompt(standardDocument, expectedClauseCount)
 
-    // 准备通义千问的请求
-    const domesticRequest: AIClientRequest = { prompt, temperature, maxTokens }
+    // 准备智谱AI的请求
+    const openaiRequest: AIClientRequest = { prompt, temperature, maxTokens }
 
-    // 只调用通义千问（避免其他API失败）
-    this.logger.log('[1/1] Calling Tongyi for clause extraction...')
-    const domesticResult = await this.aiOrchestrator
-      .generate(domesticRequest, AIModel.DOMESTIC)
-      .then((res) => {
-        this.logger.log(`Tongyi extraction completed: ${res.content?.substring(0, 100)}...`)
-        return res
-      })
-      .catch((err) => {
-        this.logger.error(`Tongyi extraction failed: ${err.message}`)
-        return null
-      })
+    // 只调用智谱AI（OpenAI配置已切换到智谱）
+    this.logger.log('[1/1] Calling Zhipu AI for clause extraction...')
+    this.logger.log(`Request params: temperature=${temperature}, maxTokens=${maxTokens}, promptLength=${prompt.length}`)
+
+    let openaiResult = null
+    try {
+      openaiResult = await this.aiOrchestrator.generate(openaiRequest, AIModel.GPT4)
+      this.logger.log(`Zhipu AI extraction completed: ${openaiResult.content?.substring(0, 100)}...`)
+    } catch (err) {
+      this.logger.error(`Zhipu AI extraction failed: ${err.message}`, err.stack)
+      throw new Error(`条款提取AI调用失败: ${err.message}`)
+    }
 
     // 解析结果
-    const domesticOutput = domesticResult
-      ? this.parseExtractionResponse(domesticResult.content)
+    const openaiOutput = openaiResult
+      ? this.parseExtractionResponse(openaiResult.content)
       : null
 
     // 验证提取的完整性
@@ -170,17 +170,17 @@ export class ClauseExtractionGenerator {
       this.logger.log(
         `Validating extraction results against expected count: ${expectedClauseCount}`,
       )
-      this.validateExtractionCount(domesticOutput, expectedClauseCount, 'Tongyi')
+      this.validateExtractionCount(openaiOutput, expectedClauseCount, 'Zhipu AI')
     }
 
     this.logger.log(
-      `Clause extraction completed. ` + `Tongyi: ${domesticOutput?.total_clauses || 0} clauses`,
+      `Clause extraction completed. ` + `Zhipu AI: ${openaiOutput?.total_clauses || 0} clauses`,
     )
 
     return {
-      gpt4: null,
+      gpt4: openaiOutput,
       claude: null,
-      domestic: domesticOutput,
+      domestic: null,
     }
   }
 
@@ -269,7 +269,7 @@ export class ClauseExtractionGenerator {
 
   /**
    * 选择最佳提取结果
-   * 只使用通义千问的结果
+   * 使用智谱AI (GPT4) 的结果
    */
   selectBestExtraction(
     results: {
@@ -279,18 +279,13 @@ export class ClauseExtractionGenerator {
     },
     expectedCount?: number,
   ): ClauseExtractionOutput | null {
-    // 只使用通义千问的结果
-    const candidates = [results.domestic].filter((r) => r !== null)
-
-    if (candidates.length === 0) {
-      this.logger.error('通义千问提取条款失败')
-      return null
+    // 使用智谱AI的结果（通过OpenAI客户端调用）
+    if (results.gpt4) {
+      this.logger.log(`Selected extraction: ${results.gpt4.total_clauses} clauses (from Zhipu AI)`)
+      return results.gpt4
     }
 
-    // 直接返回通义千问的结果
-    const selectedResult = candidates[0]
-    this.logger.log(`Selected extraction: ${selectedResult.total_clauses} clauses (from Tongyi)`)
-
-    return selectedResult
+    this.logger.error('智谱AI提取条款失败')
+    return null
   }
 }

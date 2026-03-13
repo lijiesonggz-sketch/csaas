@@ -41,3 +41,9 @@ export const MAX_EFFECT_DESCRIPTION_LENGTH = 100
 export const VALID_CONTENT_TYPES = ['article', 'recruitment', 'conference'] as const
 
 export type ContentType = (typeof VALID_CONTENT_TYPES)[number]
+
+/**
+ * Excel 文件导入相关常量
+ */
+export const EXCEL_IMPORT_MAX_SIZE_MB = 50
+export const EXCEL_IMPORT_MAX_ROWS = 10000

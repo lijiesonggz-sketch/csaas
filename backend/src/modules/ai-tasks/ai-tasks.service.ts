@@ -57,7 +57,7 @@ export class AITasksService {
 
     await this.aiTaskQueue.add(AITaskJobType.PROCESS_TASK, jobData, {
       priority: dto.priority,
-      attempts: 3,
+      attempts: 1,
       backoff: {
         type: 'exponential',
         delay: 2000,
@@ -92,8 +92,17 @@ export class AITasksService {
       validation_stage?: string
       aggregation_stage?: string
       total_elapsed_ms?: number
+      percentage?: number
     }
     message: string
+    details?: {
+      totalClauses?: number
+      totalBatches?: number
+      currentBatch?: number
+      phase?: 'extraction' | 'interpretation'
+      stage?: string
+      stageMessage?: string
+    }
   }> {
     const task = await this.aiTaskRepo.findOne({
       where: { id: taskId },
@@ -159,36 +168,58 @@ export class AITasksService {
       validation_stage: details.validation_stage || 'pending',
       aggregation_stage: details.aggregation_stage || 'pending',
       total_elapsed_ms: elapsed,
+      percentage: details.percentage || 0,
+    }
+
+    // 构建详细进度信息（用于标准解读等两阶段任务）
+    const detailsInfo = {
+      totalClauses: details.totalClauses,
+      totalBatches: details.totalBatches,
+      currentBatch: details.currentBatch,
+      phase: details.phase,
+      stage: details.stage,
+      stageMessage: details.stageMessage,
     }
 
     // 生成用户友好的状态消息
     let message = ''
     const stage = task.generationStage || 'pending'
 
-    switch (stage) {
-      case 'generating_models':
-        const generatingCount = Object.values(details).filter(
-          (m: any) => m && m.status === 'generating',
-        ).length
-        const completedCount = Object.values(details).filter(
-          (m: any) => m && m.status === 'completed',
-        ).length
-        message = `正在生成聚类结果... (${completedCount}/3 模型完成)`
-        break
-      case 'quality_validation':
-        message = '正在进行质量验证...'
-        break
-      case 'aggregating':
-        message = '正在聚合最终结果...'
-        break
-      case 'completed':
-        message = '✅ 任务完成'
-        break
-      case 'failed':
-        message = `❌ 任务失败: ${task.errorMessage || '未知错误'}`
-        break
-      default:
-        message = '任务准备中...'
+    // 针对标准解读任务的特殊消息
+    if (task.type === 'standard_interpretation' && details.totalClauses > 0) {
+      if (details.phase === 'extraction') {
+        message = `🔍 第一阶段：条款提取 - 共识别 ${details.totalClauses} 个条款`
+      } else if (details.phase === 'interpretation') {
+        message = `📊 第二阶段：批量解读 - 批次 ${details.currentBatch || 0}/${details.totalBatches || 0}`
+      } else {
+        message = details.stageMessage || '正在处理...'
+      }
+    } else {
+      switch (stage) {
+        case 'generating_models':
+          const generatingCount = Object.values(details).filter(
+            (m: any) => m && m.status === 'generating',
+          ).length
+          const completedCount = Object.values(details).filter(
+            (m: any) => m && m.status === 'completed',
+          ).length
+          message = `正在生成聚类结果... (${completedCount}/3 模型完成)`
+          break
+        case 'quality_validation':
+          message = '正在进行质量验证...'
+          break
+        case 'aggregating':
+          message = '正在聚合最终结果...'
+          break
+        case 'completed':
+          message = '✅ 任务完成'
+          break
+        case 'failed':
+          message = `❌ 任务失败: ${task.errorMessage || '未知错误'}`
+          break
+        default:
+          message = '任务准备中...'
+      }
     }
 
     return {
@@ -196,6 +227,7 @@ export class AITasksService {
       stage,
       progress,
       message,
+      details: detailsInfo,
     }
   }
 
@@ -356,7 +388,7 @@ export class AITasksService {
 
     await this.aiTaskQueue.add(AITaskJobType.PROCESS_TASK, jobData, {
       priority: newTask.priority,
-      attempts: 3,
+      attempts: 1,
     })
 
     return {
@@ -420,7 +452,7 @@ export class AITasksService {
 
     await this.aiTaskQueue.add(AITaskJobType.PROCESS_TASK, jobData, {
       priority: newTask.priority,
-      attempts: 3,
+      attempts: 1,
     })
 
     return {

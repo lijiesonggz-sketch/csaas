@@ -32,7 +32,7 @@ export class TongyiClient implements IAIClient {
       maxRetries: 0, // 不重试，只调用一次
     })
 
-    this.defaultModel = model || 'qwen-plus'
+    this.defaultModel = model || 'qwen-max'
 
     this.logger.log(`✅ TongyiClient初始化完成 - Model: ${this.defaultModel}`)
   }
@@ -63,18 +63,18 @@ export class TongyiClient implements IAIClient {
 
       // 根据模型设置最大 token 限制
       // qwen-long: 输出最大 32768
-      // qwen3-max: 输出最大 32768（新旗舰模型）
+      // qwen3-max / Qwen3-Max-2026-01-23: 输出最大 32768（新旗舰模型）
       // qwen-max: 输出最大 8192
       // qwen-plus/turbo: 输出最大 6144
       const modelMaxTokens =
         model === 'qwen-long'
           ? 32768
-          : model === 'qwen3-max'
+          : model === 'qwen3-max' || model === 'Qwen3-Max-2026-01-23'
             ? 32768
             : model === 'qwen-max'
               ? 8192
               : 6144
-      const maxTokens = Math.min(request.maxTokens ?? 2000, modelMaxTokens)
+      const maxTokens = Math.min(request.maxTokens ?? 5000, modelMaxTokens)
 
       this.logger.debug(
         `Calling Tongyi API with model ${model}, prompt length: ${request.prompt.length}, maxTokens: ${maxTokens}`,
@@ -157,6 +157,7 @@ export class TongyiClient implements IAIClient {
       'qwen-plus': { prompt: 0.004 / 1000, completion: 0.012 / 1000 }, // 普通版
       'qwen-turbo': { prompt: 0.002 / 1000, completion: 0.006 / 1000 }, // 快速版
       'qwen3-max': { prompt: 0.02 / 1000, completion: 0.06 / 1000 }, // 新旗舰版（与qwen-max定价相同）
+      'Qwen3-Max-2026-01-23': { prompt: 0.02 / 1000, completion: 0.06 / 1000 }, // 最新旗舰版
       'qwen-max': { prompt: 0.02 / 1000, completion: 0.06 / 1000 }, // 旗舰版
       'qwen-long': { prompt: 0.0005 / 1000, completion: 0.002 / 1000 }, // 长文本版 (输入1000万tokens/输出32768tokens)
       'qwen2.5-72b-instruct': { prompt: 0.004 / 1000, completion: 0.004 / 1000 },

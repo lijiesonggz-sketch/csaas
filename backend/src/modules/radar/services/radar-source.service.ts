@@ -40,19 +40,20 @@ export class RadarSourceService {
     category?: 'tech' | 'industry' | 'compliance',
     isActive?: boolean,
   ): Promise<RadarSource[]> {
-    const query = this.radarSourceRepository.createQueryBuilder('source')
+    const where: any = {}
 
     if (category) {
-      query.andWhere('source.category = :category', { category })
+      where.category = category
     }
 
     if (isActive !== undefined) {
-      query.andWhere('source.isActive = :isActive', { isActive })
+      where.isActive = isActive
     }
 
-    query.orderBy('source.createdAt', 'DESC')
-
-    return query.getMany()
+    return this.radarSourceRepository.find({
+      where,
+      order: { createdAt: 'DESC' },
+    })
   }
 
   /**

@@ -73,13 +73,21 @@ export class AIAnalysisService {
     // 2. 获取 Redis 客户端（通过 BullMQ Queue）
     const redisClient = await this.crawlerQueue.client
 
-    // 3. 检查缓存
+    // 3. 检查缓存 - 只使用有效的缓存（必须有 id 且状态为 success）
     const cachedResult = await redisClient.get(cacheKey)
     if (cachedResult) {
-      this.logger.log(`Cache hit for content ${contentHash} (org: ${orgPrefix})`)
-      // Story 4.2 - AC 2: 缓存命中率监控
-      this.cacheStats.hits++
-      return JSON.parse(cachedResult)
+      const parsed = JSON.parse(cachedResult)
+      // 验证缓存数据完整性：必须有 id 且状态为 success
+      if (parsed && parsed.id && parsed.status === 'success') {
+        this.logger.log(`Cache hit for content ${contentHash} (org: ${orgPrefix})`)
+        // Story 4.2 - AC 2: 缓存命中率监控
+        this.cacheStats.hits++
+        return parsed
+      } else {
+        this.logger.warn(`Cache hit for content ${contentHash} but data incomplete (missing id or not success), re-analyzing`)
+        // 删除无效缓存
+        await redisClient.del(cacheKey)
+      }
     }
 
     // Story 4.2 - AC 2: 缓存未命中计数
@@ -88,8 +96,12 @@ export class AIAnalysisService {
     // 4. 执行 AI 分析
     const result = await this.analyze(rawContent, category)
 
-    // 5. 缓存结果
-    await redisClient.setex(cacheKey, this.CACHE_TTL, JSON.stringify(result))
+    // 5. 只缓存成功的分析结果（有 id 且状态为 success）
+    if (result && result.id && result.status === 'success') {
+      await redisClient.setex(cacheKey, this.CACHE_TTL, JSON.stringify(result))
+    } else {
+      this.logger.warn(`Analysis result incomplete, not caching: contentId=${rawContent.id}, hasId=${!!result?.id}, status=${result?.status}`)
+    }
 
     return result
   }
@@ -114,6 +126,9 @@ export class AIAnalysisService {
           systemPrompt: prompt,
           prompt: this.formatContent(rawContent),
           temperature: 0.3, // 较低温度，确保输出稳定
+          maxTokens: 5000, // 设置最大token数
+          // 合规雷达强制返回JSON格式
+          ...(category === 'compliance' && { responseFormat: { type: 'json_object' } }),
         },
         AIModel.DOMESTIC, // 使用通义千问
       )
@@ -209,6 +224,7 @@ export class AIAnalysisService {
 - categories: 技术分类数组（更细粒度的分类）
 - targetAudience: 目标受众（如：IT总监、架构师、开发团队）
 - aiSummary: 简洁的摘要（200字以内）
+重要提示: 必须返回完整的JSON对象,不要只返回文本摘要。必须确保complianceRiskCategory字段有值。
 
 示例输出格式：
 {
@@ -270,6 +286,8 @@ export class AIAnalysisService {
       case 'compliance':
         return `你是一位资深的金融合规专家。请分析以下合规雷达内容,提取结构化信息。
 
+【重要】必须返回完整的JSON对象,不要只返回文本摘要。必须确保complianceRiskCategory字段有值。
+
 输入内容将包含:
 - 标题
 - 来源(监管机构)
@@ -277,11 +295,11 @@ export class AIAnalysisService {
 - 类型(处罚通报/政策征求意见)
 
 请以JSON格式返回结果,包含以下字段:
-- complianceRiskCategory: 合规风险类别(如"数据安全"、"网络安全"、"反洗钱"、"消费者权益保护")
+- complianceRiskCategory: 合规风险类别(必填,如"数据安全"、"网络安全"、"反洗钱"、"消费者权益保护"、"信息披露违规"、"内控缺陷"、"治理架构")
 - penaltyCase: 处罚案例描述(如果type为penalty,包含被处罚机构、原因、金额、政策依据,如果type为policy_draft则返回null)
 - policyRequirements: 政策主要要求(如果type为policy_draft,包含政策关键要求,如果type为penalty则返回null)
-- remediationSuggestions: 整改建议或应对措施(针对处罚或政策要求的建议)
-- relatedWeaknessCategories: 关联的薄弱项类别数组(如["数据安全", "网络与信息安全", "个人信息保护"])
+- remediationSuggestions: 整改建议或应对措施(针对处罚或政策要求的建议,不能为空)
+- relatedWeaknessCategories: 关联的薄弱项类别数组(如["数据安全", "网络与信息安全", "个人信息保护", "内控体系", "治理架构"])
 - categories: 技术分类标签数组
 - keywords: 关键词数组
 - tags: 标签数组(合规标签、监管机构等)

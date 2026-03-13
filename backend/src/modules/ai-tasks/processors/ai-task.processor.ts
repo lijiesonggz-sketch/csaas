@@ -108,6 +108,15 @@ export class AITaskProcessor extends WorkerHost {
 
           if (documents.length === input.documentIds.length) {
             processedInput.documents = documents
+            // 为标准解读等任务设置 standardDocument
+            if (documents.length > 0 && !processedInput.standardDocument) {
+              processedInput.standardDocument = {
+                id: documents[0].id,
+                name: documents[0].name,
+                content: documents[0].content,
+              }
+              this.logger.log(`Set standardDocument from first document: ${documents[0].name}`)
+            }
             delete processedInput.documentIds
             this.logger.log(`Successfully loaded ${documents.length} documents`)
           } else {
@@ -725,6 +734,12 @@ export class AITaskProcessor extends WorkerHost {
             // 两阶段模式：先提取条款清单，再批量解读（确保100%条款覆盖）
             this.logger.log(`[Phase 1/2] Starting clause extraction and batch interpretation...`)
 
+            // 初始化进度跟踪（从数据库获取当前值）
+            const initialTask = await this.aiTaskRepo.findOne({ where: { id: taskId } })
+            const existingDetails = initialTask?.progressDetails || {}
+            let totalClauses = existingDetails.totalClauses || 0
+            let totalBatches = existingDetails.totalBatches || 0
+
             generatorResults =
               await this.standardInterpretationGenerator.generateBatchInterpretation({
                 standardDocument: processedInput.standardDocument,
@@ -732,10 +747,63 @@ export class AITaskProcessor extends WorkerHost {
                 batchSize: batchSize,
                 temperature: 0.7,
                 maxTokens: 30000,
-                onProgress: (progress) => {
+                onProgress: async (progress) => {
                   this.logger.log(
                     `[Batch ${progress.batch || 0}/${progress.totalBatches || '?'}] ${progress.message || 'Processing...'}`,
                   )
+
+                  // 保存条款总数和批次数（一旦获取到就保存）
+                  if (progress.totalBatches > 0) {
+                    totalBatches = progress.totalBatches
+                  }
+                  // 从消息中提取条款数（多种模式匹配）
+                  const clauseMatch = progress.message?.match(/(\d+)个条款/)
+                  if (clauseMatch) {
+                    totalClauses = parseInt(clauseMatch[1], 10)
+                  }
+
+                  // 确定当前阶段
+                  const phase = progress.batch === 0 ? 'extraction' : 'interpretation'
+
+                  // 更新进度到数据库（合并现有值）
+                  const progressDetails: any = {
+                    ...existingDetails,
+                    gpt4: { status: 'generating', message: progress.message },
+                    phase,
+                    totalClauses,
+                    totalBatches,
+                    currentBatch: progress.batch,
+                    percentage: progress.current,
+                  }
+
+                  // 条款提取阶段
+                  if (progress.batch === 0) {
+                    progressDetails.stage = 'extracting_clauses'
+                    progressDetails.stageMessage = progress.message
+                  } else {
+                    // 批量解读阶段
+                    progressDetails.stage = 'interpreting_batches'
+                    progressDetails.stageMessage = `批次进度: ${progress.batch}/${totalBatches}`
+                  }
+
+                  await this.aiTaskRepo.update(taskId, {
+                    progressDetails,
+                    generationStage: GenerationStage.GENERATING_MODELS,
+                  })
+
+                  // 发送WebSocket进度通知
+                  this.tasksGateway.emitTaskProgress({
+                    taskId,
+                    progress: progress.current,
+                    message: progressDetails.stageMessage,
+                    currentStep: progressDetails.stage,
+                    details: {
+                      totalClauses,
+                      totalBatches,
+                      currentBatch: progress.batch,
+                      phase,
+                    },
+                  })
                 },
               })
 

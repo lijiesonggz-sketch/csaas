@@ -32,7 +32,7 @@ export class AIUsageService {
    * @param params - AI usage parameters
    */
   async logAIUsage(params: {
-    organizationId: string;
+    organizationId?: string;  // 改为可选，支持爬虫和 Excel 导入的公共数据
     taskType: AIUsageTaskType;
     inputTokens: number;
     outputTokens: number;
@@ -42,7 +42,7 @@ export class AIUsageService {
     const cost = this.calculateCost(params.inputTokens, params.outputTokens);
 
     const log = this.aiUsageLogRepository.create({
-      organizationId: params.organizationId,
+      organizationId: params.organizationId || 'public',  // 公共数据使用 'public' 作为默认值
       taskType: params.taskType,
       inputTokens: params.inputTokens,
       outputTokens: params.outputTokens,

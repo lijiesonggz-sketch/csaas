@@ -46,6 +46,7 @@ export interface StandardInterpretationOutput {
     dependencies?: string[]
     best_practices?: string[]
     common_mistakes?: string[]
+    references?: ReferenceInfo[] // 参考资料：相关标准要求
   }>
   implementation_guidance: {
     preparation: string[]
@@ -132,6 +133,20 @@ export interface ImplementationRoadmap {
   phase_2_digitalization: PhaseDetail
   phase_3_automation: PhaseDetail
   phase_4_optimization: PhaseDetail
+}
+
+/**
+ * 参考资料信息
+ * 用于关联其他相关标准要求
+ */
+export interface ReferenceInfo {
+  standard_name: string // 标准名称，如《数据安全法》
+  standard_code?: string // 标准编号，如 GB/T 22239-2019
+  clause_id: string // 条款编号，如第十二条
+  clause_summary: string // 条款内容摘要（100-200字）
+  issuing_authority?: string // 发布机构，如国家网信部门、中共中央办公厅
+  relation_type: 'REFERENCE' | 'SUPPLEMENT' | 'CONFLICT' | 'SYNERGY' // 关联类型
+  relevance_score: number // 关联度评分 0-1
 }
 
 export interface PhaseDetail {
@@ -261,56 +276,56 @@ export class StandardInterpretationGenerator {
       this.logger.warn(`Could not write debug prompt file: ${err.message}`)
     }
 
-    // 准备通义千问的请求
-    const domesticRequest: AIClientRequest = {
+    // 准备智谱AI的请求
+    const openaiRequest: AIClientRequest = {
       prompt,
       temperature,
       maxTokens,
     }
 
-    this.logger.log('Calling Tongyi AI model for interpretation...')
+    this.logger.log('Calling Zhipu AI (GLM) model for interpretation...')
 
-    // 只调用通义千问（避免其他API失败）
-    this.logger.log('[1/1] Calling 通义千问...')
-    const domesticResult = await this.aiOrchestrator
-      .generate(domesticRequest, AIModel.DOMESTIC)
+    // 只调用智谱AI（OpenAI配置已切换到智谱）
+    this.logger.log('[1/1] Calling 智谱AI GLM...')
+    const openaiResult = await this.aiOrchestrator
+      .generate(openaiRequest, AIModel.GPT4)
       .catch((err) => {
-        this.logger.error(`通义千问调用失败: ${err.message}`)
+        this.logger.error(`智谱AI调用失败: ${err.message}`)
         return {
           content: '',
           tokens: { input: 0, output: 0, total: 0 },
           cost: 0,
-          model: 'domestic-failed',
+          model: 'glm-failed',
         }
       })
 
     // Log response lengths
-    this.logger.log(`AI call completed. Tongyi: ${domesticResult.content.length} chars`)
+    this.logger.log(`AI call completed. GLM: ${openaiResult.content.length} chars`)
 
     // 解析结果
     this.logger.log('Parsing interpretation results...')
 
-    const domesticOutput = this.parseInterpretationResponse(domesticResult.content)
+    const openaiOutput = this.parseInterpretationResponse(openaiResult.content)
 
     // 检查模型是否成功
-    if (domesticOutput) {
+    if (openaiOutput) {
       this.logger.log(
-        `Interpretation parsing completed. Tongyi: ${domesticOutput.key_requirements?.length || 0}条款`,
+        `Interpretation parsing completed. GLM: ${openaiOutput.key_requirements?.length || 0}条款`,
       )
     } else {
       this.logger.log('Interpretation parsing completed. No valid results')
     }
 
     // 如果模型失败，抛出异常
-    if (!domesticOutput) {
-      throw new Error('通义千问模型生成解读结果失败')
+    if (!openaiOutput) {
+      throw new Error('智谱AI模型生成解读结果失败')
     }
 
     // 返回结果（其他模型为null）
     return {
-      gpt4: null,
+      gpt4: openaiOutput,
       claude: null,
-      domestic: domesticOutput,
+      domestic: null,
     }
   }
 
@@ -736,7 +751,7 @@ export class StandardInterpretationGenerator {
   }
 
   /**
-   * 策略3: 修复常见的JSON格式问题
+   * 策略3: 修复常见的JSON格式问题（增强版）
    */
   private parseWithFixedJson(responseText: string): StandardInterpretationOutput | null {
     let fixed = responseText
@@ -755,35 +770,178 @@ export class StandardInterpretationGenerator {
       // 1. 移除多余的逗号
       jsonText = jsonText.replace(/,\s*([}\]])/g, '$1')
 
-      // 2. 修复未闭合的字符串
-      const lines = jsonText.split('\n')
-      const fixedLines: string[] = []
-      let inString = false
-      let stringChar = ''
+      // 2. 修复属性之间缺少逗号的情况
+      // 例如: "key1": "value1"\n  "key2": "value2" -> "key1": "value1",\n  "key2": "value2"
+      jsonText = jsonText.replace(/("[^"]*"\s*:\s*(?:"[^"]*"|\[[^\]]*\]|\{[^}]*\}|\d+|true|false|null))\s*\n\s*(?=")/g, '$1,')
 
-      for (const line of lines) {
-        const fixedLine = line
-        for (let i = 0; i < fixedLine.length; i++) {
-          const char = fixedLine[i]
-          if ((char === '"' || char === "'") && (i === 0 || fixedLine[i - 1] !== '\\')) {
-            if (!inString) {
-              inString = true
-              stringChar = char
-            } else if (char === stringChar) {
-              inString = false
-              stringChar = ''
-            }
-          }
-        }
-        fixedLines.push(fixedLine)
+      // 3. 修复未闭合的字符串
+      jsonText = this.fixUnclosedStrings(jsonText)
+
+      // 4. 尝试解析，如果失败，尝试截断到最后一个有效位置
+      try {
+        return this.validateAndParse(jsonText)
+      } catch (error) {
+        this.logger.warn(`Initial fix failed, trying truncation strategy: ${error.message}`)
+        return this.tryTruncateAndParse(jsonText)
       }
-
-      jsonText = fixedLines.join('\n')
-
-      return this.validateAndParse(jsonText)
     }
 
     return null
+  }
+
+  /**
+   * 修复未闭合的字符串
+   */
+  private fixUnclosedStrings(jsonText: string): string {
+    let result = ''
+    let inString = false
+    let stringChar = ''
+    let escaped = false
+
+    for (let i = 0; i < jsonText.length; i++) {
+      const char = jsonText[i]
+
+      if (escaped) {
+        result += char
+        escaped = false
+        continue
+      }
+
+      if (char === '\\') {
+        result += char
+        escaped = true
+        continue
+      }
+
+      if ((char === '"' || char === "'") && !inString) {
+        inString = true
+        stringChar = char
+        result += char
+      } else if (char === stringChar && inString) {
+        inString = false
+        stringChar = ''
+        result += char
+      } else {
+        result += char
+      }
+    }
+
+    // 如果字符串未闭合，添加闭合引号
+    if (inString) {
+      result += stringChar
+    }
+
+    return result
+  }
+
+  /**
+   * 尝试截断到最后一个有效位置并解析
+   */
+  private tryTruncateAndParse(jsonText: string): StandardInterpretationOutput | null {
+    // 尝试从后往前找到可以成功解析的位置
+    let truncatePositions: number[] = []
+
+    // 收集可能的截断点（对象或数组的结束位置）
+    let braceCount = 0
+    let bracketCount = 0
+    let inString = false
+    let escaped = false
+
+    for (let i = 0; i < jsonText.length; i++) {
+      const char = jsonText[i]
+
+      if (escaped) {
+        escaped = false
+        continue
+      }
+
+      if (char === '\\') {
+        escaped = true
+        continue
+      }
+
+      if (char === '"' && !escaped) {
+        inString = !inString
+        continue
+      }
+
+      if (inString) continue
+
+      if (char === '{') braceCount++
+      if (char === '}') braceCount--
+      if (char === '[') bracketCount++
+      if (char === ']') bracketCount--
+
+      // 记录平衡的位置
+      if (braceCount >= 0 && bracketCount >= 0 && (char === '}' || char === ']')) {
+        truncatePositions.push(i + 1)
+      }
+    }
+
+    // 从后往前尝试截断
+    for (let i = truncatePositions.length - 1; i >= 0; i--) {
+      const truncated = jsonText.substring(0, truncatePositions[i])
+      try {
+        const parsed = JSON.parse(truncated)
+        this.logger.log(`Successfully parsed after truncation at position ${truncatePositions[i]}`)
+        return parsed as StandardInterpretationOutput
+      } catch (e) {
+        // 继续尝试下一个位置
+      }
+    }
+
+    // 如果都失败了，尝试添加缺失的闭合括号
+    let fixed = jsonText
+    // 计算需要添加的括号
+    let openBraces = 0
+    let openBrackets = 0
+    inString = false
+    escaped = false
+
+    for (let i = 0; i < jsonText.length; i++) {
+      const char = jsonText[i]
+
+      if (escaped) {
+        escaped = false
+        continue
+      }
+
+      if (char === '\\') {
+        escaped = true
+        continue
+      }
+
+      if (char === '"' && !escaped) {
+        inString = !inString
+        continue
+      }
+
+      if (inString) continue
+
+      if (char === '{') openBraces++
+      if (char === '}') openBraces--
+      if (char === '[') openBrackets++
+      if (char === ']') openBrackets--
+    }
+
+    // 添加缺失的闭合括号
+    while (openBraces > 0) {
+      fixed += '}'
+      openBraces--
+    }
+    while (openBrackets > 0) {
+      fixed += ']'
+      openBrackets--
+    }
+
+    try {
+      const parsed = JSON.parse(fixed)
+      this.logger.log('Successfully parsed after adding closing brackets')
+      return parsed as StandardInterpretationOutput
+    } catch (e) {
+      this.logger.error(`Truncation strategy failed: ${e.message}`)
+      return null
+    }
   }
 
   /**
@@ -938,7 +1096,7 @@ export class StandardInterpretationGenerator {
       interpretationMode = 'enterprise',
       batchSize = 10,
       temperature = 0.7,
-      maxTokens = 30000, // 增加到30000以支持企业级模式的大量字段
+      maxTokens = 80000, // 增加到80000以支持完整的企业级解读输出
       onProgress,
     } = input
 
@@ -973,7 +1131,7 @@ export class StandardInterpretationGenerator {
       standardDocument,
       expectedClauseCount,
       temperature: 0.3, // 使用较低温度提高准确性
-      maxTokens: 4000, // 条款提取不需要太多tokens
+      maxTokens: 80000, // 统一使用80000以确保完整输出
     })
 
     // 选择最佳提取结果
@@ -1039,8 +1197,8 @@ export class StandardInterpretationGenerator {
       domestic: null as StandardInterpretationOutput | null,
     }
 
-    // 只使用通义千问大模型（避免其他API失败）
-    const models = [{ name: 'Tongyi', model: AIModel.DOMESTIC, key: 'domestic' as const }]
+    // 只使用智谱AI大模型（OpenAI配置已切换到智谱）
+    const models = [{ name: 'Zhipu AI', model: AIModel.GPT4, key: 'gpt4' as const }]
 
     for (const modelInfo of models) {
       this.logger.log(`[Batch Interpretation] Processing ${modelInfo.name}...`)
@@ -1143,8 +1301,8 @@ export class StandardInterpretationGenerator {
       `Batch interpretation completed. Successful models: ${successModels.join(', ') || 'NONE'}`,
     )
 
-    if (!results.domestic) {
-      throw new Error('通义千问模型生成批量解读结果失败')
+    if (!results.gpt4) {
+      throw new Error('智谱AI模型生成批量解读结果失败')
     }
 
     return results

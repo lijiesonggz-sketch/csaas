@@ -212,4 +212,41 @@ export class RawContentDetailDto {
 
   @ApiProperty({ description: '更新时间' })
   updatedAt: Date
+
+  // AI分析结果字段
+  @ApiPropertyOptional({ description: 'AI摘要' })
+  aiSummary?: string
+
+  @ApiPropertyOptional({ description: 'AI分析状态' })
+  aiAnalysisStatus?: 'pending' | 'success' | 'failed'
+
+  @ApiPropertyOptional({ description: '使用的AI模型' })
+  aiModel?: string
+
+  @ApiPropertyOptional({ description: '关键词' })
+  keywords?: string[]
+
+  @ApiPropertyOptional({ description: '技术分类' })
+  categories?: string[]
+
+  @ApiPropertyOptional({ description: '目标受众' })
+  targetAudience?: string
+
+  @ApiPropertyOptional({ description: '合规分析结果' })
+  complianceAnalysis?: {
+    complianceRiskCategory?: string
+    penaltyCase?: string
+    policyRequirements?: string
+    remediationSuggestions?: string
+    relatedWeaknessCategories?: string[]
+  }
+
+  @ApiPropertyOptional({ description: 'ROI分析结果' })
+  roiAnalysis?: {
+    estimatedCost: string
+    expectedBenefit: string
+    roiEstimate: string
+    implementationPeriod: string
+    recommendedVendors: string[]
+  }
 }

@@ -145,7 +145,7 @@ export class ClusteringGenerator {
       })
     }
 
-    const { documents, temperature = 0.7, maxTokens = 32768 } = input
+    const { documents, temperature = 0.7, maxTokens = 80000 } = input
 
     // 验证输入
     if (!documents || documents.length === 0) {

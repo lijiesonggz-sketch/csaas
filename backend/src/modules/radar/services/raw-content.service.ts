@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, Between } from 'typeorm'
+import { InjectQueue } from '@nestjs/bullmq'
+import { Queue } from 'bullmq'
 import { RawContent } from '../../../database/entities/raw-content.entity'
 import { createHash } from 'crypto'
 
@@ -18,6 +20,8 @@ export class RawContentService {
   constructor(
     @InjectRepository(RawContent)
     private readonly rawContentRepository: Repository<RawContent>,
+    @InjectQueue('radar-ai-analysis')
+    private readonly aiAnalysisQueue: Queue,
   ) {}
 
   /**
@@ -208,6 +212,17 @@ export class RawContentService {
     // 重置状态为pending
     await this.rawContentRepository.update(id, { status: 'pending' })
 
+    // 立即添加AI分析队列任务
+    await this.aiAnalysisQueue.add('analyze-content', {
+      contentId: content.id,
+      category: content.category,
+      priority: this.getPriority(content.category),
+    }, {
+      priority: this.getPriority(content.category),
+    })
+
+    this.logger.log(`AI analysis queue task added for content ${content.id} (${content.category})`)
+
     // 返回更新后的内容
     const updated = await this.findById(id)
     if (!updated) {
@@ -215,6 +230,22 @@ export class RawContentService {
     }
 
     return updated
+  }
+
+  /**
+   * 根据内容类别获取优先级
+   */
+  private getPriority(category: string): number {
+    switch (category) {
+      case 'compliance':
+        return 1 // 最高优先级
+      case 'industry':
+        return 2
+      case 'tech':
+        return 3
+      default:
+        return 5
+    }
   }
 
   /**

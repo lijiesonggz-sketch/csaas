@@ -64,11 +64,16 @@ export class AIAnalysisProcessor extends WorkerHost {
       // 3. 调用 AI 分析服务
       const analysisResult = await this.aiAnalysisService.analyzeWithCache(rawContent, category)
 
+      // 验证分析结果完整性 - 防止数据不一致
+      if (!analysisResult || !analysisResult.id) {
+        throw new Error(`AI 分析结果不完整: contentId=${contentId}, 缺少 analyzedContent.id`)
+      }
+
       this.logger.log(
-        `AI 分析完成: contentId=${contentId}, tags=${analysisResult.tags.length}, tokensUsed=${analysisResult.tokensUsed}`,
+        `AI 分析完成: contentId=${contentId}, analyzedContentId=${analysisResult.id}, tags=${analysisResult.tags?.length || 0}, tokensUsed=${analysisResult.tokensUsed}`,
       )
 
-      // 4. 更新状态为 'analyzed'
+      // 4. 更新状态为 'analyzed'（仅在成功创建 AnalyzedContent 后）
       await this.rawContentService.updateStatus(contentId, 'analyzed')
 
       // 5. 触发推送调度任务（Story 2.3）

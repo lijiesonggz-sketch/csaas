@@ -51,7 +51,7 @@ export class OpenAIClient implements IAIClient {
         model,
         messages,
         temperature: request.temperature ?? 0.7,
-        max_tokens: request.maxTokens ?? 2000,
+        max_tokens: request.maxTokens ?? 120000, // 智谱GLM推理模型需要大量token用于内部推理，设置较大的默认值
         ...(request.responseFormat && { response_format: request.responseFormat }),
       })
 

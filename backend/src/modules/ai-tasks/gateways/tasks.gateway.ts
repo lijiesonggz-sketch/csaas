@@ -19,6 +19,13 @@ export interface TaskProgressEvent {
   message: string
   currentStep?: string
   estimatedTimeMs?: number
+  details?: {
+    totalClauses?: number
+    totalBatches?: number
+    currentBatch?: number
+    phase?: 'extraction' | 'interpretation'
+    [key: string]: any
+  }
 }
 
 export interface TaskCompletedEvent {

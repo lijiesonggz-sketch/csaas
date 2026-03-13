@@ -24,7 +24,7 @@ import { ResultAggregationModule } from '../result-aggregation/result-aggregatio
     BullModule.registerQueue({
       name: AI_TASK_QUEUE,
       defaultJobOptions: {
-        attempts: 3,
+        attempts: 1,
         backoff: {
           type: 'exponential',
           delay: 5000,

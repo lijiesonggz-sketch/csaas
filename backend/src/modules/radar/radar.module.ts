@@ -61,6 +61,7 @@ import { FileWatcherService } from './services/file-watcher.service'
 import { CrawlerProcessor } from './processors/crawler.processor'
 import { RadarController } from './controllers/radar.controller'
 import { RadarPushController } from './controllers/radar-push.controller'
+import { RawContentAdminController } from './controllers/raw-content-admin.controller'
 
 // Story 3.1 providers
 import { RadarSourceService } from './services/radar-source.service'
@@ -125,6 +126,7 @@ import { TagService } from './services/tag.service'
 import { AnalyzedContentService } from './services/analyzed-content.service'
 import { AIAnalysisService } from './services/ai-analysis.service'
 import { AIAnalysisProcessor } from './processors/ai-analysis.processor'
+import { PendingContentScannerService } from './services/pending-content-scanner.service'
 
 // Story 2.3 providers
 import { RelevanceService } from './services/relevance.service'
@@ -267,6 +269,7 @@ import { PushProcessor } from './processors/push.processor'
     PushPreferenceController,
     PushFeedbackController,
     PeerCrawlerHealthController,
+    RawContentAdminController,
   ],
   providers: [
     // Story 1.3 providers
@@ -284,6 +287,7 @@ import { PushProcessor } from './processors/push.processor'
     AnalyzedContentService,
     AIAnalysisService,
     AIAnalysisProcessor,
+    PendingContentScannerService,
 
     // Story 2.3 providers
     RelevanceService,

@@ -587,6 +587,15 @@ export function fillBatchInterpretationPrompt(
     prompt += '   - **风险评估**（risk_assessment）：\n'
     prompt += '     - non_compliance_risks：不合规的风险\n'
     prompt += '     - implementation_risks：实施风险\n'
+    prompt += '   - **参考资料**（references）：关联的其他标准\n'
+    prompt += '     - standard_name: 相关标准名称，如《数据安全法》\n'
+    prompt += '     - standard_code: 标准编号（如有）\n'
+    prompt += '     - clause_id: 关联条款编号\n'
+    prompt += '     - clause_summary: 条款内容摘要（100-200字）\n'
+    prompt += '     - issuing_authority: 发布机构\n'
+    prompt += '     - relation_type: 关联类型（REFERENCE引用/SUPPLEMENT补充/CONFLICT冲突/SYNERGY协同）\n'
+    prompt += '     - relevance_score: 关联度（0-1之间）\n'
+    prompt += '     【重要】每个条款必须提供1-3个最相关的参考资料\n'
   }
 
   prompt += '   - **优先级**（priority）：HIGH/MEDIUM/LOW\n'
@@ -646,6 +655,16 @@ export function fillBatchInterpretationPrompt(
     prompt += '          "prevention": "预防措施"\n'
     prompt += '        }]\n'
     prompt += '      }'
+    prompt += ',\n'
+    prompt += '      "references": [{\n'
+    prompt += '        "standard_name": "相关标准名称，如《数据安全法》或《中国人民银行业务领域数据安全管理办法》",\n'
+    prompt += '        "standard_code": "标准编号，如 GB/T 22239-2019（如有）",\n'
+    prompt += '        "clause_id": "关联条款编号，如第十二条",\n'
+    prompt += '        "clause_summary": "关联条款内容摘要（100-200字），提炼核心要求",\n'
+    prompt += '        "issuing_authority": "发布机构，如国家网信部门、中共中央办公厅、中国人民银行",\n'
+    prompt += '        "relation_type": "REFERENCE",\n'
+    prompt += '        "relevance_score": 0.95\n'
+    prompt += '      }]'
   }
 
   prompt += ',\n'
@@ -681,6 +700,7 @@ export function fillBatchInterpretationPrompt(
   prompt += '4. 【必须】所有字段都必须填写，不要留空或使用null\n'
   if (interpretationMode === 'enterprise') {
     prompt += '5. 【必须】提供详细、全面、深入的解读，适合企业级应用\n'
+    prompt += '6. 【必须】每个条款必须包含references数组，提供1-3个最相关的关联标准\n'
   }
   prompt += '\n'
 

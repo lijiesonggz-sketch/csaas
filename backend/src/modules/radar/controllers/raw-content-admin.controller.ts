@@ -8,6 +8,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
@@ -15,6 +16,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard'
 import { Roles } from '../../../common/decorators/roles.decorator'
 import { UserRole } from '../../../database/entities/user.entity'
 import { RawContentService } from '../services/raw-content.service'
+import { AnalyzedContentService } from '../services/analyzed-content.service'
 import {
   QueryRawContentDto,
   RawContentListResponseDto,
@@ -40,7 +42,10 @@ import {
 @Roles(UserRole.ADMIN, UserRole.CONSULTANT)
 @ApiBearerAuth()
 export class RawContentAdminController {
-  constructor(private readonly rawContentService: RawContentService) {}
+  constructor(
+    private readonly rawContentService: RawContentService,
+    private readonly analyzedContentService: AnalyzedContentService,
+  ) {}
 
   /**
    * 获取RawContent列表
@@ -97,10 +102,13 @@ export class RawContentAdminController {
     const content = await this.rawContentService.findById(id)
 
     if (!content) {
-      throw new Error('Content not found')
+      throw new NotFoundException('Content not found')
     }
 
-    return this.mapToDetail(content)
+    // 获取AI分析结果
+    const analyzedContent = await this.analyzedContentService.findByContentId(id)
+
+    return this.mapToDetail(content, analyzedContent)
   }
 
   /**
@@ -155,8 +163,8 @@ export class RawContentAdminController {
   /**
    * 映射为详情DTO
    */
-  private mapToDetail(item: any): any {
-    return {
+  private mapToDetail(item: any, analyzedContent?: any): any {
+    const dto: any = {
       id: item.id,
       title: item.title,
       author: item.author,
@@ -166,7 +174,7 @@ export class RawContentAdminController {
       status: item.status,
       originalUrl: item.url,
       sourceName: item.sourceName,
-      rawContent: item.content,
+      fullContent: item.fullContent,
       analysisResult: item.analysisResult,
       generatedContentId: item.generatedContentId,
       organizationId: item.organizationId,
@@ -174,5 +182,23 @@ export class RawContentAdminController {
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
     }
+
+    // 添加AI分析结果
+    if (analyzedContent) {
+      dto.aiSummary = analyzedContent.aiSummary
+      dto.aiAnalysisStatus = analyzedContent.status
+      dto.aiModel = analyzedContent.aiModel
+      dto.keywords = analyzedContent.keywords
+      dto.categories = analyzedContent.categories
+      dto.targetAudience = analyzedContent.targetAudience
+      dto.roiAnalysis = analyzedContent.roiAnalysis
+
+      // 合规分析结果
+      if (analyzedContent.complianceAnalysis) {
+        dto.complianceAnalysis = analyzedContent.complianceAnalysis
+      }
+    }
+
+    return dto
   }
 }

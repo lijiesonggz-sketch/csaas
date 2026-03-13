@@ -1,4 +1,5 @@
 import { IsString, IsEnum, IsUrl, IsOptional, IsBoolean, MaxLength, Matches } from 'class-validator'
+import { Transform } from 'class-transformer'
 
 /**
  * CreateRadarSourceDto
@@ -117,6 +118,7 @@ export class QueryRadarSourceDto {
   category?: 'tech' | 'industry' | 'compliance'
 
   @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   isActive?: boolean
 }

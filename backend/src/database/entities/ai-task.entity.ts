@@ -64,6 +64,14 @@ export interface TaskProgressDetails {
   aggregation_stage?: 'pending' | 'aggregating' | 'completed' | 'failed'
   current_model?: 'gpt4' | 'claude' | 'domestic'
   total_elapsed_ms?: number
+  // 标准解读两阶段进度
+  percentage?: number
+  totalClauses?: number
+  totalBatches?: number
+  currentBatch?: number
+  phase?: 'extraction' | 'interpretation'
+  stage?: string
+  stageMessage?: string
 }
 
 @Entity('ai_tasks')
