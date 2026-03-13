@@ -15,6 +15,11 @@ export class UpdateWatchedTopicEntity1738350000003 implements MigrationInterface
   name = 'UpdateWatchedTopicEntity1738350000003'
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    const tableExists = await queryRunner.hasTable('watched_topics')
+    if (!tableExists) {
+      return
+    }
+
     // Check if 'name' column exists (old schema)
     const table = await queryRunner.getTable('watched_topics')
     const nameColumn = table?.findColumnByName('name')
@@ -72,6 +77,11 @@ export class UpdateWatchedTopicEntity1738350000003 implements MigrationInterface
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    const tableExists = await queryRunner.hasTable('watched_topics')
+    if (!tableExists) {
+      return
+    }
+
     // Drop indexes
     await queryRunner.query(`
       DROP INDEX IF EXISTS "IDX_watched_topics_org_type"
