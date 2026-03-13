@@ -93,3 +93,19 @@ npm run migration:revert # 回滚迁移
 ## License
 
 Private
+
+## Fresh DB Migration Check
+
+Requires Docker. This command starts a temporary PostgreSQL container, runs the
+full TypeORM migration chain on an empty database, and removes the container
+after completion.
+
+```bash
+npm run migration:check:fresh
+```
+
+Optional:
+
+```bash
+npm run migration:check:fresh -- --build
+```
