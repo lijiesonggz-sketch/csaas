@@ -117,7 +117,7 @@ export class RadarSource {
    * 用于同业采集源的选择器配置
    * Story 8.1: 同业采集源管理
    */
-  @Column({ type: 'jsonb', nullable: true, name: 'crawlconfig' })
+  @Column({ type: 'jsonb', nullable: true, name: 'crawlConfig' })
   crawlConfig?: {
     selector?: string
     listSelector?: string
