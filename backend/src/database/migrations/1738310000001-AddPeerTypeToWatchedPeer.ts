@@ -1,40 +1,71 @@
 import { MigrationInterface, QueryRunner } from 'typeorm'
 
-/**
- * Story 3.2: 添加peerType字段到WatchedPeer表
- *
- * 新增字段:
- * - peerType: 同业类型(benchmark: 标杆机构, competitor: 竞争对手)
- */
 export class AddPeerTypeToWatchedPeer1738310000001 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // 创建peerType枚举类型
     await queryRunner.query(`
-      CREATE TYPE "watched_peer_peer_type_enum" AS ENUM('benchmark', 'competitor')
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_type t
+          JOIN pg_namespace n ON n.oid = t.typnamespace
+          WHERE t.typname = 'watched_peer_peer_type_enum'
+            AND n.nspname = 'public'
+        ) THEN
+          CREATE TYPE "watched_peer_peer_type_enum" AS ENUM('benchmark', 'competitor');
+        END IF;
+      END $$;
     `)
 
-    // 添加peerType列
     await queryRunner.query(`
-      ALTER TABLE "watched_peers"
-      ADD COLUMN "peerType" "watched_peer_peer_type_enum" NOT NULL DEFAULT 'benchmark'
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name = 'watched_peers'
+        ) THEN
+          ALTER TABLE "watched_peers"
+          ADD COLUMN IF NOT EXISTS "peerType" "watched_peer_peer_type_enum" NOT NULL DEFAULT 'benchmark';
+        END IF;
+      END $$;
     `)
 
-    // 添加注释
     await queryRunner.query(`
-      COMMENT ON COLUMN "watched_peers"."peerType" IS '同业类型: benchmark(标杆机构), competitor(竞争对手) - Story 3.2'
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'watched_peers'
+            AND column_name = 'peerType'
+        ) THEN
+          COMMENT ON COLUMN "watched_peers"."peerType" IS 'Peer type: benchmark or competitor (Story 3.2)';
+        END IF;
+      END $$;
     `)
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // 删除peerType列
     await queryRunner.query(`
-      ALTER TABLE "watched_peers"
-      DROP COLUMN "peerType"
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = 'watched_peers'
+            AND column_name = 'peerType'
+        ) THEN
+          ALTER TABLE "watched_peers" DROP COLUMN IF EXISTS "peerType";
+        END IF;
+      END $$;
     `)
 
-    // 删除枚举类型
     await queryRunner.query(`
-      DROP TYPE "watched_peer_peer_type_enum"
+      DROP TYPE IF EXISTS "watched_peer_peer_type_enum"
     `)
   }
 }
