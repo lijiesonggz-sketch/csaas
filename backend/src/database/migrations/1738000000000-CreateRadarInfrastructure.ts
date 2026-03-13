@@ -66,7 +66,6 @@ export class CreateRadarInfrastructure1738000000000 implements MigrationInterfac
         "isActive" boolean NOT NULL DEFAULT true,
         "createdAt" timestamp NOT NULL DEFAULT now(),
         "updatedAt" timestamp NOT NULL DEFAULT now(),
-        CONSTRAINT "FK_watched_items_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_watched_items_tag" FOREIGN KEY ("tagId") REFERENCES "tags"("id") ON DELETE CASCADE,
         CONSTRAINT "UQ_watched_items_org_tag" UNIQUE ("organizationId", "tagId")
       )
@@ -164,7 +163,6 @@ export class CreateRadarInfrastructure1738000000000 implements MigrationInterfac
         "nextExecutionAt" timestamp,
         "createdAt" timestamp NOT NULL DEFAULT now(),
         "updatedAt" timestamp NOT NULL DEFAULT now(),
-        CONSTRAINT "FK_push_schedule_configs_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
         CONSTRAINT "UQ_push_schedule_configs_org_type" UNIQUE ("organizationId", "radarType")
       )
     `)
@@ -191,7 +189,6 @@ export class CreateRadarInfrastructure1738000000000 implements MigrationInterfac
         "scheduleConfigId" uuid,
         "createdAt" timestamp NOT NULL DEFAULT now(),
         "updatedAt" timestamp NOT NULL DEFAULT now(),
-        CONSTRAINT "FK_radar_pushes_organization" FOREIGN KEY ("organizationId") REFERENCES "organizations"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_radar_pushes_content" FOREIGN KEY ("contentId") REFERENCES "analyzed_contents"("id") ON DELETE CASCADE,
         CONSTRAINT "FK_radar_pushes_scheduleConfig" FOREIGN KEY ("scheduleConfigId") REFERENCES "push_schedule_configs"("id") ON DELETE SET NULL
       )
