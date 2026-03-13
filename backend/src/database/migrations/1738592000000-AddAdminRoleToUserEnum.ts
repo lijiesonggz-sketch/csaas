@@ -12,9 +12,19 @@ export class AddAdminRoleToUserEnum1738592000000 implements MigrationInterface {
   name = 'AddAdminRoleToUserEnum1738592000000'
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Add 'admin' to the enum type
     await queryRunner.query(`
-      ALTER TYPE users_role_enum ADD VALUE IF NOT EXISTS 'admin'
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM pg_type t
+          JOIN pg_namespace n ON n.oid = t.typnamespace
+          WHERE t.typname = 'users_role_enum'
+            AND n.nspname = 'public'
+        ) THEN
+          ALTER TYPE users_role_enum ADD VALUE IF NOT EXISTS 'admin';
+        END IF;
+      END $$;
     `)
   }
 
