@@ -1,78 +1,85 @@
-import { MigrationInterface, QueryRunner, Table, TableColumn, TableForeignKey, TableIndex } from 'typeorm'
+import { MigrationInterface, QueryRunner, Table, TableColumn } from 'typeorm'
 
-/**
- * Migration: Add Client Management Fields
- *
- * Adds fields to Organization for Story 6-2 (Consulting Company Bulk Client Management)
- * and creates ClientGroup and ClientGroupMembership tables.
- *
- * @story 6-2
- */
 export class AddClientManagementFields1738590000000 implements MigrationInterface {
   name = 'AddClientManagementFields1738590000000'
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Add new columns to organizations table
-    await queryRunner.addColumn(
-      'organizations',
-      new TableColumn({
-        name: 'contact_person',
-        type: 'varchar',
-        length: '255',
-        isNullable: true,
-      }),
-    )
+    const organizationsExists = await queryRunner.hasTable('organizations')
+    const tenantsExists = await queryRunner.hasTable('tenants')
 
-    await queryRunner.addColumn(
-      'organizations',
-      new TableColumn({
-        name: 'contact_email',
-        type: 'varchar',
-        length: '255',
-        isNullable: true,
-      }),
-    )
+    if (organizationsExists) {
+      if (!(await queryRunner.hasColumn('organizations', 'contact_person'))) {
+        await queryRunner.addColumn(
+          'organizations',
+          new TableColumn({
+            name: 'contact_person',
+            type: 'varchar',
+            length: '255',
+            isNullable: true,
+          }),
+        )
+      }
 
-    await queryRunner.addColumn(
-      'organizations',
-      new TableColumn({
-        name: 'industry_type',
-        type: 'varchar',
-        length: '50',
-        isNullable: true,
-      }),
-    )
+      if (!(await queryRunner.hasColumn('organizations', 'contact_email'))) {
+        await queryRunner.addColumn(
+          'organizations',
+          new TableColumn({
+            name: 'contact_email',
+            type: 'varchar',
+            length: '255',
+            isNullable: true,
+          }),
+        )
+      }
 
-    await queryRunner.addColumn(
-      'organizations',
-      new TableColumn({
-        name: 'scale',
-        type: 'varchar',
-        length: '50',
-        isNullable: true,
-      }),
-    )
+      if (!(await queryRunner.hasColumn('organizations', 'industry_type'))) {
+        await queryRunner.addColumn(
+          'organizations',
+          new TableColumn({
+            name: 'industry_type',
+            type: 'varchar',
+            length: '50',
+            isNullable: true,
+          }),
+        )
+      }
 
-    await queryRunner.addColumn(
-      'organizations',
-      new TableColumn({
-        name: 'status',
-        type: 'varchar',
-        length: '50',
-        default: "'trial'",
-      }),
-    )
+      if (!(await queryRunner.hasColumn('organizations', 'scale'))) {
+        await queryRunner.addColumn(
+          'organizations',
+          new TableColumn({
+            name: 'scale',
+            type: 'varchar',
+            length: '50',
+            isNullable: true,
+          }),
+        )
+      }
 
-    await queryRunner.addColumn(
-      'organizations',
-      new TableColumn({
-        name: 'activated_at',
-        type: 'timestamp',
-        isNullable: true,
-      }),
-    )
+      if (!(await queryRunner.hasColumn('organizations', 'status'))) {
+        await queryRunner.addColumn(
+          'organizations',
+          new TableColumn({
+            name: 'status',
+            type: 'varchar',
+            length: '50',
+            default: "'trial'",
+          }),
+        )
+      }
 
-    // Create client_groups table
+      if (!(await queryRunner.hasColumn('organizations', 'activated_at'))) {
+        await queryRunner.addColumn(
+          'organizations',
+          new TableColumn({
+            name: 'activated_at',
+            type: 'timestamp',
+            isNullable: true,
+          }),
+        )
+      }
+    }
+
     await queryRunner.createTable(
       new Table({
         name: 'client_groups',
@@ -111,16 +118,20 @@ export class AddClientManagementFields1738590000000 implements MigrationInterfac
             default: 'CURRENT_TIMESTAMP',
           },
         ],
-        foreignKeys: [
-          {
-            columnNames: ['tenant_id'],
-            referencedTableName: 'tenants',
-            referencedColumnNames: ['id'],
-            onDelete: 'CASCADE',
-          },
-        ],
+        foreignKeys: tenantsExists
+          ? [
+              {
+                name: 'FK_client_groups_tenant',
+                columnNames: ['tenant_id'],
+                referencedTableName: 'tenants',
+                referencedColumnNames: ['id'],
+                onDelete: 'CASCADE',
+              },
+            ]
+          : [],
         indices: [
           {
+            name: 'IDX_client_groups_tenant_id',
             columnNames: ['tenant_id'],
           },
         ],
@@ -128,7 +139,6 @@ export class AddClientManagementFields1738590000000 implements MigrationInterfac
       true,
     )
 
-    // Create client_group_memberships table
     await queryRunner.createTable(
       new Table({
         name: 'client_group_memberships',
@@ -156,28 +166,43 @@ export class AddClientManagementFields1738590000000 implements MigrationInterfac
             default: 'CURRENT_TIMESTAMP',
           },
         ],
-        foreignKeys: [
-          {
-            columnNames: ['group_id'],
-            referencedTableName: 'client_groups',
-            referencedColumnNames: ['id'],
-            onDelete: 'CASCADE',
-          },
-          {
-            columnNames: ['organization_id'],
-            referencedTableName: 'organizations',
-            referencedColumnNames: ['id'],
-            onDelete: 'CASCADE',
-          },
-        ],
+        foreignKeys: organizationsExists
+          ? [
+              {
+                name: 'FK_client_group_memberships_group',
+                columnNames: ['group_id'],
+                referencedTableName: 'client_groups',
+                referencedColumnNames: ['id'],
+                onDelete: 'CASCADE',
+              },
+              {
+                name: 'FK_client_group_memberships_organization',
+                columnNames: ['organization_id'],
+                referencedTableName: 'organizations',
+                referencedColumnNames: ['id'],
+                onDelete: 'CASCADE',
+              },
+            ]
+          : [
+              {
+                name: 'FK_client_group_memberships_group',
+                columnNames: ['group_id'],
+                referencedTableName: 'client_groups',
+                referencedColumnNames: ['id'],
+                onDelete: 'CASCADE',
+              },
+            ],
         indices: [
           {
+            name: 'IDX_memberships_group',
             columnNames: ['group_id'],
           },
           {
+            name: 'IDX_memberships_organization',
             columnNames: ['organization_id'],
           },
           {
+            name: 'UQ_memberships_group_org',
             columnNames: ['group_id', 'organization_id'],
             isUnique: true,
           },
@@ -188,18 +213,33 @@ export class AddClientManagementFields1738590000000 implements MigrationInterfac
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Drop client_group_memberships table
-    await queryRunner.dropTable('client_group_memberships', true, true, true)
+    if (await queryRunner.hasTable('client_group_memberships')) {
+      await queryRunner.dropTable('client_group_memberships', true, true, true)
+    }
 
-    // Drop client_groups table
-    await queryRunner.dropTable('client_groups', true, true, true)
+    if (await queryRunner.hasTable('client_groups')) {
+      await queryRunner.dropTable('client_groups', true, true, true)
+    }
 
-    // Remove columns from organizations table
-    await queryRunner.dropColumn('organizations', 'contact_person')
-    await queryRunner.dropColumn('organizations', 'contact_email')
-    await queryRunner.dropColumn('organizations', 'industry_type')
-    await queryRunner.dropColumn('organizations', 'scale')
-    await queryRunner.dropColumn('organizations', 'status')
-    await queryRunner.dropColumn('organizations', 'activated_at')
+    if (await queryRunner.hasTable('organizations')) {
+      if (await queryRunner.hasColumn('organizations', 'contact_person')) {
+        await queryRunner.dropColumn('organizations', 'contact_person')
+      }
+      if (await queryRunner.hasColumn('organizations', 'contact_email')) {
+        await queryRunner.dropColumn('organizations', 'contact_email')
+      }
+      if (await queryRunner.hasColumn('organizations', 'industry_type')) {
+        await queryRunner.dropColumn('organizations', 'industry_type')
+      }
+      if (await queryRunner.hasColumn('organizations', 'scale')) {
+        await queryRunner.dropColumn('organizations', 'scale')
+      }
+      if (await queryRunner.hasColumn('organizations', 'status')) {
+        await queryRunner.dropColumn('organizations', 'status')
+      }
+      if (await queryRunner.hasColumn('organizations', 'activated_at')) {
+        await queryRunner.dropColumn('organizations', 'activated_at')
+      }
+    }
   }
 }
