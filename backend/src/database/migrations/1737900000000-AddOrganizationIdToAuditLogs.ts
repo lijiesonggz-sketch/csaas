@@ -1,48 +1,46 @@
-import { MigrationInterface, QueryRunner, TableColumn, TableForeignKey } from 'typeorm'
+import { MigrationInterface, QueryRunner } from 'typeorm'
 
 export class AddOrganizationIdToAuditLogs1737900000000 implements MigrationInterface {
   name = 'AddOrganizationIdToAuditLogs1737900000000'
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Check if column already exists
-    const table = await queryRunner.getTable('audit_logs')
-    const hasColumn = table?.columns.find((col) => col.name === 'organization_id')
+    await queryRunner.query(`
+      ALTER TABLE "audit_logs"
+      ADD COLUMN IF NOT EXISTS "organization_id" uuid;
+    `)
 
-    if (!hasColumn) {
-      // Add organization_id column
-      await queryRunner.addColumn(
-        'audit_logs',
-        new TableColumn({
-          name: 'organization_id',
-          type: 'uuid',
-          isNullable: true,
-        }),
-      )
-
-      // Add foreign key constraint
-      await queryRunner.createForeignKey(
-        'audit_logs',
-        new TableForeignKey({
-          name: 'FK_audit_logs_organization',
-          columnNames: ['organization_id'],
-          referencedColumnNames: ['id'],
-          referencedTableName: 'organizations',
-          onDelete: 'SET NULL',
-        }),
-      )
-    }
+    await queryRunner.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.tables
+          WHERE table_schema = 'public'
+            AND table_name = 'organizations'
+        ) AND NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'FK_audit_logs_organization'
+        ) THEN
+          ALTER TABLE "audit_logs"
+          ADD CONSTRAINT "FK_audit_logs_organization"
+          FOREIGN KEY ("organization_id")
+          REFERENCES "organizations"("id")
+          ON DELETE SET NULL;
+        END IF;
+      END $$;
+    `)
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Drop foreign key
-    const table = await queryRunner.getTable('audit_logs')
-    const foreignKey = table?.foreignKeys.find((fk) => fk.name === 'FK_audit_logs_organization')
+    await queryRunner.query(`
+      ALTER TABLE "audit_logs"
+      DROP CONSTRAINT IF EXISTS "FK_audit_logs_organization";
+    `)
 
-    if (foreignKey) {
-      await queryRunner.dropForeignKey('audit_logs', foreignKey)
-    }
-
-    // Drop column
-    await queryRunner.dropColumn('audit_logs', 'organization_id')
+    await queryRunner.query(`
+      ALTER TABLE "audit_logs"
+      DROP COLUMN IF EXISTS "organization_id";
+    `)
   }
 }
