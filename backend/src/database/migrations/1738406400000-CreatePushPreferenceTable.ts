@@ -10,6 +10,8 @@ export class CreatePushPreferenceTable1738406400000 implements MigrationInterfac
   name = 'CreatePushPreferenceTable1738406400000'
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    const organizationsExists = await queryRunner.hasTable('organizations')
+
     await queryRunner.createTable(
       new Table({
         name: 'push_preferences',
@@ -71,15 +73,17 @@ export class CreatePushPreferenceTable1738406400000 implements MigrationInterfac
             isUnique: true,
           },
         ],
-        foreignKeys: [
-          {
-            name: 'FK_PUSH_PREFERENCE_ORGANIZATION',
-            columnNames: ['organization_id'],
-            referencedTableName: 'organizations',
-            referencedColumnNames: ['id'],
-            onDelete: 'CASCADE',
-          },
-        ],
+        foreignKeys: organizationsExists
+          ? [
+              {
+                name: 'FK_PUSH_PREFERENCE_ORGANIZATION',
+                columnNames: ['organization_id'],
+                referencedTableName: 'organizations',
+                referencedColumnNames: ['id'],
+                onDelete: 'CASCADE',
+              },
+            ]
+          : [],
       }),
       true,
     )
