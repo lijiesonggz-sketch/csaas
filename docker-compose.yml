@@ -75,6 +75,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      HOSTNAME: 0.0.0.0
     env_file:
       - ./frontend/.env.production
     ports:
