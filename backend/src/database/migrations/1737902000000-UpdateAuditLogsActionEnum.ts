@@ -4,12 +4,22 @@ export class UpdateAuditLogsActionEnum1737902000000 implements MigrationInterfac
   name = 'UpdateAuditLogsActionEnum1737902000000'
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Add new enum values to audit_logs_action_enum
     await queryRunner.query(`
-      ALTER TYPE "audit_logs_action_enum" ADD VALUE IF NOT EXISTS 'ACCESS_PROJECT';
-      ALTER TYPE "audit_logs_action_enum" ADD VALUE IF NOT EXISTS 'RERUN_TASK';
-      ALTER TYPE "audit_logs_action_enum" ADD VALUE IF NOT EXISTS 'VIEW_VERSION';
-      ALTER TYPE "audit_logs_action_enum" ADD VALUE IF NOT EXISTS 'ACCESS_DENIED';
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM pg_type t
+          JOIN pg_namespace n ON n.oid = t.typnamespace
+          WHERE t.typname = 'audit_logs_action_enum'
+            AND n.nspname = 'public'
+        ) THEN
+          ALTER TYPE "audit_logs_action_enum" ADD VALUE IF NOT EXISTS 'ACCESS_PROJECT';
+          ALTER TYPE "audit_logs_action_enum" ADD VALUE IF NOT EXISTS 'RERUN_TASK';
+          ALTER TYPE "audit_logs_action_enum" ADD VALUE IF NOT EXISTS 'VIEW_VERSION';
+          ALTER TYPE "audit_logs_action_enum" ADD VALUE IF NOT EXISTS 'ACCESS_DENIED';
+        END IF;
+      END $$;
     `)
   }
 
