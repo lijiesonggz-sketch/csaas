@@ -22,7 +22,10 @@ export const authOptions: NextAuthOptions = {
 
         try {
           // Call backend API to verify credentials
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+          const apiUrl =
+            process.env.INTERNAL_API_URL ||
+            process.env.NEXT_PUBLIC_API_URL ||
+            'http://localhost:3000'
           console.log('[NextAuth] Calling backend API:', apiUrl)
 
           const res = await fetch(`${apiUrl}/auth/login`, {

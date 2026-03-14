@@ -71,10 +71,14 @@ check_container_health csaas-postgres || overall_ok=1
 check_container_health csaas-redis || overall_ok=1
 check_container_health csaas-backend || overall_ok=1
 check_container_health csaas-frontend || overall_ok=1
+check_container_health csaas-nginx || overall_ok=1
 
 echo "[4/4] http checks"
+check_http gateway "http://127.0.0.1/nginx-health" || overall_ok=1
 check_http backend "http://127.0.0.1:3000/health" || overall_ok=1
 check_http frontend "http://127.0.0.1:3001/api/health" || overall_ok=1
+check_http public-backend "http://127.0.0.1/health" || overall_ok=1
+check_http public-frontend "http://127.0.0.1/api/health" || overall_ok=1
 
 if [[ "$overall_ok" -ne 0 ]]; then
   echo "One or more checks failed." >&2

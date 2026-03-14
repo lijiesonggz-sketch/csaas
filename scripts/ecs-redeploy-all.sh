@@ -4,7 +4,7 @@ set -euo pipefail
 
 PROJECT_DIR="${1:-/opt/csaas}"
 BRANCH="${2:-main}"
-WAIT_TIMEOUT_SECONDS="${WAIT_TIMEOUT_SECONDS:-120}"
+WAIT_TIMEOUT_SECONDS="${WAIT_TIMEOUT_SECONDS:-180}"
 
 if [[ ! -d "$PROJECT_DIR" ]]; then
   echo "Project directory does not exist: $PROJECT_DIR" >&2
@@ -27,7 +27,6 @@ fi
 
 wait_for_health() {
   local service_name="$1"
-  local step_label="$2"
   local container_id
   container_id="$(sudo "${DC_CMD[@]}" ps -q "$service_name")"
 
@@ -44,7 +43,7 @@ wait_for_health() {
     return 0
   fi
 
-  echo "[$step_label] waiting for $service_name healthcheck (timeout: ${WAIT_TIMEOUT_SECONDS}s)"
+  echo "Waiting for $service_name healthcheck (timeout: ${WAIT_TIMEOUT_SECONDS}s)"
 
   local start_ts now status
   start_ts="$(date +%s)"
@@ -72,26 +71,36 @@ wait_for_health() {
   done
 }
 
-echo "[1/8] cd $PROJECT_DIR"
+echo "[1/10] cd $PROJECT_DIR"
 cd "$PROJECT_DIR"
 
-echo "[2/8] git pull --ff-only origin $BRANCH"
+echo "[2/10] git pull --ff-only origin $BRANCH"
 git pull --ff-only origin "$BRANCH"
 
-echo "[3/8] build frontend image"
-sudo "${DC_CMD[@]}" build frontend
+echo "[3/10] build backend and frontend images"
+sudo "${DC_CMD[@]}" build backend frontend
 
-echo "[4/8] recreate frontend container"
+echo "[4/10] recreate backend container"
+sudo "${DC_CMD[@]}" up -d --no-deps --force-recreate backend
+
+echo "[5/10] wait for backend health"
+wait_for_health backend
+
+echo "[6/10] run backend migrations"
+sudo "${DC_CMD[@]}" exec -T backend npm run typeorm -- migration:run -d dist/src/config/typeorm.config.js
+
+echo "[7/10] recreate frontend container"
 sudo "${DC_CMD[@]}" up -d --no-deps --force-recreate frontend
 
-wait_for_health frontend 5/8
+echo "[8/10] wait for frontend health"
+wait_for_health frontend
 
-echo "[6/8] recreate nginx container"
+echo "[9/10] recreate nginx container and wait for health"
 sudo "${DC_CMD[@]}" up -d --no-deps --force-recreate nginx
+wait_for_health nginx
 
-wait_for_health nginx 7/8
+echo "[10/10] show service status"
+sudo "${DC_CMD[@]}" ps
 
-echo "[8/8] tail frontend and nginx logs"
-sudo "${DC_CMD[@]}" logs --tail=100 frontend nginx
-
-echo "Done."
+echo
+echo "Run ./scripts/ecs-check-services.sh $PROJECT_DIR for end-to-end checks."

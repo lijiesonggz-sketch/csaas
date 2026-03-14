@@ -1,13 +1,9 @@
-/**
- * WebSocket任务进度Hook
- */
-
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 
 export interface TaskProgressEvent {
   taskId: string
-  progress: number // 0-100
+  progress: number
   message: string
   currentStep?: string
   estimatedTimeMs?: number
@@ -20,7 +16,10 @@ export interface TaskCompletedEvent {
   result?: any
 }
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+const SOCKET_BASE_URL =
+  process.env.NEXT_PUBLIC_WS_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:3000'
 
 export function useTaskProgress(taskId: string | null) {
   const [socket, setSocket] = useState<Socket | null>(null)
@@ -34,14 +33,15 @@ export function useTaskProgress(taskId: string | null) {
   useEffect(() => {
     if (!taskId) return
 
-    // 创建Socket连接（连接到 /tasks namespace）
-    const newSocket = io(SOCKET_URL + '/tasks', {
+    const socketUrl = SOCKET_BASE_URL.endsWith('/tasks')
+      ? SOCKET_BASE_URL
+      : `${SOCKET_BASE_URL.replace(/\/$/, '')}/tasks`
+    const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
     })
 
     newSocket.on('connect', () => {
       console.log('WebSocket connected to /tasks namespace')
-      // 订阅任务进度
       newSocket.emit('subscribe:task', { taskId })
     })
 
@@ -49,7 +49,6 @@ export function useTaskProgress(taskId: string | null) {
       console.log('WebSocket disconnected')
     })
 
-    // 监听进度更新
     newSocket.on('task:progress', (data: TaskProgressEvent) => {
       if (data.taskId === taskId) {
         setProgress(data.progress)
@@ -58,7 +57,6 @@ export function useTaskProgress(taskId: string | null) {
       }
     })
 
-    // 监听任务完成
     newSocket.on('task:completed', (data: TaskCompletedEvent) => {
       if (data.taskId === taskId) {
         setProgress(100)
@@ -67,23 +65,20 @@ export function useTaskProgress(taskId: string | null) {
       }
     })
 
-    // 监听任务失败
     newSocket.on('task:failed', (data: TaskCompletedEvent) => {
       if (data.taskId === taskId) {
-        console.error('❌ Task failed:', data)
+        console.error('Task failed:', data)
         setMessage(data.message)
         setIsFailed(true)
-        setError(data.message || '未知错误')
+        setError(data.message || 'Task failed')
       }
     })
 
     setSocket(newSocket)
 
     return () => {
-      if (newSocket) {
-        newSocket.emit('unsubscribe:task', { taskId })
-        newSocket.disconnect()
-      }
+      newSocket.emit('unsubscribe:task', { taskId })
+      newSocket.disconnect()
     }
   }, [taskId])
 

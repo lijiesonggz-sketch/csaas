@@ -9,7 +9,10 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(request: NextRequest) {
   try {
     // 获取后端URL
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+    const backendUrl =
+      process.env.INTERNAL_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      'http://localhost:3000'
 
     // 获取session以获取token
     const sessionResponse = await fetch(new URL('/api/auth/session', request.url), {

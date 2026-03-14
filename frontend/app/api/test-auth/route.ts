@@ -3,7 +3,10 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'NOT_SET'
+  const apiUrl =
+    process.env.INTERNAL_API_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    'NOT_SET'
   const testResponse = await fetch(`${apiUrl}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -18,6 +21,7 @@ export async function GET() {
   return NextResponse.json({
     env: {
       NEXT_PUBLIC_API_URL: apiUrl,
+      INTERNAL_API_URL: process.env.INTERNAL_API_URL || 'NOT_SET',
       NODE_ENV: process.env.NODE_ENV,
     },
     backendResponse: {

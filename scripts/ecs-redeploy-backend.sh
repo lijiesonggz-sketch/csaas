@@ -19,6 +19,11 @@ else
   exit 1
 fi
 
+if [[ ! -f "$PROJECT_DIR/.env" ]]; then
+  echo "Missing $PROJECT_DIR/.env. Copy .env.example to .env before deploying." >&2
+  exit 1
+fi
+
 echo "[1/6] cd $PROJECT_DIR"
 cd "$PROJECT_DIR"
 
