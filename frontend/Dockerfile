@@ -1,4 +1,4 @@
-# 依赖安装阶段
+# Frontend dependencies
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
@@ -6,18 +6,21 @@ RUN npm config set registry https://registry.npmmirror.com && \
     npm config set fetch-timeout 600000
 RUN npm install --legacy-peer-deps
 
-# 构建阶段
+# Frontend build
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 设置环境变量（构建时）
+ARG NEXT_PUBLIC_API_URL=http://localhost:3000
+ARG NEXTAUTH_URL=http://localhost:3001
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXTAUTH_URL=$NEXTAUTH_URL
 ENV NEXT_TELEMETRY_DISABLED 1
 
 RUN npm run build
 
-# 生产运行阶段
+# Frontend runtime
 FROM node:20-alpine AS runner
 WORKDIR /app
 
@@ -27,7 +30,6 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# 复制必要文件
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
