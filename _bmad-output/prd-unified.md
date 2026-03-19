@@ -4,7 +4,7 @@ classification:
   projectType: saas_b2b
   complexity: high
   industry: it_consulting
-version: v2.3
+version: v2.4
 status: completed
 date: 2026-03-19 → 2026-03-19（v2.3 变更：补充 P0 FR 验收标准，YAML Frontmatter，实现泄漏清理，RBAC/订阅层级补全）
 inputDocuments:
@@ -96,7 +96,7 @@ validationReport: _bmad-output/prd-unified-validation-report.md
 | 免费大模型 | 免费、信息丰富 | 无个性化决策支持 | 基于评估数据的精准ROI分析 |
 | 传统年度顾问 | 人工服务 | 30-50万/年 | 10-15万/年持续监控+决策支持 |
 
-**Csaas填补的市场空白：** 为中小型IT咨询公司提供智能化的评估工具，同时为金融机构提供"在有限预算下，应该优先做什么"的持续决策支持。
+**Csaas填补的市场空白：** 为中小型IT咨询公司提供评估工具，同时为金融机构提供"在有限预算下，应该优先做什么"的持续决策支持。
 
 ---
 
