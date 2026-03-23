@@ -15,7 +15,7 @@ const TOKEN_CACHE_DURATION = 5 * 60 * 1000 // 5分钟缓存
  * Get authentication token from NextAuth session
  * This works both on client and server side
  */
-async function getAuthToken(forceRefresh = false): Promise<string | null> {
+export async function getAuthToken(forceRefresh = false): Promise<string | null> {
   // Client-side: get from NextAuth cookie
   if (typeof window !== 'undefined') {
     // 检查缓存

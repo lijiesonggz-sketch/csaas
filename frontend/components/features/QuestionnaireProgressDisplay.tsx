@@ -132,14 +132,14 @@ export function QuestionnaireProgressDisplay({
   const getClusterStatusBadgeColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+        return 'bg-green-100 text-green-800 bg-green-900 text-green-200'
       case 'failed':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+        return 'bg-red-100 text-red-800 bg-red-900 text-red-200'
       case 'generating':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+        return 'bg-blue-100 text-blue-800 bg-blue-900 text-blue-200'
       case 'pending':
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+        return 'bg-gray-100 text-gray-800 bg-gray-800 text-gray-200'
     }
   }
 
@@ -160,22 +160,22 @@ export function QuestionnaireProgressDisplay({
   return (
     <div className="space-y-6">
       {/* 总进度概览 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <div className="bg-white bg-gray-800 rounded-lg border border-gray-200 border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 text-white mb-4">
           生成进度
         </h3>
 
         {/* 进度条 */}
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-600 dark:text-gray-400">
+            <span className="text-sm text-gray-600 text-gray-400">
               总进度
             </span>
-            <span className="text-sm font-medium text-gray-900 dark:text-white">
+            <span className="text-sm font-medium text-gray-900 text-white">
               {progressPercentage}%
             </span>
           </div>
-          <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div className="w-full h-3 bg-gray-200 bg-gray-700 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500"
               style={{ width: `${progressPercentage}%` }}
@@ -191,29 +191,29 @@ export function QuestionnaireProgressDisplay({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div className="flex items-center gap-2">
             <CheckCircleIcon sx={{ fontSize: 16 }} className="text-green-500" />
-            <span className="text-gray-600 dark:text-gray-400">已完成</span>
-            <span className="font-medium text-gray-900 dark:text-white">
+            <span className="text-gray-600 text-gray-400">已完成</span>
+            <span className="font-medium text-gray-900 text-white">
               {clusterStatus.completedClusters.length}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <ScheduleIcon sx={{ fontSize: 16 }} className="text-gray-400" />
-            <span className="text-gray-600 dark:text-gray-400">待生成</span>
-            <span className="font-medium text-gray-900 dark:text-white">
+            <span className="text-gray-600 text-gray-400">待生成</span>
+            <span className="font-medium text-gray-900 text-white">
               {clusterStatus.pendingClusters.length}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <CancelIcon sx={{ fontSize: 16 }} className="text-red-500" />
-            <span className="text-gray-600 dark:text-gray-400">失败</span>
-            <span className="font-medium text-gray-900 dark:text-white">
+            <span className="text-gray-600 text-gray-400">失败</span>
+            <span className="font-medium text-gray-900 text-white">
               {clusterStatus.failedClusters.length}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <ErrorOutlineIcon sx={{ fontSize: 16 }} className="text-blue-500" />
-            <span className="text-gray-600 dark:text-gray-400">总计</span>
-            <span className="font-medium text-gray-900 dark:text-white">
+            <span className="text-gray-600 text-gray-400">总计</span>
+            <span className="font-medium text-gray-900 text-white">
               {clusterStatus.totalClusters}
             </span>
           </div>
@@ -221,12 +221,12 @@ export function QuestionnaireProgressDisplay({
 
         {/* 继续生成按钮 */}
         {remainingClusters > 0 && (
-          <div className="mt-6 flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+          <div className="mt-6 flex items-center justify-between p-4 bg-blue-50 bg-blue-900/20 rounded-lg border border-blue-200 border-blue-800">
             <div>
-              <p className="font-medium text-blue-900 dark:text-blue-100">
+              <p className="font-medium text-blue-900 text-blue-100">
                 还有 {remainingClusters} 个聚类未完成
               </p>
-              <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+              <p className="text-sm text-blue-700 text-blue-300 mt-1">
                 预计需要 {estimatedTime} 分钟
               </p>
             </div>
@@ -252,8 +252,8 @@ export function QuestionnaireProgressDisplay({
       </div>
 
       {/* 聚类详情列表 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <div className="bg-white bg-gray-800 rounded-lg border border-gray-200 border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 text-white mb-4">
           聚类详情
         </h3>
 
@@ -265,12 +265,12 @@ export function QuestionnaireProgressDisplay({
             <div
               key={cluster.clusterId}
               data-status={cluster.status}
-              className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
+              className="border border-gray-200 border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
             >
               {/* 聚类标题和状态 */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-1">
+                  <h4 className="font-medium text-gray-900 text-white mb-1">
                     {cluster.clusterName}
                   </h4>
                   <span
@@ -285,21 +285,21 @@ export function QuestionnaireProgressDisplay({
               </div>
 
               {/* 题目进度 */}
-              <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+              <div className="text-sm text-gray-600 text-gray-400 mb-3">
                 {cluster.status === 'completed' ? (
-                  <span className="text-green-600 dark:text-green-400">
+                  <span className="text-green-600 text-green-400">
                     ✓ {cluster.questionsGenerated}/{cluster.questionsExpected} 题
                   </span>
                 ) : cluster.status === 'failed' ? (
-                  <span className="text-red-600 dark:text-red-400">
+                  <span className="text-red-600 text-red-400">
                     ✗ 失败: {cluster.error || '未知错误'}
                   </span>
                 ) : cluster.status === 'generating' ? (
-                  <span className="text-blue-600 dark:text-blue-400">
+                  <span className="text-blue-600 text-blue-400">
                     ⏳ 生成中...
                   </span>
                 ) : (
-                  <span className="text-gray-500 dark:text-gray-500">
+                  <span className="text-gray-500 text-gray-500">
                     ⏸️ 等待生成 (0/{cluster.questionsExpected} 题)
                   </span>
                 )}
@@ -312,7 +312,7 @@ export function QuestionnaireProgressDisplay({
                   regeneratingCluster === cluster.clusterId || cluster.status === 'generating'
                 }
                 aria-label={`重新生成聚类: ${cluster.clusterName}`}
-                className="w-full px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                className="w-full px-3 py-2 text-sm font-medium text-gray-700 text-gray-300 bg-white bg-gray-700 border border-gray-300 border-gray-600 rounded-lg hover:bg-gray-50 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
                 {regeneratingCluster === cluster.clusterId ? (
                   <>

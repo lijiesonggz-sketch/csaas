@@ -12,7 +12,7 @@ import { apiFetch } from '../utils/api'
  * 品牌配置数据结构
  */
 export interface BrandingConfig {
-  brandLogoUrl?: string
+  logoUrl?: string
   brandPrimaryColor: string
   brandSecondaryColor?: string
   companyName?: string
@@ -59,7 +59,7 @@ export interface LogoUploadResponse {
  * @returns 品牌配置数据
  */
 export async function getAdminBranding(): Promise<BrandingConfig> {
-  return apiFetch<BrandingConfig>('/api/v1/admin/branding', {
+  return apiFetch('/api/v1/admin/branding', {
     method: 'GET',
   })
 }
@@ -73,7 +73,7 @@ export async function getAdminBranding(): Promise<BrandingConfig> {
 export async function updateBranding(
   data: UpdateBrandingData,
 ): Promise<BrandingConfig> {
-  return apiFetch<BrandingConfig>('/api/v1/admin/branding', {
+  return apiFetch('/api/v1/admin/branding', {
     method: 'PUT',
     body: JSON.stringify(data),
   })
@@ -139,7 +139,7 @@ export async function getTenantBranding(tenantId?: string): Promise<BrandingConf
     }
   }
 
-  return apiFetch<BrandingConfig>('/api/v1/tenant/branding', {
+  return apiFetch('/api/v1/tenant/branding', {
     method: 'GET',
     headers,
   })

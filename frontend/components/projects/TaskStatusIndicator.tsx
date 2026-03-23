@@ -1,8 +1,8 @@
 'use client'
 
 import React from 'react'
-import { Box, Chip, Typography, Tooltip } from '@mui/material'
-import { CheckCircle, Error, Schedule, Autorenew } from '@mui/icons-material'
+import { StatusChip } from '@/components/ui/mui'
+import type { StatusType } from '@/components/ui/mui/StatusChip'
 
 export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
@@ -10,60 +10,51 @@ interface TaskStatusIndicatorProps {
   status: TaskStatus
   label?: string
   showIcon?: boolean
-  size?: 'small' | 'medium'
+  size?: 'sm' | 'md'
 }
 
+/**
+ * TaskStatusIndicator Component
+ *
+ * Displays task status using the unified StatusChip component.
+ * Maps task status to status badge types.
+ */
 export default function TaskStatusIndicator({
   status,
   label,
   showIcon = true,
-  size = 'small',
+  size = 'sm',
 }: TaskStatusIndicatorProps) {
-  const getStatusConfig = () => {
+  const getStatusConfig = (): { status: StatusType; defaultLabel: string } => {
     switch (status) {
       case 'completed':
-        return {
-          color: 'success' as const,
-          icon: <CheckCircle fontSize={size} />,
-          defaultLabel: '已完成',
-        }
+        return { status: 'success', defaultLabel: '已完成' }
       case 'processing':
-        return {
-          color: 'primary' as const,
-          icon: <Autorenew fontSize={size} sx={{ animation: 'spin 1s linear infinite' }} />,
-          defaultLabel: '处理中',
-        }
+        return { status: 'info', defaultLabel: '处理中' }
       case 'failed':
-        return {
-          color: 'error' as const,
-          icon: <Error fontSize={size} />,
-          defaultLabel: '失败',
-        }
+        return { status: 'error', defaultLabel: '失败' }
       case 'pending':
       default:
-        return {
-          color: 'default' as const,
-          icon: <Schedule fontSize={size} />,
-          defaultLabel: '待处理',
-        }
+        return { status: 'pending', defaultLabel: '待处理' }
     }
   }
 
   const config = getStatusConfig()
   const displayLabel = label || config.defaultLabel
 
-  if (showIcon) {
+  if (!showIcon) {
     return (
-      <Tooltip title={displayLabel}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: `${config.color}.main` }}>
-          {config.icon}
-          <Typography variant="body2" color="text.secondary">
-            {displayLabel}
-          </Typography>
-        </Box>
-      </Tooltip>
+      <span sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+        {displayLabel}
+      </span>
     )
   }
 
-  return <Chip label={displayLabel} color={config.color} size={size} icon={config.icon} />
+  return (
+    <StatusChip
+      status={config.status}
+      text={displayLabel}
+      size={size}
+    />
+  )
 }

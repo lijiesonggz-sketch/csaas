@@ -1,0 +1,266 @@
+[
+  {
+    "ruleCode": "RULE-PACK-BASE-GOVERNANCE-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-BASE-GOVERNANCE",
+    "ruleType": "include",
+    "priority": 10,
+    "predicate": { "all": [{ "field": "industry", "op": "exists" }] },
+    "result": { "reasonTemplate": "所有金融机构均应满足科技治理与风险管理基础控制要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-BASE-CYBER-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-BASE-CYBER",
+    "ruleType": "include",
+    "priority": 10,
+    "predicate": { "all": [{ "field": "industry", "op": "exists" }] },
+    "result": { "reasonTemplate": "所有金融机构均应满足网络与信息安全基础控制要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-BASE-DATA-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-BASE-DATA",
+    "ruleType": "include",
+    "priority": 10,
+    "predicate": { "all": [{ "field": "industry", "op": "exists" }] },
+    "result": { "reasonTemplate": "所有金融机构均应满足数据安全基础控制要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-BASE-PIPL-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-BASE-PIPL",
+    "ruleType": "include",
+    "priority": 10,
+    "predicate": { "all": [{ "field": "hasPersonalInfo", "op": "is_true" }] },
+    "result": { "reasonTemplate": "机构处理个人信息，需满足个人信息保护基础控制要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-BASE-CHANGE-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-BASE-CHANGE",
+    "ruleType": "include",
+    "priority": 10,
+    "predicate": { "all": [{ "field": "industry", "op": "exists" }] },
+    "result": { "reasonTemplate": "所有金融机构均应建立开发测试与变更管理基础能力" }
+  },
+  {
+    "ruleCode": "RULE-PACK-BASE-OPS-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-BASE-OPS",
+    "ruleType": "include",
+    "priority": 10,
+    "predicate": { "all": [{ "field": "industry", "op": "exists" }] },
+    "result": { "reasonTemplate": "所有金融机构均应建立生产运维与监控基础能力" }
+  },
+  {
+    "ruleCode": "RULE-PACK-BASE-BCP-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-BASE-BCP",
+    "ruleType": "include",
+    "priority": 10,
+    "predicate": { "all": [{ "field": "industry", "op": "exists" }] },
+    "result": { "reasonTemplate": "所有金融机构均应具备业务连续性与灾备基础能力" }
+  },
+  {
+    "ruleCode": "RULE-PACK-BASE-OUTSOURCING-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-BASE-OUTSOURCING",
+    "ruleType": "include",
+    "priority": 10,
+    "predicate": { "all": [{ "field": "industry", "op": "exists" }] },
+    "result": { "reasonTemplate": "所有金融机构均应具备供应商与外包管理基础能力" }
+  },
+  {
+    "ruleCode": "RULE-PACK-SECTOR-BANK-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SECTOR-BANK",
+    "ruleType": "include",
+    "priority": 20,
+    "predicate": { "all": [{ "field": "industry", "op": "eq", "value": "bank" }] },
+    "result": { "reasonTemplate": "银行机构需满足银行业专属控制要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-SECTOR-SECURITIES-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SECTOR-SECURITIES",
+    "ruleType": "include",
+    "priority": 20,
+    "predicate": { "all": [{ "field": "industry", "op": "eq", "value": "securities" }] },
+    "result": { "reasonTemplate": "证券机构需满足证券业专属控制要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-SECTOR-FUND-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SECTOR-FUND",
+    "ruleType": "include",
+    "priority": 20,
+    "predicate": { "all": [{ "field": "industry", "op": "eq", "value": "fund" }] },
+    "result": { "reasonTemplate": "基金机构需满足基金业专属控制要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-SECTOR-FUTURES-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SECTOR-FUTURES",
+    "ruleType": "include",
+    "priority": 20,
+    "predicate": { "all": [{ "field": "industry", "op": "eq", "value": "futures" }] },
+    "result": { "reasonTemplate": "期货机构需满足期货业专属控制要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-SECTOR-INSURANCE-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SECTOR-INSURANCE",
+    "ruleType": "include",
+    "priority": 20,
+    "predicate": { "all": [{ "field": "industry", "op": "eq", "value": "insurance" }] },
+    "result": { "reasonTemplate": "保险机构需满足保险业专属控制要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-SCENE-CROSS-BORDER-DATA-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SCENE-CROSS-BORDER-DATA",
+    "ruleType": "include",
+    "priority": 30,
+    "predicate": { "all": [{ "field": "crossBorderData", "op": "is_true" }] },
+    "result": { "reasonTemplate": "存在数据出境场景，需满足跨境数据安全要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-SCENE-CIIO-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SCENE-CIIO",
+    "ruleType": "include",
+    "priority": 30,
+    "predicate": { "all": [{ "field": "ciioStatus", "op": "eq", "value": "yes" }] },
+    "result": { "reasonTemplate": "机构属于关键信息基础设施相关场景，需满足关基强化要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-SCENE-IMPORTANT-DATA-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SCENE-IMPORTANT-DATA",
+    "ruleType": "include",
+    "priority": 30,
+    "predicate": {
+      "all": [
+        { "field": "importantDataStatus", "op": "in", "value": ["suspected", "yes"] }
+      ]
+    },
+    "result": { "reasonTemplate": "机构存在重要数据识别或处理场景，需满足重要数据保护要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-SCENE-CLOUD-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SCENE-CLOUD",
+    "ruleType": "include",
+    "priority": 30,
+    "predicate": { "all": [{ "field": "usesCloud", "op": "is_true" }] },
+    "result": { "reasonTemplate": "机构存在上云场景，需满足云治理与云安全要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-SCENE-OUTSOURCING-HEAVY-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SCENE-OUTSOURCING-HEAVY",
+    "ruleType": "include",
+    "priority": 30,
+    "predicate": {
+      "all": [
+        { "field": "outsourcingLevel", "op": "eq", "value": "high" }
+      ]
+    },
+    "result": { "reasonTemplate": "机构外包依赖度高，需满足高外包依赖场景控制要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-SCENE-PUBLIC-APP-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SCENE-PUBLIC-APP",
+    "ruleType": "include",
+    "priority": 30,
+    "predicate": {
+      "all": [
+        { "field": "publicServiceScope", "op": "eq", "value": "public_users" }
+      ]
+    },
+    "result": { "reasonTemplate": "机构面向公众提供服务，需满足公众服务场景控制要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-SCENE-ONLINE-TRADING-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SCENE-ONLINE-TRADING",
+    "ruleType": "include",
+    "priority": 30,
+    "predicate": { "all": [{ "field": "hasOnlineTrading", "op": "is_true" }] },
+    "result": { "reasonTemplate": "机构存在线上交易场景，需满足交易风控与监测控制要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-SCENE-AI-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SCENE-AI",
+    "ruleType": "include",
+    "priority": 30,
+    "predicate": { "all": [{ "field": "hasAiServices", "op": "is_true" }] },
+    "result": { "reasonTemplate": "机构存在 AI 服务场景，需满足模型治理与人工复核控制要求" }
+  },
+  {
+    "ruleCode": "RULE-PACK-STRENGTH-LARGE-ORG-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-STRENGTH-LARGE-ORG",
+    "ruleType": "include",
+    "priority": 40,
+    "predicate": {
+      "all": [
+        { "field": "assetBucket", "op": "in", "value": ["large", "mega"] }
+      ]
+    },
+    "result": {
+      "priority": "HIGH",
+      "reasonTemplate": "机构规模较大，需满足更高频率与更细粒度的治理强化要求"
+    }
+  },
+  {
+    "ruleCode": "RULE-PACK-STRENGTH-HIGH-CRITICAL-SYSTEM-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM",
+    "ruleType": "include",
+    "priority": 40,
+    "predicate": {
+      "all": [
+        { "field": "criticalSystemLevel", "op": "in", "value": ["high", "very_high"] }
+      ]
+    },
+    "result": {
+      "priority": "HIGH",
+      "mandatory": true,
+      "reasonTemplate": "关键系统等级较高，需满足高可用、双活和灾备强化要求"
+    }
+  },
+  {
+    "ruleCode": "RULE-PACK-STRENGTH-HIGH-REGULATORY-ATTENTION-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION",
+    "ruleType": "include",
+    "priority": 40,
+    "predicate": {
+      "all": [
+        { "field": "regulatoryAttentionLevel", "op": "eq", "value": "high" }
+      ]
+    },
+    "result": {
+      "priority": "HIGH",
+      "mandatory": true,
+      "reasonTemplate": "监管关注度较高，需满足整改跟踪、专项汇报和审计强化要求"
+    }
+  },
+  {
+    "ruleCode": "RULE-PACK-STRENGTH-RECENT-INCIDENT-INCLUDE-001",
+    "targetType": "pack",
+    "targetCode": "PACK-STRENGTH-RECENT-INCIDENT",
+    "ruleType": "include",
+    "priority": 40,
+    "predicate": { "all": [{ "field": "recentMajorIncident", "op": "is_true" }] },
+    "result": {
+      "priority": "HIGH",
+      "mandatory": true,
+      "reasonTemplate": "机构近期发生重大事件，需满足事件复盘和控制增强要求"
+    }
+  }
+]

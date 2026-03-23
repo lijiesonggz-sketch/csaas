@@ -1,6 +1,17 @@
 export { User, UserRole } from './user.entity'
 export { Tenant } from './tenant.entity'
 export { Organization } from './organization.entity'
+export { OrganizationProfile } from './organization-profile.entity'
+export {
+  ControlPack,
+  CONTROL_PACK_MATURITY_LEVELS,
+  CONTROL_PACK_TYPES,
+} from './control-pack.entity'
+export {
+  ApplicabilityRule,
+  APPLICABILITY_RULE_TARGET_TYPES,
+  APPLICABILITY_RULE_TYPES,
+} from './applicability-rule.entity'
 export { OrganizationMember } from './organization-member.entity'
 export { Project, ProjectStatus } from './project.entity'
 export { AITask, AITaskType, TaskStatus } from './ai-task.entity'

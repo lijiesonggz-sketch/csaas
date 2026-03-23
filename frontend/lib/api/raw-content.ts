@@ -24,6 +24,25 @@ export type RawContentCategory = 'tech' | 'industry' | 'compliance'
 export type RawContentSource = 'website' | 'wechat'
 
 /**
+ * AI分析结果
+ */
+export interface ComplianceAnalysis {
+  complianceRiskCategory?: string
+  penaltyCase?: string
+  policyRequirements?: string
+  remediationSuggestions?: string
+  relatedWeaknessCategories?: string[]
+}
+
+export interface ROIAnalysis {
+  estimatedCost: string
+  expectedBenefit: string
+  roiEstimate: string
+  implementationPeriod: string
+  recommendedVendors: string[]
+}
+
+/**
  * RawContent 数据模型
  */
 export interface RawContent {
@@ -39,6 +58,15 @@ export interface RawContent {
   fullContent?: string | null
   createdAt: string
   updatedAt: string
+  // AI分析结果字段
+  aiSummary?: string
+  aiAnalysisStatus?: 'pending' | 'success' | 'failed'
+  aiModel?: string
+  keywords?: string[]
+  categories?: string[]
+  targetAudience?: string
+  complianceAnalysis?: ComplianceAnalysis
+  roiAnalysis?: ROIAnalysis
 }
 
 /**

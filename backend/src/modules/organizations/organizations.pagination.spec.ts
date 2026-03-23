@@ -6,6 +6,9 @@ import { Organization } from '../../database/entities/organization.entity'
 import { OrganizationMember } from '../../database/entities/organization-member.entity'
 import { Project } from '../../database/entities/project.entity'
 import { User } from '../../database/entities/user.entity'
+import { OrganizationProfile } from '../../database/entities/organization-profile.entity'
+import { WatchedTopic } from '../../database/entities/watched-topic.entity'
+import { WatchedPeer } from '../../database/entities/watched-peer.entity'
 
 describe('OrganizationsService - Pagination', () => {
   let service: OrganizationsService
@@ -31,6 +34,28 @@ describe('OrganizationsService - Pagination', () => {
     findOne: jest.fn(),
   }
 
+  const mockOrganizationProfileRepository = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+  }
+
+  const mockWatchedTopicRepository = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    remove: jest.fn(),
+  }
+
+  const mockWatchedPeerRepository = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    remove: jest.fn(),
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -51,6 +76,18 @@ describe('OrganizationsService - Pagination', () => {
           provide: getRepositoryToken(Project),
           useValue: mockProjectRepository,
         },
+        {
+          provide: getRepositoryToken(OrganizationProfile),
+          useValue: mockOrganizationProfileRepository,
+        },
+        {
+          provide: getRepositoryToken(WatchedTopic),
+          useValue: mockWatchedTopicRepository,
+        },
+        {
+          provide: getRepositoryToken(WatchedPeer),
+          useValue: mockWatchedPeerRepository,
+        },
       ],
     }).compile()
 
@@ -68,19 +105,24 @@ describe('OrganizationsService - Pagination', () => {
       // Arrange
       const orgId = 'org-123'
       const mockMembers = [
-        { id: 'member-1', userId: 'user-1', role: 'admin' },
-        { id: 'member-2', userId: 'user-2', role: 'member' },
-      ]
-      const mockUsers = [
-        { id: 'user-1', name: 'User 1', email: 'user1@example.com' },
-        { id: 'user-2', name: 'User 2', email: 'user2@example.com' },
+        {
+          id: 'member-1',
+          organizationId: orgId,
+          userId: 'user-1',
+          role: 'admin',
+          user: { id: 'user-1', name: 'User 1', email: 'user1@example.com' },
+        },
+        {
+          id: 'member-2',
+          organizationId: orgId,
+          userId: 'user-2',
+          role: 'member',
+          user: { id: 'user-2', name: 'User 2', email: 'user2@example.com' },
+        },
       ]
 
       mockMemberRepository.find.mockResolvedValue(mockMembers)
       mockMemberRepository.count.mockResolvedValue(15) // Total 15 members
-      mockUserRepository.findOne
-        .mockResolvedValueOnce(mockUsers[0])
-        .mockResolvedValueOnce(mockUsers[1])
 
       // Act
       const result = await service.getOrganizationMembersPaginated(orgId, 1, 10)
@@ -92,7 +134,7 @@ describe('OrganizationsService - Pagination', () => {
             id: 'member-1',
             userId: 'user-1',
             role: 'admin',
-            user: mockUsers[0],
+            user: mockMembers[0].user,
           }),
         ]),
         pagination: {
@@ -104,6 +146,7 @@ describe('OrganizationsService - Pagination', () => {
       })
       expect(mockMemberRepository.find).toHaveBeenCalledWith({
         where: { organizationId: orgId },
+        relations: ['user'],
         skip: 0,
         take: 10,
         order: { createdAt: 'DESC' },
@@ -113,14 +156,18 @@ describe('OrganizationsService - Pagination', () => {
     it('should return paginated members for page 2 with limit 5', async () => {
       // Arrange
       const orgId = 'org-123'
-      const mockMembers = [{ id: 'member-6', userId: 'user-6', role: 'member' }]
+      const mockMembers = [
+        {
+          id: 'member-6',
+          organizationId: orgId,
+          userId: 'user-6',
+          role: 'member',
+          user: { id: 'user-6', name: 'User 6' },
+        },
+      ]
 
       mockMemberRepository.find.mockResolvedValue(mockMembers)
       mockMemberRepository.count.mockResolvedValue(15)
-      mockUserRepository.findOne.mockResolvedValue({
-        id: 'user-6',
-        name: 'User 6',
-      })
 
       // Act
       const result = await service.getOrganizationMembersPaginated(orgId, 2, 5)
@@ -131,6 +178,7 @@ describe('OrganizationsService - Pagination', () => {
       expect(result.pagination.totalPages).toBe(3)
       expect(mockMemberRepository.find).toHaveBeenCalledWith({
         where: { organizationId: orgId },
+        relations: ['user'],
         skip: 5, // (page - 1) * limit = 5
         take: 5,
         order: { createdAt: 'DESC' },

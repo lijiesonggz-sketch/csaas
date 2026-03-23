@@ -1,159 +1,143 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { DataSource, EntityManager } from 'typeorm'
-import { OrganizationsService } from './organizations.service'
+import { getRepositoryToken } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
 import { OrganizationAutoCreateService } from './organization-auto-create.service'
 import { Organization } from '../../database/entities/organization.entity'
 import { OrganizationMember } from '../../database/entities/organization-member.entity'
-import { User } from '../../database/entities/user.entity'
-import { Project } from '../../database/entities/project.entity'
+import { ConflictException, NotFoundException } from '@nestjs/common'
 
 describe('OrganizationAutoCreateService', () => {
   let service: OrganizationAutoCreateService
-  let organizationsService: OrganizationsService
-  let dataSource: DataSource
+  let orgRepository: Repository<Organization>
+  let orgMemberRepository: Repository<OrganizationMember>
 
-  const mockOrganizationsService = {
-    createOrganizationForUser: jest.fn(),
-    linkProjectToOrganization: jest.fn(),
-    getUserOrganization: jest.fn(),
+  const mockOrgRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
   }
 
-  const mockDataSource = {
-    createQueryRunner: jest.fn(),
-    transaction: jest.fn(),
-  }
-
-  const mockQueryRunner = {
-    connect: jest.fn(),
-    startTransaction: jest.fn(),
-    commitTransaction: jest.fn(),
-    rollbackTransaction: jest.fn(),
-    release: jest.fn(),
-    manager: {
-      save: jest.fn(),
-      create: jest.fn(),
-    },
-  } as any
-
-  const mockEntityManager = {
-    save: jest
-      .fn()
-      .mockResolvedValueOnce({ id: 'org-123', name: '用户的组织' })
-      .mockResolvedValueOnce({ id: 'member-123' })
-      .mockResolvedValue({}),
-    create: jest.fn().mockReturnValue({ id: 'temp-id' }),
+  const mockOrgMemberRepository = {
     findOne: jest.fn(),
-    update: jest.fn(),
-  } as any
-
-  // Mock manager property on queryRunner
-  mockQueryRunner.manager = mockEntityManager
+    create: jest.fn(),
+    save: jest.fn(),
+  }
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OrganizationAutoCreateService,
         {
-          provide: OrganizationsService,
-          useValue: mockOrganizationsService,
+          provide: getRepositoryToken(Organization),
+          useValue: mockOrgRepository,
         },
         {
-          provide: DataSource,
-          useValue: mockDataSource,
+          provide: getRepositoryToken(OrganizationMember),
+          useValue: mockOrgMemberRepository,
         },
       ],
     }).compile()
 
     service = module.get<OrganizationAutoCreateService>(OrganizationAutoCreateService)
-    organizationsService = module.get<OrganizationsService>(OrganizationsService)
-    dataSource = module.get<DataSource>(DataSource)
+    orgRepository = module.get<Repository<Organization>>(getRepositoryToken(Organization))
+    orgMemberRepository = module.get<Repository<OrganizationMember>>(
+      getRepositoryToken(OrganizationMember),
+    )
 
     jest.clearAllMocks()
-    mockDataSource.createQueryRunner.mockReturnValue(mockQueryRunner)
   })
 
   describe('ensureOrganizationForProject', () => {
-    it('should create organization and link project in transaction', async () => {
-      // Arrange
+    it('should create organization and admin membership when user has no organization', async () => {
       const userId = 'user-123'
-      const projectId = 'project-123'
-      const orgName = 'Test Organization'
-
-      const newOrg = {
-        id: 'org-123',
-        name: orgName,
+      const organizationName = 'Test Organization'
+      const createdOrganization = {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        name: organizationName,
+        tenantId: '00000000-0000-0000-0000-000000000001',
       } as Organization
 
-      // Mock transaction callback to execute with our EntityManager
-      mockDataSource.transaction.mockImplementation(async (callback) => {
-        // Setup EntityManager mock behavior
-        mockEntityManager.findOne.mockResolvedValueOnce(null) // No existing org
-        mockEntityManager.create.mockReturnValue(newOrg)
-        mockEntityManager.save.mockResolvedValue(newOrg)
-
-        return callback(mockEntityManager)
-      })
-
-      // Act
-      const result = await service.ensureOrganizationForProject(userId, orgName)
-
-      // Assert - verify transaction was called and organization was created
-      expect(mockDataSource.transaction).toHaveBeenCalled()
-      expect(mockEntityManager.findOne).toHaveBeenCalled()
-      expect(mockEntityManager.create).toHaveBeenCalled()
-      expect(mockEntityManager.save).toHaveBeenCalled()
-      expect(mockEntityManager.update).toHaveBeenCalledWith(
-        Project,
-        { id: projectId, owner_id: userId },
-        { organizationId: expect.any(String) },
-      )
-    })
-
-    it('should reuse existing organization if user has one', async () => {
-      // Arrange
-      const userId = 'user-123'
-      const projectId = 'project-123'
-      const orgName = 'Test Organization'
-
-      const existingOrg = {
-        id: 'org-existing',
-        name: 'Existing Organization',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as Organization
-
-      const existingMember = {
-        id: 'member-123',
+      mockOrgMemberRepository.findOne.mockResolvedValue(null)
+      mockOrgRepository.create.mockReturnValue(createdOrganization)
+      mockOrgRepository.save.mockResolvedValue(createdOrganization)
+      mockOrgMemberRepository.create.mockReturnValue({
+        organizationId: createdOrganization.id,
         userId,
-        organizationId: existingOrg.id,
-        organization: existingOrg,
-      }
-
-      // Mock transaction callback
-      mockDataSource.transaction.mockImplementation(async (callback) => {
-        mockEntityManager.findOne.mockResolvedValueOnce(existingMember)
-        return callback(mockEntityManager)
+        role: 'admin',
+      })
+      mockOrgMemberRepository.save.mockResolvedValue({
+        id: 'member-123',
+        organizationId: createdOrganization.id,
+        userId,
+        role: 'admin',
       })
 
-      // Act
-      const result = await service.ensureOrganizationForProject(userId, orgName)
+      const result = await service.ensureOrganizationForProject(userId, organizationName)
 
-      // Assert
-      expect(result.id).toBe(existingOrg.id)
-      expect(result.name).toBe(existingOrg.name)
-      expect(mockEntityManager.findOne).toHaveBeenCalled()
-      expect(mockEntityManager.create).not.toHaveBeenCalled()
-      expect(mockEntityManager.update).toHaveBeenCalledWith(
-        Project,
-        { id: projectId, owner_id: userId },
-        { organizationId: existingOrg.id },
+      expect(result).toEqual(createdOrganization)
+      expect(mockOrgRepository.create).toHaveBeenCalledWith({
+        name: organizationName,
+        tenantId: '00000000-0000-0000-0000-000000000001',
+      })
+      expect(mockOrgMemberRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: createdOrganization.id,
+          userId,
+          role: 'admin',
+        }),
       )
     })
 
-    it.skip('should rollback transaction on error', async () => {
-      // TODO: Implement proper error handling test
-      // This requires more sophisticated mocking of transaction behavior
-      // For now, we'll skip this test and rely on integration tests
+    it('should reuse existing organization if user already has one', async () => {
+      const userId = 'user-123'
+      const existingOrganization = {
+        id: '550e8400-e29b-41d4-a716-446655440001',
+        name: 'Existing Organization',
+      } as Organization
+
+      mockOrgMemberRepository.findOne.mockResolvedValue({
+        organizationId: existingOrganization.id,
+        organization: existingOrganization,
+      })
+
+      const result = await service.ensureOrganizationForProject(userId, 'Ignored Name')
+
+      expect(result).toBe(existingOrganization)
+      expect(mockOrgRepository.create).not.toHaveBeenCalled()
+      expect(mockOrgRepository.save).not.toHaveBeenCalled()
+    })
+
+    it('should throw ConflictException on unique violation', async () => {
+      const error = Object.assign(new Error('duplicate'), { code: '23505' })
+
+      mockOrgMemberRepository.findOne.mockResolvedValue(null)
+      mockOrgRepository.create.mockReturnValue({})
+      mockOrgRepository.save.mockRejectedValue(error)
+
+      await expect(service.ensureOrganizationForProject('user-123')).rejects.toThrow(
+        ConflictException,
+      )
+    })
+  })
+
+  describe('validateUserOrganization', () => {
+    it('should return organization when membership exists', async () => {
+      const organization = { id: '550e8400-e29b-41d4-a716-446655440002' } as Organization
+
+      mockOrgMemberRepository.findOne.mockResolvedValue({
+        organization,
+      })
+
+      const result = await service.validateUserOrganization('user-123')
+
+      expect(result).toBe(organization)
+    })
+
+    it('should throw NotFoundException when membership does not exist', async () => {
+      mockOrgMemberRepository.findOne.mockResolvedValue(null)
+
+      await expect(service.validateUserOrganization('user-123')).rejects.toThrow(
+        NotFoundException,
+      )
     })
   })
 })

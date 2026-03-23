@@ -1,0 +1,134 @@
+[
+  {
+    "profileCode": "demo-bank-mega-legal-person",
+    "name": "大型法人银行",
+    "profile": {
+      "industry": "bank",
+      "legalPersonType": "legal_person",
+      "assetBucket": "mega",
+      "hasPersonalInfo": true,
+      "crossBorderData": false,
+      "importantDataStatus": "yes",
+      "ciioStatus": "yes",
+      "hasDatacenter": true,
+      "usesCloud": true,
+      "outsourcingLevel": "medium",
+      "criticalSystemLevel": "very_high",
+      "hasOnlineTrading": true,
+      "hasAiServices": false,
+      "publicServiceScope": "public_users",
+      "regulatoryAttentionLevel": "high",
+      "recentMajorIncident": false
+    }
+  },
+  {
+    "profileCode": "demo-bank-branch-medium",
+    "name": "中型银行分支机构",
+    "profile": {
+      "industry": "bank",
+      "legalPersonType": "branch",
+      "assetBucket": "medium",
+      "hasPersonalInfo": true,
+      "crossBorderData": false,
+      "importantDataStatus": "no",
+      "ciioStatus": "no",
+      "hasDatacenter": false,
+      "usesCloud": false,
+      "outsourcingLevel": "low",
+      "criticalSystemLevel": "medium",
+      "hasOnlineTrading": false,
+      "hasAiServices": false,
+      "publicServiceScope": "internal",
+      "regulatoryAttentionLevel": "medium",
+      "recentMajorIncident": false
+    }
+  },
+  {
+    "profileCode": "demo-securities-national",
+    "name": "全国性券商线上交易机构",
+    "profile": {
+      "industry": "securities",
+      "legalPersonType": "legal_person",
+      "assetBucket": "large",
+      "hasPersonalInfo": true,
+      "crossBorderData": false,
+      "importantDataStatus": "suspected",
+      "ciioStatus": "no",
+      "hasDatacenter": true,
+      "usesCloud": false,
+      "outsourcingLevel": "medium",
+      "criticalSystemLevel": "high",
+      "hasOnlineTrading": true,
+      "hasAiServices": false,
+      "publicServiceScope": "public_users",
+      "regulatoryAttentionLevel": "medium",
+      "recentMajorIncident": false
+    }
+  },
+  {
+    "profileCode": "demo-fund-cross-border",
+    "name": "公募基金跨境数据机构",
+    "profile": {
+      "industry": "fund",
+      "legalPersonType": "legal_person",
+      "assetBucket": "medium",
+      "hasPersonalInfo": true,
+      "crossBorderData": true,
+      "importantDataStatus": "yes",
+      "ciioStatus": "no",
+      "hasDatacenter": false,
+      "usesCloud": true,
+      "outsourcingLevel": "low",
+      "criticalSystemLevel": "medium",
+      "hasOnlineTrading": false,
+      "hasAiServices": false,
+      "publicServiceScope": "partner",
+      "regulatoryAttentionLevel": "low",
+      "recentMajorIncident": false
+    }
+  },
+  {
+    "profileCode": "demo-insurance-outsourcing-heavy",
+    "name": "高外包依赖保险机构",
+    "profile": {
+      "industry": "insurance",
+      "legalPersonType": "legal_person",
+      "assetBucket": "large",
+      "hasPersonalInfo": true,
+      "crossBorderData": false,
+      "importantDataStatus": "no",
+      "ciioStatus": "no",
+      "hasDatacenter": false,
+      "usesCloud": true,
+      "outsourcingLevel": "high",
+      "criticalSystemLevel": "high",
+      "hasOnlineTrading": false,
+      "hasAiServices": false,
+      "publicServiceScope": "public_users",
+      "regulatoryAttentionLevel": "medium",
+      "recentMajorIncident": false
+    }
+  },
+  {
+    "profileCode": "demo-ciio-ai-service",
+    "name": "关基 AI 服务机构",
+    "profile": {
+      "industry": "mixed",
+      "legalPersonType": "legal_person",
+      "assetBucket": "large",
+      "hasPersonalInfo": false,
+      "crossBorderData": false,
+      "importantDataStatus": "yes",
+      "ciioStatus": "yes",
+      "hasDatacenter": true,
+      "usesCloud": true,
+      "outsourcingLevel": "high",
+      "criticalSystemLevel": "very_high",
+      "hasOnlineTrading": false,
+      "hasAiServices": true,
+      "publicServiceScope": "internal",
+      "regulatoryAttentionLevel": "high",
+      "recentMajorIncident": true
+    }
+  }
+]

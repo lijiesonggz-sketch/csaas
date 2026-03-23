@@ -272,6 +272,7 @@ export function RadarSourceList({
                           size="small"
                           onClick={() => handleTestCrawl(source.id)}
                           disabled={testingId === source.id}
+                          aria-label={`测试 ${source.source} 爬虫`}
                         >
                           {testingId === source.id ? (
                             <CircularProgress size={20} />
@@ -284,6 +285,7 @@ export function RadarSourceList({
                         <IconButton
                           size="small"
                           onClick={() => onEdit(source)}
+                          aria-label={`编辑 ${source.source}`}
                         >
                           <EditIcon />
                         </IconButton>
@@ -294,6 +296,7 @@ export function RadarSourceList({
                           color="error"
                           onClick={() => handleDelete(source.id)}
                           disabled={deletingId === source.id}
+                          aria-label={`删除 ${source.source}`}
                         >
                           {deletingId === source.id ? (
                             <CircularProgress size={20} />

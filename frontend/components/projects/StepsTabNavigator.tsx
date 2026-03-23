@@ -15,7 +15,7 @@ import {
   Speed,
 } from '@mui/icons-material'
 
-interface Step {
+export interface Step {
   id: string
   name: string
   icon: React.ReactElement

@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   DeleteDateColumn,
   OneToMany,
+  OneToOne,
   ManyToOne,
   JoinColumn,
 } from 'typeorm'
@@ -17,6 +18,7 @@ import { WatchedTopic } from './watched-topic.entity'
 import { WatchedPeer } from './watched-peer.entity'
 import { Tenant } from './tenant.entity'
 import { ClientGroupMembership } from './client-group-membership.entity'
+import { OrganizationProfile } from './organization-profile.entity'
 
 /**
  * Organization Entity
@@ -224,6 +226,15 @@ export class Organization {
     onDelete: 'CASCADE',
   })
   watchedPeers: WatchedPeer[]
+
+  /**
+   * Knowledge Graph organization profile
+   *
+   * One-to-one extension table for applicability-engine inputs.
+   * Kept separate from organizations to avoid bloating the core entity.
+   */
+  @OneToOne(() => OrganizationProfile, (profile) => profile.organization)
+  profile?: OrganizationProfile
 
   /**
    * Client group memberships for this organization

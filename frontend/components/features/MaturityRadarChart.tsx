@@ -16,11 +16,9 @@ import {
   Legend,
   Tooltip,
 } from 'recharts'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import Typography from '@mui/material/Typography'
-import Box from '@mui/material/Box'
-import RadarIcon from '@mui/icons-material/Radar'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Radar as RadarIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 /**
  * 雷达图数据项接口
@@ -152,25 +150,16 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
   if (active && payload && payload.length) {
     return (
       <div
-        style={{
-          backgroundColor: '#fff',
-          border: '1px solid #d9d9d9',
-          borderRadius: '4px',
-          padding: '12px',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-        }}
+        className="bg-white border border-slate-200 rounded-md p-3 shadow-lg"
       >
-        <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#333' }}>
+        <p className="font-bold text-slate-900 mb-2">
           {label}
         </p>
         {payload.map((entry, index) => (
           <p
             key={index}
-            style={{
-              margin: '4px 0',
-              color: entry.color,
-              fontSize: '14px',
-            }}
+            className="text-sm my-1"
+            style={{ color: entry.color }}
           >
             {entry.name}: {entry.value.toFixed(2)} / 5.0
           </p>
@@ -291,31 +280,27 @@ export const MaturityRadarChart: React.FC<MaturityRadarChartProps> = ({
   // 空数据状态
   if (!isValidData) {
     return (
-      <Card className={className} sx={{ my: 3 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <RadarIcon sx={{ mr: 1, color: 'primary.main' }} />
-            <Typography variant="subtitle1" fontWeight={600}>
-              {title}
-            </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
-            <Typography>暂无成熟度数据</Typography>
-          </Box>
+      <Card className={cn("my-4", className)}>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <RadarIcon className="w-5 h-5 text-indigo-600" />
+            <CardTitle className="text-lg">{title}</CardTitle>
+          </div>
+          <div className="text-center py-8 text-slate-500">
+            <p>暂无成熟度数据</p>
+          </div>
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <Card className={className} sx={{ my: 3 }}>
-      <CardContent sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <RadarIcon sx={{ mr: 1, color: 'primary.main' }} />
-          <Typography variant="subtitle1" fontWeight={600}>
-            {title}
-          </Typography>
-        </Box>
+    <Card className={cn("my-4", className)}>
+      <CardContent className="p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <RadarIcon className="w-5 h-5 text-indigo-600" />
+          <CardTitle className="text-lg">{title}</CardTitle>
+        </div>
         <ResponsiveContainer width="100%" height={responsiveConfig.height}>
         <RadarChart
           cx="50%"

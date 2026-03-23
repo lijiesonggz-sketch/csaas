@@ -5,7 +5,9 @@ import { OrganizationAutoCreateService } from './organization-auto-create.servic
 import { OrganizationsController } from './organizations.controller'
 import { WeaknessSnapshotService } from './weakness-snapshot.service'
 import { OrganizationGuard } from './guards/organization.guard'
+import { OrganizationOwnershipGuard } from './guards/organization-ownership.guard'
 import { Organization } from '../../database/entities/organization.entity'
+import { OrganizationProfile } from '../../database/entities/organization-profile.entity'
 import { OrganizationMember } from '../../database/entities/organization-member.entity'
 import { User } from '../../database/entities/user.entity'
 import { Project } from '../../database/entities/project.entity'
@@ -27,6 +29,7 @@ import { OrganizationRepository, ProjectRepository } from '../../database/reposi
   imports: [
     TypeOrmModule.forFeature([
       Organization,
+      OrganizationProfile,
       OrganizationMember,
       User,
       Project,
@@ -41,6 +44,7 @@ import { OrganizationRepository, ProjectRepository } from '../../database/reposi
     OrganizationAutoCreateService,
     WeaknessSnapshotService,
     OrganizationGuard,
+    OrganizationOwnershipGuard,
     TasksGateway,
     OrganizationRepository,
     ProjectRepository,
@@ -61,6 +65,7 @@ import { OrganizationRepository, ProjectRepository } from '../../database/reposi
     OrganizationAutoCreateService,
     WeaknessSnapshotService,
     OrganizationGuard,
+    OrganizationOwnershipGuard,
     OrganizationRepository,
     ProjectRepository,
     'AuditLogService', // Export AuditLogService for OrganizationGuard

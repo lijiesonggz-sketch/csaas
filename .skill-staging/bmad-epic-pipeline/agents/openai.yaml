@@ -1,0 +1,4 @@
+interface:
+  display_name: "BMAD Epic Pipeline"
+  short_description: "Sequential epic delivery in current workspace"
+  default_prompt: "Run the BMAD epic pipeline for the requested epic in the current repository workspace."

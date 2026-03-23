@@ -11,6 +11,7 @@ import { Organization } from '../../database/entities/organization.entity'
 import { OrganizationMember } from '../../database/entities/organization-member.entity'
 import { User } from '../../database/entities/user.entity'
 import { Project } from '../../database/entities/project.entity'
+import { OrganizationProfile } from '../../database/entities/organization-profile.entity'
 import { WatchedTopic } from '../../database/entities/watched-topic.entity'
 import { WatchedPeer } from '../../database/entities/watched-peer.entity'
 import {
@@ -19,6 +20,7 @@ import {
   OrganizationStatsDto,
   UserOrganizationResponse,
 } from './dto/create-organization.dto'
+import { UpsertOrganizationProfileDto } from './dto/organization-profile.dto'
 
 /**
  * Paginated response interface
@@ -61,6 +63,8 @@ export class OrganizationsService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
+    @InjectRepository(OrganizationProfile)
+    private readonly organizationProfileRepository: Repository<OrganizationProfile>,
     @InjectRepository(WatchedTopic)
     private readonly watchedTopicRepository: Repository<WatchedTopic>,
     @InjectRepository(WatchedPeer)
@@ -211,6 +215,43 @@ export class OrganizationsService {
 
     this.logger.log(`Updated organization: ${orgId}`)
     return updated
+  }
+
+  /**
+   * Get organization profile by organization ID
+   */
+  async getOrganizationProfile(orgId: string): Promise<OrganizationProfile> {
+    await this.getOrganizationById(orgId)
+
+    const profile = await this.organizationProfileRepository.findOne({
+      where: { orgId },
+    })
+
+    if (!profile) {
+      throw new NotFoundException(`Organization profile for ${orgId} not found`)
+    }
+
+    return profile
+  }
+
+  /**
+   * Create or update organization profile
+   */
+  async upsertOrganizationProfile(
+    orgId: string,
+    profileDto: UpsertOrganizationProfileDto,
+  ): Promise<OrganizationProfile> {
+    await this.getOrganizationById(orgId)
+
+    await this.organizationProfileRepository.upsert(
+      {
+        orgId,
+        ...profileDto,
+      },
+      ['orgId'],
+    )
+
+    return this.getOrganizationProfile(orgId)
   }
 
   /**

@@ -5,6 +5,7 @@ import { OrganizationAutoCreateService } from './organization-auto-create.servic
 import { WeaknessSnapshotService } from './weakness-snapshot.service'
 import { AuditAction } from '../../database/entities/audit-log.entity'
 import { OrganizationGuard } from './guards/organization.guard'
+import { OrganizationOwnershipGuard } from './guards/organization-ownership.guard'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 
 // Mock AuditLogService
@@ -21,6 +22,8 @@ describe('OrganizationsController - Audit Logging', () => {
     createOrganizationForUser: jest.fn(),
     getOrganizationById: jest.fn(),
     updateOrganization: jest.fn(),
+    getOrganizationProfile: jest.fn(),
+    upsertOrganizationProfile: jest.fn(),
     linkProjectToOrganization: jest.fn(),
     removeMember: jest.fn(),
   }
@@ -40,6 +43,10 @@ describe('OrganizationsController - Audit Logging', () => {
   }
 
   const mockOrganizationGuard = {
+    canActivate: jest.fn().mockResolvedValue(true),
+  }
+
+  const mockOrganizationOwnershipGuard = {
     canActivate: jest.fn().mockResolvedValue(true),
   }
 
@@ -78,6 +85,8 @@ describe('OrganizationsController - Audit Logging', () => {
     })
       .overrideGuard(OrganizationGuard)
       .useValue(mockOrganizationGuard)
+      .overrideGuard(OrganizationOwnershipGuard)
+      .useValue(mockOrganizationOwnershipGuard)
       .overrideGuard(JwtAuthGuard)
       .useValue(mockJwtAuthGuard)
       .compile()
@@ -102,7 +111,7 @@ describe('OrganizationsController - Audit Logging', () => {
       mockOrganizationsService.updateOrganization.mockResolvedValue(updatedOrg)
 
       // Act
-      await controller.updateOrganization(orgId, updateDto, mockRequest)
+      await controller.updateOrganization(orgId, updateDto, mockRequest.user)
 
       // Assert
       expect(mockOrganizationsService.updateOrganization).toHaveBeenCalledWith(orgId, updateDto)
@@ -112,7 +121,7 @@ describe('OrganizationsController - Audit Logging', () => {
         entityType: 'Organization',
         entityId: orgId,
         success: true,
-        req: mockRequest,
+        req: null,
       })
     })
   })
@@ -125,7 +134,7 @@ describe('OrganizationsController - Audit Logging', () => {
       mockOrganizationsService.linkProjectToOrganization.mockResolvedValue(undefined)
 
       // Act
-      await controller.linkProject(mockRequest, { projectId })
+      await controller.linkProject(mockRequest.user, { projectId })
 
       // Assert
       expect(mockOrganizationsService.linkProjectToOrganization).toHaveBeenCalledWith(
@@ -139,7 +148,7 @@ describe('OrganizationsController - Audit Logging', () => {
         entityType: 'Project',
         entityId: projectId,
         success: true,
-        req: mockRequest,
+        req: null,
       })
     })
   })
@@ -153,7 +162,7 @@ describe('OrganizationsController - Audit Logging', () => {
       mockOrganizationsService.removeMember.mockResolvedValue(undefined)
 
       // Act
-      await controller.removeMember(orgId, userId, mockRequest)
+      await controller.removeMember(orgId, userId, mockRequest.user)
 
       // Assert
       expect(mockOrganizationsService.removeMember).toHaveBeenCalledWith(orgId, userId)
@@ -163,7 +172,52 @@ describe('OrganizationsController - Audit Logging', () => {
         entityType: 'OrganizationMember',
         entityId: userId,
         success: true,
-        req: mockRequest,
+        req: null,
+      })
+    })
+  })
+
+  describe('upsertOrganizationProfile', () => {
+    it('should log audit entry when updating organization profile', async () => {
+      const orgId = '550e8400-e29b-41d4-a716-446655440000'
+      const profileDto = {
+        industry: 'bank',
+        legalPersonType: 'legal_person',
+        assetBucket: 'large',
+        hasPersonalInfo: true,
+        crossBorderData: false,
+        importantDataStatus: 'unknown',
+        ciioStatus: 'no',
+        hasDatacenter: true,
+        usesCloud: true,
+        outsourcingLevel: 'medium',
+        criticalSystemLevel: 'high',
+        hasOnlineTrading: true,
+        hasAiServices: false,
+        publicServiceScope: 'public_users',
+        regulatoryAttentionLevel: 'medium',
+        recentMajorIncident: false,
+      }
+      const profile = {
+        orgId,
+        industry: 'bank',
+      }
+
+      mockOrganizationsService.upsertOrganizationProfile.mockResolvedValue(profile)
+
+      await controller.upsertOrganizationProfile(orgId, profileDto as any, mockRequest.user)
+
+      expect(mockOrganizationsService.upsertOrganizationProfile).toHaveBeenCalledWith(
+        orgId,
+        profileDto,
+      )
+      expect(auditLogService.log).toHaveBeenCalledWith({
+        userId: mockRequest.user.id,
+        action: AuditAction.UPDATE,
+        entityType: 'OrganizationProfile',
+        entityId: orgId,
+        success: true,
+        req: null,
       })
     })
   })
