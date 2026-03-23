@@ -60,7 +60,10 @@ describe('seedKgBaselineWithQueryRunner', () => {
       ['ruleCode'],
     )
     expect(summary.controlPacks).toBe(25)
+    expect(summary.packFamilyMappings).toBe(seedData.packFamilyMappings.length)
     expect(summary.applicabilityRules).toBe(25)
+    expect(summary.demoProfiles).toBe(seedData.demoProfiles.length)
+    expect(summary.expectedResults).toBe(seedData.expectedResults.length)
   })
 
   it('should fail fast when required tables are missing', async () => {
@@ -71,6 +74,57 @@ describe('seedKgBaselineWithQueryRunner', () => {
     await expect(
       seedKgBaselineWithQueryRunner(queryRunner as never, seedData),
     ).rejects.toThrow('KG seed runner requires table control_packs')
+  })
+
+  it('should remain idempotent across repeated executions with the same repository state', async () => {
+    const controlPackState = new Map<string, { packId: string; packCode: string }>()
+    const applicabilityRuleState = new Map<string, { ruleCode: string }>()
+
+    const packRepository = {
+      upsert: jest.fn().mockImplementation(async (rows: Array<{ packCode: string }>) => {
+        rows.forEach((row, index) => {
+          const existing = controlPackState.get(row.packCode)
+          controlPackState.set(
+            row.packCode,
+            existing || {
+              packId: `00000000-0000-0000-0000-${String(index + 1).padStart(12, '0')}`,
+              packCode: row.packCode,
+            },
+          )
+        })
+      }),
+      find: jest.fn().mockImplementation(async () => Array.from(controlPackState.values())),
+    }
+    const ruleRepository = {
+      upsert: jest.fn().mockImplementation(async (rows: Array<{ ruleCode: string }>) => {
+        rows.forEach((row) => {
+          applicabilityRuleState.set(row.ruleCode, { ruleCode: row.ruleCode })
+        })
+      }),
+    }
+    const manager = {
+      getRepository: jest.fn((entity) => {
+        if (entity === ControlPack) {
+          return packRepository
+        }
+
+        if (entity === ApplicabilityRule) {
+          return ruleRepository
+        }
+
+        throw new Error('Unexpected repository request')
+      }),
+    }
+    const queryRunner = {
+      hasTable: jest.fn().mockResolvedValue(true),
+      manager,
+    }
+
+    await seedKgBaselineWithQueryRunner(queryRunner as never, seedData)
+    await seedKgBaselineWithQueryRunner(queryRunner as never, seedData)
+
+    expect(controlPackState.size).toBe(seedData.controlPacks.length)
+    expect(applicabilityRuleState.size).toBe(seedData.applicabilityRules.length)
   })
 })
 
