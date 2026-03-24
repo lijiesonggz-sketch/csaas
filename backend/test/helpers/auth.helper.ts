@@ -5,7 +5,7 @@ import { JwtModule } from '@nestjs/jwt'
 import { User, UserRole } from '../../src/database/entities'
 import { DataSource } from 'typeorm'
 import { INestApplication } from '@nestjs/common'
-import * as bcrypt from 'bcrypt'
+import * as bcrypt from 'bcryptjs'
 
 /**
  * E2E Test Authentication Helper

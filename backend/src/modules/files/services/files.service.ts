@@ -1,10 +1,6 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common'
 import * as mammoth from 'mammoth'
 
-// 使用require导入pdf-parse v2
-// pdf-parse v2使用PDFParse类，支持data参数加载buffer
-const pdfParseModule = require('pdf-parse')
-
 @Injectable()
 export class FilesService {
   private readonly logger = new Logger(FilesService.name)
@@ -33,6 +29,9 @@ export class FilesService {
 
     try {
       this.logger.log(`开始解析PDF，大小: ${fileBuffer.length} bytes`)
+
+      // 延迟加载 pdf-parse，避免模块导入阶段在测试环境中留下原生句柄。
+      const pdfParseModule = require('pdf-parse')
 
       // 使用pdf-parse v2解析PDF
       // 必须传入{ data: buffer }参数
