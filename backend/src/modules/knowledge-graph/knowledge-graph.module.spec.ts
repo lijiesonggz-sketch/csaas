@@ -2,7 +2,9 @@ import { MODULE_METADATA } from '@nestjs/common/constants'
 import { AppModule } from '../../app.module'
 import { AuditModule } from '../audit/audit.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
+import { ComplianceCaseController } from './controllers/compliance-case.controller'
 import { ControlPointController } from './controllers/control-point.controller'
+import { RegulationController } from './controllers/regulation.controller'
 import { TaxonomyController } from './controllers/taxonomy.controller'
 import { KnowledgeGraphModule } from './knowledge-graph.module'
 
@@ -12,7 +14,12 @@ describe('KnowledgeGraphModule', () => {
     const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, KnowledgeGraphModule) ?? []
 
     expect(controllers).toEqual(
-      expect.arrayContaining([TaxonomyController, ControlPointController]),
+      expect.arrayContaining([
+        TaxonomyController,
+        ControlPointController,
+        RegulationController,
+        ComplianceCaseController,
+      ]),
     )
     expect(imports).toEqual(expect.arrayContaining([OrganizationsModule, AuditModule]))
   })

@@ -40,7 +40,28 @@ export {
   CONTROL_POINT_STATUSES,
   CONTROL_POINT_TYPES,
 } from './control-point.entity'
-
+export {
+  RegulationSource,
+  REGULATION_SOURCE_LEVELS,
+  REGULATION_SOURCE_STATUSES,
+} from './regulation-source.entity'
+export {
+  RegulationClause,
+  REGULATION_CLAUSE_MANDATORY_LEVELS,
+} from './regulation-clause.entity'
+export {
+  ClauseControlMap,
+  CLAUSE_CONTROL_MAPPING_TYPES,
+  MAP_REVIEW_STATUSES,
+} from './clause-control-map.entity'
+export {
+  ComplianceCase,
+  COMPLIANCE_CASE_STATUSES,
+} from './compliance-case.entity'
+export {
+  CaseControlMap,
+  CASE_CONTROL_RELATION_TYPES,
+} from './case-control-map.entity'
 // Epic 2: 技术雷达 - 统一标签系统和推送基础设施
 export { Tag } from './tag.entity'
 export { WatchedItem } from './watched-item.entity'

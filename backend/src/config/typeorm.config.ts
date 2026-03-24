@@ -26,6 +26,11 @@ import {
   TaxonomyL1,
   TaxonomyL2,
   ControlPoint,
+  RegulationSource,
+  RegulationClause,
+  ClauseControlMap,
+  ComplianceCase,
+  CaseControlMap,
   WatchedTopic,
   WatchedPeer,
   // Epic 2: 技术雷达实体
@@ -91,6 +96,11 @@ export const AppDataSource = new DataSource({
     TaxonomyL1,
     TaxonomyL2,
     ControlPoint,
+    RegulationSource,
+    RegulationClause,
+    ClauseControlMap,
+    ComplianceCase,
+    CaseControlMap,
     WatchedTopic,
     WatchedPeer,
     // Epic 2: 技术雷达实体
