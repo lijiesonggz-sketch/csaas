@@ -1,0 +1,89 @@
+[
+  {
+    "ruleCode": "RULE-CTRL-ACC-PRIVILEGED-STRENGTHEN-001",
+    "targetType": "control",
+    "targetCode": "CTRL-ACC-002",
+    "ruleType": "strengthen",
+    "priority": 40,
+    "predicate": {
+      "any": [
+        { "field": "ciioStatus", "op": "eq", "value": "yes" },
+        { "field": "criticalSystemLevel", "op": "in", "value": ["high", "very_high"] }
+      ]
+    },
+    "result": {
+      "priority": "HIGH",
+      "mandatory": true,
+      "reasonTemplate": "关键系统等级高或属于关基运营者，需强化特权账号控制"
+    }
+  },
+  {
+    "ruleCode": "RULE-CTRL-BCP-RTO-STRENGTHEN-001",
+    "targetType": "control",
+    "targetCode": "CTRL-BCP-003",
+    "ruleType": "strengthen",
+    "priority": 40,
+    "predicate": {
+      "any": [
+        { "field": "industry", "op": "eq", "value": "bank" },
+        { "field": "hasOnlineTrading", "op": "is_true" },
+        { "field": "criticalSystemLevel", "op": "eq", "value": "very_high" }
+      ]
+    },
+    "result": {
+      "priority": "HIGH",
+      "mandatory": true,
+      "reasonTemplate": "银行业、线上交易或超高关键系统需强化 RTO/RPO 控制"
+    }
+  },
+  {
+    "ruleCode": "RULE-CTRL-DG-REPORTING-STRENGTHEN-001",
+    "targetType": "control",
+    "targetCode": "CTRL-DG-004",
+    "ruleType": "strengthen",
+    "priority": 40,
+    "predicate": {
+      "any": [
+        { "field": "industry", "op": "eq", "value": "bank" },
+        { "field": "regulatoryAttentionLevel", "op": "eq", "value": "high" }
+      ]
+    },
+    "result": {
+      "priority": "HIGH",
+      "mandatory": true,
+      "reasonTemplate": "银行机构或高监管关注机构需强化监管报送控制"
+    }
+  },
+  {
+    "ruleCode": "RULE-CTRL-DATA-CROSSBORDER-STRENGTHEN-001",
+    "targetType": "control",
+    "targetCode": "CTRL-DATA-011",
+    "ruleType": "strengthen",
+    "priority": 40,
+    "predicate": {
+      "all": [
+        { "field": "crossBorderData", "op": "is_true" }
+      ]
+    },
+    "result": {
+      "priority": "HIGH",
+      "mandatory": true,
+      "reasonTemplate": "存在跨境数据场景时需强化数据出境控制"
+    }
+  },
+  {
+    "ruleCode": "RULE-CTRL-AI-EXCLUDE-NO-AI-001",
+    "targetType": "pack",
+    "targetCode": "PACK-SCENE-AI",
+    "ruleType": "exclude",
+    "priority": 50,
+    "predicate": {
+      "all": [
+        { "field": "hasAiServices", "op": "is_false" }
+      ]
+    },
+    "result": {
+      "reasonTemplate": "机构未上线 AI 服务，不适用 AI 场景包中的控制点要求"
+    }
+  }
+]

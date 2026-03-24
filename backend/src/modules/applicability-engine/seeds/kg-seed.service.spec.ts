@@ -19,14 +19,37 @@ describe('seedKgBaselineWithQueryRunner', () => {
     const ruleRepository = {
       upsert: jest.fn().mockResolvedValue(undefined),
     }
+    const taxonomyL1Repository = {
+      upsert: jest.fn().mockResolvedValue(undefined),
+    }
+    const taxonomyL2Repository = {
+      upsert: jest.fn().mockResolvedValue(undefined),
+    }
+    const controlPointRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockImplementation((value) => value),
+      save: jest.fn().mockResolvedValue(undefined),
+    }
     const manager = {
       getRepository: jest.fn((entity) => {
+        if (entity.name === 'TaxonomyL1') {
+          return taxonomyL1Repository
+        }
+
+        if (entity.name === 'TaxonomyL2') {
+          return taxonomyL2Repository
+        }
+
         if (entity === ControlPack) {
           return packRepository
         }
 
         if (entity === ApplicabilityRule) {
           return ruleRepository
+        }
+
+        if (entity.name === 'ControlPoint') {
+          return controlPointRepository
         }
 
         throw new Error('Unexpected repository request')
@@ -41,6 +64,27 @@ describe('seedKgBaselineWithQueryRunner', () => {
 
     expect(queryRunner.hasTable).toHaveBeenCalledWith('control_packs')
     expect(queryRunner.hasTable).toHaveBeenCalledWith('applicability_rules')
+    expect(queryRunner.hasTable).toHaveBeenCalledWith('taxonomy_l1')
+    expect(queryRunner.hasTable).toHaveBeenCalledWith('taxonomy_l2')
+    expect(queryRunner.hasTable).toHaveBeenCalledWith('control_points')
+    expect(taxonomyL1Repository.upsert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          l1Code: 'IT01',
+          l1Name: '信息科技治理与风险管理',
+        }),
+      ]),
+      ['l1Code'],
+    )
+    expect(taxonomyL2Repository.upsert).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          l2Code: 'IT02-03',
+          l1Code: 'IT02',
+        }),
+      ]),
+      ['l2Code'],
+    )
     expect(packRepository.upsert).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
@@ -64,6 +108,9 @@ describe('seedKgBaselineWithQueryRunner', () => {
     expect(summary.applicabilityRules).toBe(25)
     expect(summary.demoProfiles).toBe(seedData.demoProfiles.length)
     expect(summary.expectedResults).toBe(seedData.expectedResults.length)
+    expect(summary.taxonomyL1).toBe(seedData.taxonomyL1.length)
+    expect(summary.taxonomyL2).toBe(seedData.taxonomyL2.length)
+    expect(summary.controlPoints).toBe(seedData.controlPoints.length)
   })
 
   it('should fail fast when required tables are missing', async () => {
@@ -71,14 +118,17 @@ describe('seedKgBaselineWithQueryRunner', () => {
       hasTable: jest.fn().mockResolvedValueOnce(false),
     }
 
-    await expect(
-      seedKgBaselineWithQueryRunner(queryRunner as never, seedData),
-    ).rejects.toThrow('KG seed runner requires table control_packs')
+    await expect(seedKgBaselineWithQueryRunner(queryRunner as never, seedData)).rejects.toThrow(
+      'KG seed runner requires table control_packs',
+    )
   })
 
   it('should remain idempotent across repeated executions with the same repository state', async () => {
     const controlPackState = new Map<string, { packId: string; packCode: string }>()
     const applicabilityRuleState = new Map<string, { ruleCode: string }>()
+    const taxonomyL1State = new Map<string, { l1Code: string }>()
+    const taxonomyL2State = new Map<string, { l2Code: string }>()
+    const controlPointState = new Map<string, { controlId: string; controlCode: string }>()
 
     const packRepository = {
       upsert: jest.fn().mockImplementation(async (rows: Array<{ packCode: string }>) => {
@@ -102,14 +152,54 @@ describe('seedKgBaselineWithQueryRunner', () => {
         })
       }),
     }
+    const taxonomyL1Repository = {
+      upsert: jest.fn().mockImplementation(async (rows: Array<{ l1Code: string }>) => {
+        rows.forEach((row) => {
+          taxonomyL1State.set(row.l1Code, { l1Code: row.l1Code })
+        })
+      }),
+    }
+    const taxonomyL2Repository = {
+      upsert: jest.fn().mockImplementation(async (rows: Array<{ l2Code: string }>) => {
+        rows.forEach((row) => {
+          taxonomyL2State.set(row.l2Code, { l2Code: row.l2Code })
+        })
+      }),
+    }
+    const controlPointRepository = {
+      findOne: jest
+        .fn()
+        .mockImplementation(async ({ where }: { where: { controlCode: string } }) => {
+          return controlPointState.get(where.controlCode) ?? null
+        }),
+      create: jest.fn().mockImplementation((row) => row),
+      save: jest
+        .fn()
+        .mockImplementation(async (row: { controlId: string; controlCode: string }) => {
+          controlPointState.set(row.controlCode, row)
+          return row
+        }),
+    }
     const manager = {
       getRepository: jest.fn((entity) => {
+        if (entity.name === 'TaxonomyL1') {
+          return taxonomyL1Repository
+        }
+
+        if (entity.name === 'TaxonomyL2') {
+          return taxonomyL2Repository
+        }
+
         if (entity === ControlPack) {
           return packRepository
         }
 
         if (entity === ApplicabilityRule) {
           return ruleRepository
+        }
+
+        if (entity.name === 'ControlPoint') {
+          return controlPointRepository
         }
 
         throw new Error('Unexpected repository request')
@@ -125,6 +215,9 @@ describe('seedKgBaselineWithQueryRunner', () => {
 
     expect(controlPackState.size).toBe(seedData.controlPacks.length)
     expect(applicabilityRuleState.size).toBe(seedData.applicabilityRules.length)
+    expect(taxonomyL1State.size).toBe(seedData.taxonomyL1.length)
+    expect(taxonomyL2State.size).toBe(seedData.taxonomyL2.length)
+    expect(controlPointState.size).toBe(seedData.controlPoints.length)
   })
 })
 
@@ -139,6 +232,18 @@ describe('runKgSeed', () => {
       release: jest.fn().mockResolvedValue(undefined),
       manager: {
         getRepository: jest.fn((entity) => {
+          if (entity.name === 'TaxonomyL1') {
+            return {
+              upsert: jest.fn().mockResolvedValue(undefined),
+            }
+          }
+
+          if (entity.name === 'TaxonomyL2') {
+            return {
+              upsert: jest.fn().mockResolvedValue(undefined),
+            }
+          }
+
           if (entity === ControlPack) {
             return {
               upsert: jest.fn().mockResolvedValue(undefined),
@@ -148,6 +253,14 @@ describe('runKgSeed', () => {
                   packCode: pack.packCode,
                 })),
               ),
+            }
+          }
+
+          if (entity.name === 'ControlPoint') {
+            return {
+              findOne: jest.fn().mockResolvedValue(null),
+              create: jest.fn().mockImplementation((row) => row),
+              save: jest.fn().mockResolvedValue(undefined),
             }
           }
 

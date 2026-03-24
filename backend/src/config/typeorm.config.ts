@@ -23,6 +23,9 @@ import {
   InterpretationResult,
   CurrentStateDescription,
   WeaknessSnapshot,
+  TaxonomyL1,
+  TaxonomyL2,
+  ControlPoint,
   WatchedTopic,
   WatchedPeer,
   // Epic 2: 技术雷达实体
@@ -85,6 +88,9 @@ export const AppDataSource = new DataSource({
     InterpretationResult,
     CurrentStateDescription,
     WeaknessSnapshot,
+    TaxonomyL1,
+    TaxonomyL2,
+    ControlPoint,
     WatchedTopic,
     WatchedPeer,
     // Epic 2: 技术雷达实体

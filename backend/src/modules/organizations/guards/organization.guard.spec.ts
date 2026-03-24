@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { ForbiddenException } from '@nestjs/common'
+import { BadRequestException, ForbiddenException } from '@nestjs/common'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { OrganizationGuard } from './organization.guard'
@@ -113,6 +113,22 @@ describe('OrganizationGuard', () => {
 
       await expect(guard.canActivate(mockContext as any)).rejects.toThrow(ForbiddenException)
       expect(auditLogService.log).toHaveBeenCalled()
+    })
+
+    it('should throw BadRequestException when organizationId format is invalid', async () => {
+      const mockContext = {
+        switchToHttp: () => ({
+          getRequest: () => ({
+            user: { userId: 'user-123' },
+            params: { orgId: 'not-a-uuid' },
+            query: {},
+            body: {},
+          }),
+        }),
+      }
+
+      await expect(guard.canActivate(mockContext as any)).rejects.toThrow(BadRequestException)
+      expect(memberRepository.findOne).not.toHaveBeenCalled()
     })
   })
 
