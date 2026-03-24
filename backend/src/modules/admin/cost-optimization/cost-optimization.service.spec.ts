@@ -3,6 +3,7 @@ import { CostOptimizationService } from './cost-optimization.service';
 import { AIUsageLogRepository } from '@/database/repositories/ai-usage-log.repository';
 import { OrganizationRepository } from '@/database/repositories/organization.repository';
 import { AlertRepository } from '@/database/repositories/alert.repository';
+import { AuditLogRepository } from '@/database/repositories/audit-log.repository';
 import { EmailService } from '../clients/email.service';
 import { ConfigService } from '@nestjs/config';
 import { AIUsageTaskType } from '@/database/entities/ai-usage-log.entity';
@@ -12,6 +13,7 @@ describe('CostOptimizationService', () => {
   let aiUsageLogRepository: jest.Mocked<AIUsageLogRepository>;
   let organizationRepository: jest.Mocked<OrganizationRepository>;
   let alertRepository: jest.Mocked<AlertRepository>;
+  let auditLogRepository: jest.Mocked<AuditLogRepository>;
   let emailService: jest.Mocked<EmailService>;
   let configService: jest.Mocked<ConfigService>;
 
@@ -31,6 +33,11 @@ describe('CostOptimizationService', () => {
     const mockAlertRepository = {
       create: jest.fn(),
       findWithFilters: jest.fn(),
+    };
+
+    const mockAuditLogRepository = {
+      create: jest.fn(),
+      save: jest.fn(),
     };
 
     const mockEmailService = {
@@ -60,6 +67,10 @@ describe('CostOptimizationService', () => {
           useValue: mockAlertRepository,
         },
         {
+          provide: AuditLogRepository,
+          useValue: mockAuditLogRepository,
+        },
+        {
           provide: EmailService,
           useValue: mockEmailService,
         },
@@ -74,6 +85,7 @@ describe('CostOptimizationService', () => {
     aiUsageLogRepository = module.get(AIUsageLogRepository);
     organizationRepository = module.get(OrganizationRepository);
     alertRepository = module.get(AlertRepository);
+    auditLogRepository = module.get(AuditLogRepository);
     emailService = module.get(EmailService);
     configService = module.get(ConfigService);
   });

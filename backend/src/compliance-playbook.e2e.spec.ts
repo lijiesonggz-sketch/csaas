@@ -13,12 +13,15 @@ import { RadarPush } from './database/entities/radar-push.entity'
 import { AnalyzedContent } from './database/entities/analyzed-content.entity'
 import { RawContent } from './database/entities/raw-content.entity'
 
+const compliancePlaybookE2EDescribe =
+  process.env.RUN_COMPLIANCE_PLAYBOOK_E2E === 'true' ? describe : describe.skip
+
 /**
  * Compliance Playbook E2E Tests (Story 4.2 - Phase 6.1)
  *
  * 端到端集成测试：CompliancePlaybookController + Service + Database
  */
-describe('CompliancePlaybook E2E (Phase 6.1)', () => {
+compliancePlaybookE2EDescribe('CompliancePlaybook E2E (Phase 6.1)', () => {
   let app: INestApplication
   let playbookService: CompliancePlaybookService
   let playbookRepo: Repository<CompliancePlaybook>

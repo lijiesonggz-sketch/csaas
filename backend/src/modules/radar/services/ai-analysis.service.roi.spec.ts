@@ -11,6 +11,7 @@ import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
 import { TagService } from './tag.service'
 import { AnalyzedContentService } from './analyzed-content.service'
 import { AIModel } from '../../../database/entities/ai-generation-event.entity'
+import { AIUsageService } from '../../admin/cost-optimization/ai-usage.service'
 
 /**
  * AIAnalysisService - ROI分析功能单元测试 (Story 2.4)
@@ -93,7 +94,7 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
           },
         },
         {
-          provide: getQueueToken('radar:crawler'),
+          provide: getQueueToken('radar-crawler'),
           useValue: {
             client: Promise.resolve(redisClient),
           },
@@ -118,6 +119,12 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
             update: jest.fn(),
           },
         },
+        {
+          provide: AIUsageService,
+          useValue: {
+            logAIUsage: jest.fn(),
+          },
+        },
       ],
     }).compile()
 
@@ -125,7 +132,7 @@ describe('AIAnalysisService - ROI Analysis (Story 2.4)', () => {
     rawContentRepo = module.get<Repository<RawContent>>(getRepositoryToken(RawContent))
     analyzedContentService = module.get<AnalyzedContentService>(AnalyzedContentService)
     aiOrchestrator = module.get<AIOrchestrator>(AIOrchestrator)
-    crawlerQueue = module.get<Queue>(getQueueToken('radar:crawler'))
+    crawlerQueue = module.get<Queue>(getQueueToken('radar-crawler'))
   })
 
   afterEach(() => {

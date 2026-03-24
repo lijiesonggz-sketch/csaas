@@ -476,11 +476,13 @@ describe('PeerCrawlerService', () => {
       )
 
       expect(mockAiAnalysisQueue.add).toHaveBeenCalledWith(
-        'analyze-content',
+        'analyze-peer-content',
         expect.objectContaining({
+          type: 'peer-content-analysis',
           rawContentId: 'raw-1',
           sourceTaskId: 'task-1',
-          source: 'peer-crawler',
+          peerName: '杭州银行',
+          tenantId: 'tenant-1',
         }),
       )
     })

@@ -3,6 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import { RadarPushController } from './radar-push.controller'
 import { RadarPush } from '../../../database/entities/radar-push.entity'
+import { AnalyzedContent } from '../../../database/entities/analyzed-content.entity'
+import { RawContent } from '../../../database/entities/raw-content.entity'
 import { QueryPushHistoryDto } from '../dto/push-history.dto'
 import { NotFoundException } from '@nestjs/common'
 import { OrganizationGuard } from '../../organizations/guards/organization.guard'
@@ -17,6 +19,14 @@ describe('RadarPushController', () => {
     findAndCount: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
+  }
+  const mockAnalyzedContentRepo = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+  }
+  const mockRawContentRepo = {
+    find: jest.fn(),
+    findOne: jest.fn(),
   }
 
   // Mock guards
@@ -36,6 +46,14 @@ describe('RadarPushController', () => {
         {
           provide: getRepositoryToken(RadarPush),
           useValue: mockRepo,
+        },
+        {
+          provide: getRepositoryToken(AnalyzedContent),
+          useValue: mockAnalyzedContentRepo,
+        },
+        {
+          provide: getRepositoryToken(RawContent),
+          useValue: mockRawContentRepo,
         },
       ],
     })
@@ -75,7 +93,7 @@ describe('RadarPushController', () => {
         },
       })
       expect(mockRepo.findAndCount).toHaveBeenCalledWith({
-        where: { tenantId: 'tenant-123' },
+        where: { tenantId: 'tenant-123', organizationId: 'org-123' },
         order: {
           priorityLevel: 'DESC',
           relevanceScore: 'DESC',
@@ -83,8 +101,6 @@ describe('RadarPushController', () => {
         },
         skip: 0,
         take: 20,
-        relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags'],
-        relationLoadStrategy: 'join',
       })
     })
 
@@ -97,30 +113,38 @@ describe('RadarPushController', () => {
       const mockPushes = [
         {
           id: 'push-1',
+          contentId: 'analyzed-1',
           radarType: 'tech',
           relevanceScore: '0.95',
           priorityLevel: 'high',
           scheduledAt: new Date('2024-01-15T10:00:00.000Z'),
           isRead: false,
           readAt: null,
-          analyzedContent: {
-            aiSummary: 'Test summary',
-            categories: ['security'],
-            targetAudience: 'developers',
-            roiAnalysis: { score: 0.8 },
-            tags: [{ name: 'tag1' }, { name: 'tag2' }],
-            rawContent: {
-              title: 'Test Push',
-              summary: 'Raw summary',
-              fullContent: 'Full content',
-              url: 'https://example.com',
-              publishDate: new Date('2024-01-15T09:00:00.000Z'),
-              source: 'Test Source',
-            },
-          },
         },
       ]
       const mockTotal = 1
+      mockAnalyzedContentRepo.find.mockResolvedValue([
+        {
+          id: 'analyzed-1',
+          contentId: 'raw-1',
+          aiSummary: 'Test summary',
+          categories: ['security'],
+          targetAudience: 'developers',
+          roiAnalysis: { score: 0.8 },
+          tags: [{ name: 'tag1' }, { name: 'tag2' }],
+        },
+      ])
+      mockRawContentRepo.find.mockResolvedValue([
+        {
+          id: 'raw-1',
+          title: 'Test Push',
+          summary: 'Raw summary',
+          fullContent: 'Full content',
+          url: 'https://example.com',
+          publishDate: new Date('2024-01-15T09:00:00.000Z'),
+          source: 'Test Source',
+        },
+      ])
 
       mockRepo.findAndCount.mockResolvedValue([mockPushes, mockTotal])
 
@@ -155,7 +179,7 @@ describe('RadarPushController', () => {
         },
       })
       expect(mockRepo.findAndCount).toHaveBeenCalledWith({
-        where: { tenantId: 'tenant-123', radarType: 'tech' },
+        where: { tenantId: 'tenant-123', radarType: 'tech', organizationId: 'org-123' },
         order: {
           priorityLevel: 'DESC',
           relevanceScore: 'DESC',
@@ -163,8 +187,6 @@ describe('RadarPushController', () => {
         },
         skip: 0,
         take: 20,
-        relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags'],
-        relationLoadStrategy: 'join',
       })
     })
 
@@ -190,7 +212,7 @@ describe('RadarPushController', () => {
         },
       })
       expect(mockRepo.findAndCount).toHaveBeenCalledWith({
-        where: { tenantId: 'tenant-123' },
+        where: { tenantId: 'tenant-123', organizationId: 'org-123' },
         order: {
           priorityLevel: 'DESC',
           relevanceScore: 'DESC',
@@ -198,8 +220,6 @@ describe('RadarPushController', () => {
         },
         skip: 20,
         take: 10,
-        relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags'],
-        relationLoadStrategy: 'join',
       })
     })
 
@@ -217,7 +237,7 @@ describe('RadarPushController', () => {
       await controller.getPushHistory('tenant-123', { organizationId: 'org-123', userId: 'user-123' }, query)
 
       expect(mockRepo.findAndCount).toHaveBeenCalledWith({
-        where: { tenantId: 'tenant-123', radarType: 'industry' },
+        where: { tenantId: 'tenant-123', radarType: 'industry', organizationId: 'org-123' },
         order: {
           priorityLevel: 'DESC',
           relevanceScore: 'DESC',
@@ -225,8 +245,6 @@ describe('RadarPushController', () => {
         },
         skip: 0,
         take: 20,
-        relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags'],
-        relationLoadStrategy: 'join',
       })
     })
 
@@ -235,48 +253,38 @@ describe('RadarPushController', () => {
       const mockPushes = [
         {
           id: 'push-1',
+          contentId: 'analyzed-1',
           radarType: 'tech',
           relevanceScore: '0.95',
           priorityLevel: 'high',
           scheduledAt: new Date('2024-01-15T10:00:00.000Z'),
           isRead: false,
           readAt: null,
-          analyzedContent: {
-            rawContent: {
-              title: 'High Priority',
-            },
-          },
         },
         {
           id: 'push-2',
+          contentId: 'analyzed-2',
           radarType: 'tech',
           relevanceScore: '0.75',
           priorityLevel: 'medium',
           scheduledAt: new Date('2024-01-15T10:00:00.000Z'),
           isRead: false,
           readAt: null,
-          analyzedContent: {
-            rawContent: {
-              title: 'Medium Priority',
-            },
-          },
         },
         {
           id: 'push-3',
+          contentId: 'analyzed-3',
           radarType: 'tech',
           relevanceScore: '0.55',
           priorityLevel: 'low',
           scheduledAt: new Date('2024-01-15T10:00:00.000Z'),
           isRead: false,
           readAt: null,
-          analyzedContent: {
-            rawContent: {
-              title: 'Low Priority',
-            },
-          },
         },
       ]
       const mockTotal = 3
+      mockAnalyzedContentRepo.find.mockResolvedValue([])
+      mockRawContentRepo.find.mockResolvedValue([])
 
       mockRepo.findAndCount.mockResolvedValue([mockPushes, mockTotal])
 
@@ -292,16 +300,18 @@ describe('RadarPushController', () => {
       const mockPushes = [
         {
           id: 'push-1',
+          contentId: 'missing-analyzed',
           radarType: 'tech',
           relevanceScore: '0.95',
           priorityLevel: 'high',
           scheduledAt: new Date('2024-01-15T10:00:00.000Z'),
           isRead: false,
           readAt: null,
-          analyzedContent: null,
         },
       ]
       const mockTotal = 1
+      mockAnalyzedContentRepo.find.mockResolvedValue([])
+      mockRawContentRepo.find.mockResolvedValue([])
 
       mockRepo.findAndCount.mockResolvedValue([mockPushes, mockTotal])
 
@@ -334,28 +344,32 @@ describe('RadarPushController', () => {
       const mockPush = {
         id: pushId,
         tenantId: 'tenant-123',
+        contentId: 'analyzed-1',
         radarType: 'tech',
         relevanceScore: '0.95',
         priorityLevel: 'high',
         scheduledAt: new Date('2024-01-15T10:00:00.000Z'),
         isRead: false,
         readAt: null,
-        analyzedContent: {
-          aiSummary: 'Test summary',
-          categories: ['security'],
-          targetAudience: 'developers',
-          roiAnalysis: { score: 0.8 },
-          tags: [{ name: 'tag1' }],
-          rawContent: {
-            title: 'Test Push',
-            summary: 'Raw summary',
-            fullContent: 'Full content',
-            url: 'https://example.com',
-            publishDate: new Date('2024-01-15T09:00:00.000Z'),
-            source: 'Test Source',
-          },
-        },
       }
+      mockAnalyzedContentRepo.findOne.mockResolvedValue({
+        id: 'analyzed-1',
+        contentId: 'raw-1',
+        aiSummary: 'Test summary',
+        categories: ['security'],
+        targetAudience: 'developers',
+        roiAnalysis: { score: 0.8 },
+        tags: [{ name: 'tag1' }],
+      })
+      mockRawContentRepo.findOne.mockResolvedValue({
+        id: 'raw-1',
+        title: 'Test Push',
+        summary: 'Raw summary',
+        fullContent: 'Full content',
+        url: 'https://example.com',
+        publishDate: new Date('2024-01-15T09:00:00.000Z'),
+        source: 'Test Source',
+      })
 
       mockRepo.findOne.mockResolvedValue(mockPush)
 
@@ -381,7 +395,6 @@ describe('RadarPushController', () => {
       })
       expect(mockRepo.findOne).toHaveBeenCalledWith({
         where: { id: pushId, tenantId: 'tenant-123' },
-        relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags'],
       })
     })
 
@@ -395,7 +408,6 @@ describe('RadarPushController', () => {
       )
       expect(mockRepo.findOne).toHaveBeenCalledWith({
         where: { id: pushId, tenantId: 'tenant-123' },
-        relations: ['analyzedContent', 'analyzedContent.rawContent', 'analyzedContent.tags'],
       })
     })
   })

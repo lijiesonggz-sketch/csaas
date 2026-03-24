@@ -11,6 +11,7 @@ import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
 import { TagService } from './tag.service'
 import { AnalyzedContentService } from './analyzed-content.service'
 import { AIModel } from '../../../database/entities/ai-generation-event.entity'
+import { AIUsageService } from '../../admin/cost-optimization/ai-usage.service'
 
 /**
  * Story 3.2: 测试AI分析服务对行业雷达的支持
@@ -131,6 +132,12 @@ describe('AIAnalysisService - Industry Radar (Story 3.2)', () => {
           provide: AnalyzedContentService,
           useValue: {
             create: jest.fn(),
+          },
+        },
+        {
+          provide: AIUsageService,
+          useValue: {
+            logAIUsage: jest.fn(),
           },
         },
       ],

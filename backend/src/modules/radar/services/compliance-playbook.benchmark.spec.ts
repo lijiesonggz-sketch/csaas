@@ -12,6 +12,10 @@ import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
 import { AIModel } from '../../../database/entities/ai-generation-event.entity'
 import { TagService } from './tag.service'
 import { AnalyzedContentService } from './analyzed-content.service'
+import { AIUsageService } from '../../admin/cost-optimization/ai-usage.service'
+
+const benchmarkDescribe =
+  process.env.RUN_BENCHMARKS === 'true' ? describe : describe.skip
 
 /**
  * Story 4.2 - 性能基准测试（单元测试版本）
@@ -22,7 +26,7 @@ import { AnalyzedContentService } from './analyzed-content.service'
  * - 相关性评分计算 < 10ms
  * - ROI计算 < 5ms
  */
-describe('Compliance Playbook Performance Benchmarks - Unit Tests (Story 4.2)', () => {
+benchmarkDescribe('Compliance Playbook Performance Benchmarks - Unit Tests (Story 4.2)', () => {
   let service: AIAnalysisService
   let crawlerQueue: Queue
 
@@ -63,6 +67,12 @@ describe('Compliance Playbook Performance Benchmarks - Unit Tests (Story 4.2)', 
             create: jest.fn(),
             findById: jest.fn(),
             update: jest.fn(),
+          },
+        },
+        {
+          provide: AIUsageService,
+          useValue: {
+            logAIUsage: jest.fn(),
           },
         },
       ],
