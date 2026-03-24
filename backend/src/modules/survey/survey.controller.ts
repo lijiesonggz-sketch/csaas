@@ -10,6 +10,7 @@ import {
   HttpStatus,
   Query,
   UseGuards,
+  Logger,
 } from '@nestjs/common'
 import { SurveyService } from './survey.service'
 import { MaturityAnalysisService } from './maturity-analysis.service'
@@ -31,6 +32,8 @@ import { AITaskType, TaskStatus } from '../../database/entities/ai-task.entity'
 @UseGuards(JwtAuthGuard)
 @Controller('survey')
 export class SurveyController {
+  private readonly logger = new Logger(SurveyController.name)
+
   constructor(
     private readonly surveyService: SurveyService,
     private readonly maturityAnalysisService: MaturityAnalysisService,
@@ -46,9 +49,9 @@ export class SurveyController {
   @HttpCode(HttpStatus.CREATED)
   async createSurvey(@Body() dto: CreateSurveyDto) {
     try {
-      console.log('[SurveyController] 收到创建问卷请求:', dto)
+      this.logger.debug(`[SurveyController] 收到创建问卷请求: ${JSON.stringify(dto)}`)
       const survey = await this.surveyService.createSurvey(dto)
-      console.log('[SurveyController] 创建成功, survey ID:', survey.id)
+      this.logger.debug(`[SurveyController] 创建成功, survey ID: ${survey.id}`)
       return {
         success: true,
         data: survey,
@@ -226,7 +229,7 @@ export class SurveyController {
   @Post('upload-and-analyze')
   async uploadAndAnalyze(@Body() dto: UploadAndAnalyzeDto) {
     try {
-      console.log('[SurveyController] 收到上传并分析请求:', dto.projectId)
+      this.logger.debug(`[SurveyController] 收到上传并分析请求: ${dto.projectId}`)
 
       // 1. 获取项目的问卷任务
       const questionnaireTasks = await this.surveyService['aiTaskRepository'].find({
@@ -249,7 +252,7 @@ export class SurveyController {
       }
 
       const questionnaireTaskId = questionnaireTasks[0].id
-      console.log('[SurveyController] 使用问卷任务:', questionnaireTaskId)
+      this.logger.debug(`[SurveyController] 使用问卷任务: ${questionnaireTaskId}`)
 
       // 2. 创建问卷填写记录
       const createSurveyDto: CreateSurveyDto = {
@@ -273,7 +276,7 @@ export class SurveyController {
       // 4. 进行成熟度分析
       const analysis = await this.maturityAnalysisService.analyzeSurvey(survey.id)
 
-      console.log('[SurveyController] 上传并分析完成, survey ID:', survey.id)
+      this.logger.debug(`[SurveyController] 上传并分析完成, survey ID: ${survey.id}`)
 
       return {
         success: true,
@@ -300,9 +303,9 @@ export class SurveyController {
   @HttpCode(HttpStatus.OK)
   async analyzeBinaryGap(@Body() dto: BinaryGapAnalysisInput) {
     try {
-      console.log('[SurveyController] 收到判断题差距分析请求:', dto)
+      this.logger.debug(`[SurveyController] 收到判断题差距分析请求: ${JSON.stringify(dto)}`)
       const result = await this.binaryGapAnalyzer.analyzeGap(dto)
-      console.log('[SurveyController] 差距分析完成')
+      this.logger.debug('[SurveyController] 差距分析完成')
       return {
         success: true,
         data: result,

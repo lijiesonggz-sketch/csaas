@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core'
-import { ValidationPipe, BadRequestException } from '@nestjs/common'
+import { ValidationPipe, BadRequestException, Logger } from '@nestjs/common'
 import { AppModule } from './app.module'
 import { initSentry } from './config/sentry.config'
 import { loggerConfig } from './config/logger.config'
@@ -9,6 +9,9 @@ import { NotFoundFilter } from './common/filters/not-found.filter'
 import * as Sentry from '@sentry/node'
 import { NestExpressApplication } from '@nestjs/platform-express'
 import { join } from 'path'
+
+const bootstrapLogger = new Logger('Bootstrap')
+const requestLogger = new Logger('Request')
 
 async function bootstrap() {
   // 验证 JWT 配置（必须在应用启动前完成）
@@ -34,16 +37,18 @@ async function bootstrap() {
 
   // 添加请求日志中间件（改进版：包含 User-Agent 和 Referer）
   app.use((req, res, next) => {
-    console.log('[REQUEST]', req.method, req.url, {
-      query: req.query,
-      headers: {
-        authorization: req.headers.authorization ? 'Bearer ***' : undefined,
-        'content-type': req.headers['content-type'],
-        'user-agent': req.headers['user-agent'],
-        referer: req.headers['referer'],
-      },
-      ip: req.ip,
-    })
+    requestLogger.debug(
+      `[REQUEST] ${req.method} ${req.url} ${JSON.stringify({
+        query: req.query,
+        headers: {
+          authorization: req.headers.authorization ? 'Bearer ***' : undefined,
+          'content-type': req.headers['content-type'],
+          'user-agent': req.headers['user-agent'],
+          referer: req.headers['referer'],
+        },
+        ip: req.ip,
+      })}`,
+    )
     next()
   })
 
@@ -79,9 +84,9 @@ async function bootstrap() {
   const port = process.env.PORT || 3000
   await app.listen(port)
 
-  console.log(`🚀 Backend server running on http://localhost:${port}`)
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`)
-  console.log(`✅ Health check: http://localhost:${port}/health`)
+  bootstrapLogger.log(`Backend server running on http://localhost:${port}`)
+  bootstrapLogger.log(`Environment: ${process.env.NODE_ENV || 'development'}`)
+  bootstrapLogger.log(`Health check: http://localhost:${port}/health`)
 }
 
 bootstrap().catch((error) => {

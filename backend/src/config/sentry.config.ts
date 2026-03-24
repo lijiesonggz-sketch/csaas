@@ -1,4 +1,7 @@
+import { Logger } from '@nestjs/common'
 import * as Sentry from '@sentry/node'
+
+const sentryLogger = new Logger('Sentry')
 
 /**
  * Sentry错误监控配置
@@ -7,7 +10,7 @@ export const initSentry = () => {
   const sentryDsn = process.env.SENTRY_DSN
 
   if (!sentryDsn) {
-    console.warn('⚠️ SENTRY_DSN not configured, error monitoring disabled')
+    sentryLogger.warn('SENTRY_DSN not configured, error monitoring disabled')
     return
   }
 
@@ -52,7 +55,7 @@ export const initSentry = () => {
     },
   })
 
-  console.log('✅ Sentry initialized successfully')
+  sentryLogger.log('Sentry initialized successfully')
 }
 
 /**
