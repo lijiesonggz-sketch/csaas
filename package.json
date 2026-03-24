@@ -10,6 +10,7 @@
     "frontend:build": "cd frontend && npm run build",
     "backend:build": "cd backend && npm run build",
     "backend:migration:check:fresh": "npm --workspace backend run migration:check:fresh --",
+    "seed:kg": "npm --workspace backend run seed:kg",
     "lint": "npm run lint --workspaces",
     "format": "npm run format --workspaces",
     "test": "npm run test --workspaces"

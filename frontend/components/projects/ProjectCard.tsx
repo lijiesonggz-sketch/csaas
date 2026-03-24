@@ -3,13 +3,13 @@
 import React, { useState } from 'react'
 import { Project } from '@/lib/api/projects'
 import {
-  FolderKanban,
-  Building2,
-  ShieldCheck,
+  ViewKanban,
+  Business,
+  VerifiedUser,
   TrendingUp,
-  Calendar,
-  Trash2,
-} from 'lucide-react'
+  CalendarToday,
+  Delete,
+} from '@mui/icons-material'
 import {
   Dialog,
   DialogTitle,
@@ -17,10 +17,16 @@ import {
   DialogContentText,
   DialogActions,
   Button,
+  Box,
+  Typography,
+  IconButton,
+  LinearProgress,
 } from '@mui/material'
 import { apiFetch } from '@/lib/utils/api'
 import { message } from '@/lib/message'
 import { formatChinaDate } from '@/lib/utils/dateTime'
+import ContentCard from '@/components/ui/mui/ContentCard'
+import StatusChip from '@/components/ui/mui/StatusChip'
 
 interface ProjectCardProps {
   project: Project
@@ -47,50 +53,25 @@ export default function ProjectCard({ project, onClick, onDelete }: ProjectCardP
   }
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // 如果点击的是删除按钮或其子元素，不触发卡片点击
     const target = e.target as HTMLElement
     if (target.closest('[data-delete-button]')) {
       return
     }
     onClick?.()
   }
-  const getStatusConfig = (status: string) => {
+
+  const getStatusConfig = (status: string): { status: 'success' | 'info' | 'warning' | 'pending'; text: string } => {
     switch (status) {
       case 'COMPLETED':
-        return {
-          label: '已完成',
-          bgColor: 'bg-green-100 dark:bg-green-900/30',
-          textColor: 'text-green-700 dark:text-green-400',
-          dotColor: 'bg-green-500',
-        }
+        return { status: 'success', text: '已完成' }
       case 'ACTIVE':
-        return {
-          label: '进行中',
-          bgColor: 'bg-blue-100 dark:bg-blue-900/30',
-          textColor: 'text-blue-700 dark:text-blue-400',
-          dotColor: 'bg-blue-500',
-        }
+        return { status: 'info', text: '进行中' }
       case 'DRAFT':
-        return {
-          label: '草稿',
-          bgColor: 'bg-gray-100 dark:bg-gray-800',
-          textColor: 'text-gray-700 dark:text-gray-400',
-          dotColor: 'bg-gray-500',
-        }
+        return { status: 'pending', text: '草稿' }
       case 'ARCHIVED':
-        return {
-          label: '已归档',
-          bgColor: 'bg-purple-100 dark:bg-purple-900/30',
-          textColor: 'text-purple-700 dark:text-purple-400',
-          dotColor: 'bg-purple-500',
-        }
+        return { status: 'warning', text: '已归档' }
       default:
-        return {
-          label: status,
-          bgColor: 'bg-gray-100',
-          textColor: 'text-gray-700',
-          dotColor: 'bg-gray-500',
-        }
+        return { status: 'pending', text: status }
     }
   }
 
@@ -98,108 +79,163 @@ export default function ProjectCard({ project, onClick, onDelete }: ProjectCardP
 
   return (
     <>
-      <article
-        className="group relative bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-200 cursor-pointer overflow-hidden"
+      <ContentCard
+        sx={{
+          cursor: 'pointer',
+          height: '100%',
+          minHeight: '320px',
+          display: 'flex',
+          flexDirection: 'column',
+          transition: 'all 0.2s ease-in-out',
+          '&:hover': {
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            transform: 'translateY(-2px)',
+          },
+        }}
         onClick={handleCardClick}
         role="button"
-        tabIndex={0}
         aria-label={`项目: ${project.name}`}
-        onKeyPress={(e) => e.key === 'Enter' && onClick?.()}
       >
-        {/* 顶部彩色条 */}
-        <div className={`h-1.5 w-full ${statusConfig.dotColor}`} />
+        {/* 顶部渐变彩色条 */}
+        <Box
+          sx={{
+            height: '6px',
+            width: '100%',
+            background: 'linear-gradient(90deg, #6366f1 0%, #a855f7 100%)',
+          }}
+        />
 
-        <div className="p-6">
+        <Box sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
           {/* 头部：标题 + 状态 + 删除按钮 */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className={`p-2.5 rounded-lg ${statusConfig.bgColor}`}>
-                <FolderKanban className={`w-5 h-5 ${statusConfig.textColor}`} strokeWidth={2} />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate pr-2">
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, minWidth: 0 }}>
+              <Box
+                sx={{
+                  p: 1.5,
+                  borderRadius: 1.5,
+                  background: 'linear-gradient(135deg, #eef2ff 0%, #ddd6fe 100%)',
+                }}
+              >
+                <ViewKanban sx={{ fontSize: 20, color: '#6366f1' }} />
+              </Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
+                  color: 'text.primary',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
                 {project.name}
-              </h3>
-            </div>
+              </Typography>
+            </Box>
 
-            <div className="flex items-center gap-2">
-              {/* 状态标签 */}
-              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${statusConfig.bgColor} ${statusConfig.textColor}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${statusConfig.dotColor} animate-pulse`} />
-                {statusConfig.label}
-              </div>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <StatusChip statusType={statusConfig.status} label={statusConfig.text} size="small" />
 
-              {/* 删除按钮 */}
-              <div data-delete-button="true">
-                <button
-                  className="p-2 text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                  title="删除项目"
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  <Trash2 className="w-4 h-4" strokeWidth={2} />
-                </button>
-              </div>
-            </div>
-          </div>
+              <IconButton
+                data-delete-button="true"
+                sx={{ color: 'text.secondary' }}
+                title="删除项目"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Delete sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Box>
+          </Box>
 
           {/* 描述 */}
-          {project.description && (
-            <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-4 min-h-[40px]">
-              {project.description}
-            </p>
-          )}
+          <Typography
+            variant="body2"
+            sx={{
+              color: 'text.secondary',
+              mb: 3,
+              height: '40px',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            {project.description || '\u00A0'}
+          </Typography>
 
           {/* 信息列表 */}
-          <div className="space-y-2.5 mb-4">
+          <Box sx={{ mb: 3, flex: 1 }}>
             {project.clientName && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <Building2 className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" strokeWidth={2} />
-                <span className="text-gray-600 dark:text-gray-400 truncate">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Business sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
                   {project.clientName}
-                </span>
-              </div>
+                </Typography>
+              </Box>
             )}
 
             {project.standardName && (
-              <div className="flex items-center gap-2.5 text-sm">
-                <ShieldCheck className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" strokeWidth={2} />
-                <span className="text-gray-600 dark:text-gray-400 truncate">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <VerifiedUser sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'text.secondary',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
                   {project.standardName}
-                </span>
-              </div>
+                </Typography>
+              </Box>
             )}
 
-            <div className="flex items-center gap-2.5 text-sm">
-              <TrendingUp className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" strokeWidth={2} />
-              <div className="flex items-center gap-2 flex-1">
-                <span className="text-gray-600 dark:text-gray-400">进度</span>
-                <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden max-w-[120px]">
-                  <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500"
-                    style={{ width: `${project.progress}%` }}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+              <TrendingUp sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  进度
+                </Typography>
+                <Box sx={{ flex: 1, maxWidth: '120px', height: '8px', bgcolor: '#e5e7eb', borderRadius: 1, overflow: 'hidden' }}>
+                  <Box
+                    sx={{
+                      height: '100%',
+                      background: 'linear-gradient(90deg, #6366f1 0%, #a855f7 100%)',
+                      transition: 'all 0.5s ease',
+                      width: `${project.progress}%`,
+                    }}
                   />
-                </div>
-                <span className="text-gray-900 dark:text-white font-medium text-xs">
+                </Box>
+                <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 500, ml: 0.5 }}>
                   {project.progress}%
-                </span>
-              </div>
-            </div>
+                </Typography>
+              </Box>
+            </Box>
 
-            <div className="flex items-center gap-2.5 text-sm">
-              <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" strokeWidth={2} />
-              <span className="text-gray-500 dark:text-gray-500 text-xs">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <CalendarToday sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                 {formatChinaDate(project.createdAt)}
-              </span>
-            </div>
-          </div>
+              </Typography>
+            </Box>
+          </Box>
 
           {/* 底部：操作提示 */}
-          <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
-            <span className="text-xs text-gray-400 dark:text-gray-500">
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 2, borderTop: '1px solid #e5e7eb' }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
               点击查看详情
-            </span>
-          </div>
-        </div>
-      </article>
+            </Typography>
+          </Box>
+        </Box>
+      </ContentCard>
 
       {/* 删除确认对话框 */}
       <Dialog

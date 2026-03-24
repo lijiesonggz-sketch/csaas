@@ -1,0 +1,44 @@
+[
+  {
+    "profileCode": "demo-bank-mega-legal-person",
+    "mustContainControlCodes": ["CTRL-ACC-002", "CTRL-BCP-003", "CTRL-DG-004"],
+    "mustHaveMandatoryControlCodes": ["CTRL-ACC-002", "CTRL-BCP-003", "CTRL-DG-004"],
+    "mustHaveHighPriorityControlCodes": ["CTRL-ACC-002", "CTRL-BCP-003", "CTRL-DG-004"],
+    "mustExcludeControlCodes": ["CTRL-AI-001", "CTRL-AI-002"]
+  },
+  {
+    "profileCode": "demo-bank-branch-medium",
+    "mustContainControlCodes": ["CTRL-DATA-BASE-001"],
+    "mustHaveMandatoryControlCodes": ["CTRL-DATA-BASE-001"],
+    "mustHaveHighPriorityControlCodes": [],
+    "mustExcludeControlCodes": ["CTRL-AI-001", "CTRL-AI-002"]
+  },
+  {
+    "profileCode": "demo-securities-national",
+    "mustContainControlCodes": ["CTRL-ONLINE-001"],
+    "mustHaveMandatoryControlCodes": ["CTRL-ACC-002"],
+    "mustHaveHighPriorityControlCodes": ["CTRL-ACC-002"],
+    "mustExcludeControlCodes": ["CTRL-AI-001", "CTRL-AI-002"]
+  },
+  {
+    "profileCode": "demo-fund-cross-border",
+    "mustContainControlCodes": ["CTRL-DATA-011"],
+    "mustHaveMandatoryControlCodes": ["CTRL-DATA-011"],
+    "mustHaveHighPriorityControlCodes": ["CTRL-DATA-011"],
+    "mustExcludeControlCodes": ["CTRL-AI-001", "CTRL-AI-002"]
+  },
+  {
+    "profileCode": "demo-insurance-outsourcing-heavy",
+    "mustContainControlCodes": ["CTRL-OUT-001"],
+    "mustHaveMandatoryControlCodes": ["CTRL-ACC-002"],
+    "mustHaveHighPriorityControlCodes": ["CTRL-ACC-002"],
+    "mustExcludeControlCodes": ["CTRL-AI-001", "CTRL-AI-002"]
+  },
+  {
+    "profileCode": "demo-ciio-ai-service",
+    "mustContainControlCodes": ["CTRL-AI-001", "CTRL-AI-002", "CTRL-ACC-002"],
+    "mustHaveMandatoryControlCodes": ["CTRL-AI-001", "CTRL-AI-002", "CTRL-ACC-002"],
+    "mustHaveHighPriorityControlCodes": ["CTRL-ACC-002"],
+    "mustExcludeControlCodes": []
+  }
+]

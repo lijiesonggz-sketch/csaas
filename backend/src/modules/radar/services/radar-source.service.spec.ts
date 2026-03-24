@@ -332,14 +332,14 @@ describe('RadarSourceService', () => {
         },
       ]
 
-      mockRepository.createQueryBuilder.mockReturnValue({
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue(sources),
-      })
+      mockRepository.find.mockResolvedValue(sources)
 
       const result = await service.findAll('industry')
 
+      expect(mockRepository.find).toHaveBeenCalledWith({
+        where: { category: 'industry' },
+        order: { createdAt: 'DESC' },
+      })
       expect(result).toEqual(sources)
     })
   })

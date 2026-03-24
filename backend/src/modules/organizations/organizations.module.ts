@@ -1,11 +1,14 @@
-import { Module } from '@nestjs/common'
+import { Logger, Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { OrganizationsService } from './organizations.service'
 import { OrganizationAutoCreateService } from './organization-auto-create.service'
 import { OrganizationsController } from './organizations.controller'
 import { WeaknessSnapshotService } from './weakness-snapshot.service'
 import { OrganizationGuard } from './guards/organization.guard'
+import { OrganizationOwnershipGuard } from './guards/organization-ownership.guard'
+import { TenantGuard } from './guards/tenant.guard'
 import { Organization } from '../../database/entities/organization.entity'
+import { OrganizationProfile } from '../../database/entities/organization-profile.entity'
 import { OrganizationMember } from '../../database/entities/organization-member.entity'
 import { User } from '../../database/entities/user.entity'
 import { Project } from '../../database/entities/project.entity'
@@ -14,6 +17,8 @@ import { WatchedTopic } from '../../database/entities/watched-topic.entity'
 import { WatchedPeer } from '../../database/entities/watched-peer.entity'
 import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
 import { OrganizationRepository, ProjectRepository } from '../../database/repositories'
+
+const auditLogPlaceholderLogger = new Logger('AuditLogPlaceholder')
 
 /**
  * OrganizationsModule
@@ -27,6 +32,7 @@ import { OrganizationRepository, ProjectRepository } from '../../database/reposi
   imports: [
     TypeOrmModule.forFeature([
       Organization,
+      OrganizationProfile,
       OrganizationMember,
       User,
       Project,
@@ -40,7 +46,9 @@ import { OrganizationRepository, ProjectRepository } from '../../database/reposi
     OrganizationsService,
     OrganizationAutoCreateService,
     WeaknessSnapshotService,
+    TenantGuard,
     OrganizationGuard,
+    OrganizationOwnershipGuard,
     TasksGateway,
     OrganizationRepository,
     ProjectRepository,
@@ -50,8 +58,10 @@ import { OrganizationRepository, ProjectRepository } from '../../database/reposi
         log: async (params: any) => {
           // Placeholder for audit logging
           // In production, this would use the actual AuditLogService from ProjectsModule
-          // For now, we log to console to avoid circular dependency
-          console.log('[AuditLog]', params.action, params.entityType, params.entityId)
+          // For now, keep a lightweight framework log to avoid circular dependency
+          auditLogPlaceholderLogger.warn(
+            `[AuditLog] ${params.action} ${params.entityType} ${params.entityId}`,
+          )
         },
       }),
     },
@@ -60,7 +70,9 @@ import { OrganizationRepository, ProjectRepository } from '../../database/reposi
     OrganizationsService,
     OrganizationAutoCreateService,
     WeaknessSnapshotService,
+    TenantGuard,
     OrganizationGuard,
+    OrganizationOwnershipGuard,
     OrganizationRepository,
     ProjectRepository,
     'AuditLogService', // Export AuditLogService for OrganizationGuard

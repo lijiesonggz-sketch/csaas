@@ -66,10 +66,11 @@ development_status:
   epic-3-retrospective: optional
 
   # Epic 4: 合规雷达 - 风险预警与应对剧本 (3 stories)
-  epic-4: done  # ✅ 所有 stories 已完成
+  epic-4: in-progress  # Reopened by approved sprint change proposal for compliance penalty XLSX import MVP
   4-1-configure-compliance-radar-information-sources: done  # ✅ 完成 - Phase 1-8全部完成，数据库迁移、种子数据、测试、文档全部就绪
   4-2-compliance-risk-analysis-and-playbook-generation: done  # ✅ 完成 - 代码验证通过(2026-01-30)，13/14 HIGH问题已实现，所有AC和Phase完成，质量评分9.5/10，详见STORY_4.2_VERIFICATION_REPORT.md
   4-3-compliance-radar-frontend-display-and-playbook: done  # ✅ 完成 - Phase 1-6全部完成，所有核心功能已实现，Code Review通过(2026-01-30)，9个问题已修复，编译通过
+  4-4-compliance-penalty-xlsx-import-mvp: ready-for-dev  # New change story created from approved sprint change proposal (2026-03-18)
   epic-4-retrospective: optional
 
   # Epic 5: 用户配置与推送管理 (4 stories)

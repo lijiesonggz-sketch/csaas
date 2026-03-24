@@ -73,11 +73,11 @@ export default function SimpleClusteringDisplay({ result }: Props) {
   const getImportanceColor = (importance: string) => {
     switch (importance) {
       case 'HIGH':
-        return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+        return 'bg-purple-100 text-purple-700 bg-purple-900/30 text-purple-400'
       case 'MEDIUM':
-        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+        return 'bg-blue-100 text-blue-700 bg-blue-900/30 text-blue-400'
       case 'LOW':
-        return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
+        return 'bg-gray-100 text-gray-700 bg-gray-900/30 text-gray-400'
       default:
         return 'bg-gray-100 text-gray-700'
     }
@@ -86,11 +86,11 @@ export default function SimpleClusteringDisplay({ result }: Props) {
   const getRiskColor = (risk: string) => {
     switch (risk) {
       case 'HIGH':
-        return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+        return 'bg-red-100 text-red-700 bg-red-900/30 text-red-400'
       case 'MEDIUM':
-        return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+        return 'bg-orange-100 text-orange-700 bg-orange-900/30 text-orange-400'
       case 'LOW':
-        return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+        return 'bg-green-100 text-green-700 bg-green-900/30 text-green-400'
       default:
         return 'bg-gray-100 text-gray-700'
     }
@@ -108,34 +108,34 @@ export default function SimpleClusteringDisplay({ result }: Props) {
     <div className="space-y-6">
       {/* 统计概览 */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+        <div className="bg-blue-50 bg-blue-900/20 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
             <DescriptionIcon sx={{ fontSize: 20 }} className="text-blue-600" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">分类数量</span>
+            <span className="text-sm font-medium text-gray-700 text-gray-300">分类数量</span>
           </div>
           <p className="text-2xl font-bold text-blue-600">{result.categories.length}</p>
         </div>
 
-        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
+        <div className="bg-purple-50 bg-purple-900/20 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUpIcon sx={{ fontSize: 20 }} className="text-purple-600" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">聚类数量</span>
+            <span className="text-sm font-medium text-gray-700 text-gray-300">聚类数量</span>
           </div>
           <p className="text-2xl font-bold text-purple-600">{totalClusters}</p>
         </div>
 
-        <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+        <div className="bg-green-50 bg-green-900/20 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
             <CheckCircleIcon sx={{ fontSize: 20 }} className="text-green-600" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">条款总数</span>
+            <span className="text-sm font-medium text-gray-700 text-gray-300">条款总数</span>
           </div>
           <p className="text-2xl font-bold text-green-600">{totalClauses}</p>
         </div>
 
-        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
+        <div className="bg-orange-50 bg-orange-900/20 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
             <WarningIcon sx={{ fontSize: 20 }} className="text-orange-600" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">覆盖率</span>
+            <span className="text-sm font-medium text-gray-700 text-gray-300">覆盖率</span>
           </div>
           <p className="text-2xl font-bold text-orange-600">{coverageRate}%</p>
         </div>
@@ -143,11 +143,11 @@ export default function SimpleClusteringDisplay({ result }: Props) {
 
       {/* 聚类逻辑说明 */}
       {result.clustering_logic && (
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 mb-6">
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+        <div className="bg-gray-50 bg-gray-900 rounded-lg p-4 mb-6">
+          <h3 className="text-sm font-semibold text-gray-700 text-gray-300 mb-2">
             聚类方法
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-gray-600 text-gray-400">
             {result.clustering_logic}
           </p>
         </div>
@@ -156,25 +156,25 @@ export default function SimpleClusteringDisplay({ result }: Props) {
       {/* 分类和聚类 */}
       <div className="space-y-6">
         {result.categories.map((category) => (
-          <div key={category.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          <div key={category.id} className="border border-gray-200 border-gray-700 rounded-lg overflow-hidden">
             {/* 分类标题 */}
-            <div className="bg-gray-50 dark:bg-gray-900 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+            <div className="bg-gray-50 bg-gray-900 px-6 py-4 border-b border-gray-200 border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 text-white mb-1">
                 {category.name}
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{category.description}</p>
+              <p className="text-sm text-gray-600 text-gray-400">{category.description}</p>
               <div className="mt-2 flex gap-2">
-                <span className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded">
+                <span className="text-xs px-2 py-1 bg-gray-200 bg-gray-800 text-gray-700 text-gray-300 rounded">
                   {category.clusters.length} 个聚类
                 </span>
-                <span className="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded">
+                <span className="text-xs px-2 py-1 bg-gray-200 bg-gray-800 text-gray-700 text-gray-300 rounded">
                   {category.clusters.reduce((sum, c) => sum + c.clauses.length, 0)} 个条款
                 </span>
               </div>
             </div>
 
             {/* 聚类列表 */}
-            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            <div className="divide-y divide-gray-200 divide-gray-700">
               {category.clusters.map((cluster) => (
                 <div key={cluster.id} className="p-6">
                   <div
@@ -183,7 +183,7 @@ export default function SimpleClusteringDisplay({ result }: Props) {
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h4 className="text-md font-semibold text-gray-900 dark:text-white">
+                        <h4 className="text-md font-semibold text-gray-900 text-white">
                           {cluster.name}
                         </h4>
                         <span className={`text-xs px-2 py-1 rounded ${getImportanceColor(cluster.importance)}`}>
@@ -193,12 +193,12 @@ export default function SimpleClusteringDisplay({ result }: Props) {
                           {cluster.risk_level === 'HIGH' ? '高风险' : cluster.risk_level === 'MEDIUM' ? '中风险' : '低风险'}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{cluster.description}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      <p className="text-sm text-gray-600 text-gray-400">{cluster.description}</p>
+                      <p className="text-xs text-gray-500 text-gray-500 mt-1">
                         {cluster.clauses.length} 个条款
                       </p>
                     </div>
-                    <button className="ml-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <button className="ml-4 text-gray-400 hover:text-gray-600 hover:text-gray-300">
                       {expandedClusters.has(cluster.id) ? '▼' : '▶'}
                     </button>
                   </div>
@@ -209,22 +209,22 @@ export default function SimpleClusteringDisplay({ result }: Props) {
                       {cluster.clauses.map((clause, idx) => (
                         <div
                           key={`${clause.clause_id}-${idx}`}
-                          className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700"
+                          className="bg-gray-50 bg-gray-900 rounded-lg p-4 border border-gray-200 border-gray-700"
                         >
                           <div className="flex items-start gap-3 mb-2">
-                            <span className="flex-shrink-0 text-xs font-mono text-gray-500 bg-gray-200 dark:bg-gray-800 px-2 py-1 rounded">
+                            <span className="flex-shrink-0 text-xs font-mono text-gray-500 bg-gray-200 bg-gray-800 px-2 py-1 rounded">
                               {clause.clause_id}
                             </span>
                             <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                              <p className="text-sm font-medium text-gray-900 text-white mb-1">
                                 {clause.clause_text.substring(0, 100)}
                                 {clause.clause_text.length > 100 ? '...' : ''}
                               </p>
-                                                              <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                                                              <p className="text-xs text-gray-600 text-gray-400 mb-1">
                                 <span className="font-semibold">来源：</span>
                                 {clause.source_document_name}
                               </p>
-                              <p className="text-xs text-gray-600 dark:text-gray-400">
+                              <p className="text-xs text-gray-600 text-gray-400">
                                 <span className="font-semibold">理由：</span>
                                 {clause.rationale}
                               </p>

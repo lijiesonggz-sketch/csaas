@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { SurveyResponse, SurveyStatus } from '../../database/entities/survey-response.entity'
@@ -8,6 +8,8 @@ import { CreateSurveyDto, SaveDraftDto, SubmitSurveyDto } from './dto'
 
 @Injectable()
 export class SurveyService {
+  private readonly logger = new Logger(SurveyService.name)
+
   constructor(
     @InjectRepository(SurveyResponse)
     private readonly surveyResponseRepository: Repository<SurveyResponse>,
@@ -22,9 +24,8 @@ export class SurveyService {
    */
   async createSurvey(dto: CreateSurveyDto): Promise<SurveyResponse> {
     try {
-      console.log(
-        '[SurveyService] 开始创建问卷填写记录, questionnaireTaskId:',
-        dto.questionnaireTaskId,
+      this.logger.debug(
+        `[SurveyService] 开始创建问卷填写记录, questionnaireTaskId: ${dto.questionnaireTaskId}`,
       )
 
       // 验证问卷任务是否存在
@@ -32,7 +33,7 @@ export class SurveyService {
         where: { id: dto.questionnaireTaskId },
       })
 
-      console.log('[SurveyService] 问卷任务查询结果:', questionnaireTask ? '找到' : '未找到')
+      this.logger.debug(`[SurveyService] 问卷任务查询结果: ${questionnaireTask ? '找到' : '未找到'}`)
 
       if (!questionnaireTask) {
         throw new NotFoundException('问卷任务不存在')
@@ -48,20 +49,20 @@ export class SurveyService {
         )
       }
 
-      console.log('[SurveyService] 开始查询生成结果...')
+      this.logger.debug('[SurveyService] 开始查询生成结果...')
 
       // 检查是否有生成结果（而不是检查任务状态）
       const generationResult = await this.aiGenerationResultRepository.findOne({
         where: { taskId: dto.questionnaireTaskId },
       })
 
-      console.log('[SurveyService] 生成结果查询结果:', generationResult ? '找到' : '未找到')
+      this.logger.debug(`[SurveyService] 生成结果查询结果: ${generationResult ? '找到' : '未找到'}`)
 
       if (!generationResult || !generationResult.selectedResult) {
         throw new BadRequestException('问卷尚未生成或生成失败，请先完成问卷生成')
       }
 
-      console.log('[SurveyService] 开始创建SurveyResponse记录...')
+      this.logger.debug('[SurveyService] 开始创建SurveyResponse记录...')
 
       const surveyResponse = this.surveyResponseRepository.create({
         questionnaireTaskId: dto.questionnaireTaskId,
@@ -75,11 +76,11 @@ export class SurveyService {
         startedAt: new Date(),
       })
 
-      console.log('[SurveyService] SurveyResponse记录已创建，开始保存到数据库...')
+      this.logger.debug('[SurveyService] SurveyResponse记录已创建，开始保存到数据库...')
 
       const savedResponse = await this.surveyResponseRepository.save(surveyResponse)
 
-      console.log('[SurveyService] 保存成功, ID:', savedResponse.id)
+      this.logger.debug(`[SurveyService] 保存成功, ID: ${savedResponse.id}`)
 
       return savedResponse
     } catch (error) {
@@ -170,7 +171,7 @@ export class SurveyService {
 
       survey.totalScore = totalCount > 0 ? (trueCount / totalCount) * 100 : 0
       survey.maxScore = 100
-      console.log(
+      this.logger.debug(
         `[SurveyService] 判断题问卷自动计算得分: ${trueCount}/${totalCount} = ${survey.totalScore}`,
       )
     }

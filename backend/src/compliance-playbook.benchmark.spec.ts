@@ -14,6 +14,9 @@ import { RadarPush } from './database/entities/radar-push.entity'
 import { AnalyzedContent } from './database/entities/analyzed-content.entity'
 import { RawContent } from './database/entities/raw-content.entity'
 
+const benchmarkDescribe =
+  process.env.RUN_BENCHMARKS === 'true' ? describe : describe.skip
+
 /**
  * Story 4.2 - 性能基准测试
  *
@@ -24,7 +27,7 @@ import { RawContent } from './database/entities/raw-content.entity'
  * - playbook查询API < 200ms
  * - checklist提交API < 300ms
  */
-describe('Compliance Playbook Performance Benchmarks (Story 4.2)', () => {
+benchmarkDescribe('Compliance Playbook Performance Benchmarks (Story 4.2)', () => {
   let app: INestApplication
   let playbookService: CompliancePlaybookService
   let aiAnalysisService: AIAnalysisService

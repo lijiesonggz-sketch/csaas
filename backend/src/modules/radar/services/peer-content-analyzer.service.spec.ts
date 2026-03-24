@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { BullModule, getQueueToken } from '@nestjs/bullmq'
+import { getQueueToken } from '@nestjs/bullmq'
 import { Queue } from 'bullmq'
 
 import { PeerContentAnalyzerService, PeerContentAnalysisResult } from './peer-content-analyzer.service'
@@ -97,11 +97,6 @@ describe('PeerContentAnalyzerService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        BullModule.registerQueue({
-          name: 'radar-push-generation',
-        }),
-      ],
       providers: [
         PeerContentAnalyzerService,
         {

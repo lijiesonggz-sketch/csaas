@@ -1,0 +1,202 @@
+[
+  {
+    "packCode": "PACK-BASE-GOVERNANCE",
+    "packName": "科技治理与风险管理基线包",
+    "packType": "base",
+    "maturityLevel": "stable",
+    "priority": 10,
+    "description": "覆盖所有金融机构的治理责任、风险管理、整改闭环和重要系统识别等基础控制。"
+  },
+  {
+    "packCode": "PACK-BASE-CYBER",
+    "packName": "网络与信息安全基线包",
+    "packType": "base",
+    "maturityLevel": "stable",
+    "priority": 10,
+    "description": "覆盖访问控制、特权账号、网络边界、安全监测、漏洞补丁和日志审计等基础控制。"
+  },
+  {
+    "packCode": "PACK-BASE-DATA",
+    "packName": "数据安全基线包",
+    "packType": "base",
+    "maturityLevel": "stable",
+    "priority": 10,
+    "description": "覆盖数据分类分级、访问控制、数据外发、生命周期管理和留痕审计等基础控制。"
+  },
+  {
+    "packCode": "PACK-BASE-PIPL",
+    "packName": "个人信息保护基线包",
+    "packType": "base",
+    "maturityLevel": "stable",
+    "priority": 10,
+    "description": "覆盖个人信息合法性基础、最小必要、敏感信息保护、共享流转和事件响应等控制。"
+  },
+  {
+    "packCode": "PACK-BASE-CHANGE",
+    "packName": "开发测试与变更管理基线包",
+    "packType": "base",
+    "maturityLevel": "stable",
+    "priority": 10,
+    "description": "覆盖需求评审、环境隔离、测试验证、上线审批、紧急变更和回退预案等控制。"
+  },
+  {
+    "packCode": "PACK-BASE-OPS",
+    "packName": "生产运维与监控基线包",
+    "packType": "base",
+    "maturityLevel": "stable",
+    "priority": 10,
+    "description": "覆盖生产监控、容量管理、作业调度、异常告警和运维记录等基础控制。"
+  },
+  {
+    "packCode": "PACK-BASE-BCP",
+    "packName": "业务连续性与灾备基线包",
+    "packType": "base",
+    "maturityLevel": "stable",
+    "priority": 10,
+    "description": "覆盖备份恢复、灾备切换、连续性演练和关键业务恢复目标等基础控制。"
+  },
+  {
+    "packCode": "PACK-BASE-OUTSOURCING",
+    "packName": "供应商与外包管理基线包",
+    "packType": "base",
+    "maturityLevel": "stable",
+    "priority": 10,
+    "description": "覆盖外包准入、合同约束、服务监控、审计检查和退出管理等基础控制。"
+  },
+  {
+    "packCode": "PACK-SECTOR-BANK",
+    "packName": "银行业专属控制包",
+    "packType": "sector",
+    "maturityLevel": "stable",
+    "priority": 20,
+    "description": "面向商业银行和政策性银行的核心账务、支付清算、分支机构运营等控制。"
+  },
+  {
+    "packCode": "PACK-SECTOR-SECURITIES",
+    "packName": "证券业专属控制包",
+    "packType": "sector",
+    "maturityLevel": "preview",
+    "priority": 20,
+    "description": "面向证券机构的交易风控、行情处理、清算对账和营业部运营等控制。"
+  },
+  {
+    "packCode": "PACK-SECTOR-FUND",
+    "packName": "基金业专属控制包",
+    "packType": "sector",
+    "maturityLevel": "preview",
+    "priority": 20,
+    "description": "面向基金管理机构的净值计算、份额登记、销售适当性和托管协同等控制。"
+  },
+  {
+    "packCode": "PACK-SECTOR-FUTURES",
+    "packName": "期货业专属控制包",
+    "packType": "sector",
+    "maturityLevel": "preview",
+    "priority": 20,
+    "description": "面向期货机构的保证金管理、交易风控、清算结算和异常处置等控制。"
+  },
+  {
+    "packCode": "PACK-SECTOR-INSURANCE",
+    "packName": "保险业专属控制包",
+    "packType": "sector",
+    "maturityLevel": "preview",
+    "priority": 20,
+    "description": "面向保险机构的保单、理赔、精算和渠道协作等业务场景控制。"
+  },
+  {
+    "packCode": "PACK-SCENE-CROSS-BORDER-DATA",
+    "packName": "数据跨境场景包",
+    "packType": "scene",
+    "maturityLevel": "stable",
+    "priority": 30,
+    "description": "面向存在数据出境行为机构的跨境传输评估、审批和传输安全控制。"
+  },
+  {
+    "packCode": "PACK-SCENE-CIIO",
+    "packName": "关键信息基础设施场景包",
+    "packType": "scene",
+    "maturityLevel": "stable",
+    "priority": 30,
+    "description": "面向关基或关基候选机构的分级保护、监测预警、事件报送和重点防护控制。"
+  },
+  {
+    "packCode": "PACK-SCENE-IMPORTANT-DATA",
+    "packName": "重要数据场景包",
+    "packType": "scene",
+    "maturityLevel": "preview",
+    "priority": 30,
+    "description": "面向存在重要数据识别或处理场景机构的识别、分类、保护和出境控制。"
+  },
+  {
+    "packCode": "PACK-SCENE-CLOUD",
+    "packName": "上云场景包",
+    "packType": "scene",
+    "maturityLevel": "preview",
+    "priority": 30,
+    "description": "面向使用公有云、私有云或混合云机构的云治理、云安全和云容灾控制。"
+  },
+  {
+    "packCode": "PACK-SCENE-OUTSOURCING-HEAVY",
+    "packName": "高外包依赖场景包",
+    "packType": "scene",
+    "maturityLevel": "stable",
+    "priority": 30,
+    "description": "面向外包依赖度高机构的持续监控、审计复核、退出预案和供应商韧性控制。"
+  },
+  {
+    "packCode": "PACK-SCENE-PUBLIC-APP",
+    "packName": "公众服务场景包",
+    "packType": "scene",
+    "maturityLevel": "preview",
+    "priority": 30,
+    "description": "面向提供公众或外部合作方服务机构的发布安全、可用性和服务连续性控制。"
+  },
+  {
+    "packCode": "PACK-SCENE-ONLINE-TRADING",
+    "packName": "线上交易场景包",
+    "packType": "scene",
+    "maturityLevel": "preview",
+    "priority": 30,
+    "description": "面向线上交易和实时对客交互场景的交易风控、监测告警和账务一致性控制。"
+  },
+  {
+    "packCode": "PACK-SCENE-AI",
+    "packName": "AI 服务场景包",
+    "packType": "scene",
+    "maturityLevel": "preview",
+    "priority": 30,
+    "description": "面向使用 AI 模型或自动决策能力机构的模型治理、数据治理和人工复核控制。"
+  },
+  {
+    "packCode": "PACK-STRENGTH-LARGE-ORG",
+    "packName": "大型机构强化包",
+    "packType": "strength",
+    "maturityLevel": "stable",
+    "priority": 40,
+    "description": "面向资产规模较大的机构补充更高频、更细粒度的治理与汇报控制。"
+  },
+  {
+    "packCode": "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM",
+    "packName": "高关键系统强化包",
+    "packType": "strength",
+    "maturityLevel": "stable",
+    "priority": 40,
+    "description": "面向关键系统等级较高机构补充高可用、双活、演练和变更审查强化控制。"
+  },
+  {
+    "packCode": "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION",
+    "packName": "高监管关注强化包",
+    "packType": "strength",
+    "maturityLevel": "stable",
+    "priority": 40,
+    "description": "面向监管关注度较高机构补充整改跟踪、定期汇报和专项审计强化控制。"
+  },
+  {
+    "packCode": "PACK-STRENGTH-RECENT-INCIDENT",
+    "packName": "近期重大事件强化包",
+    "packType": "strength",
+    "maturityLevel": "stable",
+    "priority": 40,
+    "description": "面向近期发生重大事件机构补充事件复盘、处置闭环和控制增强强化要求。"
+  }
+]

@@ -31,6 +31,12 @@ export interface Project {
     email: string
   }
   organizationId?: string // Story 1.1: Organization association
+  metadata?: {
+    industry?: string
+    standardCode?: string
+    standardName?: string
+    [key: string]: any
+  }
 }
 
 export interface CreateProjectRequest {

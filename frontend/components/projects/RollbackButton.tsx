@@ -1,8 +1,16 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Button, Menu, MenuItem, Typography, Box, Divider, Alert, CircularProgress } from '@mui/material'
-import { History, Backup } from '@mui/icons-material'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { History, Database, AlertCircle, Loader2 } from 'lucide-react'
 import { ProjectsAPI } from '@/lib/api/projects'
 
 interface RollbackButtonProps {
@@ -28,23 +36,20 @@ export default function RollbackButton({
   onRollbackComplete,
   disabled = false,
 }: RollbackButtonProps) {
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [loading, setLoading] = useState(false)
   const [backupInfo, setBackupInfo] = useState<BackupInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [open, setOpen] = useState(false)
 
-  const open = Boolean(anchorEl)
-
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+  const handleClick = () => {
     if (!disabled && backupExists) {
-      setAnchorEl(event.currentTarget)
       loadBackupInfo()
     }
   }
 
   const handleClose = () => {
-    setAnchorEl(null)
+    setOpen(false)
     setShowConfirm(false)
     setError(null)
   }
@@ -86,97 +91,105 @@ export default function RollbackButton({
     return new Date(dateString).toLocaleString('zh-CN')
   }
 
-  return (
-    <>
-      <Button
-        variant="outlined"
-        startIcon={<History />}
-        onClick={handleClick}
-        disabled={disabled || !backupExists}
-        color="secondary"
-      >
+  if (!backupExists) {
+    return (
+      <Button variant="outline" disabled>
+        <History className="w-4 h-4 mr-2" />
         回退版本
       </Button>
+    )
+  }
 
-      <Menu anchorEl={anchorEl} open={open} onClose={handleClose} PaperProps={{ sx: { minWidth: 350 } }}>
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" onClick={handleClick} disabled={disabled}>
+          <History className="w-4 h-4 mr-2" />
+          回退版本
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-80">
         {loading ? (
-          <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}>
-            <CircularProgress />
-          </Box>
+          <div className="p-4 flex justify-center">
+            <Loader2 className="w-6 h-6 animate-spin" />
+          </div>
         ) : error ? (
-          <Box sx={{ p: 2 }}>
-            <Alert severity="error">{error}</Alert>
-          </Box>
+          <div className="p-2">
+            <Alert variant="destructive">
+              <AlertCircle className="w-4 h-4" />
+              <AlertTitle>错误</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          </div>
         ) : (
           <>
-            <Box sx={{ p: 2 }}>
-              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                版本历史
-              </Typography>
+            <div className="p-3">
+              <p className="font-semibold text-sm mb-3">版本历史</p>
 
-              <Box sx={{ mt: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Backup fontSize="small" color="success" />
-                  <Typography variant="body2" color="text.secondary">
-                    当前版本
-                  </Typography>
-                </Box>
-                <Typography variant="caption" color="text.secondary" sx={{ pl: 3 }}>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Database className="w-4 h-4 text-emerald-500" />
+                  <span className="text-sm text-slate-600">当前版本</span>
+                </div>
+                <p className="text-xs text-slate-400 pl-6">
                   {formatDate(backupInfo?.currentCreatedAt)}
-                </Typography>
-              </Box>
+                </p>
+              </div>
 
-              <Divider sx={{ my: 1.5 }} />
+              <DropdownMenuSeparator className="my-2" />
 
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <History fontSize="small" color="action" />
-                  <Typography variant="body2" color="text.secondary">
-                    备份版本
-                  </Typography>
-                </Box>
-                <Typography variant="caption" color="text.secondary" sx={{ pl: 3 }}>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4 text-slate-500" />
+                  <span className="text-sm text-slate-600">备份版本</span>
+                </div>
+                <p className="text-xs text-slate-400 pl-6">
                   {formatDate(backupInfo?.backupCreatedAt)}
-                </Typography>
-              </Box>
-            </Box>
+                </p>
+              </div>
+            </div>
 
-            <Divider />
+            <DropdownMenuSeparator />
 
-            <Box sx={{ p: 1 }}>
+            <div className="p-1">
               {!showConfirm ? (
-                <MenuItem
-                  onClick={() => setShowConfirm(true)}
-                  sx={{ justifyContent: 'center', color: 'warning.main' }}
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.preventDefault()
+                    setShowConfirm(true)
+                  }}
+                  className="justify-center text-amber-600 cursor-pointer"
                 >
                   回退到备份版本
-                </MenuItem>
+                </DropdownMenuItem>
               ) : (
-                <Box sx={{ p: 1 }}>
-                  <Typography variant="body2" gutterBottom align="center">
-                    确认回退到备份版本？
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                    <Button size="small" onClick={() => setShowConfirm(false)} fullWidth>
+                <div className="p-2 space-y-2">
+                  <p className="text-sm text-center">确认回退到备份版本？</p>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowConfirm(false)}
+                      className="flex-1"
+                    >
                       取消
                     </Button>
                     <Button
-                      size="small"
-                      variant="contained"
-                      color="warning"
+                      size="sm"
+                      variant="destructive"
                       onClick={handleRollback}
-                      fullWidth
                       disabled={loading}
+                      className="flex-1"
                     >
                       {loading ? '处理中...' : '确认回退'}
                     </Button>
-                  </Box>
-                </Box>
+                  </div>
+                </div>
               )}
-            </Box>
+            </div>
           </>
         )}
-      </Menu>
-    </>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

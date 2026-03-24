@@ -12,6 +12,7 @@ import { TagService } from './tag.service'
 import { AnalyzedContentService } from './analyzed-content.service'
 import { CompliancePlaybook } from '../../../database/entities/compliance-playbook.entity'
 import { v4 as uuidv4 } from 'uuid'
+import { AIUsageService } from '../../admin/cost-optimization/ai-usage.service'
 
 /**
  * AIAnalysisService - Compliance Playbook Generation Tests (Story 4.2)
@@ -83,6 +84,12 @@ describe('AIAnalysisService - Compliance Playbook Generation', () => {
             create: jest.fn(),
             findById: jest.fn(),
             update: jest.fn(),
+          },
+        },
+        {
+          provide: AIUsageService,
+          useValue: {
+            logAIUsage: jest.fn(),
           },
         },
       ],

@@ -1,12 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { INestApplication, ValidationPipe } from '@nestjs/common'
 import * as request from 'supertest'
-import { FilesModule } from './files.module'
+import { getRepositoryToken } from '@nestjs/typeorm'
 import { FilesService } from './services/files.service'
+import { FilesController } from './controllers/files.controller'
 import { MulterModule } from '@nestjs/platform-express'
 import { memoryStorage } from 'multer'
 import * as fs from 'fs'
 import * as path from 'path'
+import { StandardDocument } from '@/database/entities/standard-document.entity'
+import { Project } from '@/database/entities/project.entity'
+import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard'
 
 /**
  * FilesController E2E测试
@@ -20,8 +24,8 @@ describe('FilesController (e2e)', () => {
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
+      controllers: [FilesController],
       imports: [
-        FilesModule,
         MulterModule.register({
           storage: memoryStorage(),
           limits: {
@@ -29,15 +33,36 @@ describe('FilesController (e2e)', () => {
           },
         }),
       ],
+      providers: [
+        {
+          provide: FilesService,
+          useValue: {
+            parsePdf: jest
+              .fn()
+              .mockResolvedValue(
+                'Sample PDF content for testing\nThis is extracted text from the PDF file.',
+              ),
+          },
+        },
+        {
+          provide: getRepositoryToken(StandardDocument),
+          useValue: {
+            create: jest.fn(),
+            save: jest.fn(),
+            find: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(Project),
+          useValue: {
+            findOne: jest.fn(),
+            save: jest.fn(),
+          },
+        },
+      ],
     })
-      .overrideProvider(FilesService)
-      .useValue({
-        parsePdf: jest
-          .fn()
-          .mockResolvedValue(
-            'Sample PDF content for testing\nThis is extracted text from the PDF file.',
-          ),
-      })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
       .compile()
 
     app = moduleFixture.createNestApplication()

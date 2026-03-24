@@ -73,6 +73,7 @@ describe('CrawlerLogService', () => {
         errorMessage: null,
         retryCount: 0,
         crawledAt: expect.any(Date),
+        crawlDuration: 0,
       })
       expect(mockRepository.save).toHaveBeenCalled()
     })
@@ -117,6 +118,7 @@ describe('CrawlerLogService', () => {
         errorMessage: logData.errorMessage,
         retryCount: logData.retryCount,
         crawledAt: expect.any(Date),
+        crawlDuration: 0,
       })
       expect(mockRepository.save).toHaveBeenCalled()
     })

@@ -1,0 +1,1583 @@
+[
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000001",
+    "controlCode": "CTRL-GEN-001",
+    "controlName": "ACC AUTH",
+    "controlFamily": "ACC_AUTH",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-CYBER"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-CYBER"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-CYBER"
+    ]
+  },
+  {
+    "controlId": "11111111-1111-1111-1111-111111111111",
+    "controlCode": "CTRL-ACC-002",
+    "controlName": "Privileged Access Control",
+    "controlFamily": "ACC_PRIVILEGED",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-CYBER"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-CYBER"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-CYBER"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000002",
+    "controlCode": "CTRL-GEN-002",
+    "controlName": "AI AUDIT",
+    "controlFamily": "AI_AUDIT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-AI"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-AI"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-AI"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000003",
+    "controlCode": "CTRL-GEN-003",
+    "controlName": "AI DATA GOVERNANCE",
+    "controlFamily": "AI_DATA_GOVERNANCE",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-AI"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-AI"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-AI"
+    ]
+  },
+  {
+    "controlId": "66666666-6666-6666-6666-666666666666",
+    "controlCode": "CTRL-AI-002",
+    "controlName": "AI Human Review Control",
+    "controlFamily": "AI_HUMAN_REVIEW",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-AI"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-AI"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-AI"
+    ]
+  },
+  {
+    "controlId": "55555555-5555-5555-5555-555555555555",
+    "controlCode": "CTRL-AI-001",
+    "controlName": "AI Model Risk Control",
+    "controlFamily": "AI_MODEL_RISK",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-AI"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-AI"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-AI"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000004",
+    "controlCode": "CTRL-GEN-004",
+    "controlName": "AUDIT FOLLOWUP",
+    "controlFamily": "AUDIT_FOLLOWUP",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000005",
+    "controlCode": "CTRL-GEN-005",
+    "controlName": "BANK ACCOUNTING",
+    "controlFamily": "BANK_ACCOUNTING",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-BANK"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-BANK"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-BANK"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000006",
+    "controlCode": "CTRL-GEN-006",
+    "controlName": "BANK BRANCH OPS",
+    "controlFamily": "BANK_BRANCH_OPS",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-BANK"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-BANK"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-BANK"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000007",
+    "controlCode": "CTRL-GEN-007",
+    "controlName": "BANK CORE SYSTEM",
+    "controlFamily": "BANK_CORE_SYSTEM",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-BANK"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-BANK"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-BANK"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000008",
+    "controlCode": "CTRL-GEN-008",
+    "controlName": "BANK PAYMENT",
+    "controlFamily": "BANK_PAYMENT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-BANK"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-BANK"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-BANK"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000009",
+    "controlCode": "CTRL-GEN-009",
+    "controlName": "BCP BACKUP",
+    "controlFamily": "BCP_BACKUP",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-BCP"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-BCP"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-BCP"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000010",
+    "controlCode": "CTRL-GEN-010",
+    "controlName": "BCP DRILL",
+    "controlFamily": "BCP_DRILL",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-BCP"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-BCP"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-BCP"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000011",
+    "controlCode": "CTRL-GEN-011",
+    "controlName": "BCP RPO",
+    "controlFamily": "BCP_RPO",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-BCP"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-BCP"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-BCP"
+    ]
+  },
+  {
+    "controlId": "22222222-2222-2222-2222-222222222222",
+    "controlCode": "CTRL-BCP-003",
+    "controlName": "Critical RTO/RPO Control",
+    "controlFamily": "BCP_RTO",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-BCP"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-BCP"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-BCP"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000012",
+    "controlCode": "CTRL-GEN-012",
+    "controlName": "CHANGE APPROVAL",
+    "controlFamily": "CHANGE_APPROVAL",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-CHANGE"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-CHANGE"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-CHANGE"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000013",
+    "controlCode": "CTRL-GEN-013",
+    "controlName": "CHANGE ROLLBACK",
+    "controlFamily": "CHANGE_ROLLBACK",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-CHANGE"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-CHANGE"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-CHANGE"
+    ]
+  },
+  {
+    "controlId": "77777777-7777-7777-7777-777777777777",
+    "controlCode": "CTRL-CIIO-001",
+    "controlName": "CIIO Asset Inventory Control",
+    "controlFamily": "CIIO_ASSET",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-CIIO"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-CIIO"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-CIIO"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000014",
+    "controlCode": "CTRL-GEN-014",
+    "controlName": "CIIO MONITOR",
+    "controlFamily": "CIIO_MONITOR",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-CIIO"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-CIIO"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-CIIO"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000015",
+    "controlCode": "CTRL-GEN-015",
+    "controlName": "CIIO REPORTING",
+    "controlFamily": "CIIO_REPORTING",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-CIIO"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-CIIO"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-CIIO"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000016",
+    "controlCode": "CTRL-GEN-016",
+    "controlName": "CLOUD DR",
+    "controlFamily": "CLOUD_DR",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-CLOUD"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-CLOUD"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-CLOUD"
+    ]
+  },
+  {
+    "controlId": "88888888-8888-8888-8888-888888888888",
+    "controlCode": "CTRL-CLOUD-001",
+    "controlName": "Cloud Governance Baseline Control",
+    "controlFamily": "CLOUD_GOVERNANCE",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-CLOUD"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-CLOUD"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-CLOUD"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000017",
+    "controlCode": "CTRL-GEN-017",
+    "controlName": "CLOUD SECURITY",
+    "controlFamily": "CLOUD_SECURITY",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-CLOUD"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-CLOUD"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-CLOUD"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000018",
+    "controlCode": "CTRL-GEN-018",
+    "controlName": "CLOUD VENDOR",
+    "controlFamily": "CLOUD_VENDOR",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-CLOUD"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-CLOUD"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-CLOUD"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000019",
+    "controlCode": "CTRL-GEN-019",
+    "controlName": "CRITICAL SYSTEM CHANGE",
+    "controlFamily": "CRITICAL_SYSTEM_CHANGE",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000020",
+    "controlCode": "CTRL-GEN-020",
+    "controlName": "CRITICAL SYSTEM DR",
+    "controlFamily": "CRITICAL_SYSTEM_DR",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000021",
+    "controlCode": "CTRL-GEN-021",
+    "controlName": "CRITICAL SYSTEM HA",
+    "controlFamily": "CRITICAL_SYSTEM_HA",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000022",
+    "controlCode": "CTRL-GEN-022",
+    "controlName": "DATA ACCESS",
+    "controlFamily": "DATA_ACCESS",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-DATA"
+    ]
+  },
+  {
+    "controlId": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+    "controlCode": "CTRL-DATA-BASE-001",
+    "controlName": "Baseline Data Classification Control",
+    "controlFamily": "DATA_CLASSIFICATION",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-DATA"
+    ]
+  },
+  {
+    "controlId": "44444444-4444-4444-4444-444444444444",
+    "controlCode": "CTRL-DATA-011",
+    "controlName": "Cross-Border Data Transfer Control",
+    "controlFamily": "DATA_CROSS_BORDER",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-CROSS-BORDER-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-CROSS-BORDER-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-CROSS-BORDER-DATA"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000023",
+    "controlCode": "CTRL-GEN-023",
+    "controlName": "DATA EXIT ASSESSMENT",
+    "controlFamily": "DATA_EXIT_ASSESSMENT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-CROSS-BORDER-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-CROSS-BORDER-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-CROSS-BORDER-DATA"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000024",
+    "controlCode": "CTRL-GEN-024",
+    "controlName": "DATA EXPORT",
+    "controlFamily": "DATA_EXPORT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-DATA"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000025",
+    "controlCode": "CTRL-GEN-025",
+    "controlName": "DATA GOVERNANCE REPORTING",
+    "controlFamily": "DATA_GOVERNANCE_REPORTING",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-STRENGTH-LARGE-ORG"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-LARGE-ORG"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-LARGE-ORG"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000026",
+    "controlCode": "CTRL-GEN-026",
+    "controlName": "DATA LIFECYCLE",
+    "controlFamily": "DATA_LIFECYCLE",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-DATA"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000027",
+    "controlCode": "CTRL-GEN-027",
+    "controlName": "DATA TRACEABILITY",
+    "controlFamily": "DATA_TRACEABILITY",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-DATA"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000028",
+    "controlCode": "CTRL-GEN-028",
+    "controlName": "DEV REVIEW",
+    "controlFamily": "DEV_REVIEW",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-CHANGE"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-CHANGE"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-CHANGE"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000029",
+    "controlCode": "CTRL-GEN-029",
+    "controlName": "DEV SEPARATION",
+    "controlFamily": "DEV_SEPARATION",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-CHANGE"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-CHANGE"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-CHANGE"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000030",
+    "controlCode": "CTRL-GEN-030",
+    "controlName": "DEV TEST",
+    "controlFamily": "DEV_TEST",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-CHANGE"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-CHANGE"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-CHANGE"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000031",
+    "controlCode": "CTRL-GEN-031",
+    "controlName": "FUND CUSTODY",
+    "controlFamily": "FUND_CUSTODY",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-FUND"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-FUND"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-FUND"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000032",
+    "controlCode": "CTRL-GEN-032",
+    "controlName": "FUND NAV",
+    "controlFamily": "FUND_NAV",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-FUND"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-FUND"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-FUND"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000033",
+    "controlCode": "CTRL-GEN-033",
+    "controlName": "FUND SALES",
+    "controlFamily": "FUND_SALES",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-FUND"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-FUND"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-FUND"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000034",
+    "controlCode": "CTRL-GEN-034",
+    "controlName": "FUTURES MARGIN",
+    "controlFamily": "FUTURES_MARGIN",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-FUTURES"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-FUTURES"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-FUTURES"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000035",
+    "controlCode": "CTRL-GEN-035",
+    "controlName": "FUTURES MARKET RISK",
+    "controlFamily": "FUTURES_MARKET_RISK",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-FUTURES"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-FUTURES"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-FUTURES"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000036",
+    "controlCode": "CTRL-GEN-036",
+    "controlName": "FUTURES SETTLEMENT",
+    "controlFamily": "FUTURES_SETTLEMENT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-FUTURES"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-FUTURES"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-FUTURES"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000037",
+    "controlCode": "CTRL-GEN-037",
+    "controlName": "GOVERNANCE COMMITTEE",
+    "controlFamily": "GOVERNANCE_COMMITTEE",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-STRENGTH-LARGE-ORG"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-LARGE-ORG"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-LARGE-ORG"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000038",
+    "controlCode": "CTRL-GEN-038",
+    "controlName": "GOV AUDIT",
+    "controlFamily": "GOV_AUDIT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000039",
+    "controlCode": "CTRL-GEN-039",
+    "controlName": "GOV IMPORTANT SYSTEM",
+    "controlFamily": "GOV_IMPORTANT_SYSTEM",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000040",
+    "controlCode": "CTRL-GEN-040",
+    "controlName": "GOV ORG",
+    "controlFamily": "GOV_ORG",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000041",
+    "controlCode": "CTRL-GEN-041",
+    "controlName": "GOV RECTIFICATION",
+    "controlFamily": "GOV_RECTIFICATION",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000042",
+    "controlCode": "CTRL-GEN-042",
+    "controlName": "GOV RISK",
+    "controlFamily": "GOV_RISK",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-GOVERNANCE"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000043",
+    "controlCode": "CTRL-GEN-043",
+    "controlName": "IMPORTANT DATA EXPORT",
+    "controlFamily": "IMPORTANT_DATA_EXPORT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-IMPORTANT-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-IMPORTANT-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-IMPORTANT-DATA"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000044",
+    "controlCode": "CTRL-GEN-044",
+    "controlName": "IMPORTANT DATA IDENTIFICATION",
+    "controlFamily": "IMPORTANT_DATA_IDENTIFICATION",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-IMPORTANT-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-IMPORTANT-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-IMPORTANT-DATA"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000045",
+    "controlCode": "CTRL-GEN-045",
+    "controlName": "IMPORTANT DATA PROTECTION",
+    "controlFamily": "IMPORTANT_DATA_PROTECTION",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-IMPORTANT-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-IMPORTANT-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-IMPORTANT-DATA"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000046",
+    "controlCode": "CTRL-GEN-046",
+    "controlName": "INCIDENT CONTROL ENHANCEMENT",
+    "controlFamily": "INCIDENT_CONTROL_ENHANCEMENT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-STRENGTH-RECENT-INCIDENT"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-RECENT-INCIDENT"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-RECENT-INCIDENT"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000047",
+    "controlCode": "CTRL-GEN-047",
+    "controlName": "INCIDENT POSTMORTEM",
+    "controlFamily": "INCIDENT_POSTMORTEM",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-STRENGTH-RECENT-INCIDENT"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-RECENT-INCIDENT"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-RECENT-INCIDENT"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000048",
+    "controlCode": "CTRL-GEN-048",
+    "controlName": "INCIDENT RESPONSE",
+    "controlFamily": "INCIDENT_RESPONSE",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-STRENGTH-RECENT-INCIDENT"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-RECENT-INCIDENT"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-RECENT-INCIDENT"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000049",
+    "controlCode": "CTRL-GEN-049",
+    "controlName": "INS ACTUARIAL",
+    "controlFamily": "INS_ACTUARIAL",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-INSURANCE"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-INSURANCE"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-INSURANCE"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000050",
+    "controlCode": "CTRL-GEN-050",
+    "controlName": "INS CLAIMS",
+    "controlFamily": "INS_CLAIMS",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-INSURANCE"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-INSURANCE"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-INSURANCE"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000051",
+    "controlCode": "CTRL-GEN-051",
+    "controlName": "INS POLICY",
+    "controlFamily": "INS_POLICY",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-INSURANCE"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-INSURANCE"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-INSURANCE"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000052",
+    "controlCode": "CTRL-GEN-052",
+    "controlName": "LOG AUDIT",
+    "controlFamily": "LOG_AUDIT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-CYBER"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-CYBER"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-CYBER"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000053",
+    "controlCode": "CTRL-GEN-053",
+    "controlName": "NET BOUNDARY",
+    "controlFamily": "NET_BOUNDARY",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-CYBER"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-CYBER"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-CYBER"
+    ]
+  },
+  {
+    "controlId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "controlCode": "CTRL-ONLINE-001",
+    "controlName": "Online Trading Monitoring Control",
+    "controlFamily": "ONLINE_TRADING_MONITOR",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-ONLINE-TRADING"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-ONLINE-TRADING"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-ONLINE-TRADING"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000054",
+    "controlCode": "CTRL-GEN-054",
+    "controlName": "ONLINE TRADING RECON",
+    "controlFamily": "ONLINE_TRADING_RECON",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-ONLINE-TRADING"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-ONLINE-TRADING"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-ONLINE-TRADING"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000055",
+    "controlCode": "CTRL-GEN-055",
+    "controlName": "ONLINE TRADING RISK",
+    "controlFamily": "ONLINE_TRADING_RISK",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-ONLINE-TRADING"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-ONLINE-TRADING"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-ONLINE-TRADING"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000056",
+    "controlCode": "CTRL-GEN-056",
+    "controlName": "OPS ALERT",
+    "controlFamily": "OPS_ALERT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-OPS"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-OPS"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-OPS"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000057",
+    "controlCode": "CTRL-GEN-057",
+    "controlName": "OPS CAPACITY",
+    "controlFamily": "OPS_CAPACITY",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-OPS"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-OPS"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-OPS"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000058",
+    "controlCode": "CTRL-GEN-058",
+    "controlName": "OPS JOB",
+    "controlFamily": "OPS_JOB",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-OPS"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-OPS"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-OPS"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000059",
+    "controlCode": "CTRL-GEN-059",
+    "controlName": "OPS MONITOR",
+    "controlFamily": "OPS_MONITOR",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-OPS"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-OPS"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-OPS"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000060",
+    "controlCode": "CTRL-GEN-060",
+    "controlName": "OPS RECORD",
+    "controlFamily": "OPS_RECORD",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-OPS"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-OPS"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-OPS"
+    ]
+  },
+  {
+    "controlId": "99999999-9999-9999-9999-999999999999",
+    "controlCode": "CTRL-OUT-001",
+    "controlName": "Heavy Outsourcing Audit Control",
+    "controlFamily": "OUTSOURCING_AUDIT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-OUTSOURCING-HEAVY"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-OUTSOURCING-HEAVY"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-OUTSOURCING-HEAVY"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000061",
+    "controlCode": "CTRL-GEN-061",
+    "controlName": "OUTSOURCING CONTINUITY",
+    "controlFamily": "OUTSOURCING_CONTINUITY",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-OUTSOURCING-HEAVY"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-OUTSOURCING-HEAVY"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-OUTSOURCING-HEAVY"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000062",
+    "controlCode": "CTRL-GEN-062",
+    "controlName": "OUTSOURCING CONTRACT",
+    "controlFamily": "OUTSOURCING_CONTRACT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-OUTSOURCING"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-OUTSOURCING"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-OUTSOURCING"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000063",
+    "controlCode": "CTRL-GEN-063",
+    "controlName": "OUTSOURCING DUE DILIGENCE",
+    "controlFamily": "OUTSOURCING_DUE_DILIGENCE",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-OUTSOURCING"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-OUTSOURCING"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-OUTSOURCING"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000064",
+    "controlCode": "CTRL-GEN-064",
+    "controlName": "OUTSOURCING EXIT",
+    "controlFamily": "OUTSOURCING_EXIT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-OUTSOURCING"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-OUTSOURCING"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-OUTSOURCING"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000065",
+    "controlCode": "CTRL-GEN-065",
+    "controlName": "OUTSOURCING MONITOR",
+    "controlFamily": "OUTSOURCING_MONITOR",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-OUTSOURCING"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-OUTSOURCING"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-OUTSOURCING"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000066",
+    "controlCode": "CTRL-GEN-066",
+    "controlName": "OUTSOURCING RISK",
+    "controlFamily": "OUTSOURCING_RISK",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-OUTSOURCING-HEAVY"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-OUTSOURCING-HEAVY"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-OUTSOURCING-HEAVY"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000067",
+    "controlCode": "CTRL-GEN-067",
+    "controlName": "PI AUDIT",
+    "controlFamily": "PI_AUDIT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-PIPL"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-PIPL"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-PIPL"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000068",
+    "controlCode": "CTRL-GEN-068",
+    "controlName": "PI INCIDENT",
+    "controlFamily": "PI_INCIDENT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-PIPL"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-PIPL"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-PIPL"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000069",
+    "controlCode": "CTRL-GEN-069",
+    "controlName": "PI LEGAL BASIS",
+    "controlFamily": "PI_LEGAL_BASIS",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-PIPL"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-PIPL"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-PIPL"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000070",
+    "controlCode": "CTRL-GEN-070",
+    "controlName": "PI MINIMUM NECESSARY",
+    "controlFamily": "PI_MINIMUM_NECESSARY",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-PIPL"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-PIPL"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-PIPL"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000071",
+    "controlCode": "CTRL-GEN-071",
+    "controlName": "PI SENSITIVE",
+    "controlFamily": "PI_SENSITIVE",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-PIPL"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-PIPL"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-PIPL"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000072",
+    "controlCode": "CTRL-GEN-072",
+    "controlName": "PI SHARING",
+    "controlFamily": "PI_SHARING",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-PIPL"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-PIPL"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-PIPL"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000073",
+    "controlCode": "CTRL-GEN-073",
+    "controlName": "PUBLIC APP AVAILABILITY",
+    "controlFamily": "PUBLIC_APP_AVAILABILITY",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-PUBLIC-APP"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-PUBLIC-APP"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-PUBLIC-APP"
+    ]
+  },
+  {
+    "controlId": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    "controlCode": "CTRL-PUBLIC-001",
+    "controlName": "Public App Release Control",
+    "controlFamily": "PUBLIC_APP_RELEASE",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-PUBLIC-APP"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-PUBLIC-APP"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-PUBLIC-APP"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000074",
+    "controlCode": "CTRL-GEN-074",
+    "controlName": "PUBLIC APP SECURITY",
+    "controlFamily": "PUBLIC_APP_SECURITY",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-PUBLIC-APP"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-PUBLIC-APP"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-PUBLIC-APP"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000075",
+    "controlCode": "CTRL-GEN-075",
+    "controlName": "RECTIFICATION TRACKING",
+    "controlFamily": "RECTIFICATION_TRACKING",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ]
+  },
+  {
+    "controlId": "33333333-3333-3333-3333-333333333333",
+    "controlCode": "CTRL-DG-004",
+    "controlName": "Regulatory Reporting Accuracy Control",
+    "controlFamily": "REG_REPORTING",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000076",
+    "controlCode": "CTRL-GEN-076",
+    "controlName": "SEC MARKET DATA",
+    "controlFamily": "SEC_MARKET_DATA",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-SECURITIES"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-SECURITIES"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-SECURITIES"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000077",
+    "controlCode": "CTRL-GEN-077",
+    "controlName": "SEC MONITOR",
+    "controlFamily": "SEC_MONITOR",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-CYBER"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-CYBER"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-CYBER"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000078",
+    "controlCode": "CTRL-GEN-078",
+    "controlName": "SEC SETTLEMENT",
+    "controlFamily": "SEC_SETTLEMENT",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-SECURITIES"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-SECURITIES"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-SECURITIES"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000079",
+    "controlCode": "CTRL-GEN-079",
+    "controlName": "SEC TRADING",
+    "controlFamily": "SEC_TRADING",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SECTOR-SECURITIES"
+    ],
+    "evidencePackCodes": [
+      "PACK-SECTOR-SECURITIES"
+    ],
+    "remediationPackCodes": [
+      "PACK-SECTOR-SECURITIES"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000080",
+    "controlCode": "CTRL-GEN-080",
+    "controlName": "THIRD PARTY TRANSFER",
+    "controlFamily": "THIRD_PARTY_TRANSFER",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-SCENE-CROSS-BORDER-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-SCENE-CROSS-BORDER-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-SCENE-CROSS-BORDER-DATA"
+    ]
+  },
+  {
+    "controlId": "f0000000-0000-0000-0000-000000000081",
+    "controlCode": "CTRL-GEN-081",
+    "controlName": "VUL PATCH",
+    "controlFamily": "VUL_PATCH",
+    "mandatoryDefault": true,
+    "priorityDefault": "MEDIUM",
+    "questionPackCodes": [
+      "PACK-BASE-CYBER"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-CYBER"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-CYBER"
+    ]
+  }
+]

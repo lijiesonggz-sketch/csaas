@@ -5,7 +5,7 @@ import { Repository, DataSource, QueryRunner } from 'typeorm'
 import { UnauthorizedException } from '@nestjs/common'
 import * as bcrypt from 'bcryptjs'
 import { AuthService } from './auth.service'
-import { User, UserRole } from '../../database/entities'
+import { OrganizationMember, User, UserRole } from '../../database/entities'
 import { LoginDto } from './dto/login.dto'
 import { AccountLockedException } from '../../common/exceptions/account-locked.exception'
 
@@ -67,6 +67,12 @@ describe('AuthService - Account Lockout', () => {
             findOne: jest.fn(),
             create: jest.fn(),
             save: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(OrganizationMember),
+          useValue: {
+            findOne: jest.fn(),
           },
         },
         {

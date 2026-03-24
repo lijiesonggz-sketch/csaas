@@ -1,0 +1,102 @@
+{
+  "l1": [
+    {
+      "l1Code": "IT01",
+      "l1Name": "信息科技治理与风险管理",
+      "sortOrder": 10,
+      "status": "ACTIVE"
+    },
+    {
+      "l1Code": "IT02",
+      "l1Name": "网络与信息安全",
+      "sortOrder": 20,
+      "status": "ACTIVE"
+    },
+    {
+      "l1Code": "IT03",
+      "l1Name": "数据安全与个人信息保护",
+      "sortOrder": 30,
+      "status": "ACTIVE"
+    },
+    {
+      "l1Code": "IT04",
+      "l1Name": "数据治理与监管数据报送",
+      "sortOrder": 40,
+      "status": "ACTIVE"
+    },
+    {
+      "l1Code": "IT05",
+      "l1Name": "信息科技外包与第三方管理",
+      "sortOrder": 50,
+      "status": "ACTIVE"
+    },
+    {
+      "l1Code": "IT06",
+      "l1Name": "系统建设、开发测试与变更管理",
+      "sortOrder": 60,
+      "status": "ACTIVE"
+    },
+    {
+      "l1Code": "IT07",
+      "l1Name": "运行维护、系统控制与数据中心管理",
+      "sortOrder": 70,
+      "status": "ACTIVE"
+    },
+    {
+      "l1Code": "IT08",
+      "l1Name": "业务连续性、灾备与事件报告",
+      "sortOrder": 80,
+      "status": "ACTIVE"
+    }
+  ],
+  "l2": [
+    {
+      "l2Code": "IT01-05",
+      "l1Code": "IT01",
+      "l2Name": "AI治理与模型风险管理",
+      "l2Desc": "覆盖 AI 模型准入、人工复核和模型风险治理控制",
+      "sortOrder": 15,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT02-03",
+      "l1Code": "IT02",
+      "l2Name": "访问控制与授权管理",
+      "l2Desc": "覆盖最小授权、特权账号审批和访问复核控制",
+      "sortOrder": 23,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT03-04",
+      "l1Code": "IT03",
+      "l2Name": "数据出境与跨境传输管理",
+      "l2Desc": "覆盖跨境数据识别、评估、审批和接收方管理控制",
+      "sortOrder": 34,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT04-06",
+      "l1Code": "IT04",
+      "l2Name": "监管报送准确性控制",
+      "l2Desc": "覆盖监管报送口径、校验、对账和复核控制",
+      "sortOrder": 46,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT06-07",
+      "l1Code": "IT06",
+      "l2Name": "变更审批与回退管理",
+      "l2Desc": "覆盖变更审批、测试、发布和回退控制",
+      "sortOrder": 67,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT08-02",
+      "l1Code": "IT08",
+      "l2Name": "业务连续性与恢复目标管理",
+      "l2Desc": "覆盖业务连续性、RTO/RPO、灾备和恢复演练控制",
+      "sortOrder": 82,
+      "status": "ACTIVE"
+    }
+  ]
+}

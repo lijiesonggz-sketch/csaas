@@ -7,6 +7,7 @@ import {
   Body,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common'
 import { IsString, IsNumber, IsOptional, MinLength, IsArray, ValidateNested } from 'class-validator'
 import { Type } from 'class-transformer'
@@ -295,6 +296,8 @@ export class GenerateActionPlanDto {
  */
 @Controller('ai-generation')
 export class AIGenerationController {
+  private readonly logger = new Logger(AIGenerationController.name)
+
   constructor(
     private readonly aiGenerationService: AIGenerationService,
     private readonly resultAggregator: ResultAggregatorService,
@@ -378,7 +381,7 @@ export class AIGenerationController {
 
       // ✅ 如果在 ai_generation_results 表中找不到，尝试从 ai_tasks 表读取（兼容旧任务）
       if (!result) {
-        console.log(
+        this.logger.warn(
           `Result not found in ai_generation_results for task ${taskId}, trying ai_tasks table...`,
         )
 

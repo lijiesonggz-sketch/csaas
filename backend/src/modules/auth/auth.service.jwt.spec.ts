@@ -5,7 +5,7 @@ import { Repository, DataSource } from 'typeorm'
 import { UnauthorizedException } from '@nestjs/common'
 import * as bcrypt from 'bcryptjs'
 import { AuthService } from './auth.service'
-import { User } from '../../database/entities'
+import { OrganizationMember, User } from '../../database/entities'
 import { LoginDto } from './dto/login.dto'
 
 describe('AuthService - JWT Authentication', () => {
@@ -53,6 +53,12 @@ describe('AuthService - JWT Authentication', () => {
           },
         },
         {
+          provide: getRepositoryToken(OrganizationMember),
+          useValue: {
+            findOne: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
           provide: DataSource,
           useValue: {
             createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
@@ -91,6 +97,8 @@ describe('AuthService - JWT Authentication', () => {
         name: mockUser.name,
         role: mockUser.role,
         tenantId: undefined,
+        organizationId: null,
+        organizationRole: null,
       })
     })
 

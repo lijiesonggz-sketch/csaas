@@ -1,0 +1,102 @@
+[
+  {
+    "packCode": "PACK-BASE-GOVERNANCE",
+    "controlFamilies": ["GOV_ORG", "GOV_RISK", "GOV_AUDIT", "GOV_RECTIFICATION", "GOV_IMPORTANT_SYSTEM"]
+  },
+  {
+    "packCode": "PACK-BASE-CYBER",
+    "controlFamilies": ["ACC_AUTH", "ACC_PRIVILEGED", "NET_BOUNDARY", "LOG_AUDIT", "SEC_MONITOR", "VUL_PATCH"]
+  },
+  {
+    "packCode": "PACK-BASE-DATA",
+    "controlFamilies": ["DATA_CLASSIFICATION", "DATA_ACCESS", "DATA_EXPORT", "DATA_LIFECYCLE", "DATA_TRACEABILITY"]
+  },
+  {
+    "packCode": "PACK-BASE-PIPL",
+    "controlFamilies": ["PI_LEGAL_BASIS", "PI_MINIMUM_NECESSARY", "PI_SENSITIVE", "PI_SHARING", "PI_INCIDENT", "PI_AUDIT"]
+  },
+  {
+    "packCode": "PACK-BASE-CHANGE",
+    "controlFamilies": ["DEV_REVIEW", "DEV_TEST", "DEV_SEPARATION", "CHANGE_APPROVAL", "CHANGE_ROLLBACK"]
+  },
+  {
+    "packCode": "PACK-BASE-OPS",
+    "controlFamilies": ["OPS_MONITOR", "OPS_ALERT", "OPS_CAPACITY", "OPS_JOB", "OPS_RECORD"]
+  },
+  {
+    "packCode": "PACK-BASE-BCP",
+    "controlFamilies": ["BCP_BACKUP", "BCP_RTO", "BCP_RPO", "BCP_DRILL"]
+  },
+  {
+    "packCode": "PACK-BASE-OUTSOURCING",
+    "controlFamilies": ["OUTSOURCING_DUE_DILIGENCE", "OUTSOURCING_CONTRACT", "OUTSOURCING_MONITOR", "OUTSOURCING_EXIT"]
+  },
+  {
+    "packCode": "PACK-SECTOR-BANK",
+    "controlFamilies": ["BANK_CORE_SYSTEM", "BANK_PAYMENT", "BANK_ACCOUNTING", "BANK_BRANCH_OPS"]
+  },
+  {
+    "packCode": "PACK-SECTOR-SECURITIES",
+    "controlFamilies": ["SEC_TRADING", "SEC_SETTLEMENT", "SEC_MARKET_DATA"]
+  },
+  {
+    "packCode": "PACK-SECTOR-FUND",
+    "controlFamilies": ["FUND_NAV", "FUND_CUSTODY", "FUND_SALES"]
+  },
+  {
+    "packCode": "PACK-SECTOR-FUTURES",
+    "controlFamilies": ["FUTURES_MARGIN", "FUTURES_SETTLEMENT", "FUTURES_MARKET_RISK"]
+  },
+  {
+    "packCode": "PACK-SECTOR-INSURANCE",
+    "controlFamilies": ["INS_POLICY", "INS_CLAIMS", "INS_ACTUARIAL"]
+  },
+  {
+    "packCode": "PACK-SCENE-CROSS-BORDER-DATA",
+    "controlFamilies": ["DATA_CROSS_BORDER", "DATA_EXIT_ASSESSMENT", "THIRD_PARTY_TRANSFER"]
+  },
+  {
+    "packCode": "PACK-SCENE-CIIO",
+    "controlFamilies": ["CIIO_ASSET", "CIIO_MONITOR", "CIIO_REPORTING"]
+  },
+  {
+    "packCode": "PACK-SCENE-IMPORTANT-DATA",
+    "controlFamilies": ["IMPORTANT_DATA_IDENTIFICATION", "IMPORTANT_DATA_PROTECTION", "IMPORTANT_DATA_EXPORT"]
+  },
+  {
+    "packCode": "PACK-SCENE-CLOUD",
+    "controlFamilies": ["CLOUD_GOVERNANCE", "CLOUD_SECURITY", "CLOUD_DR", "CLOUD_VENDOR"]
+  },
+  {
+    "packCode": "PACK-SCENE-OUTSOURCING-HEAVY",
+    "controlFamilies": ["OUTSOURCING_RISK", "OUTSOURCING_CONTINUITY", "OUTSOURCING_AUDIT"]
+  },
+  {
+    "packCode": "PACK-SCENE-PUBLIC-APP",
+    "controlFamilies": ["PUBLIC_APP_RELEASE", "PUBLIC_APP_SECURITY", "PUBLIC_APP_AVAILABILITY"]
+  },
+  {
+    "packCode": "PACK-SCENE-ONLINE-TRADING",
+    "controlFamilies": ["ONLINE_TRADING_RISK", "ONLINE_TRADING_MONITOR", "ONLINE_TRADING_RECON"]
+  },
+  {
+    "packCode": "PACK-SCENE-AI",
+    "controlFamilies": ["AI_MODEL_RISK", "AI_DATA_GOVERNANCE", "AI_HUMAN_REVIEW", "AI_AUDIT"]
+  },
+  {
+    "packCode": "PACK-STRENGTH-LARGE-ORG",
+    "controlFamilies": ["GOVERNANCE_COMMITTEE", "DATA_GOVERNANCE_REPORTING"]
+  },
+  {
+    "packCode": "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM",
+    "controlFamilies": ["CRITICAL_SYSTEM_HA", "CRITICAL_SYSTEM_DR", "CRITICAL_SYSTEM_CHANGE"]
+  },
+  {
+    "packCode": "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION",
+    "controlFamilies": ["REG_REPORTING", "RECTIFICATION_TRACKING", "AUDIT_FOLLOWUP"]
+  },
+  {
+    "packCode": "PACK-STRENGTH-RECENT-INCIDENT",
+    "controlFamilies": ["INCIDENT_RESPONSE", "INCIDENT_POSTMORTEM", "INCIDENT_CONTROL_ENHANCEMENT"]
+  }
+]

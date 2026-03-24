@@ -1,5 +1,8 @@
+import { Logger } from '@nestjs/common'
 import { RadarSource } from '../../../database/entities/radar-source.entity'
 import { DataSource } from 'typeorm'
+
+const complianceSeedLogger = new Logger('ComplianceSourcesSeed')
 
 /**
  * 合规雷达信息源种子数据
@@ -21,7 +24,7 @@ export const complianceSourcesSeed = async (dataSource: DataSource) => {
   })
 
   if (existingCount > 0) {
-    console.log('✅ Compliance sources already exist, skipping seed')
+    complianceSeedLogger.log('Compliance sources already exist, skipping seed')
     return
   }
 
@@ -67,10 +70,10 @@ export const complianceSourcesSeed = async (dataSource: DataSource) => {
   for (const sourceData of sources) {
     const source = repository.create(sourceData)
     await repository.save(source)
-    console.log(`✅ Created compliance source: ${sourceData.source}`)
+    complianceSeedLogger.log(`Created compliance source: ${sourceData.source}`)
   }
 
-  console.log(`✅ Seeded ${sources.length} compliance sources`)
+  complianceSeedLogger.log(`Seeded ${sources.length} compliance sources`)
 }
 
 /**

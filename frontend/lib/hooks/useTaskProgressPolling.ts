@@ -10,10 +10,21 @@ import { AITasksAPI } from '../api/ai-tasks'
 export interface TaskProgress {
   status: string
   stage: string
+  stageMessage?: string
+  percentage?: number
+  details?: {
+    current?: number
+    total?: number
+    message?: string
+    phase?: string
+    totalClauses?: number
+    totalBatches?: number
+    currentBatch?: number
+  }
   progress: {
-    gpt4?: { status: string; message: string; error?: string; duration_ms?: number }
-    claude?: { status: string; message: string; error?: string; duration_ms?: number }
-    domestic?: { status: string; message: string; error?: string; duration_ms?: number }
+    gpt4?: { status: string; message: string; error?: string; duration_ms?: number; percentage?: number; details?: { current: number; total: number } }
+    claude?: { status: string; message: string; error?: string; duration_ms?: number; percentage?: number; details?: { current: number; total: number } }
+    domestic?: { status: string; message: string; error?: string; duration_ms?: number; percentage?: number; details?: { current: number; total: number } }
     validation_stage?: string
     aggregation_stage?: string
     total_elapsed_ms?: number
@@ -43,6 +54,7 @@ export function useTaskProgressPolling(options: UseTaskProgressPollingOptions = 
   const [error, setError] = useState<Error | null>(null)
   const pollingTimerRef = useRef<NodeJS.Timeout>()
   const isMountedRef = useRef(true)
+  const pollingStartTimeRef = useRef<number>(0)
 
   /**
    * 获取任务状态
@@ -98,6 +110,9 @@ export function useTaskProgressPolling(options: UseTaskProgressPollingOptions = 
     if (!taskId || !enabled) {
       return
     }
+
+    // 记录轮询开始时间
+    pollingStartTimeRef.current = Date.now()
 
     // 立即获取一次状态
     fetchStatus()

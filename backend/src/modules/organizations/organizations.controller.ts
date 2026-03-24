@@ -34,6 +34,7 @@ import {
   AddMemberDto,
   UpdateMemberRoleDto,
 } from './dto/create-organization.dto'
+import { UpsertOrganizationProfileDto } from './dto/organization-profile.dto'
 import { AuditAction } from '../../database/entities/audit-log.entity'
 
 /**
@@ -96,6 +97,16 @@ export class OrganizationsController {
   }
 
   /**
+   * Get organization profile by ID
+   * GET /organizations/:id/profile
+   */
+  @Get(':id/profile')
+  @UseGuards(OrganizationOwnershipGuard)
+  async getOrganizationProfile(@Param('id') id: string) {
+    return this.organizationsService.getOrganizationProfile(id)
+  }
+
+  /**
    * Get organization statistics
    * GET /organizations/:id/stats
    */
@@ -127,6 +138,32 @@ export class OrganizationsController {
       entityId: id,
       success: true,
       req: null, // Not available in this context
+    })
+
+    return result
+  }
+
+  /**
+   * Create or update organization profile
+   * PUT /organizations/:id/profile
+   */
+  @Put(':id/profile')
+  @UseGuards(OrganizationOwnershipGuard)
+  async upsertOrganizationProfile(
+    @Param('id') id: string,
+    @Body() profileDto: UpsertOrganizationProfileDto,
+    @CurrentUser() user: any,
+  ) {
+    const userId = user.userId || user.id
+    const result = await this.organizationsService.upsertOrganizationProfile(id, profileDto)
+
+    await this.auditLogService.log({
+      userId,
+      action: AuditAction.UPDATE,
+      entityType: 'OrganizationProfile',
+      entityId: id,
+      success: true,
+      req: null,
     })
 
     return result

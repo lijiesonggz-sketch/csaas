@@ -1,0 +1,120 @@
+[
+  {
+    "profileCode": "demo-bank-mega-legal-person",
+    "matchedPackCodes": [
+      "PACK-BASE-GOVERNANCE",
+      "PACK-BASE-CYBER",
+      "PACK-BASE-DATA",
+      "PACK-BASE-PIPL",
+      "PACK-BASE-CHANGE",
+      "PACK-BASE-OPS",
+      "PACK-BASE-BCP",
+      "PACK-BASE-OUTSOURCING",
+      "PACK-SECTOR-BANK",
+      "PACK-SCENE-CIIO",
+      "PACK-SCENE-IMPORTANT-DATA",
+      "PACK-SCENE-CLOUD",
+      "PACK-SCENE-PUBLIC-APP",
+      "PACK-SCENE-ONLINE-TRADING",
+      "PACK-STRENGTH-LARGE-ORG",
+      "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM",
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "notes": ["大型法人银行命中全部基础包、银行行业包和多项场景/强化包"]
+  },
+  {
+    "profileCode": "demo-bank-branch-medium",
+    "matchedPackCodes": [
+      "PACK-BASE-GOVERNANCE",
+      "PACK-BASE-CYBER",
+      "PACK-BASE-DATA",
+      "PACK-BASE-PIPL",
+      "PACK-BASE-CHANGE",
+      "PACK-BASE-OPS",
+      "PACK-BASE-BCP",
+      "PACK-BASE-OUTSOURCING",
+      "PACK-SECTOR-BANK"
+    ],
+    "notes": ["中型银行分支机构命中基础包和银行行业包，不命中高阶场景强化"]
+  },
+  {
+    "profileCode": "demo-securities-national",
+    "matchedPackCodes": [
+      "PACK-BASE-GOVERNANCE",
+      "PACK-BASE-CYBER",
+      "PACK-BASE-DATA",
+      "PACK-BASE-PIPL",
+      "PACK-BASE-CHANGE",
+      "PACK-BASE-OPS",
+      "PACK-BASE-BCP",
+      "PACK-BASE-OUTSOURCING",
+      "PACK-SECTOR-SECURITIES",
+      "PACK-SCENE-IMPORTANT-DATA",
+      "PACK-SCENE-PUBLIC-APP",
+      "PACK-SCENE-ONLINE-TRADING",
+      "PACK-STRENGTH-LARGE-ORG",
+      "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM"
+    ],
+    "notes": ["全国性券商因线上交易和公众服务场景命中额外控制包"]
+  },
+  {
+    "profileCode": "demo-fund-cross-border",
+    "matchedPackCodes": [
+      "PACK-BASE-GOVERNANCE",
+      "PACK-BASE-CYBER",
+      "PACK-BASE-DATA",
+      "PACK-BASE-PIPL",
+      "PACK-BASE-CHANGE",
+      "PACK-BASE-OPS",
+      "PACK-BASE-BCP",
+      "PACK-BASE-OUTSOURCING",
+      "PACK-SECTOR-FUND",
+      "PACK-SCENE-CROSS-BORDER-DATA",
+      "PACK-SCENE-IMPORTANT-DATA",
+      "PACK-SCENE-CLOUD"
+    ],
+    "notes": ["公募基金跨境机构命中跨境数据和上云场景控制包"]
+  },
+  {
+    "profileCode": "demo-insurance-outsourcing-heavy",
+    "matchedPackCodes": [
+      "PACK-BASE-GOVERNANCE",
+      "PACK-BASE-CYBER",
+      "PACK-BASE-DATA",
+      "PACK-BASE-PIPL",
+      "PACK-BASE-CHANGE",
+      "PACK-BASE-OPS",
+      "PACK-BASE-BCP",
+      "PACK-BASE-OUTSOURCING",
+      "PACK-SECTOR-INSURANCE",
+      "PACK-SCENE-CLOUD",
+      "PACK-SCENE-OUTSOURCING-HEAVY",
+      "PACK-SCENE-PUBLIC-APP",
+      "PACK-STRENGTH-LARGE-ORG",
+      "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM"
+    ],
+    "notes": ["高外包依赖保险机构额外命中外包、云和高关键系统强化包"]
+  },
+  {
+    "profileCode": "demo-ciio-ai-service",
+    "matchedPackCodes": [
+      "PACK-BASE-GOVERNANCE",
+      "PACK-BASE-CYBER",
+      "PACK-BASE-DATA",
+      "PACK-BASE-CHANGE",
+      "PACK-BASE-OPS",
+      "PACK-BASE-BCP",
+      "PACK-BASE-OUTSOURCING",
+      "PACK-SCENE-CIIO",
+      "PACK-SCENE-IMPORTANT-DATA",
+      "PACK-SCENE-CLOUD",
+      "PACK-SCENE-OUTSOURCING-HEAVY",
+      "PACK-SCENE-AI",
+      "PACK-STRENGTH-LARGE-ORG",
+      "PACK-STRENGTH-HIGH-CRITICAL-SYSTEM",
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION",
+      "PACK-STRENGTH-RECENT-INCIDENT"
+    ],
+    "notes": ["关基 AI 服务机构命中 AI、关基与多项强化包，但因无个人信息不命中 PIPL 基线包"]
+  }
+]

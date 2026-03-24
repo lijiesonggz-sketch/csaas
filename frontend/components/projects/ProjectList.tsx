@@ -5,8 +5,27 @@ import { Project } from '@/lib/api/projects'
 import { apiFetch } from '@/lib/utils/api'
 import ProjectCard from './ProjectCard'
 import CreateProjectDialog from './CreateProjectDialog'
-import { Plus, Sparkles, ArrowLeft } from 'lucide-react'
+import {
+  Add,
+  AutoAwesome,
+  ArrowBack,
+  ViewKanban,
+} from '@mui/icons-material'
+import {
+  Container,
+  Grid,
+  Box,
+  CircularProgress,
+  Typography,
+  Button,
+  Alert,
+  Grid2,
+} from '@mui/material'
 import { useRouter } from 'next/navigation'
+import PageHeader from '@/components/ui/mui/PageHeader'
+import PrimaryButton from '@/components/ui/mui/PrimaryButton'
+import ContentCard from '@/components/ui/mui/ContentCard'
+import EmptyState from '@/components/ui/mui/EmptyState'
 
 interface ProjectListProps {
   onProjectClick?: (project: Project) => void
@@ -48,106 +67,139 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
 
   if (loading) {
     return (
-      <main className="flex items-center justify-center min-h-[400px]" role="status" aria-label="加载中">
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative">
-            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-          </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">加载项目列表...</p>
-        </div>
+      <main
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: '400px',
+        }}
+        role="status"
+        aria-label="加载中"
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <CircularProgress size={48} />
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            加载项目列表...
+          </Typography>
+        </Box>
       </main>
     )
   }
 
   if (error) {
     return (
-      <main className="space-y-4" role="alert" aria-live="polite">
-        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
-        </div>
-        <div className="flex justify-center">
-          <button
+      <main style={{ maxWidth: '1920px', margin: '0 auto', padding: '24px 48px' }} role="alert" aria-live="polite">
+        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+          {error}
+        </Alert>
+        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+          <Button
             onClick={loadProjects}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors min-w-[100px] min-h-[44px]"
+            variant="outlined"
+            sx={{ minWidth: 100, minHeight: 44 }}
           >
             重试
-          </button>
-        </div>
+          </Button>
+        </Box>
       </main>
     )
   }
 
   return (
-    <main className="max-w-[1920px] mx-auto px-6 py-8">
-      {/* 头部：返回按钮 + 标题 + 创建按钮 */}
-      <header className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <button
+    <main style={{ width: '100%', margin: '0 auto', padding: '32px 48px' }}>
+      <Container maxWidth={false} disableGutters>
+        {/* 头部：使用 PageHeader 组件 */}
+        <PageHeader
+          title="我的项目"
+          description="管理您的合规咨询项目，跟踪项目进度和AI分析结果"
+          icon={<ViewKanban sx={{ fontSize: 24 }} />}
+          action={
+            <PrimaryButton
+              startIcon={<Add />}
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              创建项目
+            </PrimaryButton>
+          }
+        />
+
+        {/* 返回按钮 */}
+        <Box sx={{ mb: 3 }}>
+          <Button
+            startIcon={<ArrowBack />}
             onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors min-h-[44px]"
-            aria-label="返回工作台"
+            sx={{
+              color: 'text.secondary',
+              minWidth: 'auto',
+            }}
           >
-            <ArrowLeft className="w-5 h-5" strokeWidth={2} />
-            <span className="text-sm font-medium">返回工作台</span>
-          </button>
-          <div className="h-8 w-px bg-gray-200" />
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">我的项目</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              管理您的合规咨询项目
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => setCreateDialogOpen(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-w-[140px] min-h-[48px]"
-        >
-          <Plus className="w-5 h-5" strokeWidth={2} />
-          创建项目
-        </button>
-      </header>
+            返回工作台
+          </Button>
+        </Box>
 
-      {/* 项目列表或空状态 */}
-      {projects.length === 0 ? (
-        <section className="text-center py-16 px-6">
-          <div className="flex justify-center mb-6">
-            <div className="p-4 bg-gray-100 dark:bg-gray-800 rounded-full">
-              <Sparkles className="w-12 h-12 text-gray-400 dark:text-gray-500" strokeWidth={2} />
-            </div>
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-            还没有任何项目
-          </h2>
-          <p className="text-gray-500 dark:text-gray-400 mb-8">
-            点击上方"创建项目"按钮开始您的第一个咨询项目
-          </p>
-          <button
-            onClick={() => setCreateDialogOpen(true)}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[48px]"
-          >
-            <Plus className="w-5 h-5" strokeWidth={2} />
-            创建第一个项目
-          </button>
-        </section>
-      ) : (
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onClick={() => onProjectClick?.(project)}
-              onDelete={handleProjectDeleted}
-            />
-          ))}
-        </section>
-      )}
+        {/* 项目列表或空状态 */}
+        {projects.length === 0 ? (
+          <ContentCard sx={{ py: 16, px: 6, textAlign: 'center' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 6 }}>
+              <Box
+                sx={{
+                  p: 4,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #eef2ff 0%, #ddd6fe 100%)',
+                }}
+              >
+                <AutoAwesome sx={{ fontSize: 48, color: '#6366f1' }} />
+              </Box>
+            </Box>
+            <Typography variant="h5" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
+              还没有任何项目
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 8 }}>
+              点击上方"创建项目"按钮开始您的第一个咨询项目
+            </Typography>
+            <PrimaryButton
+              startIcon={<Add />}
+              onClick={() => setCreateDialogOpen(true)}
+            >
+              创建第一个项目
+            </PrimaryButton>
+          </ContentCard>
+        ) : (
+          <Grid container spacing={3} role="list" aria-label="项目列表" sx={{ width: 'calc(100% + 24px)', margin: '-12px' }}>
+            {projects.map((project) => (
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                md={6}
+                lg={4}
+                xl={3}
+                key={project.id}
+                sx={{
+                  display: 'flex',
+                  padding: '12px !important',
+                }}
+              >
+                <Box sx={{ width: '100%', minWidth: 0 }}>
+                  <ProjectCard
+                    project={project}
+                    onClick={() => onProjectClick?.(project)}
+                    onDelete={handleProjectDeleted}
+                  />
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        )}
 
-      {/* 创建项目对话框 */}
-      <CreateProjectDialog
-        open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
-        onCreated={handleProjectCreated}
-      />
+        {/* 创建项目对话框 */}
+        <CreateProjectDialog
+          open={createDialogOpen}
+          onClose={() => setCreateDialogOpen(false)}
+          onCreated={handleProjectCreated}
+        />
+      </Container>
     </main>
   )
 }

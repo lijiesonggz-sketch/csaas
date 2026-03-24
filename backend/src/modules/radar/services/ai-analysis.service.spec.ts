@@ -12,6 +12,7 @@ import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
 import { TagService } from './tag.service'
 import { AnalyzedContentService } from './analyzed-content.service'
 import { AIModel } from '../../../database/entities/ai-generation-event.entity'
+import { AIUsageService } from '../../admin/cost-optimization/ai-usage.service'
 
 describe('AIAnalysisService', () => {
   let service: AIAnalysisService
@@ -102,7 +103,7 @@ describe('AIAnalysisService', () => {
           },
         },
         {
-          provide: getQueueToken('radar:crawler'),
+          provide: getQueueToken('radar-crawler'),
           useValue: mockQueue,
         },
         {
@@ -124,12 +125,18 @@ describe('AIAnalysisService', () => {
             findByContentId: jest.fn(),
           },
         },
+        {
+          provide: AIUsageService,
+          useValue: {
+            logAIUsage: jest.fn(),
+          },
+        },
       ],
     }).compile()
 
     service = module.get<AIAnalysisService>(AIAnalysisService)
     rawContentRepo = module.get<Repository<RawContent>>(getRepositoryToken(RawContent))
-    crawlerQueue = module.get<Queue>(getQueueToken('radar:crawler'))
+    crawlerQueue = module.get<Queue>(getQueueToken('radar-crawler'))
     aiOrchestrator = module.get<AIOrchestrator>(AIOrchestrator)
     tagService = module.get<TagService>(TagService)
     analyzedContentService = module.get<AnalyzedContentService>(AnalyzedContentService)
@@ -438,7 +445,7 @@ describe('AIAnalysisService', () => {
       // Assert
       expect(techPrompt).toContain('技术趋势')
       expect(industryPrompt).toContain('同业机构')
-      expect(compliancePrompt).toContain('监管政策')
+      expect(compliancePrompt).toContain('合规风险类别')
     })
   })
 

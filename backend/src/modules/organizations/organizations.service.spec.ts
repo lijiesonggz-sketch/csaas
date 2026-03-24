@@ -8,6 +8,7 @@ import { User } from '../../database/entities/user.entity'
 import { Project } from '../../database/entities/project.entity'
 import { WatchedTopic } from '../../database/entities/watched-topic.entity'
 import { WatchedPeer } from '../../database/entities/watched-peer.entity'
+import { OrganizationProfile } from '../../database/entities/organization-profile.entity'
 import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common'
 
 describe('OrganizationsService', () => {
@@ -16,6 +17,7 @@ describe('OrganizationsService', () => {
   let memberRepository: Repository<OrganizationMember>
   let userRepository: Repository<User>
   let projectRepository: Repository<Project>
+  let profileRepository: Repository<OrganizationProfile>
 
   const mockOrgRepository = {
     findOne: jest.fn(),
@@ -64,6 +66,13 @@ describe('OrganizationsService', () => {
     delete: jest.fn(),
   }
 
+  const mockOrganizationProfileRepository = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    upsert: jest.fn(),
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -92,6 +101,10 @@ describe('OrganizationsService', () => {
           provide: getRepositoryToken(WatchedPeer),
           useValue: mockWatchedPeerRepository,
         },
+        {
+          provide: getRepositoryToken(OrganizationProfile),
+          useValue: mockOrganizationProfileRepository,
+        },
       ],
     }).compile()
 
@@ -102,9 +115,112 @@ describe('OrganizationsService', () => {
     )
     userRepository = module.get<Repository<User>>(getRepositoryToken(User))
     projectRepository = module.get<Repository<Project>>(getRepositoryToken(Project))
+    profileRepository = module.get<Repository<OrganizationProfile>>(
+      getRepositoryToken(OrganizationProfile),
+    )
 
     // Clear mocks before each test
     jest.clearAllMocks()
+  })
+
+  describe('getOrganizationProfile', () => {
+    it('should return profile when found', async () => {
+      const orgId = '550e8400-e29b-41d4-a716-446655440000'
+      const organization = { id: orgId } as Organization
+      const profile = {
+        orgId,
+        industry: 'bank',
+      } as OrganizationProfile
+
+      mockOrgRepository.findOne.mockResolvedValue(organization)
+      mockOrganizationProfileRepository.findOne.mockResolvedValue(profile)
+
+      const result = await service.getOrganizationProfile(orgId)
+
+      expect(result).toEqual(profile)
+      expect(mockOrganizationProfileRepository.findOne).toHaveBeenCalledWith({
+        where: { orgId },
+      })
+    })
+
+    it('should throw NotFoundException when profile does not exist', async () => {
+      mockOrgRepository.findOne.mockResolvedValue({
+        id: '550e8400-e29b-41d4-a716-446655440000',
+      } as Organization)
+      mockOrganizationProfileRepository.findOne.mockResolvedValue(null)
+
+      await expect(
+        service.getOrganizationProfile('550e8400-e29b-41d4-a716-446655440000'),
+      ).rejects.toThrow(NotFoundException)
+    })
+  })
+
+  describe('upsertOrganizationProfile', () => {
+    const orgId = '550e8400-e29b-41d4-a716-446655440000'
+    const payload = {
+      industry: 'bank',
+      legalPersonType: 'legal_person',
+      assetBucket: 'large',
+      hasPersonalInfo: true,
+      crossBorderData: false,
+      importantDataStatus: 'unknown',
+      ciioStatus: 'no',
+      hasDatacenter: true,
+      usesCloud: true,
+      outsourcingLevel: 'medium',
+      criticalSystemLevel: 'high',
+      hasOnlineTrading: true,
+      hasAiServices: false,
+      publicServiceScope: 'public_users',
+      regulatoryAttentionLevel: 'medium',
+      recentMajorIncident: false,
+    }
+
+    it('should create a new profile when none exists', async () => {
+      const organization = { id: orgId } as Organization
+      const createdProfile = {
+        orgId,
+        industry: 'bank',
+      } as OrganizationProfile
+
+      mockOrgRepository.findOne.mockResolvedValue(organization)
+      mockOrganizationProfileRepository.upsert.mockResolvedValue(undefined)
+      mockOrganizationProfileRepository.findOne.mockResolvedValue(createdProfile)
+
+      const result = await service.upsertOrganizationProfile(orgId, payload as any)
+
+      expect(result).toEqual(createdProfile)
+      expect(mockOrganizationProfileRepository.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orgId,
+          industry: 'bank',
+        }),
+        ['orgId'],
+      )
+    })
+
+    it('should update an existing profile when one already exists', async () => {
+      const organization = { id: orgId } as Organization
+      const updatedProfile = {
+        orgId,
+        industry: 'bank',
+      } as OrganizationProfile
+
+      mockOrgRepository.findOne.mockResolvedValue(organization)
+      mockOrganizationProfileRepository.upsert.mockResolvedValue(undefined)
+      mockOrganizationProfileRepository.findOne.mockResolvedValue(updatedProfile)
+
+      const result = await service.upsertOrganizationProfile(orgId, payload as any)
+
+      expect(result.industry).toBe('bank')
+      expect(mockOrganizationProfileRepository.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orgId,
+          industry: 'bank',
+        }),
+        ['orgId'],
+      )
+    })
   })
 
   describe('createOrganizationForUser', () => {

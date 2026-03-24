@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
+import { getQueueToken } from '@nestjs/bullmq'
 import { Repository } from 'typeorm'
 import { RawContentService } from './raw-content.service'
 import { RawContent } from '../../../database/entities/raw-content.entity'
@@ -24,6 +25,12 @@ describe('RawContentService', () => {
         {
           provide: getRepositoryToken(RawContent),
           useValue: mockRepository,
+        },
+        {
+          provide: getQueueToken('radar-ai-analysis'),
+          useValue: {
+            add: jest.fn(),
+          },
         },
       ],
     }).compile()

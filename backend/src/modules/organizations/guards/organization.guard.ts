@@ -2,6 +2,7 @@ import {
   Injectable,
   CanActivate,
   ExecutionContext,
+  BadRequestException,
   ForbiddenException,
   Inject,
 } from '@nestjs/common'
@@ -38,13 +39,10 @@ export class OrganizationGuard implements CanActivate {
     const request = context.switchToHttp().getRequest()
     const user = request.user
 
-    console.log('[OrganizationGuard] Request user:', user)
-
     // Skip if no user info (e.g., public routes)
     // JWT strategy returns user with 'id' field (from payload.sub)
     const userId = user?.id || user?.userId
     if (!user || !userId) {
-      console.log('[OrganizationGuard] No user or userId, returning false')
       return false
     }
 
@@ -57,46 +55,32 @@ export class OrganizationGuard implements CanActivate {
       request.params.organizationId ||
       request.params.orgId
 
-    console.log('[OrganizationGuard] Extracted orgId:', orgId, 'from:', {
-      paramsOrgId: request.params.orgId,
-      paramsOrganizationId: request.params.organizationId,
-      queryOrganizationId: request.query?.organizationId,
-      bodyOrganizationId: request.body?.organizationId,
-    })
-
     // If no organizationId in request, get user's organization (MVP: user has only one org)
     if (!orgId) {
-      console.log('[OrganizationGuard] No orgId in request, fetching user organization')
       const userMembership = await this.memberRepository.findOne({
         where: { userId: userId },
       })
 
       if (!userMembership) {
-        console.log('[OrganizationGuard] User has no organization membership')
         return false
       }
 
       orgId = userMembership.organizationId
-      console.log('[OrganizationGuard] Auto-detected orgId:', orgId)
     }
 
     // Validate UUID format to prevent database errors
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!uuidRegex.test(orgId)) {
-      console.log('[OrganizationGuard] Invalid UUID format:', orgId)
-      return false
+      throw new BadRequestException('Invalid organization id')
     }
 
     // Check if user is a member of the organization
-    console.log('[OrganizationGuard] Checking membership for userId:', userId, 'orgId:', orgId)
     const member = await this.memberRepository.findOne({
       where: {
         userId: userId,
         organizationId: orgId,
       },
     })
-
-    console.log('[OrganizationGuard] Member found:', member)
 
     if (!member) {
       // 记录审计日志 (Story 1.2 - AC 3)
@@ -114,7 +98,6 @@ export class OrganizationGuard implements CanActivate {
         req: request,
       })
 
-      console.log('[OrganizationGuard] Access denied - user not member')
       throw new ForbiddenException('您不是该组织的成员,无权访问')
     }
 
@@ -122,7 +105,6 @@ export class OrganizationGuard implements CanActivate {
     request.orgId = orgId
     request.orgMember = member
 
-    console.log('[OrganizationGuard] Access granted')
     return true
   }
 }

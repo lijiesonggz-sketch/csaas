@@ -1,6 +1,17 @@
 export { User, UserRole } from './user.entity'
 export { Tenant } from './tenant.entity'
 export { Organization } from './organization.entity'
+export { OrganizationProfile } from './organization-profile.entity'
+export {
+  ControlPack,
+  CONTROL_PACK_MATURITY_LEVELS,
+  CONTROL_PACK_TYPES,
+} from './control-pack.entity'
+export {
+  ApplicabilityRule,
+  APPLICABILITY_RULE_TARGET_TYPES,
+  APPLICABILITY_RULE_TYPES,
+} from './applicability-rule.entity'
 export { OrganizationMember } from './organization-member.entity'
 export { Project, ProjectStatus } from './project.entity'
 export { AITask, AITaskType, TaskStatus } from './ai-task.entity'
@@ -21,6 +32,14 @@ export { StandardDocument } from './standard-document.entity'
 export { InterpretationResult } from './interpretation-result.entity'
 export { CurrentStateDescription } from './current-state-description.entity'
 export { WeaknessSnapshot } from './weakness-snapshot.entity'
+export { TaxonomyL1, TAXONOMY_STATUSES } from './taxonomy-l1.entity'
+export { TaxonomyL2 } from './taxonomy-l2.entity'
+export {
+  ControlPoint,
+  CONTROL_POINT_RISK_LEVELS,
+  CONTROL_POINT_STATUSES,
+  CONTROL_POINT_TYPES,
+} from './control-point.entity'
 
 // Epic 2: 技术雷达 - 统一标签系统和推送基础设施
 export { Tag } from './tag.entity'

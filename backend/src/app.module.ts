@@ -18,7 +18,9 @@ import { SurveyModule } from './modules/survey/survey.module'
 import { ProjectsModule } from './modules/projects/projects.module'
 import { FilesModule } from './modules/files/files.module'
 import { CurrentStateModule } from './modules/current-state/current-state.module'
+import { ApplicabilityEngineModule } from './modules/applicability-engine/applicability-engine.module'
 import { OrganizationsModule } from './modules/organizations/organizations.module'
+import { KnowledgeGraphModule } from './modules/knowledge-graph/knowledge-graph.module'
 import { RadarModule } from './modules/radar/radar.module'
 import { AdminModule } from './modules/admin/admin.module'
 import { CostOptimizationModule } from './modules/admin/cost-optimization/cost-optimization.module'
@@ -67,6 +69,8 @@ import { CostOptimizationModule } from './modules/admin/cost-optimization/cost-o
     ProjectsModule,
     FilesModule,
     CurrentStateModule,
+    ApplicabilityEngineModule,
+    KnowledgeGraphModule,
     OrganizationsModule,
     RadarModule,
     AdminModule,

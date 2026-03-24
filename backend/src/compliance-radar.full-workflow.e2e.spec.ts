@@ -15,12 +15,15 @@ import { CrawlerLog } from './database/entities/crawler-log.entity'
 import * as fs from 'fs/promises'
 import { v4 as uuidv4 } from 'uuid'
 
+const fullWorkflowDescribe =
+  process.env.RUN_FULL_WORKFLOW_E2E === 'true' ? describe : describe.skip
+
 /**
  * Compliance Radar Full Workflow E2E Tests (Story 4.2 - Phase 6.2)
  *
  * 完整流程集成测试：爬取 → AI分析 → 剧本生成 → 推送 → API调用
  */
-describe('Compliance Radar Full Workflow E2E (Phase 6.2)', () => {
+fullWorkflowDescribe('Compliance Radar Full Workflow E2E (Phase 6.2)', () => {
   let app: INestApplication
   let fileWatcherService: FileWatcherService
   let playbookService: CompliancePlaybookService

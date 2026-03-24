@@ -1,0 +1,328 @@
+- generic [active] [ref=e1]:
+  - main [ref=e200]:
+    - generic [ref=e202]:
+      - generic [ref=e203]:
+        - img [ref=e205]
+        - generic [ref=e210]:
+          - heading "我的项目" [level=1] [ref=e211]
+          - paragraph [ref=e212]: 管理您的合规咨询项目，跟踪项目进度和AI分析结果
+      - button "创建项目" [ref=e213] [cursor=pointer]:
+        - img
+        - text: 创建项目
+    - button "返回工作台" [ref=e215] [cursor=pointer]:
+      - img
+      - text: 返回工作台
+    - list "项目列表" [ref=e216]:
+      - generic [ref=e217] [cursor=pointer]:
+        - generic [ref=e219]:
+          - generic [ref=e220]:
+            - img [ref=e222]
+            - heading "银行保险机构数据安全管理办法" [level=3] [ref=e227]
+          - generic [ref=e228]:
+            - generic [ref=e229]: draft
+            - button "删除项目" [ref=e230]:
+              - img [ref=e231]
+        - generic [ref=e234]:
+          - paragraph [ref=e235]
+          - generic [ref=e236]:
+            - generic [ref=e237]:
+              - img [ref=e238]
+              - generic [ref=e242]: "1231"
+            - generic [ref=e243]:
+              - img [ref=e244]
+              - generic [ref=e247]: "123"
+            - generic [ref=e248]:
+              - img [ref=e249]
+              - generic [ref=e252]: 进度
+              - generic [ref=e255]: 33%
+            - generic [ref=e256]:
+              - img [ref=e257]
+              - generic [ref=e259]: 2026/02/11
+          - paragraph [ref=e261]: 点击查看详情
+      - generic [ref=e262] [cursor=pointer]:
+        - generic [ref=e264]:
+          - generic [ref=e265]:
+            - img [ref=e267]
+            - heading "Playwright验证项目" [level=3] [ref=e272]
+          - generic [ref=e273]:
+            - generic [ref=e274]: draft
+            - button "删除项目" [ref=e275]:
+              - img [ref=e276]
+        - generic [ref=e279]:
+          - paragraph [ref=e280]: 使用Playwright验证项目创建
+          - generic [ref=e281]:
+            - generic [ref=e282]:
+              - img [ref=e283]
+              - generic [ref=e287]: 验证客户
+            - generic [ref=e288]:
+              - img [ref=e289]
+              - generic [ref=e292]: ISO27001
+            - generic [ref=e293]:
+              - img [ref=e294]
+              - generic [ref=e297]: 进度
+              - generic [ref=e299]: 0%
+            - generic [ref=e300]:
+              - img [ref=e301]
+              - generic [ref=e303]: 2026/02/11
+          - paragraph [ref=e305]: 点击查看详情
+      - generic [ref=e306] [cursor=pointer]:
+        - generic [ref=e308]:
+          - generic [ref=e309]:
+            - img [ref=e311]
+            - heading "修复测试项目-V5" [level=3] [ref=e316]
+          - generic [ref=e317]:
+            - generic [ref=e318]: draft
+            - button "删除项目" [ref=e319]:
+              - img [ref=e320]
+        - generic [ref=e323]:
+          - paragraph [ref=e324]: 验证最终修复
+          - generic [ref=e325]:
+            - generic [ref=e326]:
+              - img [ref=e327]
+              - generic [ref=e331]: 测试客户V5
+            - generic [ref=e332]:
+              - img [ref=e333]
+              - generic [ref=e336]: ISO27001
+            - generic [ref=e337]:
+              - img [ref=e338]
+              - generic [ref=e341]: 进度
+              - generic [ref=e343]: 0%
+            - generic [ref=e344]:
+              - img [ref=e345]
+              - generic [ref=e347]: 2026/02/11
+          - paragraph [ref=e349]: 点击查看详情
+      - generic [ref=e350] [cursor=pointer]:
+        - generic [ref=e352]:
+          - generic [ref=e353]:
+            - img [ref=e355]
+            - heading "智能运维通用要求" [level=3] [ref=e360]
+          - generic [ref=e361]:
+            - generic [ref=e362]: draft
+            - button "删除项目" [ref=e363]:
+              - img [ref=e364]
+        - generic [ref=e367]:
+          - paragraph [ref=e368]
+          - generic [ref=e369]:
+            - generic [ref=e370]:
+              - img [ref=e371]
+              - generic [ref=e375]: FF公司
+            - generic [ref=e376]:
+              - img [ref=e377]
+              - generic [ref=e380]: 进度
+              - generic [ref=e383]: 17%
+            - generic [ref=e384]:
+              - img [ref=e385]
+              - generic [ref=e387]: 2026/01/15
+          - paragraph [ref=e389]: 点击查看详情
+      - generic [ref=e390] [cursor=pointer]:
+        - generic [ref=e392]:
+          - generic [ref=e393]:
+            - img [ref=e395]
+            - heading "33136成熟度" [level=3] [ref=e400]
+          - generic [ref=e401]:
+            - generic [ref=e402]: draft
+            - button "删除项目" [ref=e403]:
+              - img [ref=e404]
+        - generic [ref=e407]:
+          - paragraph [ref=e408]
+          - generic [ref=e409]:
+            - generic [ref=e410]:
+              - img [ref=e411]
+              - generic [ref=e415]: CC公司
+            - generic [ref=e416]:
+              - img [ref=e417]
+              - generic [ref=e420]: "33136"
+            - generic [ref=e421]:
+              - img [ref=e422]
+              - generic [ref=e425]: 进度
+              - generic [ref=e428]: 17%
+            - generic [ref=e429]:
+              - img [ref=e430]
+              - generic [ref=e432]: 2026/01/14
+          - paragraph [ref=e434]: 点击查看详情
+      - generic [ref=e435] [cursor=pointer]:
+        - generic [ref=e437]:
+          - generic [ref=e438]:
+            - img [ref=e440]
+            - heading "运维稳定性成熟度评估" [level=3] [ref=e445]
+          - generic [ref=e446]:
+            - generic [ref=e447]: draft
+            - button "删除项目" [ref=e448]:
+              - img [ref=e449]
+        - generic [ref=e452]:
+          - paragraph [ref=e453]
+          - generic [ref=e454]:
+            - generic [ref=e455]:
+              - img [ref=e456]
+              - generic [ref=e460]: 运维A公司
+            - generic [ref=e461]:
+              - img [ref=e462]
+              - generic [ref=e465]: 进度
+              - generic [ref=e468]: 33%
+            - generic [ref=e469]:
+              - img [ref=e470]
+              - generic [ref=e472]: 2026/01/11
+          - paragraph [ref=e474]: 点击查看详情
+      - generic [ref=e475] [cursor=pointer]:
+        - generic [ref=e477]:
+          - generic [ref=e478]:
+            - img [ref=e480]
+            - heading "智能运维标准" [level=3] [ref=e485]
+          - generic [ref=e486]:
+            - generic [ref=e487]: draft
+            - button "删除项目" [ref=e488]:
+              - img [ref=e489]
+        - generic [ref=e492]:
+          - paragraph [ref=e493]
+          - generic [ref=e494]:
+            - generic [ref=e495]:
+              - img [ref=e496]
+              - generic [ref=e500]: 运维A公司
+            - generic [ref=e501]:
+              - img [ref=e502]
+              - generic [ref=e505]: 进度
+              - generic [ref=e508]: 50%
+            - generic [ref=e509]:
+              - img [ref=e510]
+              - generic [ref=e512]: 2026/01/08
+          - paragraph [ref=e514]: 点击查看详情
+      - generic [ref=e515] [cursor=pointer]:
+        - generic [ref=e517]:
+          - generic [ref=e518]:
+            - img [ref=e520]
+            - heading "数据安全评估V5（国内）" [level=3] [ref=e525]
+          - generic [ref=e526]:
+            - generic [ref=e527]: draft
+            - button "删除项目" [ref=e528]:
+              - img [ref=e529]
+        - generic [ref=e532]:
+          - paragraph [ref=e533]
+          - generic [ref=e534]:
+            - generic [ref=e535]:
+              - img [ref=e536]
+              - generic [ref=e540]: 测试E公司
+            - generic [ref=e541]:
+              - img [ref=e542]
+              - generic [ref=e545]: 进度
+              - generic [ref=e548]: 67%
+            - generic [ref=e549]:
+              - img [ref=e550]
+              - generic [ref=e552]: 2026/01/04
+          - paragraph [ref=e554]: 点击查看详情
+      - generic [ref=e555] [cursor=pointer]:
+        - generic [ref=e557]:
+          - generic [ref=e558]:
+            - img [ref=e560]
+            - heading "数据安全评估V4" [level=3] [ref=e565]
+          - generic [ref=e566]:
+            - generic [ref=e567]: draft
+            - button "删除项目" [ref=e568]:
+              - img [ref=e569]
+        - generic [ref=e572]:
+          - paragraph [ref=e573]
+          - generic [ref=e574]:
+            - generic [ref=e575]:
+              - img [ref=e576]
+              - generic [ref=e580]: 测试D公司
+            - generic [ref=e581]:
+              - img [ref=e582]
+              - generic [ref=e585]: 进度
+              - generic [ref=e588]: 100%
+            - generic [ref=e589]:
+              - img [ref=e590]
+              - generic [ref=e592]: 2026/01/01
+          - paragraph [ref=e594]: 点击查看详情
+      - generic [ref=e595] [cursor=pointer]:
+        - generic [ref=e597]:
+          - generic [ref=e598]:
+            - img [ref=e600]
+            - heading "数据安全评估V3" [level=3] [ref=e605]
+          - generic [ref=e606]:
+            - generic [ref=e607]: draft
+            - button "删除项目" [ref=e608]:
+              - img [ref=e609]
+        - generic [ref=e612]:
+          - paragraph [ref=e613]: 测试
+          - generic [ref=e614]:
+            - generic [ref=e615]:
+              - img [ref=e616]
+              - generic [ref=e620]: 测试C公司
+            - generic [ref=e621]:
+              - img [ref=e622]
+              - generic [ref=e625]: 进度
+              - generic [ref=e628]: 33%
+            - generic [ref=e629]:
+              - img [ref=e630]
+              - generic [ref=e632]: 2026/01/01
+          - paragraph [ref=e634]: 点击查看详情
+      - generic [ref=e635] [cursor=pointer]:
+        - generic [ref=e637]:
+          - generic [ref=e638]:
+            - img [ref=e640]
+            - heading "数据安全评估V2" [level=3] [ref=e645]
+          - generic [ref=e646]:
+            - generic [ref=e647]: draft
+            - button "删除项目" [ref=e648]:
+              - img [ref=e649]
+        - generic [ref=e652]:
+          - paragraph [ref=e653]
+          - generic [ref=e654]:
+            - generic [ref=e655]:
+              - img [ref=e656]
+              - generic [ref=e660]: 测试B公司
+            - generic [ref=e661]:
+              - img [ref=e662]
+              - generic [ref=e665]: 进度
+              - generic [ref=e668]: 33%
+            - generic [ref=e669]:
+              - img [ref=e670]
+              - generic [ref=e672]: 2026/01/01
+          - paragraph [ref=e674]: 点击查看详情
+      - generic [ref=e675] [cursor=pointer]:
+        - generic [ref=e677]:
+          - generic [ref=e678]:
+            - img [ref=e680]
+            - heading "Default Project" [level=3] [ref=e685]
+          - generic [ref=e686]:
+            - generic [ref=e687]: active
+            - button "删除项目" [ref=e688]:
+              - img [ref=e689]
+        - generic [ref=e692]:
+          - paragraph [ref=e693]: Auto-created default project for AI generation tasks
+          - generic [ref=e694]:
+            - generic [ref=e695]:
+              - img [ref=e696]
+              - generic [ref=e699]: 进度
+              - generic [ref=e702]: 50%
+            - generic [ref=e703]:
+              - img [ref=e704]
+              - generic [ref=e706]: 2025/12/31
+          - paragraph [ref=e708]: 点击查看详情
+      - generic [ref=e709] [cursor=pointer]:
+        - generic [ref=e711]:
+          - generic [ref=e712]:
+            - img [ref=e714]
+            - heading "数据安全测试项目" [level=3] [ref=e719]
+          - generic [ref=e720]:
+            - generic [ref=e721]: completed
+            - button "删除项目" [ref=e722]:
+              - img [ref=e723]
+        - generic [ref=e726]:
+          - paragraph [ref=e727]: 历史数据迁移项目
+          - generic [ref=e728]:
+            - generic [ref=e729]:
+              - img [ref=e730]
+              - generic [ref=e734]: 历史客户
+            - generic [ref=e735]:
+              - img [ref=e736]
+              - generic [ref=e739]: 通用标准
+            - generic [ref=e740]:
+              - img [ref=e741]
+              - generic [ref=e744]: 进度
+              - generic [ref=e747]: 83%
+            - generic [ref=e748]:
+              - img [ref=e749]
+              - generic [ref=e751]: 2025/12/26
+          - paragraph [ref=e753]: 点击查看详情
+  - region "Notifications alt+T"
+  - alert [ref=e36]
