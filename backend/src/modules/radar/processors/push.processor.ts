@@ -244,6 +244,11 @@ export class PushProcessor extends WorkerHost {
       eventData.relatedWeaknessCategories = content.complianceAnalysis?.relatedWeaknessCategories // 关联薄弱项类别
       eventData.playbookStatus = push.playbookStatus // 剧本状态 (ready/generating/failed)
 
+      const compliancePlaybook = (push as any).compliancePlaybook || (content as any).compliancePlaybook
+      if (push.playbookStatus === 'ready' && compliancePlaybook?.checklistItems) {
+        eventData.checklistItems = compliancePlaybook.checklistItems
+      }
+
       // 注意：合规剧本详细信息需要前端通过API单独获取
       // GET /api/radar/compliance/playbook/:pushId
 

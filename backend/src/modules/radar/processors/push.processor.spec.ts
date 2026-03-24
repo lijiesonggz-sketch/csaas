@@ -7,6 +7,7 @@ import { PushProcessor } from './push.processor'
 import { PushSchedulerService } from '../services/push-scheduler.service'
 import { AnalyzedContentService } from '../services/analyzed-content.service'
 import { AIAnalysisService } from '../services/ai-analysis.service'
+import { PushLogService } from '../services/push-log.service'
 import { TasksGateway } from '../../ai-tasks/gateways/tasks.gateway'
 import { WeaknessSnapshot } from '../../../database/entities/weakness-snapshot.entity'
 import { RadarPush } from '../../../database/entities/radar-push.entity'
@@ -107,6 +108,13 @@ describe('PushProcessor - ROI Analysis Integration (Story 2.4)', () => {
           provide: AIAnalysisService,
           useValue: {
             analyzeROI: jest.fn(),
+          },
+        },
+        {
+          provide: PushLogService,
+          useValue: {
+            logSuccess: jest.fn(),
+            logFailure: jest.fn(),
           },
         },
         {
