@@ -1,23 +1,29 @@
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
+import { ApplicabilityEngineModule } from '../applicability-engine/applicability-engine.module'
 import { ControlPoint } from '../../database/entities/control-point.entity'
 import { TaxonomyL1 } from '../../database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../../database/entities/taxonomy-l2.entity'
+import { AnalyzedContent } from '../../database/entities/analyzed-content.entity'
 import { AuditModule } from '../audit/audit.module'
 import { KnowledgeGraphModule } from '../knowledge-graph/knowledge-graph.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
+import { SurveyModule } from '../survey/survey.module'
 import { ControlExplainController } from './controllers/control-explain.controller'
 import { ControlExplainService } from './services/control-explain.service'
+import { RadarRelevanceEnhancedService } from './services/radar-relevance-enhanced.service'
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ControlPoint, TaxonomyL1, TaxonomyL2]),
+    TypeOrmModule.forFeature([ControlPoint, TaxonomyL1, TaxonomyL2, AnalyzedContent]),
     KnowledgeGraphModule,
     OrganizationsModule,
     AuditModule,
+    ApplicabilityEngineModule,
+    SurveyModule,
   ],
   controllers: [ControlExplainController],
-  providers: [ControlExplainService],
-  exports: [ControlExplainService],
+  providers: [ControlExplainService, RadarRelevanceEnhancedService],
+  exports: [ControlExplainService, RadarRelevanceEnhancedService],
 })
 export class ComplianceIntelligenceModule {}
