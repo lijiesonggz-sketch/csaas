@@ -9,6 +9,7 @@ import { ControlEvidenceMap } from '../../database/entities/control-evidence-map
 import { ControlPackItem } from '../../database/entities/control-pack-item.entity'
 import { ControlPoint } from '../../database/entities/control-point.entity'
 import { EvidenceType } from '../../database/entities/evidence-type.entity'
+import { QuestionItem } from '../../database/entities/question-item.entity'
 import { RegulationClause } from '../../database/entities/regulation-clause.entity'
 import { RegulationSource } from '../../database/entities/regulation-source.entity'
 import { TaxonomyL1 } from '../../database/entities/taxonomy-l1.entity'
@@ -19,12 +20,14 @@ import { ComplianceCaseController } from './controllers/compliance-case.controll
 import { ControlPackLinkController } from './controllers/control-pack-link.controller'
 import { ControlPointController } from './controllers/control-point.controller'
 import { EvidenceController } from './controllers/evidence.controller'
+import { QuestionItemController } from './controllers/question-item.controller'
 import { RegulationController } from './controllers/regulation.controller'
 import { TaxonomyController } from './controllers/taxonomy.controller'
 import { ComplianceCaseService } from './services/compliance-case.service'
 import { ControlPackLinkService } from './services/control-pack-link.service'
 import { ControlPointService } from './services/control-point.service'
 import { EvidenceService } from './services/evidence.service'
+import { QuestionItemService } from './services/question-item.service'
 import { RegulationService } from './services/regulation.service'
 import { TaxonomyService } from './services/taxonomy.service'
 
@@ -43,6 +46,7 @@ import { TaxonomyService } from './services/taxonomy.service'
       CaseControlMap,
       EvidenceType,
       ControlEvidenceMap,
+      QuestionItem,
     ]),
     OrganizationsModule,
     AuditModule,
@@ -53,6 +57,7 @@ import { TaxonomyService } from './services/taxonomy.service'
     ControlPointController,
     ControlPackLinkController,
     EvidenceController,
+    QuestionItemController,
     RegulationController,
     ComplianceCaseController,
   ],
@@ -61,6 +66,7 @@ import { TaxonomyService } from './services/taxonomy.service'
     ControlPointService,
     ControlPackLinkService,
     EvidenceService,
+    QuestionItemService,
     RegulationService,
     ComplianceCaseService,
   ],
@@ -69,6 +75,7 @@ import { TaxonomyService } from './services/taxonomy.service'
     ControlPointService,
     ControlPackLinkService,
     EvidenceService,
+    QuestionItemService,
     RegulationService,
     ComplianceCaseService,
   ],

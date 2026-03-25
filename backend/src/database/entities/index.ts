@@ -75,6 +75,11 @@ export {
   ControlEvidenceMap,
   CONTROL_EVIDENCE_REQUIRED_LEVELS,
 } from './control-evidence-map.entity'
+export {
+  QuestionItem,
+  QUESTION_ITEM_STATUSES,
+  QUESTION_ITEM_TYPES,
+} from './question-item.entity'
 // Epic 2: 技术雷达 - 统一标签系统和推送基础设施
 export { Tag } from './tag.entity'
 export { WatchedItem } from './watched-item.entity'

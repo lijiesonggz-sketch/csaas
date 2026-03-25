@@ -34,6 +34,7 @@ import {
   CaseControlMap,
   EvidenceType,
   ControlEvidenceMap,
+  QuestionItem,
   WatchedTopic,
   WatchedPeer,
   // Epic 2: 技术雷达实体
@@ -107,6 +108,7 @@ export const AppDataSource = new DataSource({
     CaseControlMap,
     EvidenceType,
     ControlEvidenceMap,
+    QuestionItem,
     WatchedTopic,
     WatchedPeer,
     // Epic 2: 技术雷达实体
