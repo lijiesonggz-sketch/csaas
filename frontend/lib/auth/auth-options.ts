@@ -93,7 +93,9 @@ export const authOptions: NextAuthOptions = {
         token.tenantId = user.tenantId
         token.organizationId = user.organizationId
         token.organizationRole = user.organizationRole
-        token.accessToken = user.accessToken
+        if (typeof user.accessToken === 'string') {
+          token.accessToken = user.accessToken
+        }
       }
       return token
     },
@@ -116,5 +118,8 @@ export const authOptions: NextAuthOptions = {
     signIn: '/login',
     error: '/login',
   },
-  secret: process.env.NEXTAUTH_SECRET,
+}
+
+if (process.env.NEXTAUTH_SECRET) {
+  authOptions.secret = process.env.NEXTAUTH_SECRET
 }

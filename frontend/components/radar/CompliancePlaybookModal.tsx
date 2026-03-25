@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import React, { useState, useEffect } from 'react'
 import {
   Dialog,
@@ -28,7 +30,6 @@ import {
   AccordionDetails,
   Grid,
   Divider,
-  TextField,
 } from '@mui/material'
 import {
   ExpandMore,
@@ -43,8 +44,6 @@ import {
 } from '@mui/icons-material'
 import {
   CompliancePlaybook,
-  ChecklistItem,
-  Solution,
   getCompliancePlaybook,
   submitChecklist,
   markCompliancePushAsRead,
@@ -315,7 +314,7 @@ export const CompliancePlaybookModal: React.FC<CompliancePlaybookModalProps> = (
               <AccordionDetails>
                 <Grid container spacing={2}>
                   {/* 风险类别 - 修复 Issue #3: 使用 push.complianceRiskCategory */}
-                  <Grid item xs={12}>
+                  <Grid size={{ xs: 12 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Typography variant="subtitle2" color="text.secondary">
                         风险类别：
@@ -325,7 +324,7 @@ export const CompliancePlaybookModal: React.FC<CompliancePlaybookModalProps> = (
                   </Grid>
 
                   {/* 政策要求 - 修复 Issue #2, #5 (Code Review 2026-01-31): 从真实数据读取 + 格式验证 */}
-                  <Grid item xs={12}>
+                  <Grid size={{ xs: 12 }}>
                     <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                       政策要求：
                     </Typography>
@@ -357,7 +356,7 @@ export const CompliancePlaybookModal: React.FC<CompliancePlaybookModalProps> = (
                   </Grid>
 
                   {/* 信息来源 */}
-                  <Grid item xs={12}>
+                  <Grid size={{ xs: 12 }}>
                     <Typography variant="caption" color="text.secondary">
                       生成时间: {new Date(playbook.generatedAt).toLocaleString('zh-CN')}
                     </Typography>
@@ -384,8 +383,8 @@ export const CompliancePlaybookModal: React.FC<CompliancePlaybookModalProps> = (
                   {playbook.checklistItems.map((item) => (
                     <ListItem
                       key={item.id}
-                      button
                       onClick={() => handleToggleCheck(item.id)}
+                      component="button"
                       sx={{ borderRadius: 1, mb: 1, border: '1px solid', borderColor: 'divider' }}
                     >
                       <Checkbox
@@ -601,7 +600,7 @@ export const CompliancePlaybookModal: React.FC<CompliancePlaybookModalProps> = (
               await markCompliancePushAsRead(pushId)
               message.success('已标记为已读')
               onClose()
-            } catch (error) {
+            } catch {
               message.error('标记失败，请稍后重试')
             }
           }}

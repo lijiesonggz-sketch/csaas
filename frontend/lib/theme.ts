@@ -1,5 +1,18 @@
 import { createTheme } from '@mui/material/styles'
 
+const baseTheme = createTheme()
+const shadows = [...baseTheme.shadows]
+
+shadows[1] = '0 1px 3px rgba(0, 0, 0, 0.12)'
+shadows[2] = '0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.05)'
+shadows[3] = '0 4px 12px rgba(0, 0, 0, 0.1), 0 8px 24px rgba(0, 0, 0, 0.08)'
+shadows[4] = '0 4px 14px rgba(99, 102, 241, 0.4)'
+shadows[5] = '0 6px 20px rgba(102, 126, 234, 0.5)'
+shadows[6] = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+shadows[7] = '0 10px 25px -5px rgba(99, 102, 241, 0.3)'
+shadows[8] = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+shadows[9] = '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+
 export const theme = createTheme({
   palette: {
     primary: { main: '#667eea', light: '#818cf8', dark: '#4f46e5' },
@@ -32,18 +45,7 @@ export const theme = createTheme({
   typography: {
     fontFamily: 'var(--font-inter), "Inter", "Roboto", "Helvetica", "Arial", sans-serif',
   },
-  shadows: [
-    'none',
-    '0 1px 3px rgba(0, 0, 0, 0.12)',
-    '0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.05)', // card
-    '0 4px 12px rgba(0, 0, 0, 0.1), 0 8px 24px rgba(0, 0, 0, 0.08)', // card-hover
-    '0 4px 14px rgba(99, 102, 241, 0.4)', // purple
-    '0 6px 20px rgba(102, 126, 234, 0.5)', // purple-lg
-    '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-    '0 10px 25px -5px rgba(99, 102, 241, 0.3)',
-    '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-    '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-  ],
+  shadows: shadows as typeof baseTheme.shadows,
   components: {
     MuiPaper: {
       styleOverrides: {

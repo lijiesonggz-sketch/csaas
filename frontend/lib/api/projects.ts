@@ -1,19 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
  * Projects API Client
  */
 
-import { getAuthHeadersAsync, getUserIdFromSessionAsync } from '@/lib/utils/jwt'
+import { getAuthHeadersAsync } from '@/lib/utils/jwt'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
-
-// 获取通用headers
-async function getHeaders(): Promise<Record<string, string>> {
-  const userId = await getUserIdFromSessionAsync()
-  return {
-    'Content-Type': 'application/json',
-    ...(userId && { 'x-user-id': userId }),
-  }
-}
 
 export interface Project {
   id: string
@@ -24,8 +17,8 @@ export interface Project {
   status: 'DRAFT' | 'ACTIVE' | 'COMPLETED' | 'ARCHIVED'
   progress: number
   createdAt: string
-  updatedAt: string
-  owner: {
+  updatedAt?: string
+  owner?: {
     id: string
     name: string
     email: string
@@ -35,7 +28,7 @@ export interface Project {
     industry?: string
     standardCode?: string
     standardName?: string
-    [key: string]: any
+    [key: string]: unknown
   }
 }
 

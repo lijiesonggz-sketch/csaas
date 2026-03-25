@@ -2,6 +2,8 @@
 
 export const dynamic = 'force-dynamic'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
  * 雷达配置管理页面 (Story 5.1 - Phase 3)
  *
@@ -12,7 +14,7 @@ export const dynamic = 'force-dynamic'
  * - 空状态友好提示
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Box,
   Typography,
@@ -52,15 +54,12 @@ import {
   createWatchedTopic,
   deleteWatchedTopic,
   WatchedTopic,
-  CreateWatchedTopicDto,
   getWatchedPeers,
   createWatchedPeer,
   deleteWatchedPeer,
   WatchedPeer,
-  CreateWatchedPeerDto,
   getPushPreference,
   updatePushPreference,
-  PushPreference,
   UpdatePushPreferenceDto,
 } from '@/lib/api/radar'
 import { INSTITUTION_PRESETS, INDUSTRY_LABELS, IndustryKey } from '@/lib/constants/institution-presets'
@@ -102,7 +101,6 @@ export default function RadarSettingsPage() {
   const [peerSubmitting, setPeerSubmitting] = useState(false)
 
   // Story 5.3: PushPreference state
-  const [pushPreference, setPushPreference] = useState<PushPreference | null>(null)
   const [preferenceLoading, setPreferenceLoading] = useState(true)
   const [preferenceSaving, setPreferenceSaving] = useState(false)
   const [deleteTopicDialog, setDeleteTopicDialog] = useState<{ open: boolean; topicId: string; topicName: string }>({ open: false, topicId: '', topicName: '' })
@@ -134,27 +132,19 @@ export default function RadarSettingsPage() {
     }
   }, [searchParams])
 
-  useEffect(() => {
-    if (organizationId) {
-      loadTopics()
-      loadPeers()
-      loadPushPreference()
-    }
-  }, [organizationId])
-
-  const loadTopics = async () => {
+  const loadTopics = useCallback(async () => {
     if (!organizationId) return
 
     setLoading(true)
     try {
       const data = await getWatchedTopics(organizationId)
       setTopics(data)
-    } catch (error: any) {
-      message.error(error.message || '加载失败')
+    } catch (error) {
+      message.error(getErrorMessage(error, '加载失败'))
     } finally {
       setLoading(false)
     }
-  }
+  }, [organizationId])
 
   const handleAdd = async () => {
     if (!organizationId) {
@@ -179,8 +169,8 @@ export default function RadarSettingsPage() {
       setSelectedTopic('')
       setCustomTopic('')
       loadTopics()
-    } catch (error: any) {
-      message.error(error.message || '添加失败')
+    } catch (error) {
+      message.error(getErrorMessage(error, '添加失败'))
     } finally {
       setSubmitting(false)
     }
@@ -200,8 +190,8 @@ export default function RadarSettingsPage() {
       message.success('已取消关注')
       setDeleteTopicDialog({ open: false, topicId: '', topicName: '' })
       loadTopics()
-    } catch (error: any) {
-      message.error(error.message || '删除失败')
+    } catch (error) {
+      message.error(getErrorMessage(error, '删除失败'))
     }
   }
 
@@ -214,19 +204,19 @@ export default function RadarSettingsPage() {
   }
 
   // Story 5.2: Load watched peers
-  const loadPeers = async () => {
+  const loadPeers = useCallback(async () => {
     if (!organizationId) return
 
     setPeersLoading(true)
     try {
       const data = await getWatchedPeers(organizationId)
       setPeers(data)
-    } catch (error: any) {
-      message.error(error.message || '加载关注同业失败')
+    } catch (error) {
+      message.error(getErrorMessage(error, '加载关注同业失败'))
     } finally {
       setPeersLoading(false)
     }
-  }
+  }, [organizationId])
 
   // Story 5.2: Add watched peer
   const handleAddPeer = async () => {
@@ -236,7 +226,7 @@ export default function RadarSettingsPage() {
     }
 
     let peerName = ''
-    let industry = selectedIndustry
+    const industry = selectedIndustry
     let institutionType = ''
 
     if (selectedPeer) {
@@ -268,8 +258,8 @@ export default function RadarSettingsPage() {
       setCustomPeerName('')
       setCustomInstitutionType('')
       loadPeers()
-    } catch (error: any) {
-      message.error(error.message || '添加失败')
+    } catch (error) {
+      message.error(getErrorMessage(error, '添加失败'))
     } finally {
       setPeerSubmitting(false)
     }
@@ -290,8 +280,8 @@ export default function RadarSettingsPage() {
       message.success('已取消关注')
       setDeletePeerDialog({ open: false, peerId: '', peerName: '' })
       loadPeers()
-    } catch (error: any) {
-      message.error(error.message || '删除失败')
+    } catch (error) {
+      message.error(getErrorMessage(error, '删除失败'))
     }
   }
 
@@ -300,28 +290,31 @@ export default function RadarSettingsPage() {
     return INDUSTRY_LABELS[industry as IndustryKey] || industry
   }
 
-  const getInstitutionTypeLabel = (type: string) => {
-    return type
-  }
-
   // Story 5.3: Load push preference
-  const loadPushPreference = async () => {
+  const loadPushPreference = useCallback(async () => {
     if (!organizationId) return
 
     setPreferenceLoading(true)
     try {
       const data = await getPushPreference(organizationId)
-      setPushPreference(data)
       setPushStartTime(dayjs(data.pushStartTime, 'HH:mm'))
       setPushEndTime(dayjs(data.pushEndTime, 'HH:mm'))
       setDailyPushLimit(data.dailyPushLimit)
       setRelevanceFilter(data.relevanceFilter)
-    } catch (error: any) {
-      message.error(error.message || '加载推送偏好失败')
+    } catch (error) {
+      message.error(getErrorMessage(error, '加载推送偏好失败'))
     } finally {
       setPreferenceLoading(false)
     }
-  }
+  }, [organizationId])
+
+  useEffect(() => {
+    if (organizationId) {
+      void loadTopics()
+      void loadPeers()
+      void loadPushPreference()
+    }
+  }, [loadPeers, loadPushPreference, loadTopics, organizationId])
 
   // Story 5.3: Save push preference
   const handleSavePreference = async () => {
@@ -368,8 +361,8 @@ export default function RadarSettingsPage() {
       await updatePushPreference(organizationId, dto)
       message.success('推送偏好已更新')
       loadPushPreference()
-    } catch (error: any) {
-      message.error(error.message || '保存失败')
+    } catch (error) {
+      message.error(getErrorMessage(error, '保存失败'))
     } finally {
       setPreferenceSaving(false)
     }
@@ -444,7 +437,7 @@ export default function RadarSettingsPage() {
           {loading ? (
             <Grid container spacing={2}>
               {[1, 2, 3].map((i) => (
-                <Grid item xs={12} sm={6} md={4} key={i}>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
                   <Skeleton variant="rectangular" height={120} />
                 </Grid>
               ))}
@@ -454,7 +447,7 @@ export default function RadarSettingsPage() {
           ) : (
             <Grid container spacing={2}>
               {topics.map((topic) => (
-                <Grid item xs={12} sm={6} md={4} key={topic.id}>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={topic.id}>
                   <Card variant="outlined">
                     <CardContent>
                       <Box display="flex" justifyContent="space-between" alignItems="flex-start">
@@ -504,7 +497,7 @@ export default function RadarSettingsPage() {
           {peersLoading ? (
             <Grid container spacing={2}>
               {[1, 2, 3].map((i) => (
-                <Grid item xs={12} sm={6} md={4} key={i}>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
                   <Skeleton variant="rectangular" height={120} />
                 </Grid>
               ))}
@@ -514,7 +507,7 @@ export default function RadarSettingsPage() {
           ) : (
             <Grid container spacing={2}>
               {peers.map((peer) => (
-                <Grid item xs={12} sm={6} md={4} key={peer.id}>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={peer.id}>
                   <Card variant="outlined">
                     <CardContent>
                       <Box display="flex" justifyContent="space-between" alignItems="flex-start">
@@ -582,7 +575,7 @@ export default function RadarSettingsPage() {
           ) : (
             <Grid container spacing={3}>
               {/* 推送时段设置 */}
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle1" sx={{ mb: 2 }}>
                   推送时段
                 </Typography>
@@ -607,7 +600,7 @@ export default function RadarSettingsPage() {
               </Grid>
 
               {/* 单日推送上限 */}
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle1" sx={{ mb: 2 }}>
                   单日推送上限: {dailyPushLimit} 条
                 </Typography>
@@ -631,7 +624,7 @@ export default function RadarSettingsPage() {
               </Grid>
 
               {/* 相关性过滤 */}
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle1" sx={{ mb: 2 }}>
                   相关性过滤
                 </Typography>
@@ -887,3 +880,5 @@ export default function RadarSettingsPage() {
     </LocalizationProvider>
   )
 }
+  const getErrorMessage = (error: unknown, fallback: string) =>
+    error instanceof Error && error.message ? error.message : fallback

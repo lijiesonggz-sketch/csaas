@@ -13,6 +13,7 @@ import { apiFetch } from '../utils/api'
  */
 export interface BrandingConfig {
   logoUrl?: string
+  brandLogoUrl?: string
   brandPrimaryColor: string
   brandSecondaryColor?: string
   companyName?: string

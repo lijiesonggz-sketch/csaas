@@ -8,9 +8,9 @@
 
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, RefreshCw, Phone, TrendingDown, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, RefreshCw, Phone, AlertTriangle } from 'lucide-react'
 import {
   ClientActivity,
   ClientSegment,
@@ -18,6 +18,8 @@ import {
   getClientSegmentation,
   getInterventionSuggestions,
   createIntervention,
+  InterventionSuggestion,
+  CreateInterventionData,
 } from '@/lib/api/clients-activity'
 import { ActivityStatusBadge } from '@/components/admin/ActivityStatusBadge'
 import { ClientSegmentationChart } from '@/components/admin/ClientSegmentationChart'
@@ -46,10 +48,10 @@ export default function ChurnRiskPage() {
   const [selectedClient, setSelectedClient] = useState<ClientActivity | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [interventionDialogOpen, setInterventionDialogOpen] = useState(false)
-  const [interventionSuggestions, setInterventionSuggestions] = useState<any[]>([])
+  const [interventionSuggestions, setInterventionSuggestions] = useState<InterventionSuggestion[]>([])
 
   // 加载数据
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
       const [clientsData, segmentationData] = await Promise.all([
@@ -58,20 +60,20 @@ export default function ChurnRiskPage() {
       ])
       setClients(clientsData.data)
       setSegments(segmentationData.segments)
-    } catch (err: any) {
+    } catch (err) {
       toast({
         title: '错误',
-        description: err.message || '加载数据失败',
+        description: err instanceof Error ? err.message : '加载数据失败',
         variant: 'destructive',
       })
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
 
   useEffect(() => {
-    loadData()
-  }, [])
+    void loadData()
+  }, [loadData])
 
   const handleBack = () => {
     router.push('/admin/clients')
@@ -89,14 +91,14 @@ export default function ChurnRiskPage() {
     setInterventionDialogOpen(true)
   }
 
-  const handleCreateIntervention = async (data: any) => {
+  const handleCreateIntervention = async (data: CreateInterventionData) => {
     if (!selectedClient) return
     await createIntervention(selectedClient.organizationId, data)
     toast({
       title: '成功',
       description: '干预记录已保存',
     })
-    loadData()
+    await loadData()
   }
 
   if (loading) {
@@ -291,7 +293,6 @@ export default function ChurnRiskPage() {
       {selectedClient && (
         <InterventionDialog
           open={interventionDialogOpen}
-          organizationId={selectedClient.organizationId}
           organizationName={selectedClient.name}
           suggestions={interventionSuggestions}
           onClose={() => setInterventionDialogOpen(false)}

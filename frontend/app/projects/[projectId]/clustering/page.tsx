@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Layers, Sparkles, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,12 @@ import ClusteringResultDisplay from '@/components/features/ClusteringResultDispl
 import type { GenerationResult } from '@/lib/types/ai-generation'
 import { useTaskProgressPolling } from '@/lib/hooks/useTaskProgressPolling'
 import { Progress } from '@/components/ui/progress'
-import { Badge } from '@/components/ui/badge'
+
+interface UploadedDocument {
+  id: string
+  name: string
+  content: string
+}
 
 export default function ClusteringPage() {
   const params = useParams()
@@ -23,7 +28,7 @@ export default function ClusteringPage() {
 
   const [taskId, setTaskId] = useState<string | null>(null)
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null)
-  const [documents, setDocuments] = useState<any[]>([])
+  const [documents, setDocuments] = useState<UploadedDocument[]>([])
   const [loading, setLoading] = useState(false)
   const [initializing, setInitializing] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -62,13 +67,7 @@ export default function ClusteringPage() {
     },
   })
 
-  useEffect(() => {
-    if (project) {
-      loadSavedClusteringTask()
-    }
-  }, [project])
-
-  const loadSavedClusteringTask = async () => {
+  const loadSavedClusteringTask = useCallback(async () => {
     if (!project) return
 
     try {
@@ -76,11 +75,21 @@ export default function ClusteringPage() {
       setInitializing(true)
       console.log('📋 [Clustering] 项目metadata:', project.metadata)
 
-      const docs = project.metadata?.uploadedDocuments || []
+      const uploadedDocuments = project.metadata?.uploadedDocuments
+      const docs: UploadedDocument[] = Array.isArray(uploadedDocuments)
+        ? uploadedDocuments
+            .filter((doc): doc is { id: string; name?: string; content?: string } => typeof doc?.id === 'string')
+            .map((doc) => ({
+              id: doc.id,
+              name: doc.name ?? '',
+              content: doc.content ?? '',
+            }))
+        : []
       setDocuments(docs)
 
-      if (project.metadata?.clusteringTaskId) {
-        const savedTaskId = project.metadata.clusteringTaskId
+      const clusteringTaskId = project.metadata?.clusteringTaskId
+      if (typeof clusteringTaskId === 'string' && clusteringTaskId.length > 0) {
+        const savedTaskId: string = clusteringTaskId
         console.log('✅ [Clustering] 找到已保存的taskId:', savedTaskId)
         setTaskId(savedTaskId)
 
@@ -101,8 +110,8 @@ export default function ClusteringPage() {
             console.log('⏳ [Clustering] 任务未完成，检查任务状态')
             throw new Error('Task not completed')
           }
-        } catch (err: any) {
-          console.log('⏳ [Clustering] 结果未就绪，检查任务状态:', err.message)
+        } catch (err) {
+          console.log('⏳ [Clustering] 结果未就绪，检查任务状态:', err instanceof Error ? err.message : err)
           try {
             const { AITasksAPI } = await import('@/lib/api/ai-tasks')
             const taskStatus = await AITasksAPI.getTaskStatus(savedTaskId)
@@ -133,7 +142,7 @@ export default function ClusteringPage() {
                       const { AIGenerationAPI } = await import('@/lib/api/ai-generation')
                       const response = await AIGenerationAPI.getResult(savedTaskId)
                       if (response.success && response.data) {
-                        setGenerationResult(response.data)
+                        setGenerationResult(response.data as GenerationResult)
                         setLoading(false)
                       } else {
                         setError('结果加载失败，请刷新页面重试')
@@ -165,7 +174,7 @@ export default function ClusteringPage() {
     } finally {
       setInitializing(false)
     }
-  }
+  }, [project])
 
   const handleGenerate = async () => {
     if (!project) return
@@ -177,7 +186,16 @@ export default function ClusteringPage() {
 
       console.log('📋 [Clustering] 当前项目metadata:', project.metadata)
 
-      const documents = project.metadata?.uploadedDocuments || []
+      const uploadedDocuments = project.metadata?.uploadedDocuments
+      const documents: UploadedDocument[] = Array.isArray(uploadedDocuments)
+        ? uploadedDocuments
+            .filter((doc): doc is { id: string; name?: string; content?: string } => typeof doc?.id === 'string')
+            .map((doc) => ({
+              id: doc.id,
+              name: doc.name ?? '',
+              content: doc.content ?? '',
+            }))
+        : []
 
       if (!Array.isArray(documents) || documents.length < 1) {
         setError('聚类分析至少需要1个文档，请先上传文档')
@@ -192,7 +210,7 @@ export default function ClusteringPage() {
         projectId,
         type: 'clustering',
         input: {
-          documentIds: documents.map((doc: any) => doc.id),
+          documentIds: documents.map((doc) => doc.id),
           maxTokens: 60000,
         },
       })
@@ -212,12 +230,18 @@ export default function ClusteringPage() {
       })
 
       console.log('✅ [Clustering] 已保存taskId到数据库')
-    } catch (err: any) {
+    } catch (err) {
       console.error('❌ [Clustering] 生成失败:', err)
-      setError(err.message || '生成失败')
+      setError(err instanceof Error ? err.message : '生成失败')
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (project) {
+      void loadSavedClusteringTask()
+    }
+  }, [loadSavedClusteringTask, project])
 
   if (initializing) {
     return (

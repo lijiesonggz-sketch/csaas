@@ -4,6 +4,8 @@
  */
 'use client'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import React, { useMemo, useCallback, useState } from 'react'
 import {
   List,
@@ -52,8 +54,7 @@ interface KeyRequirementsListProps {
 // 条款详情组件（使用React.memo优化）
 const RequirementDetail = React.memo<{
   item: KeyRequirement
-  index: number
-}>(({ item, index }) => {
+}>(({ item }) => {
   const [expanded, setExpanded] = useState(false)
 
   // 处理解读文本
@@ -178,12 +179,12 @@ const RequirementDetail = React.memo<{
 
               <Grid container spacing={2}>
                 {item.estimated_effort && (
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <Chip color="info" label={`预估工期：${item.estimated_effort}`} size="small" />
                   </Grid>
                 )}
                 {item.dependencies && item.dependencies.length > 0 && (
-                  <Grid item xs={12} sm={4}>
+                  <Grid size={{ xs: 12, sm: 4 }}>
                     <Chip color="warning" label={`依赖：${item.dependencies.join(', ')}`} size="small" />
                   </Grid>
                 )}
@@ -226,7 +227,6 @@ RequirementDetail.displayName = 'RequirementDetail'
 // 主列表组件
 export const KeyRequirementsList = React.memo<KeyRequirementsListProps>(({
   requirements,
-  loading = false
 }) => {
   // 统计信息
   const stats = useMemo(() => {
@@ -244,7 +244,7 @@ export const KeyRequirementsList = React.memo<KeyRequirementsListProps>(({
   }, [requirements])
 
   // 分页状态
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize] = useState(20)
   const [currentPage, setCurrentPage] = useState(1)
 
   // 当前页的数据
@@ -266,7 +266,7 @@ export const KeyRequirementsList = React.memo<KeyRequirementsListProps>(({
     <Box>
       {/* 统计信息 */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -279,7 +279,7 @@ export const KeyRequirementsList = React.memo<KeyRequirementsListProps>(({
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -292,7 +292,7 @@ export const KeyRequirementsList = React.memo<KeyRequirementsListProps>(({
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -305,7 +305,7 @@ export const KeyRequirementsList = React.memo<KeyRequirementsListProps>(({
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -334,11 +334,10 @@ export const KeyRequirementsList = React.memo<KeyRequirementsListProps>(({
 
       {/* 分页列表 */}
       <List>
-        {paginatedData.map((item, index) => (
+        {paginatedData.map((item) => (
           <RequirementDetail
             key={item.clause_id}
             item={item}
-            index={(currentPage - 1) * pageSize + index}
           />
         ))}
       </List>

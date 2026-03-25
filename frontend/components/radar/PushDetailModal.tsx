@@ -27,7 +27,7 @@ import {
   CheckCircle,
   Calculate,
 } from '@mui/icons-material'
-import { getRadarPush, markPushAsRead, RadarPush, ROIAnalysis } from '@/lib/api/radar'
+import { getRadarPush, markPushAsRead, RadarPush } from '@/lib/api/radar'
 import { formatChinaDate } from '@/lib/utils/dateTime'
 
 /**
@@ -241,7 +241,7 @@ export const PushDetailModal = React.memo(function PushDetailModal({
               {/* 投入成本/实施周期/效果 */}
               <Grid container spacing={2}>
                 {push.estimatedCost && (
-                  <Grid item xs={12} md={4}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                         <AttachMoney color="success" />
@@ -260,7 +260,7 @@ export const PushDetailModal = React.memo(function PushDetailModal({
                 )}
 
                 {push.implementationPeriod && (
-                  <Grid item xs={12} md={4}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                         <Schedule color="warning" />
@@ -279,7 +279,7 @@ export const PushDetailModal = React.memo(function PushDetailModal({
                 )}
 
                 {push.technicalEffect && (
-                  <Grid item xs={12} md={4}>
+                  <Grid size={{ xs: 12, md: 4 }}>
                     <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                         <EmojiEvents color="success" />
@@ -345,7 +345,7 @@ export const PushDetailModal = React.memo(function PushDetailModal({
 
               <Grid container spacing={2}>
                 {/* 预计投入成本 */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <AttachMoney color="primary" />
@@ -363,7 +363,7 @@ export const PushDetailModal = React.memo(function PushDetailModal({
                 </Grid>
 
                 {/* 预期收益 */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <EmojiEvents color="success" />
@@ -381,7 +381,7 @@ export const PushDetailModal = React.memo(function PushDetailModal({
                 </Grid>
 
                 {/* ROI估算 */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Box
                     sx={{
                       p: 2,
@@ -412,7 +412,7 @@ export const PushDetailModal = React.memo(function PushDetailModal({
                 </Grid>
 
                 {/* 实施周期 */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                       <Schedule color="warning" />

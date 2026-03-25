@@ -66,16 +66,18 @@ async function parseDocxFile(file: File): Promise<string> {
     const arrayBuffer = await file.arrayBuffer()
 
     // ✅ 改用convertToHtml来保留Word的自动编号、列表等格式
-    const result = await mammoth.default.convertToHtml({
-      arrayBuffer,
-      // 保留样式信息，帮助识别编号
-      styleMap: [
-        // 保留段落样式
-        "p[style-name='Title'] => h1:fresh",
-        "p[style-name='Heading 1'] => h2:fresh",
-        "p[style-name='Heading 2'] => h3:fresh",
-      ]
-    })
+    const result = await mammoth.default.convertToHtml(
+      {
+        arrayBuffer,
+      },
+      {
+        styleMap: [
+          "p[style-name='Title'] => h1:fresh",
+          "p[style-name='Heading 1'] => h2:fresh",
+          "p[style-name='Heading 2'] => h3:fresh",
+        ],
+      },
+    )
 
     if (result.messages.length > 0) {
       console.warn('DOCX解析警告:', result.messages)
@@ -168,7 +170,7 @@ export async function parseFile(file: File): Promise<string> {
       // 建议用户转换为DOCX格式以获得更好的解析效果
       try {
         return await parseDocxFile(file)
-      } catch (error) {
+      } catch {
         throw new Error('DOC文件解析失败，建议转换为DOCX格式后重试')
       }
 

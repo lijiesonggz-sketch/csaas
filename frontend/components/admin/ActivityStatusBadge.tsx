@@ -27,7 +27,7 @@ interface ActivityStatusBadgeProps {
   size?: 'small' | 'medium'
 }
 
-const STATUS_ICONS: Record<ActivityStatus, React.ReactNode> = {
+const STATUS_ICONS: Record<ActivityStatus, React.ReactElement> = {
   [ActivityStatus.HIGH_ACTIVE]: <CheckCircleIcon fontSize="small" />,
   [ActivityStatus.MEDIUM_ACTIVE]: <WarningIcon fontSize="small" />,
   [ActivityStatus.LOW_ACTIVE]: <ErrorIcon fontSize="small" />,

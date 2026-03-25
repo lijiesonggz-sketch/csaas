@@ -19,13 +19,11 @@ import {
   Typography,
   Button,
   Alert,
-  Grid2,
 } from '@mui/material'
 import { useRouter } from 'next/navigation'
 import PageHeader from '@/components/ui/mui/PageHeader'
 import PrimaryButton from '@/components/ui/mui/PrimaryButton'
 import ContentCard from '@/components/ui/mui/ContentCard'
-import EmptyState from '@/components/ui/mui/EmptyState'
 
 interface ProjectListProps {
   onProjectClick?: (project: Project) => void
@@ -44,9 +42,9 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
       setError(null)
       const data = await apiFetch('/projects')
       setProjects(data)
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to load projects:', err)
-      setError(err.message || '加载项目列表失败')
+      setError(err instanceof Error ? err.message : '加载项目列表失败')
     } finally {
       setLoading(false)
     }
@@ -156,7 +154,7 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
               还没有任何项目
             </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 8 }}>
-              点击上方"创建项目"按钮开始您的第一个咨询项目
+              点击上方&quot;创建项目&quot;按钮开始您的第一个咨询项目
             </Typography>
             <PrimaryButton
               startIcon={<Add />}
@@ -169,12 +167,7 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
           <Grid container spacing={3} role="list" aria-label="项目列表" sx={{ width: 'calc(100% + 24px)', margin: '-12px' }}>
             {projects.map((project) => (
               <Grid
-                item
-                xs={12}
-                sm={6}
-                md={6}
-                lg={4}
-                xl={3}
+                size={{ xs: 12, sm: 6, md: 6, lg: 4, xl: 3 }}
                 key={project.id}
                 sx={{
                   display: 'flex',

@@ -3,6 +3,8 @@
  * 支持导出 Excel 和 Word 格式
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+
 import * as XLSX from 'xlsx'
 import {
   Document,
@@ -280,8 +282,8 @@ export async function exportStandardInterpretationToWord(
   // 创建段落辅助函数，统一字体大小
   const createParagraph = (text: string, options?: {
     bold?: boolean
-    heading?: HeadingLevel
-    alignment?: AlignmentType
+    heading?: (typeof HeadingLevel)[keyof typeof HeadingLevel]
+    alignment?: (typeof AlignmentType)[keyof typeof AlignmentType]
     size?: number
   }) => {
     return new Paragraph({

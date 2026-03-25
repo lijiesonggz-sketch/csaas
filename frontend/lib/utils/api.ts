@@ -2,6 +2,8 @@
  * API utility functions for making authenticated requests
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 // Token缓存
 interface TokenCache {
   token: string | null
@@ -46,7 +48,7 @@ export async function getAuthToken(forceRefresh = false): Promise<string | null>
 
   // Server-side: import cookies from next/headers
   try {
-    const { cookies } = require('next/headers')
+    const { cookies } = await import('next/headers')
     const cookieStore = cookies()
     const nextAuthSession = cookieStore.get('next-auth.session-token')
     return nextAuthSession?.value || null
@@ -69,10 +71,17 @@ export function clearTokenCache() {
  * @param options - Fetch options
  * @returns Fetch response
  */
-export async function apiFetch(
+export async function apiFetch<T = any>(
   endpoint: string,
   options: RequestInit = {},
-): Promise<any> {
+): Promise<T> {
+  return apiFetchInternal(endpoint, options) as Promise<T>
+}
+
+async function apiFetchInternal(
+  endpoint: string,
+  options: RequestInit = {},
+): Promise<unknown> {
   const url = endpoint.startsWith('http')
     ? endpoint
     : `${process.env.NEXT_PUBLIC_API_URL || ''}${endpoint}`
@@ -81,14 +90,14 @@ export async function apiFetch(
   const token = await getAuthToken()
 
   // Prepare headers
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...options.headers,
+  const headers = new Headers(options.headers)
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
   }
 
   // Add authorization header if token exists
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`
+    headers.set('Authorization', `Bearer ${token}`)
   }
 
   const response = await fetch(url, {
@@ -103,7 +112,7 @@ export async function apiFetch(
 
     if (newToken && newToken !== token) {
       // Token已更新，重试请求
-      headers['Authorization'] = `Bearer ${newToken}`
+      headers.set('Authorization', `Bearer ${newToken}`)
       const retryResponse = await fetch(url, {
         ...options,
         headers,
@@ -128,7 +137,7 @@ export async function apiFetch(
 /**
  * Handle API response
  */
-async function handleResponse(response: Response): Promise<any> {
+async function handleResponse(response: Response): Promise<unknown> {
   // 处理 204 No Content 响应（删除操作等）
   if (response.status === 204) {
     return null

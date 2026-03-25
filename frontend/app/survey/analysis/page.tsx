@@ -2,7 +2,9 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Card,
@@ -24,24 +26,18 @@ import {
   Box,
   Typography,
   Grid,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Skeleton,
 } from '@mui/material'
 import {
   ArrowBack,
   Print,
   BarChart,
-  TrendingUp,
   TrendingDown,
-  Info,
   Rocket,
   Lightbulb,
-  Trophy,
+  EmojiEvents,
   Warning,
   CheckCircle,
-  ExpandMore,
 } from '@mui/icons-material'
 import { SurveyAPI } from '@/lib/api/survey'
 import { message } from '@/lib/message'
@@ -167,17 +163,10 @@ export default function SurveyAnalysisPage() {
   const [modalVisible, setModalVisible] = useState(false)
   const [targetMaturity, setTargetMaturity] = useState<number>(4)
 
-  useEffect(() => {
-    if (!surveyId) {
-      setError('缺少问卷ID参数')
-      setLoading(false)
-      return
-    }
+  const getErrorMessage = (error: unknown, fallback: string) =>
+    error instanceof Error && error.message ? error.message : fallback
 
-    fetchAnalysis()
-  }, [surveyId])
-
-  const fetchAnalysis = async () => {
+  const fetchAnalysis = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -190,14 +179,25 @@ export default function SurveyAnalysisPage() {
       } else {
         throw new Error(response.message || '分析失败')
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('分析失败:', err)
-      setError(err.message || '加载成熟度分析失败')
-      message.error(err.message || '加载成熟度分析失败')
+      const errorMessage = getErrorMessage(err, '加载成熟度分析失败')
+      setError(errorMessage)
+      message.error(errorMessage)
     } finally {
       setLoading(false)
     }
-  }
+  }, [surveyId])
+
+  useEffect(() => {
+    if (!surveyId) {
+      setError('缺少问卷ID参数')
+      setLoading(false)
+      return
+    }
+
+    void fetchAnalysis()
+  }, [fetchAnalysis, surveyId])
 
   const getGradeColor = (grade: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     if (grade.includes('卓越级')) return 'secondary'
@@ -301,7 +301,7 @@ export default function SurveyAnalysisPage() {
         <CardHeader title="总体成熟度" avatar={<BarChart />} />
         <CardContent>
           <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Box sx={{ textAlign: 'center' }}>
                 <Typography variant="h2" color="primary">
                   {analysis.overall.maturityLevel.toFixed(2)}
@@ -311,7 +311,7 @@ export default function SurveyAnalysisPage() {
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>{analysis.overall.description}</Typography>
               </Box>
             </Grid>
-            <Grid item xs={12} md={8}>
+            <Grid size={{ xs: 12, md: 8 }}>
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body2">计算公式: <code>{analysis.overall.calculation.formula}</code></Typography>
               </Box>
@@ -326,7 +326,7 @@ export default function SurveyAnalysisPage() {
       </Card>
 
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} lg={6}>
+        <Grid size={{ xs: 12, lg: 6 }}>
           <Card>
             <CardHeader title="TOP 5 短板" sx={{ color: 'error.main' }} avatar={<TrendingDown color="error" />} />
             <CardContent>
@@ -344,9 +344,9 @@ export default function SurveyAnalysisPage() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} lg={6}>
+        <Grid size={{ xs: 12, lg: 6 }}>
           <Card>
-            <CardHeader title="TOP 5 优势" sx={{ color: 'success.main' }} avatar={<TrendingUp color="success" />} />
+            <CardHeader title="TOP 5 优势" sx={{ color: 'success.main' }} avatar={<EmojiEvents color="success" />} />
             <CardContent>
               {analysis.topStrengths.map((item) => (
                 <Box key={item.rank} sx={{ mb: 2, pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>

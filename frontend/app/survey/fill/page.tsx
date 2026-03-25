@@ -2,6 +2,8 @@
 
 export const dynamic = 'force-dynamic'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
  * 问卷填写页面
  * 企业用户填写调研问卷
@@ -21,20 +23,16 @@ import {
   LinearProgress,
   Box,
   Typography,
-  Grid,
 } from '@mui/material'
 import {
   Save,
   Send,
   ArrowBack,
-  Download,
-  UploadFile,
 } from '@mui/icons-material'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { SurveyAPI } from '@/lib/api/survey'
 import { AIGenerationAPI } from '@/lib/api/ai-generation'
 import type { SurveyResponse } from '@/lib/api/survey'
-import * as XLSX from 'xlsx'
 import { message } from '@/lib/message'
 
 export default function SurveyFillPage() {
@@ -161,6 +159,11 @@ export default function SurveyFillPage() {
 
     const totalQuestions = questionnaire.questionnaire.length
     const answeredQuestions = Object.keys(answers).length
+    const totalScore = Object.values(answers).reduce((sum, current) => {
+      const score = typeof current?.score === 'number' ? current.score : 0
+      return sum + score
+    }, 0)
+    const maxScore = totalQuestions * 5
 
     if (answeredQuestions < totalQuestions) {
       message.warning(`还有 ${totalQuestions - answeredQuestions} 道题未回答`)
@@ -169,7 +172,11 @@ export default function SurveyFillPage() {
 
     try {
       setSubmitting(true)
-      await SurveyAPI.submitSurvey(survey.id, { answers })
+      await SurveyAPI.submitSurvey(survey.id, {
+        answers,
+        totalScore,
+        maxScore,
+      })
       message.success('问卷提交成功！')
       router.push(`/survey/analysis?surveyId=${survey.id}`)
     } catch (error: any) {

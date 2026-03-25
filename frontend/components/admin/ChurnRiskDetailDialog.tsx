@@ -8,7 +8,9 @@
 
 'use client'
 
-import React, { useState, useEffect } from 'react'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Dialog,
   DialogTitle,
@@ -20,7 +22,6 @@ import {
   Grid,
   Chip,
   Stack,
-  Divider,
   Alert,
   AlertTitle,
   List,
@@ -48,11 +49,10 @@ import {
   getInterventionSuggestions,
   getInterventionHistory,
   createIntervention,
-  ACTIVITY_STATUS_LABELS,
   INTERVENTION_TYPE_LABELS,
   INTERVENTION_RESULT_LABELS,
+  CreateInterventionData,
 } from '@/lib/api/clients-activity'
-import { ActivityStatusBadge } from './ActivityStatusBadge'
 import { InterventionDialog } from './InterventionDialog'
 
 interface ChurnRiskDetailDialogProps {
@@ -69,28 +69,20 @@ export function ChurnRiskDetailDialog({
   onInterventionCreated,
 }: ChurnRiskDetailDialogProps) {
   const [loading, setLoading] = useState(false)
-  const [details, setDetails] = useState<any>(null)
   const [suggestions, setSuggestions] = useState<InterventionSuggestion[]>([])
   const [interventions, setInterventions] = useState<Intervention[]>([])
   const [interventionDialogOpen, setInterventionDialogOpen] = useState(false)
 
-  useEffect(() => {
-    if (open && client) {
-      loadDetails()
-    }
-  }, [open, client])
-
-  const loadDetails = async () => {
+  const loadDetails = useCallback(async () => {
     if (!client) return
 
     try {
       setLoading(true)
-      const [detailsData, suggestionsData, historyData] = await Promise.all([
+      const [, suggestionsData, historyData] = await Promise.all([
         getClientActivityDetails(client.organizationId),
         getInterventionSuggestions(client.organizationId),
         getInterventionHistory(client.organizationId),
       ])
-      setDetails(detailsData)
       setSuggestions(suggestionsData)
       setInterventions(historyData)
     } catch (err) {
@@ -98,9 +90,15 @@ export function ChurnRiskDetailDialog({
     } finally {
       setLoading(false)
     }
-  }
+  }, [client])
 
-  const handleCreateIntervention = async (data: any) => {
+  useEffect(() => {
+    if (open && client) {
+      void loadDetails()
+    }
+  }, [client, loadDetails, open])
+
+  const handleCreateIntervention = async (data: CreateInterventionData) => {
     if (!client) return
     await createIntervention(client.organizationId, data)
     await loadDetails()
@@ -130,7 +128,7 @@ export function ChurnRiskDetailDialog({
           ) : (
             <Grid container spacing={3}>
               {/* 风险告警 */}
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Alert severity="error" variant="filled">
                   <AlertTitle>流失风险警告</AlertTitle>
                   该客户月活率为 {client.monthlyActivityRate.toFixed(1)}%，低于 60% 阈值，建议立即采取干预措施。
@@ -138,7 +136,7 @@ export function ChurnRiskDetailDialog({
               </Grid>
 
               {/* 基本信息 */}
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Paper sx={{ p: 2 }}>
                   <Typography variant="subtitle2" gutterBottom>
                     联系信息
@@ -169,7 +167,7 @@ export function ChurnRiskDetailDialog({
               </Grid>
 
               {/* 活跃度统计 */}
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Paper sx={{ p: 2 }}>
                   <Typography variant="subtitle2" gutterBottom>
                     活跃度统计
@@ -199,7 +197,7 @@ export function ChurnRiskDetailDialog({
 
               {/* 流失原因 */}
               {client.churnRiskFactors.length > 0 && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Paper sx={{ p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom>
                       流失原因分析
@@ -221,7 +219,7 @@ export function ChurnRiskDetailDialog({
 
               {/* 干预建议 */}
               {suggestions.length > 0 && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Paper sx={{ p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom>
                       干预建议
@@ -248,7 +246,7 @@ export function ChurnRiskDetailDialog({
 
               {/* 干预历史 */}
               {interventions.length > 0 && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Paper sx={{ p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom>
                       干预历史
@@ -314,7 +312,6 @@ export function ChurnRiskDetailDialog({
 
       <InterventionDialog
         open={interventionDialogOpen}
-        organizationId={client.organizationId}
         organizationName={client.name}
         suggestions={suggestions}
         onClose={() => setInterventionDialogOpen(false)}

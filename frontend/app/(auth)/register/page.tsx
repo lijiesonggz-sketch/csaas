@@ -14,7 +14,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
-import { Select } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { message } from '@/lib/message'
 
 interface FormValues {
@@ -274,20 +280,26 @@ export default function RegisterPage() {
               <div className="space-y-2">
                 <Label htmlFor="role">角色</Label>
                 <Select
-                  id="role"
-                  name="role"
                   value={form.role}
-                  onChange={(e) => handleChange('role', e.target.value)}
-                  onBlur={() => handleBlur('role')}
-                  className={`h-11 rounded-lg bg-white ${
-                    touched.role && errors.role
-                      ? 'border-red-500 focus-visible:ring-red-500'
-                      : ''
-                  }`}
+                  onValueChange={(value) => handleChange('role', value)}
                 >
-                  <option value="consultant">主咨询师</option>
-                  <option value="client_pm">企业PM</option>
-                  <option value="respondent">被调研者</option>
+                  <SelectTrigger
+                    id="role"
+                    aria-label="角色"
+                    onBlur={() => handleBlur('role')}
+                    className={`h-11 rounded-lg bg-white ${
+                      touched.role && errors.role
+                        ? 'border-red-500 focus-visible:ring-red-500'
+                        : ''
+                    }`}
+                  >
+                    <SelectValue placeholder="请选择角色" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="consultant">主咨询师</SelectItem>
+                    <SelectItem value="client_pm">企业PM</SelectItem>
+                    <SelectItem value="respondent">被调研者</SelectItem>
+                  </SelectContent>
                 </Select>
                 {touched.role && errors.role && (
                   <p className="text-sm text-red-500">{errors.role}</p>

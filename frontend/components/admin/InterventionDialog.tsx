@@ -8,6 +8,8 @@
 
 'use client'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import React, { useState } from 'react'
 import {
   Dialog,
@@ -33,20 +35,17 @@ import {
 import {
   CreateInterventionData,
   InterventionSuggestion,
-  INTERVENTION_TYPE_LABELS,
-  INTERVENTION_RESULT_LABELS,
 } from '@/lib/api/clients-activity'
 
 interface InterventionDialogProps {
   open: boolean
-  organizationId: string
   organizationName: string
   suggestions: InterventionSuggestion[]
   onClose: () => void
   onSubmit: (data: CreateInterventionData) => Promise<void>
 }
 
-const INTERVENTION_ICONS: Record<string, React.ReactNode> = {
+const INTERVENTION_ICONS: Record<string, React.ReactElement> = {
   contact: <PhoneIcon />,
   survey: <AssessmentIcon />,
   training: <SchoolIcon />,
@@ -69,14 +68,13 @@ const INTERVENTION_RESULTS = [
 
 export function InterventionDialog({
   open,
-  organizationId,
   organizationName,
   suggestions,
   onClose,
   onSubmit,
 }: InterventionDialogProps) {
-  const [interventionType, setInterventionType] = useState('contact')
-  const [result, setResult] = useState('contacted')
+  const [interventionType, setInterventionType] = useState<CreateInterventionData['interventionType']>('contact')
+  const [result, setResult] = useState<CreateInterventionData['result']>('contacted')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -86,13 +84,13 @@ export function InterventionDialog({
       setLoading(true)
       setError(null)
       await onSubmit({
-        interventionType: interventionType as any,
-        result: result as any,
+        interventionType,
+        result,
         notes: notes || undefined,
       })
       handleClose()
-    } catch (err: any) {
-      setError(err.message || '提交失败')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '提交失败')
     } finally {
       setLoading(false)
     }
@@ -159,7 +157,7 @@ export function InterventionDialog({
             select
             label="干预类型"
             value={interventionType}
-            onChange={(e) => setInterventionType(e.target.value)}
+            onChange={(e) => setInterventionType(e.target.value as CreateInterventionData['interventionType'])}
             fullWidth
             required
           >
@@ -174,7 +172,7 @@ export function InterventionDialog({
             select
             label="干预结果"
             value={result}
-            onChange={(e) => setResult(e.target.value)}
+            onChange={(e) => setResult(e.target.value as CreateInterventionData['result'])}
             fullWidth
             required
           >

@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { Typography } from '@mui/material'
 import { StatusChip } from '@/components/ui/mui'
 import type { StatusType } from '@/components/ui/mui/StatusChip'
 
@@ -44,17 +45,17 @@ export default function TaskStatusIndicator({
 
   if (!showIcon) {
     return (
-      <span sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+      <Typography component="span" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
         {displayLabel}
-      </span>
+      </Typography>
     )
   }
 
   return (
     <StatusChip
-      status={config.status}
-      text={displayLabel}
-      size={size}
+      statusType={config.status}
+      label={displayLabel}
+      size={size === 'md' ? 'medium' : 'small'}
     />
   )
 }

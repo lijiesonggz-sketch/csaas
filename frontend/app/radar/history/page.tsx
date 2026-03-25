@@ -1,7 +1,8 @@
 'use client'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   Box,
   Typography,
@@ -42,8 +43,6 @@ dayjs.locale('zh-cn')
  * AC 1-8: 完整的推送历史查看功能
  */
 export default function PushHistoryPage() {
-  const router = useRouter()
-
   // 状态管理
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -71,38 +70,34 @@ export default function PushHistoryPage() {
   // HIGH-3 修复: 无限滚动
   const observerTarget = useRef<HTMLDivElement>(null)
 
-  // 初始加载
-  useEffect(() => {
-    loadPushHistory(true)
-  }, [radarType, timeRange, relevance, startDate, endDate])
+  const getErrorMessage = (err: unknown, fallback: string) =>
+    err instanceof Error && err.message ? err.message : fallback
 
-  // HIGH-3 修复: 实现无限滚动
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
-          loadMorePushes()
-        }
-      },
-      { threshold: 0.1 }
-    )
+  type PushHistoryFilters = NonNullable<Parameters<typeof getPushHistory>[0]>
 
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current)
+  const buildFilters = useCallback((page: number): PushHistoryFilters => {
+    const filters: PushHistoryFilters = {
+      page,
+      limit: pagination.limit,
     }
 
-    return () => {
-      if (observerTarget.current) {
-        observer.unobserve(observerTarget.current)
-      }
+    if (radarType !== 'all') {
+      filters.radarType = radarType as PushHistoryFilters['radarType']
     }
-  }, [hasMore, loading, loadingMore, pagination.page])
+    if (timeRange === 'custom' && startDate && endDate) {
+      filters.startDate = startDate.toISOString()
+      filters.endDate = endDate.toISOString()
+    } else if (timeRange !== 'all') {
+      filters.timeRange = timeRange as PushHistoryFilters['timeRange']
+    }
+    if (relevance !== 'all') {
+      filters.relevance = relevance as PushHistoryFilters['relevance']
+    }
 
-  /**
-   * 加载推送历史
-   * HIGH-3 修复: 支持初始加载和追加加载
-   */
-  const loadPushHistory = async (reset: boolean = false) => {
+    return filters
+  }, [endDate, pagination.limit, radarType, relevance, startDate, timeRange])
+
+  const loadPushHistory = useCallback(async (reset: boolean = false) => {
     try {
       if (reset) {
         setLoading(true)
@@ -112,30 +107,9 @@ export default function PushHistoryPage() {
 
       setError(null)
 
-      const filters: any = {
-        page: reset ? 1 : pagination.page,
-        limit: pagination.limit,
-      }
-
-      // 雷达类型筛选
-      if (radarType !== 'all') {
-        filters.radarType = radarType
-      }
-
-      // 时间范围筛选
-      if (timeRange === 'custom' && startDate && endDate) {
-        filters.startDate = startDate.toISOString()
-        filters.endDate = endDate.toISOString()
-      } else if (timeRange !== 'all') {
-        filters.timeRange = timeRange
-      }
-
-      // 相关性筛选
-      if (relevance !== 'all') {
-        filters.relevance = relevance
-      }
-
-      const response: PushHistoryResponse = await getPushHistory(filters)
+      const response: PushHistoryResponse = await getPushHistory(
+        buildFilters(reset ? 1 : pagination.page),
+      )
 
       if (reset) {
         setPushHistory(response.data)
@@ -154,45 +128,27 @@ export default function PushHistoryPage() {
     } catch (err: any) {
       console.error('加载推送历史失败:', err)
 
-      // MEDIUM-1 修复: 改进错误处理
-      if (err.status === 401 || err.status === 403) {
+      if (err?.status === 401 || err?.status === 403) {
         setError('认证失败，请重新登录')
-      } else if (err.status >= 500) {
+      } else if (typeof err?.status === 'number' && err.status >= 500) {
         setError('服务器错误，请稍后重试')
       } else {
-        setError(err.message || '加载推送历史失败')
+        setError(getErrorMessage(err, '加载推送历史失败'))
       }
     } finally {
       setLoading(false)
     }
-  }
+  }, [buildFilters, pagination.page])
 
-  /**
-   * 加载更多推送
-   * HIGH-3 修复: 无限滚动加载下一页
-   */
-  const loadMorePushes = async () => {
+  const loadMorePushes = useCallback(async () => {
     if (loadingMore || !hasMore) return
 
     try {
       setLoadingMore(true)
-      setPagination((prev) => ({ ...prev, page: prev.page + 1 }))
+      const nextPage = pagination.page + 1
+      setPagination((prev) => ({ ...prev, page: nextPage }))
 
-      const filters: any = {
-        page: pagination.page + 1,
-        limit: pagination.limit,
-      }
-
-      if (radarType !== 'all') filters.radarType = radarType
-      if (timeRange === 'custom' && startDate && endDate) {
-        filters.startDate = startDate.toISOString()
-        filters.endDate = endDate.toISOString()
-      } else if (timeRange !== 'all') {
-        filters.timeRange = timeRange
-      }
-      if (relevance !== 'all') filters.relevance = relevance
-
-      const response: PushHistoryResponse = await getPushHistory(filters)
+      const response: PushHistoryResponse = await getPushHistory(buildFilters(nextPage))
 
       setPushHistory((prev) => [...prev, ...response.data])
       setHasMore(response.meta.page < response.meta.totalPages)
@@ -201,7 +157,36 @@ export default function PushHistoryPage() {
     } finally {
       setLoadingMore(false)
     }
-  }
+  }, [buildFilters, hasMore, loadingMore, pagination.page])
+
+  // 初始加载
+  useEffect(() => {
+    void loadPushHistory(true)
+  }, [loadPushHistory])
+
+  // HIGH-3 修复: 实现无限滚动
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          loadMorePushes()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    const target = observerTarget.current
+
+    if (target) {
+      observer.observe(target)
+    }
+
+    return () => {
+      if (target) {
+        observer.unobserve(target)
+      }
+    }
+  }, [hasMore, loadMorePushes, loading, loadingMore])
 
   /**
    * 标记推送为已读
@@ -223,7 +208,7 @@ export default function PushHistoryPage() {
       }
     } catch (err: any) {
       console.error('标记已读失败:', err)
-      setError(err.message || '标记已读失败')
+      setError(getErrorMessage(err, '标记已读失败'))
     }
   }
 
@@ -354,7 +339,7 @@ export default function PushHistoryPage() {
           <CardContent>
             <Grid container spacing={2} alignItems="center">
               {/* 雷达类型筛选 */}
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel>雷达类型</InputLabel>
                   <Select
@@ -371,7 +356,7 @@ export default function PushHistoryPage() {
               </Grid>
 
               {/* 时间范围筛选 */}
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel>时间范围</InputLabel>
                   <Select
@@ -391,7 +376,7 @@ export default function PushHistoryPage() {
               {/* 自定义日期范围 */}
               {timeRange === 'custom' && (
                 <>
-                  <Grid item xs={12} sm={6} md={2}>
+                  <Grid size={{ xs: 12, sm: 6, md: 2 }}>
                     <DatePicker
                       label="开始日期"
                       value={startDate}
@@ -399,7 +384,7 @@ export default function PushHistoryPage() {
                       slotProps={{ textField: { size: 'small', fullWidth: true } }}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6} md={2}>
+                  <Grid size={{ xs: 12, sm: 6, md: 2 }}>
                     <DatePicker
                       label="结束日期"
                       value={endDate}
@@ -411,7 +396,7 @@ export default function PushHistoryPage() {
               )}
 
               {/* 相关性筛选 */}
-              <Grid item xs={12} sm={6} md={timeRange === 'custom' ? 2 : 3}>
+              <Grid size={{ xs: 12, sm: 6, md: timeRange === 'custom' ? 2 : 3 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel>相关性</InputLabel>
                   <Select
@@ -428,7 +413,7 @@ export default function PushHistoryPage() {
               </Grid>
 
               {/* 重置按钮 */}
-              <Grid item xs={12} sm={6} md={timeRange === 'custom' ? 2 : 3}>
+              <Grid size={{ xs: 12, sm: 6, md: timeRange === 'custom' ? 2 : 3 }}>
                 <Button variant="outlined" fullWidth onClick={handleResetFilters}>
                   重置筛选
                 </Button>
@@ -460,7 +445,7 @@ export default function PushHistoryPage() {
           <>
             <Grid container spacing={2}>
               {pushHistory.map((push) => (
-                <Grid item xs={12} key={push.id}>
+                <Grid size={{ xs: 12 }} key={push.id}>
                   <Card
                     sx={{
                       borderLeft: push.isRead ? 'none' : '4px solid #1976d2',
