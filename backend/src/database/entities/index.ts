@@ -8,6 +8,10 @@ export {
   CONTROL_PACK_TYPES,
 } from './control-pack.entity'
 export {
+  ControlPackItem,
+  CONTROL_PACK_ITEM_ROLES,
+} from './control-pack-item.entity'
+export {
   ApplicabilityRule,
   APPLICABILITY_RULE_TARGET_TYPES,
   APPLICABILITY_RULE_TYPES,

@@ -36,6 +36,7 @@ function run(command, args, options = {}) {
     env: { ...process.env, ...env },
     encoding: 'utf8',
     stdio: capture ? ['inherit', 'pipe', 'pipe'] : 'inherit',
+    shell: process.platform === 'win32' && command.endsWith('.cmd'),
   })
 
   if (result.error) {
