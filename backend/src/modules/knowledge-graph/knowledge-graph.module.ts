@@ -10,6 +10,7 @@ import { ControlPackItem } from '../../database/entities/control-pack-item.entit
 import { ControlPoint } from '../../database/entities/control-point.entity'
 import { EvidenceType } from '../../database/entities/evidence-type.entity'
 import { QuestionItem } from '../../database/entities/question-item.entity'
+import { RemediationAction } from '../../database/entities/remediation-action.entity'
 import { RegulationClause } from '../../database/entities/regulation-clause.entity'
 import { RegulationSource } from '../../database/entities/regulation-source.entity'
 import { TaxonomyL1 } from '../../database/entities/taxonomy-l1.entity'
@@ -21,6 +22,7 @@ import { ControlPackLinkController } from './controllers/control-pack-link.contr
 import { ControlPointController } from './controllers/control-point.controller'
 import { EvidenceController } from './controllers/evidence.controller'
 import { QuestionItemController } from './controllers/question-item.controller'
+import { RemediationActionController } from './controllers/remediation-action.controller'
 import { RegulationController } from './controllers/regulation.controller'
 import { TaxonomyController } from './controllers/taxonomy.controller'
 import { ComplianceCaseService } from './services/compliance-case.service'
@@ -28,6 +30,7 @@ import { ControlPackLinkService } from './services/control-pack-link.service'
 import { ControlPointService } from './services/control-point.service'
 import { EvidenceService } from './services/evidence.service'
 import { QuestionItemService } from './services/question-item.service'
+import { RemediationActionService } from './services/remediation-action.service'
 import { RegulationService } from './services/regulation.service'
 import { TaxonomyService } from './services/taxonomy.service'
 
@@ -47,6 +50,7 @@ import { TaxonomyService } from './services/taxonomy.service'
       EvidenceType,
       ControlEvidenceMap,
       QuestionItem,
+      RemediationAction,
     ]),
     OrganizationsModule,
     AuditModule,
@@ -58,6 +62,7 @@ import { TaxonomyService } from './services/taxonomy.service'
     ControlPackLinkController,
     EvidenceController,
     QuestionItemController,
+    RemediationActionController,
     RegulationController,
     ComplianceCaseController,
   ],
@@ -67,6 +72,7 @@ import { TaxonomyService } from './services/taxonomy.service'
     ControlPackLinkService,
     EvidenceService,
     QuestionItemService,
+    RemediationActionService,
     RegulationService,
     ComplianceCaseService,
   ],
@@ -76,6 +82,7 @@ import { TaxonomyService } from './services/taxonomy.service'
     ControlPackLinkService,
     EvidenceService,
     QuestionItemService,
+    RemediationActionService,
     RegulationService,
     ComplianceCaseService,
   ],

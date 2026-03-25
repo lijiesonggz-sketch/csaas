@@ -80,6 +80,13 @@ export {
   QUESTION_ITEM_STATUSES,
   QUESTION_ITEM_TYPES,
 } from './question-item.entity'
+export {
+  RemediationAction,
+  REMEDIATION_ACTION_BENEFIT_LEVELS,
+  REMEDIATION_ACTION_EFFORT_LEVELS,
+  REMEDIATION_ACTION_PRIORITIES,
+  REMEDIATION_ACTION_STATUSES,
+} from './remediation-action.entity'
 // Epic 2: 技术雷达 - 统一标签系统和推送基础设施
 export { Tag } from './tag.entity'
 export { WatchedItem } from './watched-item.entity'
