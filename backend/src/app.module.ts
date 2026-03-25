@@ -21,6 +21,7 @@ import { CurrentStateModule } from './modules/current-state/current-state.module
 import { ApplicabilityEngineModule } from './modules/applicability-engine/applicability-engine.module'
 import { OrganizationsModule } from './modules/organizations/organizations.module'
 import { KnowledgeGraphModule } from './modules/knowledge-graph/knowledge-graph.module'
+import { ComplianceIntelligenceModule } from './modules/compliance-intelligence/compliance-intelligence.module'
 import { RadarModule } from './modules/radar/radar.module'
 import { AdminModule } from './modules/admin/admin.module'
 import { CostOptimizationModule } from './modules/admin/cost-optimization/cost-optimization.module'
@@ -71,6 +72,7 @@ import { CostOptimizationModule } from './modules/admin/cost-optimization/cost-o
     CurrentStateModule,
     ApplicabilityEngineModule,
     KnowledgeGraphModule,
+    ComplianceIntelligenceModule,
     OrganizationsModule,
     RadarModule,
     AdminModule,
