@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Post,
   Get,
@@ -18,8 +19,22 @@ import { ActionPlanGenerationService } from './action-plan-generation.service'
 import { BinaryGapAnalyzer, BinaryGapAnalysisInput } from './binary-gap-analyzer.service'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
-import { CreateSurveyDto, SaveDraftDto, SubmitSurveyDto, UploadAndAnalyzeDto } from './dto'
+import { CurrentOrg } from '../organizations/decorators/current-org.decorator'
+import { CurrentTenant } from '../organizations/decorators/current-tenant.decorator'
+import { OrganizationGuard } from '../organizations/guards/organization.guard'
+import { TenantGuard } from '../organizations/guards/tenant.guard'
+import {
+  CreateProjectQuestionnaireSnapshotDto,
+  CreateSurveyDto,
+  ProjectQuestionnaireSnapshotResponseDto,
+  SaveDraftDto,
+  SubmitSurveyDto,
+  UploadAndAnalyzeDto,
+} from './dto'
 import { AITaskType, TaskStatus } from '../../database/entities/ai-task.entity'
+import { AuditAction } from '../../database/entities/audit-log.entity'
+import { AuditLogService } from '../audit/audit-log.service'
+import { ProjectQuestionnaireSnapshotService } from './project-questionnaire-snapshot.service'
 
 /**
  * SurveyController
@@ -39,7 +54,75 @@ export class SurveyController {
     private readonly maturityAnalysisService: MaturityAnalysisService,
     private readonly actionPlanGenerationService: ActionPlanGenerationService,
     private readonly binaryGapAnalyzer: BinaryGapAnalyzer,
+    private readonly projectQuestionnaireSnapshotService: ProjectQuestionnaireSnapshotService,
+    private readonly auditLogService: AuditLogService,
   ) {}
+
+  @Post('project-questionnaire-snapshot')
+  @UseGuards(TenantGuard, OrganizationGuard)
+  @HttpCode(HttpStatus.OK)
+  async createProjectQuestionnaireSnapshot(
+    @CurrentTenant() tenantId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
+    @Body() dto: CreateProjectQuestionnaireSnapshotDto,
+  ) {
+    const snapshot = await this.projectQuestionnaireSnapshotService.createSnapshot(
+      dto,
+      currentOrg.organizationId,
+    )
+
+    await this.auditLogService.log({
+      userId: currentOrg.userId,
+      organizationId: currentOrg.organizationId,
+      tenantId,
+      action: AuditAction.CREATE,
+      entityType: 'ProjectQuestionnaireSnapshot',
+      entityId: snapshot.questionnaireTaskId,
+      details: {
+        projectId: snapshot.projectId,
+        snapshotVersion: snapshot.snapshotVersion,
+        regenerate: dto.regenerate ?? false,
+        reusedExisting: snapshot.reusedExisting,
+      },
+    })
+
+    return {
+      success: true,
+      data: snapshot,
+      message: snapshot.reusedExisting ? '已返回现有项目问卷快照' : '项目问卷快照已生成',
+    }
+  }
+
+  @Get('project-questionnaire-snapshot/:projectId')
+  @UseGuards(TenantGuard, OrganizationGuard)
+  async getProjectQuestionnaireSnapshot(
+    @CurrentTenant() tenantId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
+    @Param('projectId') projectId: string,
+  ) {
+    const snapshot = await this.projectQuestionnaireSnapshotService.getSnapshot(
+      projectId,
+      currentOrg.organizationId,
+    )
+
+    await this.auditLogService.log({
+      userId: currentOrg.userId,
+      organizationId: currentOrg.organizationId,
+      tenantId,
+      action: AuditAction.READ,
+      entityType: 'ProjectQuestionnaireSnapshot',
+      entityId: snapshot.questionnaireTaskId,
+      details: {
+        projectId: snapshot.projectId,
+        snapshotVersion: snapshot.snapshotVersion,
+      },
+    })
+
+    return {
+      success: true,
+      data: snapshot,
+    }
+  }
 
   /**
    * 创建新的问卷填写记录
