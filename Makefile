@@ -15,10 +15,8 @@ help:
 
 # 安装所有依赖
 install:
-	@echo "📦 Installing frontend dependencies..."
-	cd frontend && npm install
-	@echo "📦 Installing backend dependencies..."
-	cd backend && npm install
+	@echo "📦 Installing workspace dependencies from repo root..."
+	npm ci --workspaces
 	@echo "✅ All dependencies installed!"
 
 # 启动数据库
@@ -64,6 +62,7 @@ dev:
 # 清理构建文件
 clean:
 	@echo "🧹 Cleaning build files..."
+	rm -rf node_modules
 	rm -rf frontend/node_modules frontend/.next
 	rm -rf backend/node_modules backend/dist
 	@echo "✅ Clean complete!"

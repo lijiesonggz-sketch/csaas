@@ -51,12 +51,15 @@ CSAAS 是一个基于 AI 的企业级咨询工具平台，专注于 IT 咨询、
 make install
 ```
 
-或手动安装：
+或手动安装（推荐，从仓库根目录执行）：
 
 ```bash
-cd frontend && npm install
-cd ../backend && npm install
+npm ci --workspaces
 ```
+
+注意：
+- 官方包管理器是 `npm`，不要在同一个工作区里混用 `pnpm` / `yarn` 后再直接增量执行 `npm install`。
+- 如果当前工作区曾经混用过其他包管理器，先删除根目录、`frontend/`、`backend/` 下的 `node_modules`，再从仓库根目录重新执行 `npm ci --workspaces`。
 
 ### 2. 启动数据库
 
@@ -83,8 +86,7 @@ cp backend/.env.example backend/.env.development
 ### 4. 运行数据库迁移
 
 ```bash
-cd backend
-npm run migration:run
+npm --workspace backend run migration:run
 ```
 
 ### 5. 启动开发服务器
