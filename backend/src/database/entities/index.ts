@@ -66,6 +66,15 @@ export {
   CaseControlMap,
   CASE_CONTROL_RELATION_TYPES,
 } from './case-control-map.entity'
+export {
+  EvidenceType,
+  EVIDENCE_CATEGORIES,
+  EVIDENCE_TYPE_STATUSES,
+} from './evidence-type.entity'
+export {
+  ControlEvidenceMap,
+  CONTROL_EVIDENCE_REQUIRED_LEVELS,
+} from './control-evidence-map.entity'
 // Epic 2: 技术雷达 - 统一标签系统和推送基础设施
 export { Tag } from './tag.entity'
 export { WatchedItem } from './watched-item.entity'

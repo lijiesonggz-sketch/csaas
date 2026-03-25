@@ -6,6 +6,7 @@ import { OrganizationsModule } from '../organizations/organizations.module'
 import { ComplianceCaseController } from './controllers/compliance-case.controller'
 import { ControlPackLinkController } from './controllers/control-pack-link.controller'
 import { ControlPointController } from './controllers/control-point.controller'
+import { EvidenceController } from './controllers/evidence.controller'
 import { RegulationController } from './controllers/regulation.controller'
 import { TaxonomyController } from './controllers/taxonomy.controller'
 import { KnowledgeGraphModule } from './knowledge-graph.module'
@@ -20,6 +21,7 @@ describe('KnowledgeGraphModule', () => {
         TaxonomyController,
         ControlPointController,
         ControlPackLinkController,
+        EvidenceController,
         RegulationController,
         ComplianceCaseController,
       ]),
