@@ -27,7 +27,12 @@ import {
   ResolveControlsRequestDto,
   ResolveControlsResponseDto,
 } from '../dto/resolve-controls.dto'
+import {
+  OrganizationQuestionSetRequestDto,
+  OrganizationQuestionSetResponseDto,
+} from '../dto/organization-question-set.dto'
 import { AppliedEffect, PackResolutionDebugEntry } from '../types/applicability.types'
+import { OrganizationQuestionSetService } from '../services/organization-question-set.service'
 import { PackResolverService } from '../services/pack-resolver.service'
 
 type CurrentOrgContext = {
@@ -42,6 +47,7 @@ type CurrentOrgContext = {
 export class ApplicabilityController {
   constructor(
     private readonly packResolverService: PackResolverService,
+    private readonly organizationQuestionSetService: OrganizationQuestionSetService,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -104,6 +110,56 @@ export class ApplicabilityController {
         matchedPacks: resolved.matchedPacks.length,
         matchedRules: resolved.matchedRules.length,
         totalControls: resolved.summary.totalControls,
+      },
+      ipAddress: request.ip,
+      userAgent,
+    })
+
+    return response
+  }
+
+  @Post('question-set')
+  @ApiOperation({
+    summary: '生成机构适用问卷题集',
+    description: '根据当前组织上下文聚合适用控制点题目，并标记缺失题库配置的控制点',
+  })
+  @HttpCode(HttpStatus.OK)
+  @ApiResponse({ status: 200, description: '成功返回机构适用问卷题集' })
+  @ApiResponse({ status: 400, description: '请求参数非法' })
+  @ApiResponse({ status: 401, description: '未认证' })
+  @ApiResponse({ status: 403, description: '无权访问该组织' })
+  @ApiResponse({ status: 404, description: '机构画像不存在' })
+  async getQuestionSet(
+    @CurrentTenant() tenantId: string,
+    @CurrentOrg() currentOrg: CurrentOrgContext,
+    @Body() dto: OrganizationQuestionSetRequestDto,
+    @Req() request: Request,
+  ): Promise<OrganizationQuestionSetResponseDto> {
+    if (dto.organizationId !== currentOrg.organizationId) {
+      throw new BadRequestException(
+        'organizationId does not match the resolved organization context',
+      )
+    }
+
+    const response = await this.organizationQuestionSetService.getForOrganization(
+      currentOrg.organizationId,
+    )
+
+    const userAgentHeader = request.headers['user-agent']
+    const userAgent = typeof userAgentHeader === 'string' ? userAgentHeader : null
+
+    await this.auditLogService.log({
+      userId: currentOrg.userId,
+      organizationId: currentOrg.organizationId,
+      tenantId,
+      action: AuditAction.READ,
+      entityType: 'OrganizationApplicableQuestionSet',
+      entityId: currentOrg.organizationId,
+      details: {
+        totalControls: response.summary.totalControls,
+        controlsWithQuestions: response.summary.controlsWithQuestions,
+        missingQuestionControls: response.summary.missingQuestionControls,
+        totalQuestions: response.summary.totalQuestions,
       },
       ipAddress: request.ip,
       userAgent,

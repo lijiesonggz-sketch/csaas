@@ -28,6 +28,7 @@ import { PackResolverService } from '../services/pack-resolver.service'
 import { ApplicabilityController } from './applicability.controller'
 import { AuditModule } from '../../audit/audit.module'
 import { OrganizationsModule } from '../../organizations/organizations.module'
+import { OrganizationQuestionSetService } from '../services/organization-question-set.service'
 
 const VALID_ORG_ID = '550e8400-e29b-41d4-a716-446655440000'
 const VALID_TENANT_ID = '660e8400-e29b-41d4-a716-446655440000'
@@ -178,11 +179,15 @@ const resolverPayload = {
 describe('ApplicabilityController', () => {
   let controller: ApplicabilityController
   let packResolverService: { resolveByOrganizationId: jest.Mock }
+  let organizationQuestionSetService: { getForOrganization: jest.Mock }
   let auditLogService: { log: jest.Mock }
 
   beforeEach(async () => {
     packResolverService = {
       resolveByOrganizationId: jest.fn(),
+    }
+    organizationQuestionSetService = {
+      getForOrganization: jest.fn(),
     }
     auditLogService = {
       log: jest.fn().mockResolvedValue(undefined),
@@ -194,6 +199,10 @@ describe('ApplicabilityController', () => {
         {
           provide: PackResolverService,
           useValue: packResolverService,
+        },
+        {
+          provide: OrganizationQuestionSetService,
+          useValue: organizationQuestionSetService,
         },
         {
           provide: AuditLogService,
@@ -343,16 +352,183 @@ describe('ApplicabilityController', () => {
       }),
     )
   })
+
+  it('[P0][3.1-API-001] should execute question-set generation using currentOrg.organizationId', async () => {
+    organizationQuestionSetService.getForOrganization.mockResolvedValue({
+      organizationId: VALID_ORG_ID,
+      questions: [
+        {
+          questionId: 'question-required',
+          controlId: 'control-a',
+          questionCode: 'Q-ACC-001',
+          questionText: '是否建立特权账号定期复核机制？',
+          questionType: 'SINGLE_CHOICE',
+          answerSchema: null,
+          scoringRule: { mode: 'single_choice', passValues: ['yes'] },
+          required: true,
+        },
+      ],
+      missingQuestionControlIds: ['control-missing'],
+      summary: {
+        totalControls: 2,
+        controlsWithQuestions: 1,
+        missingQuestionControls: 1,
+        totalQuestions: 1,
+      },
+    })
+
+    const result = await controller.getQuestionSet(
+      VALID_TENANT_ID,
+      validCurrentOrg,
+      {
+        organizationId: VALID_ORG_ID,
+      },
+      {
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest-test' },
+      } as any,
+    )
+
+    expect(organizationQuestionSetService.getForOrganization).toHaveBeenCalledWith(VALID_ORG_ID)
+    expect(result).toMatchObject({
+      organizationId: VALID_ORG_ID,
+      missingQuestionControlIds: ['control-missing'],
+      summary: {
+        totalControls: 2,
+        controlsWithQuestions: 1,
+        missingQuestionControls: 1,
+        totalQuestions: 1,
+      },
+    })
+  })
+
+  it('[P0][3.1-API-002] should reject mismatched organizationId values for question-set requests', async () => {
+    await expect(
+      controller.getQuestionSet(
+        VALID_TENANT_ID,
+        validCurrentOrg,
+        {
+          organizationId: '550e8400-e29b-41d4-a716-446655440999',
+        },
+        {
+          ip: '127.0.0.1',
+          headers: { 'user-agent': 'jest-test' },
+        } as any,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException)
+
+    expect(organizationQuestionSetService.getForOrganization).not.toHaveBeenCalled()
+    expect(auditLogService.log).not.toHaveBeenCalled()
+  })
+
+  it('[P1][3.1-API-003] should write a READ audit log after successful question-set generation', async () => {
+    organizationQuestionSetService.getForOrganization.mockResolvedValue({
+      organizationId: VALID_ORG_ID,
+      questions: [
+        {
+          questionId: 'question-required',
+          controlId: 'control-a',
+          questionCode: 'Q-ACC-001',
+          questionText: '是否建立特权账号定期复核机制？',
+          questionType: 'SINGLE_CHOICE',
+          answerSchema: null,
+          scoringRule: { mode: 'single_choice', passValues: ['yes'] },
+          required: true,
+        },
+      ],
+      missingQuestionControlIds: ['control-missing'],
+      summary: {
+        totalControls: 2,
+        controlsWithQuestions: 1,
+        missingQuestionControls: 1,
+        totalQuestions: 1,
+      },
+    })
+
+    await controller.getQuestionSet(
+      VALID_TENANT_ID,
+      validCurrentOrg,
+      {
+        organizationId: VALID_ORG_ID,
+      },
+      {
+        ip: '127.0.0.1',
+        headers: { 'user-agent': 'jest-test' },
+      } as any,
+    )
+
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: validCurrentOrg.userId,
+        organizationId: VALID_ORG_ID,
+        tenantId: VALID_TENANT_ID,
+        action: AuditAction.READ,
+        entityType: 'OrganizationApplicableQuestionSet',
+        entityId: VALID_ORG_ID,
+        details: {
+          totalControls: 2,
+          controlsWithQuestions: 1,
+          missingQuestionControls: 1,
+          totalQuestions: 1,
+        },
+      }),
+    )
+  })
+
+  it('[P0][3.1-API-008] should surface OrganizationQuestionSetService NotFoundException as-is', async () => {
+    organizationQuestionSetService.getForOrganization.mockRejectedValue(
+      new NotFoundException(`Organization profile not found for organization ${VALID_ORG_ID}`),
+    )
+
+    await expect(
+      controller.getQuestionSet(
+        VALID_TENANT_ID,
+        validCurrentOrg,
+        {
+          organizationId: VALID_ORG_ID,
+        },
+        {
+          ip: '127.0.0.1',
+          headers: {},
+        } as any,
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException)
+  })
 })
 
 describe('ApplicabilityController HTTP integration', () => {
   let app: INestApplication
   let packResolverService: { resolveByOrganizationId: jest.Mock }
+  let organizationQuestionSetService: { getForOrganization: jest.Mock }
   let auditLogService: { log: jest.Mock }
 
   async function createValidationApp(): Promise<INestApplication> {
     packResolverService = {
       resolveByOrganizationId: jest.fn().mockResolvedValue(resolverPayload),
+    }
+    organizationQuestionSetService = {
+      getForOrganization: jest.fn().mockResolvedValue({
+        organizationId: VALID_ORG_ID,
+        questions: [
+          {
+            questionId: 'question-required',
+            controlId: 'control-a',
+            questionCode: 'Q-ACC-001',
+            questionText: '是否建立特权账号定期复核机制？',
+            questionType: 'SINGLE_CHOICE',
+            answerSchema: null,
+            scoringRule: { mode: 'single_choice', passValues: ['yes'] },
+            required: true,
+          },
+        ],
+        missingQuestionControlIds: ['control-missing'],
+        summary: {
+          totalControls: 2,
+          controlsWithQuestions: 1,
+          missingQuestionControls: 1,
+          totalQuestions: 1,
+        },
+      }),
     }
     auditLogService = {
       log: jest.fn().mockResolvedValue(undefined),
@@ -364,6 +540,10 @@ describe('ApplicabilityController HTTP integration', () => {
         {
           provide: PackResolverService,
           useValue: packResolverService,
+        },
+        {
+          provide: OrganizationQuestionSetService,
+          useValue: organizationQuestionSetService,
         },
         {
           provide: AuditLogService,
@@ -444,6 +624,43 @@ describe('ApplicabilityController HTTP integration', () => {
     })
   })
 
+  it('[P0][3.1-API-004-HTTP] should return the global TransformInterceptor envelope for question-set generation', async () => {
+    app = await createValidationApp()
+
+    const response = await request(app.getHttpServer())
+      .post('/applicability-engine/question-set')
+      .send({
+        organizationId: VALID_ORG_ID,
+      })
+      .expect(200)
+
+    expect(response.body).toMatchObject({
+      success: true,
+      data: {
+        organizationId: VALID_ORG_ID,
+        questions: [
+          {
+            questionId: 'question-required',
+            controlId: 'control-a',
+            questionCode: 'Q-ACC-001',
+            questionText: '是否建立特权账号定期复核机制？',
+            questionType: 'SINGLE_CHOICE',
+            answerSchema: null,
+            scoringRule: { mode: 'single_choice', passValues: ['yes'] },
+            required: true,
+          },
+        ],
+        missingQuestionControlIds: ['control-missing'],
+        summary: {
+          totalControls: 2,
+          controlsWithQuestions: 1,
+          missingQuestionControls: 1,
+          totalQuestions: 1,
+        },
+      },
+    })
+  })
+
   it('[P1][1.5-API-006] should reject invalid scene values with HTTP 400 before resolver execution', async () => {
     app = await createValidationApp()
 
@@ -473,9 +690,33 @@ describe('ApplicabilityController HTTP integration', () => {
     expect(packResolverService.resolveByOrganizationId).not.toHaveBeenCalled()
   })
 
+  it('[P1][3.1-API-009-HTTP] should reject invalid organizationId format and undeclared request fields on the question-set route', async () => {
+    app = await createValidationApp()
+
+    await request(app.getHttpServer())
+      .post('/applicability-engine/question-set')
+      .send({
+        organizationId: 'not-a-uuid',
+      })
+      .expect(400)
+
+    await request(app.getHttpServer())
+      .post('/applicability-engine/question-set')
+      .send({
+        organizationId: VALID_ORG_ID,
+        unexpectedField: 'nope',
+      })
+      .expect(400)
+
+    expect(organizationQuestionSetService.getForOrganization).not.toHaveBeenCalled()
+  })
+
   it('[P1][1.5-API-012-HTTP] should reject organizationId mismatch with HTTP 400 before resolver execution', async () => {
     packResolverService = {
       resolveByOrganizationId: jest.fn().mockResolvedValue(resolverPayload),
+    }
+    organizationQuestionSetService = {
+      getForOrganization: jest.fn(),
     }
     auditLogService = {
       log: jest.fn().mockResolvedValue(undefined),
@@ -487,6 +728,10 @@ describe('ApplicabilityController HTTP integration', () => {
         {
           provide: PackResolverService,
           useValue: packResolverService,
+        },
+        {
+          provide: OrganizationQuestionSetService,
+          useValue: organizationQuestionSetService,
         },
         {
           provide: AuditLogService,
@@ -542,9 +787,12 @@ describe('ApplicabilityController HTTP integration', () => {
     expect(packResolverService.resolveByOrganizationId).not.toHaveBeenCalled()
   })
 
-  it('[P1][1.5-API-009-401] should return HTTP 401 for unauthenticated requests', async () => {
+  it('[P0][3.1-API-005-HTTP] should reject organizationId mismatch for question-set requests with HTTP 400 before service execution', async () => {
     packResolverService = {
       resolveByOrganizationId: jest.fn().mockResolvedValue(resolverPayload),
+    }
+    organizationQuestionSetService = {
+      getForOrganization: jest.fn(),
     }
     auditLogService = {
       log: jest.fn().mockResolvedValue(undefined),
@@ -556,6 +804,85 @@ describe('ApplicabilityController HTTP integration', () => {
         {
           provide: PackResolverService,
           useValue: packResolverService,
+        },
+        {
+          provide: OrganizationQuestionSetService,
+          useValue: organizationQuestionSetService,
+        },
+        {
+          provide: AuditLogService,
+          useValue: auditLogService,
+        },
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: (context: any) => {
+          const req = context.switchToHttp().getRequest()
+          req.user = { id: VALID_USER_ID, userId: VALID_USER_ID }
+          return true
+        },
+      })
+      .overrideGuard(TenantGuard)
+      .useValue({
+        canActivate: (context: any) => {
+          const req = context.switchToHttp().getRequest()
+          req.tenantId = VALID_TENANT_ID
+          return true
+        },
+      })
+      .overrideGuard(OrganizationGuard)
+      .useValue({
+        canActivate: (context: any) => {
+          const req = context.switchToHttp().getRequest()
+          req.orgId = '660e8400-e29b-41d4-a716-446655440111'
+          return true
+        },
+      })
+      .compile()
+
+    app = moduleRef.createNestApplication()
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    )
+    app.useGlobalInterceptors(new TransformInterceptor())
+    await app.init()
+
+    await request(app.getHttpServer())
+      .post('/applicability-engine/question-set')
+      .send({
+        organizationId: VALID_ORG_ID,
+      })
+      .expect(400)
+
+    expect(organizationQuestionSetService.getForOrganization).not.toHaveBeenCalled()
+  })
+
+  it('[P1][1.5-API-009-401] should return HTTP 401 for unauthenticated requests', async () => {
+    packResolverService = {
+      resolveByOrganizationId: jest.fn().mockResolvedValue(resolverPayload),
+    }
+    organizationQuestionSetService = {
+      getForOrganization: jest.fn(),
+    }
+    auditLogService = {
+      log: jest.fn().mockResolvedValue(undefined),
+    }
+
+    const moduleRef = await Test.createTestingModule({
+      controllers: [ApplicabilityController],
+      providers: [
+        {
+          provide: PackResolverService,
+          useValue: packResolverService,
+        },
+        {
+          provide: OrganizationQuestionSetService,
+          useValue: organizationQuestionSetService,
         },
         {
           provide: AuditLogService,
@@ -596,9 +923,12 @@ describe('ApplicabilityController HTTP integration', () => {
     expect(packResolverService.resolveByOrganizationId).not.toHaveBeenCalled()
   })
 
-  it('[P1][1.5-API-009-403] should return HTTP 403 for non-member requests', async () => {
+  it('[P0][3.1-API-006-401] should return HTTP 401 for unauthenticated question-set requests', async () => {
     packResolverService = {
       resolveByOrganizationId: jest.fn().mockResolvedValue(resolverPayload),
+    }
+    organizationQuestionSetService = {
+      getForOrganization: jest.fn(),
     }
     auditLogService = {
       log: jest.fn().mockResolvedValue(undefined),
@@ -610,6 +940,71 @@ describe('ApplicabilityController HTTP integration', () => {
         {
           provide: PackResolverService,
           useValue: packResolverService,
+        },
+        {
+          provide: OrganizationQuestionSetService,
+          useValue: organizationQuestionSetService,
+        },
+        {
+          provide: AuditLogService,
+          useValue: auditLogService,
+        },
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: () => {
+          throw new UnauthorizedException('User not authenticated')
+        },
+      })
+      .overrideGuard(TenantGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(OrganizationGuard)
+      .useValue({ canActivate: () => true })
+      .compile()
+
+    app = moduleRef.createNestApplication()
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    )
+    app.useGlobalInterceptors(new TransformInterceptor())
+    await app.init()
+
+    await request(app.getHttpServer())
+      .post('/applicability-engine/question-set')
+      .send({
+        organizationId: VALID_ORG_ID,
+      })
+      .expect(401)
+
+    expect(organizationQuestionSetService.getForOrganization).not.toHaveBeenCalled()
+  })
+
+  it('[P1][1.5-API-009-403] should return HTTP 403 for non-member requests', async () => {
+    packResolverService = {
+      resolveByOrganizationId: jest.fn().mockResolvedValue(resolverPayload),
+    }
+    organizationQuestionSetService = {
+      getForOrganization: jest.fn(),
+    }
+    auditLogService = {
+      log: jest.fn().mockResolvedValue(undefined),
+    }
+
+    const moduleRef = await Test.createTestingModule({
+      controllers: [ApplicabilityController],
+      providers: [
+        {
+          provide: PackResolverService,
+          useValue: packResolverService,
+        },
+        {
+          provide: OrganizationQuestionSetService,
+          useValue: organizationQuestionSetService,
         },
         {
           provide: AuditLogService,
@@ -657,11 +1052,81 @@ describe('ApplicabilityController HTTP integration', () => {
 
     expect(packResolverService.resolveByOrganizationId).not.toHaveBeenCalled()
   })
+
+  it('[P0][3.1-API-007-403] should return HTTP 403 for non-member question-set requests', async () => {
+    packResolverService = {
+      resolveByOrganizationId: jest.fn().mockResolvedValue(resolverPayload),
+    }
+    organizationQuestionSetService = {
+      getForOrganization: jest.fn(),
+    }
+    auditLogService = {
+      log: jest.fn().mockResolvedValue(undefined),
+    }
+
+    const moduleRef = await Test.createTestingModule({
+      controllers: [ApplicabilityController],
+      providers: [
+        {
+          provide: PackResolverService,
+          useValue: packResolverService,
+        },
+        {
+          provide: OrganizationQuestionSetService,
+          useValue: organizationQuestionSetService,
+        },
+        {
+          provide: AuditLogService,
+          useValue: auditLogService,
+        },
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({
+        canActivate: (context: any) => {
+          const req = context.switchToHttp().getRequest()
+          req.user = { id: VALID_USER_ID, userId: VALID_USER_ID }
+          return true
+        },
+      })
+      .overrideGuard(TenantGuard)
+      .useValue({
+        canActivate: (context: any) => {
+          const req = context.switchToHttp().getRequest()
+          req.tenantId = VALID_TENANT_ID
+          return true
+        },
+      })
+      .overrideGuard(OrganizationGuard)
+      .useValue({ canActivate: () => false })
+      .compile()
+
+    app = moduleRef.createNestApplication()
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    )
+    app.useGlobalInterceptors(new TransformInterceptor())
+    await app.init()
+
+    await request(app.getHttpServer())
+      .post('/applicability-engine/question-set')
+      .send({
+        organizationId: VALID_ORG_ID,
+      })
+      .expect(403)
+
+    expect(organizationQuestionSetService.getForOrganization).not.toHaveBeenCalled()
+  })
 })
 
 describe('ApplicabilityController invalid organizationId path', () => {
   let app: INestApplication
   let packResolverService: { resolveByOrganizationId: jest.Mock }
+  let organizationQuestionSetService: { getForOrganization: jest.Mock }
 
   afterEach(async () => {
     jest.clearAllMocks()
@@ -673,6 +1138,9 @@ describe('ApplicabilityController invalid organizationId path', () => {
   it('[P1][1.5-API-008] should return HTTP 400 for invalid organizationId format and not invoke resolver', async () => {
     packResolverService = {
       resolveByOrganizationId: jest.fn().mockResolvedValue(resolverPayload),
+    }
+    organizationQuestionSetService = {
+      getForOrganization: jest.fn(),
     }
 
     const moduleRef = await Test.createTestingModule({
@@ -688,6 +1156,10 @@ describe('ApplicabilityController invalid organizationId path', () => {
         {
           provide: PackResolverService,
           useValue: packResolverService,
+        },
+        {
+          provide: OrganizationQuestionSetService,
+          useValue: organizationQuestionSetService,
         },
         {
           provide: AuditLogService,
@@ -749,10 +1221,20 @@ describe('Applicability module wiring', () => {
     const controllers =
       Reflect.getMetadata(MODULE_METADATA.CONTROLLERS, ApplicabilityEngineModule) ?? []
     const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, ApplicabilityEngineModule) ?? []
+    const providers =
+      Reflect.getMetadata(MODULE_METADATA.PROVIDERS, ApplicabilityEngineModule) ?? []
+    const exportsMetadata =
+      Reflect.getMetadata(MODULE_METADATA.EXPORTS, ApplicabilityEngineModule) ?? []
 
     expect(controllers).toEqual(expect.arrayContaining([ApplicabilityController]))
     expect(imports).toEqual(
       expect.arrayContaining([OrganizationsModule, AuditModule]),
+    )
+    expect(providers).toEqual(
+      expect.arrayContaining([PackResolverService, OrganizationQuestionSetService]),
+    )
+    expect(exportsMetadata).toEqual(
+      expect.arrayContaining([PackResolverService, OrganizationQuestionSetService]),
     )
   })
 
