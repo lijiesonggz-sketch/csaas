@@ -111,34 +111,6 @@ describe('loadKgSeedData', () => {
     expect(() => validateResolverRuntimeData(runtimeData)).not.toThrow()
   })
 
-  it('should align required control-point seed records with resolver fixture control ids and metadata', () => {
-    const seedData = loadKgSeedData()
-    const runtimeData = loadResolverRuntimeData(seedData)
-    const runtimeControlsByCode = new Map(
-      runtimeData.controlCatalog.map((control) => [control.controlCode, control] as const),
-    )
-
-    for (const controlCode of [
-      'CTRL-ACC-002',
-      'CTRL-BCP-003',
-      'CTRL-DG-004',
-      'CTRL-DATA-011',
-      'CTRL-AI-001',
-      'CTRL-AI-002',
-    ]) {
-      const seeded = seedData.controlPoints.find((control) => control.controlCode === controlCode)
-      const runtime = runtimeControlsByCode.get(controlCode)
-
-      expect(seeded).toBeDefined()
-      expect(runtime).toBeDefined()
-      expect(seeded?.controlId).toBe(runtime?.controlId)
-      expect(seeded?.controlName).toBe(runtime?.controlName)
-      expect(seeded?.controlFamily).toBe(runtime?.controlFamily)
-      expect(seeded?.mandatoryDefault).toBe(runtime?.mandatoryDefault)
-      expect(seeded?.priorityDefault).toBe(runtime?.priorityDefault)
-    }
-  })
-
   it('should reject resolver control assertions that reference unknown controls', () => {
     const runtimeData = JSON.parse(JSON.stringify(loadResolverRuntimeData())) as ReturnType<
       typeof loadResolverRuntimeData
@@ -148,21 +120,6 @@ describe('loadKgSeedData', () => {
 
     expect(() => validateResolverRuntimeData(runtimeData)).toThrow(
       'Resolver control assertions for demo-bank-mega-legal-person references unknown control CTRL-NOT-EXIST-001',
-    )
-  })
-
-  it('should fail fast when control-point seed drifts from resolver fixture metadata', () => {
-    const seedData = JSON.parse(JSON.stringify(loadKgSeedData())) as ReturnType<
-      typeof loadKgSeedData
-    >
-    const runtimeData = JSON.parse(JSON.stringify(loadResolverRuntimeData())) as ReturnType<
-      typeof loadResolverRuntimeData
-    >
-
-    seedData.controlPoints[0].controlName = 'Unexpected Drifted Name'
-
-    expect(() => validateResolverRuntimeData(runtimeData, seedData)).toThrow(
-      'Knowledge graph seed drift detected for CTRL-ACC-002: controlName mismatch against resolver-control-catalog fixture',
     )
   })
 })

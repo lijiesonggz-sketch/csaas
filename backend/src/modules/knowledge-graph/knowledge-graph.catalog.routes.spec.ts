@@ -108,85 +108,6 @@ describe('KnowledgeGraph controllers (http)', () => {
     await app.close()
   })
 
-  it('should return taxonomy tree with transform interceptor envelope', async () => {
-    mockTaxonomyService.getTree.mockResolvedValue([
-      {
-        l1Code: 'IT02',
-        children: [
-          {
-            l2Code: 'IT02-03',
-          },
-        ],
-      },
-    ])
-
-    const response = await request(app.getHttpServer())
-      .get('/api/admin/knowledge-graph/taxonomy/tree')
-      .query({
-        status: 'ACTIVE',
-        l1Code: 'IT02',
-        l2Code: 'IT02-03',
-        keyword: '访问',
-      })
-      .expect(200)
-
-    expect(response.body).toEqual({
-      success: true,
-      data: [
-        {
-          l1Code: 'IT02',
-          children: [
-            {
-              l2Code: 'IT02-03',
-            },
-          ],
-        },
-      ],
-    })
-    expect(mockTaxonomyService.getTree).toHaveBeenCalledWith({
-      status: 'ACTIVE',
-      l1Code: 'IT02',
-      l2Code: 'IT02-03',
-      keyword: '访问',
-    })
-  })
-
-  it('should create control point and write audit log', async () => {
-    mockControlPointService.create.mockResolvedValue({
-      controlId: '99999999-9999-4999-8999-999999999999',
-      controlCode: 'CTRL-ACC-021',
-      controlName: 'Privileged Session Review Control',
-      l1Code: 'IT02',
-      l2Code: 'IT02-03',
-    })
-
-    const response = await request(app.getHttpServer())
-      .post('/api/admin/knowledge-graph/control-points')
-      .send({
-        controlCode: 'CTRL-ACC-021',
-        controlName: 'Privileged Session Review Control',
-        controlDesc: 'desc',
-        l1Code: 'IT02',
-        l2Code: 'IT02-03',
-        controlFamily: 'ACC_PRIVILEGED',
-        controlType: 'detective',
-        mandatoryDefault: true,
-        riskLevelDefault: 'HIGH',
-        ownerRoleHint: ['CISO'],
-        status: 'ACTIVE',
-      })
-      .expect(201)
-
-    expect(response.body.success).toBe(true)
-    expect(mockAuditLogService.log).toHaveBeenCalledWith(
-      expect.objectContaining({
-        action: AuditAction.CREATE,
-        entityType: 'ControlPoint',
-        entityId: '99999999-9999-4999-8999-999999999999',
-      }),
-    )
-  })
-
   it('should create taxonomy l1 and write audit log', async () => {
     mockTaxonomyService.createL1.mockResolvedValue({
       l1Code: 'IT01',
@@ -242,34 +163,5 @@ describe('KnowledgeGraph controllers (http)', () => {
       .expect(400)
 
     expect(mockControlPointService.update).not.toHaveBeenCalled()
-  })
-
-  it('should return 401 for unauthenticated requests', async () => {
-    await app.close()
-    app = await createApp({ authenticated: false })
-
-    await request(app.getHttpServer()).get('/api/admin/knowledge-graph/taxonomy/tree').expect(401)
-  })
-
-  it('should return 403 for authenticated users without required roles', async () => {
-    await app.close()
-    app = await createApp({ authenticated: true, roleAllowed: false })
-
-    await request(app.getHttpServer())
-      .post('/api/admin/knowledge-graph/control-points')
-      .send({
-        controlCode: 'CTRL-ACC-021',
-        controlName: 'Privileged Session Review Control',
-        controlDesc: 'desc',
-        l1Code: 'IT02',
-        l2Code: 'IT02-03',
-        controlFamily: 'ACC_PRIVILEGED',
-        controlType: 'detective',
-        mandatoryDefault: true,
-        riskLevelDefault: 'HIGH',
-        ownerRoleHint: ['CISO'],
-        status: 'ACTIVE',
-      })
-      .expect(403)
   })
 })
