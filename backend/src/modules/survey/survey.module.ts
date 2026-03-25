@@ -6,6 +6,7 @@ import { MaturityAnalysisService } from './maturity-analysis.service'
 import { ActionPlanService } from './action-plan.service'
 import { ActionPlanGenerationService } from './action-plan-generation.service'
 import { BinaryGapAnalyzer } from './binary-gap-analyzer.service'
+import { ControlGapInputService } from './control-gap-input.service'
 import { ProjectQuestionnaireSnapshotService } from './project-questionnaire-snapshot.service'
 import { SurveyResponse } from '../../database/entities/survey-response.entity'
 import { AITask } from '../../database/entities/ai-task.entity'
@@ -40,6 +41,7 @@ import { OrganizationsModule } from '../organizations/organizations.module'
     ActionPlanService,
     ActionPlanGenerationService,
     BinaryGapAnalyzer,
+    ControlGapInputService,
     ProjectQuestionnaireSnapshotService,
   ],
   exports: [
@@ -48,6 +50,7 @@ import { OrganizationsModule } from '../organizations/organizations.module'
     ActionPlanService,
     ActionPlanGenerationService,
     BinaryGapAnalyzer,
+    ControlGapInputService,
     ProjectQuestionnaireSnapshotService,
   ],
 })

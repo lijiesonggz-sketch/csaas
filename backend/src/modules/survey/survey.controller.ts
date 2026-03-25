@@ -25,6 +25,7 @@ import { OrganizationGuard } from '../organizations/guards/organization.guard'
 import { TenantGuard } from '../organizations/guards/tenant.guard'
 import {
   CreateProjectQuestionnaireSnapshotDto,
+  ControlGapInputResponseDto,
   CreateSurveyDto,
   ProjectQuestionnaireSnapshotResponseDto,
   SaveDraftDto,
@@ -34,6 +35,7 @@ import {
 import { AITaskType, TaskStatus } from '../../database/entities/ai-task.entity'
 import { AuditAction } from '../../database/entities/audit-log.entity'
 import { AuditLogService } from '../audit/audit-log.service'
+import { ControlGapInputService } from './control-gap-input.service'
 import { ProjectQuestionnaireSnapshotService } from './project-questionnaire-snapshot.service'
 
 /**
@@ -55,6 +57,7 @@ export class SurveyController {
     private readonly actionPlanGenerationService: ActionPlanGenerationService,
     private readonly binaryGapAnalyzer: BinaryGapAnalyzer,
     private readonly projectQuestionnaireSnapshotService: ProjectQuestionnaireSnapshotService,
+    private readonly controlGapInputService: ControlGapInputService,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -121,6 +124,38 @@ export class SurveyController {
     return {
       success: true,
       data: snapshot,
+    }
+  }
+
+  @Get('control-gap-input/:surveyResponseId')
+  @UseGuards(TenantGuard, OrganizationGuard)
+  async getControlGapInput(
+    @CurrentTenant() tenantId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
+    @Param('surveyResponseId') surveyResponseId: string,
+  ) {
+    const result = await this.controlGapInputService.getControlGapInput(
+      surveyResponseId,
+      currentOrg.organizationId,
+    )
+
+    await this.auditLogService.log({
+      userId: currentOrg.userId,
+      organizationId: currentOrg.organizationId,
+      tenantId,
+      action: AuditAction.READ,
+      entityType: 'ControlGapInput',
+      entityId: surveyResponseId,
+      details: {
+        surveyResponseId: result.surveyResponseId,
+        questionnaireTaskId: result.questionnaireTaskId,
+        controls: result.controls.length,
+      },
+    })
+
+    return {
+      success: true,
+      data: result,
     }
   }
 

@@ -14,6 +14,7 @@ import { TenantGuard } from '../organizations/guards/tenant.guard'
 import { ActionPlanGenerationService } from './action-plan-generation.service'
 import { ActionPlanService } from './action-plan.service'
 import { BinaryGapAnalyzer } from './binary-gap-analyzer.service'
+import { ControlGapInputService } from './control-gap-input.service'
 import { MaturityAnalysisService } from './maturity-analysis.service'
 import { ProjectQuestionnaireSnapshotService } from './project-questionnaire-snapshot.service'
 import { SurveyController } from './survey.controller'
@@ -27,6 +28,7 @@ const USER_ID = '880e8400-e29b-41d4-a716-446655440320'
 describe('SurveyController snapshot endpoints', () => {
   let app: INestApplication
   let snapshotService: { createSnapshot: jest.Mock; getSnapshot: jest.Mock }
+  let controlGapInputService: { getControlGapInput: jest.Mock }
   let auditLogService: { log: jest.Mock }
 
   async function createApp(): Promise<INestApplication> {
@@ -76,6 +78,23 @@ describe('SurveyController snapshot endpoints', () => {
         ],
       }),
     }
+    controlGapInputService = {
+      getControlGapInput: jest.fn().mockResolvedValue({
+        surveyResponseId: 'survey-response-id',
+        questionnaireTaskId: 'snapshot-task-id',
+        projectId: PROJECT_ID,
+        controls: [
+          {
+            controlId: 'control-a',
+            questionIds: ['Q-ACC-001'],
+            currentStatus: 'COMPLIANT',
+            gapLevel: 'LOW',
+            missingAnswers: [],
+            riskHints: [],
+          },
+        ],
+      }),
+    }
     auditLogService = {
       log: jest.fn().mockResolvedValue(undefined),
     }
@@ -106,6 +125,10 @@ describe('SurveyController snapshot endpoints', () => {
         {
           provide: ProjectQuestionnaireSnapshotService,
           useValue: snapshotService,
+        },
+        {
+          provide: ControlGapInputService,
+          useValue: controlGapInputService,
         },
         {
           provide: AuditLogService,
@@ -229,6 +252,39 @@ describe('SurveyController snapshot endpoints', () => {
     expect(snapshotService.createSnapshot).not.toHaveBeenCalled()
   })
 
+  it('should return aggregated control-gap input and write a READ audit log', async () => {
+    app = await createApp()
+
+    const response = await request(app.getHttpServer())
+      .get('/survey/control-gap-input/survey-response-id')
+      .expect(200)
+
+    expect(controlGapInputService.getControlGapInput).toHaveBeenCalledWith(
+      'survey-response-id',
+      ORG_ID,
+    )
+    expect(response.body).toMatchObject({
+      success: true,
+      data: {
+        questionnaireTaskId: 'snapshot-task-id',
+        controls: [
+          {
+            controlId: 'control-a',
+            currentStatus: 'COMPLIANT',
+            gapLevel: 'LOW',
+          },
+        ],
+      },
+    })
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'read',
+        entityType: 'ControlGapInput',
+        entityId: 'survey-response-id',
+      }),
+    )
+  })
+
   it('should return 404 when the snapshot service surfaces a missing project', async () => {
     app = await createApp()
     snapshotService.createSnapshot.mockRejectedValue(
@@ -243,10 +299,24 @@ describe('SurveyController snapshot endpoints', () => {
       .expect(404)
   })
 
+  it('should return 404 when the control-gap service surfaces a missing survey response', async () => {
+    app = await createApp()
+    controlGapInputService.getControlGapInput.mockRejectedValue(
+      new NotFoundException('Survey response survey-response-id not found'),
+    )
+
+    await request(app.getHttpServer())
+      .get('/survey/control-gap-input/survey-response-id')
+      .expect(404)
+  })
+
   it('should return 401 for unauthenticated snapshot requests', async () => {
     snapshotService = {
       createSnapshot: jest.fn(),
       getSnapshot: jest.fn(),
+    }
+    controlGapInputService = {
+      getControlGapInput: jest.fn(),
     }
     auditLogService = {
       log: jest.fn().mockResolvedValue(undefined),
@@ -261,6 +331,7 @@ describe('SurveyController snapshot endpoints', () => {
         { provide: ActionPlanService, useValue: {} },
         { provide: BinaryGapAnalyzer, useValue: {} },
         { provide: ProjectQuestionnaireSnapshotService, useValue: snapshotService },
+        { provide: ControlGapInputService, useValue: controlGapInputService },
         { provide: AuditLogService, useValue: auditLogService },
       ],
     })
@@ -299,6 +370,9 @@ describe('SurveyController snapshot endpoints', () => {
       createSnapshot: jest.fn(),
       getSnapshot: jest.fn(),
     }
+    controlGapInputService = {
+      getControlGapInput: jest.fn(),
+    }
     auditLogService = {
       log: jest.fn().mockResolvedValue(undefined),
     }
@@ -312,6 +386,7 @@ describe('SurveyController snapshot endpoints', () => {
         { provide: ActionPlanService, useValue: {} },
         { provide: BinaryGapAnalyzer, useValue: {} },
         { provide: ProjectQuestionnaireSnapshotService, useValue: snapshotService },
+        { provide: ControlGapInputService, useValue: controlGapInputService },
         { provide: AuditLogService, useValue: auditLogService },
       ],
     })

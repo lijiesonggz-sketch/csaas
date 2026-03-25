@@ -1,3 +1,4 @@
+export * from './control-gap-input.dto'
 export * from './create-survey.dto'
 export * from './project-questionnaire-snapshot.dto'
 export * from './save-draft.dto'
