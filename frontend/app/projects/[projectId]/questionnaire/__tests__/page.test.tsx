@@ -1,12 +1,19 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import QuestionnairePage from '../page'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { AITasksAPI } from '@/lib/api/ai-tasks'
+import { SurveyAPI } from '@/lib/api/survey'
 
 // Mock dependencies
 jest.mock('next/navigation', () => ({
   useParams: jest.fn(),
   useSearchParams: jest.fn(),
   useRouter: jest.fn(),
+}))
+
+jest.mock('next-auth/react', () => ({
+  useSession: jest.fn(),
 }))
 
 jest.mock('@/lib/api/ai-tasks', () => ({
@@ -56,31 +63,21 @@ jest.mock('@/components/projects/RollbackButton', () => ({
   default: () => <button>Rollback</button>,
 }))
 
-jest.mock('@/components/ui/page-header', () => ({
-  PageHeader: ({ title, description, actions }: any) => (
-    <div data-testid="page-header">
-      <h1>{title}</h1>
-      <p>{description}</p>
-      {actions}
-    </div>
-  ),
+jest.mock('@/components/organizations/ProfileCompletenessGate', () => ({
+  ProfileCompletenessGate: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-jest.mock('@/components/ui/unified-button', () => ({
-  UnifiedButton: ({ children, onClick, ...props }: any) => (
-    <button onClick={onClick} {...props}>{children}</button>
-  ),
-}))
-
-jest.mock('@/components/ui/gradient-card', () => ({
-  GradientCard: ({ children, ...props }: any) => (
-    <div {...props}>{children}</div>
-  ),
+jest.mock('@/lib/api/survey', () => ({
+  SurveyAPI: {
+    getProjectQuestionnaireSnapshot: jest.fn(),
+    createProjectQuestionnaireSnapshot: jest.fn(),
+  },
 }))
 
 const mockUseParams = useParams as jest.Mock
 const mockUseSearchParams = useSearchParams as jest.Mock
 const mockUseRouter = useRouter as jest.Mock
+const mockUseSession = useSession as jest.Mock
 
 describe('QuestionnairePage', () => {
   const mockBack = jest.fn()
@@ -90,14 +87,22 @@ describe('QuestionnairePage', () => {
     mockUseParams.mockReturnValue({ projectId: 'project-1' })
     mockUseSearchParams.mockReturnValue(new URLSearchParams())
     mockUseRouter.mockReturnValue({ back: mockBack, push: jest.fn() })
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          organizationId: 'org-1',
+        },
+      },
+      status: 'authenticated',
+    })
+    SurveyAPI.getProjectQuestionnaireSnapshot.mockRejectedValue({ status: 404, message: 'not found' })
   })
 
   it('should render page header with correct title', () => {
     render(<QuestionnairePage />)
 
-    expect(screen.getByTestId('page-header')).toBeInTheDocument()
     expect(screen.getByText('问卷生成')).toBeInTheDocument()
-    expect(screen.getByText('基于成熟度矩阵自动生成调研问卷，支持断点续跑')).toBeInTheDocument()
+    expect(screen.getByText('基于成熟度矩阵生成调研问卷')).toBeInTheDocument()
   })
 
   it('should show empty state initially', async () => {
@@ -128,11 +133,48 @@ describe('QuestionnairePage', () => {
     })
   })
 
-  it('should render regenerate button', async () => {
+  it('should prefer questionnaire snapshot when it exists', async () => {
+    SurveyAPI.getProjectQuestionnaireSnapshot.mockResolvedValue({
+      projectId: 'project-1',
+      organizationId: 'org-1',
+      questionnaireTaskId: 'snapshot-task-1',
+      generatedAt: '2026-03-26T10:00:00.000Z',
+      snapshotVersion: 2,
+      resolvedControlSetVersion: 'resolved-controls@2026-03-26T10:00:00.000Z',
+      questionSetVersion: 'question-set@2026-03-26T10:00:00.000Z',
+      sourceControlIds: ['ctrl-1'],
+      missingQuestionControlIds: [],
+      reusedExisting: true,
+      questions: [],
+    })
+
+    render(<QuestionnairePage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/KG 快照 v2, 复用现有版本/)).toBeInTheDocument()
+    })
+
+    expect(AITasksAPI.getTasksByProject).not.toHaveBeenCalled()
+  })
+
+  it('should fall back to legacy questionnaire task flow when snapshot is unavailable', async () => {
+    AITasksAPI.getTasksByProject.mockResolvedValue([
+      {
+        id: 'task-1',
+        type: 'questionnaire',
+        createdAt: '2026-03-26T10:00:00.000Z',
+        result: {
+          questionnaire: [],
+        },
+      },
+    ])
+
     render(<QuestionnairePage />)
 
     await waitFor(() => {
       expect(screen.getByText('重新生成')).toBeInTheDocument()
     })
+
+    expect(AITasksAPI.getTasksByProject).toHaveBeenCalledWith('project-1')
   })
 })

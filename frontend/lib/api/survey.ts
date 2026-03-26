@@ -2,6 +2,8 @@
  * 问卷填写API客户端
  */
 
+import { apiFetch } from '../utils/api'
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
 export interface CreateSurveyRequest {
@@ -45,7 +47,37 @@ export interface SurveyResponse {
   notes: string | null
 }
 
+export interface ProjectQuestionnaireSnapshotResponse {
+  projectId: string
+  organizationId: string
+  questionnaireTaskId: string
+  generatedAt: string
+  snapshotVersion: number
+  resolvedControlSetVersion: string
+  questionSetVersion: string
+  sourceControlIds: string[]
+  missingQuestionControlIds: string[]
+  reusedExisting: boolean
+  questions: Array<Record<string, unknown>>
+}
+
 export class SurveyAPI {
+  static async createProjectQuestionnaireSnapshot(request: {
+    projectId: string
+    regenerate?: boolean
+  }): Promise<ProjectQuestionnaireSnapshotResponse> {
+    return apiFetch('/survey/project-questionnaire-snapshot', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    })
+  }
+
+  static async getProjectQuestionnaireSnapshot(
+    projectId: string,
+  ): Promise<ProjectQuestionnaireSnapshotResponse> {
+    return apiFetch(`/survey/project-questionnaire-snapshot/${projectId}`)
+  }
+
   /**
    * 创建新的问卷填写记录
    */
