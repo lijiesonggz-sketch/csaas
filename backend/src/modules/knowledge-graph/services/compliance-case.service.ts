@@ -175,6 +175,7 @@ export class ComplianceCaseService {
       .createQueryBuilder('mapping')
       .leftJoinAndSelect('mapping.caseRecord', 'caseRecord')
       .where('mapping.control_id = :controlId', { controlId })
+      .andWhere('mapping.review_status = :reviewStatus', { reviewStatus: 'APPROVED' })
       .orderBy('caseRecord.case_date', 'DESC')
       .addOrderBy('caseRecord.case_code', 'ASC')
       .getMany()
@@ -222,6 +223,9 @@ export class ComplianceCaseService {
       normalizedThemes: caseRecord.normalizedThemes ?? [],
       candidateControlPoints: caseRecord.candidateControlPoints ?? [],
       clusteredAt: caseRecord.clusteredAt,
+      humanReviewed: caseRecord.humanReviewed ?? false,
+      reviewedBy: caseRecord.reviewedBy ?? null,
+      reviewedAt: caseRecord.reviewedAt ?? null,
       caseControlMapDrafts: drafts.map((draft) => ({
         id: draft.id,
         controlId: draft.controlId,

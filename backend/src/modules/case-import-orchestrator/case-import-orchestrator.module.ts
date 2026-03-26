@@ -10,10 +10,12 @@ import { AuditModule } from '../audit/audit.module'
 import { KnowledgeGraphModule } from '../knowledge-graph/knowledge-graph.module'
 import { KG_CASE_IMPORT_QUEUE } from './constants/case-import.constants'
 import { CaseImportController } from './controllers/case-import.controller'
+import { CaseHumanReviewController } from './controllers/case-human-review.controller'
 import { CaseImportAuditFilter } from './filters/case-import-audit.filter'
 import { CaseImportProcessor } from './processors/case-import.processor'
 import { CaseClusteringService } from './services/case-clustering.service'
 import { CaseExtractionService } from './services/case-extraction.service'
+import { CaseHumanReviewService } from './services/case-human-review.service'
 import { CaseImportService } from './services/case-import.service'
 import { CaseImportQueueService } from './services/case-import-queue.service'
 
@@ -41,8 +43,9 @@ import { CaseImportQueueService } from './services/case-import-queue.service'
     KnowledgeGraphModule,
     AuditModule,
   ],
-  controllers: [CaseImportController],
+  controllers: [CaseImportController, CaseHumanReviewController],
   providers: [
+    CaseHumanReviewService,
     CaseClusteringService,
     CaseExtractionService,
     CaseImportService,

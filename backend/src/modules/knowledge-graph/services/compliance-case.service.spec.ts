@@ -105,6 +105,7 @@ describe('ComplianceCaseService', () => {
     const queryBuilder = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       addOrderBy: jest.fn().mockReturnThis(),
       getMany: jest.fn().mockResolvedValue([]),
@@ -115,6 +116,9 @@ describe('ComplianceCaseService', () => {
 
     expect(queryBuilder.where).toHaveBeenCalledWith('mapping.control_id = :controlId', {
       controlId: 'control-id',
+    })
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith('mapping.review_status = :reviewStatus', {
+      reviewStatus: 'APPROVED',
     })
     expect(result).toEqual([])
   })
@@ -163,6 +167,9 @@ describe('ComplianceCaseService', () => {
         },
       ],
       clusteredAt: new Date('2026-03-26T01:00:00.000Z'),
+      humanReviewed: false,
+      reviewedBy: null,
+      reviewedAt: null,
     })
     caseControlMapRepository.find.mockResolvedValue([
       {
@@ -191,6 +198,9 @@ describe('ComplianceCaseService', () => {
         },
       ],
       clusteredAt: new Date('2026-03-26T01:00:00.000Z'),
+      humanReviewed: false,
+      reviewedBy: null,
+      reviewedAt: null,
       caseControlMapDrafts: [
         {
           id: 'draft-id',

@@ -95,6 +95,15 @@ export class ComplianceCase {
   @Column({ name: 'clustered_at', type: 'timestamp', nullable: true })
   clusteredAt: Date | null
 
+  @Column({ name: 'human_reviewed', type: 'boolean', default: false })
+  humanReviewed: boolean
+
+  @Column({ name: 'reviewed_by', type: 'varchar', length: 100, nullable: true })
+  reviewedBy: string | null
+
+  @Column({ name: 'reviewed_at', type: 'timestamp', nullable: true })
+  reviewedAt: Date | null
+
   @Column({ name: 'raw_source_url', type: 'text', nullable: true })
   rawSourceUrl: string | null
 
