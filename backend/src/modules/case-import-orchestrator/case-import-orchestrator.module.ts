@@ -8,6 +8,7 @@ import { RawContent } from '../../database/entities/raw-content.entity'
 import { RegulationClause } from '../../database/entities/regulation-clause.entity'
 import { AuditModule } from '../audit/audit.module'
 import { KnowledgeGraphModule } from '../knowledge-graph/knowledge-graph.module'
+import { OrganizationsModule } from '../organizations/organizations.module'
 import { KG_CASE_IMPORT_QUEUE } from './constants/case-import.constants'
 import { CaseImportController } from './controllers/case-import.controller'
 import { CaseHumanReviewController } from './controllers/case-human-review.controller'
@@ -41,6 +42,7 @@ import { CaseImportQueueService } from './services/case-import-queue.service'
       },
     }),
     KnowledgeGraphModule,
+    OrganizationsModule,
     AuditModule,
   ],
   controllers: [CaseImportController, CaseHumanReviewController],
