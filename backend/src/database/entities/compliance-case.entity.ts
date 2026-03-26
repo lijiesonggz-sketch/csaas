@@ -31,6 +31,13 @@ export type ComplianceCaseClauseCandidate = {
   confidenceScore: number
 }
 
+export type ComplianceCaseControlPointDraft = {
+  controlName: string
+  sourceTheme: string
+  confidenceScore: number
+  reason: string
+}
+
 @Entity('compliance_cases')
 @Unique('UQ_compliance_cases_case_code', ['caseCode'])
 export class ComplianceCase {
@@ -78,6 +85,15 @@ export class ComplianceCase {
 
   @Column({ name: 'extracted_at', type: 'timestamp', nullable: true })
   extractedAt: Date | null
+
+  @Column({ name: 'normalized_themes', type: 'jsonb', nullable: true })
+  normalizedThemes: string[] | null
+
+  @Column({ name: 'candidate_control_points', type: 'jsonb', nullable: true })
+  candidateControlPoints: ComplianceCaseControlPointDraft[] | null
+
+  @Column({ name: 'clustered_at', type: 'timestamp', nullable: true })
+  clusteredAt: Date | null
 
   @Column({ name: 'raw_source_url', type: 'text', nullable: true })
   rawSourceUrl: string | null

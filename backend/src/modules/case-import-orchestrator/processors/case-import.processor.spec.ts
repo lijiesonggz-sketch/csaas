@@ -1,9 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import {
+  KG_CASE_IMPORT_CLUSTER_JOB_NAME,
   KG_CASE_IMPORT_EXTRACT_JOB_NAME,
   KG_CASE_IMPORT_PARSE_JOB_NAME,
 } from '../constants/case-import.constants'
 import { CaseImportProcessor } from './case-import.processor'
+import {
+  CaseClusteringBatchResult,
+  CaseClusteringService,
+} from '../services/case-clustering.service'
 import {
   CaseExtractionBatchResult,
   CaseExtractionService,
@@ -25,6 +30,11 @@ describe('CaseImportProcessor', () => {
 
   const caseImportQueueService = {
     enqueueExtraction: jest.fn(),
+    enqueueClustering: jest.fn(),
+  }
+
+  const caseClusteringService = {
+    clusterBatch: jest.fn(),
   }
 
   beforeEach(async () => {
@@ -38,6 +48,10 @@ describe('CaseImportProcessor', () => {
         {
           provide: CaseExtractionService,
           useValue: caseExtractionService,
+        },
+        {
+          provide: CaseClusteringService,
+          useValue: caseClusteringService,
         },
         {
           provide: CaseImportQueueService,
@@ -98,6 +112,27 @@ describe('CaseImportProcessor', () => {
     } as never)) as CaseExtractionBatchResult
 
     expect(caseExtractionService.extractBatch).toHaveBeenCalledWith('PBOC-batch-001')
+    expect(caseImportQueueService.enqueueClustering).toHaveBeenCalledWith('PBOC-batch-001')
+    expect(result.processedCount).toBe(2)
+  })
+
+  it('should process ai-cluster jobs through CaseClusteringService', async () => {
+    caseClusteringService.clusterBatch.mockResolvedValue({
+      batchId: 'PBOC-batch-001',
+      processedCount: 2,
+      skippedCount: 0,
+    })
+
+    const result = (await processor.process({
+      id: 'job-cluster-1',
+      name: KG_CASE_IMPORT_CLUSTER_JOB_NAME,
+      attemptsMade: 0,
+      data: {
+        batchId: 'PBOC-batch-001',
+      },
+    } as never)) as CaseClusteringBatchResult
+
+    expect(caseClusteringService.clusterBatch).toHaveBeenCalledWith('PBOC-batch-001')
     expect(result.processedCount).toBe(2)
   })
 

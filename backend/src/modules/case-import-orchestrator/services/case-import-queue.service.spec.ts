@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { getQueueToken } from '@nestjs/bullmq'
 import { CaseImportQueueService } from './case-import-queue.service'
 import {
+  KG_CASE_IMPORT_CLUSTER_JOB_NAME,
   KG_CASE_IMPORT_EXTRACT_JOB_NAME,
   KG_CASE_IMPORT_PARSE_JOB_NAME,
   KG_CASE_IMPORT_QUEUE,
@@ -86,6 +87,25 @@ describe('CaseImportQueueService', () => {
           type: 'exponential',
           delay: 2000,
         },
+      }),
+    )
+  })
+
+  it('should enqueue ai-cluster follow-up jobs for extracted batches', async () => {
+    caseImportQueue.add.mockResolvedValue({
+      id: 'case-cluster-PBOC-batch-001',
+    })
+
+    await service.enqueueClustering('PBOC-batch-001')
+
+    expect(caseImportQueue.add).toHaveBeenCalledWith(
+      KG_CASE_IMPORT_CLUSTER_JOB_NAME,
+      {
+        batchId: 'PBOC-batch-001',
+      },
+      expect.objectContaining({
+        jobId: 'case-cluster-PBOC-batch-001',
+        attempts: 3,
       }),
     )
   })

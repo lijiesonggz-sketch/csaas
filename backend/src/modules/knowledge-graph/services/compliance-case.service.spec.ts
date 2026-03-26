@@ -20,6 +20,7 @@ describe('ComplianceCaseService', () => {
   const caseControlMapRepository = {
     findAndCount: jest.fn(),
     findOne: jest.fn(),
+    find: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
     createQueryBuilder: jest.fn(),
@@ -147,6 +148,60 @@ describe('ComplianceCaseService', () => {
         },
       ],
       extractedAt: new Date('2026-03-26T00:00:00.000Z'),
+    })
+  })
+
+  it('should return clustering drafts for a case', async () => {
+    complianceCaseRepository.findOne.mockResolvedValue({
+      caseId: 'case-id',
+      caseCode: 'PBOC-CASE-001',
+      status: 'clustered',
+      normalizedThemes: ['客户身份识别'],
+      candidateControlPoints: [
+        {
+          controlName: '交易监测',
+        },
+      ],
+      clusteredAt: new Date('2026-03-26T01:00:00.000Z'),
+    })
+    caseControlMapRepository.find.mockResolvedValue([
+      {
+        id: 'draft-id',
+        controlId: 'control-id',
+        relationType: 'VIOLATES',
+        reviewStatus: 'PENDING',
+        confidenceScore: '0.9000',
+        controlPoint: {
+          controlCode: 'CP-001',
+          controlName: '客户身份识别',
+        },
+      },
+    ])
+
+    const result = await service.getCaseClusteringResult('case-id')
+
+    expect(result).toEqual({
+      caseId: 'case-id',
+      caseCode: 'PBOC-CASE-001',
+      status: 'clustered',
+      normalizedThemes: ['客户身份识别'],
+      candidateControlPoints: [
+        {
+          controlName: '交易监测',
+        },
+      ],
+      clusteredAt: new Date('2026-03-26T01:00:00.000Z'),
+      caseControlMapDrafts: [
+        {
+          id: 'draft-id',
+          controlId: 'control-id',
+          controlCode: 'CP-001',
+          controlName: '客户身份识别',
+          relationType: 'VIOLATES',
+          reviewStatus: 'PENDING',
+          confidenceScore: '0.9000',
+        },
+      ],
     })
   })
 })

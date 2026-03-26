@@ -96,6 +96,12 @@ export class ComplianceCaseController {
     return this.complianceCaseService.getCaseExtractionResult(caseId)
   }
 
+  @Get('compliance-cases/:caseId/clustering')
+  @ApiOperation({ summary: '获取处罚案例聚类结果与映射草稿' })
+  async getCaseClusteringResult(@Param('caseId') caseId: string) {
+    return this.complianceCaseService.getCaseClusteringResult(caseId)
+  }
+
   @Get('case-control-maps')
   @ApiOperation({ summary: '获取案例到控制点映射列表' })
   async findAllCaseControlMaps(@Query() query: QueryCaseControlMapDto) {

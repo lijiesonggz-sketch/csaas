@@ -3,16 +3,22 @@ import { Logger } from '@nestjs/common'
 import { Job } from 'bullmq'
 import { ComplianceCaseImportResult } from '../dto/import-compliance-cases.dto'
 import {
+  KG_CASE_IMPORT_CLUSTER_JOB_NAME,
   KG_CASE_IMPORT_EXTRACT_JOB_NAME,
   KG_CASE_IMPORT_PARSE_JOB_NAME,
   KG_CASE_IMPORT_QUEUE,
 } from '../constants/case-import.constants'
+import {
+  CaseClusteringBatchResult,
+  CaseClusteringService,
+} from '../services/case-clustering.service'
 import {
   CaseExtractionBatchResult,
   CaseExtractionService,
 } from '../services/case-extraction.service'
 import { CaseImportService } from '../services/case-import.service'
 import {
+  CaseImportClusterJobData,
   CaseImportExtractJobData,
   CaseImportParseJobData,
   CaseImportQueueService,
@@ -27,14 +33,15 @@ export class CaseImportProcessor extends WorkerHost {
   constructor(
     private readonly caseImportService: CaseImportService,
     private readonly caseExtractionService: CaseExtractionService,
+    private readonly caseClusteringService: CaseClusteringService,
     private readonly caseImportQueueService: CaseImportQueueService,
   ) {
     super()
   }
 
   async process(
-    job: Job<CaseImportParseJobData | CaseImportExtractJobData>,
-  ): Promise<ComplianceCaseImportResult | CaseExtractionBatchResult> {
+    job: Job<CaseImportParseJobData | CaseImportExtractJobData | CaseImportClusterJobData>,
+  ): Promise<ComplianceCaseImportResult | CaseExtractionBatchResult | CaseClusteringBatchResult> {
     try {
       if (job.name === KG_CASE_IMPORT_PARSE_JOB_NAME) {
         const data = job.data as CaseImportParseJobData
@@ -54,8 +61,20 @@ export class CaseImportProcessor extends WorkerHost {
       if (job.name === KG_CASE_IMPORT_EXTRACT_JOB_NAME) {
         const data = job.data as CaseImportExtractJobData
         this.logger.log(`Processing case extraction job ${job.id} for batch ${data.batchId}`)
+        const result = await this.caseExtractionService.extractBatch(data.batchId)
 
-        return this.caseExtractionService.extractBatch(data.batchId)
+        if (result.processedCount > 0) {
+          await this.caseImportQueueService.enqueueClustering(result.batchId)
+        }
+
+        return result
+      }
+
+      if (job.name === KG_CASE_IMPORT_CLUSTER_JOB_NAME) {
+        const data = job.data as CaseImportClusterJobData
+        this.logger.log(`Processing case clustering job ${job.id} for batch ${data.batchId}`)
+
+        return this.caseClusteringService.clusterBatch(data.batchId)
       }
 
       throw new Error(`Unsupported case import job: ${job.name}`)

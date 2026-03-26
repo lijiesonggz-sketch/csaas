@@ -6,6 +6,7 @@ import {
   ImportComplianceCasesDto,
 } from '../dto/import-compliance-cases.dto'
 import {
+  KG_CASE_IMPORT_CLUSTER_JOB_NAME,
   KG_CASE_IMPORT_EXTRACT_JOB_NAME,
   KG_CASE_IMPORT_PARSE_JOB_NAME,
   KG_CASE_IMPORT_QUEUE,
@@ -21,7 +22,14 @@ export type CaseImportExtractJobData = {
   batchId: string
 }
 
-export type CaseImportJobData = CaseImportParseJobData | CaseImportExtractJobData
+export type CaseImportClusterJobData = {
+  batchId: string
+}
+
+export type CaseImportJobData =
+  | CaseImportParseJobData
+  | CaseImportExtractJobData
+  | CaseImportClusterJobData
 
 @Injectable()
 export class CaseImportQueueService {
@@ -71,6 +79,25 @@ export class CaseImportQueueService {
       },
       {
         jobId: `case-extract-${batchId}`,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        removeOnComplete: 100,
+        removeOnFail: 500,
+      },
+    )
+  }
+
+  async enqueueClustering(batchId: string): Promise<void> {
+    await this.caseImportQueue.add(
+      KG_CASE_IMPORT_CLUSTER_JOB_NAME,
+      {
+        batchId,
+      },
+      {
+        jobId: `case-cluster-${batchId}`,
         attempts: 3,
         backoff: {
           type: 'exponential',

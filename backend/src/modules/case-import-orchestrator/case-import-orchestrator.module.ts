@@ -1,7 +1,9 @@
 import { BullModule } from '@nestjs/bullmq'
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
+import { CaseControlMap } from '../../database/entities/case-control-map.entity'
 import { ComplianceCase } from '../../database/entities/compliance-case.entity'
+import { ControlPoint } from '../../database/entities/control-point.entity'
 import { RawContent } from '../../database/entities/raw-content.entity'
 import { RegulationClause } from '../../database/entities/regulation-clause.entity'
 import { AuditModule } from '../audit/audit.module'
@@ -10,13 +12,20 @@ import { KG_CASE_IMPORT_QUEUE } from './constants/case-import.constants'
 import { CaseImportController } from './controllers/case-import.controller'
 import { CaseImportAuditFilter } from './filters/case-import-audit.filter'
 import { CaseImportProcessor } from './processors/case-import.processor'
+import { CaseClusteringService } from './services/case-clustering.service'
 import { CaseExtractionService } from './services/case-extraction.service'
 import { CaseImportService } from './services/case-import.service'
 import { CaseImportQueueService } from './services/case-import-queue.service'
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([RawContent, ComplianceCase, RegulationClause]),
+    TypeOrmModule.forFeature([
+      RawContent,
+      ComplianceCase,
+      RegulationClause,
+      ControlPoint,
+      CaseControlMap,
+    ]),
     BullModule.registerQueue({
       name: KG_CASE_IMPORT_QUEUE,
       defaultJobOptions: {
@@ -34,6 +43,7 @@ import { CaseImportQueueService } from './services/case-import-queue.service'
   ],
   controllers: [CaseImportController],
   providers: [
+    CaseClusteringService,
     CaseExtractionService,
     CaseImportService,
     CaseImportQueueService,

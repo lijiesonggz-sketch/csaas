@@ -34,6 +34,7 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
     createCase: jest.fn(),
     updateCase: jest.fn(),
     getCaseExtractionResult: jest.fn(),
+    getCaseClusteringResult: jest.fn(),
     findAllCaseControlMaps: jest.fn(),
     createCaseControlMap: jest.fn(),
     updateCaseControlMap: jest.fn(),
@@ -258,6 +259,63 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
           },
         ],
         extractedAt: '2026-03-26T00:00:00.000Z',
+      },
+    })
+  })
+
+  it('should return clustered case themes and control mapping drafts', async () => {
+    mockComplianceCaseService.getCaseClusteringResult.mockResolvedValue({
+      caseId: 'case-123',
+      caseCode: 'PBOC-CASE-001',
+      status: 'clustered',
+      normalizedThemes: ['客户身份识别'],
+      candidateControlPoints: [
+        {
+          controlName: '交易监测',
+        },
+      ],
+      clusteredAt: '2026-03-26T01:00:00.000Z',
+      caseControlMapDrafts: [
+        {
+          id: 'draft-1',
+          controlId: 'control-1',
+          controlCode: 'CP-001',
+          controlName: '客户身份识别',
+          relationType: 'VIOLATES',
+          reviewStatus: 'PENDING',
+          confidenceScore: '0.9000',
+        },
+      ],
+    })
+
+    const response = await request(app.getHttpServer())
+      .get('/api/admin/knowledge-graph/compliance-cases/case-123/clustering')
+      .expect(200)
+
+    expect(response.body).toEqual({
+      success: true,
+      data: {
+        caseId: 'case-123',
+        caseCode: 'PBOC-CASE-001',
+        status: 'clustered',
+        normalizedThemes: ['客户身份识别'],
+        candidateControlPoints: [
+          {
+            controlName: '交易监测',
+          },
+        ],
+        clusteredAt: '2026-03-26T01:00:00.000Z',
+        caseControlMapDrafts: [
+          {
+            id: 'draft-1',
+            controlId: 'control-1',
+            controlCode: 'CP-001',
+            controlName: '客户身份识别',
+            relationType: 'VIOLATES',
+            reviewStatus: 'PENDING',
+            confidenceScore: '0.9000',
+          },
+        ],
       },
     })
   })

@@ -207,6 +207,33 @@ export class ComplianceCaseService {
     }
   }
 
+  async getCaseClusteringResult(caseId: string) {
+    const caseRecord = await this.findCase(caseId)
+    const drafts = await this.caseControlMapRepository.find({
+      where: { caseId },
+      relations: ['controlPoint'],
+      order: { id: 'ASC' },
+    })
+
+    return {
+      caseId: caseRecord.caseId,
+      caseCode: caseRecord.caseCode,
+      status: caseRecord.status,
+      normalizedThemes: caseRecord.normalizedThemes ?? [],
+      candidateControlPoints: caseRecord.candidateControlPoints ?? [],
+      clusteredAt: caseRecord.clusteredAt,
+      caseControlMapDrafts: drafts.map((draft) => ({
+        id: draft.id,
+        controlId: draft.controlId,
+        controlCode: draft.controlPoint?.controlCode,
+        controlName: draft.controlPoint?.controlName,
+        relationType: draft.relationType,
+        reviewStatus: draft.reviewStatus,
+        confidenceScore: draft.confidenceScore,
+      })),
+    }
+  }
+
   private toComplianceCasePersistence(
     dto: CreateComplianceCaseDto | UpdateComplianceCaseDto,
   ): Partial<ComplianceCase> {
