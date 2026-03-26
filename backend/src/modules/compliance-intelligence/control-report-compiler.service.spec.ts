@@ -124,7 +124,16 @@ describe('ControlReportCompilerService', () => {
           },
         ],
         questions: [],
-        remediations: [],
+        remediations: [
+          {
+            actionId: 'action-1',
+            actionCode: 'RA-CTRL-001',
+            actionTitle: '复核监管报送校验流程',
+            actionDesc: '核对监管报送校验规则与人工复核记录',
+            priorityDefault: 'HIGH',
+            expectedBenefit: '提升监管报送准确性',
+          },
+        ],
       })
 
     const result = await service.compileReport({
@@ -150,6 +159,7 @@ describe('ControlReportCompilerService', () => {
                 clauses: [],
                 cases: [],
                 evidences: [],
+                recommendations: [],
               }),
             ],
           },
@@ -181,6 +191,15 @@ describe('ControlReportCompilerService', () => {
                 evidences: [
                   expect.objectContaining({
                     evidenceCode: 'EVD-001',
+                  }),
+                ],
+                recommendations: [
+                  expect.objectContaining({
+                    controlId: 'control-1',
+                    remediationActionId: 'action-1',
+                    actionCode: 'RA-CTRL-001',
+                    currentStatus: 'PARTIAL',
+                    gapLevel: 'MEDIUM',
                   }),
                 ],
               }),
@@ -226,6 +245,7 @@ describe('ControlReportCompilerService', () => {
       clauses: [],
       cases: [],
       evidences: [],
+      recommendations: [],
     })
   })
 
@@ -251,5 +271,87 @@ describe('ControlReportCompilerService', () => {
         surveyResponseId: 'survey-id',
       }),
     ).rejects.toThrow(NotFoundException)
+  })
+
+  it('should keep recommendations scoped to each control and fall back to empty arrays when gap context is missing', async () => {
+    packResolverService.resolveByOrganizationId.mockResolvedValue({
+      controls: [{ controlId: 'control-1' }, { controlId: 'control-2' }],
+    })
+    controlGapInputService.getControlGapInput.mockResolvedValue({
+      controls: [
+        {
+          controlId: 'control-1',
+          currentStatus: 'PARTIAL',
+          gapLevel: 'MEDIUM',
+          questionIds: ['q-1'],
+          missingAnswers: [],
+          riskHints: [],
+        },
+      ],
+    })
+    controlExplainService.getControlExplain
+      .mockResolvedValueOnce({
+        control: {
+          controlId: 'control-1',
+          controlCode: 'CTRL-DG-004',
+          controlName: '监管报送准确性控制',
+          l1: { code: 'IT04', name: '数据治理与监管数据报送' },
+          l2: { code: 'IT04-06', name: '监管报送准确性控制' },
+        },
+        applicabilityReason: '机构命中监管报送控制包',
+        clauses: [],
+        cases: [],
+        evidences: [],
+        questions: [],
+        remediations: [
+          {
+            actionId: 'action-1',
+            actionCode: 'RA-CTRL-001',
+            actionTitle: '复核监管报送校验流程',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        control: {
+          controlId: 'control-2',
+          controlCode: 'CTRL-OPS-002',
+          controlName: '访问控制管理',
+          l1: { code: 'IT02', name: '网络与信息安全' },
+          l2: { code: 'IT02-03', name: '访问控制与授权管理' },
+        },
+        applicabilityReason: '机构命中访问控制要求',
+        clauses: [],
+        cases: [],
+        evidences: [],
+        questions: [],
+        remediations: [
+          {
+            actionId: 'action-2',
+            actionCode: 'RA-CTRL-002',
+            actionTitle: '补充访问控制审批记录',
+          },
+        ],
+      })
+
+    const result = await service.compileReport({
+      organizationId: 'org-id',
+      controlIds: ['control-1', 'control-2'],
+      surveyResponseId: 'survey-id',
+    })
+
+    const controls = result.sections.flatMap((section) =>
+      section.l2Sections.flatMap((l2Section) => l2Section.controls),
+    )
+    const firstControl = controls.find((control) => control.controlId === 'control-1')
+    const secondControl = controls.find((control) => control.controlId === 'control-2')
+
+    expect(firstControl?.recommendations).toEqual([
+      expect.objectContaining({
+        controlId: 'control-1',
+        remediationActionId: 'action-1',
+        actionCode: 'RA-CTRL-001',
+      }),
+    ])
+    expect(secondControl?.recommendations).toEqual([])
   })
 })

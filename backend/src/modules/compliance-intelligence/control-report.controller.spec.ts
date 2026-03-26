@@ -115,6 +115,19 @@ describe('ControlReportController (http)', () => {
                   clauses: [],
                   cases: [],
                   evidences: [],
+                  recommendations: [
+                    {
+                      controlId: 'control-1',
+                      remediationActionId: 'action-1',
+                      actionCode: 'RA-CTRL-001',
+                      actionTitle: '复核监管报送校验流程',
+                      actionDesc: '核对监管报送校验规则与人工复核记录',
+                      priority: 'HIGH',
+                      currentStatus: 'PARTIAL',
+                      gapLevel: 'MEDIUM',
+                      expectedBenefit: '提升监管报送准确性',
+                    },
+                  ],
                 },
               ],
             },
@@ -149,6 +162,7 @@ describe('ControlReportController (http)', () => {
           requestedControlCount: 1,
           compiledControlCount: 1,
           sectionCount: 1,
+          recommendationCount: 1,
         }),
       }),
     )

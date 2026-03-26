@@ -45,6 +45,18 @@ export type ControlReportEvidenceDto = {
   notes: string | null
 }
 
+export type ControlReportRecommendationDto = {
+  controlId: string
+  remediationActionId: string
+  actionCode: string
+  actionTitle: string
+  actionDesc: string | null
+  priority: string | null
+  currentStatus: ControlReportGapStatus
+  gapLevel: ControlReportGapLevel
+  expectedBenefit: string | null
+}
+
 export type ControlReportControlNodeDto = {
   controlId: string
   controlCode: string
@@ -54,6 +66,7 @@ export type ControlReportControlNodeDto = {
   clauses: ControlReportClauseDto[]
   cases: ControlReportCaseDto[]
   evidences: ControlReportEvidenceDto[]
+  recommendations: ControlReportRecommendationDto[]
 }
 
 export type ControlReportL2SectionDto = {

@@ -10,6 +10,7 @@ import {
   ControlReportControlNodeDto,
   ControlReportEvidenceDto,
   ControlReportL2SectionDto,
+  ControlReportRecommendationDto,
   ControlReportSectionDto,
 } from '../dto/compile-control-report.dto'
 import { ControlExplainService } from './control-explain.service'
@@ -124,6 +125,7 @@ export class ControlReportCompilerService {
         clauses: this.mapClauses(explain.clauses),
         cases: this.mapCases(explain.cases),
         evidences: this.mapEvidences(explain.evidences),
+        recommendations: this.mapRecommendations(controlId, explain, gap),
       })
 
       section.l2Sections.set(l2Code, l2Section)
@@ -189,5 +191,29 @@ export class ControlReportCompilerService {
         notes: (item.notes as string | null | undefined) ?? null,
       }))
       .sort((left, right) => left.evidenceCode.localeCompare(right.evidenceCode))
+  }
+
+  private mapRecommendations(
+    controlId: string,
+    explain: ExplainResult,
+    gap?: ControlGapInputItemDto,
+  ): ControlReportRecommendationDto[] {
+    if (!gap) {
+      return []
+    }
+
+    return ((explain.remediations as Array<Record<string, unknown>> | undefined) ?? [])
+      .map((item) => ({
+        controlId,
+        remediationActionId: item.actionId as string,
+        actionCode: item.actionCode as string,
+        actionTitle: item.actionTitle as string,
+        actionDesc: (item.actionDesc as string | null | undefined) ?? null,
+        priority: (item.priorityDefault as string | null | undefined) ?? null,
+        currentStatus: gap.currentStatus,
+        gapLevel: gap.gapLevel,
+        expectedBenefit: (item.expectedBenefit as string | null | undefined) ?? null,
+      }))
+      .sort((left, right) => left.actionCode.localeCompare(right.actionCode))
   }
 }

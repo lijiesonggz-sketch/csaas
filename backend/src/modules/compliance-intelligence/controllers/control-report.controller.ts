@@ -39,6 +39,20 @@ export class ControlReportController {
         ),
       0,
     )
+    const recommendationCount = result.sections.reduce(
+      (sum, section) =>
+        sum +
+        section.l2Sections.reduce(
+          (l2Sum, l2Section) =>
+            l2Sum +
+            l2Section.controls.reduce(
+              (controlSum, control) => controlSum + control.recommendations.length,
+              0,
+            ),
+          0,
+        ),
+      0,
+    )
 
     await this.auditLogService.log({
       userId: user.id || user.userId,
@@ -53,6 +67,7 @@ export class ControlReportController {
         requestedControlCount: body.controlIds.length,
         compiledControlCount: controlCount,
         sectionCount: result.sections.length,
+        recommendationCount,
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] as string | undefined,
