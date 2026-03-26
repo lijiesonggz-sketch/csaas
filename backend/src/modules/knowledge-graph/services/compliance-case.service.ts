@@ -50,6 +50,10 @@ export class ComplianceCaseService {
       where.authorityName = query.authorityName
     }
 
+    if (query.regulatorCode) {
+      where.regulatorCode = query.regulatorCode
+    }
+
     if (query.status) {
       where.status = query.status
     }
@@ -194,10 +198,12 @@ export class ComplianceCaseService {
     dto: CreateComplianceCaseDto | UpdateComplianceCaseDto,
   ): Partial<ComplianceCase> {
     const caseDate =
-      dto.caseDate === undefined || dto.caseDate === null ? dto.caseDate ?? null : new Date(dto.caseDate)
+      dto.caseDate === undefined || dto.caseDate === null
+        ? (dto.caseDate ?? null)
+        : new Date(dto.caseDate)
     const confidenceScore =
       dto.confidenceScore === undefined || dto.confidenceScore === null
-        ? dto.confidenceScore ?? null
+        ? (dto.confidenceScore ?? null)
         : dto.confidenceScore.toFixed(4)
 
     return {
@@ -212,7 +218,7 @@ export class ComplianceCaseService {
   ): Partial<CaseControlMap> {
     const confidenceScore =
       dto.confidenceScore === undefined || dto.confidenceScore === null
-        ? dto.confidenceScore ?? null
+        ? (dto.confidenceScore ?? null)
         : dto.confidenceScore.toFixed(4)
 
     return {

@@ -13,7 +13,14 @@ import { CaseControlMap } from './case-control-map.entity'
 import { TaxonomyL1 } from './taxonomy-l1.entity'
 import { TaxonomyL2 } from './taxonomy-l2.entity'
 
-export const COMPLIANCE_CASE_STATUSES = ['pending', 'active', 'inactive'] as const
+export const COMPLIANCE_CASE_STATUSES = [
+  'pending',
+  'extracted',
+  'clustered',
+  'reviewed',
+  'active',
+  'inactive',
+] as const
 export type ComplianceCaseStatus = (typeof COMPLIANCE_CASE_STATUSES)[number]
 
 @Entity('compliance_cases')
@@ -24,6 +31,9 @@ export class ComplianceCase {
 
   @Column({ name: 'case_code', type: 'varchar', length: 100 })
   caseCode: string
+
+  @Column({ name: 'regulator_code', type: 'varchar', length: 20, nullable: true })
+  regulatorCode: string | null
 
   @Column({ name: 'case_title', type: 'varchar', length: 500, nullable: true })
   caseTitle: string | null
@@ -48,6 +58,9 @@ export class ComplianceCase {
 
   @Column({ name: 'case_facts', type: 'text', nullable: true })
   caseFacts: string | null
+
+  @Column({ name: 'penalty_reason', type: 'text', nullable: true })
+  penaltyReason: string | null
 
   @Column({ name: 'raw_source_url', type: 'text', nullable: true })
   rawSourceUrl: string | null

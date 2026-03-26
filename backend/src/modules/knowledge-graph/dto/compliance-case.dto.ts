@@ -59,6 +59,11 @@ export class QueryComplianceCaseDto extends PaginationDto {
   authorityName?: string
 
   @IsOptional()
+  @IsString()
+  @Length(1, 20)
+  regulatorCode?: string
+
+  @IsOptional()
   @IsEnum(COMPLIANCE_CASE_STATUSES)
   status?: ComplianceCaseStatus
 
@@ -73,6 +78,11 @@ export class CreateComplianceCaseDto {
   @Length(1, 100)
   @Matches(/^[A-Z0-9._-]+$/)
   caseCode: string
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 20)
+  regulatorCode?: string | null
 
   @IsOptional()
   @IsString()
@@ -113,6 +123,11 @@ export class CreateComplianceCaseDto {
   @IsString()
   @Length(1, 10000)
   caseFacts?: string | null
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 10000)
+  penaltyReason?: string | null
 
   @IsOptional()
   @IsString()
@@ -160,6 +175,11 @@ export class UpdateComplianceCaseDto {
 
   @IsOptional()
   @IsString()
+  @Length(1, 20)
+  regulatorCode?: string | null
+
+  @IsOptional()
+  @IsString()
   @Length(1, 500)
   caseTitle?: string | null
 
@@ -197,6 +217,11 @@ export class UpdateComplianceCaseDto {
   @IsString()
   @Length(1, 10000)
   caseFacts?: string | null
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 10000)
+  penaltyReason?: string | null
 
   @IsOptional()
   @IsString()
