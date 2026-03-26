@@ -4,6 +4,7 @@ import { Repository } from 'typeorm'
 import { PackResolverService } from '../../applicability-engine/services/pack-resolver.service'
 import { AnalyzedContent } from '../../../database/entities/analyzed-content.entity'
 import { ControlGapInputService } from '../../survey/control-gap-input.service'
+import type { ControlGapInputItemDto } from '../../survey/dto/control-gap-input.dto'
 import {
   CalculateRadarRelevanceDto,
   RadarRelevanceMatchedCaseDto,
@@ -11,6 +12,7 @@ import {
   RadarRelevanceMatchedControlDto,
   RadarRelevancePriority,
   RadarRelevanceResponseDto,
+  RadarRelevanceSuggestedCheckDto,
 } from '../dto/radar-relevance.dto'
 import { ControlExplainService } from './control-explain.service'
 
@@ -23,12 +25,18 @@ type ScoredControlMatch = {
   control: RadarRelevanceMatchedControlDto
   matchedCases: RadarRelevanceMatchedCaseDto[]
   matchedClauses: RadarRelevanceMatchedClauseDto[]
+  suggestedChecks: RadarRelevanceSuggestedCheckDto[]
 }
 
 type TextSignal = {
   score: number
   matchedTerms: string[]
 }
+
+type GapContext = Pick<
+  ControlGapInputItemDto,
+  'controlId' | 'currentStatus' | 'gapLevel' | 'riskHints' | 'missingAnswers' | 'questionIds'
+>
 
 const GENERIC_SUFFIXES = ['控制点', '控制', '管理', '要求', '案例', '条款', '治理']
 const HIGH_PRIORITY_THRESHOLD = 0.85
@@ -59,9 +67,9 @@ export class RadarRelevanceEnhancedService {
     const resolvedControlSet = await this.packResolverService.resolveByOrganizationId(
       input.organizationId,
     )
-    const gapLevels = input.surveyResponseId
-      ? await this.loadGapLevels(input.surveyResponseId, input.organizationId)
-      : new Map<string, GapLevel>()
+    const gapContexts = input.surveyResponseId
+      ? await this.loadGapContexts(input.surveyResponseId, input.organizationId)
+      : new Map<string, GapContext>()
     const contentHaystack = this.buildContentHaystack(analyzedContent)
 
     const explainResults = await Promise.all(
@@ -75,7 +83,7 @@ export class RadarRelevanceEnhancedService {
 
     const scoredMatches = explainResults
       .map(({ controlId, explain }) =>
-        this.scoreControlMatch(contentHaystack, explain, gapLevels.get(controlId)),
+        this.scoreControlMatch(contentHaystack, explain, gapContexts.get(controlId)),
       )
       .filter((match): match is ScoredControlMatch => Boolean(match))
       .sort(
@@ -91,6 +99,7 @@ export class RadarRelevanceEnhancedService {
         matchedControls: [],
         matchedCases: [],
         matchedClauses: [],
+        suggestedChecks: [],
       }
     }
 
@@ -105,6 +114,17 @@ export class RadarRelevanceEnhancedService {
     const relevanceScore = this.roundScore(
       Math.min(1, scoredMatches[0].score + Math.min(0.1, (scoredMatches.length - 1) * 0.05)),
     )
+    const suggestedChecks = this.uniqueByKey(
+      scoredMatches.flatMap((match) => match.suggestedChecks),
+      (item) =>
+        [
+          item.controlId,
+          item.checkType,
+          item.sourceId ?? '',
+          item.sourceCode ?? '',
+          item.title,
+        ].join(':'),
+    )
 
     return {
       relevanceScore,
@@ -112,25 +132,26 @@ export class RadarRelevanceEnhancedService {
       matchedControls: scoredMatches.map((match) => match.control),
       matchedCases,
       matchedClauses,
+      suggestedChecks,
     }
   }
 
-  private async loadGapLevels(
+  private async loadGapContexts(
     surveyResponseId: string,
     organizationId: string,
-  ): Promise<Map<string, GapLevel>> {
+  ): Promise<Map<string, GapContext>> {
     const gapInput = await this.controlGapInputService.getControlGapInput(
       surveyResponseId,
       organizationId,
     )
 
-    return new Map(gapInput.controls.map((control) => [control.controlId, control.gapLevel]))
+    return new Map(gapInput.controls.map((control) => [control.controlId, control]))
   }
 
   private scoreControlMatch(
     contentHaystack: string,
     explain: ExplainResult,
-    gapLevel?: GapLevel,
+    gapContext?: GapContext,
   ): ScoredControlMatch | null {
     const controlSignal = this.scoreTextSignal(contentHaystack, [
       explain.control.controlCode,
@@ -165,7 +186,10 @@ export class RadarRelevanceEnhancedService {
       return null
     }
 
-    const score = this.roundScore(Math.min(1, evidenceSignal + this.gapBoost(gapLevel)))
+    const score = this.roundScore(Math.min(1, evidenceSignal + this.gapBoost(gapContext?.gapLevel)))
+    const priority = this.toPriority(score)
+    const resolvedMatchedCases = matchedCases.map((item) => item.value)
+    const resolvedMatchedClauses = matchedClauses.map((item) => item.value)
 
     return {
       score,
@@ -176,13 +200,20 @@ export class RadarRelevanceEnhancedService {
         reason: this.buildReason(
           explain,
           controlSignal,
-          matchedCases.map((item) => item.value),
-          matchedClauses.map((item) => item.value),
-          gapLevel,
+          resolvedMatchedCases,
+          resolvedMatchedClauses,
+          gapContext?.gapLevel,
         ),
       },
-      matchedCases: matchedCases.map((item) => item.value),
-      matchedClauses: matchedClauses.map((item) => item.value),
+      matchedCases: resolvedMatchedCases,
+      matchedClauses: resolvedMatchedClauses,
+      suggestedChecks: this.buildSuggestedChecks(
+        explain,
+        resolvedMatchedCases,
+        resolvedMatchedClauses,
+        gapContext,
+        priority,
+      ),
     }
   }
 
@@ -365,6 +396,114 @@ export class RadarRelevanceEnhancedService {
     return parts.length > 0 ? parts.join('；') : explain.applicabilityReason
   }
 
+  private buildSuggestedChecks(
+    explain: ExplainResult,
+    matchedCases: RadarRelevanceMatchedCaseDto[],
+    matchedClauses: RadarRelevanceMatchedClauseDto[],
+    gapContext: GapContext | undefined,
+    priority: RadarRelevancePriority,
+  ): RadarRelevanceSuggestedCheckDto[] {
+    const gapDetail = this.buildGapDetail(gapContext)
+    const suggestedChecks: RadarRelevanceSuggestedCheckDto[] = []
+
+    const questionChecks = ((explain.questions as Array<Record<string, unknown>> | undefined) ?? [])
+      .slice(0, 2)
+      .map((item) => ({
+        controlId: explain.control.controlId,
+        controlCode: explain.control.controlCode,
+        checkType: 'QUESTION' as const,
+        sourceId: (item.questionId as string | null | undefined) ?? null,
+        sourceCode: (item.questionCode as string | null | undefined) ?? null,
+        title:
+          (item.questionText as string | null | undefined) ??
+          (item.questionCode as string | null | undefined) ??
+          `复核控制点 ${explain.control.controlCode}`,
+        detail: this.joinDetailParts(
+          item.questionType ? `问题类型：${String(item.questionType)}` : null,
+          typeof item.required === 'boolean' ? (item.required ? '必答项' : '选答项') : null,
+          gapDetail,
+        ),
+        priority,
+      }))
+    suggestedChecks.push(...questionChecks)
+
+    const remediationChecks = (
+      (explain.remediations as Array<Record<string, unknown>> | undefined) ?? []
+    )
+      .slice(0, 2)
+      .map((item) => ({
+        controlId: explain.control.controlId,
+        controlCode: explain.control.controlCode,
+        checkType: 'REMEDIATION' as const,
+        sourceId: (item.actionId as string | null | undefined) ?? null,
+        sourceCode: (item.actionCode as string | null | undefined) ?? null,
+        title:
+          (item.actionTitle as string | null | undefined) ??
+          (item.actionCode as string | null | undefined) ??
+          `跟进控制点 ${explain.control.controlCode}`,
+        detail: this.joinDetailParts(
+          (item.actionDesc as string | null | undefined) ?? null,
+          (item.expectedBenefit as string | null | undefined) ?? null,
+          item.priorityDefault ? `默认优先级：${String(item.priorityDefault)}` : null,
+          gapDetail,
+        ),
+        priority,
+      }))
+    suggestedChecks.push(...remediationChecks)
+
+    if (suggestedChecks.length > 0) {
+      return suggestedChecks
+    }
+
+    if (matchedClauses.length > 0) {
+      suggestedChecks.push(
+        ...matchedClauses.slice(0, 1).map((item) => ({
+          controlId: explain.control.controlId,
+          controlCode: explain.control.controlCode,
+          checkType: 'CLAUSE' as const,
+          sourceId: item.clauseId,
+          sourceCode: item.clauseCode,
+          title: item.clauseSummary ?? item.articleNo ?? item.clauseCode,
+          detail: this.joinDetailParts(item.sourceName, gapDetail),
+          priority,
+        })),
+      )
+    }
+
+    if (matchedCases.length > 0) {
+      suggestedChecks.push(
+        ...matchedCases.slice(0, 1).map((item) => ({
+          controlId: explain.control.controlId,
+          controlCode: explain.control.controlCode,
+          checkType: 'CASE' as const,
+          sourceId: item.caseId,
+          sourceCode: item.caseCode,
+          title: item.caseTitle ?? item.caseCode,
+          detail: this.joinDetailParts(item.authorityName, item.sourceOrg, gapDetail),
+          priority,
+        })),
+      )
+    }
+
+    return suggestedChecks
+  }
+
+  private buildGapDetail(gapContext?: GapContext): string | null {
+    if (!gapContext) {
+      return null
+    }
+
+    const riskHints = gapContext.riskHints ?? []
+    const missingAnswers = gapContext.missingAnswers ?? []
+
+    return this.joinDetailParts(
+      gapContext.currentStatus ? `当前状态：${gapContext.currentStatus}` : null,
+      gapContext.gapLevel ? `差距等级：${gapContext.gapLevel}` : null,
+      riskHints.length > 0 ? `风险提示：${riskHints.join('；')}` : null,
+      missingAnswers.length > 0 ? `缺失答案：${missingAnswers.length}` : null,
+    )
+  }
+
   private toPriority(score: number): RadarRelevancePriority {
     if (score >= HIGH_PRIORITY_THRESHOLD) {
       return 'HIGH'
@@ -397,5 +536,10 @@ export class RadarRelevanceEnhancedService {
       seen.add(key)
       return true
     })
+  }
+
+  private joinDetailParts(...values: Array<string | null | undefined>): string | null {
+    const parts = values.filter((value): value is string => Boolean(value))
+    return parts.length > 0 ? parts.join('；') : null
   }
 }

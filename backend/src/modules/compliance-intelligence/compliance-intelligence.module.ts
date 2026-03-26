@@ -10,6 +10,7 @@ import { KnowledgeGraphModule } from '../knowledge-graph/knowledge-graph.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
 import { SurveyModule } from '../survey/survey.module'
 import { ControlExplainController } from './controllers/control-explain.controller'
+import { RadarRelevanceController } from './controllers/radar-relevance.controller'
 import { ControlExplainService } from './services/control-explain.service'
 import { RadarRelevanceEnhancedService } from './services/radar-relevance-enhanced.service'
 
@@ -22,7 +23,7 @@ import { RadarRelevanceEnhancedService } from './services/radar-relevance-enhanc
     ApplicabilityEngineModule,
     SurveyModule,
   ],
-  controllers: [ControlExplainController],
+  controllers: [ControlExplainController, RadarRelevanceController],
   providers: [ControlExplainService, RadarRelevanceEnhancedService],
   exports: [ControlExplainService, RadarRelevanceEnhancedService],
 })

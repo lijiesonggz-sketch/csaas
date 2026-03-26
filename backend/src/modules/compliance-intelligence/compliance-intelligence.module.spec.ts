@@ -6,6 +6,7 @@ import { KnowledgeGraphModule } from '../knowledge-graph/knowledge-graph.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
 import { SurveyModule } from '../survey/survey.module'
 import { ControlExplainController } from './controllers/control-explain.controller'
+import { RadarRelevanceController } from './controllers/radar-relevance.controller'
 import { ComplianceIntelligenceModule } from './compliance-intelligence.module'
 import { ControlExplainService } from './services/control-explain.service'
 import { RadarRelevanceEnhancedService } from './services/radar-relevance-enhanced.service'
@@ -18,7 +19,9 @@ describe('ComplianceIntelligenceModule', () => {
     const providers =
       Reflect.getMetadata(MODULE_METADATA.PROVIDERS, ComplianceIntelligenceModule) ?? []
 
-    expect(controllers).toEqual(expect.arrayContaining([ControlExplainController]))
+    expect(controllers).toEqual(
+      expect.arrayContaining([ControlExplainController, RadarRelevanceController]),
+    )
     expect(imports).toEqual(
       expect.arrayContaining([
         KnowledgeGraphModule,

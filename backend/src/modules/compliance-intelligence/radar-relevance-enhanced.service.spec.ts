@@ -112,8 +112,24 @@ describe('RadarRelevanceEnhancedService', () => {
           },
         ],
         evidences: [],
-        questions: [],
-        remediations: [],
+        questions: [
+          {
+            questionId: 'question-1',
+            questionCode: 'Q-CTRL-001',
+            questionText: '是否校验监管报送准确性？',
+            questionType: 'single_choice',
+            required: true,
+          },
+        ],
+        remediations: [
+          {
+            actionId: 'action-1',
+            actionCode: 'RA-CTRL-001',
+            actionTitle: '复核监管报送校验流程',
+            actionDesc: '核对监管报送校验规则与人工复核记录',
+            priorityDefault: 'HIGH',
+          },
+        ],
       })
       .mockResolvedValueOnce({
         control: {
@@ -127,7 +143,15 @@ describe('RadarRelevanceEnhancedService', () => {
         cases: [],
         evidences: [],
         questions: [],
-        remediations: [],
+        remediations: [
+          {
+            actionId: 'action-2',
+            actionCode: 'RA-CTRL-002',
+            actionTitle: '核查跨境数据审批台账',
+            actionDesc: '确认跨境数据审批与留痕材料完整',
+            priorityDefault: 'MEDIUM',
+          },
+        ],
       })
 
     const result = await service.calculateRadarRelevance({
@@ -163,6 +187,26 @@ describe('RadarRelevanceEnhancedService', () => {
         clauseCode: 'CLAUSE-001',
       }),
     ])
+    expect(result.suggestedChecks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          controlId: 'control-1',
+          controlCode: 'CTRL-DG-004',
+          checkType: 'QUESTION',
+          sourceCode: 'Q-CTRL-001',
+          title: '是否校验监管报送准确性？',
+          priority: 'HIGH',
+          detail: expect.stringContaining('差距等级：HIGH'),
+        }),
+        expect.objectContaining({
+          controlId: 'control-1',
+          controlCode: 'CTRL-DG-004',
+          checkType: 'REMEDIATION',
+          sourceCode: 'RA-CTRL-001',
+          title: '复核监管报送校验流程',
+        }),
+      ]),
+    )
   })
 
   it('should return a stable low-relevance result with empty arrays when no applicable controls match the content', async () => {
@@ -207,6 +251,7 @@ describe('RadarRelevanceEnhancedService', () => {
       matchedControls: [],
       matchedCases: [],
       matchedClauses: [],
+      suggestedChecks: [],
     })
     expect(controlGapInputService.getControlGapInput).not.toHaveBeenCalled()
   })
@@ -274,6 +319,18 @@ describe('RadarRelevanceEnhancedService', () => {
     expect(controlGapInputService.getControlGapInput).toHaveBeenCalledWith('survey-id', 'org-id')
     expect(result.relevanceScore).toBe(1)
     expect(result.priority).toBe('HIGH')
+    expect(result.suggestedChecks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          checkType: 'CLAUSE',
+          sourceCode: 'CLAUSE-001',
+        }),
+        expect.objectContaining({
+          checkType: 'CASE',
+          sourceCode: 'CASE-001',
+        }),
+      ]),
+    )
   })
 
   it('should preserve a matched control even when that control has no cases or clauses, as long as the control-level semantics match the content', async () => {
@@ -323,5 +380,66 @@ describe('RadarRelevanceEnhancedService', () => {
     expect(result.matchedCases).toEqual([])
     expect(result.matchedClauses).toEqual([])
     expect(result.priority).toBe('LOW')
+    expect(Array.isArray(result.suggestedChecks)).toBe(true)
+  })
+
+  it('should fall back to clause-based suggested checks when no question or remediation item is available', async () => {
+    analyzedContentRepository.findOne.mockResolvedValue({
+      id: 'content-id',
+      contentId: 'raw-content-id',
+      categories: ['监管报送'],
+      tags: [{ name: '监管报送准确性要求' }],
+      rawContent: {
+        title: '监管报送准确性要求更新',
+        summary: '重点强调监管报送准确性要求',
+        fullContent: '内容直接引用监管报送准确性要求和对应处罚案例。',
+      },
+      complianceAnalysis: {
+        policyRequirements: '监管报送准确性要求',
+      },
+    })
+    packResolverService.resolveByOrganizationId.mockResolvedValue({
+      controls: [{ controlId: 'control-1', controlCode: 'CTRL-DG-004' }],
+    })
+    controlExplainService.getControlExplain.mockResolvedValue({
+      control: {
+        controlId: 'control-1',
+        controlCode: 'CTRL-DG-004',
+        controlName: '监管报送准确性控制',
+        controlDesc: '确保监管报送准确完整',
+      },
+      applicabilityReason: '银行机构命中监管报送与数据治理控制包',
+      clauses: [
+        {
+          clauseId: 'clause-1',
+          clauseCode: 'CLAUSE-001',
+          articleNo: '第十条',
+          clauseSummary: '监管报送准确性要求',
+          clauseText: '机构应确保监管报送数据准确完整',
+          source: {
+            sourceName: '监管报送办法',
+          },
+        },
+      ],
+      cases: [],
+      evidences: [],
+      questions: [],
+      remediations: [],
+    })
+
+    const result = await service.calculateRadarRelevance({
+      organizationId: 'org-id',
+      contentId: 'content-id',
+    })
+
+    expect(result.suggestedChecks).toEqual([
+      expect.objectContaining({
+        controlId: 'control-1',
+        controlCode: 'CTRL-DG-004',
+        checkType: 'CLAUSE',
+        sourceCode: 'CLAUSE-001',
+        title: '监管报送准确性要求',
+      }),
+    ])
   })
 })

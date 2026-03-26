@@ -14,6 +14,14 @@ export class CalculateRadarRelevanceDto {
 
 export const RADAR_RELEVANCE_PRIORITIES = ['HIGH', 'MEDIUM', 'LOW'] as const
 export type RadarRelevancePriority = (typeof RADAR_RELEVANCE_PRIORITIES)[number]
+export const RADAR_RELEVANCE_SUGGESTED_CHECK_TYPES = [
+  'QUESTION',
+  'REMEDIATION',
+  'CLAUSE',
+  'CASE',
+] as const
+export type RadarRelevanceSuggestedCheckType =
+  (typeof RADAR_RELEVANCE_SUGGESTED_CHECK_TYPES)[number]
 
 export type RadarRelevanceMatchedControlDto = {
   controlId: string
@@ -40,10 +48,22 @@ export type RadarRelevanceMatchedClauseDto = {
   sourceName: string | null
 }
 
+export type RadarRelevanceSuggestedCheckDto = {
+  controlId: string
+  controlCode: string
+  checkType: RadarRelevanceSuggestedCheckType
+  sourceId: string | null
+  sourceCode: string | null
+  title: string
+  detail: string | null
+  priority: RadarRelevancePriority
+}
+
 export type RadarRelevanceResponseDto = {
   relevanceScore: number
   priority: RadarRelevancePriority
   matchedControls: RadarRelevanceMatchedControlDto[]
   matchedCases: RadarRelevanceMatchedCaseDto[]
   matchedClauses: RadarRelevanceMatchedClauseDto[]
+  suggestedChecks: RadarRelevanceSuggestedCheckDto[]
 }
