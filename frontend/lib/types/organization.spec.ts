@@ -2,7 +2,6 @@ import {
   describe,
   expect,
   it,
-  beforeEach,
 } from '@jest/globals'
 
 // This file validates the TypeScript type definitions for organizations
@@ -109,7 +108,7 @@ describe('Organization Type Definitions', () => {
   describe('PaginatedResponse interface', () => {
     it('should have correct type structure', () => {
       const response: {
-        data: any[]
+        data: unknown[]
         pagination: {
           page: number
           limit: number
@@ -128,6 +127,54 @@ describe('Organization Type Definitions', () => {
 
       expect(response.pagination.page).toBe(1)
       expect(response.data).toHaveLength(1)
+    })
+  })
+
+  describe('OrganizationProfile interface', () => {
+    it('should describe the 16-field organization profile contract', () => {
+      const profile: {
+        orgId: string
+        industry: 'bank'
+        legalPersonType: 'legal_person'
+        assetBucket: 'large'
+        hasPersonalInfo: boolean
+        crossBorderData: boolean
+        importantDataStatus: 'unknown'
+        ciioStatus: 'no'
+        hasDatacenter: boolean
+        usesCloud: boolean
+        outsourcingLevel: 'medium'
+        criticalSystemLevel: 'high'
+        hasOnlineTrading: boolean
+        hasAiServices: boolean
+        publicServiceScope: 'public_users'
+        regulatoryAttentionLevel: 'medium'
+        recentMajorIncident: boolean
+        updatedAt: string
+      } = {
+        orgId: 'org-123',
+        industry: 'bank',
+        legalPersonType: 'legal_person',
+        assetBucket: 'large',
+        hasPersonalInfo: true,
+        crossBorderData: false,
+        importantDataStatus: 'unknown',
+        ciioStatus: 'no',
+        hasDatacenter: true,
+        usesCloud: true,
+        outsourcingLevel: 'medium',
+        criticalSystemLevel: 'high',
+        hasOnlineTrading: false,
+        hasAiServices: false,
+        publicServiceScope: 'public_users',
+        regulatoryAttentionLevel: 'medium',
+        recentMajorIncident: false,
+        updatedAt: '2026-03-26T10:00:00.000Z',
+      }
+
+      expect(profile.orgId).toBe('org-123')
+      expect(profile.importantDataStatus).toBe('unknown')
+      expect(profile.updatedAt).toContain('2026-03-26')
     })
   })
 })

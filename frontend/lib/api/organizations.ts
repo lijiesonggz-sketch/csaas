@@ -8,7 +8,63 @@
  */
 
 import { apiFetch } from '../utils/api'
-import { PaginatedResponse, Organization, WeaknessSnapshot, AggregatedWeakness } from '../types/organization'
+import {
+  AggregatedWeakness,
+  Organization,
+  OrganizationProfile,
+  PaginatedResponse,
+  UpsertOrganizationProfilePayload,
+  WeaknessSnapshot,
+} from '../types/organization'
+
+export type OrganizationProfileErrorCode =
+  | 'not_found'
+  | 'validation'
+  | 'conflict'
+  | 'network'
+  | 'unknown'
+
+export class OrganizationProfileRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly code: OrganizationProfileErrorCode,
+    public readonly status?: number,
+  ) {
+    super(message)
+    this.name = 'OrganizationProfileRequestError'
+  }
+}
+
+function normalizeOrganizationProfileError(
+  error: unknown,
+  fallbackMessage: string,
+): OrganizationProfileRequestError {
+  const candidate = error as { message?: string; status?: number } | undefined
+  const status = candidate?.status
+  const message = candidate?.message || fallbackMessage
+
+  if (status === 404) {
+    return new OrganizationProfileRequestError('机构画像不存在', 'not_found', status)
+  }
+
+  if (status === 400 || status === 422) {
+    return new OrganizationProfileRequestError(message, 'validation', status)
+  }
+
+  if (status === 409) {
+    return new OrganizationProfileRequestError(
+      '机构画像已被其他用户更新，请刷新后重试',
+      'conflict',
+      status,
+    )
+  }
+
+  if (typeof status !== 'number') {
+    return new OrganizationProfileRequestError(message, 'network')
+  }
+
+  return new OrganizationProfileRequestError(message, 'unknown', status)
+}
 
 /**
  * Organizations API Client
@@ -34,6 +90,28 @@ export class OrganizationsApi {
    */
   async getOrganizationById(id: string): Promise<Organization> {
     return apiFetch(`/organizations/${id}`)
+  }
+
+  async getOrganizationProfile(id: string): Promise<OrganizationProfile> {
+    try {
+      return await apiFetch(`/organizations/${id}/profile`)
+    } catch (error) {
+      throw normalizeOrganizationProfileError(error, '加载机构画像失败')
+    }
+  }
+
+  async upsertOrganizationProfile(
+    id: string,
+    data: UpsertOrganizationProfilePayload,
+  ): Promise<OrganizationProfile> {
+    try {
+      return await apiFetch(`/organizations/${id}/profile`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      })
+    } catch (error) {
+      throw normalizeOrganizationProfileError(error, '保存机构画像失败')
+    }
   }
 
   /**

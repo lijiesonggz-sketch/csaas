@@ -243,13 +243,32 @@ export class OrganizationsService {
   ): Promise<OrganizationProfile> {
     await this.getOrganizationById(orgId)
 
-    await this.organizationProfileRepository.upsert(
-      {
+    const { expectedUpdatedAt, ...profileData } = profileDto
+    const existingProfile = await this.organizationProfileRepository.findOne({
+      where: { orgId },
+    })
+
+    if (!existingProfile) {
+      const entity = this.organizationProfileRepository.create({
         orgId,
-        ...profileDto,
-      },
-      ['orgId'],
-    )
+        ...profileData,
+      })
+      await this.organizationProfileRepository.save(entity)
+      return this.getOrganizationProfile(orgId)
+    }
+
+    if (
+      expectedUpdatedAt &&
+      existingProfile.updatedAt &&
+      existingProfile.updatedAt.toISOString() !== new Date(expectedUpdatedAt).toISOString()
+    ) {
+      throw new ConflictException(
+        `Organization profile for ${orgId} has been updated by another user`,
+      )
+    }
+
+    Object.assign(existingProfile, profileData)
+    await this.organizationProfileRepository.save(existingProfile)
 
     return this.getOrganizationProfile(orgId)
   }

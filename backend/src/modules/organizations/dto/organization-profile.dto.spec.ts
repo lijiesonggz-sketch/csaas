@@ -72,4 +72,27 @@ describe('UpsertOrganizationProfileDto', () => {
     expect(properties).toContain('usesCloud')
     expect(properties).toContain('recentMajorIncident')
   })
+
+  it('should allow an optional expectedUpdatedAt ISO timestamp', async () => {
+    const dto = plainToInstance(UpsertOrganizationProfileDto, {
+      ...validPayload,
+      expectedUpdatedAt: '2026-03-26T10:00:00.000Z',
+    })
+
+    const errors = await validate(dto as object)
+
+    expect(errors).toHaveLength(0)
+  })
+
+  it('should fail when expectedUpdatedAt is not a valid ISO timestamp', async () => {
+    const dto = plainToInstance(UpsertOrganizationProfileDto, {
+      ...validPayload,
+      expectedUpdatedAt: 'yesterday',
+    })
+
+    const errors = await validate(dto as object)
+    const properties = errors.map((error) => error.property)
+
+    expect(properties).toContain('expectedUpdatedAt')
+  })
 })

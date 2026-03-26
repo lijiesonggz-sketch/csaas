@@ -184,19 +184,22 @@ describe('OrganizationsService', () => {
       } as OrganizationProfile
 
       mockOrgRepository.findOne.mockResolvedValue(organization)
-      mockOrganizationProfileRepository.upsert.mockResolvedValue(undefined)
-      mockOrganizationProfileRepository.findOne.mockResolvedValue(createdProfile)
+      mockOrganizationProfileRepository.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(createdProfile)
+      mockOrganizationProfileRepository.create.mockReturnValue(createdProfile)
+      mockOrganizationProfileRepository.save.mockResolvedValue(createdProfile)
 
       const result = await service.upsertOrganizationProfile(orgId, payload as any)
 
       expect(result).toEqual(createdProfile)
-      expect(mockOrganizationProfileRepository.upsert).toHaveBeenCalledWith(
+      expect(mockOrganizationProfileRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           orgId,
           industry: 'bank',
         }),
-        ['orgId'],
       )
+      expect(mockOrganizationProfileRepository.save).toHaveBeenCalledWith(createdProfile)
     })
 
     it('should update an existing profile when one already exists', async () => {
@@ -204,22 +207,45 @@ describe('OrganizationsService', () => {
       const updatedProfile = {
         orgId,
         industry: 'bank',
+        updatedAt: new Date('2026-03-26T10:00:00.000Z'),
       } as OrganizationProfile
 
       mockOrgRepository.findOne.mockResolvedValue(organization)
-      mockOrganizationProfileRepository.upsert.mockResolvedValue(undefined)
-      mockOrganizationProfileRepository.findOne.mockResolvedValue(updatedProfile)
+      mockOrganizationProfileRepository.findOne
+        .mockResolvedValueOnce(updatedProfile)
+        .mockResolvedValueOnce(updatedProfile)
+      mockOrganizationProfileRepository.save.mockResolvedValue(updatedProfile)
 
       const result = await service.upsertOrganizationProfile(orgId, payload as any)
 
       expect(result.industry).toBe('bank')
-      expect(mockOrganizationProfileRepository.upsert).toHaveBeenCalledWith(
+      expect(mockOrganizationProfileRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
           orgId,
           industry: 'bank',
         }),
-        ['orgId'],
       )
+    })
+
+    it('should reject stale updates when expectedUpdatedAt does not match current record', async () => {
+      const organization = { id: orgId } as Organization
+      const existingProfile = {
+        orgId,
+        industry: 'bank',
+        updatedAt: new Date('2026-03-26T10:00:00.000Z'),
+      } as OrganizationProfile
+
+      mockOrgRepository.findOne.mockResolvedValue(organization)
+      mockOrganizationProfileRepository.findOne.mockResolvedValue(existingProfile)
+
+      await expect(
+        service.upsertOrganizationProfile(orgId, {
+          ...payload,
+          expectedUpdatedAt: '2026-03-26T09:59:00.000Z',
+        } as any),
+      ).rejects.toThrow(ConflictException)
+
+      expect(mockOrganizationProfileRepository.save).not.toHaveBeenCalled()
     })
   })
 

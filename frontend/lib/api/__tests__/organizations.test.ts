@@ -1,11 +1,10 @@
 import { OrganizationsApi } from '../organizations'
+import { apiFetch } from '../../utils/api'
 
 // Mock apiFetch
 jest.mock('../../utils/api', () => ({
   apiFetch: jest.fn(),
 }))
-
-const { apiFetch } = require('../../utils/api')
 
 describe('OrganizationsApi - Story 1.5 Methods', () => {
   let api: OrganizationsApi
@@ -112,7 +111,7 @@ describe('OrganizationsApi - Story 1.5 Methods', () => {
         .mockResolvedValueOnce(mockUser) // lookupUserByEmail
         .mockResolvedValueOnce({ id: 'member-new' }) // addMember POST
 
-      const result = await api.addMemberByEmail('org-1', 'found@example.com', 'admin')
+      await api.addMemberByEmail('org-1', 'found@example.com', 'admin')
 
       // First call: lookup
       expect(apiFetch).toHaveBeenNthCalledWith(
@@ -132,6 +131,69 @@ describe('OrganizationsApi - Story 1.5 Methods', () => {
       await expect(
         api.addMemberByEmail('org-1', 'nonexistent@example.com', 'member'),
       ).rejects.toThrow('找不到该用户，请检查邮箱地址')
+    })
+  })
+
+  describe('getOrganizationProfile', () => {
+    it('should fetch organization profile by org id', async () => {
+      const profile = {
+        orgId: 'org-1',
+        industry: 'bank',
+        legalPersonType: 'legal_person',
+        assetBucket: 'large',
+        hasPersonalInfo: true,
+        crossBorderData: false,
+        importantDataStatus: 'unknown',
+        ciioStatus: 'no',
+        hasDatacenter: true,
+        usesCloud: true,
+        outsourcingLevel: 'medium',
+        criticalSystemLevel: 'high',
+        hasOnlineTrading: false,
+        hasAiServices: false,
+        publicServiceScope: 'public_users',
+        regulatoryAttentionLevel: 'medium',
+        recentMajorIncident: false,
+        updatedAt: '2026-03-26T10:00:00.000Z',
+      }
+      apiFetch.mockResolvedValue(profile)
+
+      const result = await api.getOrganizationProfile('org-1')
+
+      expect(apiFetch).toHaveBeenCalledWith('/organizations/org-1/profile')
+      expect(result).toEqual(profile)
+    })
+  })
+
+  describe('upsertOrganizationProfile', () => {
+    it('should call PUT /organizations/:id/profile with the payload', async () => {
+      const payload = {
+        industry: 'bank',
+        legalPersonType: 'legal_person',
+        assetBucket: 'large',
+        hasPersonalInfo: true,
+        crossBorderData: false,
+        importantDataStatus: 'unknown',
+        ciioStatus: 'no',
+        hasDatacenter: true,
+        usesCloud: true,
+        outsourcingLevel: 'medium',
+        criticalSystemLevel: 'high',
+        hasOnlineTrading: false,
+        hasAiServices: false,
+        publicServiceScope: 'public_users',
+        regulatoryAttentionLevel: 'medium',
+        recentMajorIncident: false,
+        expectedUpdatedAt: '2026-03-26T10:00:00.000Z',
+      }
+      apiFetch.mockResolvedValue({ orgId: 'org-1', ...payload, updatedAt: '2026-03-26T11:00:00.000Z' })
+
+      await api.upsertOrganizationProfile('org-1', payload)
+
+      expect(apiFetch).toHaveBeenCalledWith('/organizations/org-1/profile', {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      })
     })
   })
 })

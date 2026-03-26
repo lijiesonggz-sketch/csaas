@@ -1,4 +1,4 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common'
+import { ConflictException, INestApplication, ValidationPipe } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
 import * as request from 'supertest'
 import { OrganizationsController } from './organizations.controller'
@@ -215,6 +215,22 @@ describe('OrganizationsController - Profile Routes (http)', () => {
         .expect(403)
 
       expect(mockOrganizationsService.upsertOrganizationProfile).not.toHaveBeenCalled()
+      expect(mockAuditLogService.log).not.toHaveBeenCalled()
+    })
+
+    it('should surface 409 conflict when service detects stale profile updates', async () => {
+      mockOrganizationsService.upsertOrganizationProfile.mockRejectedValue(
+        new ConflictException('Organization profile for org has been updated by another user'),
+      )
+
+      await request(app.getHttpServer())
+        .put(`/organizations/${ORG_ID}/profile`)
+        .send({
+          ...validPayload,
+          expectedUpdatedAt: '2026-03-26T10:00:00.000Z',
+        })
+        .expect(409)
+
       expect(mockAuditLogService.log).not.toHaveBeenCalled()
     })
   })

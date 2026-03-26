@@ -1,4 +1,4 @@
-import { IsBoolean, IsIn, IsOptional, IsObject } from 'class-validator'
+import { IsBoolean, IsDateString, IsIn, IsObject, IsOptional } from 'class-validator'
 import {
   ORG_PROFILE_ASSET_BUCKETS,
   ORG_PROFILE_CIIO_STATUSES,
@@ -63,4 +63,8 @@ export class UpsertOrganizationProfileDto {
   @IsOptional()
   @IsObject()
   extendedProfile?: Record<string, unknown>
+
+  @IsOptional()
+  @IsDateString()
+  expectedUpdatedAt?: string
 }
