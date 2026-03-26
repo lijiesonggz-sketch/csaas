@@ -196,4 +196,25 @@ describe('OrganizationsApi - Story 1.5 Methods', () => {
       })
     })
   })
+
+  describe('getOrganizationProfileCompleteness', () => {
+    it('should fetch organization profile completeness by org id', async () => {
+      const completeness = {
+        organizationId: 'org-1',
+        isComplete: false,
+        validFieldCount: 14,
+        totalRequiredFields: 16,
+        completionRatio: '14/16',
+        missingFields: [
+          { field: 'ciioStatus', label: '关键信息基础设施认定情况', reason: 'missing' },
+        ],
+      }
+      apiFetch.mockResolvedValue(completeness)
+
+      const result = await api.getOrganizationProfileCompleteness('org-1')
+
+      expect(apiFetch).toHaveBeenCalledWith('/organizations/org-1/profile/completeness')
+      expect(result).toEqual(completeness)
+    })
+  })
 })

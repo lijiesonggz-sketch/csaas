@@ -18,6 +18,7 @@ describe('OrganizationsController - Profile Routes (http)', () => {
 
   const mockOrganizationsService = {
     getOrganizationProfile: jest.fn(),
+    getOrganizationProfileCompleteness: jest.fn(),
     upsertOrganizationProfile: jest.fn(),
     createOrganizationForUser: jest.fn(),
     getOrganizationById: jest.fn(),
@@ -140,6 +141,42 @@ describe('OrganizationsController - Profile Routes (http)', () => {
       await request(app.getHttpServer()).get(`/organizations/${ORG_ID}/profile`).expect(403)
 
       expect(mockOrganizationsService.getOrganizationProfile).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('GET /organizations/:id/profile/completeness', () => {
+    it('should return profile completeness for a valid organization member', async () => {
+      mockOrganizationsService.getOrganizationProfileCompleteness.mockResolvedValue({
+        organizationId: ORG_ID,
+        isComplete: false,
+        validFieldCount: 14,
+        totalRequiredFields: 16,
+        completionRatio: '14/16',
+        missingFields: [
+          { field: 'ciioStatus', label: '关键信息基础设施认定情况', reason: 'missing' },
+          { field: 'hasAiServices', label: '是否提供AI服务', reason: 'missing' },
+        ],
+      })
+
+      const response = await request(app.getHttpServer())
+        .get(`/organizations/${ORG_ID}/profile/completeness`)
+        .expect(200)
+
+      expect(response.body).toMatchObject({
+        organizationId: ORG_ID,
+        isComplete: false,
+        completionRatio: '14/16',
+      })
+      expect(mockOrganizationsService.getOrganizationProfileCompleteness).toHaveBeenCalledWith(ORG_ID)
+    })
+
+    it('should reject access to completeness details when organization ownership guard denies the request', async () => {
+      await app.close()
+      app = await createApp(false)
+
+      await request(app.getHttpServer())
+        .get(`/organizations/${ORG_ID}/profile/completeness`)
+        .expect(403)
     })
   })
 

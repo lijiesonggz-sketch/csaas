@@ -126,6 +126,21 @@ export interface OrganizationProfileOption<T extends string> {
   label: string
 }
 
+export interface OrganizationProfileCompletenessField {
+  field: string
+  label: string
+  reason: 'missing' | 'invalid'
+}
+
+export interface OrganizationProfileCompleteness {
+  organizationId: string
+  isComplete: boolean
+  validFieldCount: number
+  totalRequiredFields: number
+  completionRatio: string
+  missingFields: OrganizationProfileCompletenessField[]
+}
+
 export const ORGANIZATION_PROFILE_INDUSTRY_OPTIONS: OrganizationProfileOption<OrganizationProfileIndustry>[] = [
   { value: 'bank', label: '银行' },
   { value: 'securities', label: '证券' },

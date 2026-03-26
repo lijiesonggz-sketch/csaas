@@ -177,4 +177,37 @@ describe('Organization Type Definitions', () => {
       expect(profile.updatedAt).toContain('2026-03-26')
     })
   })
+
+  describe('OrganizationProfileCompleteness interface', () => {
+    it('should describe the reusable profile completeness contract', () => {
+      const completeness: {
+        organizationId: string
+        isComplete: boolean
+        validFieldCount: number
+        totalRequiredFields: number
+        completionRatio: string
+        missingFields: Array<{
+          field: string
+          label: string
+          reason: 'missing' | 'invalid'
+        }>
+      } = {
+        organizationId: 'org-123',
+        isComplete: false,
+        validFieldCount: 14,
+        totalRequiredFields: 16,
+        completionRatio: '14/16',
+        missingFields: [
+          {
+            field: 'ciioStatus',
+            label: '关键信息基础设施认定情况',
+            reason: 'missing',
+          },
+        ],
+      }
+
+      expect(completeness.isComplete).toBe(false)
+      expect(completeness.missingFields[0].reason).toBe('missing')
+    })
+  })
 })

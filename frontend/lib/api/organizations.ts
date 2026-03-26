@@ -11,6 +11,7 @@ import { apiFetch } from '../utils/api'
 import {
   AggregatedWeakness,
   Organization,
+  OrganizationProfileCompleteness,
   OrganizationProfile,
   PaginatedResponse,
   UpsertOrganizationProfilePayload,
@@ -111,6 +112,16 @@ export class OrganizationsApi {
       })
     } catch (error) {
       throw normalizeOrganizationProfileError(error, '保存机构画像失败')
+    }
+  }
+
+  async getOrganizationProfileCompleteness(
+    id: string,
+  ): Promise<OrganizationProfileCompleteness> {
+    try {
+      return await apiFetch(`/organizations/${id}/profile/completeness`)
+    } catch (error) {
+      throw normalizeOrganizationProfileError(error, '加载机构画像完成度失败')
     }
   }
 

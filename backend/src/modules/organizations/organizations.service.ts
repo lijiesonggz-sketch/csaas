@@ -21,6 +21,17 @@ import {
   UserOrganizationResponse,
 } from './dto/create-organization.dto'
 import { UpsertOrganizationProfileDto } from './dto/organization-profile.dto'
+import {
+  ORG_PROFILE_ASSET_BUCKETS,
+  ORG_PROFILE_CIIO_STATUSES,
+  ORG_PROFILE_CRITICAL_SYSTEM_LEVELS,
+  ORG_PROFILE_IMPORTANT_DATA_STATUSES,
+  ORG_PROFILE_INDUSTRIES,
+  ORG_PROFILE_LEGAL_PERSON_TYPES,
+  ORG_PROFILE_OUTSOURCING_LEVELS,
+  ORG_PROFILE_PUBLIC_SERVICE_SCOPES,
+  ORG_PROFILE_REGULATORY_ATTENTION_LEVELS,
+} from '../../constants/org-profile-enums'
 
 /**
  * Paginated response interface
@@ -34,6 +45,96 @@ export interface PaginatedResponse<T> {
     totalPages: number
   }
 }
+
+export type OrganizationProfileCompletenessField = {
+  field: string
+  label: string
+  reason: 'missing' | 'invalid'
+}
+
+export type OrganizationProfileCompleteness = {
+  organizationId: string
+  isComplete: boolean
+  validFieldCount: number
+  totalRequiredFields: number
+  completionRatio: string
+  missingFields: OrganizationProfileCompletenessField[]
+}
+
+type ProfileCompletenessDefinition = {
+  field: keyof OrganizationProfile
+  label: string
+  validate: (value: unknown) => boolean
+}
+
+const PROFILE_COMPLETENESS_FIELDS: ProfileCompletenessDefinition[] = [
+  {
+    field: 'industry',
+    label: '所属行业',
+    validate: (value) => typeof value === 'string' && ORG_PROFILE_INDUSTRIES.includes(value as never),
+  },
+  {
+    field: 'legalPersonType',
+    label: '法人主体类型',
+    validate:
+      (value) =>
+        typeof value === 'string' && ORG_PROFILE_LEGAL_PERSON_TYPES.includes(value as never),
+  },
+  {
+    field: 'assetBucket',
+    label: '资产规模档位',
+    validate: (value) => typeof value === 'string' && ORG_PROFILE_ASSET_BUCKETS.includes(value as never),
+  },
+  { field: 'hasPersonalInfo', label: '是否涉及个人信息', validate: (value) => typeof value === 'boolean' },
+  { field: 'crossBorderData', label: '是否跨境处理数据', validate: (value) => typeof value === 'boolean' },
+  {
+    field: 'importantDataStatus',
+    label: '重要数据识别情况',
+    validate:
+      (value) =>
+        typeof value === 'string' &&
+        ORG_PROFILE_IMPORTANT_DATA_STATUSES.includes(value as never),
+  },
+  {
+    field: 'ciioStatus',
+    label: '关键信息基础设施认定情况',
+    validate: (value) => typeof value === 'string' && ORG_PROFILE_CIIO_STATUSES.includes(value as never),
+  },
+  { field: 'hasDatacenter', label: '是否自建机房', validate: (value) => typeof value === 'boolean' },
+  { field: 'usesCloud', label: '是否使用云服务', validate: (value) => typeof value === 'boolean' },
+  {
+    field: 'outsourcingLevel',
+    label: '外包依赖程度',
+    validate:
+      (value) =>
+        typeof value === 'string' && ORG_PROFILE_OUTSOURCING_LEVELS.includes(value as never),
+  },
+  {
+    field: 'criticalSystemLevel',
+    label: '关键系统等级',
+    validate:
+      (value) =>
+        typeof value === 'string' && ORG_PROFILE_CRITICAL_SYSTEM_LEVELS.includes(value as never),
+  },
+  { field: 'hasOnlineTrading', label: '是否有线上交易', validate: (value) => typeof value === 'boolean' },
+  { field: 'hasAiServices', label: '是否提供AI服务', validate: (value) => typeof value === 'boolean' },
+  {
+    field: 'publicServiceScope',
+    label: '公共服务范围',
+    validate:
+      (value) =>
+        typeof value === 'string' && ORG_PROFILE_PUBLIC_SERVICE_SCOPES.includes(value as never),
+  },
+  {
+    field: 'regulatoryAttentionLevel',
+    label: '监管关注等级',
+    validate:
+      (value) =>
+        typeof value === 'string' &&
+        ORG_PROFILE_REGULATORY_ATTENTION_LEVELS.includes(value as never),
+  },
+  { field: 'recentMajorIncident', label: '近一年是否发生重大事件', validate: (value) => typeof value === 'boolean' },
+]
 
 /**
  * Default pagination constants
@@ -232,6 +333,52 @@ export class OrganizationsService {
     }
 
     return profile
+  }
+
+  async getOrganizationProfileCompleteness(
+    orgId: string,
+  ): Promise<OrganizationProfileCompleteness> {
+    await this.getOrganizationById(orgId)
+
+    const profile = await this.organizationProfileRepository.findOne({
+      where: { orgId },
+    })
+
+    const missingFields: OrganizationProfileCompletenessField[] = []
+    let validFieldCount = 0
+
+    PROFILE_COMPLETENESS_FIELDS.forEach((definition) => {
+      const value = profile?.[definition.field]
+
+      if (value === undefined || value === null || value === '') {
+        missingFields.push({
+          field: definition.field,
+          label: definition.label,
+          reason: 'missing',
+        })
+        return
+      }
+
+      if (!definition.validate(value)) {
+        missingFields.push({
+          field: definition.field,
+          label: definition.label,
+          reason: 'invalid',
+        })
+        return
+      }
+
+      validFieldCount += 1
+    })
+
+    return {
+      organizationId: orgId,
+      isComplete: missingFields.length === 0,
+      validFieldCount,
+      totalRequiredFields: PROFILE_COMPLETENESS_FIELDS.length,
+      completionRatio: `${validFieldCount}/${PROFILE_COMPLETENESS_FIELDS.length}`,
+      missingFields,
+    }
   }
 
   /**

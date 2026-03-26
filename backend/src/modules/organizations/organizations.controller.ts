@@ -107,6 +107,16 @@ export class OrganizationsController {
   }
 
   /**
+   * Get organization profile completeness by ID
+   * GET /organizations/:id/profile/completeness
+   */
+  @Get(':id/profile/completeness')
+  @UseGuards(OrganizationOwnershipGuard)
+  async getOrganizationProfileCompleteness(@Param('id') id: string) {
+    return this.organizationsService.getOrganizationProfileCompleteness(id)
+  }
+
+  /**
    * Get organization statistics
    * GET /organizations/:id/stats
    */

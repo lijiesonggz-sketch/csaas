@@ -155,6 +155,93 @@ describe('OrganizationsService', () => {
     })
   })
 
+  describe('getOrganizationProfileCompleteness', () => {
+    const orgId = '550e8400-e29b-41d4-a716-446655440000'
+
+    it('should return complete when all 16 required fields are present and valid', async () => {
+      mockOrgRepository.findOne.mockResolvedValue({ id: orgId } as Organization)
+      mockOrganizationProfileRepository.findOne.mockResolvedValue({
+        orgId,
+        industry: 'bank',
+        legalPersonType: 'legal_person',
+        assetBucket: 'large',
+        hasPersonalInfo: true,
+        crossBorderData: false,
+        importantDataStatus: 'unknown',
+        ciioStatus: 'no',
+        hasDatacenter: true,
+        usesCloud: true,
+        outsourcingLevel: 'medium',
+        criticalSystemLevel: 'high',
+        hasOnlineTrading: false,
+        hasAiServices: false,
+        publicServiceScope: 'public_users',
+        regulatoryAttentionLevel: 'medium',
+        recentMajorIncident: false,
+      } as OrganizationProfile)
+
+      const result = await service.getOrganizationProfileCompleteness(orgId)
+
+      expect(result).toEqual({
+        organizationId: orgId,
+        isComplete: true,
+        validFieldCount: 16,
+        totalRequiredFields: 16,
+        completionRatio: '16/16',
+        missingFields: [],
+      })
+    })
+
+    it('should report missing fields when profile does not exist yet', async () => {
+      mockOrgRepository.findOne.mockResolvedValue({ id: orgId } as Organization)
+      mockOrganizationProfileRepository.findOne.mockResolvedValue(null)
+
+      const result = await service.getOrganizationProfileCompleteness(orgId)
+
+      expect(result.isComplete).toBe(false)
+      expect(result.validFieldCount).toBe(0)
+      expect(result.completionRatio).toBe('0/16')
+      expect(result.missingFields).toHaveLength(16)
+      expect(result.missingFields[0]).toMatchObject({
+        field: 'industry',
+        reason: 'missing',
+      })
+    })
+
+    it('should treat invalid enum values as incomplete fields', async () => {
+      mockOrgRepository.findOne.mockResolvedValue({ id: orgId } as Organization)
+      mockOrganizationProfileRepository.findOne.mockResolvedValue({
+        orgId,
+        industry: 'crypto-bank',
+        legalPersonType: 'legal_person',
+        assetBucket: 'large',
+        hasPersonalInfo: true,
+        crossBorderData: false,
+        importantDataStatus: 'unknown',
+        ciioStatus: 'no',
+        hasDatacenter: true,
+        usesCloud: true,
+        outsourcingLevel: 'medium',
+        criticalSystemLevel: 'high',
+        hasOnlineTrading: false,
+        hasAiServices: false,
+        publicServiceScope: 'public_users',
+        regulatoryAttentionLevel: 'medium',
+        recentMajorIncident: false,
+      } as unknown as OrganizationProfile)
+
+      const result = await service.getOrganizationProfileCompleteness(orgId)
+
+      expect(result.isComplete).toBe(false)
+      expect(result.validFieldCount).toBe(15)
+      expect(result.missingFields).toContainEqual({
+        field: 'industry',
+        label: '所属行业',
+        reason: 'invalid',
+      })
+    })
+  })
+
   describe('upsertOrganizationProfile', () => {
     const orgId = '550e8400-e29b-41d4-a716-446655440000'
     const payload = {
