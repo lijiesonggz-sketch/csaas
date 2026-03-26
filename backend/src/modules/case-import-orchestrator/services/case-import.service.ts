@@ -90,7 +90,7 @@ export class CaseImportService {
       raw: false,
     })
     const rows = rawRows.filter((row) => this.hasRowContent(row))
-    const batchId = this.buildBatchId(regulatorCode)
+    const batchId = params.batchId ?? this.buildBatchId(regulatorCode)
     const failures: ComplianceCaseImportRowFailure[] = []
     let importedCount = 0
 
