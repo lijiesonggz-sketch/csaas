@@ -9,8 +9,10 @@ import { AuditModule } from '../audit/audit.module'
 import { KnowledgeGraphModule } from '../knowledge-graph/knowledge-graph.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
 import { SurveyModule } from '../survey/survey.module'
+import { ControlReportController } from './controllers/control-report.controller'
 import { ControlExplainController } from './controllers/control-explain.controller'
 import { RadarRelevanceController } from './controllers/radar-relevance.controller'
+import { ControlReportCompilerService } from './services/control-report-compiler.service'
 import { ControlExplainService } from './services/control-explain.service'
 import { RadarRelevanceEnhancedService } from './services/radar-relevance-enhanced.service'
 
@@ -23,8 +25,16 @@ import { RadarRelevanceEnhancedService } from './services/radar-relevance-enhanc
     ApplicabilityEngineModule,
     SurveyModule,
   ],
-  controllers: [ControlExplainController, RadarRelevanceController],
-  providers: [ControlExplainService, RadarRelevanceEnhancedService],
-  exports: [ControlExplainService, RadarRelevanceEnhancedService],
+  controllers: [ControlExplainController, RadarRelevanceController, ControlReportController],
+  providers: [
+    ControlExplainService,
+    RadarRelevanceEnhancedService,
+    ControlReportCompilerService,
+  ],
+  exports: [
+    ControlExplainService,
+    RadarRelevanceEnhancedService,
+    ControlReportCompilerService,
+  ],
 })
 export class ComplianceIntelligenceModule {}

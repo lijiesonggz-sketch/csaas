@@ -5,9 +5,11 @@ import { AuditModule } from '../audit/audit.module'
 import { KnowledgeGraphModule } from '../knowledge-graph/knowledge-graph.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
 import { SurveyModule } from '../survey/survey.module'
+import { ControlReportController } from './controllers/control-report.controller'
 import { ControlExplainController } from './controllers/control-explain.controller'
 import { RadarRelevanceController } from './controllers/radar-relevance.controller'
 import { ComplianceIntelligenceModule } from './compliance-intelligence.module'
+import { ControlReportCompilerService } from './services/control-report-compiler.service'
 import { ControlExplainService } from './services/control-explain.service'
 import { RadarRelevanceEnhancedService } from './services/radar-relevance-enhanced.service'
 
@@ -20,7 +22,11 @@ describe('ComplianceIntelligenceModule', () => {
       Reflect.getMetadata(MODULE_METADATA.PROVIDERS, ComplianceIntelligenceModule) ?? []
 
     expect(controllers).toEqual(
-      expect.arrayContaining([ControlExplainController, RadarRelevanceController]),
+      expect.arrayContaining([
+        ControlExplainController,
+        RadarRelevanceController,
+        ControlReportController,
+      ]),
     )
     expect(imports).toEqual(
       expect.arrayContaining([
@@ -32,7 +38,11 @@ describe('ComplianceIntelligenceModule', () => {
       ]),
     )
     expect(providers).toEqual(
-      expect.arrayContaining([ControlExplainService, RadarRelevanceEnhancedService]),
+      expect.arrayContaining([
+        ControlExplainService,
+        RadarRelevanceEnhancedService,
+        ControlReportCompilerService,
+      ]),
     )
   })
 
