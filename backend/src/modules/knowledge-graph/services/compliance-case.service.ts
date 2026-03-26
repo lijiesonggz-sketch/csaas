@@ -194,6 +194,19 @@ export class ComplianceCaseService {
     }))
   }
 
+  async getCaseExtractionResult(caseId: string) {
+    const caseRecord = await this.findCase(caseId)
+
+    return {
+      caseId: caseRecord.caseId,
+      caseCode: caseRecord.caseCode,
+      status: caseRecord.status,
+      violationThemes: caseRecord.violationThemes ?? [],
+      clauseCandidates: caseRecord.clauseCandidates ?? [],
+      extractedAt: caseRecord.extractedAt,
+    }
+  }
+
   private toComplianceCasePersistence(
     dto: CreateComplianceCaseDto | UpdateComplianceCaseDto,
   ): Partial<ComplianceCase> {

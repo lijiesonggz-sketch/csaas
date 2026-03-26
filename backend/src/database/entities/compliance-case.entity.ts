@@ -23,6 +23,14 @@ export const COMPLIANCE_CASE_STATUSES = [
 ] as const
 export type ComplianceCaseStatus = (typeof COMPLIANCE_CASE_STATUSES)[number]
 
+export type ComplianceCaseClauseCandidate = {
+  clauseId: string
+  clauseCode: string
+  summary: string | null
+  matchedKeywords: string[]
+  confidenceScore: number
+}
+
 @Entity('compliance_cases')
 @Unique('UQ_compliance_cases_case_code', ['caseCode'])
 export class ComplianceCase {
@@ -61,6 +69,15 @@ export class ComplianceCase {
 
   @Column({ name: 'penalty_reason', type: 'text', nullable: true })
   penaltyReason: string | null
+
+  @Column({ name: 'violation_themes', type: 'jsonb', nullable: true })
+  violationThemes: string[] | null
+
+  @Column({ name: 'clause_candidates', type: 'jsonb', nullable: true })
+  clauseCandidates: ComplianceCaseClauseCandidate[] | null
+
+  @Column({ name: 'extracted_at', type: 'timestamp', nullable: true })
+  extractedAt: Date | null
 
   @Column({ name: 'raw_source_url', type: 'text', nullable: true })
   rawSourceUrl: string | null

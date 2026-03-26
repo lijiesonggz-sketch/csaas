@@ -117,4 +117,36 @@ describe('ComplianceCaseService', () => {
     })
     expect(result).toEqual([])
   })
+
+  it('should return structured extraction results for a case', async () => {
+    complianceCaseRepository.findOne.mockResolvedValue({
+      caseId: 'case-id',
+      caseCode: 'PBOC-CASE-001',
+      status: 'extracted',
+      violationThemes: ['客户身份识别不到位'],
+      clauseCandidates: [
+        {
+          clauseId: 'clause-id',
+          clauseCode: 'CLAUSE-001',
+        },
+      ],
+      extractedAt: new Date('2026-03-26T00:00:00.000Z'),
+    })
+
+    const result = await service.getCaseExtractionResult('case-id')
+
+    expect(result).toEqual({
+      caseId: 'case-id',
+      caseCode: 'PBOC-CASE-001',
+      status: 'extracted',
+      violationThemes: ['客户身份识别不到位'],
+      clauseCandidates: [
+        {
+          clauseId: 'clause-id',
+          clauseCode: 'CLAUSE-001',
+        },
+      ],
+      extractedAt: new Date('2026-03-26T00:00:00.000Z'),
+    })
+  })
 })

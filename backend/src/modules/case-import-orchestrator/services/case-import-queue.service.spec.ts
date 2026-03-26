@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { getQueueToken } from '@nestjs/bullmq'
 import { CaseImportQueueService } from './case-import-queue.service'
-import { KG_CASE_IMPORT_JOB_NAME, KG_CASE_IMPORT_QUEUE } from '../constants/case-import.constants'
+import {
+  KG_CASE_IMPORT_EXTRACT_JOB_NAME,
+  KG_CASE_IMPORT_PARSE_JOB_NAME,
+  KG_CASE_IMPORT_QUEUE,
+} from '../constants/case-import.constants'
 
 describe('CaseImportQueueService', () => {
   let service: CaseImportQueueService
@@ -37,7 +41,7 @@ describe('CaseImportQueueService', () => {
     })
 
     expect(caseImportQueue.add).toHaveBeenCalledWith(
-      KG_CASE_IMPORT_JOB_NAME,
+      KG_CASE_IMPORT_PARSE_JOB_NAME,
       {
         filePath: 'D:/imports/cases.xlsx',
         regulatorCode: 'PBOC',
@@ -61,5 +65,28 @@ describe('CaseImportQueueService', () => {
       regulatorCode: 'PBOC',
       status: 'queued',
     })
+  })
+
+  it('should enqueue ai-extract follow-up jobs for imported batches', async () => {
+    caseImportQueue.add.mockResolvedValue({
+      id: 'case-extract-PBOC-batch-001',
+    })
+
+    await service.enqueueExtraction('PBOC-batch-001')
+
+    expect(caseImportQueue.add).toHaveBeenCalledWith(
+      KG_CASE_IMPORT_EXTRACT_JOB_NAME,
+      {
+        batchId: 'PBOC-batch-001',
+      },
+      expect.objectContaining({
+        jobId: 'case-extract-PBOC-batch-001',
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+      }),
+    )
   })
 })

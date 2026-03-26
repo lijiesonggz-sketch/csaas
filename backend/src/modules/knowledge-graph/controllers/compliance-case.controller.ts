@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Put,
-  Query,
-  Req,
-  UseGuards,
-} from '@nestjs/common'
+import { Body, Controller, Get, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { Request } from 'express'
 import { Roles } from '../../../common/decorators/roles.decorator'
@@ -98,6 +88,12 @@ export class ComplianceCaseController {
     })
 
     return result
+  }
+
+  @Get('compliance-cases/:caseId/extraction')
+  @ApiOperation({ summary: '获取处罚案例提取结果' })
+  async getCaseExtractionResult(@Param('caseId') caseId: string) {
+    return this.complianceCaseService.getCaseExtractionResult(caseId)
   }
 
   @Get('case-control-maps')

@@ -33,6 +33,7 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
     findAllCases: jest.fn(),
     createCase: jest.fn(),
     updateCase: jest.fn(),
+    getCaseExtractionResult: jest.fn(),
     findAllCaseControlMaps: jest.fn(),
     createCaseControlMap: jest.fn(),
     updateCaseControlMap: jest.fn(),
@@ -204,7 +205,9 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
     mockComplianceCaseService.findCasesByControlId.mockResolvedValue([])
 
     const response = await request(app.getHttpServer())
-      .get('/api/admin/knowledge-graph/control-points/77777777-7777-4777-8777-777777777777/regulatory-links')
+      .get(
+        '/api/admin/knowledge-graph/control-points/77777777-7777-4777-8777-777777777777/regulatory-links',
+      )
       .expect(200)
 
     expect(response.body).toEqual({
@@ -218,6 +221,43 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
           },
         ],
         cases: [],
+      },
+    })
+  })
+
+  it('should return extracted case themes and clause candidates', async () => {
+    mockComplianceCaseService.getCaseExtractionResult.mockResolvedValue({
+      caseId: 'case-123',
+      caseCode: 'PBOC-CASE-001',
+      status: 'extracted',
+      violationThemes: ['客户身份识别不到位'],
+      clauseCandidates: [
+        {
+          clauseId: 'clause-1',
+          clauseCode: 'CLAUSE-001',
+        },
+      ],
+      extractedAt: '2026-03-26T00:00:00.000Z',
+    })
+
+    const response = await request(app.getHttpServer())
+      .get('/api/admin/knowledge-graph/compliance-cases/case-123/extraction')
+      .expect(200)
+
+    expect(response.body).toEqual({
+      success: true,
+      data: {
+        caseId: 'case-123',
+        caseCode: 'PBOC-CASE-001',
+        status: 'extracted',
+        violationThemes: ['客户身份识别不到位'],
+        clauseCandidates: [
+          {
+            clauseId: 'clause-1',
+            clauseCode: 'CLAUSE-001',
+          },
+        ],
+        extractedAt: '2026-03-26T00:00:00.000Z',
       },
     })
   })

@@ -5,13 +5,23 @@ import {
   ComplianceCaseImportEnqueueResult,
   ImportComplianceCasesDto,
 } from '../dto/import-compliance-cases.dto'
-import { KG_CASE_IMPORT_JOB_NAME, KG_CASE_IMPORT_QUEUE } from '../constants/case-import.constants'
+import {
+  KG_CASE_IMPORT_EXTRACT_JOB_NAME,
+  KG_CASE_IMPORT_PARSE_JOB_NAME,
+  KG_CASE_IMPORT_QUEUE,
+} from '../constants/case-import.constants'
 
-export type CaseImportJobData = {
+export type CaseImportParseJobData = {
   filePath: string
   regulatorCode: string
   batchId: string
 }
+
+export type CaseImportExtractJobData = {
+  batchId: string
+}
+
+export type CaseImportJobData = CaseImportParseJobData | CaseImportExtractJobData
 
 @Injectable()
 export class CaseImportQueueService {
@@ -26,7 +36,7 @@ export class CaseImportQueueService {
     const jobId = `case-import-${batchId}`
 
     const job = await this.caseImportQueue.add(
-      KG_CASE_IMPORT_JOB_NAME,
+      KG_CASE_IMPORT_PARSE_JOB_NAME,
       {
         filePath: dto.filePath,
         regulatorCode,
@@ -51,5 +61,24 @@ export class CaseImportQueueService {
       regulatorCode,
       status: 'queued',
     }
+  }
+
+  async enqueueExtraction(batchId: string): Promise<void> {
+    await this.caseImportQueue.add(
+      KG_CASE_IMPORT_EXTRACT_JOB_NAME,
+      {
+        batchId,
+      },
+      {
+        jobId: `case-extract-${batchId}`,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        removeOnComplete: 100,
+        removeOnFail: 500,
+      },
+    )
   }
 }
