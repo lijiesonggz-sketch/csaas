@@ -26,32 +26,6 @@ jest.mock('@/components/projects/TaskStatusIndicator', () => ({
   default: ({ status }: any) => <span data-testid="task-status">{status}</span>,
 }))
 
-jest.mock('@/components/ui/page-header', () => ({
-  PageHeader: ({ title, description, actions }: any) => (
-    <div data-testid="page-header">
-      <h1>{title}</h1>
-      <p>{description}</p>
-      {actions}
-    </div>
-  ),
-}))
-
-jest.mock('@/components/ui/gradient-card', () => ({
-  GradientCard: ({ children, onClick, ...props }: any) => (
-    <div onClick={onClick} {...props}>{children}</div>
-  ),
-}))
-
-jest.mock('@/components/ui/unified-button', () => ({
-  UnifiedButton: ({ children, onClick, ...props }: any) => (
-    <button onClick={onClick} {...props}>{children}</button>
-  ),
-}))
-
-jest.mock('@/components/ui/status-badge', () => ({
-  StatusBadge: ({ text }: any) => <span>{text}</span>,
-}))
-
 const mockUseParams = useParams as jest.Mock
 const mockUseRouter = useRouter as jest.Mock
 const mockApiFetch = apiFetch as jest.Mock
@@ -113,7 +87,7 @@ describe('ProjectWorkbenchPage', () => {
     })
   })
 
-  it('should display all 10 functional modules', async () => {
+  it('should display all 11 functional modules', async () => {
     mockApiFetch.mockResolvedValue(mockProject)
     mockGetTasksByProject.mockResolvedValue([])
 
@@ -124,6 +98,7 @@ describe('ProjectWorkbenchPage', () => {
       expect(screen.getByText('综述生成')).toBeInTheDocument()
       expect(screen.getByText('聚类分析')).toBeInTheDocument()
       expect(screen.getByText('标准解读')).toBeInTheDocument()
+      expect(screen.getByText('审核工作台')).toBeInTheDocument()
       expect(screen.getByText('成熟度矩阵')).toBeInTheDocument()
       expect(screen.getByText('问卷生成')).toBeInTheDocument()
       expect(screen.getByText('差距分析')).toBeInTheDocument()

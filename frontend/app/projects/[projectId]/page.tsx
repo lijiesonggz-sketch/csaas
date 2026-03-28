@@ -8,6 +8,7 @@ import {
   Layers,
   Grid3X3,
   ClipboardList,
+  ShieldCheck,
   CheckCircle,
   ArrowRight,
   TrendingUp,
@@ -160,6 +161,31 @@ export default function ProjectWorkbenchPage() {
       route: `/projects/${projectId}/standard-interpretation`,
       status: (taskStatuses['standard-interpretation'] || 'pending') as 'completed' | 'processing' | 'pending' | 'failed',
       description: '深度解读标准内容、搜索关联标准、版本比对',
+    },
+    {
+      id: 'review',
+      name: '审核工作台',
+      icon: ShieldCheck,
+      route: `/projects/${projectId}/review`,
+      status: (() => {
+        const reviewableStepIds = [
+          'summary',
+          'clustering',
+          'matrix',
+          'questionnaire',
+          'action-plan',
+          'standard-interpretation',
+          'quick-gap-analysis',
+        ]
+
+        const hasReviewableOutput = reviewableStepIds.some((stepId) => {
+          const status = taskStatuses[stepId]
+          return status === 'completed' || status === 'processing'
+        })
+
+        return hasReviewableOutput ? 'processing' as const : 'pending' as const
+      })(),
+      description: '统一处理 accept / modify / reject / rerun，集中查看待审结果',
     },
     {
       id: 'matrix',
