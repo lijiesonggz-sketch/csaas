@@ -78,7 +78,10 @@ export type ControlReportControlNodeDto = ControlContext & {
  * 为控制报告节点添加上下文字段
  */
 export function enrichControlNodeWithContext(
-  node: Omit<ControlReportControlNodeDto, keyof ControlContext>,
+  node: Omit<
+    ControlReportControlNodeDto,
+    'matchedControls' | 'sourceModule' | 'sourceRecordId' | 'sourceRoute'
+  >,
   reportId: string,
 ): ControlReportControlNodeDto {
   // 单个控制点节点，controlId 直接使用节点的 controlId

@@ -248,10 +248,14 @@ describe('RadarRelevanceEnhancedService', () => {
     expect(result).toEqual({
       relevanceScore: 0,
       priority: 'LOW',
+      controlId: null,
       matchedControls: [],
       matchedCases: [],
       matchedClauses: [],
       suggestedChecks: [],
+      sourceModule: 'radar',
+      sourceRecordId: 'content-id',
+      sourceRoute: '/radar/compliance/content-id',
     })
     expect(controlGapInputService.getControlGapInput).not.toHaveBeenCalled()
   })

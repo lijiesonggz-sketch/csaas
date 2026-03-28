@@ -13,6 +13,7 @@ import {
   RadarRelevancePriority,
   RadarRelevanceResponseDto,
   RadarRelevanceSuggestedCheckDto,
+  enrichRadarResponseWithContext,
 } from '../dto/radar-relevance.dto'
 import { ControlExplainService } from './control-explain.service'
 
@@ -96,10 +97,14 @@ export class RadarRelevanceEnhancedService {
       return {
         relevanceScore: 0,
         priority: 'LOW',
+        controlId: null,
         matchedControls: [],
         matchedCases: [],
         matchedClauses: [],
         suggestedChecks: [],
+        sourceModule: 'radar',
+        sourceRecordId: input.contentId,
+        sourceRoute: `/radar/compliance/${input.contentId}`,
       }
     }
 
@@ -126,14 +131,17 @@ export class RadarRelevanceEnhancedService {
         ].join(':'),
     )
 
-    return {
-      relevanceScore,
-      priority: this.toPriority(relevanceScore),
-      matchedControls: scoredMatches.map((match) => match.control),
-      matchedCases,
-      matchedClauses,
-      suggestedChecks,
-    }
+    return enrichRadarResponseWithContext(
+      {
+        relevanceScore,
+        priority: this.toPriority(relevanceScore),
+        matchedControls: scoredMatches.map((match) => match.control),
+        matchedCases,
+        matchedClauses,
+        suggestedChecks,
+      },
+      input.contentId,
+    )
   }
 
   private async loadGapContexts(

@@ -64,7 +64,7 @@ export type RadarRelevanceSuggestedCheckDto = {
   priority: RadarRelevancePriority
 }
 
-export type RadarRelevanceResponseDto = ControlContext & {
+export type RadarRelevanceResponseDto = Omit<ControlContext, 'matchedControls'> & {
   relevanceScore: number
   priority: RadarRelevancePriority
   matchedControls: RadarRelevanceMatchedControlDto[]
@@ -91,7 +91,10 @@ export function toMatchedControlReference(
  * 为 Radar 相关性响应添加上下文字段
  */
 export function enrichRadarResponseWithContext(
-  response: Omit<RadarRelevanceResponseDto, keyof ControlContext>,
+  response: Omit<
+    RadarRelevanceResponseDto,
+    'controlId' | 'sourceModule' | 'sourceRecordId' | 'sourceRoute'
+  >,
   contentId: string,
 ): RadarRelevanceResponseDto {
   // 当有多个控制点时，controlId 为 null
@@ -100,14 +103,9 @@ export function enrichRadarResponseWithContext(
       ? response.matchedControls[0].controlId
       : null
 
-  // 转换 matchedControls 为 MatchedControlReference 格式
-  const matchedControlsRef: MatchedControlReference[] =
-    response.matchedControls.map(toMatchedControlReference)
-
   return {
     ...response,
     controlId,
-    matchedControls: matchedControlsRef,
     sourceModule: 'radar' as SourceModule,
     sourceRecordId: contentId,
     sourceRoute: `/radar/compliance/${contentId}`,

@@ -264,8 +264,8 @@ describe('ControlReportController (http)', () => {
                   },
                 ],
               },
-            },
-          ],
+            ],
+          },
         ],
       })
 
@@ -326,8 +326,8 @@ describe('ControlReportController (http)', () => {
                   },
                 ],
               },
-            },
-          ],
+            ],
+          },
         ],
       })
 
@@ -362,7 +362,7 @@ describe('ControlReportController (http)', () => {
         .post('/compliance-intelligence/compile-control-report')
         .send({
           organizationId: '33333333-3333-4333-8333-333333333333',
-          controlIds: [],
+          controlIds: ['11111111-1111-4111-8111-111111111111'],
           surveyResponseId: '55555555-5555-4555-8555-555555555555',
         })
         .expect(201)

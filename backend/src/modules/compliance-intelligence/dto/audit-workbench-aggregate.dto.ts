@@ -5,11 +5,30 @@
  * 遵循 Unified Control Context Protocol
  */
 
+import type { AITaskType } from '../../../database/entities/ai-task.entity'
 import type {
   ControlContext,
-  MatchedControlReference,
   SourceModule,
 } from './unified-control-context.dto'
+
+export type AuditWorkbenchRiskLevel = 'high' | 'medium' | 'low'
+
+export type AuditWorkbenchSortBy =
+  | 'createdAt'
+  | 'updatedAt'
+  | 'confidenceLevel'
+  | 'reviewStatus'
+  | 'riskLevel'
+  | 'title'
+
+export type AuditWorkbenchSortOrder = 'asc' | 'desc'
+
+export interface AuditWorkbenchSourcePreviewDto {
+  aiExcerpt: string
+  sourceExcerpt: string | null
+  sourceDocumentName: string | null
+  extractionQuality: 'complete' | 'partial' | 'missing'
+}
 
 /**
  * 审核工作台聚合查询响应类型
@@ -46,6 +65,42 @@ export interface AuditWorkbenchAggregateResponseDto extends ControlContext {
 
   /** 是否可重跑 */
   canRerun: boolean
+}
+
+export interface AuditWorkbenchListItemDto extends AuditWorkbenchAggregateResponseDto {
+  sourceResultId: string
+  taskId: string
+  taskType: AITaskType
+  reviewStage: AITaskType
+  title: string
+  riskLevel: AuditWorkbenchRiskLevel
+  degradationReasons: string[]
+  sourcePreview: AuditWorkbenchSourcePreviewDto
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AuditWorkbenchPaginationDto {
+  page: number
+  pageSize: number
+  totalItems: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPreviousPage: boolean
+}
+
+export interface AuditWorkbenchFiltersAppliedDto {
+  reviewStatus?: string[]
+  riskLevel?: AuditWorkbenchRiskLevel[]
+  reviewStage?: AITaskType
+  sortBy: AuditWorkbenchSortBy
+  sortOrder: AuditWorkbenchSortOrder
+}
+
+export interface AuditWorkbenchListResponseDto {
+  items: AuditWorkbenchListItemDto[]
+  pagination: AuditWorkbenchPaginationDto
+  filtersApplied: AuditWorkbenchFiltersAppliedDto
 }
 
 /**

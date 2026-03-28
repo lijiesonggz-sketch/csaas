@@ -213,14 +213,6 @@ describe('RadarRelevanceController (http)', () => {
         suggestedChecks: [],
         // Story 7.1 新增的 Unified Control Context 字段
         controlId: 'control-1',
-        matchedControls: [
-          {
-            controlId: 'control-1',
-            controlName: '监管报送准确性控制',
-            packSource: 'radar',
-            priority: 'HIGH',
-          },
-        ],
         sourceModule: 'radar',
         sourceRecordId: '44444444-4444-4444-8444-444444444444',
         sourceRoute: '/radar/compliance/44444444-4444-4444-8444-444444444444',
@@ -266,20 +258,6 @@ describe('RadarRelevanceController (http)', () => {
         suggestedChecks: [],
         // 多控制点时 controlId 为 null
         controlId: null,
-        matchedControls: [
-          {
-            controlId: 'control-1',
-            controlName: '监管报送准确性控制',
-            packSource: 'radar',
-            priority: 'HIGH',
-          },
-          {
-            controlId: 'control-2',
-            controlName: '个人信息保护控制',
-            packSource: 'radar',
-            priority: 'MEDIUM',
-          },
-        ],
         sourceModule: 'radar',
         sourceRecordId: '44444444-4444-4444-8444-444444444444',
         sourceRoute: '/radar/compliance/44444444-4444-4444-8444-444444444444',
@@ -308,7 +286,6 @@ describe('RadarRelevanceController (http)', () => {
         suggestedChecks: [],
         // 无控制点时
         controlId: null,
-        matchedControls: [],
         sourceModule: 'radar',
         sourceRecordId: '44444444-4444-4444-8444-444444444444',
         sourceRoute: '/radar/compliance/44444444-4444-4444-8444-444444444444',

@@ -12,6 +12,7 @@ import {
   ControlReportL2SectionDto,
   ControlReportRecommendationDto,
   ControlReportSectionDto,
+  enrichControlNodeWithContext,
 } from '../dto/compile-control-report.dto'
 import { ControlExplainService } from './control-explain.service'
 
@@ -65,7 +66,7 @@ export class ControlReportCompilerService {
     )
 
     return {
-      sections: this.buildSections(explainResults),
+      sections: this.buildSections(explainResults, input.surveyResponseId),
     }
   }
 
@@ -75,6 +76,7 @@ export class ControlReportCompilerService {
       gap?: ControlGapInputItemDto
       explain: ExplainResult
     }>,
+    reportId: string,
   ): ControlReportSectionDto[] {
     const sections = new Map<
       string,
@@ -116,17 +118,22 @@ export class ControlReportCompilerService {
           controls: [],
         }
 
-      l2Section.controls.push({
-        controlId,
-        controlCode: explain.control.controlCode,
-        controlName: explain.control.controlName,
-        currentStatus: gap?.currentStatus ?? 'INCOMPLETE',
-        gapLevel: gap?.gapLevel ?? 'HIGH',
-        clauses: this.mapClauses(explain.clauses),
-        cases: this.mapCases(explain.cases),
-        evidences: this.mapEvidences(explain.evidences),
-        recommendations: this.mapRecommendations(controlId, explain, gap),
-      })
+      l2Section.controls.push(
+        enrichControlNodeWithContext(
+          {
+            controlId,
+            controlCode: explain.control.controlCode,
+            controlName: explain.control.controlName,
+            currentStatus: gap?.currentStatus ?? 'INCOMPLETE',
+            gapLevel: gap?.gapLevel ?? 'HIGH',
+            clauses: this.mapClauses(explain.clauses),
+            cases: this.mapCases(explain.cases),
+            evidences: this.mapEvidences(explain.evidences),
+            recommendations: this.mapRecommendations(controlId, explain, gap),
+          },
+          reportId,
+        ),
+      )
 
       section.l2Sections.set(l2Code, l2Section)
       sections.set(l1Code, section)

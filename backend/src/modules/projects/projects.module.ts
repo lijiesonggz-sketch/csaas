@@ -10,24 +10,28 @@ import { ProjectAccessGuard } from './guards/project-access.guard'
 import { Project } from '../../database/entities/project.entity'
 import { ProjectMember } from '../../database/entities/project-member.entity'
 import { AITask } from '../../database/entities/ai-task.entity'
+import { AIGenerationResult } from '../../database/entities/ai-generation-result.entity'
 import { AuditLog } from '../../database/entities/audit-log.entity'
 import { AIGenerationModule } from '../ai-generation/ai-generation.module'
 import { AIClientsModule } from '../ai-clients/ai-clients.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
+import { ProjectReviewController } from './controllers/project-review.controller'
+import { ProjectReviewService } from './services/project-review.service'
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Project, ProjectMember, AITask, AuditLog]),
+    TypeOrmModule.forFeature([Project, ProjectMember, AITask, AIGenerationResult, AuditLog]),
     AIGenerationModule,
     AIClientsModule,
     OrganizationsModule,
   ],
-  controllers: [ProjectsController, TestDebugController],
+  controllers: [ProjectsController, ProjectReviewController, TestDebugController],
   providers: [
     ProjectsService,
     ProjectMembersService,
     TaskRerunService,
     AuditLogService,
+    ProjectReviewService,
     ProjectAccessGuard,
   ],
   exports: [
@@ -35,6 +39,7 @@ import { OrganizationsModule } from '../organizations/organizations.module'
     ProjectMembersService,
     TaskRerunService,
     AuditLogService,
+    ProjectReviewService,
     ProjectAccessGuard,
   ],
 })
