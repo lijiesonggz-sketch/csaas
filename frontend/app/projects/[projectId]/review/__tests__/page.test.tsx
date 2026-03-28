@@ -166,6 +166,8 @@ describe('ProjectReviewPage', () => {
       (screen.getByLabelText('当前结果 JSON') as HTMLTextAreaElement).value,
     ).toContain('原始标题')
     expect(screen.getByText(/Clause Code: CLAUSE-001/)).toBeInTheDocument()
+    expect(screen.getByText('结构一致性')).toBeInTheDocument()
+    expect(screen.getByText('90%')).toBeInTheDocument()
   })
 
   it('should submit accept decision successfully', async () => {
@@ -340,6 +342,127 @@ describe('ProjectReviewPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('原文抽取可能不完整')).toBeInTheDocument()
+    })
+  })
+
+  it('should highlight high-risk items in the score panel', async () => {
+    mockGetProjectReviewItems.mockResolvedValue({
+      items: [
+        {
+          ...mockReviewItem,
+          highRiskFlag: true,
+          riskLevel: 'high',
+          confidenceLevel: 'low',
+          degradationReasons: ['检测到 2 个高风险分歧点'],
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 20,
+        totalItems: 1,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+      filtersApplied: {
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      },
+    })
+
+    render(<ProjectReviewPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('当前项需要优先处理')).toBeInTheDocument()
+    })
+  })
+
+  it('should block bulk approve when pending high-risk items still exist after revalidation', async () => {
+    mockGetProjectReviewItems.mockResolvedValue({
+      items: [
+        {
+          ...mockReviewItem,
+          reviewItemId: 'review-high-1',
+          highRiskFlag: true,
+          riskLevel: 'high',
+          reviewStatus: 'pending',
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 20,
+        totalItems: 1,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+      filtersApplied: {
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      },
+    })
+
+    render(<ProjectReviewPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('review-bulk-approve-button')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByTestId('review-bulk-approve-button'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/未确认高风险项/)).toBeInTheDocument()
+    })
+  })
+
+  it('should bulk approve remaining low-risk pending items after high-risk items are already confirmed', async () => {
+    mockGetProjectReviewItems.mockResolvedValue({
+      items: [
+        {
+          ...mockReviewItem,
+          reviewItemId: 'review-high-approved',
+          highRiskFlag: true,
+          riskLevel: 'high',
+          reviewStatus: 'approved',
+        },
+        {
+          ...mockReviewItem,
+          reviewItemId: 'review-low-pending',
+          highRiskFlag: false,
+          riskLevel: 'low',
+          reviewStatus: 'pending',
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 20,
+        totalItems: 2,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+      filtersApplied: {
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      },
+    })
+
+    render(<ProjectReviewPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('review-bulk-approve-button')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByTestId('review-bulk-approve-button'))
+
+    await waitFor(() => {
+      expect(mockSubmitProjectReviewDecision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reviewItemId: 'review-low-pending',
+          decision: 'accept',
+          reviewedBy: 'user-1',
+        }),
+      )
     })
   })
 

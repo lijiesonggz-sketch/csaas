@@ -178,6 +178,14 @@ function getConfidenceTone(confidenceLevel: string) {
   }
 }
 
+function formatScore(value: number | null): string {
+  if (value === null) {
+    return '验证中'
+  }
+
+  return `${Math.round(value * 100)}%`
+}
+
 const REVIEW_STATUS_OPTIONS: Array<{ value: FilterValue<ProjectReviewStatus>; label: string }> = [
   { value: 'all', label: '全部状态' },
   { value: 'pending', label: '待审核' },
@@ -220,7 +228,9 @@ export default function ProjectReviewPage() {
   const [reasonInput, setReasonInput] = useState('')
   const [patchInput, setPatchInput] = useState('{}')
   const [noopWarningVisible, setNoopWarningVisible] = useState(false)
-  const [actionBusy, setActionBusy] = useState<null | 'accept' | 'modify' | 'reject' | 'rerun'>(null)
+  const [actionBusy, setActionBusy] = useState<
+    null | 'accept' | 'modify' | 'reject' | 'rerun' | 'bulk-approve'
+  >(null)
   const [actionNotice, setActionNotice] = useState<null | { kind: 'success' | 'error'; message: string }>(null)
   const [filters, setFilters] = useState<{
     reviewStatus: FilterValue<ProjectReviewStatus>
@@ -258,6 +268,15 @@ export default function ProjectReviewPage() {
       sortOrder: 'desc',
     }
   }, [filters])
+  const batchSummary = useMemo(() => {
+    const pendingItems = items.filter((item) => item.reviewStatus === 'pending')
+    const pendingHighRiskItems = pendingItems.filter((item) => item.highRiskFlag)
+    return {
+      totalItems: items.length,
+      pendingCount: pendingItems.length,
+      pendingHighRiskCount: pendingHighRiskItems.length,
+    }
+  }, [items])
 
   const loadReviewItems = useCallback(
     async (preserveSelection = true) => {
@@ -464,6 +483,70 @@ export default function ProjectReviewPage() {
     }
   }, [loadReviewItems, projectId, reasonInput, selectedItem])
 
+  const handleBulkApprove = useCallback(async () => {
+    if (!reviewerId) {
+      setActionNotice({
+        kind: 'error',
+        message: '当前无法识别审核人，请重新登录后再试',
+      })
+      return
+    }
+
+    try {
+      setActionBusy('bulk-approve')
+      const latestBatch = await getProjectReviewItems(projectId, listQuery)
+      const blockingHighRiskItems = latestBatch.items.filter(
+        (item) => item.highRiskFlag && item.reviewStatus === 'pending',
+      )
+
+      if (blockingHighRiskItems.length > 0) {
+        setActionNotice({
+          kind: 'error',
+          message: `仍有未确认高风险项：${blockingHighRiskItems
+            .map((item) => item.reviewItemId)
+            .join('、')}`,
+        })
+        return
+      }
+
+      const approvableItems = latestBatch.items.filter(
+        (item) => item.reviewStatus === 'pending',
+      )
+
+      if (approvableItems.length === 0) {
+        setActionNotice({
+          kind: 'success',
+          message: '当前筛选范围内没有可批量通过的待处理项',
+        })
+        return
+      }
+
+      for (const item of approvableItems) {
+        await submitProjectReviewDecision({
+          reviewItemId: item.reviewItemId,
+          decision: 'accept',
+          reviewedBy: reviewerId,
+        })
+      }
+
+      toast.success(`已整批通过 ${approvableItems.length} 项`)
+      setActionNotice({
+        kind: 'success',
+        message: `已整批通过 ${approvableItems.length} 项`,
+      })
+      await loadReviewItems(true)
+    } catch (bulkError) {
+      const message =
+        bulkError instanceof Error ? bulkError.message : '整批通过失败'
+      setActionNotice({
+        kind: 'error',
+        message,
+      })
+    } finally {
+      setActionBusy(null)
+    }
+  }, [listQuery, loadReviewItems, projectId, reviewerId])
+
   return (
     <div className="w-full px-6 py-8">
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0f766e] via-[#155e75] to-[#1d4ed8] p-8 mb-8">
@@ -594,6 +677,50 @@ export default function ProjectReviewPage() {
                   ))}
                 </select>
               </label>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+              <div>
+                <p className="text-sm font-medium text-slate-900">当前筛选批次</p>
+                <p className="text-xs text-slate-500">
+                  整批通过前会按当前筛选条件重新拉取最新列表并校验高风险项
+                </p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-xs text-slate-500">总数</p>
+                  <p className="text-lg font-semibold text-slate-900">
+                    {batchSummary.totalItems}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-xs text-slate-500">待处理</p>
+                  <p className="text-lg font-semibold text-slate-900">
+                    {batchSummary.pendingCount}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-white px-3 py-2">
+                  <p className="text-xs text-slate-500">高风险待确认</p>
+                  <p className="text-lg font-semibold text-rose-700">
+                    {batchSummary.pendingHighRiskCount}
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                data-testid="review-bulk-approve-button"
+                onClick={() => void handleBulkApprove()}
+                disabled={actionBusy !== null || batchSummary.totalItems === 0}
+                className="w-full bg-slate-900 hover:bg-slate-800"
+              >
+                {actionBusy === 'bulk-approve' ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                )}
+                整批通过当前筛选
+              </Button>
             </div>
 
             {loading ? (
@@ -764,7 +891,71 @@ export default function ProjectReviewPage() {
                     正在加载详情...
                   </div>
                 ) : (
-                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+                  <div className="space-y-4">
+                    <Card className="border border-slate-200 shadow-none">
+                      <CardHeader>
+                        <CardTitle className="text-base">一致性与置信度面板</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {(selectedItem.highRiskFlag || selectedItem.confidenceLevel === 'low') && (
+                          <Alert className="border-rose-200 bg-rose-50 text-rose-900">
+                            <AlertTitle>当前项需要优先处理</AlertTitle>
+                            <AlertDescription>
+                              检测到高风险分歧或低置信度结果，请在继续批量操作前完成人工复核。
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                        <div className="grid gap-3 md:grid-cols-3">
+                          {([
+                            ['结构一致性', selectedItem.consistencyScores.structural],
+                            ['语义一致性', selectedItem.consistencyScores.semantic],
+                            ['细节一致性', selectedItem.consistencyScores.detail],
+                          ] as const).map(([label, value]) => (
+                            <div
+                              key={label}
+                              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                            >
+                              <p className="text-sm text-slate-500">{label}</p>
+                              <p className="mt-2 text-2xl font-semibold text-slate-900">
+                                {formatScore(value)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Badge className={getConfidenceTone(selectedItem.confidenceLevel)}>
+                            置信度：{selectedItem.confidenceLevel}
+                          </Badge>
+                          <Badge className={getRiskTone(selectedItem.riskLevel)}>
+                            风险：{selectedItem.riskLevel}
+                          </Badge>
+                        </div>
+
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-slate-900">降级原因</p>
+                          {selectedItem.degradationReasons.length > 0 ? (
+                            <ul className="space-y-2 text-sm text-slate-700">
+                              {selectedItem.degradationReasons.map((reason) => (
+                                <li
+                                  key={reason}
+                                  className="rounded-xl bg-slate-50 px-3 py-2"
+                                >
+                                  {reason}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-slate-500">
+                              当前没有额外降级原因。
+                            </p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
                     <div className="space-y-4">
                       <Card className="border border-slate-200 shadow-none">
                         <CardHeader>
@@ -887,6 +1078,7 @@ export default function ProjectReviewPage() {
                         </Button>
                       </div>
                     </div>
+                  </div>
                   </div>
                 )}
               </>
