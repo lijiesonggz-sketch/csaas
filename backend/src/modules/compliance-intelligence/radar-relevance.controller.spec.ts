@@ -193,4 +193,137 @@ describe('RadarRelevanceController (http)', () => {
       })
       .expect(403)
   })
+
+  describe('Unified Control Context Protocol (Story 7.1)', () => {
+    it('should include control context fields in response', async () => {
+      // Mock service 返回 enriched 响应
+      mockRadarRelevanceEnhancedService.calculateRadarRelevance.mockResolvedValue({
+        relevanceScore: 0.85,
+        priority: 'HIGH',
+        matchedControls: [
+          {
+            controlId: 'control-1',
+            controlCode: 'CTRL-DG-004',
+            controlName: '监管报送准确性控制',
+            reason: '命中控制语义：监管报送',
+          },
+        ],
+        matchedCases: [],
+        matchedClauses: [],
+        suggestedChecks: [],
+        // Story 7.1 新增的 Unified Control Context 字段
+        controlId: 'control-1',
+        matchedControls: [
+          {
+            controlId: 'control-1',
+            controlName: '监管报送准确性控制',
+            packSource: 'radar',
+            priority: 'HIGH',
+          },
+        ],
+        sourceModule: 'radar',
+        sourceRecordId: '44444444-4444-4444-8444-444444444444',
+        sourceRoute: '/radar/compliance/44444444-4444-4444-8444-444444444444',
+      })
+
+      const response = await request(app.getHttpServer())
+        .post('/compliance-intelligence/radar/relevance')
+        .send({
+          organizationId: '33333333-3333-4333-8333-333333333333',
+          contentId: '44444444-4444-4444-8444-444444444444',
+        })
+        .expect(201)
+
+      // 验证 Unified Control Context Protocol 字段
+      expect(response.body.data).toHaveProperty('sourceModule', 'radar')
+      expect(response.body.data).toHaveProperty('sourceRecordId', '44444444-4444-4444-8444-444444444444')
+      expect(response.body.data).toHaveProperty('sourceRoute')
+      expect(response.body.data).toHaveProperty('controlId')
+      expect(response.body.data).toHaveProperty('matchedControls')
+    })
+
+    it('should return null controlId when multiple controls matched', async () => {
+      // 多个控制点场景
+      mockRadarRelevanceEnhancedService.calculateRadarRelevance.mockResolvedValue({
+        relevanceScore: 0.78,
+        priority: 'MEDIUM',
+        matchedControls: [
+          {
+            controlId: 'control-1',
+            controlCode: 'CTRL-DG-004',
+            controlName: '监管报送准确性控制',
+            reason: '命中控制语义：监管报送',
+          },
+          {
+            controlId: 'control-2',
+            controlCode: 'CTRL-DG-005',
+            controlName: '个人信息保护控制',
+            reason: '命中控制语义：个人信息',
+          },
+        ],
+        matchedCases: [],
+        matchedClauses: [],
+        suggestedChecks: [],
+        // 多控制点时 controlId 为 null
+        controlId: null,
+        matchedControls: [
+          {
+            controlId: 'control-1',
+            controlName: '监管报送准确性控制',
+            packSource: 'radar',
+            priority: 'HIGH',
+          },
+          {
+            controlId: 'control-2',
+            controlName: '个人信息保护控制',
+            packSource: 'radar',
+            priority: 'MEDIUM',
+          },
+        ],
+        sourceModule: 'radar',
+        sourceRecordId: '44444444-4444-4444-8444-444444444444',
+        sourceRoute: '/radar/compliance/44444444-4444-4444-8444-444444444444',
+      })
+
+      const response = await request(app.getHttpServer())
+        .post('/compliance-intelligence/radar/relevance')
+        .send({
+          organizationId: '33333333-3333-4333-8333-333333333333',
+          contentId: '44444444-4444-4444-8444-444444444444',
+        })
+        .expect(201)
+
+      expect(response.body.data.controlId).toBeNull()
+      expect(response.body.data.matchedControls).toHaveLength(2)
+    })
+
+    it('should return empty matchedControls when no controls matched', async () => {
+      // 无控制点匹配场景
+      mockRadarRelevanceEnhancedService.calculateRadarRelevance.mockResolvedValue({
+        relevanceScore: 0.3,
+        priority: 'LOW',
+        matchedControls: [],
+        matchedCases: [],
+        matchedClauses: [],
+        suggestedChecks: [],
+        // 无控制点时
+        controlId: null,
+        matchedControls: [],
+        sourceModule: 'radar',
+        sourceRecordId: '44444444-4444-4444-8444-444444444444',
+        sourceRoute: '/radar/compliance/44444444-4444-4444-8444-444444444444',
+      })
+
+      const response = await request(app.getHttpServer())
+        .post('/compliance-intelligence/radar/relevance')
+        .send({
+          organizationId: '33333333-3333-4333-8333-333333333333',
+          contentId: '44444444-4444-4444-8444-444444444444',
+        })
+        .expect(201)
+
+      expect(response.body.data.controlId).toBeNull()
+      expect(response.body.data.matchedControls).toEqual([])
+    })
+  })
 })

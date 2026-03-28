@@ -1,4 +1,9 @@
 import { ArrayNotEmpty, ArrayUnique, IsArray, IsUUID } from 'class-validator'
+import type {
+  ControlContext,
+  MatchedControlReference,
+  SourceModule,
+} from './unified-control-context.dto'
 
 export class CompileControlReportDto {
   @IsUUID()
@@ -57,7 +62,7 @@ export type ControlReportRecommendationDto = {
   expectedBenefit: string | null
 }
 
-export type ControlReportControlNodeDto = {
+export type ControlReportControlNodeDto = ControlContext & {
   controlId: string
   controlCode: string
   controlName: string
@@ -67,6 +72,36 @@ export type ControlReportControlNodeDto = {
   cases: ControlReportCaseDto[]
   evidences: ControlReportEvidenceDto[]
   recommendations: ControlReportRecommendationDto[]
+}
+
+/**
+ * 为控制报告节点添加上下文字段
+ */
+export function enrichControlNodeWithContext(
+  node: Omit<ControlReportControlNodeDto, keyof ControlContext>,
+  reportId: string,
+): ControlReportControlNodeDto {
+  // 单个控制点节点，controlId 直接使用节点的 controlId
+  const controlId = node.controlId
+
+  // 从节点构造单元素 matchedControls 数组
+  const matchedControlsRef: MatchedControlReference[] = [
+    {
+      controlId: node.controlId,
+      controlName: node.controlName,
+      packSource: 'report', // 默认来源，可根据业务需求调整
+      priority: node.gapLevel, // 使用 gapLevel 作为优先级
+    },
+  ]
+
+  return {
+    ...node,
+    controlId,
+    matchedControls: matchedControlsRef,
+    sourceModule: 'report' as SourceModule,
+    sourceRecordId: reportId,
+    sourceRoute: `/reports/${reportId}`,
+  }
 }
 
 export type ControlReportL2SectionDto = {

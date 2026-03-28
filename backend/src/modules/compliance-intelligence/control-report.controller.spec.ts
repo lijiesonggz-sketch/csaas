@@ -224,4 +224,151 @@ describe('ControlReportController (http)', () => {
       })
       .expect(403)
   })
+
+  describe('Unified Control Context Protocol (Story 7.1)', () => {
+    it('should include control context fields in each control node', async () => {
+      // Mock service 返回 enriched响应
+      const reportId = 'report-123'
+      mockControlReportCompilerService.compileReport.mockResolvedValue({
+        sections: [
+          {
+            l1Code: 'IT04',
+            l1Name: '数据治理与监管数据报送',
+            l2Sections: [
+              {
+                l2Code: 'IT04-06',
+                l2Name: '监管报送准确性控制',
+                controls: [
+                  {
+                    controlId: 'control-1',
+                    controlCode: 'CTRL-DG-004',
+                    controlName: '监管报送准确性控制',
+                    currentStatus: 'PARTIAL',
+                    gapLevel: 'MEDIUM',
+                    clauses: [],
+                    cases: [],
+                    evidences: [],
+                    recommendations: [],
+                    // Story 7.1 新增的 Unified Control Context 字段
+                    matchedControls: [
+                      {
+                        controlId: 'control-1',
+                        controlName: '监管报送准确性控制',
+                        packSource: 'report',
+                        priority: 'MEDIUM',
+                      },
+                    ],
+                    sourceModule: 'report',
+                    sourceRecordId: reportId,
+                    sourceRoute: `/reports/${reportId}`,
+                  },
+                ],
+              },
+            },
+          ],
+        ],
+      })
+
+      const response = await request(app.getHttpServer())
+        .post('/compliance-intelligence/compile-control-report')
+        .send({
+          organizationId: '33333333-3333-4333-8333-333333333333',
+          controlIds: ['11111111-1111-4111-8111-111111111111'],
+          surveyResponseId: '55555555-5555-4555-8555-555555555555',
+        })
+        .expect(201)
+
+      // 验证 Unified Control Context Protocol 字段
+      const controlNode = response.body.data.sections[0].l2Sections[0].controls[0]
+      expect(controlNode).toHaveProperty('sourceModule', 'report')
+      expect(controlNode).toHaveProperty('sourceRecordId', reportId)
+      expect(controlNode).toHaveProperty('sourceRoute')
+      expect(controlNode).toHaveProperty('controlId', 'control-1')
+      expect(controlNode).toHaveProperty('matchedControls')
+      expect(controlNode.matchedControls).toHaveLength(1)
+    })
+
+    it('should maintain controlId consistency with node data', async () => {
+      // 验证 controlId 与节点数据一致
+      const reportId = 'report-456'
+      mockControlReportCompilerService.compileReport.mockResolvedValue({
+        sections: [
+          {
+            l1Code: 'IT04',
+            l1Name: '数据治理与监管数据报送',
+            l2Sections: [
+              {
+                l2Code: 'IT04-06',
+                l2Name: '监管报送准确性控制',
+                controls: [
+                  {
+                    controlId: 'control-2',
+                    controlCode: 'CTRL-DG-005',
+                    controlName: '个人信息保护控制',
+                    currentStatus: 'INCOMPLETE',
+                    gapLevel: 'HIGH',
+                    clauses: [],
+                    cases: [],
+                    evidences: [],
+                    recommendations: [],
+                    // Story 7.1 字段
+                    matchedControls: [
+                      {
+                        controlId: 'control-2',
+                        controlName: '个人信息保护控制',
+                        packSource: 'report',
+                        priority: 'HIGH',
+                      },
+                    ],
+                    sourceModule: 'report',
+                    sourceRecordId: reportId,
+                    sourceRoute: `/reports/${reportId}`,
+                  },
+                ],
+              },
+            },
+          ],
+        ],
+      })
+
+      const response = await request(app.getHttpServer())
+        .post('/compliance-intelligence/compile-control-report')
+        .send({
+          organizationId: '33333333-3333-4333-8333-333333333333',
+          controlIds: ['11111111-1111-4111-8111-111111111111'],
+          surveyResponseId: '55555555-5555-4555-8555-555555555555',
+        })
+        .expect(201)
+
+      const controlNode = response.body.data.sections[0].l2Sections[0].controls[0]
+      expect(controlNode.controlId).toBe('control-2')
+      expect(controlNode.matchedControls[0].controlId).toBe('control-2')
+    })
+
+    it('should handle empty control gracefully', async () => {
+      // 空控制点场景
+      const reportId = 'report-empty'
+      mockControlReportCompilerService.compileReport.mockResolvedValue({
+        sections: [
+          {
+            l1Code: 'IT99',
+            l1Name: '空风险域',
+            l2Sections: [],
+          },
+        ],
+      })
+
+      const response = await request(app.getHttpServer())
+        .post('/compliance-intelligence/compile-control-report')
+        .send({
+          organizationId: '33333333-3333-4333-8333-333333333333',
+          controlIds: [],
+          surveyResponseId: '55555555-5555-4555-8555-555555555555',
+        })
+        .expect(201)
+
+      // 空 sections 是合法的
+      expect(response.body.data.sections).toBeDefined()
+    })
+  })
 })
