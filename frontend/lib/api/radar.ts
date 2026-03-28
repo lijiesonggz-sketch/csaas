@@ -52,6 +52,23 @@ export interface RadarPush {
   hasPlaybook?: boolean               // 是否有应对剧本
   playbookStatus?: 'ready' | 'generating' | 'failed'  // 剧本状态
   sentAt?: string                     // 发送时间 (用于排序)
+
+  // Story 7.2: 统一控制点上下文协议字段
+  controlId?: string | null           // 单控制点便捷字段
+  matchedControls?: MatchedControlReference[]  // 匹配的控制点列表
+  sourceModule?: 'radar' | 'report' | 'audit'  // 来源模块
+  sourceRecordId?: string             // 来源记录ID
+  sourceRoute?: string                // 来源路由
+}
+
+/**
+ * 匹配控制点引用 (Story 7.2)
+ */
+export interface MatchedControlReference {
+  controlId: string
+  controlName: string
+  packSource: string
+  priority: string
 }
 
 /**

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AlertTriangle, RefreshCw, CheckCircle, AlertCircle, Gavel, ArrowLeft } from 'lucide-react'
 import { PushCard } from '@/components/radar/PushCard'
 import { CompliancePlaybookModal } from '@/components/radar/CompliancePlaybookModal'
+import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
 import { getCompliancePushes, RadarPush } from '@/lib/api/radar'
 import { useWebSocket } from '@/lib/hooks/useWebSocket'
 import { useOrganizationStore } from '@/lib/stores/useOrganizationStore'
@@ -21,6 +22,11 @@ export default function ComplianceRadarPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPushId, setSelectedPushId] = useState<string | null>(null)
+
+  // Story 7.2: 控制点详情抽屉状态
+  const [controlDrawerOpen, setControlDrawerOpen] = useState(false)
+  const [selectedControlId, setSelectedControlId] = useState<string | null>(null)
+  const [selectedPushForControl, setSelectedPushForControl] = useState<RadarPush | null>(null)
 
   const currentOrganization = useOrganizationStore((state) => state.currentOrganization)
   const organizationId = currentOrganization?.id
@@ -100,6 +106,13 @@ export default function ComplianceRadarPage() {
 
   const handleBack = () => {
     router.push('/radar')
+  }
+
+  // Story 7.2: 处理控制点详情打开
+  const handleOpenControlDetail = (controlId: string, push: RadarPush) => {
+    setSelectedControlId(controlId)
+    setSelectedPushForControl(push)
+    setControlDrawerOpen(true)
   }
 
   const sortedPushes = useMemo(() => {
@@ -208,6 +221,7 @@ export default function ComplianceRadarPage() {
               push={push}
               variant="compliance"
               onViewDetail={setSelectedPushId}
+              onViewControlDetail={(controlId) => handleOpenControlDetail(controlId, push)}
             />
           ))}
         </div>
@@ -240,6 +254,18 @@ export default function ComplianceRadarPage() {
           />
         )
       })()}
+
+      {/* Story 7.2: Control Detail Drawer */}
+      {controlDrawerOpen && selectedControlId && selectedPushForControl && organizationId && (
+        <ControlDetailDrawer
+          open={controlDrawerOpen}
+          onOpenChange={setControlDrawerOpen}
+          organizationId={organizationId}
+          controlId={selectedControlId}
+          sourceModule="radar"
+          sourceRecordId={selectedPushForControl.pushId}
+        />
+      )}
     </div>
   )
 }

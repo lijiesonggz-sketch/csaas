@@ -12,6 +12,7 @@ import {
   Gavel,
   AlertOctagon,
   Bookmark,
+  HelpCircle,
 } from 'lucide-react'
 import { formatChinaDate } from '@/lib/utils/dateTime'
 import { cn } from '@/lib/utils'
@@ -56,10 +57,19 @@ interface PushCardProps {
     sentAt?: string
     // Story 6.3: 品牌信息
     brandName?: string
+    // Story 7.2: 控制点上下文
+    controlId?: string | null
+    matchedControls?: Array<{
+      controlId: string
+      controlName: string
+      packSource: string
+      priority: string
+    }>
   }
   variant?: 'tech' | 'industry' | 'compliance'
   isWatchedPeer?: boolean
   onViewDetail?: (pushId: string) => void
+  onViewControlDetail?: (controlId: string) => void
 }
 
 /**
@@ -75,7 +85,7 @@ interface PushCardProps {
  * - 添加"查看详情"按钮
  */
 export const PushCard = React.memo(
-  function PushCard({ push, variant = 'tech', isWatchedPeer = false, onViewDetail }: PushCardProps) {
+  function PushCard({ push, variant = 'tech', isWatchedPeer = false, onViewDetail, onViewControlDetail }: PushCardProps) {
     // 优先级配置
     const priorityConfig: Record<1 | 2 | 3, { label: string; className: string }> = {
       1: { label: '优先级 1', className: 'bg-primary text-primary-foreground' },
@@ -338,7 +348,7 @@ export const PushCard = React.memo(
           </div>
         </CardContent>
 
-        <CardFooter className="p-4 pt-0">
+        <CardFooter className="p-4 pt-0 flex flex-col gap-2">
           <Button
             className="w-full"
             variant={variant === 'compliance' ? 'destructive' : 'default'}
@@ -352,6 +362,25 @@ export const PushCard = React.memo(
               <ExternalLink className="w-4 h-4 ml-2" />
             )}
           </Button>
+
+          {/* Story 7.2: 控制点入口按钮 */}
+          {push.matchedControls && push.matchedControls.length > 0 && onViewControlDetail && (
+            <Button
+              className="w-full"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const firstControl = push.matchedControls![0]
+                onViewControlDetail(firstControl.controlId)
+              }}
+            >
+              <HelpCircle className="w-4 h-4 mr-2" />
+              查看控制点详情
+              {push.matchedControls.length > 1 && (
+                <span className="ml-1 text-xs">({push.matchedControls.length})</span>
+              )}
+            </Button>
+          )}
         </CardFooter>
       </Card>
     )
