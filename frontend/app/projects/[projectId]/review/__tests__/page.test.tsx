@@ -82,6 +82,11 @@ const mockDetailResult = {
   selectedResult: {
     title: '原始标题',
     overview: '原始概述',
+    reference: {
+      clauseCode: 'CLAUSE-001',
+      articleNo: '第5.1条',
+      sourceName: 'ISO27001',
+    },
   },
   selectedModel: 'gpt4',
   confidenceLevel: 'MEDIUM',
@@ -160,6 +165,7 @@ describe('ProjectReviewPage', () => {
     expect(
       (screen.getByLabelText('当前结果 JSON') as HTMLTextAreaElement).value,
     ).toContain('原始标题')
+    expect(screen.getByText(/Clause Code: CLAUSE-001/)).toBeInTheDocument()
   })
 
   it('should submit accept decision successfully', async () => {
@@ -268,6 +274,73 @@ describe('ProjectReviewPage', () => {
     })
 
     expect(screen.getByText(/retry-later/)).toBeInTheDocument()
+  })
+
+  it('should show explicit missing-source guidance when source excerpt is unavailable', async () => {
+    mockGetProjectReviewItems.mockResolvedValueOnce({
+      items: [
+        {
+          ...mockReviewItem,
+          sourcePreview: {
+            ...mockReviewItem.sourcePreview,
+            sourceExcerpt: null,
+            extractionQuality: 'missing',
+          },
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 20,
+        totalItems: 1,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+      filtersApplied: {
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      },
+    })
+
+    render(<ProjectReviewPage />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('当前缺少原文来源或引用不完整，系统不会猜测或补造原文内容。'),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('should show extraction-quality warning for partial source text', async () => {
+    mockGetProjectReviewItems.mockResolvedValueOnce({
+      items: [
+        {
+          ...mockReviewItem,
+          sourcePreview: {
+            ...mockReviewItem.sourcePreview,
+            extractionQuality: 'partial',
+          },
+        },
+      ],
+      pagination: {
+        page: 1,
+        pageSize: 20,
+        totalItems: 1,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+      filtersApplied: {
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      },
+    })
+
+    render(<ProjectReviewPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('原文抽取可能不完整')).toBeInTheDocument()
+    })
   })
 
   it('should refetch items when filter changes', async () => {

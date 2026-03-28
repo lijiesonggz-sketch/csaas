@@ -39,6 +39,20 @@ import {
 import type { GenerationResult } from '@/lib/types/ai-generation'
 
 type FilterValue<T extends string> = 'all' | T
+type LocationHint = { label: string; value: string }
+
+const LOCATION_HINT_LABELS: Record<string, string> = {
+  clauseId: 'Clause ID',
+  clause_id: 'Clause ID',
+  clauseCode: 'Clause Code',
+  clause_code: 'Clause Code',
+  articleNo: '条号',
+  article_no: '条号',
+  sourceName: '来源',
+  source_name: '来源',
+  sourceDocumentName: '文档',
+  source_document_name: '文档',
+}
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -76,6 +90,57 @@ function normalizeDetailPayload(result: GenerationResult | null): Record<string,
   }
 
   return (result.selectedResult ?? {}) as Record<string, unknown>
+}
+
+function extractLocationHints(
+  value: unknown,
+  maxItems = 8,
+): LocationHint[] {
+  const hints: LocationHint[] = []
+  const seen = new Set<string>()
+
+  function walk(input: unknown, depth: number) {
+    if (hints.length >= maxItems || depth > 4) {
+      return
+    }
+
+    if (Array.isArray(input)) {
+      input.slice(0, 6).forEach((item) => walk(item, depth + 1))
+      return
+    }
+
+    if (!isPlainObject(input)) {
+      return
+    }
+
+    for (const [key, rawValue] of Object.entries(input)) {
+      if (hints.length >= maxItems) {
+        return
+      }
+
+      if (
+        LOCATION_HINT_LABELS[key] &&
+        typeof rawValue === 'string' &&
+        rawValue.trim().length > 0
+      ) {
+        const token = `${key}:${rawValue}`
+        if (!seen.has(token)) {
+          seen.add(token)
+          hints.push({
+            label: LOCATION_HINT_LABELS[key],
+            value: rawValue,
+          })
+        }
+      }
+
+      if (typeof rawValue === 'object' && rawValue !== null) {
+        walk(rawValue, depth + 1)
+      }
+    }
+  }
+
+  walk(value, 0)
+  return hints
 }
 
 function getStatusTone(status: ProjectReviewStatus) {
@@ -175,6 +240,10 @@ export default function ProjectReviewPage() {
   const editablePayload = useMemo(
     () => normalizeDetailPayload(detailResult),
     [detailResult],
+  )
+  const locationHints = useMemo(
+    () => extractLocationHints(editablePayload),
+    [editablePayload],
   )
 
   const listQuery = useMemo<ProjectReviewQuery>(() => {
@@ -617,7 +686,7 @@ export default function ProjectReviewPage() {
                 <div className="grid gap-4 xl:grid-cols-2">
                   <Card className="border border-slate-200 shadow-none">
                     <CardHeader>
-                      <CardTitle className="text-base">来源预览</CardTitle>
+                      <CardTitle className="text-base">原文来源对照</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm text-slate-700">
                       <p>
@@ -628,6 +697,41 @@ export default function ProjectReviewPage() {
                         <span className="font-medium">抽取质量：</span>
                         {selectedItem.sourcePreview.extractionQuality}
                       </p>
+                      {selectedItem.sourcePreview.extractionQuality === 'partial' && (
+                        <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+                          <AlertTitle>原文抽取可能不完整</AlertTitle>
+                          <AlertDescription>
+                            当前原文来源来自 PDF/扫描件或不完整抽取，但系统仍只展示已有片段，不会补造内容。
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      {!selectedItem.sourcePreview.sourceExcerpt && (
+                        <Alert className="border-slate-200 bg-slate-50 text-slate-900">
+                          <AlertTitle>缺少原文来源</AlertTitle>
+                          <AlertDescription>
+                            当前缺少原文来源或引用不完整，系统不会猜测或补造原文内容。
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      <div className="space-y-2">
+                        <p className="font-medium">定位线索</p>
+                        {locationHints.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {locationHints.map((hint) => (
+                              <Badge
+                                key={`${hint.label}:${hint.value}`}
+                                className="bg-slate-100 text-slate-700"
+                              >
+                                {hint.label}: {hint.value}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500">
+                            当前详情没有可提取的 clause / source / article 定位线索。
+                          </p>
+                        )}
+                      </div>
                       <p className="whitespace-pre-wrap rounded-xl bg-slate-50 p-3">
                         {selectedItem.sourcePreview.sourceExcerpt || '当前没有可展示的原文预览'}
                       </p>
@@ -636,7 +740,7 @@ export default function ProjectReviewPage() {
 
                   <Card className="border border-slate-200 shadow-none">
                     <CardHeader>
-                      <CardTitle className="text-base">AI 预览</CardTitle>
+                      <CardTitle className="text-base">AI 结果对照</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm text-slate-700">
                       <p>
