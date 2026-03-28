@@ -49,10 +49,9 @@ describe('OrganizationAutoCreateService', () => {
   describe('ensureOrganizationForProject', () => {
     it('should create organization and admin membership when user has no organization', async () => {
       const userId = 'user-123'
-      const organizationName = 'Test Organization'
       const createdOrganization = {
         id: '550e8400-e29b-41d4-a716-446655440000',
-        name: organizationName,
+        name: '用户的默认组织',
         tenantId: '00000000-0000-0000-0000-000000000001',
       } as Organization
 
@@ -71,11 +70,11 @@ describe('OrganizationAutoCreateService', () => {
         role: 'admin',
       })
 
-      const result = await service.ensureOrganizationForProject(userId, organizationName)
+      const result = await service.ensureOrganizationForProject(userId)
 
       expect(result).toEqual(createdOrganization)
       expect(mockOrgRepository.create).toHaveBeenCalledWith({
-        name: organizationName,
+        name: '用户的默认组织',
         tenantId: '00000000-0000-0000-0000-000000000001',
       })
       expect(mockOrgMemberRepository.save).toHaveBeenCalledWith(
@@ -99,7 +98,7 @@ describe('OrganizationAutoCreateService', () => {
         organization: existingOrganization,
       })
 
-      const result = await service.ensureOrganizationForProject(userId, 'Ignored Name')
+      const result = await service.ensureOrganizationForProject(userId)
 
       expect(result).toBe(existingOrganization)
       expect(mockOrgRepository.create).not.toHaveBeenCalled()

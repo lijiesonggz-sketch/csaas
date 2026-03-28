@@ -25,6 +25,7 @@ describe('Sidebar', () => {
           name: 'Test User',
           email: 'test@example.com',
           role: 'consultant',
+          organizationId: 'org-123',
         },
       },
       status: 'authenticated',
@@ -40,6 +41,8 @@ describe('Sidebar', () => {
 
     expect(screen.getByText('工作台')).toBeInTheDocument()
     expect(screen.getByText('项目管理')).toBeInTheDocument()
+    expect(screen.getByText('机构画像')).toBeInTheDocument()
+    expect(screen.getByText('适用控制点')).toBeInTheDocument()
     expect(screen.getByText('技术雷达')).toBeInTheDocument()
     expect(screen.getByText('报告中心')).toBeInTheDocument()
     expect(screen.getByText('团队管理')).toBeInTheDocument()
@@ -127,6 +130,36 @@ describe('Sidebar', () => {
     fireEvent.click(projectsButton!)
 
     expect(mockPush).toHaveBeenCalledWith('/projects')
+  })
+
+  it('navigates to organization profile using the current organization id', () => {
+    const mockPush = jest.fn()
+    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue({
+      push: mockPush,
+    })
+
+    render(<Sidebar />)
+
+    const profileText = screen.getByText('机构画像')
+    const profileButton = profileText.closest('.MuiListItemButton-root')
+    fireEvent.click(profileButton!)
+
+    expect(mockPush).toHaveBeenCalledWith('/organizations/org-123/profile')
+  })
+
+  it('navigates to applicable controls using the current organization id', () => {
+    const mockPush = jest.fn()
+    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue({
+      push: mockPush,
+    })
+
+    render(<Sidebar />)
+
+    const controlsText = screen.getByText('适用控制点')
+    const controlsButton = controlsText.closest('.MuiListItemButton-root')
+    fireEvent.click(controlsButton!)
+
+    expect(mockPush).toHaveBeenCalledWith('/organizations/org-123/applicable-controls')
   })
 
   it('handles special radar navigation with org ID', async () => {

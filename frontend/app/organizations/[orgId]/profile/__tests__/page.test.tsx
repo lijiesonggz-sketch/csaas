@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useSession } from 'next-auth/react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import OrganizationProfilePage from '../page'
 import {
   OrganizationProfileRequestError,
@@ -13,6 +13,7 @@ jest.mock('next-auth/react', () => ({
 
 jest.mock('next/navigation', () => ({
   useParams: jest.fn(),
+  useRouter: jest.fn(),
 }))
 
 const toastSuccess = jest.fn()
@@ -45,6 +46,7 @@ jest.mock('@/lib/api/organizations', () => ({
 
 const mockUseSession = useSession as jest.Mock
 const mockUseParams = useParams as jest.Mock
+const mockUseRouter = useRouter as jest.Mock
 
 const completeProfile = {
   orgId: 'org-1',
@@ -71,29 +73,47 @@ function renderPage() {
   return render(<OrganizationProfilePage />)
 }
 
-function fillValidForm() {
-  fireEvent.change(screen.getByLabelText('所属行业'), { target: { value: 'bank' } })
-  fireEvent.change(screen.getByLabelText('法人主体类型'), { target: { value: 'legal_person' } })
-  fireEvent.change(screen.getByLabelText('资产规模档位'), { target: { value: 'large' } })
-  fireEvent.change(screen.getByLabelText('监管关注等级'), { target: { value: 'medium' } })
-  fireEvent.change(screen.getByLabelText('是否涉及个人信息'), { target: { value: 'true' } })
-  fireEvent.change(screen.getByLabelText('是否跨境处理数据'), { target: { value: 'false' } })
-  fireEvent.change(screen.getByLabelText('重要数据识别情况'), { target: { value: 'unknown' } })
-  fireEvent.change(screen.getByLabelText('关键信息基础设施认定情况'), { target: { value: 'no' } })
-  fireEvent.change(screen.getByLabelText('是否自建机房'), { target: { value: 'true' } })
-  fireEvent.change(screen.getByLabelText('是否使用云服务'), { target: { value: 'true' } })
-  fireEvent.change(screen.getByLabelText('外包依赖程度'), { target: { value: 'medium' } })
-  fireEvent.change(screen.getByLabelText('关键系统等级'), { target: { value: 'high' } })
-  fireEvent.change(screen.getByLabelText('是否有线上交易'), { target: { value: 'false' } })
-  fireEvent.change(screen.getByLabelText('是否提供AI服务'), { target: { value: 'false' } })
-  fireEvent.change(screen.getByLabelText('公共服务范围'), { target: { value: 'public_users' } })
-  fireEvent.change(screen.getByLabelText('近一年是否发生重大事件'), { target: { value: 'false' } })
+function getSelectInput(label: string): HTMLInputElement {
+  const trigger = screen.getByRole('combobox', { name: label })
+  const input = trigger.parentElement?.querySelector('input')
+
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error(`Hidden input not found for select: ${label}`)
+  }
+
+  return input
+}
+
+async function selectOption(label: string, optionText: string) {
+  const trigger = screen.getByRole('combobox', { name: label })
+  fireEvent.mouseDown(trigger)
+  fireEvent.click(await screen.findByRole('option', { name: optionText }))
+}
+
+async function fillValidForm() {
+  await selectOption('所属行业', '银行')
+  await selectOption('法人主体类型', '法人主体')
+  await selectOption('资产规模档位', '大型')
+  await selectOption('监管关注等级', '中')
+  await selectOption('是否涉及个人信息', '是')
+  await selectOption('是否跨境处理数据', '否')
+  await selectOption('重要数据识别情况', '未识别')
+  await selectOption('关键信息基础设施认定情况', '否')
+  await selectOption('是否自建机房', '是')
+  await selectOption('是否使用云服务', '是')
+  await selectOption('外包依赖程度', '中')
+  await selectOption('关键系统等级', '高')
+  await selectOption('是否有线上交易', '否')
+  await selectOption('是否提供AI服务', '否')
+  await selectOption('公共服务范围', '公众用户')
+  await selectOption('近一年是否发生重大事件', '否')
 }
 
 describe('OrganizationProfilePage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockUseParams.mockReturnValue({ orgId: 'org-1' })
+    mockUseRouter.mockReturnValue({ back: jest.fn() })
     mockUseSession.mockReturnValue({
       data: {
         user: {
@@ -116,22 +136,22 @@ describe('OrganizationProfilePage', () => {
       expect(screen.getByText('机构画像配置')).toBeInTheDocument()
     })
 
-    expect(screen.getByLabelText('所属行业')).toHaveValue('bank')
-    expect(screen.getByLabelText('法人主体类型')).toHaveValue('legal_person')
-    expect(screen.getByLabelText('资产规模档位')).toHaveValue('large')
-    expect(screen.getByLabelText('是否涉及个人信息')).toHaveValue('true')
-    expect(screen.getByLabelText('是否跨境处理数据')).toHaveValue('false')
-    expect(screen.getByLabelText('重要数据识别情况')).toHaveValue('unknown')
-    expect(screen.getByLabelText('关键信息基础设施认定情况')).toHaveValue('no')
-    expect(screen.getByLabelText('是否自建机房')).toHaveValue('true')
-    expect(screen.getByLabelText('是否使用云服务')).toHaveValue('true')
-    expect(screen.getByLabelText('外包依赖程度')).toHaveValue('medium')
-    expect(screen.getByLabelText('关键系统等级')).toHaveValue('high')
-    expect(screen.getByLabelText('是否有线上交易')).toHaveValue('false')
-    expect(screen.getByLabelText('是否提供AI服务')).toHaveValue('false')
-    expect(screen.getByLabelText('公共服务范围')).toHaveValue('public_users')
-    expect(screen.getByLabelText('监管关注等级')).toHaveValue('medium')
-    expect(screen.getByLabelText('近一年是否发生重大事件')).toHaveValue('false')
+    expect(getSelectInput('所属行业')).toHaveValue('bank')
+    expect(getSelectInput('法人主体类型')).toHaveValue('legal_person')
+    expect(getSelectInput('资产规模档位')).toHaveValue('large')
+    expect(getSelectInput('是否涉及个人信息')).toHaveValue('true')
+    expect(getSelectInput('是否跨境处理数据')).toHaveValue('false')
+    expect(getSelectInput('重要数据识别情况')).toHaveValue('unknown')
+    expect(getSelectInput('关键信息基础设施认定情况')).toHaveValue('no')
+    expect(getSelectInput('是否自建机房')).toHaveValue('true')
+    expect(getSelectInput('是否使用云服务')).toHaveValue('true')
+    expect(getSelectInput('外包依赖程度')).toHaveValue('medium')
+    expect(getSelectInput('关键系统等级')).toHaveValue('high')
+    expect(getSelectInput('是否有线上交易')).toHaveValue('false')
+    expect(getSelectInput('是否提供AI服务')).toHaveValue('false')
+    expect(getSelectInput('公共服务范围')).toHaveValue('public_users')
+    expect(getSelectInput('监管关注等级')).toHaveValue('medium')
+    expect(getSelectInput('近一年是否发生重大事件')).toHaveValue('false')
     expect(screen.getByText(/最近保存：/)).toBeInTheDocument()
   })
 
@@ -146,7 +166,7 @@ describe('OrganizationProfilePage', () => {
       expect(screen.getByText(/首次配置机构画像/)).toBeInTheDocument()
     })
 
-    expect(screen.getByLabelText('所属行业')).toHaveValue('')
+    expect(getSelectInput('所属行业')).toHaveValue('')
     expect(screen.getByRole('button', { name: '保存画像' })).toBeInTheDocument()
   })
 
@@ -183,7 +203,7 @@ describe('OrganizationProfilePage', () => {
       expect(screen.getByRole('button', { name: '保存画像' })).toBeInTheDocument()
     })
 
-    fillValidForm()
+    await fillValidForm()
     fireEvent.click(screen.getByRole('button', { name: '保存画像' }))
 
     await waitFor(() => {
@@ -236,10 +256,10 @@ describe('OrganizationProfilePage', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByLabelText('所属行业')).toHaveValue('bank')
+      expect(getSelectInput('所属行业')).toHaveValue('bank')
     })
 
-    fireEvent.change(screen.getByLabelText('所属行业'), { target: { value: 'insurance' } })
+    await selectOption('所属行业', '保险')
     fireEvent.click(screen.getByRole('button', { name: '保存画像' }))
 
     expect(
@@ -267,6 +287,6 @@ describe('OrganizationProfilePage', () => {
       await screen.findByText('当前账号仅可查看机构画像，不能修改。'),
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '保存画像' })).not.toBeInTheDocument()
-    expect(screen.getByLabelText('所属行业')).toBeDisabled()
+    expect(screen.getByRole('combobox', { name: '所属行业' })).toHaveAttribute('aria-disabled', 'true')
   })
 })

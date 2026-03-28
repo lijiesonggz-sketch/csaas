@@ -27,10 +27,26 @@ interface HeaderProps {
   showMenuButton?: boolean
 }
 
+function getSafeDisplayName(name?: string | null, email?: string | null): string {
+  const trimmedName = name?.trim()
+
+  if (!trimmedName) {
+    return email || ''
+  }
+
+  // Fallback when the stored display name already contains Unicode replacement chars.
+  if (trimmedName.includes('\uFFFD')) {
+    return email || trimmedName
+  }
+
+  return trimmedName
+}
+
 export default function Header({ onMenuToggle, showMenuButton = false }: HeaderProps) {
   const { data: session } = useSession()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const open = Boolean(anchorEl)
+  const displayName = getSafeDisplayName(session?.user?.name, session?.user?.email)
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget)
@@ -124,7 +140,7 @@ export default function Header({ onMenuToggle, showMenuButton = false }: HeaderP
                 </Avatar>
                 <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
                   <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: 1.4 }}>
-                    {session.user.name || session.user.email}
+                    {displayName}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.4 }}>
                     {getRoleLabel(session.user.role)}

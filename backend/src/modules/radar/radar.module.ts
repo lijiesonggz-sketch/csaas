@@ -377,6 +377,11 @@ export class RadarModule implements OnModuleInit, OnModuleDestroy {
    * - 配置定时推送任务
    */
   async onModuleInit() {
+    if (process.env.RADAR_BOOTSTRAP_DISABLED === 'true') {
+      this.logger.warn('Radar bootstrap disabled via RADAR_BOOTSTRAP_DISABLED=true')
+      return
+    }
+
     try {
       // 启动文件监控
       await this.fileWatcherService.startWatching()

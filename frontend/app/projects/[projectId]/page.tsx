@@ -16,6 +16,8 @@ import {
   Radar,
   FolderOpen,
   ArrowLeft,
+  Building2,
+  FileSearch,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -273,6 +275,39 @@ export default function ProjectWorkbenchPage() {
           </Button>
         </div>
       </div>
+
+      {project?.organizationId && (
+        <Card className="mb-8 border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">KG 准备入口</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  先完成机构画像，再查看适用控制点结果，随后进入项目问卷流程。
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => router.push(`/organizations/${project.organizationId}/profile`)}
+                >
+                  <Building2 className="w-4 h-4 mr-2" />
+                  机构画像
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    router.push(`/organizations/${project.organizationId}/applicable-controls`)
+                  }
+                >
+                  <FileSearch className="w-4 h-4 mr-2" />
+                  适用控制点
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 功能模块网格 - 流体布局 */}
       <div className="mb-8">

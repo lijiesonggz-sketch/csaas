@@ -22,6 +22,8 @@ import {
   Settings as SettingsIcon,
   People as PeopleIcon,
   Radar as RadarIcon,
+  Business as BusinessIcon,
+  FactCheck as FactCheckIcon,
   ExpandLess,
   ExpandMore,
   ChevronLeft,
@@ -34,6 +36,7 @@ interface MenuItem {
   label: string
   children?: MenuItem[]
   adminOnly?: boolean
+  requiresOrganization?: boolean
 }
 
 // 定义所有菜单项（包括管理员专属）
@@ -47,6 +50,18 @@ const allMenuItems: MenuItem[] = [
     key: '/projects',
     icon: <FolderIcon />,
     label: '项目管理',
+  },
+  {
+    key: '/organizations/profile',
+    icon: <BusinessIcon />,
+    label: '机构画像',
+    requiresOrganization: true,
+  },
+  {
+    key: '/organizations/applicable-controls',
+    icon: <FactCheckIcon />,
+    label: '适用控制点',
+    requiresOrganization: true,
   },
   {
     key: '/radar',
@@ -103,11 +118,13 @@ export default function Sidebar({
   const router = useRouter()
   const { data: session } = useSession()
   const [expandedKeys, setExpandedKeys] = useState<string[]>(['/admin'])
+  const organizationId = session?.user?.organizationId
 
   // 根据用户角色过滤菜单项
   const isAdmin = session?.user?.role === 'admin'
   const visibleMenuItems = allMenuItems.filter((item) => {
     if (item.adminOnly && !isAdmin) return false
+    if (item.requiresOrganization && !organizationId) return false
     return true
   })
 
@@ -122,6 +139,20 @@ export default function Sidebar({
   }
 
   const handleNavigation = async (key: string) => {
+    if (key === '/organizations/profile') {
+      if (organizationId) {
+        router.push(`/organizations/${organizationId}/profile`)
+      }
+      return
+    }
+
+    if (key === '/organizations/applicable-controls') {
+      if (organizationId) {
+        router.push(`/organizations/${organizationId}/applicable-controls`)
+      }
+      return
+    }
+
     // Special handling for radar navigation: auto-get user's organization ID
     if (key === '/radar') {
       console.log('[Sidebar] Clicked tech radar navigation')
@@ -158,7 +189,23 @@ export default function Sidebar({
     }
   }
 
-  const isSelected = (key: string) => pathname === key || pathname.startsWith(`${key}/`)
+  const isSelected = (key: string) => {
+    if (key === '/organizations/profile') {
+      return (
+        pathname.startsWith('/organizations/') &&
+        pathname.endsWith('/profile')
+      )
+    }
+
+    if (key === '/organizations/applicable-controls') {
+      return (
+        pathname.startsWith('/organizations/') &&
+        pathname.endsWith('/applicable-controls')
+      )
+    }
+
+    return pathname === key || pathname.startsWith(`${key}/`)
+  }
   const isExpanded = (key: string) => expandedKeys.includes(key)
 
   const renderMenuItem = (item: MenuItem, level = 0) => {

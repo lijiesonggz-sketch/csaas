@@ -9,6 +9,7 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -180,12 +181,13 @@ function ApplicableControlsResult({ organizationId }: { organizationId: string }
               label="按控制包筛选"
               value={packFilter}
               onChange={(event) => setPackFilter(event.target.value)}
-              SelectProps={{ native: true }}
+              InputLabelProps={{ shrink: true }}
+              SelectProps={{ displayEmpty: true }}
             >
               {availablePacks.map((pack) => (
-                <option key={pack} value={pack}>
+                <MenuItem key={pack} value={pack}>
                   {pack === 'all' ? '全部控制包' : pack}
-                </option>
+                </MenuItem>
               ))}
             </TextField>
             <TextField
@@ -193,23 +195,25 @@ function ApplicableControlsResult({ organizationId }: { organizationId: string }
               label="按 mandatory 筛选"
               value={mandatoryFilter}
               onChange={(event) => setMandatoryFilter(event.target.value as typeof mandatoryFilter)}
-              SelectProps={{ native: true }}
+              InputLabelProps={{ shrink: true }}
+              SelectProps={{ displayEmpty: true }}
             >
-              <option value="all">全部</option>
-              <option value="mandatory">仅强制</option>
-              <option value="optional">仅可选</option>
+              <MenuItem value="all">全部</MenuItem>
+              <MenuItem value="mandatory">仅强制</MenuItem>
+              <MenuItem value="optional">仅可选</MenuItem>
             </TextField>
             <TextField
               select
               label="按 priority 筛选"
               value={priorityFilter}
               onChange={(event) => setPriorityFilter(event.target.value as typeof priorityFilter)}
-              SelectProps={{ native: true }}
+              InputLabelProps={{ shrink: true }}
+              SelectProps={{ displayEmpty: true }}
             >
-              <option value="all">全部</option>
-              <option value="HIGH">HIGH</option>
-              <option value="MEDIUM">MEDIUM</option>
-              <option value="LOW">LOW</option>
+              <MenuItem value="all">全部</MenuItem>
+              <MenuItem value="HIGH">HIGH</MenuItem>
+              <MenuItem value="MEDIUM">MEDIUM</MenuItem>
+              <MenuItem value="LOW">LOW</MenuItem>
             </TextField>
           </Box>
         </Stack>

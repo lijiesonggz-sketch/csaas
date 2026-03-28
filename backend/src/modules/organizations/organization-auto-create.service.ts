@@ -30,15 +30,15 @@ export class OrganizationAutoCreateService {
    * - AC 1.1: Auto-create organization if user doesn't have one
    * - AC 1.2: Reuse existing organization if user already has one
    *
+   * Note: Organization name is now fixed as "用户的默认组织" to avoid
+   * confusion between user's workspace and client organizations.
+   * See docs/technical-debt.md for future evolution plan.
+   *
    * @param userId - User ID
-   * @param organizationName - Organization name (optional, default: "用户的组织")
    * @returns Created or existing organization
    * @throws Error if operation fails
    */
-  async ensureOrganizationForProject(
-    userId: string,
-    organizationName?: string,
-  ): Promise<Organization> {
+  async ensureOrganizationForProject(userId: string): Promise<Organization> {
     this.logger.log(`Ensuring organization for user: ${userId}`)
 
     try {
@@ -61,8 +61,9 @@ export class OrganizationAutoCreateService {
         this.logger.log(`Creating new organization for user ${userId}`)
 
         // Create organization with tenant_id (use default tenant for now)
+        // Fixed naming to avoid confusion with client organizations
         organization = this.orgRepository.create({
-          name: organizationName || '用户的组织',
+          name: '用户的默认组织',
           tenantId: '00000000-0000-0000-0000-000000000001', // Default tenant ID
         })
 
@@ -104,18 +105,16 @@ export class OrganizationAutoCreateService {
    *
    * Useful for migrations or bulk operations
    *
-   * @param projects - Array of {userId, projectId, organizationName}
+   * @param items - Array of {userId}
    * @returns Array of organizations
    */
   async batchEnsureOrganizations(
-    items: Array<{ userId: string; organizationName?: string }>,
+    items: Array<{ userId: string }>,
   ): Promise<Array<{ userId: string; organization: Organization | null }>> {
     this.logger.log(`Batch ensuring organizations for ${items.length} users`)
 
     const results = await Promise.allSettled(
-      items.map(({ userId, organizationName }) =>
-        this.ensureOrganizationForProject(userId, organizationName),
-      ),
+      items.map(({ userId }) => this.ensureOrganizationForProject(userId)),
     )
 
     const succeeded = results.filter((r) => r.status === 'fulfilled').length

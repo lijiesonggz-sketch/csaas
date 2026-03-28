@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "clean:next": "node scripts/clean-next-cache.js",
+    "predev": "npm run clean:next",
     "dev": "next dev -p 3001",
+    "prebuild": "npm run clean:next",
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "next lint",

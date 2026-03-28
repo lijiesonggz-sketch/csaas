@@ -67,6 +67,7 @@ const auditLogPlaceholderLogger = new Logger('AuditLogPlaceholder')
     },
   ],
   exports: [
+    TypeOrmModule,
     OrganizationsService,
     OrganizationAutoCreateService,
     WeaknessSnapshotService,

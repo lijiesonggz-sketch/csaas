@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
   Alert,
@@ -9,6 +9,7 @@ import {
   Button,
   CircularProgress,
   Divider,
+  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -268,6 +269,7 @@ function getProfileErrorMessage(error: unknown, fallback: string): string {
 
 export default function OrganizationProfilePage() {
   const params = useParams<{ orgId: string }>()
+  const router = useRouter()
   const { data: session, status } = useSession()
 
   const routeOrgId = typeof params?.orgId === 'string' ? params.orgId : ''
@@ -389,6 +391,11 @@ export default function OrganizationProfilePage() {
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         <Box>
+          <Box sx={{ mb: 2 }}>
+            <Button variant="outlined" onClick={() => router.back()}>
+              返回
+            </Button>
+          </Box>
           <Typography variant="h4" component="h1" gutterBottom>
             机构画像配置
           </Typography>
@@ -461,16 +468,19 @@ export default function OrganizationProfilePage() {
                         disabled={isReadOnly || saving}
                         error={Boolean(errors[field.key])}
                         helperText={errors[field.key] || ' '}
+                        InputLabelProps={{ shrink: true }}
                         onChange={(event) =>
                           handleFieldChange(field.key, event.target.value)
                         }
-                        SelectProps={{ native: true }}
+                        SelectProps={{ displayEmpty: true }}
                       >
-                        <option value="">{`请选择${field.label}`}</option>
+                        <MenuItem value="">
+                          {`请选择${field.label}`}
+                        </MenuItem>
                         {field.options.map((option) => (
-                          <option key={option.value} value={option.value}>
+                          <MenuItem key={option.value} value={option.value}>
                             {option.label}
-                          </option>
+                          </MenuItem>
                         ))}
                       </TextField>
                     ))}

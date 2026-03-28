@@ -31,16 +31,37 @@ interface Project {
   }
 }
 
+type ProjectStatusKey = 'completed' | 'active' | 'draft' | 'archived' | 'unknown'
+
+function normalizeProjectStatus(status: string): ProjectStatusKey {
+  switch (status?.toLowerCase()) {
+    case 'completed':
+      return 'completed'
+    case 'active':
+    case 'in_progress':
+      return 'active'
+    case 'draft':
+    case 'pending':
+      return 'draft'
+    case 'archived':
+      return 'archived'
+    default:
+      return 'unknown'
+  }
+}
+
 function getStatusConfig(status: string) {
-  switch (status) {
+  switch (normalizeProjectStatus(status)) {
     case 'completed':
       return { color: 'bg-emerald-100 text-emerald-700', label: '已完成' }
-    case 'in_progress':
+    case 'active':
       return { color: 'bg-indigo-100 text-indigo-700', label: '进行中' }
-    case 'pending':
+    case 'draft':
       return { color: 'bg-slate-100 text-slate-700', label: '待启动' }
+    case 'archived':
+      return { color: 'bg-amber-100 text-amber-700', label: '已归档' }
     default:
-      return { color: 'bg-slate-100 text-slate-700', label: status }
+      return { color: 'bg-slate-100 text-slate-700', label: status || '未知' }
   }
 }
 
@@ -56,21 +77,19 @@ export default function DashboardPage() {
   const fetchProjects = async () => {
     try {
       setLoading(true)
-      const response = await apiFetch('/projects?limit=10')
-      if (response.ok) {
-        const data = await response.json()
-        setProjects(data.data || [])
-      }
+      const data = await apiFetch<Project[]>('/projects')
+      setProjects(Array.isArray(data) ? data : [])
     } catch (error) {
       console.error('Failed to fetch projects:', error)
+      setProjects([])
     } finally {
       setLoading(false)
     }
   }
 
-  const completedCount = projects.filter((p) => p.status === 'completed').length
-  const inProgressCount = projects.filter((p) => p.status === 'in_progress').length
-  const pendingCount = projects.filter((p) => p.status === 'pending').length
+  const completedCount = projects.filter((p) => normalizeProjectStatus(p.status) === 'completed').length
+  const inProgressCount = projects.filter((p) => normalizeProjectStatus(p.status) === 'active').length
+  const pendingCount = projects.filter((p) => normalizeProjectStatus(p.status) === 'draft').length
 
   const stats = [
     {

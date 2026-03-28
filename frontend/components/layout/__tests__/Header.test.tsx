@@ -67,6 +67,24 @@ describe('Header', () => {
     expect(screen.getByText('企业PM')).toBeInTheDocument()
   })
 
+  it('falls back to user email when the display name contains replacement characters', () => {
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          name: 'Radar���û�',
+          email: 'radar-test@example.com',
+          role: 'consultant',
+        },
+      },
+      status: 'authenticated',
+    })
+
+    render(<Header />)
+
+    expect(screen.getByText('radar-test@example.com')).toBeInTheDocument()
+    expect(screen.queryByText('Radar���û�')).not.toBeInTheDocument()
+  })
+
   it('opens user menu when clicked', () => {
     mockUseSession.mockReturnValue({
       data: {

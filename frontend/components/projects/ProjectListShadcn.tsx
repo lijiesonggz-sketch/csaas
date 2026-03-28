@@ -7,7 +7,7 @@ import ProjectCardShadcn from './ProjectCardShadcn'
 import CreateProjectDialog from './CreateProjectDialog'
 import { Button } from '@/components/ui/button'
 import { Plus, LayoutGrid, ArrowLeft, Sparkles } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 interface ProjectListProps {
@@ -16,10 +16,12 @@ interface ProjectListProps {
 
 export default function ProjectListShadcn({ onProjectClick }: ProjectListProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const shouldOpenCreateDialog = searchParams?.get('create') === '1'
 
   const loadProjects = async () => {
     try {
@@ -39,13 +41,29 @@ export default function ProjectListShadcn({ onProjectClick }: ProjectListProps) 
     loadProjects()
   }, [])
 
+  useEffect(() => {
+    if (shouldOpenCreateDialog) {
+      setCreateDialogOpen(true)
+    }
+  }, [shouldOpenCreateDialog])
+
   const handleProjectCreated = () => {
     loadProjects()
     setCreateDialogOpen(false)
+    if (shouldOpenCreateDialog) {
+      router.replace('/projects')
+    }
   }
 
   const handleProjectDeleted = () => {
     loadProjects()
+  }
+
+  const handleCreateDialogClose = () => {
+    setCreateDialogOpen(false)
+    if (shouldOpenCreateDialog) {
+      router.replace('/projects')
+    }
   }
 
   if (loading) {
@@ -155,7 +173,7 @@ export default function ProjectListShadcn({ onProjectClick }: ProjectListProps) 
       {/* 创建项目对话框 */}
       <CreateProjectDialog
         open={createDialogOpen}
-        onClose={() => setCreateDialogOpen(false)}
+        onClose={handleCreateDialogClose}
         onCreated={handleProjectCreated}
       />
     </main>

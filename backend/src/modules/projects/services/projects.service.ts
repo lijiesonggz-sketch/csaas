@@ -31,9 +31,10 @@ export class ProjectsService {
   async create(userId: string, dto: CreateProjectDto): Promise<Project> {
     // Auto-create or reuse organization for user (Story 1.1 - AC 1.1 & 1.2)
     // Get organization first to obtain tenant_id
+    // Note: Organization name is now fixed to avoid confusion with client organizations
+    // clientName is kept as project metadata only
     const organization = await this.organizationAutoCreateService.ensureOrganizationForProject(
       userId,
-      dto.clientName ? `${dto.clientName}的组织` : undefined,
     )
 
     // Create project with organization and tenant_id

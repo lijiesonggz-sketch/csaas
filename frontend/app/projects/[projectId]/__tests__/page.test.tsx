@@ -133,6 +133,49 @@ describe('ProjectWorkbenchPage', () => {
     })
   })
 
+  it('should display KG quick entry buttons when organizationId is available', async () => {
+    mockApiFetch.mockResolvedValue(mockProject)
+    mockGetTasksByProject.mockResolvedValue([])
+
+    render(<ProjectWorkbenchPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('KG 准备入口')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /机构画像/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /适用控制点/ })).toBeInTheDocument()
+    })
+  })
+
+  it('should navigate to organization profile from the quick entry section', async () => {
+    mockApiFetch.mockResolvedValue(mockProject)
+    mockGetTasksByProject.mockResolvedValue([])
+
+    render(<ProjectWorkbenchPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /机构画像/ })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /机构画像/ }))
+
+    expect(mockPush).toHaveBeenCalledWith('/organizations/org-1/profile')
+  })
+
+  it('should navigate to applicable controls from the quick entry section', async () => {
+    mockApiFetch.mockResolvedValue(mockProject)
+    mockGetTasksByProject.mockResolvedValue([])
+
+    render(<ProjectWorkbenchPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /适用控制点/ })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /适用控制点/ }))
+
+    expect(mockPush).toHaveBeenCalledWith('/organizations/org-1/applicable-controls')
+  })
+
   it('should navigate to upload page when upload module is clicked', async () => {
     mockApiFetch.mockResolvedValue(mockProject)
     mockGetTasksByProject.mockResolvedValue([])

@@ -30,6 +30,12 @@ describe('ApplicableControlsPage', () => {
     mockUseParams.mockReturnValue({ orgId: 'org-1' })
   })
 
+  async function selectFilter(label: string, optionText: string) {
+    const trigger = screen.getByRole('combobox', { name: label })
+    fireEvent.mouseDown(trigger)
+    fireEvent.click(await screen.findByRole('option', { name: optionText }))
+  }
+
   it('renders resolved controls and key explanation fields', async () => {
     ;(organizationsApi.getOrganizationProfile as jest.Mock).mockResolvedValue({
       updatedAt: '2026-03-26T10:00:00.000Z',
@@ -151,7 +157,7 @@ describe('ApplicableControlsPage', () => {
     render(<ApplicableControlsPage />)
 
     expect(await screen.findByText('CP-001 控制点一')).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('按控制包筛选'), { target: { value: 'PACK-B' } })
+    await selectFilter('按控制包筛选', 'PACK-B')
 
     await waitFor(() => {
       expect(screen.queryByText('CP-001 控制点一')).not.toBeInTheDocument()
