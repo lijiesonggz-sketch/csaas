@@ -2,7 +2,7 @@
 story_key: 7-2
 epic_key: epic-7
 title: 内容质量管理
-status: ready-for-dev
+status: done
 priority: high
 points: 5
 assignee: TBD
@@ -11,7 +11,7 @@ created_at: 2026-02-04
 
 # Story 7.2: 内容质量管理
 
-Status: ready-for-dev
+Status: done
 
 ## Story
 
