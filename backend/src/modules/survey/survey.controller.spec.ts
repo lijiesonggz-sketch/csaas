@@ -1,5 +1,6 @@
 import 'reflect-metadata'
 import {
+  ForbiddenException,
   INestApplication,
   NotFoundException,
   UnauthorizedException,
@@ -27,7 +28,7 @@ const USER_ID = '880e8400-e29b-41d4-a716-446655440320'
 
 describe('SurveyController snapshot endpoints', () => {
   let app: INestApplication
-  let snapshotService: { createSnapshot: jest.Mock; getSnapshot: jest.Mock }
+  let snapshotService: { createSnapshot: jest.Mock; getSnapshot: jest.Mock; saveDraft: jest.Mock }
   let controlGapInputService: { getControlGapInput: jest.Mock }
   let auditLogService: { log: jest.Mock }
 
@@ -44,9 +45,16 @@ describe('SurveyController snapshot endpoints', () => {
         sourceControlIds: ['control-a'],
         missingQuestionControlIds: [],
         reusedExisting: false,
+        lifecycleStatus: 'published',
+        publishedSnapshotTaskId: 'snapshot-task-id',
+        baseSnapshotTaskId: null,
+        editVersion: 0,
+        lastEditedAt: '2026-03-25T16:30:00.000Z',
+        lastEditedBy: null,
         questions: [
           {
             question_id: 'Q-ACC-001',
+            control_id: 'control-a',
             cluster_id: 'control-a',
             cluster_name: '特权账号控制',
             question_text: '机构是否建立特权账号定期复核机制？',
@@ -71,9 +79,53 @@ describe('SurveyController snapshot endpoints', () => {
         sourceControlIds: ['control-a'],
         missingQuestionControlIds: [],
         reusedExisting: true,
+        lifecycleStatus: 'published',
+        publishedSnapshotTaskId: 'snapshot-task-id',
+        baseSnapshotTaskId: null,
+        editVersion: 0,
+        lastEditedAt: '2026-03-25T16:30:00.000Z',
+        lastEditedBy: null,
         questions: [
           {
             question_id: 'Q-ACC-001',
+          },
+        ],
+      }),
+      saveDraft: jest.fn().mockResolvedValue({
+        projectId: PROJECT_ID,
+        organizationId: ORG_ID,
+        questionnaireTaskId: 'draft-task-id',
+        generatedAt: '2026-03-31T08:30:00.000Z',
+        snapshotVersion: 2,
+        resolvedControlSetVersion: 'resolved-controls@2026-03-25T16:30:00.000Z',
+        questionSetVersion: 'question-set@2026-03-25T16:30:00.000Z',
+        sourceControlIds: ['control-a'],
+        missingQuestionControlIds: [],
+        reusedExisting: false,
+        lifecycleStatus: 'draft',
+        publishedSnapshotTaskId: 'snapshot-task-id',
+        baseSnapshotTaskId: 'snapshot-task-id',
+        editVersion: 1,
+        lastEditedAt: '2026-03-31T08:30:00.000Z',
+        lastEditedBy: USER_ID,
+        questions: [
+          {
+            question_id: 'Q-ACC-001',
+            question_template_id: 'question-yes-no',
+            control_id: 'control-a',
+            cluster_id: 'control-a',
+            cluster_name: '特权账号控制',
+            question_text: '项目层是否建立特权账号季度复核机制？',
+            question_type: 'SINGLE_CHOICE',
+            options: [
+              { option_id: 'A', text: '已建立', score: 5 },
+              { option_id: 'B', text: '未建立', score: 0 },
+            ],
+            required: true,
+            guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+            display_order: 1,
+            scoring_rule: { passValues: ['A'] },
+            is_project_custom: false,
           },
         ],
       }),
@@ -252,6 +304,98 @@ describe('SurveyController snapshot endpoints', () => {
     expect(snapshotService.createSnapshot).not.toHaveBeenCalled()
   })
 
+  it('should save a questionnaire draft and write an UPDATE audit log', async () => {
+    app = await createApp()
+
+    const response = await request(app.getHttpServer())
+      .put(`/survey/project-questionnaire-snapshot/${PROJECT_ID}/draft`)
+      .send({
+        questions: [
+          {
+            questionId: 'Q-ACC-001',
+            questionTemplateId: 'question-yes-no',
+            controlId: 'control-a',
+            questionType: 'SINGLE_CHOICE',
+            questionText: '项目层是否建立特权账号季度复核机制？',
+            options: [
+              { optionId: 'A', text: '已建立', score: 5 },
+              { optionId: 'B', text: '未建立', score: 0 },
+            ],
+            scoringRule: {
+              passValues: ['A'],
+            },
+            required: true,
+            displayOrder: 1,
+          },
+        ],
+      })
+      .expect(200)
+
+    expect(snapshotService.saveDraft).toHaveBeenCalledWith(
+      PROJECT_ID,
+      {
+        questions: [
+          {
+            questionId: 'Q-ACC-001',
+            questionTemplateId: 'question-yes-no',
+            controlId: 'control-a',
+            questionType: 'SINGLE_CHOICE',
+            questionText: '项目层是否建立特权账号季度复核机制？',
+            options: [
+              { optionId: 'A', text: '已建立', score: 5 },
+              { optionId: 'B', text: '未建立', score: 0 },
+            ],
+            scoringRule: {
+              passValues: ['A'],
+            },
+            required: true,
+            displayOrder: 1,
+          },
+        ],
+      },
+      ORG_ID,
+      USER_ID,
+    )
+    expect(response.body).toMatchObject({
+      success: true,
+      data: {
+        questionnaireTaskId: 'draft-task-id',
+        snapshotVersion: 2,
+        lifecycleStatus: 'draft',
+      },
+    })
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'update',
+        entityType: 'ProjectQuestionnaireSnapshotDraft',
+        entityId: 'draft-task-id',
+      }),
+    )
+  })
+
+  it('should reject invalid payload on the snapshot draft save route', async () => {
+    app = await createApp()
+
+    await request(app.getHttpServer())
+      .put(`/survey/project-questionnaire-snapshot/${PROJECT_ID}/draft`)
+      .send({
+        questions: [
+          {
+            questionId: 'Q-ACC-001',
+            controlId: 'control-a',
+            questionType: 'TEXT',
+            questionText: '',
+            options: [],
+            required: 'yes',
+            displayOrder: 0,
+          },
+        ],
+      })
+      .expect(400)
+
+    expect(snapshotService.saveDraft).not.toHaveBeenCalled()
+  })
+
   it('should return aggregated control-gap input and write a READ audit log', async () => {
     app = await createApp()
 
@@ -299,6 +443,35 @@ describe('SurveyController snapshot endpoints', () => {
       .expect(404)
   })
 
+  it('should return 403 when the snapshot draft save route is forbidden', async () => {
+    app = await createApp()
+    snapshotService.saveDraft.mockRejectedValue(
+      new ForbiddenException('Only project owners and editors can modify questionnaire snapshots'),
+    )
+
+    await request(app.getHttpServer())
+      .put(`/survey/project-questionnaire-snapshot/${PROJECT_ID}/draft`)
+      .send({
+        questions: [
+          {
+            questionId: 'Q-ACC-001',
+            questionTemplateId: 'question-yes-no',
+            controlId: 'control-a',
+            questionType: 'SINGLE_CHOICE',
+            questionText: '项目层是否建立特权账号季度复核机制？',
+            options: [
+              { optionId: 'A', text: '已建立', score: 5 },
+              { optionId: 'B', text: '未建立', score: 0 },
+            ],
+            scoringRule: null,
+            required: true,
+            displayOrder: 1,
+          },
+        ],
+      })
+      .expect(403)
+  })
+
   it('should return 404 when the control-gap service surfaces a missing survey response', async () => {
     app = await createApp()
     controlGapInputService.getControlGapInput.mockRejectedValue(
@@ -314,6 +487,7 @@ describe('SurveyController snapshot endpoints', () => {
     snapshotService = {
       createSnapshot: jest.fn(),
       getSnapshot: jest.fn(),
+      saveDraft: jest.fn(),
     }
     controlGapInputService = {
       getControlGapInput: jest.fn(),
@@ -369,6 +543,7 @@ describe('SurveyController snapshot endpoints', () => {
     snapshotService = {
       createSnapshot: jest.fn(),
       getSnapshot: jest.fn(),
+      saveDraft: jest.fn(),
     }
     controlGapInputService = {
       getControlGapInput: jest.fn(),

@@ -18,6 +18,7 @@ import { AIClientsModule } from '../ai-clients/ai-clients.module'
 import { ApplicabilityEngineModule } from '../applicability-engine/applicability-engine.module'
 import { AuditModule } from '../audit/audit.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
+import { ProjectsModule } from '../projects/projects.module'
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { OrganizationsModule } from '../organizations/organizations.module'
     ApplicabilityEngineModule,
     AuditModule,
     OrganizationsModule,
+    ProjectsModule,
   ],
   controllers: [SurveyController],
   providers: [

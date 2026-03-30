@@ -28,6 +28,7 @@ import {
   ControlGapInputResponseDto,
   CreateSurveyDto,
   ProjectQuestionnaireSnapshotResponseDto,
+  SaveProjectQuestionnaireSnapshotDraftDto,
   SaveDraftDto,
   SubmitSurveyDto,
   UploadAndAnalyzeDto,
@@ -124,6 +125,45 @@ export class SurveyController {
     return {
       success: true,
       data: snapshot,
+    }
+  }
+
+  @Put('project-questionnaire-snapshot/:projectId/draft')
+  @UseGuards(TenantGuard, OrganizationGuard)
+  async saveProjectQuestionnaireSnapshotDraft(
+    @CurrentTenant() tenantId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
+    @CurrentUser() currentUser: { id?: string; userId?: string },
+    @Param('projectId') projectId: string,
+    @Body() dto: SaveProjectQuestionnaireSnapshotDraftDto,
+  ) {
+    const snapshot = await this.projectQuestionnaireSnapshotService.saveDraft(
+      projectId,
+      dto,
+      currentOrg.organizationId,
+      currentUser?.userId ?? currentUser?.id ?? currentOrg.userId,
+    )
+
+    await this.auditLogService.log({
+      userId: currentOrg.userId,
+      organizationId: currentOrg.organizationId,
+      tenantId,
+      action: AuditAction.UPDATE,
+      entityType: 'ProjectQuestionnaireSnapshotDraft',
+      entityId: snapshot.questionnaireTaskId,
+      details: {
+        projectId: snapshot.projectId,
+        snapshotVersion: snapshot.snapshotVersion,
+        lifecycleStatus: snapshot.lifecycleStatus,
+        editVersion: snapshot.editVersion,
+        questions: snapshot.questions.length,
+      },
+    })
+
+    return {
+      success: true,
+      data: snapshot,
+      message: '项目问卷草稿已保存',
     }
   }
 

@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import {
   BadRequestException,
   ForbiddenException,
@@ -12,14 +13,20 @@ import {
   AITaskType,
   ControlPoint,
   Project,
+  ProjectMemberRole,
   ReviewStatus,
   TaskStatus,
 } from '../../database/entities'
 import { GenerationStage } from '../../database/entities/ai-task.entity'
 import { OrganizationQuestionSetService } from '../applicability-engine/services/organization-question-set.service'
+import { ProjectMembersService } from '../projects/services/project-members.service'
 import {
   CreateProjectQuestionnaireSnapshotDto,
+  ProjectQuestionnaireSnapshotLifecycleStatus,
   ProjectQuestionnaireSnapshotResponseDto,
+  SaveProjectQuestionnaireSnapshotDraftDto,
+  SaveProjectQuestionnaireSnapshotDraftOptionDto,
+  SaveProjectQuestionnaireSnapshotDraftQuestionDto,
 } from './dto'
 
 type SnapshotQuestionInput = {
@@ -43,6 +50,9 @@ type SnapshotQuestionOption = {
 
 type SnapshotQuestion = {
   question_id: string
+  question_template_id: string | null
+  source_question_id: string | null
+  control_id: string
   cluster_id: string
   cluster_name: string
   question_text: string
@@ -50,6 +60,9 @@ type SnapshotQuestion = {
   options: SnapshotQuestionOption[]
   required: boolean
   guidance: string
+  display_order: number
+  scoring_rule: Record<string, unknown> | null
+  is_project_custom: boolean
 }
 
 type SnapshotMetadata = {
@@ -65,9 +78,23 @@ type SnapshotMetadata = {
   total_questions: number
   estimated_time_minutes: number
   coverage_map: Record<string, number>
+  lifecycleStatus?: ProjectQuestionnaireSnapshotLifecycleStatus
+  publishedSnapshotTaskId?: string | null
+  baseSnapshotTaskId?: string | null
+  editVersion?: number
+  lastEditedAt?: string | null
+  lastEditedBy?: string | null
+}
+
+type SnapshotRecord = {
+  task: AITask
+  generationResult: AIGenerationResult
+  metadata: SnapshotMetadata
+  questions: SnapshotQuestion[]
 }
 
 const SNAPSHOT_KIND = 'kg_dynamic_questionnaire' as const
+const SUPPORTED_RUNTIME_QUESTION_TYPES = ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'RATING'] as const
 
 @Injectable()
 export class ProjectQuestionnaireSnapshotService {
@@ -81,6 +108,7 @@ export class ProjectQuestionnaireSnapshotService {
     @InjectRepository(ControlPoint)
     private readonly controlPointRepository: Repository<ControlPoint>,
     private readonly organizationQuestionSetService: OrganizationQuestionSetService,
+    private readonly projectMembersService: ProjectMembersService,
   ) {}
 
   async createSnapshot(
@@ -88,10 +116,11 @@ export class ProjectQuestionnaireSnapshotService {
     currentOrganizationId: string,
   ): Promise<ProjectQuestionnaireSnapshotResponseDto> {
     const project = await this.getAccessibleProject(dto.projectId, currentOrganizationId)
-    const latestSnapshot = await this.findLatestSnapshotTask(project.id)
+    const snapshotRecords = await this.loadSnapshotRecords(project.id)
+    const currentWorkingSnapshot = this.selectCurrentWorkingSnapshot(snapshotRecords)
 
-    if (latestSnapshot && !dto.regenerate) {
-      return this.buildSnapshotResponse(latestSnapshot, true)
+    if (currentWorkingSnapshot && !dto.regenerate) {
+      return this.buildSnapshotResponse(currentWorkingSnapshot, true)
     }
 
     const questionSet = await this.organizationQuestionSetService.getForOrganization(
@@ -116,7 +145,7 @@ export class ProjectQuestionnaireSnapshotService {
       controlPoints.map((control) => [control.controlId, control] as const),
     )
 
-    const snapshotVersion = this.getNextSnapshotVersion(latestSnapshot)
+    const snapshotVersion = this.getNextSnapshotVersion(this.selectLatestSnapshotRecord(snapshotRecords))
     const generatedAt = new Date().toISOString()
     const resolvedControlSetVersion = `resolved-controls@${generatedAt}`
     const questionSetVersion = `question-set@${generatedAt}`
@@ -140,16 +169,14 @@ export class ProjectQuestionnaireSnapshotService {
       missingQuestionControlIds: questionSet.missingQuestionControlIds,
       snapshotKind: SNAPSHOT_KIND,
       total_questions: questions.length,
-      estimated_time_minutes: Math.max(1, Math.ceil(questions.length * 0.5)),
-      coverage_map: questions.reduce<Record<string, number>>((acc, question) => {
-        acc[question.cluster_id] = (acc[question.cluster_id] ?? 0) + 1
-        return acc
-      }, {}),
-    }
-
-    const selectedResult = {
-      questionnaire: questions,
-      questionnaire_metadata: metadata,
+      estimated_time_minutes: this.estimateTimeMinutes(questions.length),
+      coverage_map: this.buildCoverageMap(questions),
+      lifecycleStatus: 'published',
+      publishedSnapshotTaskId: null,
+      baseSnapshotTaskId: null,
+      editVersion: 0,
+      lastEditedAt: generatedAt,
+      lastEditedBy: null,
     }
 
     const task = await this.aiTaskRepository.save(
@@ -168,11 +195,16 @@ export class ProjectQuestionnaireSnapshotService {
           sourceControlIds,
           missingQuestionControlIds: questionSet.missingQuestionControlIds,
           regenerateRequested: dto.regenerate ?? false,
+          lifecycleStatus: 'published',
+          baseSnapshotTaskId: null,
+          publishedSnapshotTaskId: null,
+          editVersion: 0,
         },
         result: {
           snapshotKind: SNAPSHOT_KIND,
           snapshotVersion,
           generatedAt,
+          lifecycleStatus: 'published',
         },
         priority: 1,
         progress: 100,
@@ -180,29 +212,39 @@ export class ProjectQuestionnaireSnapshotService {
       }),
     )
 
-    await this.aiGenerationResultRepository.save(
+    metadata.publishedSnapshotTaskId = task.id
+    task.input = {
+      ...task.input,
+      publishedSnapshotTaskId: task.id,
+    }
+    task.result = {
+      ...task.result,
+      publishedSnapshotTaskId: task.id,
+    }
+    await this.aiTaskRepository.save(task)
+
+    const generationResult = await this.aiGenerationResultRepository.save(
       this.aiGenerationResultRepository.create({
         taskId: task.id,
         generationType: AITaskType.QUESTIONNAIRE,
-        selectedResult,
+        selectedResult: {
+          questionnaire: questions,
+          questionnaire_metadata: metadata,
+        },
         reviewStatus: ReviewStatus.PENDING,
         version: snapshotVersion,
       }),
     )
 
-    return {
-      projectId: project.id,
-      organizationId: project.organizationId,
-      questionnaireTaskId: task.id,
-      generatedAt,
-      snapshotVersion,
-      resolvedControlSetVersion,
-      questionSetVersion,
-      sourceControlIds,
-      missingQuestionControlIds: questionSet.missingQuestionControlIds,
-      reusedExisting: false,
-      questions,
-    }
+    return this.buildSnapshotResponse(
+      {
+        task,
+        generationResult,
+        metadata,
+        questions,
+      },
+      false,
+    )
   }
 
   async getSnapshot(
@@ -210,13 +252,156 @@ export class ProjectQuestionnaireSnapshotService {
     currentOrganizationId: string,
   ): Promise<ProjectQuestionnaireSnapshotResponseDto> {
     await this.getAccessibleProject(projectId, currentOrganizationId)
-    const latestSnapshot = await this.findLatestSnapshotTask(projectId)
+    const snapshotRecords = await this.loadSnapshotRecords(projectId)
+    const currentWorkingSnapshot = this.selectCurrentWorkingSnapshot(snapshotRecords)
 
-    if (!latestSnapshot) {
+    if (!currentWorkingSnapshot) {
       throw new NotFoundException(`Questionnaire snapshot not found for project ${projectId}`)
     }
 
-    return this.buildSnapshotResponse(latestSnapshot, true)
+    return this.buildSnapshotResponse(currentWorkingSnapshot, true)
+  }
+
+  async saveDraft(
+    projectId: string,
+    dto: SaveProjectQuestionnaireSnapshotDraftDto,
+    currentOrganizationId: string,
+    currentUserId: string,
+  ): Promise<ProjectQuestionnaireSnapshotResponseDto> {
+    const project = await this.getAccessibleProject(projectId, currentOrganizationId)
+    await this.assertProjectMaintenancePermission(project.id, currentUserId)
+
+    const snapshotRecords = await this.loadSnapshotRecords(project.id)
+    const latestPublishedSnapshot =
+      this.selectLatestSnapshotByLifecycle(snapshotRecords, 'published') ??
+      this.selectLatestSnapshotRecord(snapshotRecords)
+
+    if (!latestPublishedSnapshot) {
+      throw new NotFoundException(`Questionnaire snapshot not found for project ${project.id}`)
+    }
+
+    const existingDraftSnapshot = this.selectLatestSnapshotByLifecycle(snapshotRecords, 'draft')
+    const baselineSnapshot = existingDraftSnapshot ?? latestPublishedSnapshot
+    const normalizedQuestions = await this.normalizeDraftQuestions(dto.questions, baselineSnapshot.questions)
+    const now = new Date().toISOString()
+
+    if (existingDraftSnapshot) {
+      const updatedMetadata = this.buildUpdatedDraftMetadata(
+        existingDraftSnapshot.metadata,
+        normalizedQuestions,
+        latestPublishedSnapshot.task.id,
+        currentUserId,
+        now,
+      )
+
+      existingDraftSnapshot.task.input = {
+        ...existingDraftSnapshot.task.input,
+        lifecycleStatus: 'draft',
+        publishedSnapshotTaskId: latestPublishedSnapshot.task.id,
+        baseSnapshotTaskId:
+          existingDraftSnapshot.metadata.baseSnapshotTaskId ?? latestPublishedSnapshot.task.id,
+        editVersion: updatedMetadata.editVersion,
+        lastEditedAt: updatedMetadata.lastEditedAt,
+        lastEditedBy: updatedMetadata.lastEditedBy,
+      }
+      existingDraftSnapshot.task.result = {
+        ...existingDraftSnapshot.task.result,
+        lifecycleStatus: 'draft',
+        publishedSnapshotTaskId: latestPublishedSnapshot.task.id,
+        baseSnapshotTaskId:
+          existingDraftSnapshot.metadata.baseSnapshotTaskId ?? latestPublishedSnapshot.task.id,
+        editVersion: updatedMetadata.editVersion,
+      }
+      existingDraftSnapshot.generationResult.selectedResult = {
+        questionnaire: normalizedQuestions,
+        questionnaire_metadata: updatedMetadata,
+      }
+
+      const [task, generationResult] = await Promise.all([
+        this.aiTaskRepository.save(existingDraftSnapshot.task),
+        this.aiGenerationResultRepository.save(existingDraftSnapshot.generationResult),
+      ])
+
+      return this.buildSnapshotResponse(
+        {
+          task,
+          generationResult,
+          metadata: updatedMetadata,
+          questions: normalizedQuestions,
+        },
+        false,
+      )
+    }
+
+    const snapshotVersion = this.getNextSnapshotVersion(this.selectLatestSnapshotRecord(snapshotRecords))
+    const metadata = this.buildNewDraftMetadata(
+      latestPublishedSnapshot.metadata,
+      normalizedQuestions,
+      snapshotVersion,
+      latestPublishedSnapshot.task.id,
+      currentUserId,
+      now,
+    )
+
+    const task = await this.aiTaskRepository.save(
+      this.aiTaskRepository.create({
+        projectId: project.id,
+        type: AITaskType.QUESTIONNAIRE,
+        status: TaskStatus.COMPLETED,
+        generationStage: GenerationStage.COMPLETED,
+        input: {
+          snapshotKind: SNAPSHOT_KIND,
+          organizationId: project.organizationId,
+          generatedAt: metadata.generatedAt,
+          snapshotVersion,
+          resolvedControlSetVersion: metadata.resolvedControlSetVersion,
+          questionSetVersion: metadata.questionSetVersion,
+          sourceControlIds: metadata.sourceControlIds,
+          missingQuestionControlIds: metadata.missingQuestionControlIds,
+          lifecycleStatus: 'draft',
+          baseSnapshotTaskId: latestPublishedSnapshot.task.id,
+          publishedSnapshotTaskId: latestPublishedSnapshot.task.id,
+          editVersion: metadata.editVersion,
+          lastEditedAt: metadata.lastEditedAt,
+          lastEditedBy: metadata.lastEditedBy,
+        },
+        result: {
+          snapshotKind: SNAPSHOT_KIND,
+          snapshotVersion,
+          generatedAt: metadata.generatedAt,
+          lifecycleStatus: 'draft',
+          baseSnapshotTaskId: latestPublishedSnapshot.task.id,
+          publishedSnapshotTaskId: latestPublishedSnapshot.task.id,
+          editVersion: metadata.editVersion,
+        },
+        priority: 1,
+        progress: 100,
+        completedAt: new Date(now),
+      }),
+    )
+
+    const generationResult = await this.aiGenerationResultRepository.save(
+      this.aiGenerationResultRepository.create({
+        taskId: task.id,
+        generationType: AITaskType.QUESTIONNAIRE,
+        selectedResult: {
+          questionnaire: normalizedQuestions,
+          questionnaire_metadata: metadata,
+        },
+        reviewStatus: ReviewStatus.MODIFIED,
+        version: snapshotVersion,
+      }),
+    )
+
+    return this.buildSnapshotResponse(
+      {
+        task,
+        generationResult,
+        metadata,
+        questions: normalizedQuestions,
+      },
+      false,
+    )
   }
 
   private async getAccessibleProject(
@@ -242,7 +427,25 @@ export class ProjectQuestionnaireSnapshotService {
     return project
   }
 
-  private async findLatestSnapshotTask(projectId: string): Promise<AITask | null> {
+  private async assertProjectMaintenancePermission(
+    projectId: string,
+    currentUserId: string,
+  ): Promise<void> {
+    if (!currentUserId) {
+      throw new ForbiddenException('Current user is required to edit questionnaire snapshots')
+    }
+
+    const allowed = await this.projectMembersService.checkPermission(projectId, currentUserId, [
+      ProjectMemberRole.OWNER,
+      ProjectMemberRole.EDITOR,
+    ])
+
+    if (!allowed) {
+      throw new ForbiddenException('Only project owners and editors can modify questionnaire snapshots')
+    }
+  }
+
+  private async loadSnapshotRecords(projectId: string): Promise<SnapshotRecord[]> {
     const tasks = await this.aiTaskRepository.find({
       where: {
         projectId,
@@ -254,25 +457,210 @@ export class ProjectQuestionnaireSnapshotService {
       },
     })
 
+    const records = await Promise.all(
+      tasks.map(async (task) => {
+        if (task.input?.snapshotKind !== SNAPSHOT_KIND) {
+          return null
+        }
+
+        const generationResult = await this.aiGenerationResultRepository.findOne({
+          where: { taskId: task.id },
+        })
+
+        if (!generationResult?.selectedResult) {
+          return null
+        }
+
+        const questionnaireMetadata = generationResult.selectedResult
+          ?.questionnaire_metadata as SnapshotMetadata | undefined
+        const questionnaire = generationResult.selectedResult
+          ?.questionnaire as Array<Record<string, unknown>> | undefined
+
+        if (!Array.isArray(questionnaire) || !questionnaireMetadata) {
+          return null
+        }
+
+        return {
+          task,
+          generationResult,
+          metadata: this.normalizeStoredMetadata(questionnaireMetadata, task),
+          questions: questionnaire.map((question, index) =>
+            this.normalizeStoredQuestion(question, index),
+          ),
+        } satisfies SnapshotRecord
+      }),
+    )
+
+    return records
+      .filter((record): record is SnapshotRecord => record !== null)
+      .sort((left, right) => this.compareSnapshotRecords(left, right))
+  }
+
+  private normalizeStoredMetadata(metadata: SnapshotMetadata, task: AITask): SnapshotMetadata {
+    const lifecycleStatus = this.normalizeLifecycleStatus(metadata.lifecycleStatus)
+    const generatedAt = metadata.generatedAt ?? task.createdAt?.toISOString() ?? new Date().toISOString()
+
+    return {
+      ...metadata,
+      generatedAt,
+      snapshotKind: SNAPSHOT_KIND,
+      lifecycleStatus,
+      publishedSnapshotTaskId:
+        metadata.publishedSnapshotTaskId ??
+        (lifecycleStatus === 'published' ? task.id : null),
+      baseSnapshotTaskId: metadata.baseSnapshotTaskId ?? null,
+      editVersion: Number(metadata.editVersion ?? 0),
+      lastEditedAt: metadata.lastEditedAt ?? generatedAt,
+      lastEditedBy: metadata.lastEditedBy ?? null,
+      total_questions: Number(metadata.total_questions ?? 0),
+      estimated_time_minutes: Number(metadata.estimated_time_minutes ?? 0),
+      coverage_map:
+        metadata.coverage_map && typeof metadata.coverage_map === 'object'
+          ? metadata.coverage_map
+          : {},
+    }
+  }
+
+  private normalizeStoredQuestion(
+    rawQuestion: Record<string, unknown>,
+    index: number,
+  ): SnapshotQuestion {
+    const controlId =
+      this.normalizeString(rawQuestion.control_id) ??
+      this.normalizeString(rawQuestion.cluster_id)
+
+    if (!controlId) {
+      throw new BadRequestException('Snapshot question is missing control binding')
+    }
+
+    const questionType = this.normalizeStoredQuestionType(rawQuestion.question_type)
+
+    return {
+      question_id:
+        this.normalizeString(rawQuestion.question_id) ?? `snapshot-question-${index + 1}`,
+      question_template_id:
+        this.normalizeNullableString(rawQuestion.question_template_id) ??
+        this.normalizeNullableString(rawQuestion.source_question_id) ??
+        this.normalizeString(rawQuestion.question_id) ??
+        null,
+      source_question_id:
+        this.normalizeNullableString(rawQuestion.source_question_id) ??
+        this.normalizeNullableString(rawQuestion.question_template_id) ??
+        this.normalizeString(rawQuestion.question_id) ??
+        null,
+      control_id: controlId,
+      cluster_id: controlId,
+      cluster_name:
+        this.normalizeString(rawQuestion.cluster_name) ?? controlId,
+      question_text:
+        this.normalizeString(rawQuestion.question_text) ?? '',
+      question_type: questionType,
+      options: this.normalizeStoredOptions(rawQuestion.options),
+      required: Boolean(rawQuestion.required),
+      guidance:
+        this.normalizeString(rawQuestion.guidance) ??
+        this.buildGuidance(Boolean(rawQuestion.required)),
+      display_order: Number(rawQuestion.display_order ?? index + 1),
+      scoring_rule: this.normalizeScoringRule(rawQuestion.scoring_rule ?? null),
+      is_project_custom: Boolean(rawQuestion.is_project_custom ?? false),
+    }
+  }
+
+  private normalizeStoredOptions(value: unknown): SnapshotQuestionOption[] {
+    if (!Array.isArray(value)) {
+      return []
+    }
+
+    return value
+      .map((option, index) => {
+        if (!option || typeof option !== 'object') {
+          return null
+        }
+
+        const record = option as Record<string, unknown>
+        const text = this.normalizeString(record.text)
+
+        if (!text) {
+          return null
+        }
+
+        return {
+          option_id:
+            this.normalizeString(record.option_id) ??
+            this.normalizeString(record.id) ??
+            this.buildOptionId(index),
+          text,
+          score: Number(record.score ?? index + 1),
+          level: this.normalizeNullableString(record.level),
+          description: this.normalizeNullableString(record.description),
+        } satisfies SnapshotQuestionOption
+      })
+      .filter(Boolean) as SnapshotQuestionOption[]
+  }
+
+  private normalizeStoredQuestionType(value: unknown): SnapshotQuestion['question_type'] {
+    const normalized = this.normalizeString(value)?.toUpperCase()
+
+    if (
+      normalized &&
+      (SUPPORTED_RUNTIME_QUESTION_TYPES as readonly string[]).includes(normalized)
+    ) {
+      return normalized as SnapshotQuestion['question_type']
+    }
+
+    throw new BadRequestException(`Question type ${String(value)} is not supported by survey runtime`)
+  }
+
+  private selectCurrentWorkingSnapshot(records: SnapshotRecord[]): SnapshotRecord | null {
     return (
-      tasks.find((task) => task.input?.snapshotKind === SNAPSHOT_KIND) ?? null
+      this.selectLatestSnapshotByLifecycle(records, 'draft') ??
+      this.selectLatestSnapshotByLifecycle(records, 'published') ??
+      this.selectLatestSnapshotRecord(records)
     )
   }
 
-  private async buildSnapshotResponse(
-    task: AITask,
-    reusedExisting: boolean,
-  ): Promise<ProjectQuestionnaireSnapshotResponseDto> {
-    const generationResult = await this.aiGenerationResultRepository.findOne({
-      where: { taskId: task.id },
-    })
+  private selectLatestSnapshotByLifecycle(
+    records: SnapshotRecord[],
+    lifecycleStatus: ProjectQuestionnaireSnapshotLifecycleStatus,
+  ): SnapshotRecord | null {
+    return (
+      records.find(
+        (record) => this.normalizeLifecycleStatus(record.metadata.lifecycleStatus) === lifecycleStatus,
+      ) ?? null
+    )
+  }
 
-    const metadata = generationResult?.selectedResult?.questionnaire_metadata as SnapshotMetadata | undefined
-    const questions = (generationResult?.selectedResult?.questionnaire ?? []) as Array<Record<string, unknown>>
+  private selectLatestSnapshotRecord(records: SnapshotRecord[]): SnapshotRecord | null {
+    return records[0] ?? null
+  }
 
-    if (!generationResult?.selectedResult || !metadata) {
-      throw new NotFoundException(`Questionnaire snapshot payload not found for task ${task.id}`)
+  private compareSnapshotRecords(left: SnapshotRecord, right: SnapshotRecord): number {
+    const versionDelta =
+      Number(right.metadata.snapshotVersion ?? 0) - Number(left.metadata.snapshotVersion ?? 0)
+
+    if (versionDelta !== 0) {
+      return versionDelta
     }
+
+    return new Date(right.task.createdAt ?? 0).getTime() - new Date(left.task.createdAt ?? 0).getTime()
+  }
+
+  private normalizeLifecycleStatus(
+    value: ProjectQuestionnaireSnapshotLifecycleStatus | undefined,
+  ): ProjectQuestionnaireSnapshotLifecycleStatus {
+    if (value === 'draft' || value === 'published' || value === 'superseded') {
+      return value
+    }
+
+    return 'published'
+  }
+
+  private buildSnapshotResponse(
+    snapshotRecord: SnapshotRecord,
+    reusedExisting: boolean,
+  ): ProjectQuestionnaireSnapshotResponseDto {
+    const { task, metadata, questions } = snapshotRecord
+    const lifecycleStatus = this.normalizeLifecycleStatus(metadata.lifecycleStatus)
 
     return {
       projectId: metadata.projectId,
@@ -285,12 +673,20 @@ export class ProjectQuestionnaireSnapshotService {
       sourceControlIds: metadata.sourceControlIds,
       missingQuestionControlIds: metadata.missingQuestionControlIds,
       reusedExisting,
+      lifecycleStatus,
+      publishedSnapshotTaskId:
+        metadata.publishedSnapshotTaskId ??
+        (lifecycleStatus === 'published' ? task.id : null),
+      baseSnapshotTaskId: metadata.baseSnapshotTaskId ?? null,
+      editVersion: Number(metadata.editVersion ?? 0),
+      lastEditedAt: metadata.lastEditedAt ?? metadata.generatedAt,
+      lastEditedBy: metadata.lastEditedBy ?? null,
       questions,
     }
   }
 
-  private getNextSnapshotVersion(latestSnapshot: AITask | null): number {
-    const currentVersion = Number(latestSnapshot?.input?.snapshotVersion ?? 0)
+  private getNextSnapshotVersion(latestSnapshot: SnapshotRecord | null): number {
+    const currentVersion = Number(latestSnapshot?.metadata.snapshotVersion ?? 0)
     return currentVersion + 1
   }
 
@@ -304,21 +700,23 @@ export class ProjectQuestionnaireSnapshotService {
 
     return {
       question_id: question.questionCode || question.questionId,
+      question_template_id: question.questionId ?? null,
+      source_question_id: question.questionId ?? null,
+      control_id: question.controlId,
       cluster_id: question.controlId,
       cluster_name: controlPoint?.controlName ?? controlPoint?.controlCode ?? question.controlId,
       question_text: question.questionText,
       question_type: questionType,
       options,
       required: question.required,
-      guidance: question.required
-        ? '此题为必答题，请选择最符合当前控制现状的选项。'
-        : '请根据项目当前实际情况填写。',
+      guidance: this.buildGuidance(question.required),
+      display_order: index + 1,
+      scoring_rule: this.normalizeScoringRule(question.scoringRule),
+      is_project_custom: false,
     }
   }
 
-  private mapQuestionType(
-    questionType: string,
-  ): 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'RATING' {
+  private mapQuestionType(questionType: string): SnapshotQuestion['question_type'] {
     switch ((questionType ?? '').toUpperCase()) {
       case 'YES_NO':
       case 'SINGLE_CHOICE':
@@ -334,7 +732,7 @@ export class ProjectQuestionnaireSnapshotService {
 
   private buildOptions(
     question: SnapshotQuestionInput,
-    runtimeType: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'RATING',
+    runtimeType: SnapshotQuestion['question_type'],
   ): SnapshotQuestionOption[] {
     if (runtimeType === 'RATING') {
       return this.buildRatingOptions(question.answerSchema)
@@ -397,7 +795,7 @@ export class ProjectQuestionnaireSnapshotService {
     return options.map((option, index) => {
       if (typeof option === 'string') {
         return {
-          option_id: String.fromCharCode(65 + index),
+          option_id: this.buildOptionId(index),
           text: option,
           score: index + 1,
         }
@@ -408,25 +806,310 @@ export class ProjectQuestionnaireSnapshotService {
 
         return {
           option_id:
-            typeof record.option_id === 'string'
-              ? record.option_id
-              : typeof record.id === 'string'
-                ? record.id
-                : String.fromCharCode(65 + index),
+            this.normalizeString(record.option_id) ??
+            this.normalizeString(record.id) ??
+            this.buildOptionId(index),
           text:
-            typeof record.text === 'string'
-              ? record.text
-              : typeof record.label === 'string'
-                ? record.label
-                : String(record.value ?? `Option ${index + 1}`),
+            this.normalizeString(record.text) ??
+            this.normalizeString(record.label) ??
+            String(record.value ?? `Option ${index + 1}`),
           score: typeof record.score === 'number' ? record.score : index + 1,
-          level: typeof record.level === 'string' ? record.level : undefined,
-          description:
-            typeof record.description === 'string' ? record.description : undefined,
+          level: this.normalizeNullableString(record.level),
+          description: this.normalizeNullableString(record.description),
         }
       }
 
       throw new BadRequestException('Question answerSchema contains an unsupported option payload')
     })
+  }
+
+  private async normalizeDraftQuestions(
+    questions: SaveProjectQuestionnaireSnapshotDraftQuestionDto[],
+    baselineQuestions: SnapshotQuestion[],
+  ): Promise<SnapshotQuestion[]> {
+    const baselineById = new Map(
+      baselineQuestions.map((question) => [question.question_id, question] as const),
+    )
+    const requestedControlIds = Array.from(
+      new Set(
+        questions.map((question) => {
+          const baselineQuestion = question.questionId
+            ? baselineById.get(question.questionId)
+            : null
+
+          return baselineQuestion?.control_id ?? question.controlId
+        }),
+      ),
+    )
+    const controlPoints = await this.controlPointRepository.find({
+      where: {
+        controlId: In(requestedControlIds),
+      },
+    })
+    const controlById = new Map(
+      controlPoints.map((control) => [control.controlId, control] as const),
+    )
+    const nextQuestions: SnapshotQuestion[] = []
+    const seenQuestionIds = new Set<string>()
+    const seenDisplayOrders = new Set<number>()
+
+    for (const question of questions) {
+      const baselineQuestion = question.questionId ? baselineById.get(question.questionId) : undefined
+      const normalizedQuestion = this.normalizeDraftQuestion(
+        question,
+        baselineQuestion,
+        controlById,
+      )
+
+      if (seenQuestionIds.has(normalizedQuestion.question_id)) {
+        throw new BadRequestException(`Duplicate question id ${normalizedQuestion.question_id} in draft payload`)
+      }
+      if (seenDisplayOrders.has(normalizedQuestion.display_order)) {
+        throw new BadRequestException(`Duplicate displayOrder ${normalizedQuestion.display_order} in draft payload`)
+      }
+
+      seenQuestionIds.add(normalizedQuestion.question_id)
+      seenDisplayOrders.add(normalizedQuestion.display_order)
+      nextQuestions.push(normalizedQuestion)
+    }
+
+    return nextQuestions.sort((left, right) => {
+      if (left.display_order !== right.display_order) {
+        return left.display_order - right.display_order
+      }
+
+      return left.question_id.localeCompare(right.question_id, 'en')
+    })
+  }
+
+  private normalizeDraftQuestion(
+    question: SaveProjectQuestionnaireSnapshotDraftQuestionDto,
+    baselineQuestion: SnapshotQuestion | undefined,
+    controlById: Map<string, ControlPoint>,
+  ): SnapshotQuestion {
+    const baselineControlId = baselineQuestion?.control_id ?? baselineQuestion?.cluster_id
+    const controlId = baselineControlId ?? question.controlId?.trim()
+
+    if (!controlId) {
+      throw new BadRequestException('Question controlId is required')
+    }
+
+    if (baselineControlId && question.controlId !== baselineControlId) {
+      throw new BadRequestException(
+        `Question ${baselineQuestion.question_id} cannot change controlId from ${baselineControlId} to ${question.controlId}`,
+      )
+    }
+
+    const controlPoint = controlById.get(controlId)
+
+    if (!controlPoint) {
+      throw new BadRequestException(`Control ${controlId} does not exist`)
+    }
+
+    const baselineQuestionType = baselineQuestion?.question_type
+    const requestedQuestionType = question.questionType?.toUpperCase()
+
+    if (
+      baselineQuestionType &&
+      requestedQuestionType &&
+      requestedQuestionType !== baselineQuestionType
+    ) {
+      throw new BadRequestException(
+        `Question ${baselineQuestion.question_id} cannot change questionType from ${baselineQuestionType} to ${question.questionType}`,
+      )
+    }
+
+    const questionType = baselineQuestionType ?? this.mapQuestionType(question.questionType)
+    const questionTemplateId =
+      baselineQuestion?.question_template_id ??
+      baselineQuestion?.source_question_id ??
+      (question.questionTemplateId ?? null)
+
+    if (
+      baselineQuestion &&
+      question.questionTemplateId !== undefined &&
+      (question.questionTemplateId ?? null) !== (questionTemplateId ?? null)
+    ) {
+      throw new BadRequestException(
+        `Question ${baselineQuestion.question_id} cannot change questionItemTemplateId`,
+      )
+    }
+
+    const questionId =
+      baselineQuestion?.question_id ?? question.questionId?.trim() ?? `project-custom-${randomUUID()}`
+    const questionText = question.questionText.trim()
+
+    if (!questionText) {
+      throw new BadRequestException(`Question ${questionId} is missing questionText`)
+    }
+
+    const options = this.normalizeDraftOptions(question.options, questionType, questionId)
+
+    return {
+      question_id: questionId,
+      question_template_id: questionTemplateId,
+      source_question_id:
+        baselineQuestion?.source_question_id ?? questionTemplateId,
+      control_id: controlId,
+      cluster_id: controlId,
+      cluster_name: controlPoint.controlName ?? controlPoint.controlCode ?? controlId,
+      question_text: questionText,
+      question_type: questionType,
+      options,
+      required: Boolean(question.required),
+      guidance: baselineQuestion?.guidance ?? this.buildGuidance(Boolean(question.required)),
+      display_order: question.displayOrder,
+      scoring_rule: this.normalizeScoringRule(question.scoringRule ?? baselineQuestion?.scoring_rule ?? null),
+      is_project_custom: baselineQuestion?.is_project_custom ?? !baselineQuestion,
+    }
+  }
+
+  private normalizeDraftOptions(
+    options: SaveProjectQuestionnaireSnapshotDraftOptionDto[],
+    questionType: SnapshotQuestion['question_type'],
+    questionId: string,
+  ): SnapshotQuestionOption[] {
+    if (!Array.isArray(options) || options.length === 0) {
+      throw new BadRequestException(`Question ${questionId} must include at least one option`)
+    }
+
+    if (
+      (questionType === 'SINGLE_CHOICE' || questionType === 'MULTIPLE_CHOICE') &&
+      options.length < 2
+    ) {
+      throw new BadRequestException(`Question ${questionId} must include at least two options`)
+    }
+
+    const seenOptionIds = new Set<string>()
+
+    return options.map((option, index) => {
+      const optionId = option.optionId?.trim() || this.buildOptionId(index)
+      const text = option.text.trim()
+
+      if (!text) {
+        throw new BadRequestException(`Question ${questionId} contains an empty option label`)
+      }
+
+      if (seenOptionIds.has(optionId)) {
+        throw new BadRequestException(`Question ${questionId} contains duplicate option id ${optionId}`)
+      }
+
+      seenOptionIds.add(optionId)
+
+      return {
+        option_id: optionId,
+        text,
+        score: option.score,
+        level: option.level?.trim() || undefined,
+        description: option.description?.trim() || undefined,
+      }
+    })
+  }
+
+  private buildNewDraftMetadata(
+    publishedMetadata: SnapshotMetadata,
+    questions: SnapshotQuestion[],
+    snapshotVersion: number,
+    publishedSnapshotTaskId: string,
+    currentUserId: string,
+    now: string,
+  ): SnapshotMetadata {
+    return {
+      ...publishedMetadata,
+      generatedAt: now,
+      snapshotVersion,
+      total_questions: questions.length,
+      estimated_time_minutes: this.estimateTimeMinutes(questions.length),
+      coverage_map: this.buildCoverageMap(questions),
+      missingQuestionControlIds: this.filterMissingQuestionControlIds(
+        publishedMetadata.missingQuestionControlIds,
+        questions,
+      ),
+      lifecycleStatus: 'draft',
+      publishedSnapshotTaskId,
+      baseSnapshotTaskId: publishedSnapshotTaskId,
+      editVersion: 1,
+      lastEditedAt: now,
+      lastEditedBy: currentUserId,
+    }
+  }
+
+  private buildUpdatedDraftMetadata(
+    existingMetadata: SnapshotMetadata,
+    questions: SnapshotQuestion[],
+    publishedSnapshotTaskId: string,
+    currentUserId: string,
+    now: string,
+  ): SnapshotMetadata {
+    return {
+      ...existingMetadata,
+      total_questions: questions.length,
+      estimated_time_minutes: this.estimateTimeMinutes(questions.length),
+      coverage_map: this.buildCoverageMap(questions),
+      missingQuestionControlIds: this.filterMissingQuestionControlIds(
+        existingMetadata.missingQuestionControlIds,
+        questions,
+      ),
+      lifecycleStatus: 'draft',
+      publishedSnapshotTaskId,
+      baseSnapshotTaskId: existingMetadata.baseSnapshotTaskId ?? publishedSnapshotTaskId,
+      editVersion: Number(existingMetadata.editVersion ?? 0) + 1,
+      lastEditedAt: now,
+      lastEditedBy: currentUserId,
+    }
+  }
+
+  private filterMissingQuestionControlIds(
+    missingQuestionControlIds: string[],
+    questions: SnapshotQuestion[],
+  ): string[] {
+    const coveredControlIds = new Set(questions.map((question) => question.control_id))
+    return (missingQuestionControlIds ?? []).filter((controlId) => !coveredControlIds.has(controlId))
+  }
+
+  private buildCoverageMap(questions: SnapshotQuestion[]): Record<string, number> {
+    return questions.reduce<Record<string, number>>((acc, question) => {
+      acc[question.cluster_id] = (acc[question.cluster_id] ?? 0) + 1
+      return acc
+    }, {})
+  }
+
+  private estimateTimeMinutes(questionCount: number): number {
+    return Math.max(1, Math.ceil(questionCount * 0.5))
+  }
+
+  private buildGuidance(required: boolean): string {
+    return required
+      ? '此题为必答题，请选择最符合当前控制现状的选项。'
+      : '请根据项目当前实际情况填写。'
+  }
+
+  private buildOptionId(index: number): string {
+    return String.fromCharCode(65 + index)
+  }
+
+  private normalizeScoringRule(value: unknown): Record<string, unknown> | null {
+    if (value === null || value === undefined) {
+      return null
+    }
+
+    if (typeof value !== 'object' || Array.isArray(value)) {
+      throw new BadRequestException('scoringRule must be an object or null')
+    }
+
+    return value as Record<string, unknown>
+  }
+
+  private normalizeString(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      return null
+    }
+
+    const normalized = value.trim()
+    return normalized.length > 0 ? normalized : null
+  }
+
+  private normalizeNullableString(value: unknown): string | null {
+    return this.normalizeString(value) ?? null
   }
 }
