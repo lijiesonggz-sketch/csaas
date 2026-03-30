@@ -43,7 +43,6 @@ export default function ProjectWorkbenchPage() {
 
   const loadProject = useCallback(async () => {
     if (projectCacheRef.current?.projectId === projectId) {
-      console.log('✅ [ProjectPage] 使用缓存的项目数据')
       setProject(projectCacheRef.current.data)
       setLoading(false)
       return
@@ -65,14 +64,12 @@ export default function ProjectWorkbenchPage() {
     const now = Date.now()
     if (tasksCacheRef.current?.projectId === projectId &&
         now - tasksCacheRef.current.timestamp < CACHE_DURATION) {
-      console.log('✅ [ProjectPage] 使用缓存的任务数据')
       computeTaskStatuses(tasksCacheRef.current.data)
       return
     }
 
     try {
       const tasks = await AITasksAPI.getTasksByProject(projectId)
-      console.log('📊 [ProjectPage] 获取到的所有任务:', tasks.length, '个')
       tasksCacheRef.current = { projectId, data: tasks, timestamp: now }
       computeTaskStatuses(tasks)
     } catch (error) {
@@ -116,8 +113,6 @@ export default function ProjectWorkbenchPage() {
         statuses[stepId] = 'pending'
       }
     })
-
-    console.log('🎯 [ProjectPage] 最终状态映射:', statuses)
     setTaskStatuses(statuses)
   }, [])
 

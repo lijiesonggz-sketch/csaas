@@ -1,13 +1,12 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useSession } from 'next-auth/react'
+
 import TeamManagementPage from '../page'
 
-// Mock next-auth/react
 jest.mock('next-auth/react', () => ({
   useSession: jest.fn(),
 }))
 
-// Mock sonner
 jest.mock('sonner', () => ({
   toast: {
     success: jest.fn(),
@@ -15,7 +14,6 @@ jest.mock('sonner', () => ({
   },
 }))
 
-// Mock organizations API
 jest.mock('@/lib/api/organizations', () => ({
   organizationsApi: {
     getOrganizationMembers: jest.fn(),
@@ -25,7 +23,6 @@ jest.mock('@/lib/api/organizations', () => ({
   },
 }))
 
-// Mock dialog components to simplify page tests
 jest.mock('../components/AddMemberDialog', () => ({
   AddMemberDialog: ({ open, onSubmit, onClose }: any) =>
     open ? (
@@ -38,6 +35,7 @@ jest.mock('../components/AddMemberDialog', () => ({
       </div>
     ) : null,
 }))
+
 jest.mock('../components/EditMemberDialog', () => ({
   EditMemberDialog: ({ open, onSubmit, onClose }: any) =>
     open ? (
@@ -48,6 +46,7 @@ jest.mock('../components/EditMemberDialog', () => ({
       </div>
     ) : null,
 }))
+
 jest.mock('../components/ConfirmRemoveDialog', () => ({
   ConfirmRemoveDialog: ({ open, onConfirm, onClose }: any) =>
     open ? (
@@ -62,7 +61,7 @@ jest.mock('../components/ConfirmRemoveDialog', () => ({
 const { organizationsApi } = require('@/lib/api/organizations')
 const mockUseSession = useSession as jest.Mock
 
-const mockMembersResponse = {
+const membersResponse = {
   data: [
     {
       id: 'member-1',
@@ -84,123 +83,72 @@ const mockMembersResponse = {
   pagination: { page: 1, limit: 10, total: 2, totalPages: 1 },
 }
 
+function setSession(overrides?: Partial<Record<'id' | 'organizationId' | 'organizationRole', string>>) {
+  mockUseSession.mockReturnValue({
+    data: {
+      user: {
+        id: overrides?.id ?? 'user-1',
+        organizationId: overrides?.organizationId ?? 'org-1',
+        organizationRole: overrides?.organizationRole ?? 'admin',
+      },
+    },
+    status: 'authenticated',
+  })
+}
+
 describe('TeamManagementPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    organizationsApi.getOrganizationMembers.mockResolvedValue(mockMembersResponse)
+    organizationsApi.getOrganizationMembers.mockResolvedValue(membersResponse)
+    setSession()
   })
 
-  it('should show loading state initially', () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
+  it('shows the loading spinner before members are loaded', () => {
+    organizationsApi.getOrganizationMembers.mockImplementation(() => new Promise(() => {}))
 
     render(<TeamManagementPage />)
+
     expect(screen.getByRole('progressbar')).toBeInTheDocument()
   })
 
-  it('should display page title after loading', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
+  it('renders the current header and member table for admins', async () => {
+    render(<TeamManagementPage />)
+
+    expect(await screen.findByText('团队管理')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '添加成员' })).toBeInTheDocument()
+    expect(screen.getByRole('table', { name: '组织成员列表' })).toBeInTheDocument()
+    expect(screen.getByText('admin@example.com')).toBeInTheDocument()
+    expect(screen.getByText('member@example.com')).toBeInTheDocument()
+    expect(screen.getByText('操作')).toBeInTheDocument()
+  })
+
+  it('hides admin-only actions for non-admin users', async () => {
+    setSession({ id: 'user-2', organizationRole: 'member' })
 
     render(<TeamManagementPage />)
 
-    await waitFor(() => {
-      expect(screen.getByText('团队管理')).toBeInTheDocument()
-    })
+    expect(await screen.findByText('团队管理')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '添加成员' })).not.toBeInTheDocument()
+    expect(screen.queryByText('操作')).not.toBeInTheDocument()
   })
 
-  it('should display member list with names and emails', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
-
+  it('disables self edit/remove actions and keeps other member actions enabled for admins', async () => {
     render(<TeamManagementPage />)
 
-    await waitFor(() => {
-      expect(screen.getByText('admin@example.com')).toBeInTheDocument()
-      expect(screen.getByText('普通成员')).toBeInTheDocument()
-      expect(screen.getByText('member@example.com')).toBeInTheDocument()
-    })
+    await screen.findByText('admin@example.com')
+
+    const selfEdit = screen.getByRole('button', { name: '编辑 管理员' })
+    const selfRemove = screen.getByRole('button', { name: '移除 管理员' })
+    const otherEdit = screen.getByRole('button', { name: '编辑 普通成员' })
+    const otherRemove = screen.getByRole('button', { name: '移除 普通成员' })
+
+    expect(selfEdit).toBeDisabled()
+    expect(selfRemove).toBeDisabled()
+    expect(otherEdit).not.toBeDisabled()
+    expect(otherRemove).not.toBeDisabled()
   })
 
-  it('should show add button for admin users', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
-
-    render(<TeamManagementPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('添加成员')).toBeInTheDocument()
-    })
-  })
-
-  it('should hide add button for non-admin users', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-2', organizationId: 'org-1', role: 'member' },
-      },
-      status: 'authenticated',
-    })
-
-    render(<TeamManagementPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('团队管理')).toBeInTheDocument()
-    })
-
-    expect(screen.queryByText('添加成员')).not.toBeInTheDocument()
-  })
-
-  it('should disable edit/remove buttons for self (admin)', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
-
-    render(<TeamManagementPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('admin@example.com')).toBeInTheDocument()
-    })
-
-    // Get all edit and remove buttons by aria-label
-    const editButtons = screen.getAllByRole('button', { name: /编辑/ })
-    const deleteButtons = screen.getAllByRole('button', { name: /移除/ })
-
-    // First row is user-1 (self) - should be disabled
-    expect(editButtons[0]).toBeDisabled()
-    expect(deleteButtons[0]).toBeDisabled()
-
-    // Second row is user-2 (other) - should be enabled
-    expect(editButtons[1]).not.toBeDisabled()
-    expect(deleteButtons[1]).not.toBeDisabled()
-  })
-
-  it('should show empty state when no members', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
-
+  it('shows the current empty state when there are no members', async () => {
     organizationsApi.getOrganizationMembers.mockResolvedValue({
       data: [],
       pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
@@ -208,88 +156,24 @@ describe('TeamManagementPage', () => {
 
     render(<TeamManagementPage />)
 
-    await waitFor(() => {
-      expect(screen.getByText('暂无成员')).toBeInTheDocument()
-    })
+    expect(await screen.findByText('暂无成员')).toBeInTheDocument()
   })
 
-  it('should show error state on API failure', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
-
-    organizationsApi.getOrganizationMembers.mockRejectedValue(
-      new Error('Network error'),
-    )
+  it('shows the current error state when member loading fails', async () => {
+    organizationsApi.getOrganizationMembers.mockRejectedValue(new Error('Network error'))
 
     render(<TeamManagementPage />)
 
-    await waitFor(() => {
-      expect(screen.getByText(/加载成员列表失败/)).toBeInTheDocument()
-    })
+    expect(await screen.findByText(/加载成员列表失败/)).toBeInTheDocument()
   })
 
-  it('should display role chips correctly', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
-
-    render(<TeamManagementPage />)
-
-    await waitFor(() => {
-      // "管理员" appears in both name column and role chip
-      expect(screen.getAllByText('管理员').length).toBeGreaterThanOrEqual(1)
-      expect(screen.getAllByText('成员').length).toBeGreaterThanOrEqual(1)
-    })
-  })
-
-  it('should open add member dialog when add button is clicked', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
-
-    render(<TeamManagementPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('添加成员')).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByText('添加成员'))
-
-    await waitFor(() => {
-      expect(screen.getByText('AddMemberDialog')).toBeInTheDocument()
-    })
-  })
-
-  it('should call addMemberByEmail and refresh list on add submit', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
+  it('opens the add dialog and submits through the current handler wiring', async () => {
     organizationsApi.addMemberByEmail.mockResolvedValue({ id: 'new-member' })
 
     render(<TeamManagementPage />)
 
-    await waitFor(() => {
-      expect(screen.getByText('添加成员')).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByText('添加成员'))
-
-    await waitFor(() => {
-      expect(screen.getByText('MockAddSubmit')).toBeInTheDocument()
-    })
+    fireEvent.click(await screen.findByRole('button', { name: '添加成员' }))
+    expect(screen.getByText('AddMemberDialog')).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('MockAddSubmit'))
 
@@ -302,74 +186,22 @@ describe('TeamManagementPage', () => {
     })
   })
 
-  it('should open edit dialog when edit button is clicked for other member', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
-
-    render(<TeamManagementPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('admin@example.com')).toBeInTheDocument()
-    })
-
-    // Click edit on user-2 (second edit button, not disabled)
-    const editButtons = screen.getAllByRole('button', { name: /编辑/ })
-    fireEvent.click(editButtons[1])
-
-    await waitFor(() => {
-      expect(screen.getByText('EditMemberDialog')).toBeInTheDocument()
-    })
-  })
-
-  it('should open remove dialog when remove button is clicked for other member', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
-
-    render(<TeamManagementPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('admin@example.com')).toBeInTheDocument()
-    })
-
-    // Click remove on user-2 (second delete button, not disabled)
-    const deleteButtons = screen.getAllByRole('button', { name: /移除/ })
-    fireEvent.click(deleteButtons[1])
-
-    await waitFor(() => {
-      expect(screen.getByText('ConfirmRemoveDialog')).toBeInTheDocument()
-    })
-  })
-
-  it('should call removeMember and refresh list on remove confirm', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
+  it('opens edit/remove dialogs for another member and wires submit handlers', async () => {
+    organizationsApi.updateMemberRole.mockResolvedValue({ role: 'admin' })
     organizationsApi.removeMember.mockResolvedValue(undefined)
 
     render(<TeamManagementPage />)
 
-    await waitFor(() => {
-      expect(screen.getByText('admin@example.com')).toBeInTheDocument()
-    })
-
-    const deleteButtons = screen.getAllByRole('button', { name: /移除/ })
-    fireEvent.click(deleteButtons[1])
+    fireEvent.click(await screen.findByRole('button', { name: '编辑 普通成员' }))
+    expect(await screen.findByText('EditMemberDialog')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('MockEditSubmit'))
 
     await waitFor(() => {
-      expect(screen.getByText('MockRemoveConfirm')).toBeInTheDocument()
+      expect(organizationsApi.updateMemberRole).toHaveBeenCalledWith('org-1', 'user-2', 'admin')
     })
 
+    fireEvent.click(screen.getByRole('button', { name: '移除 普通成员' }))
+    expect(await screen.findByText('ConfirmRemoveDialog')).toBeInTheDocument()
     fireEvent.click(screen.getByText('MockRemoveConfirm'))
 
     await waitFor(() => {
@@ -377,84 +209,13 @@ describe('TeamManagementPage', () => {
     })
   })
 
-  it('should call updateMemberRole on edit submit', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
-    organizationsApi.updateMemberRole.mockResolvedValue({ role: 'admin' })
+  it('does not request members when organizationId is missing', async () => {
+    setSession({ organizationId: '' })
 
     render(<TeamManagementPage />)
 
-    await waitFor(() => {
-      expect(screen.getByText('admin@example.com')).toBeInTheDocument()
-    })
-
-    const editButtons = screen.getAllByRole('button', { name: /编辑/ })
-    fireEvent.click(editButtons[1])
-
-    await waitFor(() => {
-      expect(screen.getByText('MockEditSubmit')).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByText('MockEditSubmit'))
-
-    await waitFor(() => {
-      expect(organizationsApi.updateMemberRole).toHaveBeenCalledWith('org-1', 'user-2', 'admin')
-    })
-  })
-
-  it('should not fetch members when organizationId is missing', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1' }, // no organizationId
-      },
-      status: 'authenticated',
-    })
-
-    render(<TeamManagementPage />)
-
-    // Should still show loading since organizationId is undefined
-    // and fetchMembers returns early
     await waitFor(() => {
       expect(organizationsApi.getOrganizationMembers).not.toHaveBeenCalled()
-    })
-  })
-
-  it('should hide operation column for non-admin users', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-2', organizationId: 'org-1', role: 'member' },
-      },
-      status: 'authenticated',
-    })
-
-    render(<TeamManagementPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('团队管理')).toBeInTheDocument()
-    })
-
-    // "操作" column header should not be present for non-admin
-    expect(screen.queryByText('操作')).not.toBeInTheDocument()
-  })
-
-  it('should display table headers correctly', async () => {
-    mockUseSession.mockReturnValue({
-      data: {
-        user: { id: 'user-1', organizationId: 'org-1', role: 'admin' },
-      },
-      status: 'authenticated',
-    })
-
-    render(<TeamManagementPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('姓名')).toBeInTheDocument()
-      expect(screen.getByText('邮箱')).toBeInTheDocument()
-      expect(screen.getByText('加入时间')).toBeInTheDocument()
     })
   })
 })

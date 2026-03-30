@@ -33,7 +33,6 @@ export default function ActionPlanPage() {
   useEffect(() => {
     // 双重防护：state + ref
     if (hasGenerated || isGeneratingRef.current) {
-      console.log('⚠️ [ActionPlan] 已生成过任务，跳过重复生成')
       return
     }
 
@@ -42,10 +41,6 @@ export default function ActionPlanPage() {
     const urlTargetMaturity = searchParams.get('targetMaturity')
 
     if (urlSurveyResponseId && urlTargetMaturity) {
-      console.log('🎯 [ActionPlan] 从差距分析跳转，生成新的改进措施任务')
-      console.log('   surveyResponseId:', urlSurveyResponseId)
-      console.log('   targetMaturity:', urlTargetMaturity)
-
       // 立即标记为正在生成，防止重复
       isGeneratingRef.current = true
       setHasGenerated(true)
@@ -65,8 +60,6 @@ export default function ActionPlanPage() {
       setLoading(true)
       setError(null)
 
-      console.log('🚀 [ActionPlan] 生成新的改进措施任务')
-
       // 调用后端API生成改进措施
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/survey/${surveyResponseId}/action-plan`, {
         method: 'POST',
@@ -84,13 +77,10 @@ export default function ActionPlanPage() {
       }
 
       const data = await response.json()
-      console.log('✅ [ActionPlan] 任务创建成功:', data)
 
       if (data.success && data.data.taskId) {
         // 获取任务信息并设置，由 useTaskProgress hook 监听进度
         const task = await AITasksAPI.getTask(data.data.taskId)
-        console.log('✅ [ActionPlan] 任务创建成功，任务ID:', data.data.taskId)
-        console.log('📊 [ActionPlan] 任务状态:', task.status, '进度:', task.progress + '%')
         setCurrentTask(task)
         // 清除URL参数，避免刷新页面重复生成
         window.history.replaceState({}, '', `/projects/${projectId}/action-plan`)
@@ -105,12 +95,9 @@ export default function ActionPlanPage() {
 
   const loadExistingTasks = async () => {
     try {
-      console.log('🔍 [ActionPlan] 开始加载任务...')
       const tasks = await AITasksAPI.getTasksByProject(projectId)
-      console.log('📋 [ActionPlan] 获取到任务数:', tasks.length)
 
       const actionPlanTasks = tasks.filter(t => t.type === 'action_plan')
-      console.log('🎯 [ActionPlan] 筛选后的 action_plan 任务数:', actionPlanTasks.length)
 
       // 先筛选已完成的任务，再按时间排序取最新的
       const completedTasks = actionPlanTasks.filter(t => t.status === 'completed' && t.result)
@@ -118,17 +105,11 @@ export default function ActionPlanPage() {
         ? completedTasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
         : actionPlanTasks[0] // 如果没有完成的任务，取最新的任务（可能正在处理或失败）
 
-      console.log('📊 [ActionPlan] 已完成任务数:', completedTasks.length)
-      console.log('🎯 [ActionPlan] 选中的任务:', actionPlanTask?.id, '状态:', actionPlanTask?.status)
-
       if (actionPlanTask && actionPlanTask.status === 'completed' && actionPlanTask.result) {
-        console.log('✅ [ActionPlan] 找到最新任务并设置结果')
         setCurrentTask(actionPlanTask)
 
         // 获取详细措施列表
-        console.log('📥 [ActionPlan] 正在获取详细措施...')
         const measures = await AITasksAPI.getActionPlanMeasures(actionPlanTask.id)
-        console.log('✅ [ActionPlan] 获取到措施数:', measures.length)
 
         // 保存到 detailedMeasures state（供组件显示使用）
         setDetailedMeasures(measures)
@@ -148,11 +129,9 @@ export default function ActionPlanPage() {
         setGenerationResult(result)
         setShowTargetMaturityInput(false) // 有结果时隐藏目标成熟度输入
       } else if (actionPlanTask) {
-        console.log('⚠️ [ActionPlan] 任务状态或结果不满足显示条件')
         setCurrentTask(actionPlanTask)
         setShowTargetMaturityInput(false) // 有任务但未完成，也不显示输入框
       } else {
-        console.log('❌ [ActionPlan] 没有找到 action_plan 任务')
         setShowTargetMaturityInput(true) // 没有任何任务时，显示输入框
       }
     } catch (err: any) {
@@ -163,7 +142,6 @@ export default function ActionPlanPage() {
   const handleGenerate = async () => {
     // 防止重复点击
     if (loading) {
-      console.log('⚠️ [ActionPlan] 正在生成中，请勿重复点击')
       return
     }
 
@@ -190,8 +168,6 @@ export default function ActionPlanPage() {
         throw new Error('未找到问卷响应记录，无法生成改进措施')
       }
 
-      console.log('🎯 [ActionPlan] 使用问卷响应ID:', surveyResponseId)
-
       // 3. 调用后端API生成改进措施（使用 /survey 接口）
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/survey/${surveyResponseId}/action-plan`, {
         method: 'POST',
@@ -209,13 +185,10 @@ export default function ActionPlanPage() {
       }
 
       const data = await response.json()
-      console.log('✅ [ActionPlan] 任务创建成功:', data)
 
       if (data.success && data.data.taskId) {
         // 获取任务信息并设置，由 useTaskProgress hook 监听进度
         const task = await AITasksAPI.getTask(data.data.taskId)
-        console.log('✅ [ActionPlan] 任务创建成功，任务ID:', data.data.taskId)
-        console.log('📊 [ActionPlan] 任务状态:', task.status, '进度:', task.progress + '%')
         setCurrentTask(task)
         setShowTargetMaturityInput(false) // 生成时隐藏输入框
       }
@@ -252,7 +225,6 @@ export default function ActionPlanPage() {
 
   const loadTaskResult = async (taskId: string) => {
     try {
-      console.log('📊 [ActionPlan] 加载任务结果和详细措施:', taskId)
       const task = await AITasksAPI.getTask(taskId)
       if (task.result) {
         const result = TaskAdapter.toGenerationResult(task)
@@ -261,7 +233,6 @@ export default function ActionPlanPage() {
 
       // 获取详细的措施列表（90条）
       const measures = await AITasksAPI.getActionPlanMeasures(taskId)
-      console.log('✅ [ActionPlan] 加载到详细措施:', measures.length, '条')
       setDetailedMeasures(measures)
     } catch (err: any) {
       console.error('Failed to load task result:', err)

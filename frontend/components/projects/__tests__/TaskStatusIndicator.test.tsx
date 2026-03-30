@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import TaskStatusIndicator from '../TaskStatusIndicator'
 
-// Mock StatusBadge component
-jest.mock('@/components/ui/status-badge', () => ({
-  StatusBadge: ({ status, text, size }: any) => (
-    <span data-testid="status-badge" data-status={status} data-size={size}>{text}</span>
+// Mock current StatusChip component
+jest.mock('@/components/ui/mui', () => ({
+  StatusChip: ({ statusType, label, size }: any) => (
+    <span data-testid="status-badge" data-status={statusType} data-size={size}>{label}</span>
   ),
 }))
 
@@ -65,18 +65,18 @@ describe('TaskStatusIndicator', () => {
   it('should render with sm size by default', () => {
     render(<TaskStatusIndicator status="completed" />)
 
-    expect(screen.getByTestId('status-badge')).toHaveAttribute('data-size', 'sm')
+    expect(screen.getByTestId('status-badge')).toHaveAttribute('data-size', 'small')
   })
 
   it('should render with md size when specified', () => {
     render(<TaskStatusIndicator status="completed" size="md" />)
 
-    expect(screen.getByTestId('status-badge')).toHaveAttribute('data-size', 'md')
+    expect(screen.getByTestId('status-badge')).toHaveAttribute('data-size', 'medium')
   })
 
   it('should render with sm size when specified', () => {
     render(<TaskStatusIndicator status="completed" size="sm" />)
 
-    expect(screen.getByTestId('status-badge')).toHaveAttribute('data-size', 'sm')
+    expect(screen.getByTestId('status-badge')).toHaveAttribute('data-size', 'small')
   })
 })

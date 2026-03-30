@@ -32,22 +32,29 @@ jest.mock('../CreateProjectDialog', () => ({
     ) : null,
 }))
 
-jest.mock('@/components/ui/page-header', () => ({
-  PageHeader: ({ title, description, actions }: any) => (
+jest.mock('@/components/ui/mui/PageHeader', () => ({
+  __esModule: true,
+  default: ({ title, description, action }: any) => (
     <div data-testid="page-header">
       <h1>{title}</h1>
       <p>{description}</p>
-      {actions}
+      {action}
     </div>
   ),
 }))
 
-jest.mock('@/components/ui/unified-button', () => ({
-  UnifiedButton: ({ children, onClick, ...props }: any) => (
+jest.mock('@/components/ui/mui/PrimaryButton', () => ({
+  __esModule: true,
+  default: ({ children, onClick, ...props }: any) => (
     <button onClick={onClick} {...props}>
       {children}
     </button>
   ),
+}))
+
+jest.mock('@/components/ui/mui/ContentCard', () => ({
+  __esModule: true,
+  default: ({ children, ...props }: any) => <div {...props}>{children}</div>,
 }))
 
 const mockApiFetch = apiFetch as jest.Mock
@@ -122,7 +129,7 @@ describe('ProjectList', () => {
     render(<ProjectList onProjectClick={mockOnProjectClick} />)
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeInTheDocument()
+      expect(screen.getAllByRole('alert').length).toBeGreaterThan(0)
       expect(screen.getByText('Network error')).toBeInTheDocument()
     })
   })

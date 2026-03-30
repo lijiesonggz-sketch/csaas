@@ -38,15 +38,11 @@ export default function ClusteringPage() {
     enabled: !!taskId && loading && !generationResult,
     pollingInterval: 5000,
     onComplete: async (status) => {
-      console.log('🎉 [Clustering] 任务完成回调触发，状态:', status.status)
       if (status.status === 'completed') {
         try {
-          console.log('📥 [Clustering] 正在获取结果...')
           const response = await AIGenerationAPI.getResult(taskId!)
-          console.log('📊 [Clustering] API响应:', response)
 
           if (response.success && response.data) {
-            console.log('✅ [Clustering] 结果获取成功，更新UI')
             setGenerationResult(response.data)
             setLoading(false)
           } else {
@@ -60,7 +56,6 @@ export default function ClusteringPage() {
           setLoading(false)
         }
       } else if (status.status === 'failed') {
-        console.log('❌ [Clustering] 任务失败:', status.message)
         setError(status.message || '生成失败')
         setLoading(false)
       }
@@ -71,9 +66,7 @@ export default function ClusteringPage() {
     if (!project) return
 
     try {
-      console.log('🔍 [Clustering] 开始加载已保存的聚类任务')
       setInitializing(true)
-      console.log('📋 [Clustering] 项目metadata:', project.metadata)
 
       const uploadedDocuments = project.metadata?.uploadedDocuments
       const docs: UploadedDocument[] = Array.isArray(uploadedDocuments)
@@ -90,14 +83,12 @@ export default function ClusteringPage() {
       const clusteringTaskId = project.metadata?.clusteringTaskId
       if (typeof clusteringTaskId === 'string' && clusteringTaskId.length > 0) {
         const savedTaskId: string = clusteringTaskId
-        console.log('✅ [Clustering] 找到已保存的taskId:', savedTaskId)
         setTaskId(savedTaskId)
 
         try {
           const { AITasksAPI } = await import('@/lib/api/ai-tasks')
           const task = await AITasksAPI.getTask(savedTaskId)
           if (task && task.status === 'completed' && task.result) {
-            console.log('✅ [Clustering] 任务已完成，加载结果')
             setGenerationResult({
               ...task.result,
               taskId: task.id,
@@ -107,20 +98,16 @@ export default function ClusteringPage() {
             })
             setLoading(false)
           } else {
-            console.log('⏳ [Clustering] 任务未完成，检查任务状态')
             throw new Error('Task not completed')
           }
         } catch (err) {
-          console.log('⏳ [Clustering] 结果未就绪，检查任务状态:', err instanceof Error ? err.message : err)
           try {
             const { AITasksAPI } = await import('@/lib/api/ai-tasks')
             const taskStatus = await AITasksAPI.getTaskStatus(savedTaskId)
-            console.log('📊 [Clustering] 任务状态:', taskStatus)
 
             if (taskStatus.status === 'processing' || taskStatus.status === 'pending') {
               setLoading(true)
             } else if (taskStatus.status === 'failed') {
-              console.log('❌ [Clustering] 任务失败')
               setError(taskStatus.message || '任务失败')
               setLoading(false)
             } else if (taskStatus.status === 'completed') {
@@ -162,12 +149,9 @@ export default function ClusteringPage() {
               }, 1000)
             }
           } catch (statusErr) {
-            console.log('⚠️ [Clustering] 无法获取任务状态:', statusErr)
             setLoading(true)
           }
         }
-      } else {
-        console.log('ℹ️ [Clustering] 没有找到已保存的聚类任务')
       }
     } catch (err) {
       console.error('❌ [Clustering] 加载聚类任务失败:', err)
@@ -180,11 +164,8 @@ export default function ClusteringPage() {
     if (!project) return
 
     try {
-      console.log('🚀 [Clustering] 开始生成聚类')
       setLoading(true)
       setError(null)
-
-      console.log('📋 [Clustering] 当前项目metadata:', project.metadata)
 
       const uploadedDocuments = project.metadata?.uploadedDocuments
       const documents: UploadedDocument[] = Array.isArray(uploadedDocuments)
@@ -203,8 +184,6 @@ export default function ClusteringPage() {
         return
       }
 
-      console.log(`📄 [Clustering] 找到 ${documents.length} 个文档`)
-
       const { AITasksAPI } = await import('@/lib/api/ai-tasks')
       const task = await AITasksAPI.createTask({
         projectId,
@@ -215,10 +194,7 @@ export default function ClusteringPage() {
         },
       })
 
-      console.log('✨ [Clustering] 异步任务已创建:', task.id)
       setTaskId(task.id)
-
-      console.log('✅ [Clustering] 现在保存taskId到项目metadata')
 
       await apiFetch(`/projects/${projectId}`, {
         method: 'PUT',
@@ -229,7 +205,6 @@ export default function ClusteringPage() {
         }),
       })
 
-      console.log('✅ [Clustering] 已保存taskId到数据库')
     } catch (err) {
       console.error('❌ [Clustering] 生成失败:', err)
       setError(err instanceof Error ? err.message : '生成失败')

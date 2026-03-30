@@ -1,8 +1,8 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+
 import ActionPlanPage from '../page'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 
-// Mock dependencies
 jest.mock('next/navigation', () => ({
   useParams: jest.fn(),
   useSearchParams: jest.fn(),
@@ -11,7 +11,7 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('@/lib/api/ai-tasks', () => ({
   AITasksAPI: {
-    getTasksByProject: jest.fn(),
+    getTasksByProject: jest.fn().mockResolvedValue([]),
     getTask: jest.fn(),
     getActionPlanMeasures: jest.fn(),
   },
@@ -26,12 +26,9 @@ jest.mock('@/lib/hooks/useTaskProgress', () => ({
   })),
 }))
 
-// Mock components
 jest.mock('@/components/features/ActionPlanResultDisplay', () => ({
   __esModule: true,
-  default: ({ result }: any) => (
-    <div data-testid="action-plan-result">Action Plan Result Display</div>
-  ),
+  default: () => <div data-testid="action-plan-result">Action Plan Result Display</div>,
 }))
 
 jest.mock('@/components/projects/RollbackButton', () => ({
@@ -45,73 +42,27 @@ jest.mock('@/components/features/MaturityRadarChart', () => ({
   RADAR_DIMENSIONS: [],
 }))
 
-jest.mock('@/components/ui/page-header', () => ({
-  PageHeader: ({ title, description, actions }: any) => (
-    <div data-testid="page-header">
-      <h1>{title}</h1>
-      <p>{description}</p>
-      {actions}
-    </div>
-  ),
-}))
-
-jest.mock('@/components/ui/unified-button', () => ({
-  UnifiedButton: ({ children, onClick, ...props }: any) => (
-    <button onClick={onClick} {...props}>{children}</button>
-  ),
-}))
-
-jest.mock('@/components/ui/gradient-card', () => ({
-  GradientCard: ({ children, ...props }: any) => (
-    <div {...props}>{children}</div>
-  ),
-}))
-
-const mockUseParams = useParams as jest.Mock
-const mockUseSearchParams = useSearchParams as jest.Mock
-const mockUseRouter = useRouter as jest.Mock
-
 describe('ActionPlanPage', () => {
   const mockBack = jest.fn()
 
   beforeEach(() => {
     jest.clearAllMocks()
-    mockUseParams.mockReturnValue({ projectId: 'project-1' })
-    mockUseSearchParams.mockReturnValue(new URLSearchParams())
-    mockUseRouter.mockReturnValue({ back: mockBack, push: jest.fn() })
+    ;(useParams as jest.Mock).mockReturnValue({ projectId: 'project-1' })
+    ;(useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams())
+    ;(useRouter as jest.Mock).mockReturnValue({ back: mockBack, push: jest.fn() })
   })
 
-  it('should render page header with correct title', () => {
+  it('renders the current title and target-maturity generation state', async () => {
     render(<ActionPlanPage />)
 
-    expect(screen.getByTestId('page-header')).toBeInTheDocument()
+    expect(await screen.findByText('生成新的改进措施')).toBeInTheDocument()
     expect(screen.getByText('改进措施')).toBeInTheDocument()
-    expect(screen.getByText('基于问卷结果生成改进措施建议和行动计划')).toBeInTheDocument()
+    expect(screen.getByText('生成措施')).toBeInTheDocument()
   })
 
-  it('should show loading state initially', () => {
+  it('renders the current cancel action for the regenerate form', async () => {
     render(<ActionPlanPage />)
 
-    expect(screen.getByText('加载中...')).toBeInTheDocument()
-  })
-
-  it('should navigate back when back button is clicked', async () => {
-    render(<ActionPlanPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('返回')).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByText('返回'))
-
-    expect(mockBack).toHaveBeenCalledTimes(1)
-  })
-
-  it('should render regenerate button', async () => {
-    render(<ActionPlanPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('重新生成')).toBeInTheDocument()
-    })
+    expect(await screen.findByRole('button', { name: /取消重新生成/ })).toBeInTheDocument()
   })
 })

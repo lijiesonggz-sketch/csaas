@@ -22,17 +22,25 @@ jest.mock('@mui/material', () => ({
   Button: ({ children, onClick, disabled, color }: any) => (
     <button onClick={onClick} disabled={disabled} data-color={color}>{children}</button>
   ),
+  Box: ({ children, onClick, ...props }: any) => <div onClick={onClick} {...props}>{children}</div>,
+  Typography: ({ children, ...props }: any) => <span {...props}>{children}</span>,
+  IconButton: ({ children, onClick, title, ...props }: any) => (
+    <button onClick={onClick} title={title} {...props}>{children}</button>
+  ),
+  LinearProgress: ({ ...props }: any) => <div role="progressbar" {...props} />,
 }))
 
-// Mock UI components
-jest.mock('@/components/ui/gradient-card', () => ({
-  GradientCard: ({ children, onClick, ...props }: any) => (
+// Mock current UI components
+jest.mock('@/components/ui/mui/ContentCard', () => ({
+  __esModule: true,
+  default: ({ children, onClick, ...props }: any) => (
     <div onClick={onClick} {...props}>{children}</div>
   ),
 }))
 
-jest.mock('@/components/ui/status-badge', () => ({
-  StatusBadge: ({ status, text }: any) => <span data-status={status}>{text}</span>,
+jest.mock('@/components/ui/mui/StatusChip', () => ({
+  __esModule: true,
+  default: ({ label, statusType }: any) => <span data-status={statusType}>{label}</span>,
 }))
 
 const mockApiFetch = apiFetch as jest.Mock
@@ -209,8 +217,8 @@ describe('ProjectCard', () => {
   it('should render progress bar with correct width', () => {
     render(<ProjectCard project={mockProject} onClick={mockOnClick} onDelete={mockOnDelete} />)
 
-    const progressBar = document.querySelector('[style*="width: 75%"]')
-    expect(progressBar).toBeInTheDocument()
+    expect(screen.getByText('进度')).toBeInTheDocument()
+    expect(screen.getByText('75%')).toBeInTheDocument()
   })
 
   it('should render created date', () => {

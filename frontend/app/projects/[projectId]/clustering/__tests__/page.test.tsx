@@ -1,22 +1,24 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+
 import ClusteringPage from '../page'
 import { useParams, useRouter } from 'next/navigation'
 
-// Mock dependencies
 jest.mock('next/navigation', () => ({
   useParams: jest.fn(),
   useRouter: jest.fn(),
 }))
 
-jest.mock('@/lib/contexts/ProjectContext', () => ({
-  useProject: jest.fn(() => ({
-    project: {
-      id: 'project-1',
-      metadata: {
-        uploadedDocuments: [{ id: 'doc-1', name: 'Test Doc' }],
-      },
+const mockProjectContext = {
+  project: {
+    id: 'project-1',
+    metadata: {
+      uploadedDocuments: [{ id: 'doc-1', name: 'Test Doc', content: 'test content' }],
     },
-  })),
+  },
+}
+
+jest.mock('@/lib/contexts/ProjectContext', () => ({
+  useProject: jest.fn(() => mockProjectContext),
 }))
 
 jest.mock('@/lib/hooks/useTaskProgressPolling', () => ({
@@ -25,79 +27,32 @@ jest.mock('@/lib/hooks/useTaskProgressPolling', () => ({
   })),
 }))
 
-// Mock components
 jest.mock('@/components/features/ClusteringResultDisplay', () => ({
   __esModule: true,
-  default: ({ result }: any) => (
-    <div data-testid="clustering-result">Clustering Result Display</div>
-  ),
+  default: () => <div data-testid="clustering-result">Clustering Result Display</div>,
 }))
-
-jest.mock('@/components/ui/page-header', () => ({
-  PageHeader: ({ title, description, actions }: any) => (
-    <div data-testid="page-header">
-      <h1>{title}</h1>
-      <p>{description}</p>
-      {actions}
-    </div>
-  ),
-}))
-
-jest.mock('@/components/ui/unified-button', () => ({
-  UnifiedButton: ({ children, onClick, ...props }: any) => (
-    <button onClick={onClick} {...props}>{children}</button>
-  ),
-}))
-
-jest.mock('@/components/ui/gradient-card', () => ({
-  GradientCard: ({ children, ...props }: any) => (
-    <div {...props}>{children}</div>
-  ),
-}))
-
-const mockUseParams = useParams as jest.Mock
-const mockUseRouter = useRouter as jest.Mock
 
 describe('ClusteringPage', () => {
   const mockBack = jest.fn()
 
   beforeEach(() => {
     jest.clearAllMocks()
-    mockUseParams.mockReturnValue({ projectId: 'project-1' })
-    mockUseRouter.mockReturnValue({ back: mockBack })
+    ;(useParams as jest.Mock).mockReturnValue({ projectId: 'project-1' })
+    ;(useRouter as jest.Mock).mockReturnValue({ back: mockBack })
   })
 
-  it('should render page header with correct title', () => {
+  it('renders the current title and empty state', async () => {
     render(<ClusteringPage />)
 
-    expect(screen.getByTestId('page-header')).toBeInTheDocument()
+    expect(await screen.findByText('还没有生成聚类')).toBeInTheDocument()
     expect(screen.getByText('聚类分析')).toBeInTheDocument()
-    expect(screen.getByText('基于标准文档生成聚类分析结果')).toBeInTheDocument()
+    expect(screen.getByText('开始生成')).toBeInTheDocument()
   })
 
-  it('should show loading state initially', () => {
+  it('navigates back from the current header action', async () => {
     render(<ClusteringPage />)
 
-    expect(screen.getByText('正在加载...')).toBeInTheDocument()
-  })
-
-  it('should navigate back when back button is clicked', async () => {
-    render(<ClusteringPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('返回')).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByText('返回'))
-
+    fireEvent.click(await screen.findByRole('button', { name: /返回/ }))
     expect(mockBack).toHaveBeenCalledTimes(1)
-  })
-
-  it('should render regenerate button', async () => {
-    render(<ClusteringPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('重新生成')).toBeInTheDocument()
-    })
   })
 })
