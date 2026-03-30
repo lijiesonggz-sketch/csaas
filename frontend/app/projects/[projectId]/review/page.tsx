@@ -57,8 +57,132 @@ const LOCATION_HINT_LABELS: Record<string, string> = {
   source_document_name: '文档',
 }
 
+const DEFAULT_PATCH_INPUT = '{}'
+const REVIEW_DRAFT_AUTOSAVE_INTERVAL_MS = 60_000
+const REVIEW_DRAFT_STORAGE_PREFIX = 'project-review-draft'
+
+type ProjectReviewDraft = {
+  projectId: string
+  reviewItemId: string
+  patchInput: string
+  reasonInput: string
+  savedAt: string
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function buildProjectReviewDraftKey(projectId: string, reviewItemId: string): string {
+  return `${REVIEW_DRAFT_STORAGE_PREFIX}:${projectId}:${reviewItemId}`
+}
+
+function isDefaultPatchInput(patchInput: string): boolean {
+  const trimmed = patchInput.trim()
+
+  if (!trimmed || trimmed === DEFAULT_PATCH_INPUT) {
+    return true
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed)
+    return isPlainObject(parsed) && Object.keys(parsed).length === 0
+  } catch {
+    return false
+  }
+}
+
+function hasMeaningfulDraftInput(patchInput: string, reasonInput: string): boolean {
+  return !isDefaultPatchInput(patchInput) || reasonInput.trim().length > 0
+}
+
+function isProjectReviewDraft(value: unknown): value is ProjectReviewDraft {
+  return (
+    isPlainObject(value) &&
+    typeof value.projectId === 'string' &&
+    typeof value.reviewItemId === 'string' &&
+    typeof value.patchInput === 'string' &&
+    typeof value.reasonInput === 'string' &&
+    typeof value.savedAt === 'string'
+  )
+}
+
+function readProjectReviewDraft(
+  projectId: string,
+  reviewItemId: string,
+): ProjectReviewDraft | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const draftKey = buildProjectReviewDraftKey(projectId, reviewItemId)
+
+  try {
+    const rawDraft = window.localStorage.getItem(draftKey)
+    if (typeof rawDraft !== 'string' || rawDraft.length === 0) {
+      return null
+    }
+
+    const parsedDraft = JSON.parse(rawDraft)
+    if (!isProjectReviewDraft(parsedDraft)) {
+      window.localStorage.removeItem(draftKey)
+      return null
+    }
+
+    if (!hasMeaningfulDraftInput(parsedDraft.patchInput, parsedDraft.reasonInput)) {
+      window.localStorage.removeItem(draftKey)
+      return null
+    }
+
+    return parsedDraft
+  } catch {
+    try {
+      window.localStorage.removeItem(draftKey)
+    } catch {
+      // Ignore cleanup failures and continue without local persistence.
+    }
+    return null
+  }
+}
+
+function saveProjectReviewDraft(draft: ProjectReviewDraft): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(
+      buildProjectReviewDraftKey(draft.projectId, draft.reviewItemId),
+      JSON.stringify(draft),
+    )
+  } catch (error) {
+    console.warn('Failed to save review draft:', error)
+  }
+}
+
+function clearProjectReviewDraft(projectId: string, reviewItemId: string): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.removeItem(buildProjectReviewDraftKey(projectId, reviewItemId))
+  } catch (error) {
+    console.warn('Failed to clear review draft:', error)
+  }
+}
+
+function formatDraftSavedAt(savedAt: string): string {
+  const parsedDate = new Date(savedAt)
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return '最近一次自动保存'
+  }
+
+  return parsedDate.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function mergeJsonPatch(base: unknown, patch: unknown): unknown {
@@ -231,7 +355,9 @@ export default function ProjectReviewPage() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [detailResult, setDetailResult] = useState<GenerationResult | null>(null)
   const [reasonInput, setReasonInput] = useState('')
-  const [patchInput, setPatchInput] = useState('{}')
+  const [patchInput, setPatchInput] = useState(DEFAULT_PATCH_INPUT)
+  const [draftRestoreCandidate, setDraftRestoreCandidate] = useState<ProjectReviewDraft | null>(null)
+  const [draftRestoreCheckItemId, setDraftRestoreCheckItemId] = useState<string | null>(null)
   const [noopWarningVisible, setNoopWarningVisible] = useState(false)
   const [actionBusy, setActionBusy] = useState<
     null | 'accept' | 'modify' | 'reject' | 'rerun' | 'bulk-approve'
@@ -341,7 +467,7 @@ export default function ProjectReviewPage() {
 
         if (resetEditContext) {
           setReasonInput('')
-          setPatchInput('{}')
+          setPatchInput(DEFAULT_PATCH_INPUT)
           setNoopWarningVisible(false)
           setActionNotice(null)
         }
@@ -371,6 +497,117 @@ export default function ProjectReviewPage() {
 
     void loadDetailResult(selectedItem.taskId, true)
   }, [loadDetailResult, selectedItem?.taskId])
+
+  useEffect(() => {
+    setDraftRestoreCandidate(null)
+    setDraftRestoreCheckItemId(null)
+  }, [selectedItem?.reviewItemId])
+
+  useEffect(() => {
+    if (!selectedItem || detailLoading) {
+      return
+    }
+
+    setDraftRestoreCandidate(readProjectReviewDraft(projectId, selectedItem.reviewItemId))
+    setDraftRestoreCheckItemId(selectedItem.reviewItemId)
+  }, [detailLoading, projectId, selectedItem?.reviewItemId])
+
+  useEffect(() => {
+    if (!selectedItem) {
+      return
+    }
+
+    if (draftRestoreCheckItemId !== selectedItem.reviewItemId) {
+      return
+    }
+
+    if (draftRestoreCandidate?.reviewItemId === selectedItem.reviewItemId) {
+      return
+    }
+
+    if (hasMeaningfulDraftInput(patchInput, reasonInput)) {
+      return
+    }
+
+    clearProjectReviewDraft(projectId, selectedItem.reviewItemId)
+  }, [
+    draftRestoreCandidate?.reviewItemId,
+    draftRestoreCheckItemId,
+    patchInput,
+    projectId,
+    reasonInput,
+    selectedItem?.reviewItemId,
+  ])
+
+  useEffect(() => {
+    if (!selectedItem) {
+      return
+    }
+
+    if (draftRestoreCandidate?.reviewItemId === selectedItem.reviewItemId) {
+      return
+    }
+
+    const autosaveInterval = window.setInterval(() => {
+      if (!hasMeaningfulDraftInput(patchInput, reasonInput)) {
+        clearProjectReviewDraft(projectId, selectedItem.reviewItemId)
+        return
+      }
+
+      saveProjectReviewDraft({
+        projectId,
+        reviewItemId: selectedItem.reviewItemId,
+        patchInput,
+        reasonInput,
+        savedAt: new Date().toISOString(),
+      })
+    }, REVIEW_DRAFT_AUTOSAVE_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(autosaveInterval)
+    }
+  }, [
+    draftRestoreCandidate?.reviewItemId,
+    patchInput,
+    projectId,
+    reasonInput,
+    selectedItem?.reviewItemId,
+  ])
+
+  const handleRestoreDraft = useCallback(() => {
+    if (
+      !selectedItem ||
+      !draftRestoreCandidate ||
+      draftRestoreCandidate.reviewItemId !== selectedItem.reviewItemId
+    ) {
+      return
+    }
+
+    setPatchInput(draftRestoreCandidate.patchInput)
+    setReasonInput(draftRestoreCandidate.reasonInput)
+    setNoopWarningVisible(false)
+    setDraftRestoreCandidate(null)
+    setActionNotice({
+      kind: 'success',
+      message: `已恢复 ${formatDraftSavedAt(draftRestoreCandidate.savedAt)} 的未提交草稿`,
+    })
+  }, [draftRestoreCandidate, selectedItem])
+
+  const handleDiscardDraft = useCallback(() => {
+    if (!selectedItem) {
+      return
+    }
+
+    clearProjectReviewDraft(projectId, selectedItem.reviewItemId)
+    setPatchInput(DEFAULT_PATCH_INPUT)
+    setReasonInput('')
+    setNoopWarningVisible(false)
+    setDraftRestoreCandidate(null)
+    setActionNotice({
+      kind: 'success',
+      message: '已忽略当前审核项的本地草稿',
+    })
+  }, [projectId, selectedItem])
 
   const handleDecision = useCallback(
     async (decision: 'accept' | 'modify' | 'reject') => {
@@ -455,8 +692,10 @@ export default function ProjectReviewPage() {
           kind: 'success',
           message: successMessage,
         })
+        clearProjectReviewDraft(projectId, selectedItem.reviewItemId)
+        setDraftRestoreCandidate(null)
         setReasonInput('')
-        setPatchInput('{}')
+        setPatchInput(DEFAULT_PATCH_INPUT)
         await loadReviewItems(true)
         if (selectedItem.taskId) {
           await loadDetailResult(selectedItem.taskId, true)
@@ -478,6 +717,7 @@ export default function ProjectReviewPage() {
       loadDetailResult,
       loadReviewItems,
       patchInput,
+      projectId,
       reasonInput,
       reviewerId,
       selectedItem,
@@ -1051,6 +1291,37 @@ export default function ProjectReviewPage() {
                     </div>
 
                     <div className="space-y-4">
+                      {draftRestoreCandidate?.reviewItemId === selectedItem.reviewItemId && (
+                        <Alert
+                          data-testid="review-draft-restore-alert"
+                          className="border-sky-200 bg-sky-50 text-sky-950"
+                        >
+                          <AlertTitle>发现未提交草稿</AlertTitle>
+                          <AlertDescription>
+                            检测到该审核项在 {formatDraftSavedAt(draftRestoreCandidate.savedAt)} 自动保存过未提交内容。
+                            你可以恢复继续编辑，或忽略并从空白输入开始。
+                          </AlertDescription>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              data-testid="review-restore-draft-button"
+                              onClick={handleRestoreDraft}
+                              className="bg-sky-600 hover:bg-sky-700"
+                            >
+                              恢复草稿
+                            </Button>
+                            <Button
+                              type="button"
+                              data-testid="review-discard-draft-button"
+                              variant="outline"
+                              onClick={handleDiscardDraft}
+                            >
+                              忽略草稿
+                            </Button>
+                          </div>
+                        </Alert>
+                      )}
+
                       <Card className="border border-slate-200 shadow-none">
                         <CardHeader>
                           <CardTitle className="text-base">修改 patch</CardTitle>

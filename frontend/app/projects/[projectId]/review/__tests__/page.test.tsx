@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ProjectReviewPage from '../page'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
@@ -43,6 +43,22 @@ const mockGetProjectReviewResult = getProjectReviewResult as jest.Mock
 const mockSubmitProjectReviewDecision = submitProjectReviewDecision as jest.Mock
 const mockRerunProjectReviewItem = rerunProjectReviewItem as jest.Mock
 const mockBulkApproveProjectReviewItems = bulkApproveProjectReviewItems as jest.Mock
+
+const localStorageMock = {
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+  clear: jest.fn(),
+}
+
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock,
+  writable: true,
+})
+
+const mockLocalStorageGetItem = localStorageMock.getItem
+const mockLocalStorageSetItem = localStorageMock.setItem
+const mockLocalStorageRemoveItem = localStorageMock.removeItem
 
 const mockReviewItem = {
   reviewItemId: 'review-1',
@@ -108,6 +124,42 @@ const mockDetailResult = {
   createdAt: '2026-03-29T08:00:00.000Z',
 } as const
 
+function buildReviewItemsResponse(items = [mockReviewItem]) {
+  return {
+    items,
+    pagination: {
+      page: 1,
+      pageSize: 20,
+      totalItems: items.length,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    },
+    filtersApplied: {
+      sortBy: 'updatedAt',
+      sortOrder: 'desc',
+    },
+  }
+}
+
+function buildDraftStorageKey(reviewItemId: string) {
+  return `project-review-draft:project-1:${reviewItemId}`
+}
+
+function buildStoredDraft(
+  reviewItemId: string,
+  patchInput: string,
+  reasonInput: string,
+) {
+  return JSON.stringify({
+    projectId: 'project-1',
+    reviewItemId,
+    patchInput,
+    reasonInput,
+    savedAt: '2026-03-30T09:30:00.000Z',
+  })
+}
+
 describe('ProjectReviewPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -154,6 +206,7 @@ describe('ProjectReviewPage', () => {
       blockedReviewItemIds: [],
       approvedReviewItemIds: ['review-1'],
     })
+    mockLocalStorageGetItem.mockReturnValue(null)
   })
 
   it('should load review items and render detail pane', async () => {
@@ -245,6 +298,9 @@ describe('ProjectReviewPage', () => {
     expect(mockSubmitProjectReviewDecision.mock.calls[0][0]).not.toHaveProperty(
       'modifiedResult',
     )
+    expect(mockLocalStorageRemoveItem).toHaveBeenCalledWith(
+      buildDraftStorageKey('review-1'),
+    )
   })
 
   it('should block modify submission when content is unchanged', async () => {
@@ -299,6 +355,269 @@ describe('ProjectReviewPage', () => {
 
     expect(screen.getByLabelText('修改 patch JSON')).toHaveValue('{"title":"新标题"}')
     expect(screen.getByLabelText('审核理由')).toHaveValue('需要修正文案')
+  })
+
+  it('should autosave a meaningful draft for the selected review item', async () => {
+    const intervalCallbacks: Array<() => void> = []
+    const setIntervalSpy = jest
+      .spyOn(window, 'setInterval')
+      .mockImplementation(((handler: TimerHandler, timeout?: number) => {
+        if (typeof handler === 'function' && timeout === 60000) {
+          intervalCallbacks.push(handler as () => void)
+        }
+        return intervalCallbacks.length as unknown as number
+      }) as typeof window.setInterval)
+    const clearIntervalSpy = jest
+      .spyOn(window, 'clearInterval')
+      .mockImplementation((() => undefined) as typeof window.clearInterval)
+
+    render(<ProjectReviewPage />)
+
+    const patchField = await screen.findByLabelText('修改 patch JSON')
+    const reasonField = await screen.findByLabelText('审核理由')
+
+    fireEvent.change(patchField, {
+      target: {
+        value: '{"title":"草稿标题"}',
+      },
+    })
+    fireEvent.change(reasonField, {
+      target: {
+        value: '需要稍后继续编辑',
+      },
+    })
+
+    await waitFor(() => {
+      expect(patchField).toHaveValue('{"title":"草稿标题"}')
+    })
+
+    await waitFor(() => {
+      expect(intervalCallbacks.length).toBeGreaterThan(2)
+    })
+
+    act(() => {
+      const latestIntervalCallback = intervalCallbacks[intervalCallbacks.length - 1]
+      latestIntervalCallback()
+    })
+
+    expect(
+      mockLocalStorageSetItem.mock.calls.some(
+        ([key, value]) =>
+          key === buildDraftStorageKey('review-1') &&
+          typeof value === 'string' &&
+          value.includes('"patchInput":"{\\"title\\":\\"草稿标题\\"}"') &&
+          value.includes('"reasonInput":"需要稍后继续编辑"'),
+      ),
+    ).toBe(true)
+
+    setIntervalSpy.mockRestore()
+    clearIntervalSpy.mockRestore()
+  })
+
+  it('should show restore prompt and restore the stored draft for the current review item', async () => {
+    mockLocalStorageGetItem.mockImplementation((key: string) =>
+      key === buildDraftStorageKey('review-1')
+        ? buildStoredDraft('review-1', '{"title":"恢复标题"}', '恢复的审核理由')
+        : null,
+    )
+
+    render(<ProjectReviewPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('review-draft-restore-alert')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByTestId('review-restore-draft-button'))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('修改 patch JSON')).toHaveValue('{"title":"恢复标题"}')
+    })
+
+    expect(screen.getByLabelText('审核理由')).toHaveValue('恢复的审核理由')
+    expect(screen.queryByTestId('review-draft-restore-alert')).not.toBeInTheDocument()
+  })
+
+  it('should discard the stored draft when the user ignores restore', async () => {
+    mockLocalStorageGetItem.mockImplementation((key: string) =>
+      key === buildDraftStorageKey('review-1')
+        ? buildStoredDraft('review-1', '{"title":"恢复标题"}', '恢复的审核理由')
+        : null,
+    )
+
+    render(<ProjectReviewPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('review-draft-restore-alert')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByTestId('review-discard-draft-button'))
+
+    await waitFor(() => {
+      expect(mockLocalStorageRemoveItem).toHaveBeenCalledWith(
+        buildDraftStorageKey('review-1'),
+      )
+    })
+
+    expect(screen.getByLabelText('修改 patch JSON')).toHaveValue('{}')
+    expect(screen.getByLabelText('审核理由')).toHaveValue('')
+    expect(screen.queryByTestId('review-draft-restore-alert')).not.toBeInTheDocument()
+  })
+
+  it('should clear the current draft immediately when inputs return to the default empty state', async () => {
+    mockLocalStorageGetItem.mockImplementation((key: string) =>
+      key === buildDraftStorageKey('review-1')
+        ? buildStoredDraft('review-1', '{"title":"恢复标题"}', '恢复的审核理由')
+        : null,
+    )
+
+    render(<ProjectReviewPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('review-draft-restore-alert')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByTestId('review-restore-draft-button'))
+
+    const patchField = await screen.findByLabelText('修改 patch JSON')
+    const reasonField = await screen.findByLabelText('审核理由')
+
+    fireEvent.change(patchField, {
+      target: {
+        value: '{}',
+      },
+    })
+    fireEvent.change(reasonField, {
+      target: {
+        value: '',
+      },
+    })
+
+    await waitFor(() => {
+      expect(mockLocalStorageRemoveItem).toHaveBeenCalledWith(
+        buildDraftStorageKey('review-1'),
+      )
+    })
+  })
+
+  it.each([
+    {
+      decision: 'accept',
+      buttonTestId: 'review-accept-button',
+    },
+    {
+      decision: 'reject',
+      buttonTestId: 'review-reject-button',
+    },
+  ])('should clear the current draft after $decision succeeds', async ({ decision, buttonTestId }) => {
+    render(<ProjectReviewPage />)
+
+    const patchField = await screen.findByLabelText('修改 patch JSON')
+    const reasonField = await screen.findByLabelText('审核理由')
+
+    fireEvent.change(patchField, {
+      target: {
+        value: '{"title":"待清理草稿"}',
+      },
+    })
+    fireEvent.change(reasonField, {
+      target: {
+        value: '待清理的审核理由',
+      },
+    })
+
+    fireEvent.click(screen.getByTestId(buttonTestId))
+
+    await waitFor(() => {
+      expect(mockSubmitProjectReviewDecision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          decision,
+          reviewItemId: 'review-1',
+        }),
+      )
+    })
+
+    expect(mockLocalStorageRemoveItem).toHaveBeenCalledWith(
+      buildDraftStorageKey('review-1'),
+    )
+  })
+
+  it('should only restore the draft that matches the selected review item', async () => {
+    const secondReviewItem = {
+      ...mockReviewItem,
+      reviewItemId: 'review-2',
+      sourceResultId: 'review-2',
+      taskId: 'task-2',
+      reviewStage: 'matrix',
+      taskType: 'matrix',
+      title: '第二审核项',
+      sourceRecordId: 'review-2',
+      updatedAt: '2026-03-30T10:00:00.000Z',
+    }
+
+    mockGetProjectReviewItems.mockResolvedValue(
+      buildReviewItemsResponse([mockReviewItem, secondReviewItem]),
+    )
+    mockGetProjectReviewResult.mockImplementation((taskId: string) =>
+      Promise.resolve(
+        taskId === 'task-2'
+          ? {
+              ...mockDetailResult,
+              id: 'review-2',
+              taskId: 'task-2',
+              selectedResult: {
+                title: '第二项标题',
+              },
+            }
+          : mockDetailResult,
+      ),
+    )
+    mockLocalStorageGetItem.mockImplementation((key: string) =>
+      key === buildDraftStorageKey('review-2')
+        ? buildStoredDraft('review-2', '{"title":"第二项草稿"}', '第二项审核理由')
+        : null,
+    )
+
+    render(<ProjectReviewPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: '综述生成' })).toBeInTheDocument()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('第二审核项')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByTestId('review-draft-restore-alert')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('第二审核项'))
+
+    await waitFor(() => {
+      expect(mockGetProjectReviewResult).toHaveBeenCalledWith('task-2')
+    })
+
+    await waitFor(() => {
+      expect(mockLocalStorageGetItem).toHaveBeenCalledWith(
+        buildDraftStorageKey('review-2'),
+      )
+    })
+  })
+
+  it('should discard malformed stored drafts without breaking the page', async () => {
+    mockLocalStorageGetItem.mockImplementation((key: string) =>
+      key === buildDraftStorageKey('review-1') ? '{bad-json' : null,
+    )
+
+    render(<ProjectReviewPage />)
+
+    await screen.findByLabelText('修改 patch JSON')
+
+    await waitFor(() => {
+      expect(mockLocalStorageGetItem).toHaveBeenCalledWith(
+        buildDraftStorageKey('review-1'),
+      )
+    })
+
+    expect(screen.queryByTestId('review-draft-restore-alert')).not.toBeInTheDocument()
   })
 
   it('should request retry-later status for rerun failures without clearing context', async () => {
