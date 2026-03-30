@@ -1,4 +1,4 @@
-import { apiFetch } from '@/lib/utils/api'
+import { apiFetch, getAuthToken } from '@/lib/utils/api'
 import type { ControlReportSectionDto } from '@/lib/types/report'
 
 export type ReportCenterStatus =
@@ -110,4 +110,74 @@ export interface ReportCenterDetailResponse {
 
 export async function getReportDetail(reportId: string): Promise<ReportCenterDetailResponse> {
   return apiFetch<ReportCenterDetailResponse>(`/compliance-intelligence/report-center/${reportId}`)
+}
+
+export type ReportPdfJobStatus = 'queued' | 'rendering' | 'ready' | 'failed'
+
+export interface ReportPdfJob {
+  pdfJobId: string
+  reportId: string
+  status: ReportPdfJobStatus
+  fileName: string | null
+  fileSizeBytes: number | null
+  downloadUrl: string | null
+  errorSummary: string | null
+  expiresAt: string
+  startedAt: string | null
+  completedAt: string | null
+  failedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export async function createReportPdfJob(reportId: string): Promise<ReportPdfJob> {
+  return apiFetch<ReportPdfJob>(`/compliance-intelligence/report-center/${reportId}/pdf-jobs`, {
+    method: 'POST',
+  })
+}
+
+export async function getLatestReportPdfJob(reportId: string): Promise<ReportPdfJob | null> {
+  return apiFetch<ReportPdfJob | null>(
+    `/compliance-intelligence/report-center/${reportId}/pdf-jobs/latest`,
+  )
+}
+
+export async function getReportPdfJob(reportId: string, pdfJobId: string): Promise<ReportPdfJob> {
+  return apiFetch<ReportPdfJob>(
+    `/compliance-intelligence/report-center/${reportId}/pdf-jobs/${pdfJobId}`,
+  )
+}
+
+export async function downloadReportPdf(reportId: string, pdfJobId: string): Promise<void> {
+  const token = await getAuthToken()
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL || ''}/compliance-intelligence/report-center/${reportId}/pdf-jobs/${pdfJobId}/download`,
+    {
+      headers: token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : undefined,
+    },
+  )
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ message: 'PDF 下载失败' }))
+    const error = new Error(body.message || 'PDF 下载失败') as Error & { status?: number }
+    error.status = response.status
+    throw error
+  }
+
+  const blob = await response.blob()
+  const contentDisposition = response.headers.get('Content-Disposition') ?? ''
+  const fileNameMatch = contentDisposition.match(/filename="(.+?)"/i)
+  const fileName = fileNameMatch?.[1] ?? `control-report-${reportId.slice(0, 8)}.pdf`
+  const downloadUrl = window.URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = downloadUrl
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  window.URL.revokeObjectURL(downloadUrl)
 }

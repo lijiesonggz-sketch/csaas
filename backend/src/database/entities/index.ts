@@ -114,6 +114,7 @@ export { PushFeedback } from './push-feedback.entity'
 export { CustomerActivityLog } from './customer-activity-log.entity'
 export { CustomerIntervention } from './customer-intervention.entity'
 export { AIUsageLog, AIUsageTaskType } from './ai-usage-log.entity'
+export { ReportPdfJob, REPORT_PDF_JOB_STATUSES } from './report-pdf-job.entity'
 
 // Epic 8: 同业情报雷达
 export { PeerCrawlerTask } from './peer-crawler-task.entity'

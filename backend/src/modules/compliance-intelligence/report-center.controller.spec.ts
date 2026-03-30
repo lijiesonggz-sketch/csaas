@@ -12,6 +12,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { OrganizationGuard } from '../organizations/guards/organization.guard'
 import { TenantGuard } from '../organizations/guards/tenant.guard'
 import { ReportCenterController } from './controllers/report-center.controller'
+import { ReportPdfService } from './services/report-pdf.service'
 import { ReportCenterService } from './services/report-center.service'
 
 describe('ReportCenterController (http)', () => {
@@ -20,6 +21,13 @@ describe('ReportCenterController (http)', () => {
   const mockReportCenterService = {
     getReportCenter: jest.fn(),
     getReportDetail: jest.fn(),
+  }
+
+  const mockReportPdfService = {
+    createPdfJob: jest.fn(),
+    getLatestPdfJob: jest.fn(),
+    getPdfJob: jest.fn(),
+    downloadPdfJob: jest.fn(),
   }
 
   const mockAuditLogService = {
@@ -35,6 +43,10 @@ describe('ReportCenterController (http)', () => {
         {
           provide: ReportCenterService,
           useValue: mockReportCenterService,
+        },
+        {
+          provide: ReportPdfService,
+          useValue: mockReportPdfService,
         },
         {
           provide: AuditLogService,
@@ -202,6 +214,94 @@ describe('ReportCenterController (http)', () => {
         entityType: 'ReportCenterDetail',
         entityId: '11111111-1111-4111-8111-111111111111',
       }),
+    )
+  })
+
+  it('should create pdf jobs and write audit log', async () => {
+    mockReportPdfService.createPdfJob.mockResolvedValue({
+      pdfJobId: '22222222-2222-4222-8222-222222222222',
+      reportId: '11111111-1111-4111-8111-111111111111',
+      status: 'queued',
+      fileName: null,
+      fileSizeBytes: null,
+      downloadUrl: null,
+      errorSummary: null,
+      expiresAt: '2026-04-29T00:00:00.000Z',
+      startedAt: null,
+      completedAt: null,
+      failedAt: null,
+      createdAt: '2026-03-30T09:00:00.000Z',
+      updatedAt: '2026-03-30T09:00:00.000Z',
+    })
+
+    const response = await request(app.getHttpServer())
+      .post('/compliance-intelligence/report-center/11111111-1111-4111-8111-111111111111/pdf-jobs')
+      .expect(201)
+
+    expect(response.body.success).toBe(true)
+    expect(response.body.data.status).toBe('queued')
+    expect(mockReportPdfService.createPdfJob).toHaveBeenCalledWith(
+      'org-1',
+      '770e8400-e29b-41d4-a716-446655440000',
+      '11111111-1111-4111-8111-111111111111',
+    )
+    expect(mockAuditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.CREATE,
+        entityType: 'ReportPdfJob',
+        entityId: '22222222-2222-4222-8222-222222222222',
+      }),
+    )
+  })
+
+  it('should return latest pdf job state', async () => {
+    mockReportPdfService.getLatestPdfJob.mockResolvedValue({
+      pdfJobId: '22222222-2222-4222-8222-222222222222',
+      reportId: '11111111-1111-4111-8111-111111111111',
+      status: 'ready',
+      fileName: 'control-report.pdf',
+      fileSizeBytes: 128,
+      downloadUrl:
+        '/compliance-intelligence/report-center/11111111-1111-4111-8111-111111111111/pdf-jobs/22222222-2222-4222-8222-222222222222/download',
+      errorSummary: null,
+      expiresAt: '2026-04-29T00:00:00.000Z',
+      startedAt: '2026-03-30T09:00:02.000Z',
+      completedAt: '2026-03-30T09:00:12.000Z',
+      failedAt: null,
+      createdAt: '2026-03-30T09:00:00.000Z',
+      updatedAt: '2026-03-30T09:00:12.000Z',
+    })
+
+    const response = await request(app.getHttpServer())
+      .get('/compliance-intelligence/report-center/11111111-1111-4111-8111-111111111111/pdf-jobs/latest')
+      .expect(200)
+
+    expect(response.body.success).toBe(true)
+    expect(response.body.data.status).toBe('ready')
+    expect(mockReportPdfService.getLatestPdfJob).toHaveBeenCalledWith(
+      'org-1',
+      '11111111-1111-4111-8111-111111111111',
+    )
+  })
+
+  it('should download ready pdf files with attachment headers', async () => {
+    mockReportPdfService.downloadPdfJob.mockResolvedValue({
+      buffer: Buffer.from('PDF'),
+      fileName: 'control-report.pdf',
+    })
+
+    const response = await request(app.getHttpServer())
+      .get(
+        '/compliance-intelligence/report-center/11111111-1111-4111-8111-111111111111/pdf-jobs/22222222-2222-4222-8222-222222222222/download',
+      )
+      .expect(200)
+
+    expect(response.headers['content-type']).toContain('application/pdf')
+    expect(response.headers['content-disposition']).toContain('control-report.pdf')
+    expect(mockReportPdfService.downloadPdfJob).toHaveBeenCalledWith(
+      'org-1',
+      '11111111-1111-4111-8111-111111111111',
+      '22222222-2222-4222-8222-222222222222',
     )
   })
 

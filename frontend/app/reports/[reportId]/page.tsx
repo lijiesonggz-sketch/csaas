@@ -2,9 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { AlertCircle, ChevronRight, FileText, ShieldAlert } from 'lucide-react'
+import { AlertCircle, ChevronRight, Download, FileText, LoaderCircle, ShieldAlert } from 'lucide-react'
 import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
-import { getReportDetail } from '@/lib/api/report-center'
+import {
+  createReportPdfJob,
+  downloadReportPdf,
+  getLatestReportPdfJob,
+  getReportDetail,
+  getReportPdfJob,
+  type ReportPdfJob,
+} from '@/lib/api/report-center'
 import { useOrganizationStore } from '@/lib/stores/useOrganizationStore'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,6 +29,10 @@ export default function ControlReportPage() {
   const [sections, setSections] = useState<ControlReportSectionDto[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [pdfJob, setPdfJob] = useState<ReportPdfJob | null>(null)
+  const [pdfStatusError, setPdfStatusError] = useState<string | null>(null)
+  const [isSubmittingPdfJob, setIsSubmittingPdfJob] = useState(false)
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
 
   // Story 7.3: 控制点详情抽屉状态
   const [controlDrawerOpen, setControlDrawerOpen] = useState(false)
@@ -47,6 +58,14 @@ export default function ControlReportPage() {
     return '加载报告失败'
   }
 
+  const normalizePdfErrorMessage = (loadError: unknown): string => {
+    if (loadError instanceof Error && loadError.message) {
+      return loadError.message
+    }
+
+    return 'PDF 处理失败'
+  }
+
   useEffect(() => {
     const fetchReport = async () => {
       if (!reportId) return
@@ -66,6 +85,121 @@ export default function ControlReportPage() {
 
     fetchReport()
   }, [reportId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchLatestPdfJob = async () => {
+      if (!reportId) {
+        return
+      }
+
+      try {
+        const latestJob = await getLatestReportPdfJob(reportId)
+
+        if (!cancelled) {
+          setPdfJob(latestJob)
+          setPdfStatusError(latestJob?.status === 'failed' ? latestJob.errorSummary : null)
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setPdfStatusError(normalizePdfErrorMessage(loadError))
+        }
+      }
+    }
+
+    void fetchLatestPdfJob()
+
+    return () => {
+      cancelled = true
+    }
+  }, [reportId])
+
+  useEffect(() => {
+    if (!reportId || !pdfJob || (pdfJob.status !== 'queued' && pdfJob.status !== 'rendering')) {
+      return
+    }
+
+    let cancelled = false
+    const timer = window.setInterval(async () => {
+      try {
+        const nextJob = await getReportPdfJob(reportId, pdfJob.pdfJobId)
+
+        if (!cancelled) {
+          setPdfJob(nextJob)
+          if (nextJob.status === 'failed') {
+            setPdfStatusError(nextJob.errorSummary ?? 'PDF 生成失败')
+          } else if (nextJob.status === 'ready') {
+            setPdfStatusError(null)
+          }
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setPdfStatusError(normalizePdfErrorMessage(loadError))
+        }
+      }
+    }, 3000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [pdfJob, reportId])
+
+  const handleCreatePdfJob = async () => {
+    if (!reportId) {
+      return
+    }
+
+    try {
+      setIsSubmittingPdfJob(true)
+      setPdfStatusError(null)
+      const nextJob = await createReportPdfJob(reportId)
+      setPdfJob(nextJob)
+      if (nextJob.status === 'failed') {
+        setPdfStatusError(nextJob.errorSummary ?? 'PDF 生成失败')
+      }
+    } catch (submitError) {
+      setPdfStatusError(normalizePdfErrorMessage(submitError))
+    } finally {
+      setIsSubmittingPdfJob(false)
+    }
+  }
+
+  const handleDownloadPdf = async () => {
+    if (!reportId || !pdfJob) {
+      return
+    }
+
+    try {
+      setIsDownloadingPdf(true)
+      setPdfStatusError(null)
+      await downloadReportPdf(reportId, pdfJob.pdfJobId)
+    } catch (downloadError) {
+      setPdfStatusError(normalizePdfErrorMessage(downloadError))
+    } finally {
+      setIsDownloadingPdf(false)
+    }
+  }
+
+  const renderPdfStatusBadge = () => {
+    if (!pdfJob) {
+      return null
+    }
+
+    switch (pdfJob.status) {
+      case 'queued':
+        return <Badge variant="secondary">PDF 排队中</Badge>
+      case 'rendering':
+        return <Badge variant="secondary">PDF 生成中</Badge>
+      case 'ready':
+        return <Badge className="bg-emerald-100 text-emerald-800">PDF 已就绪</Badge>
+      case 'failed':
+        return <Badge variant="destructive">PDF 生成失败</Badge>
+      default:
+        return null
+    }
+  }
 
   // Story 7.3: 处理控制点详情打开
   const handleOpenControlDetail = (control: ControlReportControlNodeDto) => {
@@ -99,11 +233,65 @@ export default function ControlReportPage() {
     <div className="container mx-auto px-4 py-8">
       <Card className="mb-6">
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <FileText className="w-6 h-6" />
-            <CardTitle>控制报告</CardTitle>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <FileText className="w-6 h-6" />
+              <CardTitle>控制报告</CardTitle>
+              {renderPdfStatusBadge()}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {pdfJob?.status === 'ready' ? (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadPdf}
+                    disabled={isDownloadingPdf}
+                  >
+                    {isDownloadingPdf ? (
+                      <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    下载 PDF
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={handleCreatePdfJob}
+                    disabled={isSubmittingPdfJob}
+                  >
+                    重新生成 PDF
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={handleCreatePdfJob}
+                  disabled={
+                    isSubmittingPdfJob ||
+                    pdfJob?.status === 'queued' ||
+                    pdfJob?.status === 'rendering'
+                  }
+                >
+                  {isSubmittingPdfJob || pdfJob?.status === 'queued' || pdfJob?.status === 'rendering' ? (
+                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  生成 PDF
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
+        {pdfStatusError ? (
+          <CardContent className="pt-0">
+            <Alert variant="destructive">
+              <AlertCircle className="w-4 h-4" />
+              <AlertTitle>PDF 处理提示</AlertTitle>
+              <AlertDescription>{pdfStatusError}</AlertDescription>
+            </Alert>
+          </CardContent>
+        ) : null}
       </Card>
 
       {sections.length === 0 ? (

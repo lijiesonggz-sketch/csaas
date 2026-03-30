@@ -1,7 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ControlReportPage from './page'
 import { useParams } from 'next/navigation'
-import { getReportDetail } from '@/lib/api/report-center'
+import {
+  createReportPdfJob,
+  downloadReportPdf,
+  getLatestReportPdfJob,
+  getReportDetail,
+} from '@/lib/api/report-center'
 
 jest.mock('next/navigation', () => ({
   useParams: jest.fn(),
@@ -9,6 +14,10 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('@/lib/api/report-center', () => ({
   getReportDetail: jest.fn(),
+  getLatestReportPdfJob: jest.fn(),
+  createReportPdfJob: jest.fn(),
+  getReportPdfJob: jest.fn(),
+  downloadReportPdf: jest.fn(),
 }))
 
 jest.mock('@/lib/stores/useOrganizationStore', () => ({
@@ -49,12 +58,20 @@ jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
 
 describe('ControlReportPage', () => {
   const mockGetReportDetail = getReportDetail as jest.MockedFunction<typeof getReportDetail>
+  const mockGetLatestReportPdfJob = getLatestReportPdfJob as jest.MockedFunction<
+    typeof getLatestReportPdfJob
+  >
+  const mockCreateReportPdfJob = createReportPdfJob as jest.MockedFunction<
+    typeof createReportPdfJob
+  >
+  const mockDownloadReportPdf = downloadReportPdf as jest.MockedFunction<typeof downloadReportPdf>
 
   beforeEach(() => {
     jest.clearAllMocks()
     ;(useParams as jest.Mock).mockReturnValue({
       reportId: '11111111-1111-4111-8111-111111111111',
     })
+    mockGetLatestReportPdfJob.mockResolvedValue(null)
   })
 
   it('renders section, control and recommendation hierarchy', async () => {
@@ -203,5 +220,95 @@ describe('ControlReportPage', () => {
         sourceRecordId: '11111111-1111-4111-8111-111111111111',
       }),
     )
+  })
+
+  it('creates a report pdf job from the detail page', async () => {
+    mockGetReportDetail.mockResolvedValue({
+      sections: [],
+    })
+    mockCreateReportPdfJob.mockResolvedValue({
+      pdfJobId: 'pdf-job-1',
+      reportId: '11111111-1111-4111-8111-111111111111',
+      status: 'queued',
+      fileName: null,
+      fileSizeBytes: null,
+      downloadUrl: null,
+      errorSummary: null,
+      expiresAt: '2026-04-29T00:00:00.000Z',
+      startedAt: null,
+      completedAt: null,
+      failedAt: null,
+      createdAt: '2026-03-30T09:00:00.000Z',
+      updatedAt: '2026-03-30T09:00:00.000Z',
+    })
+
+    render(<ControlReportPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '生成 PDF' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '生成 PDF' }))
+
+    await waitFor(() => {
+      expect(mockCreateReportPdfJob).toHaveBeenCalledWith('11111111-1111-4111-8111-111111111111')
+    })
+    expect(screen.getByText('PDF 排队中')).toBeInTheDocument()
+  })
+
+  it('downloads the latest ready pdf job', async () => {
+    mockGetReportDetail.mockResolvedValue({
+      sections: [],
+    })
+    mockGetLatestReportPdfJob.mockResolvedValue({
+      pdfJobId: 'pdf-job-1',
+      reportId: '11111111-1111-4111-8111-111111111111',
+      status: 'ready',
+      fileName: 'control-report.pdf',
+      fileSizeBytes: 128,
+      downloadUrl:
+        '/compliance-intelligence/report-center/11111111-1111-4111-8111-111111111111/pdf-jobs/pdf-job-1/download',
+      errorSummary: null,
+      expiresAt: '2026-04-29T00:00:00.000Z',
+      startedAt: '2026-03-30T09:00:02.000Z',
+      completedAt: '2026-03-30T09:00:12.000Z',
+      failedAt: null,
+      createdAt: '2026-03-30T09:00:00.000Z',
+      updatedAt: '2026-03-30T09:00:12.000Z',
+    })
+
+    render(<ControlReportPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '下载 PDF' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '下载 PDF' }))
+
+    await waitFor(() => {
+      expect(mockDownloadReportPdf).toHaveBeenCalledWith(
+        '11111111-1111-4111-8111-111111111111',
+        'pdf-job-1',
+      )
+    })
+  })
+
+  it('shows stale errors from pdf generation requests', async () => {
+    mockGetReportDetail.mockResolvedValue({
+      sections: [],
+    })
+    mockCreateReportPdfJob.mockRejectedValue(new Error('报告数据已过期，请先重新生成报告'))
+
+    render(<ControlReportPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '生成 PDF' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '生成 PDF' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('报告数据已过期，请先重新生成报告')).toBeInTheDocument()
+    })
   })
 })
