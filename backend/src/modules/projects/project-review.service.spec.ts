@@ -1,7 +1,13 @@
 import { ForbiddenException } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
-import { AuditAction, AIGenerationResult, Project, ProjectMember } from '@/database/entities'
+import {
+  AuditAction,
+  AIGenerationResult,
+  ControlPoint,
+  Project,
+  ProjectMember,
+} from '@/database/entities'
 import {
   AITask,
   AITaskType,
@@ -26,6 +32,10 @@ describe('ProjectReviewService', () => {
   }
 
   const generationResultRepo = {
+    find: jest.fn(),
+  }
+
+  const controlPointRepo = {
     find: jest.fn(),
   }
 
@@ -54,6 +64,10 @@ describe('ProjectReviewService', () => {
           useValue: generationResultRepo,
         },
         {
+          provide: getRepositoryToken(ControlPoint),
+          useValue: controlPointRepo,
+        },
+        {
           provide: AuditLogService,
           useValue: auditLogService,
         },
@@ -76,6 +90,11 @@ describe('ProjectReviewService', () => {
       service.assertAccess('project-1', 'outsider-1', {
         ipAddress: '127.0.0.1',
         userAgent: 'jest',
+        query: {
+          page: 2,
+          pageSize: 10,
+          reviewStatus: ['pending'],
+        },
       }),
     ).rejects.toBeInstanceOf(ForbiddenException)
 
@@ -84,6 +103,13 @@ describe('ProjectReviewService', () => {
         action: AuditAction.ACCESS_DENIED,
         entityType: 'ProjectReviewList',
         entityId: 'project-1',
+        details: expect.objectContaining({
+          query: expect.objectContaining({
+            page: 2,
+            pageSize: 10,
+            reviewStatus: ['pending'],
+          }),
+        }),
       }),
     )
   })
@@ -110,7 +136,10 @@ describe('ProjectReviewService', () => {
         projectId: 'project-1',
         type: AITaskType.CLUSTERING,
         status: TaskStatus.COMPLETED,
-        input: { documentIds: ['doc-1'] },
+        input: {
+          documentIds: ['doc-1'],
+          sourceControlIds: ['control-clustering-1'],
+        },
         createdAt: new Date('2026-03-29T09:00:00.000Z'),
       },
       {
@@ -180,6 +209,14 @@ describe('ProjectReviewService', () => {
         updatedAt: new Date('2026-03-29T09:03:00.000Z'),
       },
     ])
+    controlPointRepo.find.mockResolvedValue([
+      {
+        controlId: 'control-clustering-1',
+        controlName: '身份与访问控制',
+        controlFamily: 'governance',
+        riskLevelDefault: 'HIGH',
+      },
+    ])
 
     const response = await service.getReviewItems(project, {
       page: 1,
@@ -196,15 +233,18 @@ describe('ProjectReviewService', () => {
     })
     expect(response.items[0]).toMatchObject({
       reviewItemId: 'result-clustering',
+      sourceResultId: 'result-clustering',
       taskId: 'task-clustering-new',
       reviewStage: AITaskType.CLUSTERING,
       title: '聚类分析',
+      controlId: 'control-clustering-1',
       riskLevel: 'medium',
       canRerun: true,
       sourceModule: 'audit',
     })
     expect(response.items[1]).toMatchObject({
       reviewItemId: 'result-summary',
+      sourceResultId: 'result-summary',
       riskLevel: 'high',
       canRerun: true,
       confidenceLevel: 'low',
@@ -214,6 +254,15 @@ describe('ProjectReviewService', () => {
       expect.arrayContaining(['当前结果置信度为 LOW']),
     )
     expect(response.items[0].sourcePreview.sourceDocumentName).toBe('ISO27001.md')
+    expect(response.items[0].matchedControls).toEqual([
+      expect.objectContaining({
+        controlId: 'control-clustering-1',
+        controlName: '身份与访问控制',
+        packSource: 'governance',
+        priority: 'HIGH',
+      }),
+    ])
+    expect(response.items[1].matchedControls).toEqual([])
   })
 
   it('should apply status / risk / stage filters before pagination', async () => {
@@ -273,6 +322,7 @@ describe('ProjectReviewService', () => {
         updatedAt: new Date('2026-03-29T09:02:00.000Z'),
       },
     ])
+    controlPointRepo.find.mockResolvedValue([])
 
     const response = await service.getReviewItems(project, {
       page: 1,

@@ -30,6 +30,7 @@ export class ProjectReviewController {
     const project = await this.projectReviewService.assertAccess(projectId, userId!, {
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] as string | undefined,
+      query,
     })
 
     const response = await this.projectReviewService.getReviewItems(project, query)

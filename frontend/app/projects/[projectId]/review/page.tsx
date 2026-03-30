@@ -259,6 +259,11 @@ export default function ProjectReviewPage() {
     () => items.find((item) => item.reviewItemId === selectedItemId) ?? null,
     [items, selectedItemId],
   )
+  const selectedItemPrimaryControlId = useMemo(
+    () => selectedItem?.controlId ?? selectedItem?.matchedControls[0]?.controlId ?? null,
+    [selectedItem],
+  )
+  const selectedItemMatchedControlCount = selectedItem?.matchedControls.length ?? 0
 
   const editablePayload = useMemo(
     () => normalizeDetailPayload(detailResult),
@@ -384,7 +389,7 @@ export default function ProjectReviewPage() {
         return
       }
 
-      let modifiedResult: Record<string, unknown> | undefined
+      let modifiedPatch: Record<string, unknown> | undefined
 
       if (decision === 'modify') {
         let patch: unknown
@@ -398,7 +403,18 @@ export default function ProjectReviewPage() {
           return
         }
 
-        modifiedResult = mergeJsonPatch(editablePayload, patch) as Record<string, unknown>
+        if (!isPlainObject(patch)) {
+          setActionNotice({
+            kind: 'error',
+            message: '修改 patch 必须是 JSON 对象',
+          })
+          return
+        }
+
+        const modifiedResult = mergeJsonPatch(
+          editablePayload,
+          patch,
+        ) as Record<string, unknown>
 
         if (JSON.stringify(modifiedResult) === JSON.stringify(editablePayload)) {
           setNoopWarningVisible(true)
@@ -408,6 +424,8 @@ export default function ProjectReviewPage() {
           })
           return
         }
+
+        modifiedPatch = patch
       }
 
       try {
@@ -419,7 +437,8 @@ export default function ProjectReviewPage() {
           reviewItemId: selectedItem.reviewItemId,
           decision,
           reviewedBy: reviewerId,
-          modifiedResult,
+          originalResult: editablePayload,
+          modifiedPatch,
           reason: reasonInput.trim() || undefined,
         })
 
@@ -473,6 +492,7 @@ export default function ProjectReviewPage() {
       setActionBusy('rerun')
       const result = await rerunProjectReviewItem({
         projectId,
+        reviewItemId: selectedItem.reviewItemId,
         reviewStage: selectedItem.reviewStage,
         reason: reasonInput.trim() || undefined,
       })
@@ -886,16 +906,23 @@ export default function ProjectReviewPage() {
                             当前详情没有可提取的 clause / source / article 定位线索。
                           </p>
                         )}
-                        {selectedItem.controlId && (
+                        {selectedItemPrimaryControlId && (
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => handleOpenControlDetail(selectedItem.controlId as string)}
+                            onClick={() =>
+                              handleOpenControlDetail(selectedItemPrimaryControlId)
+                            }
                             disabled={!organizationId}
                             className="mt-2"
                           >
                             查看控制点详情
+                            {selectedItemMatchedControlCount > 1 && (
+                              <span className="ml-1 text-xs">
+                                ({selectedItemMatchedControlCount})
+                              </span>
+                            )}
                           </Button>
                         )}
                       </div>

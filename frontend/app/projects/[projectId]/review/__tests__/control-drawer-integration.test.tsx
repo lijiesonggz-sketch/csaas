@@ -7,6 +7,7 @@
 
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ReviewPage from '../page'
+import { getProjectReviewItems } from '@/lib/api/project-review'
 
 // Mock ControlDetailDrawer
 jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
@@ -32,6 +33,7 @@ jest.mock('@/lib/api/project-review', () => ({
     items: [
       {
         reviewItemId: 'item-1',
+        sourceResultId: 'result-1',
         title: '测试审核项1',
         reviewStatus: 'pending',
         riskLevel: 'low',
@@ -42,7 +44,18 @@ jest.mock('@/lib/api/project-review', () => ({
         degradationReasons: [],
         consistencyScores: { structural: 0.9, semantic: 0.85, detail: 0.88 },
         controlId: 'CP-001',
+        matchedControls: [
+          {
+            controlId: 'CP-001',
+            controlName: '测试控制点1',
+            packSource: 'governance',
+            priority: 'HIGH',
+          },
+        ],
         taskId: 'task-1',
+        sourceModule: 'audit',
+        sourceRecordId: 'item-1',
+        sourceRoute: '/projects/test-project-id/review',
         sourcePreview: {
           sourceDocumentName: 'test-doc.pdf',
           extractionQuality: 'complete',
@@ -53,6 +66,7 @@ jest.mock('@/lib/api/project-review', () => ({
       },
       {
         reviewItemId: 'item-2',
+        sourceResultId: 'result-2',
         title: '测试审核项2（无控制点）',
         reviewStatus: 'pending',
         riskLevel: 'medium',
@@ -63,12 +77,55 @@ jest.mock('@/lib/api/project-review', () => ({
         degradationReasons: [],
         consistencyScores: { structural: null, semantic: 0.7, detail: 0.6 },
         controlId: null,
+        matchedControls: [],
         taskId: 'task-2',
+        sourceModule: 'audit',
+        sourceRecordId: 'item-2',
+        sourceRoute: '/projects/test-project-id/review',
         sourcePreview: {
           sourceDocumentName: 'doc2.pdf',
           extractionQuality: 'partial',
           sourceExcerpt: 'excerpt 2',
           aiExcerpt: 'AI result 2',
+        },
+        updatedAt: '2026-03-29T00:00:00Z',
+      },
+      {
+        reviewItemId: 'item-3',
+        sourceResultId: 'result-3',
+        title: '测试审核项3（多控制点）',
+        reviewStatus: 'pending',
+        riskLevel: 'medium',
+        confidenceLevel: 'medium',
+        reviewStage: 'matrix',
+        canRerun: true,
+        highRiskFlag: false,
+        degradationReasons: [],
+        consistencyScores: { structural: 0.8, semantic: 0.75, detail: 0.72 },
+        controlId: null,
+        matchedControls: [
+          {
+            controlId: 'CP-010',
+            controlName: '测试控制点10',
+            packSource: 'governance',
+            priority: 'HIGH',
+          },
+          {
+            controlId: 'CP-011',
+            controlName: '测试控制点11',
+            packSource: 'sector',
+            priority: 'MEDIUM',
+          },
+        ],
+        taskId: 'task-3',
+        sourceModule: 'audit',
+        sourceRecordId: 'item-3',
+        sourceRoute: '/projects/test-project-id/review',
+        sourcePreview: {
+          sourceDocumentName: 'doc3.pdf',
+          extractionQuality: 'complete',
+          sourceExcerpt: 'excerpt 3',
+          aiExcerpt: 'AI result 3',
         },
         updatedAt: '2026-03-29T00:00:00Z',
       },
@@ -108,6 +165,113 @@ jest.mock('sonner', () => ({
   toast: { success: jest.fn(), error: jest.fn() },
 }))
 
+const mockGetProjectReviewItems = getProjectReviewItems as jest.Mock
+
+function buildDefaultReviewItemsResponse() {
+  return {
+    items: [
+      {
+        reviewItemId: 'item-1',
+        sourceResultId: 'result-1',
+        title: '测试审核项1',
+        reviewStatus: 'pending',
+        riskLevel: 'low',
+        confidenceLevel: 'high',
+        reviewStage: 'summary',
+        canRerun: true,
+        highRiskFlag: false,
+        degradationReasons: [],
+        consistencyScores: { structural: 0.9, semantic: 0.85, detail: 0.88 },
+        controlId: 'CP-001',
+        matchedControls: [
+          {
+            controlId: 'CP-001',
+            controlName: '测试控制点1',
+            packSource: 'governance',
+            priority: 'HIGH',
+          },
+        ],
+        taskId: 'task-1',
+        sourceModule: 'audit',
+        sourceRecordId: 'item-1',
+        sourceRoute: '/projects/test-project-id/review',
+        sourcePreview: {
+          sourceDocumentName: 'test-doc.pdf',
+          extractionQuality: 'complete',
+          sourceExcerpt: 'test excerpt',
+          aiExcerpt: 'AI result',
+        },
+        updatedAt: '2026-03-29T00:00:00Z',
+      },
+      {
+        reviewItemId: 'item-2',
+        sourceResultId: 'result-2',
+        title: '测试审核项2（无控制点）',
+        reviewStatus: 'pending',
+        riskLevel: 'medium',
+        confidenceLevel: 'medium',
+        reviewStage: 'clustering',
+        canRerun: true,
+        highRiskFlag: false,
+        degradationReasons: [],
+        consistencyScores: { structural: null, semantic: 0.7, detail: 0.6 },
+        controlId: null,
+        matchedControls: [],
+        taskId: 'task-2',
+        sourceModule: 'audit',
+        sourceRecordId: 'item-2',
+        sourceRoute: '/projects/test-project-id/review',
+        sourcePreview: {
+          sourceDocumentName: 'doc2.pdf',
+          extractionQuality: 'partial',
+          sourceExcerpt: 'excerpt 2',
+          aiExcerpt: 'AI result 2',
+        },
+        updatedAt: '2026-03-29T00:00:00Z',
+      },
+      {
+        reviewItemId: 'item-3',
+        sourceResultId: 'result-3',
+        title: '测试审核项3（多控制点）',
+        reviewStatus: 'pending',
+        riskLevel: 'medium',
+        confidenceLevel: 'medium',
+        reviewStage: 'matrix',
+        canRerun: true,
+        highRiskFlag: false,
+        degradationReasons: [],
+        consistencyScores: { structural: 0.8, semantic: 0.75, detail: 0.72 },
+        controlId: null,
+        matchedControls: [
+          {
+            controlId: 'CP-010',
+            controlName: '测试控制点10',
+            packSource: 'governance',
+            priority: 'HIGH',
+          },
+          {
+            controlId: 'CP-011',
+            controlName: '测试控制点11',
+            packSource: 'sector',
+            priority: 'MEDIUM',
+          },
+        ],
+        taskId: 'task-3',
+        sourceModule: 'audit',
+        sourceRecordId: 'item-3',
+        sourceRoute: '/projects/test-project-id/review',
+        sourcePreview: {
+          sourceDocumentName: 'doc3.pdf',
+          extractionQuality: 'complete',
+          sourceExcerpt: 'excerpt 3',
+          aiExcerpt: 'AI result 3',
+        },
+        updatedAt: '2026-03-29T00:00:00Z',
+      },
+    ],
+  }
+}
+
 /** 点击列表中的审核项（第一个按钮匹配） */
 async function selectItem(name: string) {
   // 列表中的 item 是 button[type="button"]，包含 item.title
@@ -120,9 +284,9 @@ async function selectItem(name: string) {
 /** 打开控制点详情抽屉 */
 async function openDrawer() {
   await waitFor(() => {
-    expect(screen.getByRole('button', { name: '查看控制点详情' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /查看控制点详情/ })).toBeInTheDocument()
   })
-  fireEvent.click(screen.getByRole('button', { name: '查看控制点详情' }))
+  fireEvent.click(screen.getByRole('button', { name: /查看控制点详情/ }))
 
   await waitFor(() => {
     expect(screen.getByTestId('control-detail-drawer')).toBeInTheDocument()
@@ -132,6 +296,7 @@ async function openDrawer() {
 describe('Story 7.4: 审核工作台控制点详情抽屉集成', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockGetProjectReviewItems.mockResolvedValue(buildDefaultReviewItemsResponse())
   })
 
   describe('抽屉状态管理', () => {
@@ -191,6 +356,70 @@ describe('Story 7.4: 审核工作台控制点详情抽屉集成', () => {
         expect(screen.queryByRole('button', { name: '查看控制点详情' })).not.toBeInTheDocument()
       })
     })
+
+    it('controlId 为空但 matchedControls 非空时仍应显示"查看控制点详情"按钮', async () => {
+      mockGetProjectReviewItems.mockResolvedValue({
+        items: [
+          {
+            reviewItemId: 'item-3',
+            sourceResultId: 'result-3',
+            title: '测试审核项3（多控制点）',
+            reviewStatus: 'pending',
+            riskLevel: 'medium',
+            confidenceLevel: 'medium',
+            reviewStage: 'matrix',
+            canRerun: true,
+            highRiskFlag: false,
+            degradationReasons: [],
+            consistencyScores: { structural: 0.8, semantic: 0.75, detail: 0.72 },
+            controlId: null,
+            matchedControls: [
+              {
+                controlId: 'CP-010',
+                controlName: '测试控制点10',
+                packSource: 'governance',
+                priority: 'HIGH',
+              },
+              {
+                controlId: 'CP-011',
+                controlName: '测试控制点11',
+                packSource: 'sector',
+                priority: 'MEDIUM',
+              },
+            ],
+            taskId: 'task-3',
+            sourceModule: 'audit',
+            sourceRecordId: 'item-3',
+            sourceRoute: '/projects/test-project-id/review',
+            sourcePreview: {
+              sourceDocumentName: 'doc3.pdf',
+              extractionQuality: 'complete',
+              sourceExcerpt: 'excerpt 3',
+              aiExcerpt: 'AI result 3',
+            },
+            updatedAt: '2026-03-29T00:00:00Z',
+          },
+        ],
+      })
+
+      render(<ReviewPage />)
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('heading', { name: '测试审核项3（多控制点）' }),
+        ).toBeInTheDocument()
+      })
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: /查看控制点详情/ }),
+        ).toBeInTheDocument()
+      })
+
+      expect(screen.getByRole('button', { name: /查看控制点详情/ })).toHaveTextContent(
+        '(2)',
+      )
+    })
   })
 
   describe('控制点上下文参数传递', () => {
@@ -205,6 +434,63 @@ describe('Story 7.4: 审核工作台控制点详情抽屉集成', () => {
       await openDrawer()
 
       expect(screen.getByTestId('control-id')).toHaveTextContent('CP-001')
+    })
+
+    it('多控制点场景下应该传递首个 matched control 的 controlId', async () => {
+      mockGetProjectReviewItems.mockResolvedValue({
+        items: [
+          {
+            reviewItemId: 'item-3',
+            sourceResultId: 'result-3',
+            title: '测试审核项3（多控制点）',
+            reviewStatus: 'pending',
+            riskLevel: 'medium',
+            confidenceLevel: 'medium',
+            reviewStage: 'matrix',
+            canRerun: true,
+            highRiskFlag: false,
+            degradationReasons: [],
+            consistencyScores: { structural: 0.8, semantic: 0.75, detail: 0.72 },
+            controlId: null,
+            matchedControls: [
+              {
+                controlId: 'CP-010',
+                controlName: '测试控制点10',
+                packSource: 'governance',
+                priority: 'HIGH',
+              },
+              {
+                controlId: 'CP-011',
+                controlName: '测试控制点11',
+                packSource: 'sector',
+                priority: 'MEDIUM',
+              },
+            ],
+            taskId: 'task-3',
+            sourceModule: 'audit',
+            sourceRecordId: 'item-3',
+            sourceRoute: '/projects/test-project-id/review',
+            sourcePreview: {
+              sourceDocumentName: 'doc3.pdf',
+              extractionQuality: 'complete',
+              sourceExcerpt: 'excerpt 3',
+              aiExcerpt: 'AI result 3',
+            },
+            updatedAt: '2026-03-29T00:00:00Z',
+          },
+        ],
+      })
+
+      render(<ReviewPage />)
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('heading', { name: '测试审核项3（多控制点）' }),
+        ).toBeInTheDocument()
+      })
+      await openDrawer()
+
+      expect(screen.getByTestId('control-id')).toHaveTextContent('CP-010')
     })
 
     it('应该传递 sourceModule="audit"', async () => {

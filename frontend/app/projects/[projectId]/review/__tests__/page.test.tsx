@@ -43,7 +43,7 @@ const mockRerunProjectReviewItem = rerunProjectReviewItem as jest.Mock
 
 const mockReviewItem = {
   reviewItemId: 'review-1',
-  sourceResultId: 'task-1',
+  sourceResultId: 'review-1',
   taskId: 'task-1',
   taskType: 'summary',
   reviewStage: 'summary',
@@ -194,6 +194,46 @@ describe('ProjectReviewPage', () => {
     })
   })
 
+  it('should submit modify using modifiedPatch contract', async () => {
+    render(<ProjectReviewPage />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('当前结果 JSON')).toBeInTheDocument()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('修改 patch JSON')).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByLabelText('修改 patch JSON'), {
+      target: {
+        value: '{"title":"新标题"}',
+      },
+    })
+
+    fireEvent.click(screen.getByTestId('review-modify-button'))
+
+    await waitFor(() => {
+      expect(mockSubmitProjectReviewDecision).toHaveBeenCalledWith(
+        expect.objectContaining({
+          reviewItemId: 'review-1',
+          decision: 'modify',
+          reviewedBy: 'user-1',
+          modifiedPatch: {
+            title: '新标题',
+          },
+          originalResult: expect.objectContaining({
+            title: '原始标题',
+          }),
+        }),
+      )
+    })
+
+    expect(mockSubmitProjectReviewDecision.mock.calls[0][0]).not.toHaveProperty(
+      'modifiedResult',
+    )
+  })
+
   it('should block modify submission when content is unchanged', async () => {
     render(<ProjectReviewPage />)
 
@@ -270,6 +310,7 @@ describe('ProjectReviewPage', () => {
       expect(mockRerunProjectReviewItem).toHaveBeenCalledWith(
         expect.objectContaining({
           projectId: 'project-1',
+          reviewItemId: 'review-1',
           reviewStage: 'summary',
         }),
       )
@@ -405,7 +446,7 @@ describe('ProjectReviewPage', () => {
     render(<ProjectReviewPage />)
 
     await waitFor(() => {
-      expect(screen.getByTestId('review-bulk-approve-button')).toBeInTheDocument()
+      expect(screen.getByTestId('review-bulk-approve-button')).toBeEnabled()
     })
 
     fireEvent.click(screen.getByTestId('review-bulk-approve-button'))
@@ -450,7 +491,7 @@ describe('ProjectReviewPage', () => {
     render(<ProjectReviewPage />)
 
     await waitFor(() => {
-      expect(screen.getByTestId('review-bulk-approve-button')).toBeInTheDocument()
+      expect(screen.getByTestId('review-bulk-approve-button')).toBeEnabled()
     })
 
     fireEvent.click(screen.getByTestId('review-bulk-approve-button'))

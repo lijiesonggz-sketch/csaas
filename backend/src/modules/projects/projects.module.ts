@@ -12,6 +12,7 @@ import { ProjectMember } from '../../database/entities/project-member.entity'
 import { AITask } from '../../database/entities/ai-task.entity'
 import { AIGenerationResult } from '../../database/entities/ai-generation-result.entity'
 import { AuditLog } from '../../database/entities/audit-log.entity'
+import { ControlPoint } from '../../database/entities/control-point.entity'
 import { AIGenerationModule } from '../ai-generation/ai-generation.module'
 import { AIClientsModule } from '../ai-clients/ai-clients.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
@@ -20,7 +21,14 @@ import { ProjectReviewService } from './services/project-review.service'
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Project, ProjectMember, AITask, AIGenerationResult, AuditLog]),
+    TypeOrmModule.forFeature([
+      Project,
+      ProjectMember,
+      AITask,
+      AIGenerationResult,
+      AuditLog,
+      ControlPoint,
+    ]),
     AIGenerationModule,
     AIClientsModule,
     OrganizationsModule,

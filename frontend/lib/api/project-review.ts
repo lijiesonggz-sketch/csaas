@@ -91,7 +91,8 @@ export interface SubmitProjectReviewDecisionInput {
   reviewItemId: string
   decision: ProjectReviewDecision
   reviewedBy: string
-  modifiedResult?: Record<string, unknown>
+  originalResult?: Record<string, unknown>
+  modifiedPatch?: Record<string, unknown>
   reason?: string
 }
 
@@ -102,6 +103,26 @@ export interface RerunProjectReviewItemResult {
 
 function appendArrayParam(params: URLSearchParams, key: string, values?: string[]) {
   values?.forEach((value) => params.append(key, value))
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function mergeJsonPatch(base: unknown, patch: unknown): unknown {
+  if (!isPlainObject(base) || !isPlainObject(patch)) {
+    return patch
+  }
+
+  const next: Record<string, unknown> = { ...base }
+  for (const [key, value] of Object.entries(patch)) {
+    const current = next[key]
+    next[key] =
+      isPlainObject(current) && isPlainObject(value)
+        ? mergeJsonPatch(current, value)
+        : value
+  }
+  return next
 }
 
 function mapReviewStageToRerunType(
@@ -154,20 +175,36 @@ export async function submitProjectReviewDecision(
         ? 'MODIFIED'
         : 'REJECTED'
 
+  const modifiedResult =
+    input.decision === 'modify' && input.modifiedPatch
+      ? (mergeJsonPatch(
+          input.originalResult ?? {},
+          input.modifiedPatch,
+        ) as Record<string, unknown>)
+      : undefined
+
   await AIGenerationAPI.updateReviewStatus(
     input.reviewItemId,
     reviewStatus,
     input.reviewedBy,
-    input.modifiedResult,
+    modifiedResult,
     input.reason,
   )
 }
 
 export async function rerunProjectReviewItem(input: {
   projectId: string
+  reviewItemId: string
   reviewStage: ProjectReviewStage
   reason?: string
 }): Promise<RerunProjectReviewItemResult> {
+  if (!input.reviewItemId.trim()) {
+    return {
+      status: 'retry-later',
+      message: '缺少审核项标识，当前无法发起重跑',
+    }
+  }
+
   const taskType = mapReviewStageToRerunType(input.reviewStage)
 
   if (!taskType) {

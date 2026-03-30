@@ -5,7 +5,13 @@ import {
 } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { In, Repository } from 'typeorm'
-import { AuditAction, AIGenerationResult, Project, ProjectMember } from '@/database/entities'
+import {
+  AuditAction,
+  AIGenerationResult,
+  ControlPoint,
+  Project,
+  ProjectMember,
+} from '@/database/entities'
 import {
   AITask,
   AITaskType,
@@ -25,6 +31,7 @@ import { ProjectReviewQueryDto } from '../dto/project-review-query.dto'
 type RequestMeta = {
   ipAddress?: string
   userAgent?: string
+  query?: ProjectReviewQueryDto
 }
 
 @Injectable()
@@ -46,6 +53,8 @@ export class ProjectReviewService {
     private readonly aiTaskRepo: Repository<AITask>,
     @InjectRepository(AIGenerationResult)
     private readonly generationResultRepo: Repository<AIGenerationResult>,
+    @InjectRepository(ControlPoint)
+    private readonly controlPointRepo: Repository<ControlPoint>,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -83,6 +92,7 @@ export class ProjectReviewService {
       details: {
         projectId,
         reason: 'project_membership_required',
+        query: meta?.query,
       },
       ipAddress: meta?.ipAddress,
       userAgent: meta?.userAgent,
@@ -138,6 +148,7 @@ export class ProjectReviewService {
     })
 
     const taskById = new Map(tasks.map((task) => [task.id, task]))
+    const controlPointById = await this.loadControlPointMap(tasks, results)
 
     const transformedItems = results
       .map((result) => {
@@ -145,7 +156,7 @@ export class ProjectReviewService {
         if (!task) {
           return null
         }
-        return this.toReviewItem(project, task, result)
+        return this.toReviewItem(project, task, result, controlPointById)
       })
       .filter((item): item is AuditWorkbenchListItemDto => item !== null)
 
@@ -206,13 +217,15 @@ export class ProjectReviewService {
     project: Project,
     task: AITask,
     result: AIGenerationResult,
+    controlPointById: Map<string, ControlPoint>,
   ): AuditWorkbenchListItemDto {
     const riskLevel = this.getRiskLevel(result, task)
     const sourcePreview = this.buildSourcePreview(project, task, result)
+    const matchedControls = this.resolveMatchedControls(task, result, controlPointById)
 
     return {
       reviewItemId: result.id,
-      sourceResultId: result.taskId,
+      sourceResultId: result.id,
       taskId: task.id,
       taskType: task.type,
       reviewStage: task.type,
@@ -226,8 +239,8 @@ export class ProjectReviewService {
       },
       highRiskFlag: riskLevel === 'high',
       canRerun: this.canRerun(task),
-      controlId: null,
-      matchedControls: [],
+      controlId: matchedControls.length === 1 ? matchedControls[0].controlId : null,
+      matchedControls,
       sourceModule: 'audit',
       sourceRecordId: result.id,
       sourceRoute: `/projects/${project.id}/review`,
@@ -500,5 +513,113 @@ export class ProjectReviewService {
     }
 
     return labels[taskType] ?? taskType
+  }
+
+  private async loadControlPointMap(
+    tasks: AITask[],
+    results: AIGenerationResult[],
+  ): Promise<Map<string, ControlPoint>> {
+    const taskById = new Map(tasks.map((task) => [task.id, task] as const))
+    const candidateIds = new Set<string>()
+
+    for (const result of results) {
+      const task = taskById.get(result.taskId)
+      if (!task) {
+        continue
+      }
+
+      this.collectCandidateControlIds(task.input, candidateIds)
+      this.collectCandidateControlIds(result.selectedResult, candidateIds)
+      this.collectCandidateControlIds(result.modifiedResult, candidateIds)
+    }
+
+    if (candidateIds.size === 0) {
+      return new Map()
+    }
+
+    const controlPoints = await this.controlPointRepo.find({
+      where: {
+        controlId: In(Array.from(candidateIds)),
+      },
+    })
+
+    return new Map(controlPoints.map((controlPoint) => [controlPoint.controlId, controlPoint]))
+  }
+
+  private resolveMatchedControls(
+    task: AITask,
+    result: AIGenerationResult,
+    controlPointById: Map<string, ControlPoint>,
+  ): AuditWorkbenchListItemDto['matchedControls'] {
+    const candidateIds = new Set<string>()
+    this.collectCandidateControlIds(task.input, candidateIds)
+    this.collectCandidateControlIds(result.selectedResult, candidateIds)
+    this.collectCandidateControlIds(result.modifiedResult, candidateIds)
+
+    return Array.from(candidateIds)
+      .map((controlId) => controlPointById.get(controlId))
+      .filter((controlPoint): controlPoint is ControlPoint => Boolean(controlPoint))
+      .map((controlPoint) => ({
+        controlId: controlPoint.controlId,
+        controlName: controlPoint.controlName,
+        packSource: controlPoint.controlFamily,
+        priority: controlPoint.riskLevelDefault,
+      }))
+  }
+
+  private collectCandidateControlIds(
+    value: unknown,
+    candidates: Set<string>,
+    seen: Set<unknown> = new Set(),
+  ): void {
+    if (value === null || value === undefined) {
+      return
+    }
+
+    if (typeof value !== 'object') {
+      return
+    }
+
+    if (seen.has(value)) {
+      return
+    }
+    seen.add(value)
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => this.collectCandidateControlIds(item, candidates, seen))
+      return
+    }
+
+    const record = value as Record<string, unknown>
+    this.addControlIdCandidate(record.controlId, candidates)
+    this.addControlIdCandidate(record.cluster_id, candidates)
+    this.addControlIdCandidate(record.clusterId, candidates)
+    this.addControlIdCandidates(record.controlIds, candidates)
+    this.addControlIdCandidates(record.sourceControlIds, candidates)
+
+    Object.values(record).forEach((child) =>
+      this.collectCandidateControlIds(child, candidates, seen),
+    )
+  }
+
+  private addControlIdCandidate(value: unknown, candidates: Set<string>): void {
+    if (typeof value !== 'string') {
+      return
+    }
+
+    const candidate = value.trim()
+    if (!candidate) {
+      return
+    }
+
+    candidates.add(candidate)
+  }
+
+  private addControlIdCandidates(value: unknown, candidates: Set<string>): void {
+    if (!Array.isArray(value)) {
+      return
+    }
+
+    value.forEach((item) => this.addControlIdCandidate(item, candidates))
   }
 }
