@@ -122,7 +122,7 @@ development_status:
   9-1-report-center-aggregate-page: done
   9-2-control-report-detail-page: done
   9-3-backend-professional-pdf-generation: done
-  9-4-remediation-priority-list: backlog
+  9-4-remediation-priority-list: done
   epic-9-retrospective: optional
 
   # Epic 10: 项目级问卷编辑与再发布

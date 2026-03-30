@@ -97,6 +97,37 @@ export class ReportCenterController {
     return response
   }
 
+  @Get('report-center/:reportId/remediation-priority-list')
+  @ApiOperation({ summary: '获取报告整改优先级清单' })
+  async getRemediationPriorityList(
+    @CurrentTenant() tenantId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
+    @Param('reportId', new ParseUUIDPipe()) reportId: string,
+    @Req() req: Request,
+  ) {
+    const response = await this.reportCenterService.getRemediationPriorityList(
+      currentOrg.organizationId,
+      reportId,
+    )
+
+    await this.auditLogService.log({
+      userId: currentOrg.userId,
+      organizationId: currentOrg.organizationId,
+      tenantId,
+      action: AuditAction.READ,
+      entityType: 'ReportRemediationPriorityList',
+      entityId: reportId,
+      details: {
+        reportId,
+        itemCount: response.items.length,
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] as string | undefined,
+    })
+
+    return response
+  }
+
   @Post('report-center/:reportId/pdf-jobs')
   @ApiOperation({ summary: '创建报告 PDF 生成任务' })
   async createReportPdfJob(

@@ -6,6 +6,7 @@ import {
   downloadReportPdf,
   getLatestReportPdfJob,
   getReportDetail,
+  getRemediationPriorityList,
 } from '@/lib/api/report-center'
 
 jest.mock('next/navigation', () => ({
@@ -18,6 +19,7 @@ jest.mock('@/lib/api/report-center', () => ({
   createReportPdfJob: jest.fn(),
   getReportPdfJob: jest.fn(),
   downloadReportPdf: jest.fn(),
+  getRemediationPriorityList: jest.fn(),
 }))
 
 jest.mock('@/lib/stores/useOrganizationStore', () => ({
@@ -65,6 +67,9 @@ describe('ControlReportPage', () => {
     typeof createReportPdfJob
   >
   const mockDownloadReportPdf = downloadReportPdf as jest.MockedFunction<typeof downloadReportPdf>
+  const mockGetRemediationPriorityList = getRemediationPriorityList as jest.MockedFunction<
+    typeof getRemediationPriorityList
+  >
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -72,6 +77,29 @@ describe('ControlReportPage', () => {
       reportId: '11111111-1111-4111-8111-111111111111',
     })
     mockGetLatestReportPdfJob.mockResolvedValue(null)
+    mockGetRemediationPriorityList.mockResolvedValue({
+      reportId: '11111111-1111-4111-8111-111111111111',
+      items: [
+        {
+          rank: 1,
+          controlId: 'control-1',
+          remediationActionId: 'action-1',
+          controlCode: 'CTRL-001',
+          controlName: '账号权限最小化',
+          l1Code: 'IT01',
+          l1Name: '身份安全',
+          l2Code: 'IT01-01',
+          l2Name: '账户治理',
+          riskLevel: 'HIGH',
+          difficultyLevel: 'medium',
+          priorityScore: 6,
+          statusLabel: '已有整改建议',
+          title: '补齐权限复核流程',
+          description: '建立每季度权限复核记录',
+          expectedBenefit: '降低超权访问风险',
+        },
+      ],
+    })
   })
 
   it('renders section, control and recommendation hierarchy', async () => {
@@ -135,9 +163,10 @@ describe('ControlReportPage', () => {
     expect(screen.getByText('账户治理')).toBeInTheDocument()
     expect(screen.getByText('CTRL-001')).toBeInTheDocument()
     expect(screen.getByText('账号权限最小化')).toBeInTheDocument()
-    expect(screen.getByText('补齐权限复核流程')).toBeInTheDocument()
-    expect(screen.getByText('建立每季度权限复核记录')).toBeInTheDocument()
-    expect(screen.getByText(/降低超权访问风险/)).toBeInTheDocument()
+    expect(screen.getAllByText('补齐权限复核流程').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('建立每季度权限复核记录').length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/降低超权访问风险/).length).toBeGreaterThan(0)
+    expect(screen.getByText('整改优先级清单')).toBeInTheDocument()
   })
 
   it('shows empty state when no sections are returned', async () => {

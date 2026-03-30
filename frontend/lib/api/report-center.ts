@@ -130,6 +130,30 @@ export interface ReportPdfJob {
   updatedAt: string
 }
 
+export interface RemediationPriorityItem {
+  rank: number
+  controlId: string
+  remediationActionId: string | null
+  controlCode: string
+  controlName: string
+  l1Code: string
+  l1Name: string
+  l2Code: string
+  l2Name: string
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'
+  difficultyLevel: 'low' | 'medium' | 'high' | 'unknown'
+  priorityScore: number
+  statusLabel: string
+  title: string
+  description: string | null
+  expectedBenefit: string | null
+}
+
+export interface RemediationPriorityListResponse {
+  reportId: string
+  items: RemediationPriorityItem[]
+}
+
 export async function createReportPdfJob(reportId: string): Promise<ReportPdfJob> {
   return apiFetch<ReportPdfJob>(`/compliance-intelligence/report-center/${reportId}/pdf-jobs`, {
     method: 'POST',
@@ -145,6 +169,14 @@ export async function getLatestReportPdfJob(reportId: string): Promise<ReportPdf
 export async function getReportPdfJob(reportId: string, pdfJobId: string): Promise<ReportPdfJob> {
   return apiFetch<ReportPdfJob>(
     `/compliance-intelligence/report-center/${reportId}/pdf-jobs/${pdfJobId}`,
+  )
+}
+
+export async function getRemediationPriorityList(
+  reportId: string,
+): Promise<RemediationPriorityListResponse> {
+  return apiFetch<RemediationPriorityListResponse>(
+    `/compliance-intelligence/report-center/${reportId}/remediation-priority-list`,
   )
 }
 

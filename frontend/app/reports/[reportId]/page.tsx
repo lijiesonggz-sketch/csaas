@@ -8,8 +8,10 @@ import {
   createReportPdfJob,
   downloadReportPdf,
   getLatestReportPdfJob,
+  getRemediationPriorityList,
   getReportDetail,
   getReportPdfJob,
+  type RemediationPriorityItem,
   type ReportPdfJob,
 } from '@/lib/api/report-center'
 import { useOrganizationStore } from '@/lib/stores/useOrganizationStore'
@@ -17,6 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { RemediationPriorityList } from '@/components/compliance/RemediationPriorityList'
 import type {
   ControlReportSectionDto,
   ControlReportControlNodeDto,
@@ -33,6 +36,8 @@ export default function ControlReportPage() {
   const [pdfStatusError, setPdfStatusError] = useState<string | null>(null)
   const [isSubmittingPdfJob, setIsSubmittingPdfJob] = useState(false)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
+  const [priorityItems, setPriorityItems] = useState<RemediationPriorityItem[]>([])
+  const [priorityError, setPriorityError] = useState<string | null>(null)
 
   // Story 7.3: 控制点详情抽屉状态
   const [controlDrawerOpen, setControlDrawerOpen] = useState(false)
@@ -84,6 +89,36 @@ export default function ControlReportPage() {
     }
 
     fetchReport()
+  }, [reportId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const fetchPriorityList = async () => {
+      if (!reportId) {
+        return
+      }
+
+      try {
+        const data = await getRemediationPriorityList(reportId)
+
+        if (!cancelled) {
+          setPriorityItems(data.items)
+          setPriorityError(null)
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setPriorityItems([])
+          setPriorityError(normalizeErrorMessage(loadError))
+        }
+      }
+    }
+
+    void fetchPriorityList()
+
+    return () => {
+      cancelled = true
+    }
   }, [reportId])
 
   useEffect(() => {
@@ -305,111 +340,125 @@ export default function ControlReportPage() {
           </CardContent>
         </Card>
       ) : (
-        sections.map((section) => (
-          <Card key={section.l1Code} className="mb-6">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <Badge variant="outline">{section.l1Code}</Badge>
-                <CardTitle>{section.l1Name}</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {section.l2Sections.map((l2Section) => (
-                <div key={l2Section.l2Code} className="mb-6 rounded-xl border border-slate-200 p-4">
-                  <div className="mb-4 flex items-center gap-2">
-                    <ChevronRight className="h-4 w-4 text-slate-400" />
-                    <Badge variant="outline">{l2Section.l2Code}</Badge>
-                    <h3 className="text-lg font-semibold">{l2Section.l2Name}</h3>
-                  </div>
-                  <div className="space-y-4">
-                    {l2Section.controls.map((control) => (
-                      <Card key={control.controlId} className="p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Badge variant="outline">{control.controlCode}</Badge>
-                              <Badge
-                                className={
-                                  control.gapLevel === 'HIGH'
-                                    ? 'bg-red-100 text-red-800'
-                                    : control.gapLevel === 'MEDIUM'
-                                      ? 'bg-amber-100 text-amber-800'
-                                      : 'bg-green-100 text-green-800'
-                                }
-                              >
-                                {control.gapLevel}
-                              </Badge>
-                              <Badge variant="secondary">{control.currentStatus}</Badge>
-                            </div>
-                            <p className="text-sm font-medium">{control.controlName}</p>
+        <>
+          {priorityError ? (
+            <Alert className="mb-6" variant="destructive">
+              <AlertCircle className="w-4 h-4" />
+              <AlertTitle>优先级清单加载失败</AlertTitle>
+              <AlertDescription>{priorityError}</AlertDescription>
+            </Alert>
+          ) : (
+            <div className="mb-6">
+              <RemediationPriorityList items={priorityItems} />
+            </div>
+          )}
 
-                            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
-                              <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
-                                <p className="font-medium text-slate-900">法规/案例/证据</p>
-                                <p className="mt-2">法规条款：{control.clauses.length}</p>
-                                <p>处罚案例：{control.cases.length}</p>
-                                <p>证据类型：{control.evidences.length}</p>
+          {sections.map((section) => (
+            <Card key={section.l1Code} className="mb-6">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <Badge variant="outline">{section.l1Code}</Badge>
+                  <CardTitle>{section.l1Name}</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {section.l2Sections.map((l2Section) => (
+                  <div key={l2Section.l2Code} className="mb-6 rounded-xl border border-slate-200 p-4">
+                    <div className="mb-4 flex items-center gap-2">
+                      <ChevronRight className="h-4 w-4 text-slate-400" />
+                      <Badge variant="outline">{l2Section.l2Code}</Badge>
+                      <h3 className="text-lg font-semibold">{l2Section.l2Name}</h3>
+                    </div>
+                    <div className="space-y-4">
+                      {l2Section.controls.map((control) => (
+                        <Card key={control.controlId} className="p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="mb-2 flex items-center gap-2">
+                                <Badge variant="outline">{control.controlCode}</Badge>
+                                <Badge
+                                  className={
+                                    control.gapLevel === 'HIGH'
+                                      ? 'bg-red-100 text-red-800'
+                                      : control.gapLevel === 'MEDIUM'
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : 'bg-green-100 text-green-800'
+                                  }
+                                >
+                                  {control.gapLevel}
+                                </Badge>
+                                <Badge variant="secondary">{control.currentStatus}</Badge>
                               </div>
+                              <p className="text-sm font-medium">{control.controlName}</p>
 
-                              <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600 md:col-span-2">
-                                <div className="mb-2 flex items-center gap-2 text-slate-900">
-                                  <ShieldAlert className="h-4 w-4 text-amber-600" />
-                                  <p className="font-medium">整改建议</p>
+                              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                                <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+                                  <p className="font-medium text-slate-900">法规/案例/证据</p>
+                                  <p className="mt-2">法规条款：{control.clauses.length}</p>
+                                  <p>处罚案例：{control.cases.length}</p>
+                                  <p>证据类型：{control.evidences.length}</p>
                                 </div>
 
-                                {control.recommendations.length === 0 ? (
-                                  <p className="text-sm text-slate-500">暂无整改建议</p>
-                                ) : (
-                                  <div className="space-y-3">
-                                    {control.recommendations.map((recommendation) => (
-                                      <div
-                                        key={recommendation.remediationActionId}
-                                        className="rounded-lg border border-slate-200 bg-white p-3"
-                                      >
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <Badge variant="outline">{recommendation.actionCode}</Badge>
-                                          {recommendation.priority ? (
-                                            <Badge variant="secondary">
-                                              {recommendation.priority}
-                                            </Badge>
+                                <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600 md:col-span-2">
+                                  <div className="mb-2 flex items-center gap-2 text-slate-900">
+                                    <ShieldAlert className="h-4 w-4 text-amber-600" />
+                                    <p className="font-medium">整改建议</p>
+                                  </div>
+
+                                  {control.recommendations.length === 0 ? (
+                                    <p className="text-sm text-slate-500">暂无整改建议</p>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      {control.recommendations.map((recommendation) => (
+                                        <div
+                                          key={recommendation.remediationActionId}
+                                          className="rounded-lg border border-slate-200 bg-white p-3"
+                                        >
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <Badge variant="outline">{recommendation.actionCode}</Badge>
+                                            {recommendation.priority ? (
+                                              <Badge variant="secondary">
+                                                {recommendation.priority}
+                                              </Badge>
+                                            ) : null}
+                                          </div>
+                                          <p className="mt-2 text-sm font-medium text-slate-900">
+                                            {recommendation.actionTitle}
+                                          </p>
+                                          {recommendation.actionDesc ? (
+                                            <p className="mt-1 text-sm text-slate-600">
+                                              {recommendation.actionDesc}
+                                            </p>
+                                          ) : null}
+                                          {recommendation.expectedBenefit ? (
+                                            <p className="mt-2 text-xs text-emerald-700">
+                                              预期收益：{recommendation.expectedBenefit}
+                                            </p>
                                           ) : null}
                                         </div>
-                                        <p className="mt-2 text-sm font-medium text-slate-900">
-                                          {recommendation.actionTitle}
-                                        </p>
-                                        {recommendation.actionDesc ? (
-                                          <p className="mt-1 text-sm text-slate-600">
-                                            {recommendation.actionDesc}
-                                          </p>
-                                        ) : null}
-                                        {recommendation.expectedBenefit ? (
-                                          <p className="mt-2 text-xs text-emerald-700">
-                                            预期收益：{recommendation.expectedBenefit}
-                                          </p>
-                                        ) : null}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenControlDetail(control)}
+                            >
+                              查看详情
+                            </Button>
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenControlDetail(control)}
-                          >
-                            查看详情
-                          </Button>
-                        </div>
-                      </Card>
-                    ))}
+                        </Card>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        ))
+                ))}
+              </CardContent>
+            </Card>
+          ))}
+        </>
       )}
 
       {/* Story 7.3: Control Detail Drawer */}

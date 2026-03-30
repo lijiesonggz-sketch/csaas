@@ -9,6 +9,8 @@ import type {
   ReportCenterFiltersAppliedDto,
   ReportCenterItemDto,
   ReportCenterListResponseDto,
+  RemediationPriorityItemDto,
+  RemediationPriorityListDto,
   ReportCenterRiskSummaryDto,
 } from '../dto/report-center.dto'
 import type {
@@ -106,6 +108,78 @@ export class ReportCenterService {
       surveyResponseId: reportId,
       controlIds,
     })
+  }
+
+  async getRemediationPriorityList(
+    organizationId: string,
+    reportId: string,
+  ): Promise<RemediationPriorityListDto> {
+    const report = await this.getReportDetail(organizationId, reportId)
+    const items: RemediationPriorityItemDto[] = []
+
+    report.sections.forEach((section) => {
+      section.l2Sections.forEach((l2Section) => {
+        l2Section.controls.forEach((control) => {
+          if (control.recommendations.length === 0) {
+            items.push({
+              rank: 0,
+              controlId: control.controlId,
+              remediationActionId: null,
+              controlCode: control.controlCode,
+              controlName: control.controlName,
+              l1Code: section.l1Code,
+              l1Name: section.l1Name,
+              l2Code: l2Section.l2Code,
+              l2Name: l2Section.l2Name,
+              riskLevel: control.gapLevel,
+              difficultyLevel: 'unknown',
+              priorityScore: this.calculatePriorityScore(control.gapLevel, 'unknown'),
+              statusLabel: '暂无整改建议',
+              title: '暂无整改建议',
+              description: '当前控制点存在 gap，但尚未配置 remediation action',
+              expectedBenefit: null,
+            })
+            return
+          }
+
+          control.recommendations.forEach((recommendation) => {
+            const difficultyLevel = this.normalizeDifficultyLevel(recommendation.effortLevel)
+
+            items.push({
+              rank: 0,
+              controlId: control.controlId,
+              remediationActionId: recommendation.remediationActionId,
+              controlCode: control.controlCode,
+              controlName: control.controlName,
+              l1Code: section.l1Code,
+              l1Name: section.l1Name,
+              l2Code: l2Section.l2Code,
+              l2Name: l2Section.l2Name,
+              riskLevel: recommendation.gapLevel,
+              difficultyLevel,
+              priorityScore: this.calculatePriorityScore(recommendation.gapLevel, difficultyLevel),
+              statusLabel: '已有整改建议',
+              title: recommendation.actionTitle,
+              description: recommendation.actionDesc,
+              expectedBenefit: recommendation.expectedBenefit,
+            })
+          })
+        })
+      })
+    })
+
+    const sortedItems = items
+      .slice()
+      .sort((left, right) => this.comparePriorityItems(left, right))
+      .map((item, index) => ({
+        ...item,
+        rank: index + 1,
+      }))
+
+    return {
+      reportId,
+      items: sortedItems,
+    }
   }
 
   private buildFiltersApplied(
@@ -343,5 +417,92 @@ export class ReportCenterService {
     }
 
     return sortOrder === 'asc' ? comparison : comparison * -1
+  }
+
+  private comparePriorityItems(
+    left: RemediationPriorityItemDto,
+    right: RemediationPriorityItemDto,
+  ): number {
+    const scoreComparison = right.priorityScore - left.priorityScore
+    if (scoreComparison !== 0) {
+      return scoreComparison
+    }
+
+    const riskComparison =
+      this.getRiskWeight(right.riskLevel) - this.getRiskWeight(left.riskLevel)
+    if (riskComparison !== 0) {
+      return riskComparison
+    }
+
+    const difficultyComparison =
+      this.getDifficultyTieBreaker(left.difficultyLevel) -
+      this.getDifficultyTieBreaker(right.difficultyLevel)
+    if (difficultyComparison !== 0) {
+      return difficultyComparison
+    }
+
+    return left.controlCode.localeCompare(right.controlCode, 'en')
+  }
+
+  private calculatePriorityScore(
+    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH',
+    difficultyLevel: 'low' | 'medium' | 'high' | 'unknown',
+  ): number {
+    return this.getRiskWeight(riskLevel) * this.getDifficultyWeight(difficultyLevel)
+  }
+
+  private getRiskWeight(riskLevel: 'LOW' | 'MEDIUM' | 'HIGH'): number {
+    switch (riskLevel) {
+      case 'HIGH':
+        return 3
+      case 'MEDIUM':
+        return 2
+      case 'LOW':
+      default:
+        return 1
+    }
+  }
+
+  private getDifficultyWeight(difficultyLevel: 'low' | 'medium' | 'high' | 'unknown'): number {
+    switch (difficultyLevel) {
+      case 'high':
+        return 3
+      case 'medium':
+        return 2
+      case 'low':
+        return 1
+      case 'unknown':
+      default:
+        return 1
+    }
+  }
+
+  private getDifficultyTieBreaker(difficultyLevel: 'low' | 'medium' | 'high' | 'unknown'): number {
+    switch (difficultyLevel) {
+      case 'low':
+        return 0
+      case 'medium':
+        return 1
+      case 'high':
+        return 2
+      case 'unknown':
+      default:
+        return 3
+    }
+  }
+
+  private normalizeDifficultyLevel(
+    difficultyLevel: string | null | undefined,
+  ): 'low' | 'medium' | 'high' | 'unknown' {
+    if (!difficultyLevel) {
+      return 'unknown'
+    }
+
+    const normalized = difficultyLevel.toLowerCase()
+    if (normalized === 'low' || normalized === 'medium' || normalized === 'high') {
+      return normalized
+    }
+
+    return 'unknown'
   }
 }

@@ -21,6 +21,7 @@ describe('ReportCenterController (http)', () => {
   const mockReportCenterService = {
     getReportCenter: jest.fn(),
     getReportDetail: jest.fn(),
+    getRemediationPriorityList: jest.fn(),
   }
 
   const mockReportPdfService = {
@@ -250,6 +251,52 @@ describe('ReportCenterController (http)', () => {
         action: AuditAction.CREATE,
         entityType: 'ReportPdfJob',
         entityId: '22222222-2222-4222-8222-222222222222',
+      }),
+    )
+  })
+
+  it('should return remediation priority list and write audit log', async () => {
+    mockReportCenterService.getRemediationPriorityList.mockResolvedValue({
+      reportId: '11111111-1111-4111-8111-111111111111',
+      items: [
+        {
+          rank: 1,
+          controlId: 'control-1',
+          remediationActionId: 'action-1',
+          controlCode: 'CTRL-001',
+          controlName: '账号权限最小化',
+          l1Code: 'IT01',
+          l1Name: '身份安全',
+          l2Code: 'IT01-01',
+          l2Name: '账户治理',
+          riskLevel: 'HIGH',
+          difficultyLevel: 'medium',
+          priorityScore: 6,
+          statusLabel: '已有整改建议',
+          title: '补齐权限复核流程',
+          description: '建立每季度权限复核记录',
+          expectedBenefit: '降低超权访问风险',
+        },
+      ],
+    })
+
+    const response = await request(app.getHttpServer())
+      .get(
+        '/compliance-intelligence/report-center/11111111-1111-4111-8111-111111111111/remediation-priority-list',
+      )
+      .expect(200)
+
+    expect(response.body.success).toBe(true)
+    expect(response.body.data.items[0].priorityScore).toBe(6)
+    expect(mockReportCenterService.getRemediationPriorityList).toHaveBeenCalledWith(
+      'org-1',
+      '11111111-1111-4111-8111-111111111111',
+    )
+    expect(mockAuditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.READ,
+        entityType: 'ReportRemediationPriorityList',
+        entityId: '11111111-1111-4111-8111-111111111111',
       }),
     )
   })

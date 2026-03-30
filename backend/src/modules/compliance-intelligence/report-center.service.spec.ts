@@ -319,4 +319,89 @@ describe('ReportCenterService', () => {
     })
     expect(response.sections).toHaveLength(1)
   })
+
+  it('should generate remediation priority items with empty-safe placeholders and stable sorting', async () => {
+    packResolverService.resolveByOrganizationId.mockResolvedValue({
+      controls: [{ controlId: 'control-1' }, { controlId: 'control-2' }],
+    })
+    controlReportCompilerService.compileReport.mockResolvedValue({
+      sections: [
+        {
+          l1Code: 'IT01',
+          l1Name: '身份安全',
+          l2Sections: [
+            {
+              l2Code: 'IT01-01',
+              l2Name: '账户治理',
+              controls: [
+                {
+                  controlId: 'control-1',
+                  controlCode: 'CTRL-001',
+                  controlName: '账号权限最小化',
+                  currentStatus: 'PARTIAL',
+                  gapLevel: 'HIGH',
+                  clauses: [],
+                  cases: [],
+                  evidences: [],
+                  recommendations: [
+                    {
+                      controlId: 'control-1',
+                      remediationActionId: 'action-1',
+                      actionCode: 'RA-001',
+                      actionTitle: '补齐权限复核流程',
+                      actionDesc: '建立每季度权限复核记录',
+                      priority: 'HIGH',
+                      effortLevel: 'medium',
+                      currentStatus: 'PARTIAL',
+                      gapLevel: 'HIGH',
+                      expectedBenefit: '降低超权访问风险',
+                    },
+                  ],
+                  matchedControls: [],
+                  sourceModule: 'report',
+                  sourceRecordId: '11111111-1111-4111-8111-111111111111',
+                  sourceRoute: '/reports/11111111-1111-4111-8111-111111111111',
+                },
+                {
+                  controlId: 'control-2',
+                  controlCode: 'CTRL-002',
+                  controlName: '账号生命周期管理',
+                  currentStatus: 'INCOMPLETE',
+                  gapLevel: 'MEDIUM',
+                  clauses: [],
+                  cases: [],
+                  evidences: [],
+                  recommendations: [],
+                  matchedControls: [],
+                  sourceModule: 'report',
+                  sourceRecordId: '11111111-1111-4111-8111-111111111111',
+                  sourceRoute: '/reports/11111111-1111-4111-8111-111111111111',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+
+    const response = await service.getRemediationPriorityList(
+      'org-1',
+      '11111111-1111-4111-8111-111111111111',
+    )
+
+    expect(response.items).toHaveLength(2)
+    expect(response.items[0]).toMatchObject({
+      controlId: 'control-1',
+      remediationActionId: 'action-1',
+      priorityScore: 6,
+      rank: 1,
+    })
+    expect(response.items[1]).toMatchObject({
+      controlId: 'control-2',
+      remediationActionId: null,
+      statusLabel: '暂无整改建议',
+      title: '暂无整改建议',
+      rank: 2,
+    })
+  })
 })

@@ -3,6 +3,7 @@ import type {
   ReportCenterSortOrder,
   ReportCenterStatus,
 } from './report-center-query.dto'
+import type { ControlReportGapLevel } from './compile-control-report.dto'
 
 export interface ReportCenterProjectSummaryDto {
   clientName: string | null
@@ -68,4 +69,28 @@ export interface ReportCenterListResponseDto {
   items: ReportCenterItemDto[]
   summary: ReportCenterSummaryDto
   filtersApplied: ReportCenterFiltersAppliedDto
+}
+
+export interface RemediationPriorityItemDto {
+  rank: number
+  controlId: string
+  remediationActionId: string | null
+  controlCode: string
+  controlName: string
+  l1Code: string
+  l1Name: string
+  l2Code: string
+  l2Name: string
+  riskLevel: ControlReportGapLevel
+  difficultyLevel: 'low' | 'medium' | 'high' | 'unknown'
+  priorityScore: number
+  statusLabel: string
+  title: string
+  description: string | null
+  expectedBenefit: string | null
+}
+
+export interface RemediationPriorityListDto {
+  reportId: string
+  items: RemediationPriorityItemDto[]
 }

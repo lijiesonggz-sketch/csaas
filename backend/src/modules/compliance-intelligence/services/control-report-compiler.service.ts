@@ -217,6 +217,7 @@ export class ControlReportCompilerService {
         actionTitle: item.actionTitle as string,
         actionDesc: (item.actionDesc as string | null | undefined) ?? null,
         priority: (item.priorityDefault as string | null | undefined) ?? null,
+        effortLevel: (item.effortLevel as string | null | undefined) ?? null,
         currentStatus: gap.currentStatus,
         gapLevel: gap.gapLevel,
         expectedBenefit: (item.expectedBenefit as string | null | undefined) ?? null,

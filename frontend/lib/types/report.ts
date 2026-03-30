@@ -36,6 +36,7 @@ export interface ControlReportRecommendationDto {
   actionTitle: string
   actionDesc: string | null
   priority: string | null
+  effortLevel?: string | null
   currentStatus: ControlReportGapStatus
   gapLevel: ControlReportGapLevel
   expectedBenefit: string | null

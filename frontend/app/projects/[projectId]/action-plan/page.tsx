@@ -3,8 +3,13 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { AITasksAPI, AITask } from '@/lib/api/ai-tasks'
+import {
+  getRemediationPriorityList,
+  type RemediationPriorityItem,
+} from '@/lib/api/report-center'
 import { useTaskProgress } from '@/lib/hooks/useTaskProgress'
 import ActionPlanResultDisplay from '@/components/features/ActionPlanResultDisplay'
+import { RemediationPriorityList } from '@/components/compliance/RemediationPriorityList'
 import RollbackButton from '@/components/projects/RollbackButton'
 import MaturityRadarChart, { MaturityRadarData, RADAR_DIMENSIONS } from '@/components/features/MaturityRadarChart'
 import { ListTodo, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react'
@@ -25,6 +30,8 @@ export default function ActionPlanPage() {
   const [showTargetMaturityInput, setShowTargetMaturityInput] = useState(false) // 默认不显示，只有重新生成时才显示
   const [hasGenerated, setHasGenerated] = useState(false) // 标记是否已经生成过任务
   const isGeneratingRef = useRef(false) // 使用ref防止React Strict Mode导致的重复调用
+  const [priorityItems, setPriorityItems] = useState<RemediationPriorityItem[]>([])
+  const [priorityError, setPriorityError] = useState<string | null>(null)
 
   // 实时进度跟踪
   const { progress, message: progressMessage, isCompleted, isFailed } = useTaskProgress(currentTask?.id || null)
@@ -41,6 +48,7 @@ export default function ActionPlanPage() {
     const urlTargetMaturity = searchParams.get('targetMaturity')
 
     if (urlSurveyResponseId && urlTargetMaturity) {
+      void loadRemediationPriorities(urlSurveyResponseId)
       // 立即标记为正在生成，防止重复
       isGeneratingRef.current = true
       setHasGenerated(true)
@@ -93,9 +101,28 @@ export default function ActionPlanPage() {
     }
   }
 
+  const loadRemediationPriorities = async (reportId: string) => {
+    try {
+      const response = await getRemediationPriorityList(reportId)
+      setPriorityItems(response.items)
+      setPriorityError(null)
+    } catch (err: any) {
+      setPriorityItems([])
+      setPriorityError(err.message || '加载整改优先级清单失败')
+    }
+  }
+
   const loadExistingTasks = async () => {
     try {
       const tasks = await AITasksAPI.getTasksByProject(projectId)
+      const latestQuestionnaireTask = tasks
+        .filter(t => t.type === 'questionnaire' && t.status === 'completed')
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+      const latestSurveyResponseId = latestQuestionnaireTask?.result?.surveyResponseId
+
+      if (latestSurveyResponseId) {
+        void loadRemediationPriorities(latestSurveyResponseId)
+      }
 
       const actionPlanTasks = tasks.filter(t => t.type === 'action_plan')
 
@@ -167,6 +194,8 @@ export default function ActionPlanPage() {
       if (!surveyResponseId) {
         throw new Error('未找到问卷响应记录，无法生成改进措施')
       }
+
+      await loadRemediationPriorities(surveyResponseId)
 
       // 3. 调用后端API生成改进措施（使用 /survey 接口）
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/survey/${surveyResponseId}/action-plan`, {
@@ -318,6 +347,25 @@ export default function ActionPlanPage() {
           )}
         </div>
       </header>
+
+      {priorityError && (
+        <div
+          className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-400 text-sm"
+          role="alert"
+        >
+          {priorityError}
+        </div>
+      )}
+
+      {!priorityError && (
+        <div className="mb-6">
+          <RemediationPriorityList
+            items={priorityItems}
+            title="整改优先级清单"
+            emptyText="当前项目暂无可展示的整改优先级项。"
+          />
+        </div>
+      )}
 
       {/* 错误提示 */}
       {error && (
