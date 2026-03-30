@@ -107,10 +107,10 @@ development_status:
   # Epic 8: KG 驱动的审核工作台
   # Reopened by approved Correct Course on 2026-03-29
   # PRD: V1-D01, V1-D02, V1-D03, V1-D04, V1-D05
-  epic-8: in-progress
+  epic-8: done
   8-1-audit-workbench-aggregate-query-api: done
   8-2-audit-workbench-frontend-page: done
-  8-3-source-text-side-by-side-comparison: review
+  8-3-source-text-side-by-side-comparison: done
   8-4-consistency-confidence-degradation-panel: done
   8-5-high-risk-clause-forced-confirmation: done
   8-6-review-edit-context-autosave-and-restore: done
