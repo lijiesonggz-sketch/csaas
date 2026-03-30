@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -26,6 +27,10 @@ import {
   AuditWorkbenchSortOrder,
 } from '../../compliance-intelligence/dto/audit-workbench-aggregate.dto'
 import { AuditLogService } from './audit-log.service'
+import {
+  ProjectReviewBulkApproveDto,
+  ProjectReviewBulkApproveResponseDto,
+} from '../dto/project-review-bulk-approve.dto'
 import { ProjectReviewQueryDto } from '../dto/project-review-query.dto'
 
 type RequestMeta = {
@@ -107,6 +112,129 @@ export class ProjectReviewService {
   ): Promise<AuditWorkbenchListResponseDto> {
     const page = query.page ?? 1
     const pageSize = query.pageSize ?? 20
+    const { items: sortedItems, filtersApplied } = await this.buildSortedReviewItems(project, query)
+
+    const totalItems = sortedItems.length
+    const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize)
+    const startIndex = (page - 1) * pageSize
+    const pagedItems = sortedItems.slice(startIndex, startIndex + pageSize)
+
+    return {
+      items: pagedItems,
+      pagination: {
+        page,
+        pageSize,
+        totalItems,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1 && totalPages > 0,
+      },
+      filtersApplied,
+    }
+  }
+
+  async bulkApprove(
+    project: Project,
+    userId: string,
+    query: ProjectReviewBulkApproveDto,
+    meta?: Omit<RequestMeta, 'query'>,
+  ): Promise<ProjectReviewBulkApproveResponseDto> {
+    if (!query.reviewStage) {
+      throw new BadRequestException('批量通过前必须先选择单一审核阶段')
+    }
+
+    const { items: latestBatchItems, filtersApplied } = await this.buildSortedReviewItems(project, {
+      reviewStatus: query.reviewStatus,
+      riskLevel: query.riskLevel,
+      reviewStage: query.reviewStage,
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
+    })
+
+    const blockedReviewItemIds = latestBatchItems
+      .filter((item) => item.highRiskFlag && item.reviewStatus === 'pending')
+      .map((item) => item.reviewItemId)
+
+    if (blockedReviewItemIds.length > 0) {
+      await this.auditLogService.log({
+        userId,
+        organizationId: project.organizationId ?? undefined,
+        action: AuditAction.UPDATE,
+        entityType: 'ProjectReviewBulkApprove',
+        entityId: project.id,
+        details: {
+          projectId: project.id,
+          reviewStage: filtersApplied.reviewStage,
+          filtersApplied,
+          blockedReviewItemIds,
+          approvedReviewItemIds: [],
+        },
+        ipAddress: meta?.ipAddress,
+        userAgent: meta?.userAgent,
+      })
+
+      return {
+        reviewStage: query.reviewStage,
+        filtersApplied,
+        blockedReviewItemIds,
+        approvedReviewItemIds: [],
+      }
+    }
+
+    const approvedReviewItemIds = latestBatchItems
+      .filter((item) => item.reviewStatus === 'pending')
+      .map((item) => item.reviewItemId)
+
+    if (approvedReviewItemIds.length > 0) {
+      const reviewedAt = new Date()
+      await this.generationResultRepo.manager.transaction(async (manager) => {
+        await manager.update(
+          AIGenerationResult,
+          { id: In(approvedReviewItemIds) },
+          {
+            reviewStatus: 'approved' as AIGenerationResult['reviewStatus'],
+            reviewedBy: userId,
+            reviewedAt,
+          },
+        )
+      })
+    }
+
+    await this.auditLogService.log({
+      userId,
+      organizationId: project.organizationId ?? undefined,
+      action: AuditAction.UPDATE,
+      entityType: 'ProjectReviewBulkApprove',
+      entityId: project.id,
+      details: {
+        projectId: project.id,
+        reviewStage: filtersApplied.reviewStage,
+        filtersApplied,
+        blockedReviewItemIds: [],
+        approvedReviewItemIds,
+      },
+      ipAddress: meta?.ipAddress,
+      userAgent: meta?.userAgent,
+    })
+
+    return {
+      reviewStage: query.reviewStage,
+      filtersApplied,
+      blockedReviewItemIds: [],
+      approvedReviewItemIds,
+    }
+  }
+
+  private async buildSortedReviewItems(
+    project: Project,
+    query: Pick<
+      ProjectReviewQueryDto,
+      'reviewStatus' | 'riskLevel' | 'reviewStage' | 'sortBy' | 'sortOrder'
+    >,
+  ): Promise<{
+    items: AuditWorkbenchListItemDto[]
+    filtersApplied: AuditWorkbenchFiltersAppliedDto
+  }> {
     const sortBy = query.sortBy ?? 'updatedAt'
     const sortOrder = query.sortOrder ?? 'desc'
 
@@ -126,18 +254,7 @@ export class ProjectReviewService {
     const filtersApplied = this.buildFiltersApplied(query, sortBy, sortOrder)
 
     if (latestTaskIds.length === 0) {
-      return {
-        items: [],
-        pagination: {
-          page,
-          pageSize,
-          totalItems: 0,
-          totalPages: 0,
-          hasNextPage: false,
-          hasPreviousPage: false,
-        },
-        filtersApplied,
-      }
+      return { items: [], filtersApplied }
     }
 
     const results = await this.generationResultRepo.find({
@@ -180,27 +297,17 @@ export class ProjectReviewService {
       this.compareItems(left, right, sortBy, sortOrder),
     )
 
-    const totalItems = sortedItems.length
-    const totalPages = totalItems === 0 ? 0 : Math.ceil(totalItems / pageSize)
-    const startIndex = (page - 1) * pageSize
-    const pagedItems = sortedItems.slice(startIndex, startIndex + pageSize)
-
     return {
-      items: pagedItems,
-      pagination: {
-        page,
-        pageSize,
-        totalItems,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPreviousPage: page > 1 && totalPages > 0,
-      },
+      items: sortedItems,
       filtersApplied,
     }
   }
 
   private buildFiltersApplied(
-    query: ProjectReviewQueryDto,
+    query: Pick<
+      ProjectReviewQueryDto,
+      'reviewStatus' | 'riskLevel' | 'reviewStage' | 'sortBy' | 'sortOrder'
+    >,
     sortBy: AuditWorkbenchSortBy,
     sortOrder: AuditWorkbenchSortOrder,
   ): AuditWorkbenchFiltersAppliedDto {

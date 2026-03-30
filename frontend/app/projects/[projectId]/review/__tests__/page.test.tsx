@@ -3,6 +3,7 @@ import ProjectReviewPage from '../page'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
+  bulkApproveProjectReviewItems,
   getProjectReviewItems,
   getProjectReviewResult,
   rerunProjectReviewItem,
@@ -23,6 +24,7 @@ jest.mock('@/lib/api/project-review', () => ({
   getProjectReviewResult: jest.fn(),
   submitProjectReviewDecision: jest.fn(),
   rerunProjectReviewItem: jest.fn(),
+  bulkApproveProjectReviewItems: jest.fn(),
 }))
 
 jest.mock('sonner', () => ({
@@ -40,6 +42,7 @@ const mockGetProjectReviewItems = getProjectReviewItems as jest.Mock
 const mockGetProjectReviewResult = getProjectReviewResult as jest.Mock
 const mockSubmitProjectReviewDecision = submitProjectReviewDecision as jest.Mock
 const mockRerunProjectReviewItem = rerunProjectReviewItem as jest.Mock
+const mockBulkApproveProjectReviewItems = bulkApproveProjectReviewItems as jest.Mock
 
 const mockReviewItem = {
   reviewItemId: 'review-1',
@@ -140,6 +143,16 @@ describe('ProjectReviewPage', () => {
     mockRerunProjectReviewItem.mockResolvedValue({
       status: 'queued',
       message: '已加入重跑队列',
+    })
+    mockBulkApproveProjectReviewItems.mockResolvedValue({
+      reviewStage: 'summary',
+      filtersApplied: {
+        reviewStage: 'summary',
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      },
+      blockedReviewItemIds: [],
+      approvedReviewItemIds: ['review-1'],
     })
   })
 
@@ -418,31 +431,7 @@ describe('ProjectReviewPage', () => {
     })
   })
 
-  it('should block bulk approve when pending high-risk items still exist after revalidation', async () => {
-    mockGetProjectReviewItems.mockResolvedValue({
-      items: [
-        {
-          ...mockReviewItem,
-          reviewItemId: 'review-high-1',
-          highRiskFlag: true,
-          riskLevel: 'high',
-          reviewStatus: 'pending',
-        },
-      ],
-      pagination: {
-        page: 1,
-        pageSize: 20,
-        totalItems: 1,
-        totalPages: 1,
-        hasNextPage: false,
-        hasPreviousPage: false,
-      },
-      filtersApplied: {
-        sortBy: 'updatedAt',
-        sortOrder: 'desc',
-      },
-    })
-
+  it('should block bulk approve when reviewStage is not locked to a single stage', async () => {
     render(<ProjectReviewPage />)
 
     await waitFor(() => {
@@ -452,43 +441,59 @@ describe('ProjectReviewPage', () => {
     fireEvent.click(screen.getByTestId('review-bulk-approve-button'))
 
     await waitFor(() => {
-      expect(screen.getByText(/未确认高风险项/)).toBeInTheDocument()
+      expect(screen.getByText('整批通过前请先选择单一审核阶段')).toBeInTheDocument()
+    })
+
+    expect(mockBulkApproveProjectReviewItems).not.toHaveBeenCalled()
+  })
+
+  it('should surface blocked review item ids returned by the batch endpoint', async () => {
+    mockBulkApproveProjectReviewItems.mockResolvedValueOnce({
+      reviewStage: 'summary',
+      filtersApplied: {
+        reviewStage: 'summary',
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      },
+      blockedReviewItemIds: ['review-high-1'],
+      approvedReviewItemIds: [],
+    })
+
+    render(<ProjectReviewPage />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('审核阶段筛选')).toBeInTheDocument()
+    })
+
+    fireEvent.change(screen.getByLabelText('审核阶段筛选'), {
+      target: {
+        value: 'summary',
+      },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('review-bulk-approve-button')).toBeEnabled()
+    })
+
+    fireEvent.click(screen.getByTestId('review-bulk-approve-button'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/review-high-1/)).toBeInTheDocument()
     })
   })
 
-  it('should bulk approve remaining low-risk pending items after high-risk items are already confirmed', async () => {
-    mockGetProjectReviewItems.mockResolvedValue({
-      items: [
-        {
-          ...mockReviewItem,
-          reviewItemId: 'review-high-approved',
-          highRiskFlag: true,
-          riskLevel: 'high',
-          reviewStatus: 'approved',
-        },
-        {
-          ...mockReviewItem,
-          reviewItemId: 'review-low-pending',
-          highRiskFlag: false,
-          riskLevel: 'low',
-          reviewStatus: 'pending',
-        },
-      ],
-      pagination: {
-        page: 1,
-        pageSize: 20,
-        totalItems: 2,
-        totalPages: 1,
-        hasNextPage: false,
-        hasPreviousPage: false,
-      },
-      filtersApplied: {
-        sortBy: 'updatedAt',
-        sortOrder: 'desc',
-      },
+  it('should call the batch approve endpoint after a single reviewStage is selected', async () => {
+    render(<ProjectReviewPage />)
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('审核阶段筛选')).toBeInTheDocument()
     })
 
-    render(<ProjectReviewPage />)
+    fireEvent.change(screen.getByLabelText('审核阶段筛选'), {
+      target: {
+        value: 'summary',
+      },
+    })
 
     await waitFor(() => {
       expect(screen.getByTestId('review-bulk-approve-button')).toBeEnabled()
@@ -497,11 +502,10 @@ describe('ProjectReviewPage', () => {
     fireEvent.click(screen.getByTestId('review-bulk-approve-button'))
 
     await waitFor(() => {
-      expect(mockSubmitProjectReviewDecision).toHaveBeenCalledWith(
+      expect(mockBulkApproveProjectReviewItems).toHaveBeenCalledWith(
+        'project-1',
         expect.objectContaining({
-          reviewItemId: 'review-low-pending',
-          decision: 'accept',
-          reviewedBy: 'user-1',
+          reviewStage: 'summary',
         }),
       )
     })

@@ -26,6 +26,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
+  bulkApproveProjectReviewItems,
   getProjectReviewItems,
   getProjectReviewResult,
   rerunProjectReviewItem,
@@ -525,28 +526,34 @@ export default function ProjectReviewPage() {
       return
     }
 
+    if (filters.reviewStage === 'all') {
+      setActionNotice({
+        kind: 'error',
+        message: '整批通过前请先选择单一审核阶段',
+      })
+      return
+    }
+
     try {
       setActionBusy('bulk-approve')
-      const latestBatch = await getProjectReviewItems(projectId, listQuery)
-      const blockingHighRiskItems = latestBatch.items.filter(
-        (item) => item.highRiskFlag && item.reviewStatus === 'pending',
-      )
+      const result = await bulkApproveProjectReviewItems(projectId, {
+        reviewStatus:
+          filters.reviewStatus === 'all' ? undefined : [filters.reviewStatus],
+        riskLevel: filters.riskLevel === 'all' ? undefined : [filters.riskLevel],
+        reviewStage: filters.reviewStage,
+        sortBy: listQuery.sortBy,
+        sortOrder: listQuery.sortOrder,
+      })
 
-      if (blockingHighRiskItems.length > 0) {
+      if (result.blockedReviewItemIds.length > 0) {
         setActionNotice({
           kind: 'error',
-          message: `仍有未确认高风险项：${blockingHighRiskItems
-            .map((item) => item.reviewItemId)
-            .join('、')}`,
+          message: `仍有未确认高风险项：${result.blockedReviewItemIds.join('、')}`,
         })
         return
       }
 
-      const approvableItems = latestBatch.items.filter(
-        (item) => item.reviewStatus === 'pending',
-      )
-
-      if (approvableItems.length === 0) {
+      if (result.approvedReviewItemIds.length === 0) {
         setActionNotice({
           kind: 'success',
           message: '当前筛选范围内没有可批量通过的待处理项',
@@ -554,18 +561,10 @@ export default function ProjectReviewPage() {
         return
       }
 
-      for (const item of approvableItems) {
-        await submitProjectReviewDecision({
-          reviewItemId: item.reviewItemId,
-          decision: 'accept',
-          reviewedBy: reviewerId,
-        })
-      }
-
-      toast.success(`已整批通过 ${approvableItems.length} 项`)
+      toast.success(`已整批通过 ${result.approvedReviewItemIds.length} 项`)
       setActionNotice({
         kind: 'success',
-        message: `已整批通过 ${approvableItems.length} 项`,
+        message: `已整批通过 ${result.approvedReviewItemIds.length} 项`,
       })
       await loadReviewItems(true)
     } catch (bulkError) {
@@ -578,7 +577,16 @@ export default function ProjectReviewPage() {
     } finally {
       setActionBusy(null)
     }
-  }, [listQuery, loadReviewItems, projectId, reviewerId])
+  }, [
+    filters.reviewStage,
+    filters.reviewStatus,
+    filters.riskLevel,
+    listQuery.sortBy,
+    listQuery.sortOrder,
+    loadReviewItems,
+    projectId,
+    reviewerId,
+  ])
 
   // Story 7.4: 处理控制点详情打开
   const handleOpenControlDetail = useCallback((controlId: string) => {
@@ -731,7 +739,7 @@ export default function ProjectReviewPage() {
               <div>
                 <p className="text-sm font-medium text-slate-900">当前筛选批次</p>
                 <p className="text-xs text-slate-500">
-                  整批通过前会按当前筛选条件重新拉取最新列表并校验高风险项
+                  整批通过前必须先锁定单一审核阶段，系统会按当前筛选条件执行最新批次校验并记录批次审计
                 </p>
               </div>
 

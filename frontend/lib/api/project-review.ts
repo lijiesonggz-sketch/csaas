@@ -85,6 +85,21 @@ export interface ProjectReviewListResponse {
   }
 }
 
+export interface BulkApproveProjectReviewItemsInput {
+  reviewStatus?: ProjectReviewStatus[]
+  riskLevel?: ProjectReviewRiskLevel[]
+  reviewStage: ProjectReviewStage
+  sortBy?: ProjectReviewQuery['sortBy']
+  sortOrder?: ProjectReviewQuery['sortOrder']
+}
+
+export interface BulkApproveProjectReviewItemsResult {
+  reviewStage: ProjectReviewStage
+  filtersApplied: ProjectReviewListResponse['filtersApplied']
+  blockedReviewItemIds: string[]
+  approvedReviewItemIds: string[]
+}
+
 export type ProjectReviewDecision = 'accept' | 'modify' | 'reject'
 
 export interface SubmitProjectReviewDecisionInput {
@@ -229,4 +244,14 @@ export async function rerunProjectReviewItem(input: {
       message: error instanceof Error ? error.message : '当前无法重跑，请稍后再试',
     }
   }
+}
+
+export async function bulkApproveProjectReviewItems(
+  projectId: string,
+  input: BulkApproveProjectReviewItemsInput,
+): Promise<BulkApproveProjectReviewItemsResult> {
+  return apiFetch(`/projects/${projectId}/review-items/bulk-approve`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
 }

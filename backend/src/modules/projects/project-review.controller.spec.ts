@@ -8,6 +8,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import * as request from 'supertest'
 import { TransformInterceptor } from '../../common/interceptors/transform.interceptor'
 import { AuditAction } from '../../database/entities/audit-log.entity'
+import { AITaskType } from '../../database/entities/ai-task.entity'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { ProjectReviewController } from './controllers/project-review.controller'
 import { AuditLogService } from './services/audit-log.service'
@@ -19,6 +20,7 @@ describe('ProjectReviewController (http)', () => {
   const mockProjectReviewService = {
     assertAccess: jest.fn(),
     getReviewItems: jest.fn(),
+    bulkApprove: jest.fn(),
   }
 
   const mockAuditLogService = {
@@ -139,6 +141,54 @@ describe('ProjectReviewController (http)', () => {
     expect(mockProjectReviewService.assertAccess).not.toHaveBeenCalled()
     expect(mockProjectReviewService.getReviewItems).not.toHaveBeenCalled()
     expect(mockAuditLogService.log).not.toHaveBeenCalled()
+  })
+
+  it('should bulk approve a single-stage review batch', async () => {
+    mockProjectReviewService.assertAccess.mockResolvedValue({
+      id: 'project-1',
+      organizationId: 'org-1',
+    })
+    mockProjectReviewService.bulkApprove.mockResolvedValue({
+      reviewStage: AITaskType.SUMMARY,
+      filtersApplied: {
+        reviewStage: AITaskType.SUMMARY,
+        sortBy: 'updatedAt',
+        sortOrder: 'desc',
+      },
+      blockedReviewItemIds: [],
+      approvedReviewItemIds: ['review-1'],
+    })
+
+    const response = await request(app.getHttpServer())
+      .post('/projects/project-1/review-items/bulk-approve')
+      .send({
+        reviewStage: AITaskType.SUMMARY,
+      })
+      .expect(201)
+
+    expect(response.body.success).toBe(true)
+    expect(mockProjectReviewService.bulkApprove).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'project-1',
+      }),
+      '770e8400-e29b-41d4-a716-446655440000',
+      expect.objectContaining({
+        reviewStage: AITaskType.SUMMARY,
+      }),
+      expect.objectContaining({
+        ipAddress: expect.any(String),
+      }),
+    )
+  })
+
+  it('should reject bulk approve payloads without a locked reviewStage', async () => {
+    await request(app.getHttpServer())
+      .post('/projects/project-1/review-items/bulk-approve')
+      .send({})
+      .expect(400)
+
+    expect(mockProjectReviewService.assertAccess).not.toHaveBeenCalled()
+    expect(mockProjectReviewService.bulkApprove).not.toHaveBeenCalled()
   })
 
   it('should return 403 when access assertion fails', async () => {

@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common'
+import { BadRequestException, ForbiddenException } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import {
@@ -33,6 +33,9 @@ describe('ProjectReviewService', () => {
 
   const generationResultRepo = {
     find: jest.fn(),
+    manager: {
+      transaction: jest.fn(),
+    },
   }
 
   const controlPointRepo = {
@@ -76,6 +79,13 @@ describe('ProjectReviewService', () => {
 
     service = module.get(ProjectReviewService)
     jest.clearAllMocks()
+    generationResultRepo.manager.transaction.mockImplementation(async (callback: (manager: { update: jest.Mock }) => Promise<void> | void) => {
+      const manager = {
+        update: jest.fn().mockResolvedValue(undefined),
+      }
+      await callback(manager)
+      return undefined
+    })
   })
 
   it('should deny access for non-owner and non-member users and write access_denied audit', async () => {
@@ -346,5 +356,166 @@ describe('ProjectReviewService', () => {
       riskLevel: ['high'],
       reviewStage: AITaskType.SUMMARY,
     })
+  })
+
+  it('should reject bulk approve when reviewStage is missing', async () => {
+    const project = {
+      id: 'project-1',
+      ownerId: 'owner-1',
+      organizationId: 'org-1',
+      metadata: {},
+    } as unknown as Project
+
+    await expect(
+      service.bulkApprove(project, 'user-1', {
+        reviewStage: undefined as unknown as AITaskType,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException)
+
+    expect(generationResultRepo.manager.transaction).not.toHaveBeenCalled()
+    expect(auditLogService.log).not.toHaveBeenCalled()
+  })
+
+  it('should block bulk approve when pending high-risk items remain and write batch audit', async () => {
+    const project = {
+      id: 'project-1',
+      ownerId: 'owner-1',
+      organizationId: 'org-1',
+      metadata: {},
+    } as unknown as Project
+
+    aiTaskRepo.find.mockResolvedValue([
+      {
+        id: 'task-summary',
+        projectId: 'project-1',
+        type: AITaskType.SUMMARY,
+        status: TaskStatus.COMPLETED,
+        input: {},
+        createdAt: new Date('2026-03-29T08:00:00.000Z'),
+      },
+    ])
+
+    generationResultRepo.find.mockResolvedValue([
+      {
+        id: 'result-summary',
+        taskId: 'task-summary',
+        generationType: AITaskType.SUMMARY,
+        selectedResult: { title: '综述' },
+        modifiedResult: null,
+        qualityScores: null,
+        consistencyReport: { highRiskDisagreements: ['x'] },
+        coverageReport: null,
+        confidenceLevel: 'medium',
+        reviewStatus: 'pending',
+        createdAt: new Date('2026-03-29T08:01:00.000Z'),
+        updatedAt: new Date('2026-03-29T08:02:00.000Z'),
+      },
+    ])
+    controlPointRepo.find.mockResolvedValue([])
+
+    const response = await service.bulkApprove(project, 'user-1', {
+      reviewStage: AITaskType.SUMMARY,
+      sortBy: 'updatedAt',
+      sortOrder: 'desc',
+    })
+
+    expect(response).toEqual({
+      reviewStage: AITaskType.SUMMARY,
+      filtersApplied: expect.objectContaining({
+        reviewStage: AITaskType.SUMMARY,
+      }),
+      blockedReviewItemIds: ['result-summary'],
+      approvedReviewItemIds: [],
+    })
+    expect(generationResultRepo.manager.transaction).not.toHaveBeenCalled()
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.UPDATE,
+        entityType: 'ProjectReviewBulkApprove',
+        details: expect.objectContaining({
+          blockedReviewItemIds: ['result-summary'],
+          approvedReviewItemIds: [],
+        }),
+      }),
+    )
+  })
+
+  it('should bulk approve remaining low-risk pending items and write batch audit', async () => {
+    const project = {
+      id: 'project-1',
+      ownerId: 'owner-1',
+      organizationId: 'org-1',
+      metadata: {},
+    } as unknown as Project
+
+    aiTaskRepo.find.mockResolvedValue([
+      {
+        id: 'task-summary',
+        projectId: 'project-1',
+        type: AITaskType.SUMMARY,
+        status: TaskStatus.COMPLETED,
+        input: {},
+        createdAt: new Date('2026-03-29T08:00:00.000Z'),
+      },
+    ])
+
+    generationResultRepo.find.mockResolvedValue([
+      {
+        id: 'result-approved-high',
+        taskId: 'task-summary',
+        generationType: AITaskType.SUMMARY,
+        selectedResult: { title: '综述' },
+        modifiedResult: null,
+        qualityScores: null,
+        consistencyReport: { highRiskDisagreements: ['x'] },
+        coverageReport: null,
+        confidenceLevel: 'medium',
+        reviewStatus: 'approved',
+        createdAt: new Date('2026-03-29T08:01:00.000Z'),
+        updatedAt: new Date('2026-03-29T08:02:00.000Z'),
+      },
+      {
+        id: 'result-pending-low',
+        taskId: 'task-summary',
+        generationType: AITaskType.SUMMARY,
+        selectedResult: { title: '综述' },
+        modifiedResult: null,
+        qualityScores: null,
+        consistencyReport: { highRiskDisagreements: [] },
+        coverageReport: null,
+        confidenceLevel: 'high',
+        reviewStatus: 'pending',
+        createdAt: new Date('2026-03-29T08:03:00.000Z'),
+        updatedAt: new Date('2026-03-29T08:04:00.000Z'),
+      },
+    ])
+    controlPointRepo.find.mockResolvedValue([])
+
+    const response = await service.bulkApprove(project, 'user-1', {
+      reviewStage: AITaskType.SUMMARY,
+      sortBy: 'updatedAt',
+      sortOrder: 'desc',
+    })
+
+    expect(generationResultRepo.manager.transaction).toHaveBeenCalledTimes(1)
+    expect(generationResultRepo.manager.transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+    )
+    expect(response).toEqual({
+      reviewStage: AITaskType.SUMMARY,
+      filtersApplied: expect.objectContaining({
+        reviewStage: AITaskType.SUMMARY,
+      }),
+      blockedReviewItemIds: [],
+      approvedReviewItemIds: ['result-pending-low'],
+    })
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        details: expect.objectContaining({
+          blockedReviewItemIds: [],
+          approvedReviewItemIds: ['result-pending-low'],
+        }),
+      }),
+    )
   })
 })
