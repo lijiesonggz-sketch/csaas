@@ -97,15 +97,17 @@ describe('UnifiedControlContextDto', () => {
       expect(context.matchedControls).toEqual([]);
     });
 
-    it('should allow optional sourceRoute', () => {
+    it('should require null controlId when no controls are matched', () => {
       const context: ControlContext = {
-        controlId: 'ctrl-001',
+        controlId: null,
         matchedControls: [],
         sourceModule: 'radar',
         sourceRecordId: 'record-123',
+        sourceRoute: '/radar/compliance',
       };
 
-      expect(context.sourceRoute).toBeUndefined();
+      expect(context.controlId).toBeNull();
+      expect(context.sourceRoute).toBe('/radar/compliance');
     });
   });
 });

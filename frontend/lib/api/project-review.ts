@@ -46,7 +46,7 @@ export interface ProjectReviewItem {
   canRerun: boolean
   sourceModule: 'audit'
   sourceRecordId: string
-  sourceRoute?: string
+  sourceRoute: string
   riskLevel: ProjectReviewRiskLevel
   degradationReasons: string[]
   matchedControls: Array<{

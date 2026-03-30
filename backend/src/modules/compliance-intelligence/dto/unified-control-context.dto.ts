@@ -55,7 +55,7 @@ export interface ControlContext {
    * 来源路由（相对路径格式，仅用于面包屑展示）
    * 前端不得自动导航到该路由而不做权限检查
    */
-  sourceRoute?: string;
+  sourceRoute: string;
 }
 
 /**

@@ -104,7 +104,9 @@ export interface AuditWorkbenchListResponseDto {
 }
 
 /**
- * 创建空的审核上下文引用
+ * 创建审核侧的显式空控制点上下文。
+ * 仅用于“当前审核项确认没有控制点上下文”的正式空态，
+ * 不能作为“后续 story 再接齐”的长期占位值。
  */
 export function createEmptyAuditControlContext(): Omit<
   ControlContext,
@@ -112,19 +114,40 @@ export function createEmptyAuditControlContext(): Omit<
 > & {
   sourceRecordId: string
   sourceModule: Extract<SourceModule, 'audit'>
-  sourceRoute: string
+  sourceRoute: `/projects/${string}/review`
 } {
+  throw new Error(
+    'createEmptyAuditControlContext requires a reviewItemId and projectId. Use createEmptyAuditControlContextForItem instead.',
+  )
+}
+
+export function createEmptyAuditControlContextForItem(
+  reviewItemId: string,
+  projectId: string,
+): Omit<
+  ControlContext,
+  'sourceRecordId' | 'sourceModule' | 'sourceRoute'
+> & {
+  sourceRecordId: string
+  sourceModule: Extract<SourceModule, 'audit'>
+  sourceRoute: `/projects/${string}/review`
+} {
+  if (!reviewItemId || !projectId) {
+    throw new Error('reviewItemId and projectId are required for audit control context')
+  }
+
   return {
     controlId: null,
     matchedControls: [],
-    sourceRecordId: '', // 由调用方设置
+    sourceRecordId: reviewItemId,
     sourceModule: 'audit',
-    sourceRoute: '', // 由调用方设置
+    sourceRoute: `/projects/${projectId}/review`,
   }
 }
 
 /**
- * 为审核响应添加控制点上下文
+ * 为审核响应添加审核侧的正式控制点上下文。
+ * 当前 helper 返回的是显式空上下文，不代表审核项已经完成 control mapping 接线。
  */
 export function enrichAuditResponseWithControlContext(
   response: Omit<AuditWorkbenchAggregateResponseDto, keyof ControlContext>,
@@ -132,10 +155,6 @@ export function enrichAuditResponseWithControlContext(
 ): AuditWorkbenchAggregateResponseDto {
   return {
     ...response,
-    controlId: null, // 审核项可能关联多个控制点
-    matchedControls: [], // 由调用方根据实际关联填充
-    sourceModule: 'audit',
-    sourceRecordId: response.reviewItemId,
-    sourceRoute: `/projects/${projectId}/review`,
+    ...createEmptyAuditControlContextForItem(response.reviewItemId, projectId),
   }
 }
