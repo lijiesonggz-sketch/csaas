@@ -15,18 +15,23 @@ import {
   Project,
   ProjectMemberRole,
   ReviewStatus,
+  SurveyResponse,
   TaskStatus,
 } from '../../database/entities'
 import { GenerationStage } from '../../database/entities/ai-task.entity'
 import { OrganizationQuestionSetService } from '../applicability-engine/services/organization-question-set.service'
 import { ProjectMembersService } from '../projects/services/project-members.service'
 import {
+  ProjectQuestionnaireChangeType,
+  ProjectQuestionnaireFreshnessResponseDto,
   CreateProjectQuestionnaireSnapshotDto,
   ProjectQuestionnaireSnapshotLifecycleStatus,
+  ProjectQuestionnairePublishImpactResponseDto,
   ProjectQuestionnaireSnapshotResponseDto,
   SaveProjectQuestionnaireSnapshotDraftDto,
   SaveProjectQuestionnaireSnapshotDraftOptionDto,
   SaveProjectQuestionnaireSnapshotDraftQuestionDto,
+  ProjectQuestionnaireStaleTarget,
 } from './dto'
 
 type SnapshotQuestionInput = {
@@ -84,6 +89,12 @@ type SnapshotMetadata = {
   editVersion?: number
   lastEditedAt?: string | null
   lastEditedBy?: string | null
+  lastPublishedImpact?: {
+    requiresDownstreamRefresh: boolean
+    staleTargets: ProjectQuestionnaireStaleTarget[]
+    changeTypes: ProjectQuestionnaireChangeType[]
+    message: string
+  } | null
 }
 
 type SnapshotRecord = {
@@ -99,6 +110,8 @@ const SUPPORTED_RUNTIME_QUESTION_TYPES = ['SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'R
 @Injectable()
 export class ProjectQuestionnaireSnapshotService {
   constructor(
+    @InjectRepository(SurveyResponse)
+    private readonly surveyResponseRepository: Repository<SurveyResponse>,
     @InjectRepository(Project)
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(AITask)
@@ -421,6 +434,13 @@ export class ProjectQuestionnaireSnapshotService {
 
     const latestPublishedSnapshot = this.selectLatestSnapshotByLifecycle(snapshotRecords, 'published')
     const now = new Date().toISOString()
+    const publishImpact = this.buildPublishImpact(
+      latestPublishedSnapshot?.questions ?? [],
+      latestDraftSnapshot.questions,
+      latestPublishedSnapshot?.task.id ?? null,
+      latestDraftSnapshot.task.id,
+      project.id,
+    )
 
     const publishedMetadata: SnapshotMetadata = {
       ...latestDraftSnapshot.metadata,
@@ -429,6 +449,7 @@ export class ProjectQuestionnaireSnapshotService {
       baseSnapshotTaskId: latestDraftSnapshot.metadata.baseSnapshotTaskId ?? latestPublishedSnapshot?.task.id ?? null,
       lastEditedAt: now,
       lastEditedBy: currentUserId,
+      lastPublishedImpact: publishImpact,
     }
 
     latestDraftSnapshot.task.input = {
@@ -498,6 +519,121 @@ export class ProjectQuestionnaireSnapshotService {
       },
       false,
     )
+  }
+
+  async previewPublishImpact(
+    projectId: string,
+    currentOrganizationId: string,
+    currentUserId: string,
+  ): Promise<ProjectQuestionnairePublishImpactResponseDto> {
+    const project = await this.getAccessibleProject(projectId, currentOrganizationId)
+    await this.assertProjectMaintenancePermission(project.id, currentUserId)
+
+    const snapshotRecords = await this.loadSnapshotRecords(project.id)
+    const latestDraftSnapshot = this.selectLatestSnapshotByLifecycle(snapshotRecords, 'draft')
+
+    if (!latestDraftSnapshot) {
+      throw new NotFoundException(`Questionnaire draft not found for project ${project.id}`)
+    }
+
+    const latestPublishedSnapshot = this.selectLatestSnapshotByLifecycle(snapshotRecords, 'published')
+    const impact = this.buildPublishImpact(
+      latestPublishedSnapshot?.questions ?? [],
+      latestDraftSnapshot.questions,
+      latestPublishedSnapshot?.task.id ?? null,
+      latestDraftSnapshot.task.id,
+      project.id,
+    )
+
+    return {
+      projectId: project.id,
+      questionnaireTaskId: latestDraftSnapshot.task.id,
+      publishedSnapshotTaskId: latestPublishedSnapshot?.task.id ?? null,
+      requiresDownstreamRefresh: impact.requiresDownstreamRefresh,
+      staleTargets: impact.staleTargets,
+      changeTypes: impact.changeTypes,
+      message: impact.message,
+    }
+  }
+
+  async evaluateDownstreamFreshnessForSurveyResponse(
+    surveyResponseId: string,
+    currentOrganizationId: string,
+  ): Promise<ProjectQuestionnaireFreshnessResponseDto> {
+    const surveyResponse = await this.surveyResponseRepository.findOne({
+      where: { id: surveyResponseId },
+      relations: ['questionnaireTask'],
+    })
+
+    if (!surveyResponse?.questionnaireTask?.projectId) {
+      throw new NotFoundException(`Survey response ${surveyResponseId} not found`)
+    }
+
+    const project = await this.getAccessibleProject(
+      surveyResponse.questionnaireTask.projectId,
+      currentOrganizationId,
+    )
+
+    return {
+      surveyResponseId,
+      ...await this.evaluateDownstreamFreshness(project.id, surveyResponse.questionnaireTaskId),
+    }
+  }
+
+  async evaluateDownstreamFreshness(
+    projectId: string,
+    questionnaireTaskId: string,
+  ): Promise<Omit<ProjectQuestionnaireFreshnessResponseDto, 'surveyResponseId'>> {
+    const snapshotRecords = await this.loadSnapshotRecords(projectId)
+    const latestPublishedSnapshot = this.selectLatestSnapshotByLifecycle(snapshotRecords, 'published')
+
+    if (!latestPublishedSnapshot) {
+      return {
+        projectId,
+        questionnaireTaskId,
+        latestPublishedSnapshotTaskId: null,
+        isStale: false,
+        staleTargets: [],
+        changeTypes: [],
+        message: null,
+      }
+    }
+
+    if (latestPublishedSnapshot.task.id === questionnaireTaskId) {
+      return {
+        projectId,
+        questionnaireTaskId,
+        latestPublishedSnapshotTaskId: latestPublishedSnapshot.task.id,
+        isStale: false,
+        staleTargets: [],
+        changeTypes: [],
+        message: null,
+      }
+    }
+
+    const impact = latestPublishedSnapshot.metadata.lastPublishedImpact
+
+    if (!impact?.requiresDownstreamRefresh) {
+      return {
+        projectId,
+        questionnaireTaskId,
+        latestPublishedSnapshotTaskId: latestPublishedSnapshot.task.id,
+        isStale: false,
+        staleTargets: [],
+        changeTypes: impact?.changeTypes ?? [],
+        message: null,
+      }
+    }
+
+    return {
+      projectId,
+      questionnaireTaskId,
+      latestPublishedSnapshotTaskId: latestPublishedSnapshot.task.id,
+      isStale: true,
+      staleTargets: impact.staleTargets,
+      changeTypes: impact.changeTypes,
+      message: impact.message,
+    }
   }
 
   private async getAccessibleProject(
@@ -608,6 +744,7 @@ export class ProjectQuestionnaireSnapshotService {
       editVersion: Number(metadata.editVersion ?? 0),
       lastEditedAt: metadata.lastEditedAt ?? generatedAt,
       lastEditedBy: metadata.lastEditedBy ?? null,
+      lastPublishedImpact: metadata.lastPublishedImpact ?? null,
       total_questions: Number(metadata.total_questions ?? 0),
       estimated_time_minutes: Number(metadata.estimated_time_minutes ?? 0),
       coverage_map:
@@ -1207,5 +1344,117 @@ export class ProjectQuestionnaireSnapshotService {
 
   private normalizeNullableString(value: unknown): string | null {
     return this.normalizeString(value) ?? null
+  }
+
+  private buildPublishImpact(
+    previousPublishedQuestions: SnapshotQuestion[],
+    nextPublishedQuestions: SnapshotQuestion[],
+    previousPublishedSnapshotTaskId: string | null,
+    nextPublishedSnapshotTaskId: string,
+    projectId: string,
+  ): NonNullable<SnapshotMetadata['lastPublishedImpact']> {
+    if (!previousPublishedSnapshotTaskId) {
+      return {
+        requiresDownstreamRefresh: false,
+        staleTargets: [],
+        changeTypes: [],
+        message: '这是该项目问卷的首次发布，不会让已有差距分析、行动计划或报告失效。',
+      }
+    }
+
+    const previousById = new Map(
+      previousPublishedQuestions.map((question) => [question.question_id, question] as const),
+    )
+    const nextById = new Map(
+      nextPublishedQuestions.map((question) => [question.question_id, question] as const),
+    )
+    const changeTypes = new Set<ProjectQuestionnaireChangeType>()
+
+    nextPublishedQuestions.forEach((question) => {
+      if (!previousById.has(question.question_id)) {
+        changeTypes.add('question_added')
+      }
+    })
+
+    previousPublishedQuestions.forEach((question) => {
+      if (!nextById.has(question.question_id)) {
+        changeTypes.add('question_removed')
+      }
+    })
+
+    nextPublishedQuestions.forEach((question) => {
+      const previousQuestion = previousById.get(question.question_id)
+      if (!previousQuestion) {
+        return
+      }
+
+      if (previousQuestion.question_text !== question.question_text) {
+        changeTypes.add('question_text')
+      }
+
+      if (previousQuestion.required !== question.required) {
+        changeTypes.add('required')
+      }
+
+      if (previousQuestion.display_order !== question.display_order) {
+        changeTypes.add('display_order')
+      }
+
+      if (
+        JSON.stringify(previousQuestion.scoring_rule ?? null) !==
+        JSON.stringify(question.scoring_rule ?? null)
+      ) {
+        changeTypes.add('scoring_rule')
+      }
+
+      const previousOptionsById = new Map(
+        previousQuestion.options.map((option) => [option.option_id, option] as const),
+      )
+      question.options.forEach((option) => {
+        const previousOption = previousOptionsById.get(option.option_id)
+        if (!previousOption) {
+          changeTypes.add('option_score')
+          return
+        }
+
+        if (previousOption.text !== option.text) {
+          changeTypes.add('option_text')
+        }
+
+        if (previousOption.score !== option.score) {
+          changeTypes.add('option_score')
+        }
+      })
+    })
+
+    const orderedChangeTypes = Array.from(changeTypes.values())
+    const requiresDownstreamRefresh = orderedChangeTypes.some((changeType) =>
+      ['question_added', 'question_removed', 'option_score', 'scoring_rule', 'required'].includes(
+        changeType,
+      ),
+    )
+
+    if (!requiresDownstreamRefresh) {
+      return {
+        requiresDownstreamRefresh: false,
+        staleTargets: [],
+        changeTypes: orderedChangeTypes,
+        message:
+          '本次重发布仅影响问卷展示文案或排序，不会让已有差距分析、行动计划或报告失效。',
+      }
+    }
+
+    const staleTargets: ProjectQuestionnaireStaleTarget[] = [
+      'gap-analysis',
+      'action-plan',
+      'report',
+    ]
+
+    return {
+      requiresDownstreamRefresh: true,
+      staleTargets,
+      changeTypes: orderedChangeTypes,
+      message: `项目 ${projectId} 的问卷已从 ${previousPublishedSnapshotTaskId} 重发布到 ${nextPublishedSnapshotTaskId}；现有差距分析、行动计划和报告需重新生成。`,
+    }
   }
 }

@@ -12,6 +12,7 @@ import {
 } from '../../database/entities'
 import { ActionPlanService, ClusterGapAnalysis } from './action-plan.service'
 import { MaturityAnalysisService } from './maturity-analysis.service'
+import { ProjectQuestionnaireSnapshotService } from './project-questionnaire-snapshot.service'
 import { AIOrchestrator } from '../ai-clients/ai-orchestrator.service'
 import { AIModel } from '../../database/entities/ai-generation-event.entity'
 import { AIClientRequest } from '../ai-clients/interfaces/ai-client.interface'
@@ -35,6 +36,7 @@ export class ActionPlanGenerationService {
     private surveyResponseRepository: Repository<SurveyResponse>,
     private readonly actionPlanService: ActionPlanService,
     private readonly maturityAnalysisService: MaturityAnalysisService,
+    private readonly projectQuestionnaireSnapshotService: ProjectQuestionnaireSnapshotService,
     private readonly aiOrchestrator: AIOrchestrator,
   ) {}
 
@@ -67,6 +69,15 @@ export class ActionPlanGenerationService {
     }
 
     const projectId = surveyResponse.questionnaireTask.projectId
+
+    const freshness = await this.projectQuestionnaireSnapshotService.evaluateDownstreamFreshness(
+      projectId,
+      surveyResponse.questionnaireTaskId,
+    )
+
+    if (freshness.isStale && freshness.staleTargets.includes('action-plan')) {
+      throw new Error(freshness.message || '当前问卷已重新发布，请先重新生成差距分析后再生成改进措施')
+    }
 
     // 2. 获取成熟度分析结果
     const analysisResult = await this.maturityAnalysisService.analyzeSurvey(surveyResponseId)

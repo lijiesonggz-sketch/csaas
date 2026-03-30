@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
-import { AIGenerationResult, AITask, ControlPoint, Project } from '../../database/entities'
+import { AIGenerationResult, AITask, ControlPoint, Project, SurveyResponse } from '../../database/entities'
 import { OrganizationQuestionSetService } from '../applicability-engine/services/organization-question-set.service'
 import { ProjectMembersService } from '../projects/services/project-members.service'
 import { ProjectQuestionnaireSnapshotService } from './project-questionnaire-snapshot.service'
@@ -13,6 +13,9 @@ describe('ProjectQuestionnaireSnapshotService', () => {
   let service: ProjectQuestionnaireSnapshotService
 
   const projectRepository = {
+    findOne: jest.fn(),
+  }
+  const surveyResponseRepository = {
     findOne: jest.fn(),
   }
   const aiTaskRepository = {
@@ -50,6 +53,10 @@ describe('ProjectQuestionnaireSnapshotService', () => {
         {
           provide: getRepositoryToken(Project),
           useValue: projectRepository,
+        },
+        {
+          provide: getRepositoryToken(SurveyResponse),
+          useValue: surveyResponseRepository,
         },
         {
           provide: getRepositoryToken(AITask),
@@ -931,6 +938,240 @@ describe('ProjectQuestionnaireSnapshotService', () => {
     await expect(service.publishDraft(PROJECT_ID, ORG_ID, USER_ID)).rejects.toThrow(
       'Questionnaire draft not found',
     )
+  })
+
+  it('should preview publish impact before republishing a questionnaire draft', async () => {
+    projectRepository.findOne.mockResolvedValue({
+      id: PROJECT_ID,
+      organizationId: ORG_ID,
+    })
+    projectMembersService.checkPermission.mockResolvedValue(true)
+    aiTaskRepository.find.mockResolvedValue([
+      {
+        id: 'draft-task-id',
+        projectId: PROJECT_ID,
+        input: {
+          snapshotKind: 'kg_dynamic_questionnaire',
+          snapshotVersion: 2,
+        },
+        createdAt: new Date('2026-03-31T08:30:00.000Z'),
+      },
+      {
+        id: 'published-task-id',
+        projectId: PROJECT_ID,
+        input: {
+          snapshotKind: 'kg_dynamic_questionnaire',
+          snapshotVersion: 1,
+        },
+        createdAt: new Date('2026-03-25T16:00:00.000Z'),
+      },
+    ])
+    aiGenerationResultRepository.findOne.mockImplementation(async ({ where: { taskId } }: any) => {
+      if (taskId === 'draft-task-id') {
+        return {
+          selectedResult: {
+            questionnaire: [
+              {
+                question_id: 'Q-ACC-001',
+                question_template_id: 'question-yes-no',
+                source_question_id: 'question-yes-no',
+                control_id: 'control-a',
+                cluster_id: 'control-a',
+                cluster_name: '特权账号控制',
+                question_text: '项目层是否建立特权账号季度复核机制？',
+                question_type: 'SINGLE_CHOICE',
+                options: [
+                  { option_id: 'A', text: '已建立', score: 5 },
+                  { option_id: 'B', text: '未建立', score: 0 },
+                ],
+                required: true,
+                guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+                display_order: 1,
+                scoring_rule: null,
+                is_project_custom: false,
+              },
+              {
+                question_id: 'project-custom-1',
+                question_template_id: null,
+                source_question_id: null,
+                control_id: 'control-b',
+                cluster_id: 'control-b',
+                cluster_name: '跨境数据治理',
+                question_text: '项目层是否建立跨境数据审批例外审批台账？',
+                question_type: 'SINGLE_CHOICE',
+                options: [
+                  { option_id: 'A', text: '已建立', score: 5 },
+                  { option_id: 'B', text: '未建立', score: 0 },
+                ],
+                required: true,
+                guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+                display_order: 2,
+                scoring_rule: null,
+                is_project_custom: true,
+              },
+            ],
+            questionnaire_metadata: {
+              projectId: PROJECT_ID,
+              organizationId: ORG_ID,
+              generatedAt: '2026-03-31T08:30:00.000Z',
+              snapshotVersion: 2,
+              resolvedControlSetVersion: 'resolved-controls@2026-03-25T16:00:00.000Z',
+              questionSetVersion: 'question-set@2026-03-25T16:00:00.000Z',
+              sourceControlIds: ['control-a', 'control-b'],
+              missingQuestionControlIds: [],
+              snapshotKind: 'kg_dynamic_questionnaire',
+              total_questions: 2,
+              estimated_time_minutes: 1,
+              coverage_map: { 'control-a': 1, 'control-b': 1 },
+              lifecycleStatus: 'draft',
+              publishedSnapshotTaskId: 'published-task-id',
+              baseSnapshotTaskId: 'published-task-id',
+              editVersion: 1,
+              lastEditedAt: '2026-03-31T08:30:00.000Z',
+              lastEditedBy: USER_ID,
+            },
+          },
+        }
+      }
+
+      return {
+        selectedResult: {
+          questionnaire: [
+            {
+              question_id: 'Q-ACC-001',
+              question_template_id: 'question-yes-no',
+              source_question_id: 'question-yes-no',
+              control_id: 'control-a',
+              cluster_id: 'control-a',
+              cluster_name: '特权账号控制',
+              question_text: '机构是否建立特权账号定期复核机制？',
+              question_type: 'SINGLE_CHOICE',
+              options: [
+                { option_id: 'A', text: 'yes', score: 5 },
+                { option_id: 'B', text: 'not_yes', score: 0 },
+              ],
+              required: true,
+              guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+              display_order: 1,
+              scoring_rule: null,
+              is_project_custom: false,
+            },
+          ],
+          questionnaire_metadata: {
+            projectId: PROJECT_ID,
+            organizationId: ORG_ID,
+            generatedAt: '2026-03-25T16:00:00.000Z',
+            snapshotVersion: 1,
+            resolvedControlSetVersion: 'resolved-controls@2026-03-25T16:00:00.000Z',
+            questionSetVersion: 'question-set@2026-03-25T16:00:00.000Z',
+            sourceControlIds: ['control-a'],
+            missingQuestionControlIds: [],
+            snapshotKind: 'kg_dynamic_questionnaire',
+            total_questions: 1,
+            estimated_time_minutes: 1,
+            coverage_map: { 'control-a': 1 },
+            lifecycleStatus: 'published',
+            publishedSnapshotTaskId: 'published-task-id',
+          },
+        },
+      }
+    })
+
+    const impact = await service.previewPublishImpact(PROJECT_ID, ORG_ID, USER_ID)
+
+    expect(impact).toMatchObject({
+      projectId: PROJECT_ID,
+      questionnaireTaskId: 'draft-task-id',
+      publishedSnapshotTaskId: 'published-task-id',
+      requiresDownstreamRefresh: true,
+      staleTargets: ['gap-analysis', 'action-plan', 'report'],
+    })
+    expect(impact.changeTypes).toEqual(expect.arrayContaining(['question_added', 'question_text']))
+  })
+
+  it('should mark downstream survey responses as stale after an impactful republish', async () => {
+    surveyResponseRepository.findOne.mockResolvedValue({
+      id: 'survey-response-id',
+      questionnaireTaskId: 'published-task-id',
+      questionnaireTask: {
+        projectId: PROJECT_ID,
+      },
+    })
+    projectRepository.findOne.mockResolvedValue({
+      id: PROJECT_ID,
+      organizationId: ORG_ID,
+    })
+    aiTaskRepository.find.mockResolvedValue([
+      {
+        id: 'draft-task-id',
+        projectId: PROJECT_ID,
+        input: {
+          snapshotKind: 'kg_dynamic_questionnaire',
+          snapshotVersion: 2,
+        },
+        createdAt: new Date('2026-03-31T08:30:00.000Z'),
+      },
+    ])
+    aiGenerationResultRepository.findOne.mockResolvedValue({
+      selectedResult: {
+        questionnaire: [
+          {
+            question_id: 'Q-ACC-001',
+            question_template_id: 'question-yes-no',
+            source_question_id: 'question-yes-no',
+            control_id: 'control-a',
+            cluster_id: 'control-a',
+            cluster_name: '特权账号控制',
+            question_text: '项目层是否建立特权账号季度复核机制？',
+            question_type: 'SINGLE_CHOICE',
+            options: [
+              { option_id: 'A', text: '已建立', score: 5 },
+              { option_id: 'B', text: '未建立', score: 0 },
+            ],
+            required: true,
+            guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+            display_order: 1,
+            scoring_rule: null,
+            is_project_custom: false,
+          },
+        ],
+        questionnaire_metadata: {
+          projectId: PROJECT_ID,
+          organizationId: ORG_ID,
+          generatedAt: '2026-03-31T08:35:00.000Z',
+          snapshotVersion: 2,
+          resolvedControlSetVersion: 'resolved-controls@2026-03-25T16:00:00.000Z',
+          questionSetVersion: 'question-set@2026-03-25T16:00:00.000Z',
+          sourceControlIds: ['control-a'],
+          missingQuestionControlIds: [],
+          snapshotKind: 'kg_dynamic_questionnaire',
+          total_questions: 1,
+          estimated_time_minutes: 1,
+          coverage_map: { 'control-a': 1 },
+          lifecycleStatus: 'published',
+          publishedSnapshotTaskId: 'draft-task-id',
+          lastPublishedImpact: {
+            requiresDownstreamRefresh: true,
+            staleTargets: ['gap-analysis', 'action-plan', 'report'],
+            changeTypes: ['question_added'],
+            message: '现有差距分析、行动计划和报告需重新生成。',
+          },
+        },
+      },
+    })
+
+    const freshness = await service.evaluateDownstreamFreshnessForSurveyResponse(
+      'survey-response-id',
+      ORG_ID,
+    )
+
+    expect(freshness).toMatchObject({
+      surveyResponseId: 'survey-response-id',
+      questionnaireTaskId: 'published-task-id',
+      latestPublishedSnapshotTaskId: 'draft-task-id',
+      isStale: true,
+      staleTargets: ['gap-analysis', 'action-plan', 'report'],
+    })
   })
 
   it('should fail fast when a question cannot be mapped into the current survey runtime contract', async () => {

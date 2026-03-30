@@ -278,6 +278,13 @@ export default function ControlReportPage() {
           <AlertTitle>报告加载失败</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
+        {/(失效|重新生成|过期)/.test(error) ? (
+          <div className="mt-4">
+            <Button variant="outline" onClick={() => (window.location.href = '/reports')}>
+              返回报告中心
+            </Button>
+          </div>
+        ) : null}
       </div>
     )
   }

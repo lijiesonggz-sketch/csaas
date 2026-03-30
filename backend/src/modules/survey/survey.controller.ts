@@ -202,6 +202,32 @@ export class SurveyController {
     }
   }
 
+  @Get('project-questionnaire-snapshot/:projectId/publish-impact')
+  @UseGuards(TenantGuard, OrganizationGuard)
+  async getProjectQuestionnairePublishImpact(
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
+    @CurrentUser() currentUser: { id?: string; userId?: string },
+    @Param('projectId') projectId: string,
+  ) {
+    return this.projectQuestionnaireSnapshotService.previewPublishImpact(
+      projectId,
+      currentOrg.organizationId,
+      currentUser?.userId ?? currentUser?.id ?? currentOrg.userId,
+    )
+  }
+
+  @Get('questionnaire-freshness/:surveyResponseId')
+  @UseGuards(TenantGuard, OrganizationGuard)
+  async getQuestionnaireFreshness(
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
+    @Param('surveyResponseId') surveyResponseId: string,
+  ) {
+    return this.projectQuestionnaireSnapshotService.evaluateDownstreamFreshnessForSurveyResponse(
+      surveyResponseId,
+      currentOrg.organizationId,
+    )
+  }
+
   @Get('control-gap-input/:surveyResponseId')
   @UseGuards(TenantGuard, OrganizationGuard)
   async getControlGapInput(

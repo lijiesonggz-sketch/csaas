@@ -15,6 +15,7 @@ import { Repository } from 'typeorm'
 import { Project, ReportPdfJob, SurveyResponse, SurveyStatus } from '@/database/entities'
 import { PackResolverService } from '../../applicability-engine/services/pack-resolver.service'
 import { MaturityAnalysisService } from '../../survey/maturity-analysis.service'
+import { ProjectQuestionnaireSnapshotService } from '../../survey/project-questionnaire-snapshot.service'
 import type { ReportCenterGapSummaryDto, ReportCenterRiskSummaryDto } from '../dto/report-center.dto'
 import type {
   ReportPdfJobDto,
@@ -54,6 +55,7 @@ export class ReportPdfService {
     private readonly maturityAnalysisService: MaturityAnalysisService,
     private readonly controlReportCompilerService: ControlReportCompilerService,
     private readonly reportPdfRendererService: ReportPdfRendererService,
+    private readonly projectQuestionnaireSnapshotService: ProjectQuestionnaireSnapshotService,
   ) {}
 
   async createPdfJob(organizationId: string, userId: string, reportId: string): Promise<ReportPdfJobDto> {
@@ -294,6 +296,15 @@ export class ReportPdfService {
 
     if (!latestSurvey || latestSurvey.id !== reportId) {
       throw new ConflictException(REPORT_PDF_STALE_MESSAGE)
+    }
+
+    const freshness = await this.projectQuestionnaireSnapshotService.evaluateDownstreamFreshness(
+      project.id,
+      survey.questionnaireTaskId,
+    )
+
+    if (freshness.isStale && freshness.staleTargets.includes('report')) {
+      throw new ConflictException(freshness.message ?? REPORT_PDF_STALE_MESSAGE)
     }
 
     const resolvedControls = await this.packResolverService

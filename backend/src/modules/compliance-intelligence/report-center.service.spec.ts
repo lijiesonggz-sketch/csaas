@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm'
 import { Project, SurveyResponse } from '@/database/entities'
 import { PackResolverService } from '../applicability-engine/services/pack-resolver.service'
 import { MaturityAnalysisService } from '../survey/maturity-analysis.service'
+import { ProjectQuestionnaireSnapshotService } from '../survey/project-questionnaire-snapshot.service'
 import { ControlReportCompilerService } from './services/control-report-compiler.service'
 import { ReportCenterService } from './services/report-center.service'
 
@@ -28,6 +29,9 @@ describe('ReportCenterService', () => {
   const controlReportCompilerService = {
     compileReport: jest.fn(),
   }
+  const projectQuestionnaireSnapshotService = {
+    evaluateDownstreamFreshness: jest.fn(),
+  }
 
   const projectQueryBuilder = {
     where: jest.fn(),
@@ -43,6 +47,7 @@ describe('ReportCenterService', () => {
     orderBy: jest.fn(),
     addOrderBy: jest.fn(),
     getMany: jest.fn(),
+    getOne: jest.fn(),
   }
 
   beforeEach(async () => {
@@ -69,6 +74,10 @@ describe('ReportCenterService', () => {
           provide: ControlReportCompilerService,
           useValue: controlReportCompilerService,
         },
+        {
+          provide: ProjectQuestionnaireSnapshotService,
+          useValue: projectQuestionnaireSnapshotService,
+        },
       ],
     }).compile()
 
@@ -86,6 +95,15 @@ describe('ReportCenterService', () => {
     surveyQueryBuilder.orderBy.mockReturnValue(surveyQueryBuilder)
     surveyQueryBuilder.addOrderBy.mockReturnValue(surveyQueryBuilder)
     surveyResponseRepo.createQueryBuilder.mockReturnValue(surveyQueryBuilder)
+    projectQuestionnaireSnapshotService.evaluateDownstreamFreshness.mockResolvedValue({
+      projectId: 'project-1',
+      questionnaireTaskId: 'task-1',
+      latestPublishedSnapshotTaskId: 'task-1',
+      isStale: false,
+      staleTargets: [],
+      changeTypes: [],
+      message: null,
+    })
   })
 
   it('should return ready items with analysis-derived summaries when survey and controls exist', async () => {
@@ -300,6 +318,13 @@ describe('ReportCenterService', () => {
   })
 
   it('should compile report detail using the latest organization control scope', async () => {
+    surveyQueryBuilder.getOne.mockResolvedValue({
+      id: '11111111-1111-4111-8111-111111111111',
+      questionnaireTaskId: 'task-1',
+      questionnaireTask: {
+        projectId: 'project-1',
+      },
+    })
     packResolverService.resolveByOrganizationId.mockResolvedValue({
       controls: [{ controlId: 'control-1' }, { controlId: 'control-2' }],
     })
@@ -321,6 +346,13 @@ describe('ReportCenterService', () => {
   })
 
   it('should generate remediation priority items with empty-safe placeholders and stable sorting', async () => {
+    surveyQueryBuilder.getOne.mockResolvedValue({
+      id: '11111111-1111-4111-8111-111111111111',
+      questionnaireTaskId: 'task-1',
+      questionnaireTask: {
+        projectId: 'project-1',
+      },
+    })
     packResolverService.resolveByOrganizationId.mockResolvedValue({
       controls: [{ controlId: 'control-1' }, { controlId: 'control-2' }],
     })
@@ -402,6 +434,54 @@ describe('ReportCenterService', () => {
       statusLabel: '暂无整改建议',
       title: '暂无整改建议',
       rank: 2,
+    })
+  })
+
+  it('should mark reports as not_ready when questionnaire freshness is stale', async () => {
+    projectQueryBuilder.getMany.mockResolvedValue([
+      {
+        id: 'project-1',
+        name: '项目一',
+        organizationId: 'org-1',
+        clientName: '客户A',
+        standardName: 'ISO27001',
+        status: 'active',
+        updatedAt: new Date('2026-03-30T09:00:00.000Z'),
+      },
+    ])
+    surveyQueryBuilder.getMany.mockResolvedValue([
+      {
+        id: 'survey-1',
+        questionnaireTaskId: 'snapshot-task-id',
+        submittedAt: new Date('2026-03-30T08:00:00.000Z'),
+        updatedAt: new Date('2026-03-30T08:30:00.000Z'),
+        questionnaireTask: {
+          projectId: 'project-1',
+        },
+      },
+    ])
+    packResolverService.resolveByOrganizationId.mockResolvedValue({
+      controls: [{ controlId: 'control-1' }],
+    })
+    projectQuestionnaireSnapshotService.evaluateDownstreamFreshness.mockResolvedValue({
+      projectId: 'project-1',
+      questionnaireTaskId: 'snapshot-task-id',
+      latestPublishedSnapshotTaskId: 'draft-task-id',
+      isStale: true,
+      staleTargets: ['report'],
+      changeTypes: ['question_added'],
+      message: '现有差距分析、行动计划和报告需重新生成。',
+    })
+
+    const response = await service.getReportCenter('org-1', {
+      sortBy: 'updatedAt',
+      sortOrder: 'desc',
+    })
+
+    expect(response.items[0]).toMatchObject({
+      reportStatus: 'not_ready',
+      availableActions: { viewReport: false },
+      emptyStateReason: '现有差距分析、行动计划和报告需重新生成。',
     })
   })
 })

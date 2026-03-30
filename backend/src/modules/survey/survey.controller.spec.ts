@@ -33,6 +33,8 @@ describe('SurveyController snapshot endpoints', () => {
     getSnapshot: jest.Mock
     saveDraft: jest.Mock
     publishDraft: jest.Mock
+    previewPublishImpact: jest.Mock
+    evaluateDownstreamFreshnessForSurveyResponse: jest.Mock
   }
   let controlGapInputService: { getControlGapInput: jest.Mock }
   let auditLogService: { log: jest.Mock }
@@ -156,6 +158,25 @@ describe('SurveyController snapshot endpoints', () => {
             question_id: 'Q-ACC-001',
           },
         ],
+      }),
+      previewPublishImpact: jest.fn().mockResolvedValue({
+        projectId: PROJECT_ID,
+        questionnaireTaskId: 'draft-task-id',
+        publishedSnapshotTaskId: 'snapshot-task-id',
+        requiresDownstreamRefresh: true,
+        staleTargets: ['gap-analysis', 'action-plan', 'report'],
+        changeTypes: ['question_added'],
+        message: '现有差距分析、行动计划和报告需重新生成。',
+      }),
+      evaluateDownstreamFreshnessForSurveyResponse: jest.fn().mockResolvedValue({
+        projectId: PROJECT_ID,
+        surveyResponseId: 'survey-response-id',
+        questionnaireTaskId: 'snapshot-task-id',
+        latestPublishedSnapshotTaskId: 'draft-task-id',
+        isStale: true,
+        staleTargets: ['gap-analysis', 'action-plan', 'report'],
+        changeTypes: ['question_added'],
+        message: '现有差距分析、行动计划和报告需重新生成。',
       }),
     }
     controlGapInputService = {
@@ -535,6 +556,39 @@ describe('SurveyController snapshot endpoints', () => {
       .expect(403)
   })
 
+  it('should return publish impact for the current questionnaire draft', async () => {
+    app = await createApp()
+
+    const response = await request(app.getHttpServer())
+      .get(`/survey/project-questionnaire-snapshot/${PROJECT_ID}/publish-impact`)
+      .expect(200)
+
+    expect(snapshotService.previewPublishImpact).toHaveBeenCalledWith(PROJECT_ID, ORG_ID, USER_ID)
+    expect(response.body).toMatchObject({
+      projectId: PROJECT_ID,
+      requiresDownstreamRefresh: true,
+      staleTargets: ['gap-analysis', 'action-plan', 'report'],
+    })
+  })
+
+  it('should return questionnaire freshness for a survey response', async () => {
+    app = await createApp()
+
+    const response = await request(app.getHttpServer())
+      .get('/survey/questionnaire-freshness/survey-response-id')
+      .expect(200)
+
+    expect(snapshotService.evaluateDownstreamFreshnessForSurveyResponse).toHaveBeenCalledWith(
+      'survey-response-id',
+      ORG_ID,
+    )
+    expect(response.body).toMatchObject({
+      surveyResponseId: 'survey-response-id',
+      isStale: true,
+      staleTargets: ['gap-analysis', 'action-plan', 'report'],
+    })
+  })
+
   it('should return 404 when the control-gap service surfaces a missing survey response', async () => {
     app = await createApp()
     controlGapInputService.getControlGapInput.mockRejectedValue(
@@ -552,6 +606,8 @@ describe('SurveyController snapshot endpoints', () => {
       getSnapshot: jest.fn(),
       saveDraft: jest.fn(),
       publishDraft: jest.fn(),
+      previewPublishImpact: jest.fn(),
+      evaluateDownstreamFreshnessForSurveyResponse: jest.fn(),
     }
     controlGapInputService = {
       getControlGapInput: jest.fn(),
@@ -609,6 +665,8 @@ describe('SurveyController snapshot endpoints', () => {
       getSnapshot: jest.fn(),
       saveDraft: jest.fn(),
       publishDraft: jest.fn(),
+      previewPublishImpact: jest.fn(),
+      evaluateDownstreamFreshnessForSurveyResponse: jest.fn(),
     }
     controlGapInputService = {
       getControlGapInput: jest.fn(),

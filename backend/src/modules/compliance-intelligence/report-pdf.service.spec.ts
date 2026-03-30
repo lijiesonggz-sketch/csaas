@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm'
 import { Project, ReportPdfJob, SurveyResponse } from '@/database/entities'
 import { PackResolverService } from '../applicability-engine/services/pack-resolver.service'
 import { MaturityAnalysisService } from '../survey/maturity-analysis.service'
+import { ProjectQuestionnaireSnapshotService } from '../survey/project-questionnaire-snapshot.service'
 import { ControlReportCompilerService } from './services/control-report-compiler.service'
 import { ReportPdfRendererService } from './services/report-pdf-renderer.service'
 import { ReportPdfService } from './services/report-pdf.service'
@@ -53,6 +54,9 @@ describe('ReportPdfService', () => {
 
   const reportPdfRendererService = {
     render: jest.fn(),
+  }
+  const projectQuestionnaireSnapshotService = {
+    evaluateDownstreamFreshness: jest.fn(),
   }
 
   const surveyByIdQueryBuilder = {
@@ -114,6 +118,10 @@ describe('ReportPdfService', () => {
           provide: ReportPdfRendererService,
           useValue: reportPdfRendererService,
         },
+        {
+          provide: ProjectQuestionnaireSnapshotService,
+          useValue: projectQuestionnaireSnapshotService,
+        },
       ],
     }).compile()
 
@@ -139,6 +147,15 @@ describe('ReportPdfService', () => {
     latestPdfJobQueryBuilder.andWhere.mockReturnValue(latestPdfJobQueryBuilder)
     latestPdfJobQueryBuilder.orderBy.mockReturnValue(latestPdfJobQueryBuilder)
     reportPdfJobRepository.createQueryBuilder.mockReturnValue(latestPdfJobQueryBuilder)
+    projectQuestionnaireSnapshotService.evaluateDownstreamFreshness.mockResolvedValue({
+      projectId: 'project-1',
+      questionnaireTaskId: 'task-1',
+      latestPublishedSnapshotTaskId: 'task-1',
+      isStale: false,
+      staleTargets: [],
+      changeTypes: [],
+      message: null,
+    })
   })
 
   function mockFreshReportContext() {

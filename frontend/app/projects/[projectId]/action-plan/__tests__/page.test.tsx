@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ActionPlanPage from '../page'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { getRemediationPriorityList } from '@/lib/api/report-center'
+import { SurveyAPI } from '@/lib/api/survey'
 
 jest.mock('next/navigation', () => ({
   useParams: jest.fn(),
@@ -20,6 +21,12 @@ jest.mock('@/lib/api/ai-tasks', () => ({
 
 jest.mock('@/lib/api/report-center', () => ({
   getRemediationPriorityList: jest.fn(),
+}))
+
+jest.mock('@/lib/api/survey', () => ({
+  SurveyAPI: {
+    getQuestionnaireFreshness: jest.fn(),
+  },
 }))
 
 jest.mock('@/lib/hooks/useTaskProgress', () => ({
@@ -52,12 +59,25 @@ describe('ActionPlanPage', () => {
   const mockGetRemediationPriorityList = getRemediationPriorityList as jest.MockedFunction<
     typeof getRemediationPriorityList
   >
+  const mockGetQuestionnaireFreshness = SurveyAPI.getQuestionnaireFreshness as jest.MockedFunction<
+    typeof SurveyAPI.getQuestionnaireFreshness
+  >
 
   beforeEach(() => {
     jest.clearAllMocks()
     ;(useParams as jest.Mock).mockReturnValue({ projectId: 'project-1' })
     ;(useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams())
     ;(useRouter as jest.Mock).mockReturnValue({ back: mockBack, push: jest.fn() })
+    mockGetQuestionnaireFreshness.mockResolvedValue({
+      projectId: 'project-1',
+      surveyResponseId: 'survey-1',
+      questionnaireTaskId: 'task-1',
+      latestPublishedSnapshotTaskId: 'task-1',
+      isStale: false,
+      staleTargets: [],
+      changeTypes: [],
+      message: null,
+    })
     mockGetRemediationPriorityList.mockResolvedValue({
       reportId: 'survey-1',
       items: [
@@ -96,5 +116,29 @@ describe('ActionPlanPage', () => {
     render(<ActionPlanPage />)
 
     expect(await screen.findByRole('button', { name: /取消重新生成/ })).toBeInTheDocument()
+  })
+
+  it('shows a stale alert and regenerate entry when questionnaire freshness is stale', async () => {
+    ;(useSearchParams as jest.Mock).mockReturnValue(
+      new URLSearchParams('surveyResponseId=survey-1&targetMaturity=4'),
+    )
+    const mockPush = jest.fn()
+    ;(useRouter as jest.Mock).mockReturnValue({ back: mockBack, push: mockPush })
+    mockGetQuestionnaireFreshness.mockResolvedValue({
+      projectId: 'project-1',
+      surveyResponseId: 'survey-1',
+      questionnaireTaskId: 'task-1',
+      latestPublishedSnapshotTaskId: 'task-2',
+      isStale: true,
+      staleTargets: ['action-plan'],
+      changeTypes: ['question_added'],
+      message: '现有差距分析、行动计划和报告需重新生成。',
+    })
+
+    render(<ActionPlanPage />)
+
+    expect(await screen.findByText('当前改进措施结果已失效')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /前往差距分析重新生成/ }))
+    expect(mockPush).toHaveBeenCalledWith('/projects/project-1/gap-analysis')
   })
 })

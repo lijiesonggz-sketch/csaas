@@ -130,7 +130,7 @@ development_status:
   epic-10: in-progress
   10-1-project-questionnaire-snapshot-edit-api: done
   10-2-questionnaire-edit-frontend-persistence: done
-  10-3-questionnaire-republish-downstream-stale-strategy: backlog
+  10-3-questionnaire-republish-downstream-stale-strategy: done
   epic-10-retrospective: optional
 
   # Epic 11: KG 关联推送与历史闭环

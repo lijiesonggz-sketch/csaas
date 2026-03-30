@@ -1,12 +1,16 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { AITasksAPI, AITask } from '@/lib/api/ai-tasks'
 import {
   getRemediationPriorityList,
   type RemediationPriorityItem,
 } from '@/lib/api/report-center'
+import {
+  ProjectQuestionnaireFreshnessResponse,
+  SurveyAPI,
+} from '@/lib/api/survey'
 import { useTaskProgress } from '@/lib/hooks/useTaskProgress'
 import ActionPlanResultDisplay from '@/components/features/ActionPlanResultDisplay'
 import { RemediationPriorityList } from '@/components/compliance/RemediationPriorityList'
@@ -19,6 +23,7 @@ import type { GenerationResult } from '@/lib/types/ai-generation'
 export default function ActionPlanPage() {
   const params = useParams()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const projectId = params.projectId as string
 
   const [currentTask, setCurrentTask] = useState<AITask | null>(null)
@@ -32,6 +37,7 @@ export default function ActionPlanPage() {
   const isGeneratingRef = useRef(false) // 使用ref防止React Strict Mode导致的重复调用
   const [priorityItems, setPriorityItems] = useState<RemediationPriorityItem[]>([])
   const [priorityError, setPriorityError] = useState<string | null>(null)
+  const [freshness, setFreshness] = useState<ProjectQuestionnaireFreshnessResponse | null>(null)
 
   // 实时进度跟踪
   const { progress, message: progressMessage, isCompleted, isFailed } = useTaskProgress(currentTask?.id || null)
@@ -55,7 +61,11 @@ export default function ActionPlanPage() {
 
       // 设置目标成熟度并自动生成
       setTargetMaturity(parseFloat(urlTargetMaturity))
-      generateNewActionPlan(urlSurveyResponseId, parseFloat(urlTargetMaturity))
+      void loadFreshness(urlSurveyResponseId).then((response) => {
+        if (!response?.isStale) {
+          generateNewActionPlan(urlSurveyResponseId, parseFloat(urlTargetMaturity))
+        }
+      })
     } else {
       // 没有URL参数，加载现有任务
       loadExistingTasks()
@@ -112,6 +122,24 @@ export default function ActionPlanPage() {
     }
   }
 
+  const loadFreshness = async (
+    surveyResponseId: string,
+  ): Promise<ProjectQuestionnaireFreshnessResponse | null> => {
+    try {
+      const response = await SurveyAPI.getQuestionnaireFreshness(surveyResponseId)
+      if (response.isStale && response.staleTargets.includes('action-plan')) {
+        setFreshness(response)
+        return response
+      }
+
+      setFreshness(null)
+      return null
+    } catch {
+      setFreshness(null)
+      return null
+    }
+  }
+
   const loadExistingTasks = async () => {
     try {
       const tasks = await AITasksAPI.getTasksByProject(projectId)
@@ -122,6 +150,7 @@ export default function ActionPlanPage() {
 
       if (latestSurveyResponseId) {
         void loadRemediationPriorities(latestSurveyResponseId)
+        void loadFreshness(latestSurveyResponseId)
       }
 
       const actionPlanTasks = tasks.filter(t => t.type === 'action_plan')
@@ -134,6 +163,11 @@ export default function ActionPlanPage() {
 
       if (actionPlanTask && actionPlanTask.status === 'completed' && actionPlanTask.result) {
         setCurrentTask(actionPlanTask)
+        const actionPlanSurveyResponseId =
+          actionPlanTask.input?.survey_response_id ?? actionPlanTask.input?.surveyResponseId
+        if (typeof actionPlanSurveyResponseId === 'string' && actionPlanSurveyResponseId.length > 0) {
+          void loadFreshness(actionPlanSurveyResponseId)
+        }
 
         // 获取详细措施列表
         const measures = await AITasksAPI.getActionPlanMeasures(actionPlanTask.id)
@@ -193,6 +227,11 @@ export default function ActionPlanPage() {
 
       if (!surveyResponseId) {
         throw new Error('未找到问卷响应记录，无法生成改进措施')
+      }
+
+      const staleResponse = await loadFreshness(surveyResponseId)
+      if (staleResponse?.isStale) {
+        throw new Error(staleResponse.message || '当前问卷已重新发布，请先重新生成差距分析')
       }
 
       await loadRemediationPriorities(surveyResponseId)
@@ -364,6 +403,24 @@ export default function ActionPlanPage() {
             title="整改优先级清单"
             emptyText="当前项目暂无可展示的整改优先级项。"
           />
+        </div>
+      )}
+
+      {freshness?.isStale && (
+        <div
+          className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-300 text-sm"
+          role="alert"
+        >
+          <p className="font-medium mb-2">当前改进措施结果已失效</p>
+          <p>{freshness.message ?? '问卷已重新发布，请先重新生成差距分析后再生成改进措施。'}</p>
+          <div className="mt-4">
+            <button
+              onClick={() => router.push(`/projects/${projectId}/gap-analysis`)}
+              className="px-4 py-2 text-sm font-medium text-amber-900 bg-white border border-amber-300 rounded-lg hover:bg-amber-50"
+            >
+              前往差距分析重新生成
+            </button>
+          </div>
         </div>
       )}
 

@@ -44,7 +44,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { SurveyAPI } from '@/lib/api/survey'
+import {
+  ProjectQuestionnaireFreshnessResponse,
+  SurveyAPI,
+} from '@/lib/api/survey'
 import * as XLSX from 'xlsx'
 import MaturityRadarChart, { mapToRadarData } from '@/components/features/MaturityRadarChart'
 import { GapAnalysisReport, GapAnalysisReportData } from '@/components/features/GapAnalysisReport'
@@ -181,6 +184,7 @@ export default function GapAnalysisPage() {
   const [modalVisible, setModalVisible] = useState(false)
   const [targetMaturity, setTargetMaturity] = useState<number>(4)
   const [reportModalVisible, setReportModalVisible] = useState(false)
+  const [freshness, setFreshness] = useState<ProjectQuestionnaireFreshnessResponse | null>(null)
 
   useEffect(() => {
     const savedAnalysis = localStorage.getItem(`gap-analysis-${projectId}`)
@@ -198,6 +202,38 @@ export default function GapAnalysisPage() {
       localStorage.setItem(`gap-analysis-${projectId}`, JSON.stringify(analysis))
     }
   }, [analysis, projectId])
+
+  useEffect(() => {
+    if (!analysis?.surveyResponseId) {
+      setFreshness(null)
+      return
+    }
+
+    let cancelled = false
+
+    void SurveyAPI.getQuestionnaireFreshness(analysis.surveyResponseId)
+      .then((response) => {
+        if (cancelled) {
+          return
+        }
+
+        if (response.isStale && response.staleTargets.includes('gap-analysis')) {
+          setFreshness(response)
+          return
+        }
+
+        setFreshness(null)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFreshness(null)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [analysis?.surveyResponseId])
 
   const handleReupload = () => {
     setAnalysis(null)
@@ -519,6 +555,7 @@ export default function GapAnalysisPage() {
                 </Button>
                 <Button
                   onClick={handleGenerateActionPlan}
+                  disabled={Boolean(freshness?.isStale)}
                   className="bg-white text-indigo-600 hover:bg-white/90"
                 >
                   <Rocket className="w-4 h-4 mr-2" />
@@ -534,6 +571,20 @@ export default function GapAnalysisPage() {
         <Alert variant="destructive" className="mb-6">
           <AlertTitle>错误</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {freshness?.isStale && (
+        <Alert className="mb-6 border-amber-200 bg-amber-50 text-amber-900">
+          <AlertTitle>当前差距分析结果已失效</AlertTitle>
+          <AlertDescription>
+            {freshness.message ?? '问卷已重新发布，请重新上传或重新分析，避免继续使用旧结果。'}
+          </AlertDescription>
+          <div className="mt-4">
+            <Button variant="outline" onClick={handleReupload}>
+              重新上传问卷并分析
+            </Button>
+          </div>
         </Alert>
       )}
 
@@ -916,6 +967,7 @@ export default function GapAnalysisPage() {
             </Button>
             <Button
               onClick={handleGenerateActionPlan}
+              disabled={Boolean(freshness?.isStale)}
               className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
             >
               <Rocket className="w-4 h-4 mr-2" />

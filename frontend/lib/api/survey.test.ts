@@ -89,4 +89,20 @@ describe('SurveyAPI snapshot methods', () => {
       method: 'POST',
     })
   })
+
+  it('should fetch project questionnaire publish impact', async () => {
+    ;(apiFetch as jest.Mock).mockResolvedValue({ requiresDownstreamRefresh: true })
+
+    await SurveyAPI.getProjectQuestionnairePublishImpact('project-1')
+
+    expect(apiFetch).toHaveBeenCalledWith('/survey/project-questionnaire-snapshot/project-1/publish-impact')
+  })
+
+  it('should fetch questionnaire freshness', async () => {
+    ;(apiFetch as jest.Mock).mockResolvedValue({ isStale: false })
+
+    await SurveyAPI.getQuestionnaireFreshness('survey-1')
+
+    expect(apiFetch).toHaveBeenCalledWith('/survey/questionnaire-freshness/survey-1')
+  })
 })

@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common'
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Project, SurveyResponse, SurveyStatus } from '@/database/entities'
 import { PackResolverService } from '../../applicability-engine/services/pack-resolver.service'
 import { MaturityAnalysisService } from '../../survey/maturity-analysis.service'
+import { ProjectQuestionnaireSnapshotService } from '../../survey/project-questionnaire-snapshot.service'
 import type { CompileControlReportResponseDto } from '../dto/compile-control-report.dto'
 import type {
   ReportCenterFiltersAppliedDto,
@@ -32,6 +33,7 @@ export class ReportCenterService {
     private readonly maturityAnalysisService: MaturityAnalysisService,
     private readonly packResolverService: PackResolverService,
     private readonly controlReportCompilerService: ControlReportCompilerService,
+    private readonly projectQuestionnaireSnapshotService: ProjectQuestionnaireSnapshotService,
   ) {}
 
   async getReportCenter(
@@ -95,6 +97,9 @@ export class ReportCenterService {
     organizationId: string,
     reportId: string,
   ): Promise<CompileControlReportResponseDto> {
+    const survey = await this.loadSurveyWithTask(reportId)
+    await this.ensureReportFreshness(survey)
+
     const controlIds = await this.loadResolvedControlIds(organizationId)
 
     if (controlIds.length === 0) {
@@ -238,6 +243,31 @@ export class ReportCenterService {
     }
   }
 
+  private async loadSurveyWithTask(reportId: string): Promise<SurveyResponse> {
+    const survey = await this.surveyResponseRepo
+      .createQueryBuilder('survey')
+      .leftJoinAndSelect('survey.questionnaireTask', 'task')
+      .where('survey.id = :reportId', { reportId })
+      .getOne()
+
+    if (!survey?.questionnaireTask?.projectId) {
+      throw new NotFoundException('未找到对应报告')
+    }
+
+    return survey
+  }
+
+  private async ensureReportFreshness(survey: SurveyResponse): Promise<void> {
+    const freshness = await this.projectQuestionnaireSnapshotService.evaluateDownstreamFreshness(
+      survey.questionnaireTask.projectId,
+      survey.questionnaireTaskId,
+    )
+
+    if (freshness.isStale && freshness.staleTargets.includes('report')) {
+      throw new ConflictException(freshness.message ?? '报告数据已过期，请先重新生成报告')
+    }
+  }
+
   private async buildItem(
     project: Project,
     survey: SurveyResponse | null,
@@ -286,6 +316,19 @@ export class ReportCenterService {
         ...baseItem,
         reportStatus: 'not_ready',
         emptyStateReason: '当前机构尚未解析出适用控制点',
+      }
+    }
+
+    const freshness = await this.projectQuestionnaireSnapshotService.evaluateDownstreamFreshness(
+      project.id,
+      survey.questionnaireTaskId,
+    )
+
+    if (freshness.isStale && freshness.staleTargets.includes('report')) {
+      return {
+        ...baseItem,
+        reportStatus: 'not_ready',
+        emptyStateReason: freshness.message ?? '当前报告已失效，请重新生成',
       }
     }
 

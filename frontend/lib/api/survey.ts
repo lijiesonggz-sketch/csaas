@@ -114,6 +114,45 @@ export interface SaveProjectQuestionnaireSnapshotDraftRequest {
   }>
 }
 
+export interface ProjectQuestionnairePublishImpactResponse {
+  projectId: string
+  questionnaireTaskId: string
+  publishedSnapshotTaskId: string | null
+  requiresDownstreamRefresh: boolean
+  staleTargets: Array<'gap-analysis' | 'action-plan' | 'report'>
+  changeTypes: Array<
+    | 'question_text'
+    | 'option_text'
+    | 'option_score'
+    | 'scoring_rule'
+    | 'question_added'
+    | 'question_removed'
+    | 'required'
+    | 'display_order'
+  >
+  message: string
+}
+
+export interface ProjectQuestionnaireFreshnessResponse {
+  projectId: string
+  surveyResponseId: string
+  questionnaireTaskId: string
+  latestPublishedSnapshotTaskId: string | null
+  isStale: boolean
+  staleTargets: Array<'gap-analysis' | 'action-plan' | 'report'>
+  changeTypes: Array<
+    | 'question_text'
+    | 'option_text'
+    | 'option_score'
+    | 'scoring_rule'
+    | 'question_added'
+    | 'question_removed'
+    | 'required'
+    | 'display_order'
+  >
+  message: string | null
+}
+
 export class SurveyAPI {
   static async createProjectQuestionnaireSnapshot(request: {
     projectId: string
@@ -147,6 +186,18 @@ export class SurveyAPI {
     return apiFetch(`/survey/project-questionnaire-snapshot/${projectId}/publish`, {
       method: 'POST',
     })
+  }
+
+  static async getProjectQuestionnairePublishImpact(
+    projectId: string,
+  ): Promise<ProjectQuestionnairePublishImpactResponse> {
+    return apiFetch(`/survey/project-questionnaire-snapshot/${projectId}/publish-impact`)
+  }
+
+  static async getQuestionnaireFreshness(
+    surveyResponseId: string,
+  ): Promise<ProjectQuestionnaireFreshnessResponse> {
+    return apiFetch(`/survey/questionnaire-freshness/${surveyResponseId}`)
   }
 
   /**

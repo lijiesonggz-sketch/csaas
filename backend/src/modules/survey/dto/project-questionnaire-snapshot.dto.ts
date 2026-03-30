@@ -19,6 +19,27 @@ export const PROJECT_QUESTIONNAIRE_SNAPSHOT_LIFECYCLE = ['draft', 'published', '
 export type ProjectQuestionnaireSnapshotLifecycleStatus =
   (typeof PROJECT_QUESTIONNAIRE_SNAPSHOT_LIFECYCLE)[number]
 
+export const PROJECT_QUESTIONNAIRE_STALE_TARGETS = [
+  'gap-analysis',
+  'action-plan',
+  'report',
+] as const
+export type ProjectQuestionnaireStaleTarget =
+  (typeof PROJECT_QUESTIONNAIRE_STALE_TARGETS)[number]
+
+export const PROJECT_QUESTIONNAIRE_CHANGE_TYPES = [
+  'question_text',
+  'option_text',
+  'option_score',
+  'scoring_rule',
+  'question_added',
+  'question_removed',
+  'required',
+  'display_order',
+] as const
+export type ProjectQuestionnaireChangeType =
+  (typeof PROJECT_QUESTIONNAIRE_CHANGE_TYPES)[number]
+
 export const PROJECT_QUESTIONNAIRE_EDITABLE_QUESTION_TYPES = [
   'SINGLE_CHOICE',
   'MULTIPLE_CHOICE',
@@ -127,4 +148,25 @@ export class ProjectQuestionnaireSnapshotResponseDto {
   lastEditedAt!: string | null
   lastEditedBy!: string | null
   questions!: Array<Record<string, unknown>>
+}
+
+export class ProjectQuestionnairePublishImpactResponseDto {
+  projectId!: string
+  questionnaireTaskId!: string
+  publishedSnapshotTaskId!: string | null
+  requiresDownstreamRefresh!: boolean
+  staleTargets!: ProjectQuestionnaireStaleTarget[]
+  changeTypes!: ProjectQuestionnaireChangeType[]
+  message!: string
+}
+
+export class ProjectQuestionnaireFreshnessResponseDto {
+  projectId!: string
+  surveyResponseId!: string
+  questionnaireTaskId!: string
+  latestPublishedSnapshotTaskId!: string | null
+  isStale!: boolean
+  staleTargets!: ProjectQuestionnaireStaleTarget[]
+  changeTypes!: ProjectQuestionnaireChangeType[]
+  message!: string | null
 }

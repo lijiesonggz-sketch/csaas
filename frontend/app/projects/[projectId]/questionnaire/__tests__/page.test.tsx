@@ -93,6 +93,8 @@ jest.mock('@/lib/api/survey', () => ({
     createProjectQuestionnaireSnapshot: jest.fn(),
     saveProjectQuestionnaireSnapshotDraft: jest.fn(),
     publishProjectQuestionnaireSnapshot: jest.fn(),
+    getProjectQuestionnairePublishImpact: jest.fn(),
+    getQuestionnaireFreshness: jest.fn(),
   },
 }))
 
@@ -122,6 +124,25 @@ describe('QuestionnairePage', () => {
     SurveyAPI.getProjectQuestionnaireSnapshot.mockRejectedValue({ status: 404, message: 'not found' })
     SurveyAPI.saveProjectQuestionnaireSnapshotDraft.mockResolvedValue(undefined)
     SurveyAPI.publishProjectQuestionnaireSnapshot.mockResolvedValue(undefined)
+    SurveyAPI.getProjectQuestionnairePublishImpact.mockResolvedValue({
+      projectId: 'project-1',
+      questionnaireTaskId: 'draft-task-1',
+      publishedSnapshotTaskId: 'snapshot-task-1',
+      requiresDownstreamRefresh: true,
+      staleTargets: ['gap-analysis', 'action-plan', 'report'],
+      changeTypes: ['question_added'],
+      message: '现有差距分析、行动计划和报告需重新生成。',
+    })
+    SurveyAPI.getQuestionnaireFreshness.mockResolvedValue({
+      projectId: 'project-1',
+      surveyResponseId: 'survey-response-id',
+      questionnaireTaskId: 'snapshot-task-1',
+      latestPublishedSnapshotTaskId: 'snapshot-task-1',
+      isStale: false,
+      staleTargets: [],
+      changeTypes: [],
+      message: null,
+    })
   })
 
   it('should render page header with correct title', () => {
@@ -452,6 +473,12 @@ describe('QuestionnairePage', () => {
     fireEvent.click(screen.getByText('开始编辑'))
     fireEvent.click(screen.getByText('修改问卷'))
     fireEvent.click(screen.getByText('发布问卷'))
+
+    await waitFor(() => {
+      expect(SurveyAPI.getProjectQuestionnairePublishImpact).toHaveBeenCalledWith('project-1')
+    })
+    expect(screen.getByText('确认重新发布问卷')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('确认发布'))
 
     await waitFor(() => {
       expect(SurveyAPI.saveProjectQuestionnaireSnapshotDraft).toHaveBeenCalled()
