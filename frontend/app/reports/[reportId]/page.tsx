@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { AlertCircle, FileText } from 'lucide-react'
+import { AlertCircle, ChevronRight, FileText, ShieldAlert } from 'lucide-react'
 import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
 import { getReportDetail } from '@/lib/api/report-center'
 import { useOrganizationStore } from '@/lib/stores/useOrganizationStore'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -30,6 +30,23 @@ export default function ControlReportPage() {
   const currentOrganization = useOrganizationStore((state) => state.currentOrganization)
   const organizationId = currentOrganization?.id
 
+  const normalizeErrorMessage = (loadError: unknown): string => {
+    if (
+      typeof loadError === 'object' &&
+      loadError !== null &&
+      'status' in loadError &&
+      Number((loadError as { status?: number }).status) === 404
+    ) {
+      return '未找到对应报告'
+    }
+
+    if (loadError instanceof Error && loadError.message) {
+      return loadError.message
+    }
+
+    return '加载报告失败'
+  }
+
   useEffect(() => {
     const fetchReport = async () => {
       if (!reportId) return
@@ -41,7 +58,7 @@ export default function ControlReportPage() {
         const data = await getReportDetail(reportId)
         setSections(data.sections || [])
       } catch (err) {
-        setError(err instanceof Error ? err.message : '加载报告失败')
+        setError(normalizeErrorMessage(err))
       } finally {
         setIsLoading(false)
       }
@@ -71,6 +88,7 @@ export default function ControlReportPage() {
       <div className="container mx-auto px-4 py-8">
         <Alert variant="destructive">
           <AlertCircle className="w-4 h-4" />
+          <AlertTitle>报告加载失败</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       </div>
@@ -102,16 +120,23 @@ export default function ControlReportPage() {
         sections.map((section) => (
           <Card key={section.l1Code} className="mb-6">
             <CardHeader>
-              <CardTitle>{section.l1Name}</CardTitle>
+              <div className="flex items-center gap-3">
+                <Badge variant="outline">{section.l1Code}</Badge>
+                <CardTitle>{section.l1Name}</CardTitle>
+              </div>
             </CardHeader>
             <CardContent>
               {section.l2Sections.map((l2Section) => (
-                <div key={l2Section.l2Code} className="mb-6">
-                  <h3 className="text-lg font-semibold mb-4">{l2Section.l2Name}</h3>
+                <div key={l2Section.l2Code} className="mb-6 rounded-xl border border-slate-200 p-4">
+                  <div className="mb-4 flex items-center gap-2">
+                    <ChevronRight className="h-4 w-4 text-slate-400" />
+                    <Badge variant="outline">{l2Section.l2Code}</Badge>
+                    <h3 className="text-lg font-semibold">{l2Section.l2Name}</h3>
+                  </div>
                   <div className="space-y-4">
                     {l2Section.controls.map((control) => (
                       <Card key={control.controlId} className="p-4">
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
                               <Badge variant="outline">{control.controlCode}</Badge>
@@ -126,8 +151,60 @@ export default function ControlReportPage() {
                               >
                                 {control.gapLevel}
                               </Badge>
+                              <Badge variant="secondary">{control.currentStatus}</Badge>
                             </div>
                             <p className="text-sm font-medium">{control.controlName}</p>
+
+                            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                              <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+                                <p className="font-medium text-slate-900">法规/案例/证据</p>
+                                <p className="mt-2">法规条款：{control.clauses.length}</p>
+                                <p>处罚案例：{control.cases.length}</p>
+                                <p>证据类型：{control.evidences.length}</p>
+                              </div>
+
+                              <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600 md:col-span-2">
+                                <div className="mb-2 flex items-center gap-2 text-slate-900">
+                                  <ShieldAlert className="h-4 w-4 text-amber-600" />
+                                  <p className="font-medium">整改建议</p>
+                                </div>
+
+                                {control.recommendations.length === 0 ? (
+                                  <p className="text-sm text-slate-500">暂无整改建议</p>
+                                ) : (
+                                  <div className="space-y-3">
+                                    {control.recommendations.map((recommendation) => (
+                                      <div
+                                        key={recommendation.remediationActionId}
+                                        className="rounded-lg border border-slate-200 bg-white p-3"
+                                      >
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <Badge variant="outline">{recommendation.actionCode}</Badge>
+                                          {recommendation.priority ? (
+                                            <Badge variant="secondary">
+                                              {recommendation.priority}
+                                            </Badge>
+                                          ) : null}
+                                        </div>
+                                        <p className="mt-2 text-sm font-medium text-slate-900">
+                                          {recommendation.actionTitle}
+                                        </p>
+                                        {recommendation.actionDesc ? (
+                                          <p className="mt-1 text-sm text-slate-600">
+                                            {recommendation.actionDesc}
+                                          </p>
+                                        ) : null}
+                                        {recommendation.expectedBenefit ? (
+                                          <p className="mt-2 text-xs text-emerald-700">
+                                            预期收益：{recommendation.expectedBenefit}
+                                          </p>
+                                        ) : null}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
                           <Button
                             variant="outline"

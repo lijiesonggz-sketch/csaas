@@ -80,7 +80,7 @@ test.describe('Story 7.3: 报告页面控制点详情抽屉', () => {
 
   test('AC5: 错误处理 - API 失败时应显示错误信息', async ({ page }) => {
     // GIVEN: 模拟 API 失败
-    await page.route('**/api/kg/report/compile-control-report*', route => {
+    await page.route('**/compliance-intelligence/report-center/*', route => {
       route.fulfill({ status: 500, body: 'Internal Server Error' })
     })
 
@@ -94,7 +94,7 @@ test.describe('Story 7.3: 报告页面控制点详情抽屉', () => {
 
   test('AC6: 加载状态 - 数据加载时应显示加载指示器', async ({ page }) => {
     // GIVEN: 模拟慢速 API
-    await page.route('**/api/kg/report/compile-control-report*', async route => {
+    await page.route('**/compliance-intelligence/report-center/*', async route => {
       await new Promise(resolve => setTimeout(resolve, 1000))
       await route.continue()
     })
