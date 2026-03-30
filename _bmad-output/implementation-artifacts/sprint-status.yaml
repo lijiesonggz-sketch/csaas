@@ -118,7 +118,7 @@ development_status:
 
   # Epic 9: KG 驱动的报告中心与交付层
   # PRD: V1-G01, V1-G02, V1-G03
-  epic-9: in-progress
+  epic-9: done
   9-1-report-center-aggregate-page: done
   9-2-control-report-detail-page: done
   9-3-backend-professional-pdf-generation: done
