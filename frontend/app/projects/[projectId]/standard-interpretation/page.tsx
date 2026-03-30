@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import { BookOpen, ArrowLeft, AlertCircle, Loader2, FileText, ChevronDown, Lightbulb, CheckCircle, AlertTriangle, GraduationCap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -54,6 +55,7 @@ interface InterpretationResult {
 export default function StandardInterpretationPage() {
   const params = useParams()
   const router = useRouter()
+  const { status } = useSession()
   const projectId = params.projectId as string
 
   const [loading, setLoading] = useState(false)
@@ -119,9 +121,12 @@ export default function StandardInterpretationPage() {
       const response = await apiFetch(`/files/projects/${projectId}/documents/list`, {
         method: 'POST',
       })
-      if (response.success) {
-        setDocuments(response.data || [])
-      }
+      const loadedDocuments = Array.isArray(response)
+        ? response
+        : Array.isArray((response as any)?.data)
+          ? (response as any).data
+          : []
+      setDocuments(loadedDocuments)
     } catch (err) {
       console.error('Failed to load documents:', err)
     }
@@ -171,9 +176,13 @@ export default function StandardInterpretationPage() {
   }, [projectId])
 
   useEffect(() => {
+    if (status !== 'authenticated') {
+      return
+    }
+
     loadDocuments()
     loadSavedTask()
-  }, [loadDocuments, loadSavedTask])
+  }, [status, loadDocuments, loadSavedTask])
 
   const handleAnalyze = async () => {
     try {
@@ -261,7 +270,7 @@ export default function StandardInterpretationPage() {
     }
   }
 
-  if (initializing) {
+  if (status === 'loading' || (status === 'authenticated' && initializing)) {
     return (
       <div className="w-full px-6 py-8">
         <div className="flex items-center gap-3 mb-8">
@@ -277,6 +286,45 @@ export default function StandardInterpretationPage() {
           <CardContent className="py-16 text-center">
             <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-indigo-500" />
             <h3 className="text-xl font-semibold text-slate-900">正在加载...</h3>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (status === 'unauthenticated') {
+    return (
+      <div className="w-full px-6 py-8">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 mb-8">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
+
+          <div className="relative flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <BookOpen className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white mb-1">标准解读</h1>
+                <p className="text-sm text-white/80">基于上传的标准文档，AI智能解读条款要求</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="w-4 h-4" />
+          <AlertTitle>登录已失效</AlertTitle>
+          <AlertDescription>请先登录后再查看或生成标准解读。</AlertDescription>
+        </Alert>
+
+        <Card className="border-0 shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)]">
+          <CardContent className="py-16 text-center">
+            <Button
+              onClick={() => router.push('/login')}
+              className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6"
+            >
+              去登录
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -363,13 +411,13 @@ export default function StandardInterpretationPage() {
 
               {loading && (
                 <div className="mt-6 max-w-md mx-auto">
-                  <Progress value={progress?.progress?.percentage || progress?.percentage || 0} className="h-2 mb-4" />
+                  <Progress value={progress?.percentage || 0} className="h-2 mb-4" />
                   {progress ? (
                     <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left">
                       <div className="mb-2 flex items-center justify-between text-sm">
                         <span className="font-medium text-slate-700">{progressPhaseLabel}</span>
                         <span className="font-semibold text-indigo-600">
-                          {progress.progress?.percentage || progress.percentage || 0}%
+                          {progress.percentage || 0}%
                         </span>
                       </div>
 
@@ -391,7 +439,7 @@ export default function StandardInterpretationPage() {
                       ) : null}
 
                       <p className="mt-2 text-xs text-slate-500">
-                        {progress.details?.stageMessage || progress.message || '正在处理...'}
+                        {progress.stageMessage || progress.message || '正在处理...'}
                       </p>
                     </div>
                   ) : (
