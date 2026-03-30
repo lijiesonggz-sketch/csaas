@@ -169,6 +169,11 @@ describe('RadarPushController', () => {
             roiAnalysis: { score: 0.8 },
             isRead: false,
             readAt: null,
+            controlId: null,
+            matchedControls: [],
+            sourceModule: 'radar',
+            sourceRecordId: 'push-1',
+            sourceRoute: '/radar/tech',
           },
         ],
         pagination: {
@@ -334,6 +339,11 @@ describe('RadarPushController', () => {
         roiAnalysis: undefined,
         isRead: false,
         readAt: null,
+        controlId: null,
+        matchedControls: [],
+        sourceModule: 'radar',
+        sourceRecordId: 'push-1',
+        sourceRoute: '/radar/tech',
       })
     })
   })
@@ -392,9 +402,43 @@ describe('RadarPushController', () => {
         roiAnalysis: { score: 0.8 },
         isRead: false,
         readAt: null,
+        controlId: null,
+        matchedControls: [],
+        sourceModule: 'radar',
+        sourceRecordId: 'push-123',
+        sourceRoute: '/radar/tech',
       })
       expect(mockRepo.findOne).toHaveBeenCalledWith({
         where: { id: pushId, tenantId: 'tenant-123' },
+      })
+    })
+
+    it('should return explicit empty control context for compliance pushes', async () => {
+      const pushId = 'push-compliance'
+      const mockPush = {
+        id: pushId,
+        tenantId: 'tenant-123',
+        contentId: 'analyzed-1',
+        radarType: 'compliance',
+        relevanceScore: '0.88',
+        priorityLevel: 'medium',
+        scheduledAt: new Date('2024-01-15T10:00:00.000Z'),
+        isRead: false,
+        readAt: null,
+      }
+
+      mockAnalyzedContentRepo.findOne.mockResolvedValue(null)
+      mockRawContentRepo.findOne.mockResolvedValue(null)
+      mockRepo.findOne.mockResolvedValue(mockPush)
+
+      const result = await controller.getPushDetail('tenant-123', pushId)
+
+      expect(result).toMatchObject({
+        controlId: null,
+        matchedControls: [],
+        sourceModule: 'radar',
+        sourceRecordId: pushId,
+        sourceRoute: '/radar/compliance',
       })
     })
 

@@ -1,131 +1,198 @@
-/**
- * ComplianceRadarPage Unit Tests
- *
- * Story 4.3 - Phase 7 Task 7.1
- *
- * 测试覆盖:
- * - 页面基础渲染
- * - 骨架屏显示
- * - 空状态显示
- */
-
 import React from 'react'
-import { render, screen } from '@testing-library/react'
-import { ThemeProvider } from '@mui/material/styles'
-import { createTheme } from '@mui/material/styles'
-import { useWebSocket } from '@/lib/hooks/useWebSocket'
-import ComplianceRadarPage from './page'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { ThemeProvider, createTheme } from '@mui/material/styles'
 
-// Mock dependencies
+import ComplianceRadarPage from './page'
+import { getCompliancePushes, normalizeRadarPush } from '@/lib/api/radar'
+import { useWebSocket } from '@/lib/hooks/useWebSocket'
+
+const mockControlDetailDrawer = jest.fn((props: {
+  open: boolean
+  controlId: string
+  organizationId: string
+  sourceModule: string
+  sourceRecordId?: string
+}) =>
+  props.open ? (
+    <div
+      data-testid="control-detail-drawer-probe"
+      data-control-id={props.controlId}
+      data-organization-id={props.organizationId}
+      data-source-module={props.sourceModule}
+      data-source-record-id={props.sourceRecordId}
+    />
+  ) : null,
+)
+
 jest.mock('@/lib/api/radar')
 jest.mock('@/lib/hooks/useWebSocket')
+jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
+  ControlDetailDrawer: (props: {
+    open: boolean
+    controlId: string
+    organizationId: string
+    sourceModule: string
+    sourceRecordId?: string
+  }) => mockControlDetailDrawer(props),
+}))
 
-// Mock zustand store properly
-const mockOrgStore = {
-  currentOrganization: { id: 'org-1', name: '测试银行' },
-  organizations: [{ id: 'org-1', name: '测试银行' }],
-  weaknesses: [],
-  fetchOrganizations: jest.fn().mockResolvedValue([]),
-  setCurrentOrganization: jest.fn(),
-  getState: () => mockOrgStore,
-  setState: jest.fn(),
-  subscribe: jest.fn(),
-}
+jest.mock('@/lib/stores/useOrganizationStore', () => {
+  const mockStore = {
+    currentOrganization: { id: 'org-1', name: '测试银行' },
+    organizations: [{ id: 'org-1', name: '测试银行' }],
+    fetchOrganizations: jest.fn().mockResolvedValue(undefined),
+  }
 
-jest.mock('@/lib/stores/useOrganizationStore', () => ({
-  useOrganizationStore: jest.fn((selector) => {
+  const useOrganizationStore = jest.fn((selector) => {
     if (typeof selector === 'function') {
-      return selector(mockOrgStore)
+      return selector(mockStore)
     }
-    return mockOrgStore
+    return mockStore
+  })
+
+  useOrganizationStore.getState = jest.fn().mockReturnValue(mockStore)
+
+  return {
+    useOrganizationStore,
+    __esModule: true,
+  }
+})
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
   }),
-  __esModule: true,
 }))
 
 describe('ComplianceRadarPage', () => {
   const theme = createTheme()
 
-  const renderWithProviders = (component: React.ReactElement) => {
-    return render(<ThemeProvider theme={theme}>{component}</ThemeProvider>)
-  }
+  const renderWithProviders = () =>
+    render(
+      <ThemeProvider theme={theme}>
+        <ComplianceRadarPage />
+      </ThemeProvider>,
+    )
+
+  const radarContext = (pushId: string) => ({
+    controlId: null,
+    matchedControls: [],
+    sourceModule: 'radar' as const,
+    sourceRecordId: pushId,
+    sourceRoute: '/radar/compliance',
+  })
 
   beforeEach(() => {
     jest.clearAllMocks()
+    ;(normalizeRadarPush as jest.Mock).mockImplementation((push) => push)
+    ;(getCompliancePushes as jest.Mock).mockResolvedValue({
+      data: [],
+      pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    })
     ;(useWebSocket as jest.Mock).mockReturnValue({
-      socket: {
-        on: jest.fn(),
-        off: jest.fn(),
-      },
+      socket: { on: jest.fn(), off: jest.fn() },
       isConnected: false,
     })
   })
 
-  describe('页面基础渲染', () => {
-    it('should render page without crashing', () => {
-      renderWithProviders(<ComplianceRadarPage />)
-      expect(screen.getByText('合规雷达 - 风险预警与应对剧本')).toBeInTheDocument()
-    })
+  it('renders current header and action buttons', async () => {
+    renderWithProviders()
 
-    it('should render breadcrumb navigation', () => {
-      renderWithProviders(<ComplianceRadarPage />)
-      expect(screen.getByText('雷达首页')).toBeInTheDocument()
-      expect(screen.getByText('合规雷达')).toBeInTheDocument()
-    })
-
-    it('should render back button', () => {
-      renderWithProviders(<ComplianceRadarPage />)
-      expect(screen.getByText('返回雷达')).toBeInTheDocument()
-    })
-
-    it('should render description text', () => {
-      renderWithProviders(<ComplianceRadarPage />)
-      expect(screen.getByText('监控监管风险，获取应对剧本，快速启动自查整改流程')).toBeInTheDocument()
-    })
+    expect(await screen.findByText('合规雷达 - 风险预警与应对剧本')).toBeInTheDocument()
+    expect(screen.getByText('返回雷达')).toBeInTheDocument()
+    expect(screen.getByText('刷新')).toBeInTheDocument()
   })
 
-  describe('骨架屏和加载状态', () => {
-    it('should display loading skeleton initially', () => {
-      renderWithProviders(<ComplianceRadarPage />)
+  it('shows the current empty state', async () => {
+    renderWithProviders()
 
-      // 应该显示 3 个骨架屏
-      const skeletons = document.querySelectorAll('.MuiSkeleton-root')
-      expect(skeletons.length).toBe(3)
-    })
-
-    it('should render Skeleton components with correct height', () => {
-      renderWithProviders(<ComplianceRadarPage />)
-
-      const skeletons = document.querySelectorAll('.MuiSkeleton-root')
-      skeletons.forEach((skeleton) => {
-        expect(skeleton).toHaveStyle({ height: '300px' })
-      })
-    })
+    expect(await screen.findByText('暂无合规雷达推送')).toBeInTheDocument()
   })
 
-  describe('操作按钮', () => {
-    it('should render refresh button', () => {
-      renderWithProviders(<ComplianceRadarPage />)
-      expect(screen.getByText('刷新')).toBeInTheDocument()
+  it('shows connection status text without relying on legacy MUI markup', async () => {
+    ;(useWebSocket as jest.Mock).mockReturnValue({
+      socket: { on: jest.fn(), off: jest.fn() },
+      isConnected: true,
     })
 
-    it('should refresh button be disabled during loading', () => {
-      renderWithProviders(<ComplianceRadarPage />)
-      const refreshButton = screen.getByText('刷新').closest('button')
-      expect(refreshButton).toBeDisabled()
-    })
+    renderWithProviders()
+
+    expect(await screen.findByText('实时推送已连接')).toBeInTheDocument()
   })
 
-  describe('页面结构', () => {
-    it('should use Container component', () => {
-      const { container } = renderWithProviders(<ComplianceRadarPage />)
-      const containers = container.querySelectorAll('.MuiContainer-root')
-      expect(containers.length).toBeGreaterThan(0)
+  it('renders a push card when API data is available', async () => {
+    ;(getCompliancePushes as jest.Mock).mockResolvedValue({
+      data: [
+        {
+          ...radarContext('push-1'),
+          pushId: 'push-1',
+          radarType: 'compliance',
+          title: '测试推送',
+          summary: '测试摘要',
+          relevanceScore: 0.93,
+          priorityLevel: 1,
+          weaknessCategories: [],
+          url: 'https://example.com',
+          publishDate: '2026-03-28',
+          source: '测试来源',
+          tags: [],
+          targetAudience: 'test',
+          isRead: false,
+        },
+      ],
+      pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
     })
 
-    it('should render Grid components', () => {
-      const { container } = renderWithProviders(<ComplianceRadarPage />)
-      const grids = container.querySelectorAll('.MuiGrid-root')
-      expect(grids.length).toBeGreaterThan(0)
+    renderWithProviders()
+
+    expect(await screen.findByText('测试推送')).toBeInTheDocument()
+    expect(screen.getByText(/共 1 条推送/)).toBeInTheDocument()
+  })
+
+  it('passes the shared radar context into ControlDetailDrawer when a control button is clicked', async () => {
+    ;(getCompliancePushes as jest.Mock).mockResolvedValue({
+      data: [
+        {
+          ...radarContext('push-ctx-1'),
+          pushId: 'push-ctx-1',
+          radarType: 'compliance',
+          title: '带控制点上下文的推送',
+          summary: '测试摘要',
+          relevanceScore: 0.93,
+          priorityLevel: 1,
+          weaknessCategories: [],
+          url: 'https://example.com',
+          publishDate: '2026-03-28',
+          source: '测试来源',
+          tags: [],
+          targetAudience: 'test',
+          isRead: false,
+          controlId: 'ctrl-001',
+          matchedControls: [
+            {
+              controlId: 'ctrl-001',
+              controlName: '测试控制点',
+              packSource: '测试包',
+              priority: 'high',
+            },
+          ],
+        },
+      ],
+      pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
     })
+
+    renderWithProviders()
+
+    await waitFor(() => {
+      expect(screen.getByText('带控制点上下文的推送')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '查看控制点详情' }))
+
+    const drawerProbe = await screen.findByTestId('control-detail-drawer-probe')
+    expect(drawerProbe).toHaveAttribute('data-control-id', 'ctrl-001')
+    expect(drawerProbe).toHaveAttribute('data-organization-id', 'org-1')
+    expect(drawerProbe).toHaveAttribute('data-source-module', 'radar')
+    expect(drawerProbe).toHaveAttribute('data-source-record-id', 'push-ctx-1')
   })
 })

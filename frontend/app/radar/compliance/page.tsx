@@ -6,7 +6,7 @@ import { AlertTriangle, RefreshCw, CheckCircle, AlertCircle, Gavel, ArrowLeft } 
 import { PushCard } from '@/components/radar/PushCard'
 import { CompliancePlaybookModal } from '@/components/radar/CompliancePlaybookModal'
 import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
-import { getCompliancePushes, RadarPush } from '@/lib/api/radar'
+import { getCompliancePushes, normalizeRadarPush, RadarPush } from '@/lib/api/radar'
 import { useWebSocket } from '@/lib/hooks/useWebSocket'
 import { useOrganizationStore } from '@/lib/stores/useOrganizationStore'
 import { Button } from '@/components/ui/button'
@@ -76,14 +76,23 @@ export default function ComplianceRadarPage() {
   useEffect(() => {
     if (!socket) return
 
-    socket.on('radar:push:new', (newPush: RadarPush) => {
-      if (newPush.radarType === 'compliance') {
-        setPushes((prev) => [newPush, ...prev])
+    socket.on('radar:push:new', (newPush: unknown) => {
+      let normalizedPush: RadarPush
+
+      try {
+        normalizedPush = normalizeRadarPush(newPush, 'ComplianceRadarPage websocket')
+      } catch (error) {
+        console.error('Ignoring invalid radar push payload:', error)
+        return
+      }
+
+      if (normalizedPush.radarType === 'compliance') {
+        setPushes((prev) => [normalizedPush, ...prev])
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('合规雷达新推送', {
-            body: newPush.title,
+            body: normalizedPush.title,
             icon: '/radar-icon-compliance.png',
-            tag: newPush.pushId,
+            tag: normalizedPush.pushId,
           })
         }
       }

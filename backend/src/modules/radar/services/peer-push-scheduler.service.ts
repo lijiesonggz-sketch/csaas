@@ -24,6 +24,16 @@ export interface PeerMonitoringPushEventData {
   pushId: string
   radarType: 'industry'
   pushType: 'peer-monitoring'
+  controlId: string | null
+  matchedControls: Array<{
+    controlId: string
+    controlName: string
+    packSource: string
+    priority: string
+  }>
+  sourceModule: 'radar'
+  sourceRecordId: string
+  sourceRoute: string
   peerName: string
   peerLogo?: string
   title: string
@@ -356,6 +366,11 @@ export class PeerPushSchedulerService {
       pushId: push.id,
       radarType: 'industry',
       pushType: 'peer-monitoring',
+      controlId: null,
+      matchedControls: [],
+      sourceModule: 'radar',
+      sourceRecordId: push.id,
+      sourceRoute: '/radar/industry',
       peerName: push.peerName || analyzedContent.peerName || 'Unknown',
       // TODO: peerLogo 当前未在数据模型中存储，未来可从 PeerRegistry 或 RadarSource 获取
       peerLogo: undefined,
@@ -383,10 +398,7 @@ export class PeerPushSchedulerService {
 
       if (hasOnlineUsers) {
         // 3c. 通过 WebSocket 发送
-        this.tasksGateway.server.to(`org:${push.organizationId}`).emit('radar:push:new', {
-          type: 'radar:push:new',
-          data: eventData,
-        })
+        this.tasksGateway.server.to(`org:${push.organizationId}`).emit('radar:push:new', eventData)
         this.logger.debug(`Sent peer push ${push.id} to organization ${push.organizationId} (online users detected)`)
       } else {
         this.logger.debug(`Organization ${push.organizationId} has no online users, push ${push.id} marked as sent but not delivered via WebSocket`)

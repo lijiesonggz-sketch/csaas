@@ -12,6 +12,7 @@ import { PeerMonitoringDetailModal } from '@/components/radar/PeerMonitoringDeta
 import { PeerMonitoringFilter } from '@/components/radar/PeerMonitoringFilter'
 import {
   getIndustryPushes,
+  normalizeRadarPush,
   getWatchedPeers,
   getPeerMonitoringPushes,
   markPeerMonitoringPushAsRead,
@@ -174,12 +175,21 @@ export default function IndustryRadarPage() {
   useEffect(() => {
     if (!socket) return
 
-    socket.on('radar:push:new', (newPush: RadarPush) => {
-      if (newPush.radarType === 'industry') {
-        setPushes((prev) => [newPush, ...prev])
+    socket.on('radar:push:new', (newPush: unknown) => {
+      let normalizedPush: RadarPush
+
+      try {
+        normalizedPush = normalizeRadarPush(newPush, 'IndustryRadarPage websocket')
+      } catch (error) {
+        console.error('Ignoring invalid radar push payload:', error)
+        return
+      }
+
+      if (normalizedPush.radarType === 'industry') {
+        setPushes((prev) => [normalizedPush, ...prev])
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('行业雷达新推送', {
-            body: newPush.title,
+            body: normalizedPush.title,
             icon: '/radar-icon.png',
           })
         }

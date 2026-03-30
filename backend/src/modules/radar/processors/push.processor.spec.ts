@@ -290,6 +290,11 @@ describe('PushProcessor - ROI Analysis Integration (Story 2.4)', () => {
           tags: ['零信任'],
           targetAudience: 'IT总监',
           roiAnalysis: mockROIAnalysis,
+          controlId: null,
+          matchedControls: [],
+          sourceModule: 'radar',
+          sourceRecordId: 'push-1',
+          sourceRoute: '/radar/tech',
           timestamp: expect.any(String),
         }),
       )

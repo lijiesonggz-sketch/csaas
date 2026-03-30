@@ -474,15 +474,20 @@ describe('PeerPushSchedulerService', () => {
       await service.sendPushImmediately('push-123')
 
       expect(tasksGateway.server.to).toHaveBeenCalledWith(`org:${mockOrganizationId}`)
-      expect(emitMock).toHaveBeenCalledWith('radar:push:new', {
-        type: 'radar:push:new',
-        data: expect.objectContaining({
+      expect(emitMock).toHaveBeenCalledWith(
+        'radar:push:new',
+        expect.objectContaining({
           pushId: 'push-123',
           radarType: 'industry',
           pushType: 'peer-monitoring',
+          controlId: null,
+          matchedControls: [],
+          sourceModule: 'radar',
+          sourceRecordId: 'push-123',
+          sourceRoute: '/radar/industry',
           peerName: mockPeerName,
         }),
-      })
+      )
     })
   })
 

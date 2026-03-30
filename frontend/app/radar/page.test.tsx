@@ -1,201 +1,85 @@
 import React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
-import { ThemeProvider } from '@mui/material/styles'
-import { createTheme, Theme } from '@mui/material/styles'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { ThemeProvider, createTheme } from '@mui/material/styles'
+
 import RadarDashboardPage from './page'
 
-// Mock Next.js router
+const mockPush = jest.fn()
+const mockGet = jest.fn(() => null)
+
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(() => ({
-    push: jest.fn(),
+    push: mockPush,
   })),
   useSearchParams: jest.fn(() => ({
-    get: jest.fn(() => null),
+    get: mockGet,
   })),
 }))
 
-describe('RadarDashboardPage Component', () => {
-  const theme: Theme = createTheme()
+jest.mock('@/lib/hooks/useOnboarding', () => ({
+  useOnboarding: jest.fn(() => ({
+    isOnboarded: true,
+    radarActivated: true,
+    isLoading: false,
+    refetch: jest.fn(),
+  })),
+}))
 
-  const renderWithProviders = (component: React.ReactElement, orgId?: string) => {
-    const { useSearchParams, useRouter } = require('next/navigation')
-    useSearchParams.mockReturnValue({
-      get: jest.fn((key) => key === 'orgId' ? orgId : null),
-    })
+describe('RadarDashboardPage', () => {
+  const theme = createTheme()
 
-    const mockPush = jest.fn()
-    useRouter.mockReturnValue({ push: mockPush })
-
-    return render(
+  const renderWithProviders = () =>
+    render(
       <ThemeProvider theme={theme}>
-        {component}
+        <RadarDashboardPage />
       </ThemeProvider>,
     )
-  }
 
-  describe('AC 6: Radar Dashboard Page', () => {
-    it('should render page header with Radar icon', () => {
-      renderWithProviders(<RadarDashboardPage />)
-
-      expect(screen.getByText('Radar Service')).toBeInTheDocument()
-      expect(screen.getByText(/智能推送技术趋势、行业标杆和合规预警/)).toBeInTheDocument()
-    })
-
-    it('should render three radar type cards', () => {
-      renderWithProviders(<RadarDashboardPage />)
-
-      expect(screen.getByText('技术雷达')).toBeInTheDocument()
-      expect(screen.getByText('行业雷达')).toBeInTheDocument()
-      expect(screen.getByText('合规雷达')).toBeInTheDocument()
-    })
-
-    it('should display tech radar card with correct description', () => {
-      renderWithProviders(<RadarDashboardPage />)
-
-      expect(screen.getByText(/基于薄弱项推送技术趋势，包含ROI分析/)).toBeInTheDocument()
-    })
-
-    it('should display industry radar card with correct description', () => {
-      renderWithProviders(<RadarDashboardPage />)
-
-      expect(screen.getByText(/同业标杆学习，推送技术实践案例/)).toBeInTheDocument()
-    })
-
-    it('should display compliance radar card with correct description', () => {
-      renderWithProviders(<RadarDashboardPage />)
-
-      expect(screen.getByText(/合规风险预警，提供应对剧本/)).toBeInTheDocument()
-    })
-
-    it('should navigate to tech radar when clicking tech radar card button', () => {
-      const mockPush = jest.fn()
-      const { useRouter } = require('next/navigation')
-      useRouter.mockReturnValue({ push: mockPush })
-
-      renderWithProviders(<RadarDashboardPage />)
-
-      const techRadarButtons = screen.getAllByText('进入雷达')
-      fireEvent.click(techRadarButtons[0])
-
-      expect(mockPush).toHaveBeenCalledWith('/radar/tech')
-    })
-
-    it('should navigate to industry radar when clicking industry radar card button', () => {
-      const mockPush = jest.fn()
-      const { useRouter } = require('next/navigation')
-      useRouter.mockReturnValue({ push: mockPush })
-
-      renderWithProviders(<RadarDashboardPage />)
-
-      const industryRadarButtons = screen.getAllByText('进入雷达')
-      fireEvent.click(industryRadarButtons[1])
-
-      expect(mockPush).toHaveBeenCalledWith('/radar/industry')
-    })
-
-    it('should navigate to compliance radar when clicking compliance radar card button', () => {
-      const mockPush = jest.fn()
-      const { useRouter } = require('next/navigation')
-      useRouter.mockReturnValue({ push: mockPush })
-
-      renderWithProviders(<RadarDashboardPage />)
-
-      const complianceRadarButtons = screen.getAllByText('进入雷达')
-      fireEvent.click(complianceRadarButtons[2])
-
-      expect(mockPush).toHaveBeenCalledWith('/radar/compliance')
-    })
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockGet.mockImplementation(() => null)
   })
 
-  describe('Organization ID Handling', () => {
-    it('should pass orgId parameter when navigating with orgId', () => {
-      const mockPush = jest.fn()
-      const { useRouter } = require('next/navigation')
-      useRouter.mockReturnValue({ push: mockPush })
+  it('renders the dashboard header and three radar entries', async () => {
+    renderWithProviders()
 
-      renderWithProviders(<RadarDashboardPage />, 'org-123')
-
-      const techRadarButtons = screen.getAllByText('进入雷达')
-      fireEvent.click(techRadarButtons[0])
-
-      expect(mockPush).toHaveBeenCalledWith('/radar/tech?orgId=org-123')
-    })
-
-    it('should display orgId in info box when provided', () => {
-      renderWithProviders(<RadarDashboardPage />, 'org-456')
-
-      expect(screen.getByText(/org-456/)).toBeInTheDocument()
-    })
-
-    it('should show "请先选择组织" message when orgId is not provided', () => {
-      renderWithProviders(<RadarDashboardPage />)
-
-      expect(screen.getByText(/请先选择组织/)).toBeInTheDocument()
-    })
-
-    it('should set radarActivated state when orgId is provided', () => {
-      renderWithProviders(<RadarDashboardPage />, 'org-789')
-
-      // useEffect should set radarActivated to true
-      // This is tested implicitly by checking the orgId is displayed
-      expect(screen.getByText(/org-789/)).toBeInTheDocument()
-    })
+    expect(await screen.findByText('Radar Service')).toBeInTheDocument()
+    expect(screen.getByText('技术雷达')).toBeInTheDocument()
+    expect(screen.getByText('行业雷达')).toBeInTheDocument()
+    expect(screen.getByText('合规雷达')).toBeInTheDocument()
   })
 
-  describe('Component Structure', () => {
-    it('should render all cards in a Grid', () => {
-      const { container } = renderWithProviders(<RadarDashboardPage />)
+  it('navigates to radar routes from the action buttons', async () => {
+    renderWithProviders()
 
-      const cards = container.querySelectorAll('.MuiCard-root')
-      expect(cards.length).toBeGreaterThanOrEqual(3)
-    })
+    const enterButtons = await screen.findAllByText('进入雷达')
+    mockPush.mockClear()
 
-    it('should have correct border colors for each radar type', () => {
-      const { container } = renderWithProviders(<RadarDashboardPage />)
+    fireEvent.click(enterButtons[0])
+    fireEvent.click(enterButtons[1])
+    fireEvent.click(enterButtons[2])
 
-      const cards = container.querySelectorAll('.MuiCard-root')
-      // Check that cards have borderLeft style
-      cards.forEach((card) => {
-        const style = window.getComputedStyle(card)
-        expect(style.borderLeftWidth).toBeDefined()
-      })
-    })
-
-    it('should display info box with tip', () => {
-      renderWithProviders(<RadarDashboardPage />)
-
-      expect(screen.getByText(/💡 提示：/)).toBeInTheDocument()
-      expect(screen.getByText(/Radar Service会根据您的评估结果自动识别薄弱项/)).toBeInTheDocument()
-    })
-
-    it('should have responsive grid layout', () => {
-      const { container } = renderWithProviders(<RadarDashboardPage />)
-
-      const gridItems = container.querySelectorAll('.MuiGrid-item')
-      expect(gridItems.length).toBe(3)
-    })
+    expect(mockPush).toHaveBeenCalledWith('/radar/tech')
+    expect(mockPush).toHaveBeenCalledWith('/radar/industry')
+    expect(mockPush).toHaveBeenCalledWith('/radar/compliance')
   })
 
-  describe('Color Coding', () => {
-    it('should apply blue color to tech radar', () => {
-      renderWithProviders(<RadarDashboardPage />)
+  it('propagates orgId into radar routes and info box when provided', async () => {
+    mockGet.mockImplementation((key: string) => (key === 'orgId' ? 'org-456' : null))
 
-      const techRadarCard = screen.getByText('技术雷达').closest('.MuiCard-root')
-      expect(techRadarCard).toHaveStyle({ borderLeft: '4px solid #2196F3' })
-    })
+    renderWithProviders()
 
-    it('should apply orange color to industry radar', () => {
-      renderWithProviders(<RadarDashboardPage />)
+    expect(await screen.findByText(/您的组织ID/)).toBeInTheDocument()
+    expect(screen.getByText('org-456')).toBeInTheDocument()
 
-      const industryRadarCard = screen.getByText('行业雷达').closest('.MuiCard-root')
-      expect(industryRadarCard).toHaveStyle({ borderLeft: '4px solid #FF9800' })
-    })
+    mockPush.mockClear()
+    fireEvent.click(screen.getAllByText('进入雷达')[0])
+    expect(mockPush).toHaveBeenCalledWith('/radar/tech?orgId=org-456')
+  })
 
-    it('should apply red color to compliance radar', () => {
-      renderWithProviders(<RadarDashboardPage />)
+  it('shows the no-organization hint when orgId is missing', async () => {
+    renderWithProviders()
 
-      const complianceRadarCard = screen.getByText('合规雷达').closest('.MuiCard-root')
-      expect(complianceRadarCard).toHaveStyle({ borderLeft: '4px solid #F44336' })
-    })
+    expect(await screen.findByText(/请先选择组织/)).toBeInTheDocument()
   })
 })

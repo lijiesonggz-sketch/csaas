@@ -20,12 +20,20 @@ jest.mock('@/lib/api/radar')
  */
 describe('PushDetailModal Component', () => {
   const theme: Theme = createTheme()
+  const buildRadarContext = (pushId: string, sourceRoute = '/radar/tech') => ({
+    controlId: null,
+    matchedControls: [],
+    sourceModule: 'radar' as const,
+    sourceRecordId: pushId,
+    sourceRoute,
+  })
 
   const renderWithProviders = (component: React.ReactElement) => {
     return render(<ThemeProvider theme={theme}>{component}</ThemeProvider>)
   }
 
   const mockPushWithROI: RadarPush = {
+    ...buildRadarContext('push-1'),
     pushId: 'push-1',
     radarType: 'tech',
     title: '零信任架构在金融行业的应用',
@@ -53,6 +61,7 @@ describe('PushDetailModal Component', () => {
   const mockPushWithoutROI: RadarPush = {
     ...mockPushWithROI,
     pushId: 'push-2',
+    sourceRecordId: 'push-2',
     roiAnalysis: undefined,
   }
 
@@ -453,6 +462,7 @@ describe('PushDetailModal Component', () => {
 
   describe('Industry Radar Layout (Story 3.3)', () => {
     const mockIndustryPush: RadarPush = {
+      ...buildRadarContext('industry-1', '/radar/industry'),
       pushId: 'industry-1',
       radarType: 'industry',
       title: '某银行云原生转型实践案例',

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { TrendingUp, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react'
 import { PushCard } from '@/components/radar/PushCard'
 import { PushDetailModal } from '@/components/radar/PushDetailModal'
-import { getRadarPushes, RadarPush } from '@/lib/api/radar'
+import { getRadarPushes, normalizeRadarPush, RadarPush } from '@/lib/api/radar'
 import { useWebSocket } from '@/lib/hooks/useWebSocket'
 import { useOrganizationStore } from '@/lib/stores/useOrganizationStore'
 import { Button } from '@/components/ui/button'
@@ -75,13 +75,22 @@ export default function TechRadarPage() {
   useEffect(() => {
     if (!socket || !isConnected) return
 
-    socket.on('radar:push:new', (newPush: RadarPush) => {
-      if (newPush.radarType === 'tech') {
-        setPushes((prev) => [newPush, ...prev])
+    socket.on('radar:push:new', (newPush: unknown) => {
+      let normalizedPush: RadarPush
+
+      try {
+        normalizedPush = normalizeRadarPush(newPush, 'TechRadarPage websocket')
+      } catch (error) {
+        console.error('Ignoring invalid radar push payload:', error)
+        return
+      }
+
+      if (normalizedPush.radarType === 'tech') {
+        setPushes((prev) => [normalizedPush, ...prev])
 
         if ('Notification' in window && Notification.permission === 'granted') {
           new Notification('技术雷达新推送', {
-            body: newPush.title,
+            body: normalizedPush.title,
             icon: '/radar-icon.png',
           })
         }

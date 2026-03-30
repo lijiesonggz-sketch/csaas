@@ -216,6 +216,12 @@ export class PushProcessor extends WorkerHost {
       targetAudience: content.targetAudience, // 目标受众
       roiAnalysis: content.roiAnalysis, // Story 2.4: ROI分析结果
       brandName, // Story 6.3: 品牌名称
+      // Story 7.1: formal radar consumer contract must expose explicit control context
+      controlId: null,
+      matchedControls: [],
+      sourceModule: 'radar',
+      sourceRecordId: push.id,
+      sourceRoute: `/radar/${push.radarType}`,
       timestamp: new Date().toISOString(),
     }
 

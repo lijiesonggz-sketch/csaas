@@ -14,58 +14,15 @@ import {
   Bookmark,
   HelpCircle,
 } from 'lucide-react'
+import type { RadarPush } from '@/lib/api/radar'
 import { formatChinaDate } from '@/lib/utils/dateTime'
 import { cn } from '@/lib/utils'
-
-/**
- * ROI分析数据结构
- */
-interface ROIAnalysis {
-  estimatedCost: string
-  expectedBenefit: string
-  roiEstimate: string
-  implementationPeriod: string
-  recommendedVendors: string[]
-}
 
 /**
  * 推送卡片属性
  */
 interface PushCardProps {
-  push: {
-    pushId: string
-    title: string
-    summary: string
-    relevanceScore: number
-    priorityLevel: 1 | 2 | 3
-    weaknessCategories: string[]
-    publishDate: string
-    source: string
-    roiAnalysis?: ROIAnalysis
-    // 行业雷达特定字段 (Story 3.3)
-    peerName?: string
-    practiceDescription?: string
-    estimatedCost?: string
-    implementationPeriod?: string
-    technicalEffect?: string
-    // 合规雷达特定字段 (Story 4.3)
-    complianceRiskCategory?: string
-    penaltyCase?: string
-    policyRequirements?: string
-    hasPlaybook?: boolean
-    playbookStatus?: 'ready' | 'generating' | 'failed'
-    sentAt?: string
-    // Story 6.3: 品牌信息
-    brandName?: string
-    // Story 7.2: 控制点上下文
-    controlId?: string | null
-    matchedControls?: Array<{
-      controlId: string
-      controlName: string
-      packSource: string
-      priority: string
-    }>
-  }
+  push: RadarPush
   variant?: 'tech' | 'industry' | 'compliance'
   isWatchedPeer?: boolean
   onViewDetail?: (pushId: string) => void
@@ -364,13 +321,13 @@ export const PushCard = React.memo(
           </Button>
 
           {/* Story 7.2: 控制点入口按钮 */}
-          {push.matchedControls && push.matchedControls.length > 0 && onViewControlDetail && (
+          {push.matchedControls.length > 0 && onViewControlDetail && (
             <Button
               className="w-full"
               variant="outline"
               size="sm"
               onClick={() => {
-                const firstControl = push.matchedControls![0]
+                const firstControl = push.matchedControls[0]
                 onViewControlDetail(firstControl.controlId)
               }}
             >
@@ -394,7 +351,9 @@ export const PushCard = React.memo(
       prevProps.push.priorityLevel === nextProps.push.priorityLevel &&
       prevProps.push.complianceRiskCategory === nextProps.push.complianceRiskCategory &&
       prevProps.push.penaltyCase === nextProps.push.penaltyCase &&
+      prevProps.push.controlId === nextProps.push.controlId &&
       prevProps.push.hasPlaybook === nextProps.push.hasPlaybook &&
+      JSON.stringify(prevProps.push.matchedControls) === JSON.stringify(nextProps.push.matchedControls) &&
       JSON.stringify(prevProps.push.roiAnalysis) === JSON.stringify(nextProps.push.roiAnalysis)
     )
   }

@@ -22,6 +22,7 @@ import { CurrentTenant } from '../../organizations/decorators/current-tenant.dec
 import { CurrentOrg } from '../../organizations/decorators/current-org.decorator'
 import { IsOptional, IsNumber, IsString, IsEnum, IsInt, Min } from 'class-validator'
 import { Type } from 'class-transformer'
+import type { ControlContext, SourceModule } from '../../compliance-intelligence/dto/unified-control-context.dto'
 
 /**
  * DTO for get push history query
@@ -91,6 +92,19 @@ export class RadarPushController {
     @InjectRepository(RawContent)
     private readonly rawContentRepo: Repository<RawContent>,
   ) {}
+
+  private buildRadarControlContext(
+    push: Pick<RadarPush, 'id' | 'radarType'>,
+  ): ControlContext {
+    return {
+      controlId: null,
+      matchedControls: [],
+      sourceModule: 'radar' as SourceModule,
+      sourceRecordId: push.id,
+      // Use the real consumer page route instead of inventing a non-existent detail route.
+      sourceRoute: `/radar/${push.radarType}`,
+    }
+  }
 
   /**
    * 查询推送历史
@@ -175,6 +189,7 @@ export class RadarPushController {
       const transformedPushes = pushes.map(push => {
         const analyzed = analyzedMap.get(push.contentId)
         const raw = analyzed ? rawMap.get(analyzed.contentId) : null
+        const controlContext = this.buildRadarControlContext(push)
 
         // Transform priority level from string to number
         const priorityMap: Record<string, 1 | 2 | 3> = {
@@ -200,6 +215,7 @@ export class RadarPushController {
           roiAnalysis: analyzed?.roiAnalysis || undefined,
           isRead: push.isRead || false,
           readAt: push.readAt,
+          ...controlContext,
         }
       })
 
@@ -255,6 +271,7 @@ export class RadarPushController {
           where: { id: analyzed.contentId },
         })
       : null
+    const controlContext = this.buildRadarControlContext(push)
 
     // Transform priority level from string to number
     const priorityMap: Record<string, 1 | 2 | 3> = {
@@ -280,6 +297,7 @@ export class RadarPushController {
       roiAnalysis: analyzed?.roiAnalysis || undefined,
       isRead: push.isRead || false,
       readAt: push.readAt,
+      ...controlContext,
     }
   }
 

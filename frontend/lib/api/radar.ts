@@ -53,12 +53,58 @@ export interface RadarPush {
   playbookStatus?: 'ready' | 'generating' | 'failed'  // 剧本状态
   sentAt?: string                     // 发送时间 (用于排序)
 
-  // Story 7.2: 统一控制点上下文协议字段
-  controlId?: string | null           // 单控制点便捷字段
-  matchedControls?: MatchedControlReference[]  // 匹配的控制点列表
-  sourceModule?: 'radar' | 'report' | 'audit'  // 来源模块
-  sourceRecordId?: string             // 来源记录ID
-  sourceRoute?: string                // 来源路由
+  // Story 7.1: 正式雷达消费接口必须稳定返回统一控制点上下文协议字段
+  controlId: string | null
+  matchedControls: MatchedControlReference[]
+  sourceModule: 'radar'
+  sourceRecordId: string
+  sourceRoute: string
+}
+
+type RadarPushContractFields = Pick<
+  RadarPush,
+  'controlId' | 'matchedControls' | 'sourceModule' | 'sourceRecordId' | 'sourceRoute'
+>
+
+function hasRadarPushContractFields(value: unknown): value is RadarPushContractFields {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<RadarPushContractFields>
+
+  return (
+    Object.prototype.hasOwnProperty.call(candidate, 'controlId') &&
+    Array.isArray(candidate.matchedControls) &&
+    candidate.sourceModule === 'radar' &&
+    typeof candidate.sourceRecordId === 'string' &&
+    candidate.sourceRecordId.length > 0 &&
+    typeof candidate.sourceRoute === 'string' &&
+    candidate.sourceRoute.length > 0
+  )
+}
+
+function assertRadarPushContract(value: unknown, context: string): asserts value is RadarPush {
+  if (!hasRadarPushContractFields(value)) {
+    throw new Error(`Radar push contract violation in ${context}: missing unified control context fields`)
+  }
+}
+
+export function normalizeRadarPush(push: unknown, context = 'radar payload'): RadarPush {
+  assertRadarPushContract(push, context)
+  return push
+}
+
+function normalizeRadarPushesResponse(
+  response: RadarPushesResponse,
+  context: string,
+): RadarPushesResponse {
+  return {
+    ...response,
+    data: response.data.map((push, index) =>
+      normalizeRadarPush(push, `${context} item ${index}`),
+    ),
+  }
 }
 
 /**
@@ -110,7 +156,7 @@ export async function getRadarPushes(filters?: {
 
   console.log('[getRadarPushes] API返回数据:', data)
 
-  return data
+  return normalizeRadarPushesResponse(data, 'getRadarPushes')
 }
 
 /**
@@ -123,7 +169,7 @@ export async function getRadarPush(pushId: string): Promise<RadarPush> {
   // apiFetch 现在返回解析后的数据
   const data = await apiFetch(`/api/radar/pushes/${pushId}`)
 
-  return data
+  return normalizeRadarPush(data, `getRadarPush(${pushId})`)
 }
 
 /**
@@ -177,7 +223,7 @@ export async function getIndustryPushes(
 
   console.log('[getIndustryPushes] API返回数据:', data)
 
-  return data
+  return normalizeRadarPushesResponse(data, 'getIndustryPushes')
 }
 
 /**
@@ -189,7 +235,7 @@ export async function getIndustryPushes(
 export async function getIndustryPushDetail(pushId: string): Promise<RadarPush> {
   const data = await apiFetch(`/api/radar/pushes/${pushId}`)
 
-  return data
+  return normalizeRadarPush(data, `getIndustryPushDetail(${pushId})`)
 }
 
 /**
@@ -281,7 +327,7 @@ export async function getCompliancePushes(
 
   console.log('[getCompliancePushes] API返回数据:', data)
 
-  return data
+  return normalizeRadarPushesResponse(data, 'getCompliancePushes')
 }
 
 /**
@@ -873,4 +919,3 @@ export async function bookmarkPeerMonitoringPush(pushId: string, bookmark: boole
     body: JSON.stringify({ bookmark }),
   })
 }
-

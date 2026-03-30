@@ -5,12 +5,21 @@
  * 测试目标：验证行业雷达特定字段的TypeScript类型定义
  */
 
-import { RadarPush, ROIAnalysis } from './radar'
+import { normalizeRadarPush, RadarPush } from './radar'
 
 describe('RadarPush Interface - Industry Radar Fields', () => {
+  const radarContext = (sourceRoute: string, sourceRecordId: string) => ({
+    controlId: null,
+    matchedControls: [],
+    sourceModule: 'radar' as const,
+    sourceRecordId,
+    sourceRoute,
+  })
+
   describe('Type Safety', () => {
     it('should allow industry radar specific fields', () => {
       const industryPush: RadarPush = {
+        ...radarContext('/radar/industry', 'test-push-1'),
         pushId: 'test-push-1',
         radarType: 'industry',
         title: '某银行数字化转型实践',
@@ -40,6 +49,7 @@ describe('RadarPush Interface - Industry Radar Fields', () => {
 
     it('should allow tech radar without industry fields', () => {
       const techPush: RadarPush = {
+        ...radarContext('/radar/tech', 'test-push-2'),
         pushId: 'test-push-2',
         radarType: 'tech',
         title: 'Kubernetes容器编排技术',
@@ -70,6 +80,7 @@ describe('RadarPush Interface - Industry Radar Fields', () => {
     it('should make industry fields optional', () => {
       // 测试行业雷达字段为可选（Optional）
       const pushWithoutIndustryFields: RadarPush = {
+        ...radarContext('/radar/industry', 'test-push-3'),
         pushId: 'test-push-3',
         radarType: 'industry',
         title: '测试推送',
@@ -137,6 +148,7 @@ describe('RadarPush Interface - Industry Radar Fields', () => {
   describe('RadarType Discrimination', () => {
     it('should differentiate industry radar from tech radar', () => {
       const industryPush: RadarPush = {
+        ...radarContext('/radar/industry', 'industry-1'),
         pushId: 'industry-1',
         radarType: 'industry',
         title: '行业案例',
@@ -154,6 +166,7 @@ describe('RadarPush Interface - Industry Radar Fields', () => {
       }
 
       const techPush: RadarPush = {
+        ...radarContext('/radar/tech', 'tech-1'),
         pushId: 'tech-1',
         radarType: 'tech',
         title: '技术方案',
@@ -186,6 +199,18 @@ describe('RadarPush Interface - Industry Radar Fields', () => {
       if (techPush.radarType === 'tech') {
         expect(techPush.roiAnalysis).toBeDefined()
       }
+    })
+  })
+
+  describe('Contract Enforcement', () => {
+    it('should reject payloads missing unified control context fields', () => {
+      expect(() =>
+        normalizeRadarPush({
+          pushId: 'broken-push',
+          radarType: 'tech',
+          title: 'broken',
+        })
+      ).toThrow(/Radar push contract violation/)
     })
   })
 })
