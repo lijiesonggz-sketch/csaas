@@ -142,13 +142,20 @@ export function useTaskProgressPolling(options: UseTaskProgressPollingOptions = 
 
   // 启动轮询
   useEffect(() => {
+    isMountedRef.current = true
     startPolling()
 
     return () => {
       stopPolling()
-      isMountedRef.current = false
     }
   }, [startPolling, stopPolling])
+
+  // 仅在组件真正卸载时标记为 unmounted，避免 taskId 变化时误伤后续轮询
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   // 页面可见性检测：只在页面可见时轮询
   useEffect(() => {

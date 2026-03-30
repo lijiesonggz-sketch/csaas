@@ -730,6 +730,28 @@ export class AITaskProcessor extends WorkerHost {
             `Standard interpretation mode: ${useTwoPhaseMode ? 'TWO-PHASE (batch size=' + batchSize + ')' : 'ONE-PASS'}, interpretationMode: ${processedInput.interpretationMode || 'enterprise'}`,
           )
 
+          await this.aiTaskRepo.update(taskId, {
+            progressDetails: {
+              gpt4: {
+                status: 'generating',
+              },
+              phase: useTwoPhaseMode ? 'extraction' : 'interpretation',
+              stage: useTwoPhaseMode ? 'extracting_clauses' : 'interpreting_standard',
+              stageMessage: useTwoPhaseMode
+                ? '正在提取条款并准备批量解读...'
+                : '正在解读标准内容...',
+              percentage: useTwoPhaseMode ? 0 : 15,
+            },
+            generationStage: GenerationStage.GENERATING_MODELS,
+          })
+
+          this.tasksGateway.emitTaskProgress({
+            taskId,
+            progress: useTwoPhaseMode ? 0 : 15,
+            message: useTwoPhaseMode ? '正在提取条款并准备批量解读...' : '正在解读标准内容...',
+            currentStep: useTwoPhaseMode ? 'extracting_clauses' : 'interpreting_standard',
+          })
+
           if (useTwoPhaseMode) {
             // 两阶段模式：先提取条款清单，再批量解读（确保100%条款覆盖）
             this.logger.log(`[Phase 1/2] Starting clause extraction and batch interpretation...`)

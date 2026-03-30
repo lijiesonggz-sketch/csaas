@@ -326,4 +326,32 @@ describe('Questionnaire Resume Generation (TDD)', () => {
       expect(result.clustersToGenerate).not.toContain('cluster_1')
     })
   })
+  describe('Standard Interpretation Status Messaging', () => {
+    it('should return interpretation-specific processing message when progress details are still minimal', async () => {
+      aiTaskRepo.findOne = jest.fn().mockResolvedValue({
+        id: 'standard-task-id',
+        projectId: mockProjectId,
+        type: 'standard_interpretation',
+        status: 'processing',
+        generationStage: 'generating_models',
+        createdAt: new Date(Date.now() - 60000).toISOString(),
+        progressDetails: {
+          gpt4: {
+            status: 'generating',
+            message: '正在解读标准内容...',
+          },
+          stage: 'interpreting_standard',
+          stageMessage: '正在解读标准内容...',
+          percentage: 15,
+        },
+      })
+
+      const status = await service.getTaskStatus('standard-task-id')
+
+      expect(status.status).toBe('processing')
+      expect(status.message).toBe('正在解读标准内容...')
+      expect(status.stage).toBe('generating_models')
+      expect(status.progress.percentage).toBe(15)
+    })
+  })
 })

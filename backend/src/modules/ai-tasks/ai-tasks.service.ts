@@ -186,13 +186,17 @@ export class AITasksService {
     const stage = task.generationStage || 'pending'
 
     // 针对标准解读任务的特殊消息
-    if (task.type === 'standard_interpretation' && details.totalClauses > 0) {
-      if (details.phase === 'extraction') {
+    if (task.type === 'standard_interpretation') {
+      if (details.totalClauses > 0 && details.phase === 'extraction') {
         message = `🔍 第一阶段：条款提取 - 共识别 ${details.totalClauses} 个条款`
-      } else if (details.phase === 'interpretation') {
+      } else if (details.totalClauses > 0 && details.phase === 'interpretation') {
         message = `📊 第二阶段：批量解读 - 批次 ${details.currentBatch || 0}/${details.totalBatches || 0}`
+      } else if (task.status === TaskStatus.COMPLETED) {
+        message = '✅ 标准解读完成'
+      } else if (task.status === TaskStatus.FAILED) {
+        message = `❌ 标准解读失败: ${task.errorMessage || '未知错误'}`
       } else {
-        message = details.stageMessage || '正在处理...'
+        message = details.stageMessage || '正在解读标准内容...'
       }
     } else {
       switch (stage) {

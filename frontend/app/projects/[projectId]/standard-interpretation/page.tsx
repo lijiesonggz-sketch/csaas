@@ -106,6 +106,13 @@ export default function StandardInterpretationPage() {
     },
   })
 
+  const progressPhaseLabel =
+    progress?.details?.phase === 'extraction'
+      ? '第一阶段：条款提取'
+      : progress?.details?.phase === 'interpretation'
+        ? '第二阶段：批量解读'
+        : '标准解读进行中'
+
   // 加载项目文档
   const loadDocuments = useCallback(async () => {
     try {
@@ -205,6 +212,8 @@ export default function StandardInterpretationPage() {
             content: documentsText,
           },
           interpretationMode: 'enterprise',
+          useTwoPhaseMode: true,
+          batchSize: 5,
         },
       })
 
@@ -354,17 +363,39 @@ export default function StandardInterpretationPage() {
 
               {loading && (
                 <div className="mt-6 max-w-md mx-auto">
-                  <Progress className="h-2 mb-4" />
-                  {progress && (
-                    <>
-                      <div className="flex justify-between mb-1 text-sm">
-                        <span className="text-slate-500">进度</span>
-                        <span className="text-slate-700">{progress.percentage || 0}%</span>
+                  <Progress value={progress?.progress?.percentage || progress?.percentage || 0} className="h-2 mb-4" />
+                  {progress ? (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left">
+                      <div className="mb-2 flex items-center justify-between text-sm">
+                        <span className="font-medium text-slate-700">{progressPhaseLabel}</span>
+                        <span className="font-semibold text-indigo-600">
+                          {progress.progress?.percentage || progress.percentage || 0}%
+                        </span>
                       </div>
-                      {progress.stage && (
-                        <p className="text-xs text-slate-500">{progress.stage}</p>
-                      )}
-                    </>
+
+                      {progress.details?.totalClauses ? (
+                        <p className="text-xs text-slate-500">
+                          已识别 {progress.details.totalClauses} 个条款
+                          {progress.details.totalBatches
+                            ? `，共 ${progress.details.totalBatches} 个批次`
+                            : ''}
+                        </p>
+                      ) : null}
+
+                      {progress.details?.phase === 'interpretation' &&
+                      progress.details?.currentBatch &&
+                      progress.details?.totalBatches ? (
+                        <p className="mt-2 text-xs font-medium text-slate-600">
+                          当前批次：{progress.details.currentBatch}/{progress.details.totalBatches}
+                        </p>
+                      ) : null}
+
+                      <p className="mt-2 text-xs text-slate-500">
+                        {progress.details?.stageMessage || progress.message || '正在处理...'}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">正在获取解读进度...</p>
                   )}
                 </div>
               )}

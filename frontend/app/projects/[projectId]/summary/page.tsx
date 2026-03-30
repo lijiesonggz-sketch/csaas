@@ -1,19 +1,18 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { FileText, Sparkles, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { AIGenerationAPI } from '@/lib/api/ai-generation'
 import { detectTextQuality } from '@/lib/utils/fileParser'
-import { ProjectsAPI } from '@/lib/api/projects'
 import { apiFetch } from '@/lib/utils/api'
 import SummaryResultDisplay from '@/components/features/SummaryResultDisplay'
 import type { GenerationResult } from '@/lib/types/ai-generation'
 import { useTaskProgressPolling } from '@/lib/hooks/useTaskProgressPolling'
 import { Progress } from '@/components/ui/progress'
+import { AITasksAPI, type AITask } from '@/lib/api/ai-tasks'
 
 export default function SummaryPage() {
   const params = useParams()
@@ -26,6 +25,62 @@ export default function SummaryPage() {
   const [initializing, setInitializing] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const buildDisplayResult = useCallback(
+    (task: AITask): GenerationResult => {
+      let parsedContent
+
+      if (task.result?.content) {
+        try {
+          parsedContent =
+            typeof task.result.content === 'string'
+              ? JSON.parse(task.result.content)
+              : task.result.content
+        } catch (parseError) {
+          console.error('Failed to parse summary result.content:', parseError)
+          parsedContent = task.result.content
+        }
+      } else if (task.result?.gpt4 || task.result?.claude || task.result?.domestic) {
+        parsedContent = task.result.gpt4 || task.result.claude || task.result.domestic
+      } else {
+        parsedContent = task.result
+      }
+
+      return {
+        id: task.id,
+        taskId: task.id,
+        projectId: task.projectId || projectId,
+        generationType: 'summary',
+        selectedModel: 'gpt4',
+        confidenceLevel: 'HIGH',
+        reviewStatus: 'PENDING',
+        version: 1,
+        createdAt: task.createdAt || new Date().toISOString(),
+        selectedResult: parsedContent,
+        qualityScores: null as any,
+        consistencyReport: null as any,
+        coverageReport: undefined,
+      }
+    },
+    [projectId],
+  )
+
+  const hydrateSummaryResult = useCallback(
+    async (activeTaskId: string) => {
+      const task = await AITasksAPI.getTask(activeTaskId)
+
+      if (!task?.result) {
+        throw new Error('综述任务已完成，但结果尚不可用')
+      }
+
+      const displayResult = buildDisplayResult(task)
+      setGenerationResult(displayResult)
+      setLoading(false)
+      setError(null)
+      return displayResult
+    },
+    [buildDisplayResult],
+  )
+
   const { progress } = useTaskProgressPolling({
     taskId: taskId || undefined,
     enabled: !!taskId && loading && !generationResult,
@@ -33,44 +88,8 @@ export default function SummaryPage() {
     onComplete: async (status) => {
       if (status.status === 'completed') {
         try {
-          const { AITasksAPI } = await import('@/lib/api/ai-tasks')
-          const task = await AITasksAPI.getTask(taskId!)
-          if (task && task.result) {
-            let parsedContent
-
-            if (task.result.content) {
-              try {
-                parsedContent = typeof task.result.content === 'string'
-                  ? JSON.parse(task.result.content)
-                  : task.result.content
-              } catch (e) {
-                console.error('Failed to parse result.content:', e)
-                parsedContent = task.result.content
-              }
-            } else if (task.result.gpt4 || task.result.claude || task.result.domestic) {
-              parsedContent = task.result.gpt4 || task.result.claude || task.result.domestic
-            } else {
-              parsedContent = task.result
-            }
-
-            const displayResult = {
-              id: task.id,
-              taskId: task.id,
-              projectId: task.projectId || projectId,
-              generationType: 'summary' as const,
-              selectedModel: 'gpt4' as const,
-              confidenceLevel: 'HIGH' as const,
-              reviewStatus: 'PENDING' as const,
-              version: 1,
-              createdAt: task.createdAt || new Date().toISOString(),
-              selectedResult: parsedContent,
-              qualityScores: null as any,
-              consistencyReport: null as any,
-              coverageReport: undefined,
-            }
-
-            setGenerationResult(displayResult as any)
-            setLoading(false)
+          if (taskId) {
+            await hydrateSummaryResult(taskId)
           }
         } catch (err) {
           console.error('Failed to fetch result:', err)
@@ -84,9 +103,10 @@ export default function SummaryPage() {
     },
   })
 
-  const loadSavedSummaryTask = async () => {
+  const loadSavedSummaryTask = useCallback(async () => {
     try {
       setInitializing(true)
+      setError(null)
       const project = await apiFetch(`/projects/${projectId}`)
 
       if (project.metadata?.summaryTaskId) {
@@ -94,49 +114,25 @@ export default function SummaryPage() {
         setTaskId(savedTaskId)
 
         try {
-          const { AITasksAPI } = await import('@/lib/api/ai-tasks')
           const task = await AITasksAPI.getTask(savedTaskId)
-          if (task && task.status === 'completed' && task.result) {
-            let parsedContent
 
-            if (task.result.content) {
-              try {
-                parsedContent = typeof task.result.content === 'string'
-                  ? JSON.parse(task.result.content)
-                  : task.result.content
-              } catch (e) {
-                console.error('Failed to parse result.content:', e)
-                parsedContent = task.result.content
-              }
-            } else if (task.result.gpt4 || task.result.claude || task.result.domestic) {
-              parsedContent = task.result.gpt4 || task.result.claude || task.result.domestic
-            } else {
-              parsedContent = task.result
-            }
-
-            const displayResult = {
-              id: task.id,
-              taskId: task.id,
-              projectId: task.projectId || projectId,
-              generationType: 'summary' as const,
-              selectedModel: 'gpt4' as const,
-              confidenceLevel: 'HIGH' as const,
-              reviewStatus: 'PENDING' as const,
-              version: 1,
-              createdAt: task.createdAt || new Date().toISOString(),
-              selectedResult: parsedContent,
-              qualityScores: null as any,
-              consistencyReport: null as any,
-              coverageReport: undefined,
-            }
-
-            setGenerationResult(displayResult)
-            setLoading(false)
+          if (task?.status === 'completed' && task.result) {
+            await hydrateSummaryResult(savedTaskId)
           } else {
-            setLoading(true)
+            const taskStatus = await AITasksAPI.getTaskStatus(savedTaskId)
+
+            if (taskStatus.status === 'completed') {
+              await hydrateSummaryResult(savedTaskId)
+            } else if (taskStatus.status === 'failed') {
+              setError(taskStatus.message || '生成失败')
+              setLoading(false)
+            } else {
+              setLoading(true)
+            }
           }
-        } catch (err: any) {
-          throw new Error('Task not completed')
+        } catch (taskError) {
+          console.error('加载已保存综述任务失败:', taskError)
+          setLoading(false)
         }
       }
     } catch (err) {
@@ -144,7 +140,7 @@ export default function SummaryPage() {
     } finally {
       setInitializing(false)
     }
-  }
+  }, [hydrateSummaryResult, projectId])
 
   useEffect(() => {
     loadSavedSummaryTask()
@@ -183,7 +179,6 @@ export default function SummaryPage() {
         return
       }
 
-      const { AITasksAPI } = await import('@/lib/api/ai-tasks')
       const task = await AITasksAPI.createTask({
         projectId,
         type: 'summary',
@@ -209,6 +204,23 @@ export default function SummaryPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!taskId || !loading || generationResult) {
+      return
+    }
+
+    if (progress?.status === 'completed') {
+      void hydrateSummaryResult(taskId).catch((hydrateError) => {
+        console.error('轮询完成后加载综述结果失败:', hydrateError)
+        setError('获取结果失败')
+        setLoading(false)
+      })
+    } else if (progress?.status === 'failed') {
+      setError(progress.message || '生成失败')
+      setLoading(false)
+    }
+  }, [generationResult, hydrateSummaryResult, loading, progress, taskId])
 
   return (
     <div className="w-full px-6 py-8">

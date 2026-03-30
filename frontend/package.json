@@ -8,7 +8,7 @@
     "dev": "next dev -p 3001",
     "prebuild": "npm run clean:next",
     "build": "next build",
-    "start": "next start -p 3001",
+    "start": "node scripts/start-standalone.js",
     "lint": "next lint",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
     "test": "jest",
