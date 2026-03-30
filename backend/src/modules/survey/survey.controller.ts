@@ -167,6 +167,41 @@ export class SurveyController {
     }
   }
 
+  @Post('project-questionnaire-snapshot/:projectId/publish')
+  @UseGuards(TenantGuard, OrganizationGuard)
+  async publishProjectQuestionnaireSnapshotDraft(
+    @CurrentTenant() tenantId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
+    @CurrentUser() currentUser: { id?: string; userId?: string },
+    @Param('projectId') projectId: string,
+  ) {
+    const snapshot = await this.projectQuestionnaireSnapshotService.publishDraft(
+      projectId,
+      currentOrg.organizationId,
+      currentUser?.userId ?? currentUser?.id ?? currentOrg.userId,
+    )
+
+    await this.auditLogService.log({
+      userId: currentOrg.userId,
+      organizationId: currentOrg.organizationId,
+      tenantId,
+      action: AuditAction.UPDATE,
+      entityType: 'ProjectQuestionnaireSnapshotPublish',
+      entityId: snapshot.questionnaireTaskId,
+      details: {
+        projectId: snapshot.projectId,
+        snapshotVersion: snapshot.snapshotVersion,
+        lifecycleStatus: snapshot.lifecycleStatus,
+      },
+    })
+
+    return {
+      success: true,
+      data: snapshot,
+      message: '项目问卷已发布',
+    }
+  }
+
   @Get('control-gap-input/:surveyResponseId')
   @UseGuards(TenantGuard, OrganizationGuard)
   async getControlGapInput(

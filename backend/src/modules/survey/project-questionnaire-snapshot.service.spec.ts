@@ -721,6 +721,218 @@ describe('ProjectQuestionnaireSnapshotService', () => {
     )
   })
 
+  it('should publish the latest draft snapshot and supersede the previous published snapshot', async () => {
+    projectRepository.findOne.mockResolvedValue({
+      id: PROJECT_ID,
+      organizationId: ORG_ID,
+    })
+    projectMembersService.checkPermission.mockResolvedValue(true)
+    aiTaskRepository.find.mockResolvedValue([
+      {
+        id: 'draft-task-id',
+        projectId: PROJECT_ID,
+        input: {
+          snapshotKind: 'kg_dynamic_questionnaire',
+          snapshotVersion: 2,
+        },
+        createdAt: new Date('2026-03-31T08:30:00.000Z'),
+      },
+      {
+        id: 'published-task-id',
+        projectId: PROJECT_ID,
+        input: {
+          snapshotKind: 'kg_dynamic_questionnaire',
+          snapshotVersion: 1,
+        },
+        createdAt: new Date('2026-03-25T16:00:00.000Z'),
+      },
+    ])
+    aiGenerationResultRepository.findOne.mockImplementation(async ({ where: { taskId } }: any) => {
+      if (taskId === 'draft-task-id') {
+        return {
+          taskId: 'draft-task-id',
+          selectedResult: {
+            questionnaire: [
+              {
+                question_id: 'Q-ACC-001',
+                question_template_id: 'question-yes-no',
+                source_question_id: 'question-yes-no',
+                control_id: 'control-a',
+                cluster_id: 'control-a',
+                cluster_name: '特权账号控制',
+                question_text: '项目层是否建立特权账号季度复核机制？',
+                question_type: 'SINGLE_CHOICE',
+                options: [
+                  { option_id: 'A', text: '已建立', score: 5 },
+                  { option_id: 'B', text: '未建立', score: 0 },
+                ],
+                required: true,
+                guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+                display_order: 1,
+                scoring_rule: { passValues: ['A'] },
+                is_project_custom: false,
+              },
+            ],
+            questionnaire_metadata: {
+              projectId: PROJECT_ID,
+              organizationId: ORG_ID,
+              generatedAt: '2026-03-31T08:30:00.000Z',
+              snapshotVersion: 2,
+              resolvedControlSetVersion: 'resolved-controls@2026-03-25T16:00:00.000Z',
+              questionSetVersion: 'question-set@2026-03-25T16:00:00.000Z',
+              sourceControlIds: ['control-a'],
+              missingQuestionControlIds: [],
+              snapshotKind: 'kg_dynamic_questionnaire',
+              total_questions: 1,
+              estimated_time_minutes: 1,
+              coverage_map: { 'control-a': 1 },
+              lifecycleStatus: 'draft',
+              publishedSnapshotTaskId: 'published-task-id',
+              baseSnapshotTaskId: 'published-task-id',
+              editVersion: 1,
+              lastEditedAt: '2026-03-31T08:30:00.000Z',
+              lastEditedBy: USER_ID,
+            },
+          },
+        }
+      }
+
+      return {
+        taskId: 'published-task-id',
+        selectedResult: {
+          questionnaire: [
+            {
+              question_id: 'Q-ACC-001',
+              question_template_id: 'question-yes-no',
+              source_question_id: 'question-yes-no',
+              control_id: 'control-a',
+              cluster_id: 'control-a',
+              cluster_name: '特权账号控制',
+              question_text: '机构是否建立特权账号定期复核机制？',
+              question_type: 'SINGLE_CHOICE',
+              options: [
+                { option_id: 'A', text: 'yes', score: 5 },
+                { option_id: 'B', text: 'not_yes', score: 0 },
+              ],
+              required: true,
+              guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+              display_order: 1,
+              scoring_rule: null,
+              is_project_custom: false,
+            },
+          ],
+          questionnaire_metadata: {
+            projectId: PROJECT_ID,
+            organizationId: ORG_ID,
+            generatedAt: '2026-03-25T16:00:00.000Z',
+            snapshotVersion: 1,
+            resolvedControlSetVersion: 'resolved-controls@2026-03-25T16:00:00.000Z',
+            questionSetVersion: 'question-set@2026-03-25T16:00:00.000Z',
+            sourceControlIds: ['control-a'],
+            missingQuestionControlIds: [],
+            snapshotKind: 'kg_dynamic_questionnaire',
+            total_questions: 1,
+            estimated_time_minutes: 1,
+            coverage_map: { 'control-a': 1 },
+            lifecycleStatus: 'published',
+            publishedSnapshotTaskId: 'published-task-id',
+            editVersion: 0,
+          },
+        },
+      }
+    })
+
+    const snapshot = await service.publishDraft(PROJECT_ID, ORG_ID, USER_ID)
+
+    expect(snapshot).toMatchObject({
+      questionnaireTaskId: 'draft-task-id',
+      lifecycleStatus: 'published',
+      publishedSnapshotTaskId: 'draft-task-id',
+    })
+    expect(aiTaskRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'draft-task-id',
+        input: expect.objectContaining({
+          lifecycleStatus: 'published',
+          publishedSnapshotTaskId: 'draft-task-id',
+        }),
+      }),
+    )
+    expect(aiTaskRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'published-task-id',
+        input: expect.objectContaining({
+          lifecycleStatus: 'superseded',
+          publishedSnapshotTaskId: 'draft-task-id',
+        }),
+      }),
+    )
+  })
+
+  it('should reject publish when no draft snapshot exists', async () => {
+    projectRepository.findOne.mockResolvedValue({
+      id: PROJECT_ID,
+      organizationId: ORG_ID,
+    })
+    projectMembersService.checkPermission.mockResolvedValue(true)
+    aiTaskRepository.find.mockResolvedValue([
+      {
+        id: 'published-task-id',
+        projectId: PROJECT_ID,
+        input: {
+          snapshotKind: 'kg_dynamic_questionnaire',
+          snapshotVersion: 1,
+        },
+        createdAt: new Date('2026-03-25T16:00:00.000Z'),
+      },
+    ])
+    aiGenerationResultRepository.findOne.mockResolvedValue({
+      selectedResult: {
+        questionnaire: [
+          {
+            question_id: 'Q-ACC-001',
+            question_template_id: 'question-yes-no',
+            source_question_id: 'question-yes-no',
+            control_id: 'control-a',
+            cluster_id: 'control-a',
+            cluster_name: '特权账号控制',
+            question_text: '机构是否建立特权账号定期复核机制？',
+            question_type: 'SINGLE_CHOICE',
+            options: [
+              { option_id: 'A', text: 'yes', score: 5 },
+              { option_id: 'B', text: 'not_yes', score: 0 },
+            ],
+            required: true,
+            guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+            display_order: 1,
+            scoring_rule: null,
+            is_project_custom: false,
+          },
+        ],
+        questionnaire_metadata: {
+          projectId: PROJECT_ID,
+          organizationId: ORG_ID,
+          generatedAt: '2026-03-25T16:00:00.000Z',
+          snapshotVersion: 1,
+          resolvedControlSetVersion: 'resolved-controls@2026-03-25T16:00:00.000Z',
+          questionSetVersion: 'question-set@2026-03-25T16:00:00.000Z',
+          sourceControlIds: ['control-a'],
+          missingQuestionControlIds: [],
+          snapshotKind: 'kg_dynamic_questionnaire',
+          total_questions: 1,
+          estimated_time_minutes: 1,
+          coverage_map: { 'control-a': 1 },
+          lifecycleStatus: 'published',
+          publishedSnapshotTaskId: 'published-task-id',
+        },
+      },
+    })
+
+    await expect(service.publishDraft(PROJECT_ID, ORG_ID, USER_ID)).rejects.toThrow(
+      'Questionnaire draft not found',
+    )
+  })
+
   it('should fail fast when a question cannot be mapped into the current survey runtime contract', async () => {
     projectRepository.findOne.mockResolvedValue({
       id: PROJECT_ID,

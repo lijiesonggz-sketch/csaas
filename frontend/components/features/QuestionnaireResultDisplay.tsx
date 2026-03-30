@@ -5,7 +5,7 @@
  * 展示50-100题问卷，支持题目编辑和覆盖率统计
  */
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -42,6 +42,9 @@ import type { GenerationResult } from '@/lib/types/ai-generation'
 
 interface Question {
   question_id: string
+  question_template_id?: string | null
+  source_question_id?: string | null
+  control_id?: string
   cluster_id: string
   cluster_name: string
   question_text: string
@@ -49,6 +52,9 @@ interface Question {
   options: QuestionOption[]
   required: boolean
   guidance: string
+  display_order?: number
+  scoring_rule?: Record<string, unknown> | null
+  is_project_custom?: boolean
   expected_answer?: boolean  // 判断题的期望答案
   dimension?: string
 }
@@ -69,16 +75,27 @@ interface QuestionnaireMetadata {
 
 interface QuestionnaireResultDisplayProps {
   result: GenerationResult
+  editable?: boolean
+  questions?: Question[]
+  onQuestionsChange?: (questions: Question[]) => void
 }
 
 export default function QuestionnaireResultDisplay({
   result,
+  editable = true,
+  questions: controlledQuestions,
+  onQuestionsChange,
 }: QuestionnaireResultDisplayProps) {
   const [editingQuestion, setEditingQuestion] = useState<string | null>(null)
   const [editedQuestions, setEditedQuestions] = useState<Question[]>(
-    result.selectedResult?.questionnaire || []
+    controlledQuestions || result.selectedResult?.questionnaire || []
   )
   const [showCoverageModal, setShowCoverageModal] = useState(false)
+  const editBackupRef = useRef<Record<string, Question>>({})
+
+  useEffect(() => {
+    setEditedQuestions(controlledQuestions || result.selectedResult?.questionnaire || [])
+  }, [controlledQuestions, result.selectedResult?.questionnaire, result.taskId])
 
   const questions: Question[] = editedQuestions
   const metadata: QuestionnaireMetadata =
@@ -87,6 +104,11 @@ export default function QuestionnaireResultDisplay({
       estimated_time_minutes: 0,
       coverage_map: {},
     }
+
+  const commitQuestions = (nextQuestions: Question[]) => {
+    setEditedQuestions(nextQuestions)
+    onQuestionsChange?.(nextQuestions)
+  }
 
   // 题型统计
   const questionTypeStats = {
@@ -98,32 +120,95 @@ export default function QuestionnaireResultDisplay({
 
   // 编辑题目
   const handleEditQuestion = (questionId: string) => {
+    const currentQuestion = questions.find((question) => question.question_id === questionId)
+    if (currentQuestion) {
+      editBackupRef.current[questionId] = JSON.parse(JSON.stringify(currentQuestion)) as Question
+    }
     setEditingQuestion(questionId)
   }
 
   // 保存题目编辑
   const handleSaveQuestion = () => {
+    if (editingQuestion) {
+      delete editBackupRef.current[editingQuestion]
+    }
     setEditingQuestion(null)
-    toast.success('题目编辑已保存（本地）')
+    toast.success('已更新本地草稿，请点击页面顶部保存')
   }
 
   // 取消编辑
   const handleCancelEdit = () => {
-    setEditedQuestions(result.selectedResult?.questionnaire || [])
+    if (editingQuestion && editBackupRef.current[editingQuestion]) {
+      commitQuestions(
+        questions.map((question) =>
+          question.question_id === editingQuestion
+            ? editBackupRef.current[editingQuestion]
+            : question,
+        ),
+      )
+      delete editBackupRef.current[editingQuestion]
+    }
     setEditingQuestion(null)
   }
 
   // 更新题目文本
   const handleUpdateQuestionText = (questionId: string, newText: string) => {
-    setEditedQuestions((prev) =>
-      prev.map((q) => (q.question_id === questionId ? { ...q, question_text: newText } : q))
+    commitQuestions(
+      questions.map((question) =>
+        question.question_id === questionId ? { ...question, question_text: newText } : question,
+      ),
     )
   }
 
-  // 更新引导文本
-  const handleUpdateGuidance = (questionId: string, newGuidance: string) => {
-    setEditedQuestions((prev) =>
-      prev.map((q) => (q.question_id === questionId ? { ...q, guidance: newGuidance } : q))
+  const handleUpdateRequired = (questionId: string, required: boolean) => {
+    commitQuestions(
+      questions.map((question) =>
+        question.question_id === questionId
+          ? {
+              ...question,
+              required,
+              guidance: required
+                ? '此题为必答题，请选择最符合当前控制现状的选项。'
+                : '请根据项目当前实际情况填写。',
+            }
+          : question,
+      ),
+    )
+  }
+
+  const handleUpdateOptionText = (questionId: string, optionId: string, text: string) => {
+    commitQuestions(
+      questions.map((question) =>
+        question.question_id === questionId
+          ? {
+              ...question,
+              options: question.options.map((option) =>
+                option.option_id === optionId ? { ...option, text } : option,
+              ),
+            }
+          : question,
+      ),
+    )
+  }
+
+  const handleUpdateOptionScore = (questionId: string, optionId: string, score: string) => {
+    const parsedScore = Number(score)
+    commitQuestions(
+      questions.map((question) =>
+        question.question_id === questionId
+          ? {
+              ...question,
+              options: question.options.map((option) =>
+                option.option_id === optionId
+                  ? {
+                      ...option,
+                      score: Number.isFinite(parsedScore) ? parsedScore : option.score,
+                    }
+                  : option,
+              ),
+            }
+          : question,
+      ),
     )
   }
 
@@ -351,15 +436,50 @@ export default function QuestionnaireResultDisplay({
                   fullWidth
                   size="small"
                 />
-                <TextField
-                  value={question.guidance}
-                  onChange={(e) => handleUpdateGuidance(question.question_id, e.target.value)}
-                  multiline
-                  rows={2}
-                  placeholder="填写引导"
-                  fullWidth
-                  size="small"
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={question.required}
+                      onChange={(event) =>
+                        handleUpdateRequired(question.question_id, event.target.checked)
+                      }
+                    />
+                  }
+                  label="设为必答题"
                 />
+                <Stack spacing={2}>
+                  {question.options.map((option) => (
+                    <Stack key={option.option_id} direction="row" spacing={1}>
+                      <TextField
+                        value={option.text}
+                        onChange={(event) =>
+                          handleUpdateOptionText(
+                            question.question_id,
+                            option.option_id,
+                            event.target.value,
+                          )
+                        }
+                        placeholder={`选项 ${option.option_id}`}
+                        fullWidth
+                        size="small"
+                      />
+                      <TextField
+                        value={String(option.score)}
+                        onChange={(event) =>
+                          handleUpdateOptionScore(
+                            question.question_id,
+                            option.option_id,
+                            event.target.value,
+                          )
+                        }
+                        placeholder="分值"
+                        type="number"
+                        size="small"
+                        sx={{ width: 120 }}
+                      />
+                    </Stack>
+                  ))}
+                </Stack>
                 <Stack direction="row" spacing={1}>
                   <Button
                     variant="contained"
@@ -403,7 +523,7 @@ export default function QuestionnaireResultDisplay({
               </>
             )}
           </Box>
-          {!isEditing && (
+          {!isEditing && editable && (
             <IconButton
               size="small"
               onClick={() => handleEditQuestion(question.question_id)}

@@ -28,7 +28,12 @@ const USER_ID = '880e8400-e29b-41d4-a716-446655440320'
 
 describe('SurveyController snapshot endpoints', () => {
   let app: INestApplication
-  let snapshotService: { createSnapshot: jest.Mock; getSnapshot: jest.Mock; saveDraft: jest.Mock }
+  let snapshotService: {
+    createSnapshot: jest.Mock
+    getSnapshot: jest.Mock
+    saveDraft: jest.Mock
+    publishDraft: jest.Mock
+  }
   let controlGapInputService: { getControlGapInput: jest.Mock }
   let auditLogService: { log: jest.Mock }
 
@@ -126,6 +131,29 @@ describe('SurveyController snapshot endpoints', () => {
             display_order: 1,
             scoring_rule: { passValues: ['A'] },
             is_project_custom: false,
+          },
+        ],
+      }),
+      publishDraft: jest.fn().mockResolvedValue({
+        projectId: PROJECT_ID,
+        organizationId: ORG_ID,
+        questionnaireTaskId: 'draft-task-id',
+        generatedAt: '2026-03-31T08:30:00.000Z',
+        snapshotVersion: 2,
+        resolvedControlSetVersion: 'resolved-controls@2026-03-25T16:30:00.000Z',
+        questionSetVersion: 'question-set@2026-03-25T16:30:00.000Z',
+        sourceControlIds: ['control-a'],
+        missingQuestionControlIds: [],
+        reusedExisting: false,
+        lifecycleStatus: 'published',
+        publishedSnapshotTaskId: 'draft-task-id',
+        baseSnapshotTaskId: 'snapshot-task-id',
+        editVersion: 1,
+        lastEditedAt: '2026-03-31T08:35:00.000Z',
+        lastEditedBy: USER_ID,
+        questions: [
+          {
+            question_id: 'Q-ACC-001',
           },
         ],
       }),
@@ -396,6 +424,30 @@ describe('SurveyController snapshot endpoints', () => {
     expect(snapshotService.saveDraft).not.toHaveBeenCalled()
   })
 
+  it('should publish the latest questionnaire draft and write an UPDATE audit log', async () => {
+    app = await createApp()
+
+    const response = await request(app.getHttpServer())
+      .post(`/survey/project-questionnaire-snapshot/${PROJECT_ID}/publish`)
+      .expect(201)
+
+    expect(snapshotService.publishDraft).toHaveBeenCalledWith(PROJECT_ID, ORG_ID, USER_ID)
+    expect(response.body).toMatchObject({
+      success: true,
+      data: {
+        questionnaireTaskId: 'draft-task-id',
+        lifecycleStatus: 'published',
+      },
+    })
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'update',
+        entityType: 'ProjectQuestionnaireSnapshotPublish',
+        entityId: 'draft-task-id',
+      }),
+    )
+  })
+
   it('should return aggregated control-gap input and write a READ audit log', async () => {
     app = await createApp()
 
@@ -472,6 +524,17 @@ describe('SurveyController snapshot endpoints', () => {
       .expect(403)
   })
 
+  it('should return 403 when the snapshot publish route is forbidden', async () => {
+    app = await createApp()
+    snapshotService.publishDraft.mockRejectedValue(
+      new ForbiddenException('Only project owners and editors can modify questionnaire snapshots'),
+    )
+
+    await request(app.getHttpServer())
+      .post(`/survey/project-questionnaire-snapshot/${PROJECT_ID}/publish`)
+      .expect(403)
+  })
+
   it('should return 404 when the control-gap service surfaces a missing survey response', async () => {
     app = await createApp()
     controlGapInputService.getControlGapInput.mockRejectedValue(
@@ -488,6 +551,7 @@ describe('SurveyController snapshot endpoints', () => {
       createSnapshot: jest.fn(),
       getSnapshot: jest.fn(),
       saveDraft: jest.fn(),
+      publishDraft: jest.fn(),
     }
     controlGapInputService = {
       getControlGapInput: jest.fn(),
@@ -544,6 +608,7 @@ describe('SurveyController snapshot endpoints', () => {
       createSnapshot: jest.fn(),
       getSnapshot: jest.fn(),
       saveDraft: jest.fn(),
+      publishDraft: jest.fn(),
     }
     controlGapInputService = {
       getControlGapInput: jest.fn(),

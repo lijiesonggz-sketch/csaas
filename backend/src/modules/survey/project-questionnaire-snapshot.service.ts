@@ -404,6 +404,102 @@ export class ProjectQuestionnaireSnapshotService {
     )
   }
 
+  async publishDraft(
+    projectId: string,
+    currentOrganizationId: string,
+    currentUserId: string,
+  ): Promise<ProjectQuestionnaireSnapshotResponseDto> {
+    const project = await this.getAccessibleProject(projectId, currentOrganizationId)
+    await this.assertProjectMaintenancePermission(project.id, currentUserId)
+
+    const snapshotRecords = await this.loadSnapshotRecords(project.id)
+    const latestDraftSnapshot = this.selectLatestSnapshotByLifecycle(snapshotRecords, 'draft')
+
+    if (!latestDraftSnapshot) {
+      throw new NotFoundException(`Questionnaire draft not found for project ${project.id}`)
+    }
+
+    const latestPublishedSnapshot = this.selectLatestSnapshotByLifecycle(snapshotRecords, 'published')
+    const now = new Date().toISOString()
+
+    const publishedMetadata: SnapshotMetadata = {
+      ...latestDraftSnapshot.metadata,
+      lifecycleStatus: 'published',
+      publishedSnapshotTaskId: latestDraftSnapshot.task.id,
+      baseSnapshotTaskId: latestDraftSnapshot.metadata.baseSnapshotTaskId ?? latestPublishedSnapshot?.task.id ?? null,
+      lastEditedAt: now,
+      lastEditedBy: currentUserId,
+    }
+
+    latestDraftSnapshot.task.input = {
+      ...latestDraftSnapshot.task.input,
+      lifecycleStatus: 'published',
+      publishedSnapshotTaskId: latestDraftSnapshot.task.id,
+      baseSnapshotTaskId: publishedMetadata.baseSnapshotTaskId,
+      lastEditedAt: now,
+      lastEditedBy: currentUserId,
+    }
+    latestDraftSnapshot.task.result = {
+      ...latestDraftSnapshot.task.result,
+      lifecycleStatus: 'published',
+      publishedSnapshotTaskId: latestDraftSnapshot.task.id,
+      baseSnapshotTaskId: publishedMetadata.baseSnapshotTaskId,
+    }
+    latestDraftSnapshot.generationResult.selectedResult = {
+      questionnaire: latestDraftSnapshot.questions,
+      questionnaire_metadata: publishedMetadata,
+    }
+
+    const saves: Array<Promise<unknown>> = [
+      this.aiTaskRepository.save(latestDraftSnapshot.task),
+      this.aiGenerationResultRepository.save(latestDraftSnapshot.generationResult),
+    ]
+
+    if (latestPublishedSnapshot && latestPublishedSnapshot.task.id !== latestDraftSnapshot.task.id) {
+      const supersededMetadata: SnapshotMetadata = {
+        ...latestPublishedSnapshot.metadata,
+        lifecycleStatus: 'superseded',
+        publishedSnapshotTaskId: latestDraftSnapshot.task.id,
+        lastEditedAt: now,
+        lastEditedBy: currentUserId,
+      }
+
+      latestPublishedSnapshot.task.input = {
+        ...latestPublishedSnapshot.task.input,
+        lifecycleStatus: 'superseded',
+        publishedSnapshotTaskId: latestDraftSnapshot.task.id,
+        lastEditedAt: now,
+        lastEditedBy: currentUserId,
+      }
+      latestPublishedSnapshot.task.result = {
+        ...latestPublishedSnapshot.task.result,
+        lifecycleStatus: 'superseded',
+        publishedSnapshotTaskId: latestDraftSnapshot.task.id,
+      }
+      latestPublishedSnapshot.generationResult.selectedResult = {
+        questionnaire: latestPublishedSnapshot.questions,
+        questionnaire_metadata: supersededMetadata,
+      }
+
+      saves.push(
+        this.aiTaskRepository.save(latestPublishedSnapshot.task),
+        this.aiGenerationResultRepository.save(latestPublishedSnapshot.generationResult),
+      )
+    }
+
+    await Promise.all(saves)
+
+    return this.buildSnapshotResponse(
+      {
+        task: latestDraftSnapshot.task,
+        generationResult: latestDraftSnapshot.generationResult,
+        metadata: publishedMetadata,
+        questions: latestDraftSnapshot.questions,
+      },
+      false,
+    )
+  }
+
   private async getAccessibleProject(
     projectId: string,
     currentOrganizationId: string,

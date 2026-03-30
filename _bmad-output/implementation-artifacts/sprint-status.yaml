@@ -129,7 +129,7 @@ development_status:
   # PRD: V1-E01
   epic-10: in-progress
   10-1-project-questionnaire-snapshot-edit-api: done
-  10-2-questionnaire-edit-frontend-persistence: backlog
+  10-2-questionnaire-edit-frontend-persistence: done
   10-3-questionnaire-republish-downstream-stale-strategy: backlog
   epic-10-retrospective: optional
 

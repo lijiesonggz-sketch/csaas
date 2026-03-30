@@ -47,6 +47,33 @@ export interface SurveyResponse {
   notes: string | null
 }
 
+export type ProjectQuestionnaireSnapshotLifecycleStatus = 'draft' | 'published' | 'superseded'
+
+export interface ProjectQuestionnaireSnapshotOption {
+  option_id: string
+  text: string
+  score: number
+  level?: string
+  description?: string
+}
+
+export interface ProjectQuestionnaireSnapshotQuestion {
+  question_id: string
+  question_template_id: string | null
+  source_question_id?: string | null
+  control_id: string
+  cluster_id: string
+  cluster_name: string
+  question_text: string
+  question_type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'RATING'
+  options: ProjectQuestionnaireSnapshotOption[]
+  required: boolean
+  guidance: string
+  display_order: number
+  scoring_rule: Record<string, unknown> | null
+  is_project_custom: boolean
+}
+
 export interface ProjectQuestionnaireSnapshotResponse {
   projectId: string
   organizationId: string
@@ -58,7 +85,33 @@ export interface ProjectQuestionnaireSnapshotResponse {
   sourceControlIds: string[]
   missingQuestionControlIds: string[]
   reusedExisting: boolean
-  questions: Array<Record<string, unknown>>
+  lifecycleStatus: ProjectQuestionnaireSnapshotLifecycleStatus
+  publishedSnapshotTaskId: string | null
+  baseSnapshotTaskId: string | null
+  editVersion: number
+  lastEditedAt: string | null
+  lastEditedBy: string | null
+  questions: ProjectQuestionnaireSnapshotQuestion[]
+}
+
+export interface SaveProjectQuestionnaireSnapshotDraftRequest {
+  questions: Array<{
+    questionId?: string
+    questionTemplateId?: string | null
+    controlId: string
+    questionType: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'RATING'
+    questionText: string
+    options: Array<{
+      optionId?: string
+      text: string
+      score: number
+      level?: string
+      description?: string
+    }>
+    scoringRule?: Record<string, unknown> | null
+    required: boolean
+    displayOrder: number
+  }>
 }
 
 export class SurveyAPI {
@@ -76,6 +129,24 @@ export class SurveyAPI {
     projectId: string,
   ): Promise<ProjectQuestionnaireSnapshotResponse> {
     return apiFetch(`/survey/project-questionnaire-snapshot/${projectId}`)
+  }
+
+  static async saveProjectQuestionnaireSnapshotDraft(
+    projectId: string,
+    request: SaveProjectQuestionnaireSnapshotDraftRequest,
+  ): Promise<ProjectQuestionnaireSnapshotResponse> {
+    return apiFetch(`/survey/project-questionnaire-snapshot/${projectId}/draft`, {
+      method: 'PUT',
+      body: JSON.stringify(request),
+    })
+  }
+
+  static async publishProjectQuestionnaireSnapshot(
+    projectId: string,
+  ): Promise<ProjectQuestionnaireSnapshotResponse> {
+    return apiFetch(`/survey/project-questionnaire-snapshot/${projectId}/publish`, {
+      method: 'POST',
+    })
   }
 
   /**

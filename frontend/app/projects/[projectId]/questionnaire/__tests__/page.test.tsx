@@ -33,19 +33,39 @@ jest.mock('@/lib/hooks/useTaskProgress', () => ({
   })),
 }))
 
+const mockCache = {
+  get: jest.fn(),
+  set: jest.fn(),
+}
+
 jest.mock('@/lib/hooks/useAITaskCache', () => ({
-  useAITaskCache: jest.fn(() => ({
-    get: jest.fn(),
-    set: jest.fn(),
-  })),
+  useAITaskCache: jest.fn(() => mockCache),
 }))
 
 // Mock components
 jest.mock('@/components/features/QuestionnaireResultDisplay', () => ({
   __esModule: true,
-  default: ({ result }: any) => (
-    <div data-testid="questionnaire-result">Questionnaire Result Display</div>
-  ),
+  default: ({ result, editable, questions, onQuestionsChange }: any) => {
+    const sourceQuestions = questions || result?.selectedResult?.questionnaire || []
+
+    return (
+      <div data-testid="questionnaire-result">
+        {editable ? 'editable' : 'readonly'}
+        <button
+          onClick={() =>
+            onQuestionsChange?.(
+              sourceQuestions.map((question: any) => ({
+                ...question,
+                question_text: '已编辑的问题文本',
+              })),
+            )
+          }
+        >
+          修改问卷
+        </button>
+      </div>
+    )
+  },
 }))
 
 jest.mock('@/components/features/QuestionnaireProgressDisplay', () => ({
@@ -71,6 +91,8 @@ jest.mock('@/lib/api/survey', () => ({
   SurveyAPI: {
     getProjectQuestionnaireSnapshot: jest.fn(),
     createProjectQuestionnaireSnapshot: jest.fn(),
+    saveProjectQuestionnaireSnapshotDraft: jest.fn(),
+    publishProjectQuestionnaireSnapshot: jest.fn(),
   },
 }))
 
@@ -84,6 +106,8 @@ describe('QuestionnairePage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    mockCache.get.mockReset()
+    mockCache.set.mockReset()
     mockUseParams.mockReturnValue({ projectId: 'project-1' })
     mockUseSearchParams.mockReturnValue(new URLSearchParams())
     mockUseRouter.mockReturnValue({ back: mockBack, push: jest.fn() })
@@ -96,6 +120,8 @@ describe('QuestionnairePage', () => {
       status: 'authenticated',
     })
     SurveyAPI.getProjectQuestionnaireSnapshot.mockRejectedValue({ status: 404, message: 'not found' })
+    SurveyAPI.saveProjectQuestionnaireSnapshotDraft.mockResolvedValue(undefined)
+    SurveyAPI.publishProjectQuestionnaireSnapshot.mockResolvedValue(undefined)
   })
 
   it('should render page header with correct title', () => {
@@ -145,7 +171,32 @@ describe('QuestionnairePage', () => {
       sourceControlIds: ['ctrl-1'],
       missingQuestionControlIds: [],
       reusedExisting: true,
-      questions: [],
+      lifecycleStatus: 'published',
+      publishedSnapshotTaskId: 'snapshot-task-1',
+      baseSnapshotTaskId: null,
+      editVersion: 0,
+      lastEditedAt: '2026-03-26T10:00:00.000Z',
+      lastEditedBy: null,
+      questions: [
+        {
+          question_id: 'Q-ACC-001',
+          question_template_id: 'question-yes-no',
+          control_id: 'ctrl-1',
+          cluster_id: 'ctrl-1',
+          cluster_name: '访问控制',
+          question_text: '机构是否建立特权账号定期复核机制？',
+          question_type: 'SINGLE_CHOICE',
+          options: [
+            { option_id: 'A', text: '已建立', score: 5 },
+            { option_id: 'B', text: '未建立', score: 0 },
+          ],
+          required: true,
+          guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+          display_order: 1,
+          scoring_rule: null,
+          is_project_custom: false,
+        },
+      ],
     })
 
     render(<QuestionnairePage />)
@@ -153,6 +204,8 @@ describe('QuestionnairePage', () => {
     await waitFor(() => {
       expect(screen.getByText(/KG 快照 v2, 复用现有版本/)).toBeInTheDocument()
     })
+    expect(screen.getByText('开始编辑')).toBeInTheDocument()
+    expect(screen.getByTestId('questionnaire-result')).toHaveTextContent('readonly')
 
     expect(AITasksAPI.getTasksByProject).not.toHaveBeenCalled()
   })
@@ -176,5 +229,290 @@ describe('QuestionnairePage', () => {
     })
 
     expect(AITasksAPI.getTasksByProject).toHaveBeenCalledWith('project-1')
+  })
+
+  it('should save questionnaire draft and clear dirty state', async () => {
+    SurveyAPI.getProjectQuestionnaireSnapshot.mockResolvedValue({
+      projectId: 'project-1',
+      organizationId: 'org-1',
+      questionnaireTaskId: 'snapshot-task-1',
+      generatedAt: '2026-03-26T10:00:00.000Z',
+      snapshotVersion: 2,
+      resolvedControlSetVersion: 'resolved-controls@2026-03-26T10:00:00.000Z',
+      questionSetVersion: 'question-set@2026-03-26T10:00:00.000Z',
+      sourceControlIds: ['ctrl-1'],
+      missingQuestionControlIds: [],
+      reusedExisting: true,
+      lifecycleStatus: 'published',
+      publishedSnapshotTaskId: 'snapshot-task-1',
+      baseSnapshotTaskId: null,
+      editVersion: 0,
+      lastEditedAt: '2026-03-26T10:00:00.000Z',
+      lastEditedBy: null,
+      questions: [
+        {
+          question_id: 'Q-ACC-001',
+          question_template_id: 'question-yes-no',
+          control_id: 'ctrl-1',
+          cluster_id: 'ctrl-1',
+          cluster_name: '访问控制',
+          question_text: '机构是否建立特权账号定期复核机制？',
+          question_type: 'SINGLE_CHOICE',
+          options: [
+            { option_id: 'A', text: '已建立', score: 5 },
+            { option_id: 'B', text: '未建立', score: 0 },
+          ],
+          required: true,
+          guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+          display_order: 1,
+          scoring_rule: null,
+          is_project_custom: false,
+        },
+      ],
+    })
+    SurveyAPI.saveProjectQuestionnaireSnapshotDraft.mockResolvedValue({
+      projectId: 'project-1',
+      organizationId: 'org-1',
+      questionnaireTaskId: 'draft-task-1',
+      generatedAt: '2026-03-31T10:00:00.000Z',
+      snapshotVersion: 3,
+      resolvedControlSetVersion: 'resolved-controls@2026-03-26T10:00:00.000Z',
+      questionSetVersion: 'question-set@2026-03-26T10:00:00.000Z',
+      sourceControlIds: ['ctrl-1'],
+      missingQuestionControlIds: [],
+      reusedExisting: false,
+      lifecycleStatus: 'draft',
+      publishedSnapshotTaskId: 'snapshot-task-1',
+      baseSnapshotTaskId: 'snapshot-task-1',
+      editVersion: 1,
+      lastEditedAt: '2026-03-31T10:00:00.000Z',
+      lastEditedBy: 'user-1',
+      questions: [
+        {
+          question_id: 'Q-ACC-001',
+          question_template_id: 'question-yes-no',
+          control_id: 'ctrl-1',
+          cluster_id: 'ctrl-1',
+          cluster_name: '访问控制',
+          question_text: '已编辑的问题文本',
+          question_type: 'SINGLE_CHOICE',
+          options: [
+            { option_id: 'A', text: '已建立', score: 5 },
+            { option_id: 'B', text: '未建立', score: 0 },
+          ],
+          required: true,
+          guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+          display_order: 1,
+          scoring_rule: null,
+          is_project_custom: false,
+        },
+      ],
+    })
+
+    render(<QuestionnairePage />)
+
+    await waitFor(() => expect(screen.getByText('开始编辑')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('开始编辑'))
+    fireEvent.click(screen.getByText('修改问卷'))
+
+    expect(screen.getByText('未保存修改')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('保存草稿'))
+
+    await waitFor(() => {
+      expect(SurveyAPI.saveProjectQuestionnaireSnapshotDraft).toHaveBeenCalled()
+    })
+    await waitFor(() => {
+      expect(screen.queryByText('未保存修改')).not.toBeInTheDocument()
+      expect(screen.getByText('草稿')).toBeInTheDocument()
+    })
+  })
+
+  it('should publish questionnaire after persisting local changes', async () => {
+    SurveyAPI.getProjectQuestionnaireSnapshot.mockResolvedValue({
+      projectId: 'project-1',
+      organizationId: 'org-1',
+      questionnaireTaskId: 'snapshot-task-1',
+      generatedAt: '2026-03-26T10:00:00.000Z',
+      snapshotVersion: 2,
+      resolvedControlSetVersion: 'resolved-controls@2026-03-26T10:00:00.000Z',
+      questionSetVersion: 'question-set@2026-03-26T10:00:00.000Z',
+      sourceControlIds: ['ctrl-1'],
+      missingQuestionControlIds: [],
+      reusedExisting: true,
+      lifecycleStatus: 'published',
+      publishedSnapshotTaskId: 'snapshot-task-1',
+      baseSnapshotTaskId: null,
+      editVersion: 0,
+      lastEditedAt: '2026-03-26T10:00:00.000Z',
+      lastEditedBy: null,
+      questions: [
+        {
+          question_id: 'Q-ACC-001',
+          question_template_id: 'question-yes-no',
+          control_id: 'ctrl-1',
+          cluster_id: 'ctrl-1',
+          cluster_name: '访问控制',
+          question_text: '机构是否建立特权账号定期复核机制？',
+          question_type: 'SINGLE_CHOICE',
+          options: [
+            { option_id: 'A', text: '已建立', score: 5 },
+            { option_id: 'B', text: '未建立', score: 0 },
+          ],
+          required: true,
+          guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+          display_order: 1,
+          scoring_rule: null,
+          is_project_custom: false,
+        },
+      ],
+    })
+    SurveyAPI.saveProjectQuestionnaireSnapshotDraft.mockResolvedValue({
+      projectId: 'project-1',
+      organizationId: 'org-1',
+      questionnaireTaskId: 'draft-task-1',
+      generatedAt: '2026-03-31T10:00:00.000Z',
+      snapshotVersion: 3,
+      resolvedControlSetVersion: 'resolved-controls@2026-03-26T10:00:00.000Z',
+      questionSetVersion: 'question-set@2026-03-26T10:00:00.000Z',
+      sourceControlIds: ['ctrl-1'],
+      missingQuestionControlIds: [],
+      reusedExisting: false,
+      lifecycleStatus: 'draft',
+      publishedSnapshotTaskId: 'snapshot-task-1',
+      baseSnapshotTaskId: 'snapshot-task-1',
+      editVersion: 1,
+      lastEditedAt: '2026-03-31T10:00:00.000Z',
+      lastEditedBy: 'user-1',
+      questions: [
+        {
+          question_id: 'Q-ACC-001',
+          question_template_id: 'question-yes-no',
+          control_id: 'ctrl-1',
+          cluster_id: 'ctrl-1',
+          cluster_name: '访问控制',
+          question_text: '已编辑的问题文本',
+          question_type: 'SINGLE_CHOICE',
+          options: [
+            { option_id: 'A', text: '已建立', score: 5 },
+            { option_id: 'B', text: '未建立', score: 0 },
+          ],
+          required: true,
+          guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+          display_order: 1,
+          scoring_rule: null,
+          is_project_custom: false,
+        },
+      ],
+    })
+    SurveyAPI.publishProjectQuestionnaireSnapshot.mockResolvedValue({
+      projectId: 'project-1',
+      organizationId: 'org-1',
+      questionnaireTaskId: 'draft-task-1',
+      generatedAt: '2026-03-31T10:05:00.000Z',
+      snapshotVersion: 3,
+      resolvedControlSetVersion: 'resolved-controls@2026-03-26T10:00:00.000Z',
+      questionSetVersion: 'question-set@2026-03-26T10:00:00.000Z',
+      sourceControlIds: ['ctrl-1'],
+      missingQuestionControlIds: [],
+      reusedExisting: false,
+      lifecycleStatus: 'published',
+      publishedSnapshotTaskId: 'draft-task-1',
+      baseSnapshotTaskId: 'snapshot-task-1',
+      editVersion: 1,
+      lastEditedAt: '2026-03-31T10:05:00.000Z',
+      lastEditedBy: 'user-1',
+      questions: [
+        {
+          question_id: 'Q-ACC-001',
+          question_template_id: 'question-yes-no',
+          control_id: 'ctrl-1',
+          cluster_id: 'ctrl-1',
+          cluster_name: '访问控制',
+          question_text: '已编辑的问题文本',
+          question_type: 'SINGLE_CHOICE',
+          options: [
+            { option_id: 'A', text: '已建立', score: 5 },
+            { option_id: 'B', text: '未建立', score: 0 },
+          ],
+          required: true,
+          guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+          display_order: 1,
+          scoring_rule: null,
+          is_project_custom: false,
+        },
+      ],
+    })
+
+    render(<QuestionnairePage />)
+
+    await waitFor(() => expect(screen.getByText('开始编辑')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('开始编辑'))
+    fireEvent.click(screen.getByText('修改问卷'))
+    fireEvent.click(screen.getByText('发布问卷'))
+
+    await waitFor(() => {
+      expect(SurveyAPI.saveProjectQuestionnaireSnapshotDraft).toHaveBeenCalled()
+      expect(SurveyAPI.publishProjectQuestionnaireSnapshot).toHaveBeenCalledWith('project-1')
+    })
+    expect(screen.getByText('已发布')).toBeInTheDocument()
+    expect(screen.getByTestId('questionnaire-result')).toHaveTextContent('readonly')
+  })
+
+  it('should show leave confirmation when there are unsaved changes', async () => {
+    SurveyAPI.getProjectQuestionnaireSnapshot.mockResolvedValue({
+      projectId: 'project-1',
+      organizationId: 'org-1',
+      questionnaireTaskId: 'snapshot-task-1',
+      generatedAt: '2026-03-26T10:00:00.000Z',
+      snapshotVersion: 2,
+      resolvedControlSetVersion: 'resolved-controls@2026-03-26T10:00:00.000Z',
+      questionSetVersion: 'question-set@2026-03-26T10:00:00.000Z',
+      sourceControlIds: ['ctrl-1'],
+      missingQuestionControlIds: [],
+      reusedExisting: true,
+      lifecycleStatus: 'published',
+      publishedSnapshotTaskId: 'snapshot-task-1',
+      baseSnapshotTaskId: null,
+      editVersion: 0,
+      lastEditedAt: '2026-03-26T10:00:00.000Z',
+      lastEditedBy: null,
+      questions: [
+        {
+          question_id: 'Q-ACC-001',
+          question_template_id: 'question-yes-no',
+          control_id: 'ctrl-1',
+          cluster_id: 'ctrl-1',
+          cluster_name: '访问控制',
+          question_text: '机构是否建立特权账号定期复核机制？',
+          question_type: 'SINGLE_CHOICE',
+          options: [
+            { option_id: 'A', text: '已建立', score: 5 },
+            { option_id: 'B', text: '未建立', score: 0 },
+          ],
+          required: true,
+          guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+          display_order: 1,
+          scoring_rule: null,
+          is_project_custom: false,
+        },
+      ],
+    })
+
+    render(<QuestionnairePage />)
+
+    await waitFor(() => expect(screen.getByText('开始编辑')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByText('开始编辑'))
+    fireEvent.click(screen.getByText('修改问卷'))
+    fireEvent.click(screen.getByText('返回'))
+
+    expect(screen.getByText('检测到未保存修改')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('放弃修改'))
+
+    expect(mockBack).toHaveBeenCalledTimes(1)
   })
 })
