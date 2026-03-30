@@ -223,7 +223,7 @@ describe('ControlReportPage', () => {
                     },
                   ],
                   sourceModule: 'report',
-                  sourceRecordId: '11111111-1111-4111-8111-111111111111',
+                  sourceRecordId: 'report-node-001',
                   sourceRoute: '/reports/11111111-1111-4111-8111-111111111111',
                 },
               ],
@@ -246,9 +246,52 @@ describe('ControlReportPage', () => {
       expect.objectContaining({
         controlId: 'control-1',
         sourceModule: 'report',
-        sourceRecordId: '11111111-1111-4111-8111-111111111111',
+        sourceRecordId: 'report-node-001',
       }),
     )
+  })
+
+  it('hides the detail entry when the control node does not expose stable report context', async () => {
+    mockGetReportDetail.mockResolvedValue({
+      sections: [
+        {
+          l1Code: 'IT01',
+          l1Name: '身份安全',
+          l2Sections: [
+            {
+              l2Code: 'IT01-01',
+              l2Name: '账户治理',
+              controls: [
+                {
+                  controlId: null,
+                  controlCode: 'CTRL-001',
+                  controlName: '账号权限最小化',
+                  currentStatus: 'PARTIAL',
+                  gapLevel: 'HIGH',
+                  clauses: [],
+                  cases: [],
+                  evidences: [],
+                  recommendations: [],
+                  matchedControls: [],
+                  sourceModule: 'report',
+                  sourceRecordId: 'report-node-002',
+                  sourceRoute: '/reports/11111111-1111-4111-8111-111111111111',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+
+    render(<ControlReportPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('账号权限最小化')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByRole('button', { name: '查看详情' })).not.toBeInTheDocument()
+    expect(mockControlDetailDrawer).not.toHaveBeenCalled()
   })
 
   it('creates a report pdf job from the detail page', async () => {

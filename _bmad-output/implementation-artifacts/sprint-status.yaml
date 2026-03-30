@@ -1,5 +1,5 @@
 # generated: 2026-03-24
-# last_updated: 2026-03-30
+# last_updated: 2026-03-31
 # project: Csaas
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review
 
 generated: '2026-03-24'
-last_updated: '2026-03-30'
+last_updated: '2026-03-31'
 project: 'Csaas'
 project_key: 'NOKEY'
 tracking_system: 'file-system'
@@ -97,10 +97,10 @@ development_status:
   # Epic 7: 控制点详情消费层接入
   # Reopened by approved Correct Course on 2026-03-29
   # PRD: V1-H03
-  epic-7: in-progress
+  epic-7: done
   7-1-unified-control-context-exposure: done
   7-2-radar-page-control-detail-drawer: done
-  7-3-report-page-control-detail-drawer: backlog
+  7-3-report-page-control-detail-drawer: done
   7-4-audit-workbench-control-detail-drawer: done
   epic-7-retrospective: optional
 

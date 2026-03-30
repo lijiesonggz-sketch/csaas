@@ -50,7 +50,7 @@ export interface ControlReportMatchedControlReference {
 }
 
 export interface ControlReportControlNodeDto {
-  controlId: string
+  controlId: string | null
   controlCode: string
   controlName: string
   currentStatus: ControlReportGapStatus

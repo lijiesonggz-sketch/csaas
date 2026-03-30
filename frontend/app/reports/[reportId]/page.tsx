@@ -25,6 +25,24 @@ import type {
   ControlReportControlNodeDto,
 } from '@/lib/types/report'
 
+type ReportControlDetailEntry = ControlReportControlNodeDto & {
+  controlId: string
+}
+
+function canOpenControlDetail(control: ControlReportControlNodeDto): control is ReportControlDetailEntry {
+  return (
+    typeof control.controlId === 'string' &&
+    control.controlId.trim().length > 0 &&
+    Array.isArray(control.matchedControls) &&
+    control.matchedControls.length > 0 &&
+    control.sourceModule === 'report' &&
+    typeof control.sourceRecordId === 'string' &&
+    control.sourceRecordId.trim().length > 0 &&
+    typeof control.sourceRoute === 'string' &&
+    control.sourceRoute.trim().length > 0
+  )
+}
+
 export default function ControlReportPage() {
   const params = useParams()
   const reportId = params.reportId as string
@@ -41,7 +59,7 @@ export default function ControlReportPage() {
 
   // Story 7.3: 控制点详情抽屉状态
   const [controlDrawerOpen, setControlDrawerOpen] = useState(false)
-  const [selectedControl, setSelectedControl] = useState<ControlReportControlNodeDto | null>(null)
+  const [selectedControl, setSelectedControl] = useState<ReportControlDetailEntry | null>(null)
 
   const currentOrganization = useOrganizationStore((state) => state.currentOrganization)
   const organizationId = currentOrganization?.id
@@ -237,7 +255,7 @@ export default function ControlReportPage() {
   }
 
   // Story 7.3: 处理控制点详情打开
-  const handleOpenControlDetail = (control: ControlReportControlNodeDto) => {
+  const handleOpenControlDetail = (control: ReportControlDetailEntry) => {
     setSelectedControl(control)
     setControlDrawerOpen(true)
   }
@@ -371,7 +389,10 @@ export default function ControlReportPage() {
                     </div>
                     <div className="space-y-4">
                       {l2Section.controls.map((control) => (
-                        <Card key={control.controlId} className="p-4">
+                        <Card
+                          key={`${control.sourceRecordId}-${control.controlId ?? control.controlCode}`}
+                          className="p-4"
+                        >
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
                               <div className="mb-2 flex items-center gap-2">
@@ -442,13 +463,15 @@ export default function ControlReportPage() {
                                 </div>
                               </div>
                             </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenControlDetail(control)}
-                            >
-                              查看详情
-                            </Button>
+                            {canOpenControlDetail(control) ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenControlDetail(control)}
+                              >
+                                查看详情
+                              </Button>
+                            ) : null}
                           </div>
                         </Card>
                       ))}
@@ -469,7 +492,7 @@ export default function ControlReportPage() {
           organizationId={organizationId}
           controlId={selectedControl.controlId}
           sourceModule="report"
-          sourceRecordId={reportId}
+          sourceRecordId={selectedControl.sourceRecordId}
         />
       )}
     </div>
