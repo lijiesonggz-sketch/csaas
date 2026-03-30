@@ -18,8 +18,8 @@ const nextConfig = {
       bodySizeLimit: '50mb',
     },
   },
-  // Docker 部署支持
-  output: 'standalone',
+  // 仅在生产构建中输出 standalone；本地 dev 环境保持默认输出，避免 .next/server vendor chunk 缺失。
+  output: process.env.NODE_ENV === 'production' ? 'standalone' : undefined,
   // Add webpack configuration to help resolve hoisted dependencies in monorepo
   webpack: (config, { isServer }) => {
     // Add root node_modules to webpack's resolve path

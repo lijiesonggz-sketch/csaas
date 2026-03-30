@@ -89,12 +89,47 @@ describe('ProjectReviewController (http)', () => {
       organizationId: 'org-1',
     })
     mockProjectReviewService.getReviewItems.mockResolvedValue({
-      items: [],
+      items: [
+        {
+          reviewItemId: 'review-1',
+          sourceResultId: 'review-1',
+          taskId: 'task-1',
+          taskType: AITaskType.SUMMARY,
+          reviewStage: AITaskType.SUMMARY,
+          title: '综述生成',
+          reviewStatus: 'pending',
+          confidenceLevel: 'medium',
+          consistencyScores: {
+            structural: 0.8,
+            semantic: 0.75,
+            detail: null,
+          },
+          highRiskFlag: false,
+          canRerun: true,
+          controlId: null,
+          matchedControls: [],
+          sourceModule: 'audit',
+          sourceRecordId: 'review-1',
+          sourceRoute: '/projects/project-1/review',
+          riskLevel: 'medium',
+          degradationReasons: [],
+          sourcePreview: {
+            aiExcerpt: 'AI excerpt',
+            sourceExcerpt: 'preview excerpt',
+            sourceDocumentName: 'preview.docx',
+            extractionQuality: 'partial',
+          },
+          provenanceStatus: 'degraded_preview',
+          citationChain: null,
+          createdAt: '2026-03-30T10:00:00.000Z',
+          updatedAt: '2026-03-30T10:10:00.000Z',
+        },
+      ],
       pagination: {
         page: 1,
         pageSize: 20,
-        totalItems: 0,
-        totalPages: 0,
+        totalItems: 1,
+        totalPages: 1,
         hasNextPage: false,
         hasPreviousPage: false,
       },
@@ -113,6 +148,8 @@ describe('ProjectReviewController (http)', () => {
       .expect(200)
 
     expect(response.body.success).toBe(true)
+    expect(response.body.data.items[0].provenanceStatus).toBe('degraded_preview')
+    expect(response.body.data.items[0].citationChain).toBeNull()
     expect(mockProjectReviewService.assertAccess).toHaveBeenCalledWith(
       'project-1',
       '770e8400-e29b-41d4-a716-446655440000',
@@ -196,9 +233,7 @@ describe('ProjectReviewController (http)', () => {
       new ForbiddenException('您没有权限访问该项目的审核工作台'),
     )
 
-    await request(app.getHttpServer())
-      .get('/projects/project-1/review-items')
-      .expect(403)
+    await request(app.getHttpServer()).get('/projects/project-1/review-items').expect(403)
 
     expect(mockProjectReviewService.getReviewItems).not.toHaveBeenCalled()
   })
@@ -207,8 +242,6 @@ describe('ProjectReviewController (http)', () => {
     await app.close()
     app = await createApp({ authenticated: false })
 
-    await request(app.getHttpServer())
-      .get('/projects/project-1/review-items')
-      .expect(401)
+    await request(app.getHttpServer()).get('/projects/project-1/review-items').expect(401)
   })
 })

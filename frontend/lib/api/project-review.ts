@@ -5,6 +5,7 @@ import type { GenerationResult } from '@/lib/types/ai-generation'
 
 export type ProjectReviewStatus = 'pending' | 'approved' | 'modified' | 'rejected'
 export type ProjectReviewRiskLevel = 'high' | 'medium' | 'low'
+export type ProjectReviewProvenanceStatus = 'citation_chain' | 'degraded_preview' | 'missing'
 export type ProjectReviewStage =
   | 'summary'
   | 'clustering'
@@ -56,6 +57,15 @@ export interface ProjectReviewItem {
     priority: string
   }>
   controlId: string | null
+  provenanceStatus: ProjectReviewProvenanceStatus
+  citationChain: {
+    sourceId: string
+    sourceName: string
+    clauseId: string | null
+    clauseCode: string | null
+    articleNo: string | null
+    rawText: string | null
+  } | null
   sourcePreview: {
     aiExcerpt: string
     sourceExcerpt: string | null
@@ -133,15 +143,13 @@ function mergeJsonPatch(base: unknown, patch: unknown): unknown {
   for (const [key, value] of Object.entries(patch)) {
     const current = next[key]
     next[key] =
-      isPlainObject(current) && isPlainObject(value)
-        ? mergeJsonPatch(current, value)
-        : value
+      isPlainObject(current) && isPlainObject(value) ? mergeJsonPatch(current, value) : value
   }
   return next
 }
 
 function mapReviewStageToRerunType(
-  reviewStage: ProjectReviewStage,
+  reviewStage: ProjectReviewStage
 ): 'summary' | 'clustering' | 'matrix' | 'questionnaire' | 'action_plan' | null {
   switch (reviewStage) {
     case 'summary':
@@ -157,7 +165,7 @@ function mapReviewStageToRerunType(
 
 export async function getProjectReviewItems(
   projectId: string,
-  query: ProjectReviewQuery = {},
+  query: ProjectReviewQuery = {}
 ): Promise<ProjectReviewListResponse> {
   const params = new URLSearchParams()
 
@@ -170,9 +178,7 @@ export async function getProjectReviewItems(
   if (query.sortOrder) params.set('sortOrder', query.sortOrder)
 
   const queryString = params.toString()
-  return apiFetch(
-    `/projects/${projectId}/review-items${queryString ? `?${queryString}` : ''}`,
-  )
+  return apiFetch(`/projects/${projectId}/review-items${queryString ? `?${queryString}` : ''}`)
 }
 
 export async function getProjectReviewResult(taskId: string): Promise<GenerationResult> {
@@ -181,21 +187,14 @@ export async function getProjectReviewResult(taskId: string): Promise<Generation
 }
 
 export async function submitProjectReviewDecision(
-  input: SubmitProjectReviewDecisionInput,
+  input: SubmitProjectReviewDecisionInput
 ): Promise<void> {
   const reviewStatus =
-    input.decision === 'accept'
-      ? 'APPROVED'
-      : input.decision === 'modify'
-        ? 'MODIFIED'
-        : 'REJECTED'
+    input.decision === 'accept' ? 'APPROVED' : input.decision === 'modify' ? 'MODIFIED' : 'REJECTED'
 
   const modifiedResult =
     input.decision === 'modify' && input.modifiedPatch
-      ? (mergeJsonPatch(
-          input.originalResult ?? {},
-          input.modifiedPatch,
-        ) as Record<string, unknown>)
+      ? (mergeJsonPatch(input.originalResult ?? {}, input.modifiedPatch) as Record<string, unknown>)
       : undefined
 
   await AIGenerationAPI.updateReviewStatus(
@@ -203,7 +202,7 @@ export async function submitProjectReviewDecision(
     reviewStatus,
     input.reviewedBy,
     modifiedResult,
-    input.reason,
+    input.reason
   )
 }
 
@@ -248,7 +247,7 @@ export async function rerunProjectReviewItem(input: {
 
 export async function bulkApproveProjectReviewItems(
   projectId: string,
-  input: BulkApproveProjectReviewItemsInput,
+  input: BulkApproveProjectReviewItemsInput
 ): Promise<BulkApproveProjectReviewItemsResult> {
   return apiFetch(`/projects/${projectId}/review-items/bulk-approve`, {
     method: 'POST',

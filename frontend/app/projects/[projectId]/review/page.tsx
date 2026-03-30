@@ -16,13 +16,7 @@ import { toast } from 'sonner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -109,7 +103,7 @@ function isProjectReviewDraft(value: unknown): value is ProjectReviewDraft {
 
 function readProjectReviewDraft(
   projectId: string,
-  reviewItemId: string,
+  reviewItemId: string
 ): ProjectReviewDraft | null {
   if (typeof window === 'undefined') {
     return null
@@ -153,7 +147,7 @@ function saveProjectReviewDraft(draft: ProjectReviewDraft): void {
   try {
     window.localStorage.setItem(
       buildProjectReviewDraftKey(draft.projectId, draft.reviewItemId),
-      JSON.stringify(draft),
+      JSON.stringify(draft)
     )
   } catch (error) {
     console.warn('Failed to save review draft:', error)
@@ -194,9 +188,7 @@ function mergeJsonPatch(base: unknown, patch: unknown): unknown {
   for (const [key, value] of Object.entries(patch)) {
     const current = next[key]
     next[key] =
-      isPlainObject(current) && isPlainObject(value)
-        ? mergeJsonPatch(current, value)
-        : value
+      isPlainObject(current) && isPlainObject(value) ? mergeJsonPatch(current, value) : value
   }
   return next
 }
@@ -219,10 +211,7 @@ function normalizeDetailPayload(result: GenerationResult | null): Record<string,
   return (result.selectedResult ?? {}) as Record<string, unknown>
 }
 
-function extractLocationHints(
-  value: unknown,
-  maxItems = 8,
-): LocationHint[] {
+function extractLocationHints(value: unknown, maxItems = 8): LocationHint[] {
   const hints: LocationHint[] = []
   const seen = new Set<string>()
 
@@ -245,11 +234,7 @@ function extractLocationHints(
         return
       }
 
-      if (
-        LOCATION_HINT_LABELS[key] &&
-        typeof rawValue === 'string' &&
-        rawValue.trim().length > 0
-      ) {
+      if (LOCATION_HINT_LABELS[key] && typeof rawValue === 'string' && rawValue.trim().length > 0) {
         const token = `${key}:${rawValue}`
         if (!seen.has(token)) {
           seen.add(token)
@@ -305,6 +290,39 @@ function getConfidenceTone(confidenceLevel: string) {
   }
 }
 
+function getProvenanceTone(status: ProjectReviewItem['provenanceStatus']) {
+  switch (status) {
+    case 'citation_chain':
+      return 'bg-emerald-100 text-emerald-700'
+    case 'degraded_preview':
+      return 'bg-amber-100 text-amber-700'
+    default:
+      return 'bg-slate-100 text-slate-700'
+  }
+}
+
+function getProvenanceTitle(status: ProjectReviewItem['provenanceStatus']): string {
+  switch (status) {
+    case 'citation_chain':
+      return '真实条文溯源'
+    case 'degraded_preview':
+      return '降级来源预览'
+    default:
+      return '来源缺失说明'
+  }
+}
+
+function getProvenanceDescription(status: ProjectReviewItem['provenanceStatus']): string {
+  switch (status) {
+    case 'citation_chain':
+      return '当前审核项已解析到真实 source / clause / raw text 引用链。'
+    case 'degraded_preview':
+      return '当前仅能展示来源预览或定位线索，不能宣称已完成真实条文溯源。'
+    default:
+      return '当前既无真实引用链，也无可用来源预览或定位线索。'
+  }
+}
+
 function formatScore(value: number | null): string {
   if (value === null) {
     return '验证中'
@@ -356,13 +374,18 @@ export default function ProjectReviewPage() {
   const [detailResult, setDetailResult] = useState<GenerationResult | null>(null)
   const [reasonInput, setReasonInput] = useState('')
   const [patchInput, setPatchInput] = useState(DEFAULT_PATCH_INPUT)
-  const [draftRestoreCandidate, setDraftRestoreCandidate] = useState<ProjectReviewDraft | null>(null)
+  const [draftRestoreCandidate, setDraftRestoreCandidate] = useState<ProjectReviewDraft | null>(
+    null
+  )
   const [draftRestoreCheckItemId, setDraftRestoreCheckItemId] = useState<string | null>(null)
   const [noopWarningVisible, setNoopWarningVisible] = useState(false)
   const [actionBusy, setActionBusy] = useState<
     null | 'accept' | 'modify' | 'reject' | 'rerun' | 'bulk-approve'
   >(null)
-  const [actionNotice, setActionNotice] = useState<null | { kind: 'success' | 'error'; message: string }>(null)
+  const [actionNotice, setActionNotice] = useState<null | {
+    kind: 'success' | 'error'
+    message: string
+  }>(null)
   const [filters, setFilters] = useState<{
     reviewStatus: FilterValue<ProjectReviewStatus>
     riskLevel: FilterValue<ProjectReviewRiskLevel>
@@ -375,7 +398,6 @@ export default function ProjectReviewPage() {
 
   // Story 7.4: 控制点详情抽屉状态
   const [controlDrawerOpen, setControlDrawerOpen] = useState(false)
-  const [selectedControlId, setSelectedControlId] = useState<string | null>(null)
   const [drawerContext, setDrawerContext] = useState<{
     organizationId: string
     controlId: string
@@ -384,29 +406,26 @@ export default function ProjectReviewPage() {
 
   const selectedItem = useMemo(
     () => items.find((item) => item.reviewItemId === selectedItemId) ?? null,
-    [items, selectedItemId],
+    [items, selectedItemId]
   )
   const selectedItemPrimaryControlId = useMemo(
     () => selectedItem?.controlId ?? selectedItem?.matchedControls[0]?.controlId ?? null,
-    [selectedItem],
+    [selectedItem]
   )
   const selectedItemMatchedControlCount = selectedItem?.matchedControls.length ?? 0
+  const selectedTaskId = selectedItem?.taskId ?? null
+  const selectedReviewItemId = selectedItem?.reviewItemId ?? null
+  const selectedItemProvenanceStatus = selectedItem?.provenanceStatus ?? 'missing'
+  const selectedItemCitationChain = selectedItem?.citationChain ?? null
 
-  const editablePayload = useMemo(
-    () => normalizeDetailPayload(detailResult),
-    [detailResult],
-  )
-  const locationHints = useMemo(
-    () => extractLocationHints(editablePayload),
-    [editablePayload],
-  )
+  const editablePayload = useMemo(() => normalizeDetailPayload(detailResult), [detailResult])
+  const locationHints = useMemo(() => extractLocationHints(editablePayload), [editablePayload])
 
   const listQuery = useMemo<ProjectReviewQuery>(() => {
     return {
       page: 1,
       pageSize: 20,
-      reviewStatus:
-        filters.reviewStatus === 'all' ? undefined : [filters.reviewStatus],
+      reviewStatus: filters.reviewStatus === 'all' ? undefined : [filters.reviewStatus],
       riskLevel: filters.riskLevel === 'all' ? undefined : [filters.riskLevel],
       reviewStage: filters.reviewStage === 'all' ? undefined : filters.reviewStage,
       sortBy: 'updatedAt',
@@ -448,80 +467,75 @@ export default function ProjectReviewPage() {
 
         setSelectedItemId(nextSelectedId)
       } catch (loadError) {
-        const message =
-          loadError instanceof Error ? loadError.message : '加载审核工作台失败'
+        const message = loadError instanceof Error ? loadError.message : '加载审核工作台失败'
         setError(message)
       } finally {
         setLoading(false)
       }
     },
-    [listQuery, projectId, selectedItemId],
+    [listQuery, projectId, selectedItemId]
   )
 
-  const loadDetailResult = useCallback(
-    async (taskId: string, resetEditContext = true) => {
-      try {
-        setDetailLoading(true)
-        const result = await getProjectReviewResult(taskId)
-        setDetailResult(result)
+  const loadDetailResult = useCallback(async (taskId: string, resetEditContext = true) => {
+    try {
+      setDetailLoading(true)
+      const result = await getProjectReviewResult(taskId)
+      setDetailResult(result)
 
-        if (resetEditContext) {
-          setReasonInput('')
-          setPatchInput(DEFAULT_PATCH_INPUT)
-          setNoopWarningVisible(false)
-          setActionNotice(null)
-        }
-      } catch (detailError) {
-        const message =
-          detailError instanceof Error ? detailError.message : '加载审核详情失败'
-        setActionNotice({
-          kind: 'error',
-          message,
-        })
-      } finally {
-        setDetailLoading(false)
+      if (resetEditContext) {
+        setReasonInput('')
+        setPatchInput(DEFAULT_PATCH_INPUT)
+        setNoopWarningVisible(false)
+        setActionNotice(null)
       }
-    },
-    [],
-  )
+    } catch (detailError) {
+      const message = detailError instanceof Error ? detailError.message : '加载审核详情失败'
+      setActionNotice({
+        kind: 'error',
+        message,
+      })
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     void loadReviewItems(false)
   }, [loadReviewItems])
 
   useEffect(() => {
-    if (!selectedItem?.taskId) {
+    if (!selectedTaskId) {
       setDetailResult(null)
       return
     }
 
-    void loadDetailResult(selectedItem.taskId, true)
-  }, [loadDetailResult, selectedItem?.taskId])
+    void loadDetailResult(selectedTaskId, true)
+  }, [loadDetailResult, selectedTaskId])
 
   useEffect(() => {
     setDraftRestoreCandidate(null)
     setDraftRestoreCheckItemId(null)
-  }, [selectedItem?.reviewItemId])
+  }, [selectedReviewItemId])
 
   useEffect(() => {
-    if (!selectedItem || detailLoading) {
+    if (!selectedReviewItemId || detailLoading) {
       return
     }
 
-    setDraftRestoreCandidate(readProjectReviewDraft(projectId, selectedItem.reviewItemId))
-    setDraftRestoreCheckItemId(selectedItem.reviewItemId)
-  }, [detailLoading, projectId, selectedItem?.reviewItemId])
+    setDraftRestoreCandidate(readProjectReviewDraft(projectId, selectedReviewItemId))
+    setDraftRestoreCheckItemId(selectedReviewItemId)
+  }, [detailLoading, projectId, selectedReviewItemId])
 
   useEffect(() => {
-    if (!selectedItem) {
+    if (!selectedReviewItemId) {
       return
     }
 
-    if (draftRestoreCheckItemId !== selectedItem.reviewItemId) {
+    if (draftRestoreCheckItemId !== selectedReviewItemId) {
       return
     }
 
-    if (draftRestoreCandidate?.reviewItemId === selectedItem.reviewItemId) {
+    if (draftRestoreCandidate?.reviewItemId === selectedReviewItemId) {
       return
     }
 
@@ -529,34 +543,34 @@ export default function ProjectReviewPage() {
       return
     }
 
-    clearProjectReviewDraft(projectId, selectedItem.reviewItemId)
+    clearProjectReviewDraft(projectId, selectedReviewItemId)
   }, [
     draftRestoreCandidate?.reviewItemId,
     draftRestoreCheckItemId,
     patchInput,
     projectId,
     reasonInput,
-    selectedItem?.reviewItemId,
+    selectedReviewItemId,
   ])
 
   useEffect(() => {
-    if (!selectedItem) {
+    if (!selectedReviewItemId) {
       return
     }
 
-    if (draftRestoreCandidate?.reviewItemId === selectedItem.reviewItemId) {
+    if (draftRestoreCandidate?.reviewItemId === selectedReviewItemId) {
       return
     }
 
     const autosaveInterval = window.setInterval(() => {
       if (!hasMeaningfulDraftInput(patchInput, reasonInput)) {
-        clearProjectReviewDraft(projectId, selectedItem.reviewItemId)
+        clearProjectReviewDraft(projectId, selectedReviewItemId)
         return
       }
 
       saveProjectReviewDraft({
         projectId,
-        reviewItemId: selectedItem.reviewItemId,
+        reviewItemId: selectedReviewItemId,
         patchInput,
         reasonInput,
         savedAt: new Date().toISOString(),
@@ -571,7 +585,7 @@ export default function ProjectReviewPage() {
     patchInput,
     projectId,
     reasonInput,
-    selectedItem?.reviewItemId,
+    selectedReviewItemId,
   ])
 
   const handleRestoreDraft = useCallback(() => {
@@ -649,10 +663,7 @@ export default function ProjectReviewPage() {
           return
         }
 
-        const modifiedResult = mergeJsonPatch(
-          editablePayload,
-          patch,
-        ) as Record<string, unknown>
+        const modifiedResult = mergeJsonPatch(editablePayload, patch) as Record<string, unknown>
 
         if (JSON.stringify(modifiedResult) === JSON.stringify(editablePayload)) {
           setNoopWarningVisible(true)
@@ -701,8 +712,7 @@ export default function ProjectReviewPage() {
           await loadDetailResult(selectedItem.taskId, true)
         }
       } catch (submitError) {
-        const message =
-          submitError instanceof Error ? submitError.message : '提交审核动作失败'
+        const message = submitError instanceof Error ? submitError.message : '提交审核动作失败'
         toast.error(message)
         setActionNotice({
           kind: 'error',
@@ -721,7 +731,7 @@ export default function ProjectReviewPage() {
       reasonInput,
       reviewerId,
       selectedItem,
-    ],
+    ]
   )
 
   const handleRerun = useCallback(async () => {
@@ -777,8 +787,7 @@ export default function ProjectReviewPage() {
     try {
       setActionBusy('bulk-approve')
       const result = await bulkApproveProjectReviewItems(projectId, {
-        reviewStatus:
-          filters.reviewStatus === 'all' ? undefined : [filters.reviewStatus],
+        reviewStatus: filters.reviewStatus === 'all' ? undefined : [filters.reviewStatus],
         riskLevel: filters.riskLevel === 'all' ? undefined : [filters.riskLevel],
         reviewStage: filters.reviewStage,
         sortBy: listQuery.sortBy,
@@ -808,8 +817,7 @@ export default function ProjectReviewPage() {
       })
       await loadReviewItems(true)
     } catch (bulkError) {
-      const message =
-        bulkError instanceof Error ? bulkError.message : '整批通过失败'
+      const message = bulkError instanceof Error ? bulkError.message : '整批通过失败'
       setActionNotice({
         kind: 'error',
         message,
@@ -829,19 +837,21 @@ export default function ProjectReviewPage() {
   ])
 
   // Story 7.4: 处理控制点详情打开
-  const handleOpenControlDetail = useCallback((controlId: string) => {
-    if (!organizationId || !selectedItem) {
-      return
-    }
+  const handleOpenControlDetail = useCallback(
+    (controlId: string) => {
+      if (!organizationId || !selectedItem) {
+        return
+      }
 
-    setDrawerContext({
-      organizationId,
-      controlId,
-      reviewItemId: selectedItem.reviewItemId,
-    })
-    setSelectedControlId(controlId)
-    setControlDrawerOpen(true)
-  }, [organizationId, selectedItem])
+      setDrawerContext({
+        organizationId,
+        controlId,
+        reviewItemId: selectedItem.reviewItemId,
+      })
+      setControlDrawerOpen(true)
+    },
+    [organizationId, selectedItem]
+  )
 
   return (
     <div className="w-full px-6 py-8">
@@ -896,9 +906,7 @@ export default function ProjectReviewPage() {
               : 'border-rose-200 bg-rose-50 text-rose-900'
           }`}
         >
-          <AlertTitle>
-            {actionNotice.kind === 'success' ? '操作成功' : '操作提醒'}
-          </AlertTitle>
+          <AlertTitle>{actionNotice.kind === 'success' ? '操作成功' : '操作提醒'}</AlertTitle>
           <AlertDescription>{actionNotice.message}</AlertDescription>
         </Alert>
       )}
@@ -986,9 +994,7 @@ export default function ProjectReviewPage() {
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-xl bg-white px-3 py-2">
                   <p className="text-xs text-slate-500">总数</p>
-                  <p className="text-lg font-semibold text-slate-900">
-                    {batchSummary.totalItems}
-                  </p>
+                  <p className="text-lg font-semibold text-slate-900">{batchSummary.totalItems}</p>
                 </div>
                 <div className="rounded-xl bg-white px-3 py-2">
                   <p className="text-xs text-slate-500">待处理</p>
@@ -1048,18 +1054,14 @@ export default function ProjectReviewPage() {
                           {new Date(item.updatedAt).toLocaleString('zh-CN')}
                         </p>
                       </div>
-                      {item.highRiskFlag && (
-                        <ShieldAlert className="w-4 h-4 text-rose-500 mt-1" />
-                      )}
+                      {item.highRiskFlag && <ShieldAlert className="w-4 h-4 text-rose-500 mt-1" />}
                     </div>
 
                     <div className="flex flex-wrap gap-2 mt-3">
                       <Badge className={getStatusTone(item.reviewStatus)}>
                         {item.reviewStatus}
                       </Badge>
-                      <Badge className={getRiskTone(item.riskLevel)}>
-                        {item.riskLevel}
-                      </Badge>
+                      <Badge className={getRiskTone(item.riskLevel)}>{item.riskLevel}</Badge>
                       <Badge className={getConfidenceTone(item.confidenceLevel)}>
                         {item.confidenceLevel}
                       </Badge>
@@ -1080,9 +1082,7 @@ export default function ProjectReviewPage() {
         <Card className="border-0 shadow-[0_8px_24px_rgba(15,23,42,0.08)]">
           <CardHeader>
             <CardTitle>详情区</CardTitle>
-            <CardDescription>
-              查看当前选中项的来源预览、AI 输出与审核动作
-            </CardDescription>
+            <CardDescription>查看当前选中项的来源预览、AI 输出与审核动作</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {!selectedItem ? (
@@ -1092,9 +1092,7 @@ export default function ProjectReviewPage() {
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-xl font-semibold text-slate-900">
-                    {selectedItem.title}
-                  </h2>
+                  <h2 className="text-xl font-semibold text-slate-900">{selectedItem.title}</h2>
                   <Badge className={getStatusTone(selectedItem.reviewStatus)}>
                     {selectedItem.reviewStatus}
                   </Badge>
@@ -1109,74 +1107,118 @@ export default function ProjectReviewPage() {
                 <div className="grid gap-4 xl:grid-cols-2">
                   <Card className="border border-slate-200 shadow-none">
                     <CardHeader>
-                      <CardTitle className="text-base">原文来源对照</CardTitle>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <CardTitle className="text-base">
+                          {getProvenanceTitle(selectedItemProvenanceStatus)}
+                        </CardTitle>
+                        <Badge className={getProvenanceTone(selectedItemProvenanceStatus)}>
+                          {selectedItemProvenanceStatus}
+                        </Badge>
+                      </div>
+                      <CardDescription>
+                        {getProvenanceDescription(selectedItemProvenanceStatus)}
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm text-slate-700">
-                      <p>
-                        <span className="font-medium">文档：</span>
-                        {selectedItem.sourcePreview.sourceDocumentName || '未提供'}
-                      </p>
-                      <p>
-                        <span className="font-medium">抽取质量：</span>
-                        {selectedItem.sourcePreview.extractionQuality}
-                      </p>
-                      {selectedItem.sourcePreview.extractionQuality === 'partial' && (
-                        <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-                          <AlertTitle>原文抽取可能不完整</AlertTitle>
-                          <AlertDescription>
-                            当前原文来源来自 PDF/扫描件或不完整抽取，但系统仍只展示已有片段，不会补造内容。
-                          </AlertDescription>
-                        </Alert>
+                      {selectedItemProvenanceStatus === 'citation_chain' &&
+                      selectedItemCitationChain ? (
+                        <>
+                          <p>
+                            <span className="font-medium">来源：</span>
+                            {selectedItemCitationChain.sourceName}
+                          </p>
+                          <p>
+                            <span className="font-medium">条款：</span>
+                            {selectedItemCitationChain.clauseCode || '未提供'}
+                          </p>
+                          <p>
+                            <span className="font-medium">条号：</span>
+                            {selectedItemCitationChain.articleNo || '未提供'}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p>
+                            <span className="font-medium">文档：</span>
+                            {selectedItem.sourcePreview.sourceDocumentName || '未提供'}
+                          </p>
+                          <p>
+                            <span className="font-medium">抽取质量：</span>
+                            {selectedItem.sourcePreview.extractionQuality}
+                          </p>
+                        </>
                       )}
-                      {!selectedItem.sourcePreview.sourceExcerpt && (
+                      {selectedItemProvenanceStatus === 'degraded_preview' &&
+                        selectedItem.sourcePreview.extractionQuality === 'partial' && (
+                          <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+                            <AlertTitle>原文抽取可能不完整</AlertTitle>
+                            <AlertDescription>
+                              当前原文来源来自
+                              PDF/扫描件或不完整抽取，但系统仍只展示已有片段，不会补造内容。
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      {selectedItemProvenanceStatus === 'missing' && (
                         <Alert className="border-slate-200 bg-slate-50 text-slate-900">
-                          <AlertTitle>缺少原文来源</AlertTitle>
+                          <AlertTitle>来源缺失说明</AlertTitle>
                           <AlertDescription>
                             当前缺少原文来源或引用不完整，系统不会猜测或补造原文内容。
                           </AlertDescription>
                         </Alert>
                       )}
-                      <div className="space-y-2">
-                        <p className="font-medium">定位线索</p>
-                        {locationHints.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {locationHints.map((hint) => (
-                              <Badge
-                                key={`${hint.label}:${hint.value}`}
-                                className="bg-slate-100 text-slate-700"
-                              >
-                                {hint.label}: {hint.value}
-                              </Badge>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-500">
-                            当前详情没有可提取的 clause / source / article 定位线索。
-                          </p>
-                        )}
-                        {selectedItemPrimaryControlId && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              handleOpenControlDetail(selectedItemPrimaryControlId)
-                            }
-                            disabled={!organizationId}
-                            className="mt-2"
-                          >
-                            查看控制点详情
-                            {selectedItemMatchedControlCount > 1 && (
-                              <span className="ml-1 text-xs">
-                                ({selectedItemMatchedControlCount})
-                              </span>
-                            )}
-                          </Button>
-                        )}
-                      </div>
-                      <p className="whitespace-pre-wrap rounded-xl bg-slate-50 p-3">
-                        {selectedItem.sourcePreview.sourceExcerpt || '当前没有可展示的原文预览'}
-                      </p>
+                      {selectedItemProvenanceStatus === 'citation_chain' &&
+                      selectedItemCitationChain ? (
+                        <p className="whitespace-pre-wrap rounded-xl bg-slate-50 p-3">
+                          {selectedItemCitationChain.rawText || '当前引用链未返回原文片段。'}
+                        </p>
+                      ) : (
+                        <>
+                          {selectedItemProvenanceStatus === 'degraded_preview' && (
+                            <div className="space-y-2">
+                              <p className="font-medium">定位线索</p>
+                              {locationHints.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                  {locationHints.map((hint) => (
+                                    <Badge
+                                      key={`${hint.label}:${hint.value}`}
+                                      className="bg-slate-100 text-slate-700"
+                                    >
+                                      {hint.label}: {hint.value}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-500">
+                                  当前详情没有可提取的 clause / source / article 定位线索。
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          {selectedItemProvenanceStatus === 'degraded_preview' &&
+                          selectedItem.sourcePreview.sourceExcerpt ? (
+                            <p className="whitespace-pre-wrap rounded-xl bg-slate-50 p-3">
+                              {selectedItem.sourcePreview.sourceExcerpt}
+                            </p>
+                          ) : null}
+                        </>
+                      )}
+                      {selectedItemPrimaryControlId && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenControlDetail(selectedItemPrimaryControlId)}
+                          disabled={!organizationId}
+                          className="mt-2"
+                        >
+                          查看控制点详情
+                          {selectedItemMatchedControlCount > 1 && (
+                            <span className="ml-1 text-xs">
+                              ({selectedItemMatchedControlCount})
+                            </span>
+                          )}
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -1222,11 +1264,13 @@ export default function ProjectReviewPage() {
                         )}
 
                         <div className="grid gap-3 md:grid-cols-3">
-                          {([
-                            ['结构一致性', selectedItem.consistencyScores.structural],
-                            ['语义一致性', selectedItem.consistencyScores.semantic],
-                            ['细节一致性', selectedItem.consistencyScores.detail],
-                          ] as const).map(([label, value]) => (
+                          {(
+                            [
+                              ['结构一致性', selectedItem.consistencyScores.structural],
+                              ['语义一致性', selectedItem.consistencyScores.semantic],
+                              ['细节一致性', selectedItem.consistencyScores.detail],
+                            ] as const
+                          ).map(([label, value]) => (
                             <div
                               key={label}
                               className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
@@ -1253,178 +1297,173 @@ export default function ProjectReviewPage() {
                           {selectedItem.degradationReasons.length > 0 ? (
                             <ul className="space-y-2 text-sm text-slate-700">
                               {selectedItem.degradationReasons.map((reason) => (
-                                <li
-                                  key={reason}
-                                  className="rounded-xl bg-slate-50 px-3 py-2"
-                                >
+                                <li key={reason} className="rounded-xl bg-slate-50 px-3 py-2">
                                   {reason}
                                 </li>
                               ))}
                             </ul>
                           ) : (
-                            <p className="text-sm text-slate-500">
-                              当前没有额外降级原因。
-                            </p>
+                            <p className="text-sm text-slate-500">当前没有额外降级原因。</p>
                           )}
                         </div>
                       </CardContent>
                     </Card>
 
                     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-                    <div className="space-y-4">
-                      <Card className="border border-slate-200 shadow-none">
-                        <CardHeader>
-                          <CardTitle className="text-base">当前结果 JSON</CardTitle>
-                          <CardDescription>
-                            右侧 patch 仅填写你要修改的字段，不要整体复制粘贴整个对象。
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <Textarea
-                            aria-label="当前结果 JSON"
-                            readOnly
-                            value={JSON.stringify(editablePayload, null, 2)}
-                            className="min-h-[360px] font-mono text-xs"
-                          />
-                        </CardContent>
-                      </Card>
-                    </div>
+                      <div className="space-y-4">
+                        <Card className="border border-slate-200 shadow-none">
+                          <CardHeader>
+                            <CardTitle className="text-base">当前结果 JSON</CardTitle>
+                            <CardDescription>
+                              右侧 patch 仅填写你要修改的字段，不要整体复制粘贴整个对象。
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <Textarea
+                              aria-label="当前结果 JSON"
+                              readOnly
+                              value={JSON.stringify(editablePayload, null, 2)}
+                              className="min-h-[360px] font-mono text-xs"
+                            />
+                          </CardContent>
+                        </Card>
+                      </div>
 
-                    <div className="space-y-4">
-                      {draftRestoreCandidate?.reviewItemId === selectedItem.reviewItemId && (
-                        <Alert
-                          data-testid="review-draft-restore-alert"
-                          className="border-sky-200 bg-sky-50 text-sky-950"
-                        >
-                          <AlertTitle>发现未提交草稿</AlertTitle>
-                          <AlertDescription>
-                            检测到该审核项在 {formatDraftSavedAt(draftRestoreCandidate.savedAt)} 自动保存过未提交内容。
-                            你可以恢复继续编辑，或忽略并从空白输入开始。
-                          </AlertDescription>
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            <Button
-                              type="button"
-                              data-testid="review-restore-draft-button"
-                              onClick={handleRestoreDraft}
-                              className="bg-sky-600 hover:bg-sky-700"
-                            >
-                              恢复草稿
-                            </Button>
-                            <Button
-                              type="button"
-                              data-testid="review-discard-draft-button"
-                              variant="outline"
-                              onClick={handleDiscardDraft}
-                            >
-                              忽略草稿
-                            </Button>
-                          </div>
-                        </Alert>
-                      )}
+                      <div className="space-y-4">
+                        {draftRestoreCandidate?.reviewItemId === selectedItem.reviewItemId && (
+                          <Alert
+                            data-testid="review-draft-restore-alert"
+                            className="border-sky-200 bg-sky-50 text-sky-950"
+                          >
+                            <AlertTitle>发现未提交草稿</AlertTitle>
+                            <AlertDescription>
+                              检测到该审核项在 {formatDraftSavedAt(draftRestoreCandidate.savedAt)}{' '}
+                              自动保存过未提交内容。 你可以恢复继续编辑，或忽略并从空白输入开始。
+                            </AlertDescription>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                data-testid="review-restore-draft-button"
+                                onClick={handleRestoreDraft}
+                                className="bg-sky-600 hover:bg-sky-700"
+                              >
+                                恢复草稿
+                              </Button>
+                              <Button
+                                type="button"
+                                data-testid="review-discard-draft-button"
+                                variant="outline"
+                                onClick={handleDiscardDraft}
+                              >
+                                忽略草稿
+                              </Button>
+                            </div>
+                          </Alert>
+                        )}
 
-                      <Card className="border border-slate-200 shadow-none">
-                        <CardHeader>
-                          <CardTitle className="text-base">修改 patch</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <Textarea
-                            aria-label="修改 patch JSON"
-                            value={patchInput}
-                            onChange={(event) => {
-                              setPatchInput(event.target.value)
-                              setNoopWarningVisible(false)
-                            }}
-                            className="min-h-[220px] font-mono text-xs"
-                          />
-                        </CardContent>
-                      </Card>
+                        <Card className="border border-slate-200 shadow-none">
+                          <CardHeader>
+                            <CardTitle className="text-base">修改 patch</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <Textarea
+                              aria-label="修改 patch JSON"
+                              value={patchInput}
+                              onChange={(event) => {
+                                setPatchInput(event.target.value)
+                                setNoopWarningVisible(false)
+                              }}
+                              className="min-h-[220px] font-mono text-xs"
+                            />
+                          </CardContent>
+                        </Card>
 
-                      <Card className="border border-slate-200 shadow-none">
-                        <CardHeader>
-                          <CardTitle className="text-base">审核备注 / 理由</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <Input
-                            aria-label="审核理由"
-                            placeholder="输入 reject / rerun 的原因，或 modify 的补充说明"
-                            value={reasonInput}
-                            onChange={(event) => setReasonInput(event.target.value)}
-                          />
-                        </CardContent>
-                      </Card>
+                        <Card className="border border-slate-200 shadow-none">
+                          <CardHeader>
+                            <CardTitle className="text-base">审核备注 / 理由</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <Input
+                              aria-label="审核理由"
+                              placeholder="输入 reject / rerun 的原因，或 modify 的补充说明"
+                              value={reasonInput}
+                              onChange={(event) => setReasonInput(event.target.value)}
+                            />
+                          </CardContent>
+                        </Card>
 
-                      {noopWarningVisible && (
-                        <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-                          <AlertTitle>内容未变更</AlertTitle>
-                          <AlertDescription>
-                            当前 patch 合并后与原始内容完全一致，请继续编辑或取消本次修改。
-                          </AlertDescription>
-                        </Alert>
-                      )}
+                        {noopWarningVisible && (
+                          <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+                            <AlertTitle>内容未变更</AlertTitle>
+                            <AlertDescription>
+                              当前 patch 合并后与原始内容完全一致，请继续编辑或取消本次修改。
+                            </AlertDescription>
+                          </Alert>
+                        )}
 
-                      <div className="grid gap-3">
-                        <Button
-                          aria-label="接受审核"
-                          data-testid="review-accept-button"
-                          onClick={() => void handleDecision('accept')}
-                          disabled={actionBusy !== null || !reviewerId}
-                          className="bg-emerald-600 hover:bg-emerald-700"
-                        >
-                          {actionBusy === 'accept' ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                          )}
-                          接受
-                        </Button>
+                        <div className="grid gap-3">
+                          <Button
+                            aria-label="接受审核"
+                            data-testid="review-accept-button"
+                            onClick={() => void handleDecision('accept')}
+                            disabled={actionBusy !== null || !reviewerId}
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                          >
+                            {actionBusy === 'accept' ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4 mr-2" />
+                            )}
+                            接受
+                          </Button>
 
-                        <Button
-                          aria-label="提交修改"
-                          data-testid="review-modify-button"
-                          onClick={() => void handleDecision('modify')}
-                          disabled={actionBusy !== null || !reviewerId}
-                          className="bg-amber-600 hover:bg-amber-700"
-                        >
-                          {actionBusy === 'modify' ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <Gavel className="w-4 h-4 mr-2" />
-                          )}
-                          提交修改
-                        </Button>
+                          <Button
+                            aria-label="提交修改"
+                            data-testid="review-modify-button"
+                            onClick={() => void handleDecision('modify')}
+                            disabled={actionBusy !== null || !reviewerId}
+                            className="bg-amber-600 hover:bg-amber-700"
+                          >
+                            {actionBusy === 'modify' ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <Gavel className="w-4 h-4 mr-2" />
+                            )}
+                            提交修改
+                          </Button>
 
-                        <Button
-                          aria-label="拒绝审核"
-                          data-testid="review-reject-button"
-                          onClick={() => void handleDecision('reject')}
-                          disabled={actionBusy !== null || !reviewerId}
-                          variant="destructive"
-                        >
-                          {actionBusy === 'reject' ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <XCircle className="w-4 h-4 mr-2" />
-                          )}
-                          拒绝
-                        </Button>
+                          <Button
+                            aria-label="拒绝审核"
+                            data-testid="review-reject-button"
+                            onClick={() => void handleDecision('reject')}
+                            disabled={actionBusy !== null || !reviewerId}
+                            variant="destructive"
+                          >
+                            {actionBusy === 'reject' ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <XCircle className="w-4 h-4 mr-2" />
+                            )}
+                            拒绝
+                          </Button>
 
-                        <Button
-                          aria-label="重新生成审核项"
-                          data-testid="review-rerun-button"
-                          onClick={() => void handleRerun()}
-                          disabled={actionBusy !== null || !selectedItem.canRerun}
-                          variant="outline"
-                        >
-                          {actionBusy === 'rerun' ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                          )}
-                          重新生成
-                        </Button>
+                          <Button
+                            aria-label="重新生成审核项"
+                            data-testid="review-rerun-button"
+                            onClick={() => void handleRerun()}
+                            disabled={actionBusy !== null || !selectedItem.canRerun}
+                            variant="outline"
+                          >
+                            {actionBusy === 'rerun' ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                            )}
+                            重新生成
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
                   </div>
                 )}
               </>

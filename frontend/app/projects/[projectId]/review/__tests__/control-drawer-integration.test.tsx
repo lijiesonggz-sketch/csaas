@@ -11,7 +11,14 @@ import { getProjectReviewItems } from '@/lib/api/project-review'
 
 // Mock ControlDetailDrawer
 jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
-  ControlDetailDrawer: ({ open, onOpenChange, controlId, sourceModule, sourceRecordId, organizationId }) => {
+  ControlDetailDrawer: ({
+    open,
+    onOpenChange,
+    controlId,
+    sourceModule,
+    sourceRecordId,
+    organizationId,
+  }) => {
     if (!open) return null
     return (
       <div data-testid="control-detail-drawer">
@@ -24,7 +31,7 @@ jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
         </button>
       </div>
     )
-  }
+  },
 }))
 
 // Mock API
@@ -405,20 +412,14 @@ describe('Story 7.4: 审核工作台控制点详情抽屉集成', () => {
       render(<ReviewPage />)
 
       await waitFor(() => {
-        expect(
-          screen.getByRole('heading', { name: '测试审核项3（多控制点）' }),
-        ).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: '测试审核项3（多控制点）' })).toBeInTheDocument()
       })
 
       await waitFor(() => {
-        expect(
-          screen.getByRole('button', { name: /查看控制点详情/ }),
-        ).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /查看控制点详情/ })).toBeInTheDocument()
       })
 
-      expect(screen.getByRole('button', { name: /查看控制点详情/ })).toHaveTextContent(
-        '(2)',
-      )
+      expect(screen.getByRole('button', { name: /查看控制点详情/ })).toHaveTextContent('(2)')
     })
   })
 
@@ -484,9 +485,7 @@ describe('Story 7.4: 审核工作台控制点详情抽屉集成', () => {
       render(<ReviewPage />)
 
       await waitFor(() => {
-        expect(
-          screen.getByRole('heading', { name: '测试审核项3（多控制点）' }),
-        ).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: '测试审核项3（多控制点）' })).toBeInTheDocument()
       })
       await openDrawer()
 

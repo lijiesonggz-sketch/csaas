@@ -12,16 +12,15 @@ import {
   ControlPoint,
   Project,
   ProjectMember,
+  RegulationClause,
 } from '@/database/entities'
+import { AITask, AITaskType, TaskStatus } from '../../../database/entities/ai-task.entity'
 import {
-  AITask,
-  AITaskType,
-  TaskStatus,
-} from '../../../database/entities/ai-task.entity'
-import {
+  AuditWorkbenchCitationChainDto,
   AuditWorkbenchFiltersAppliedDto,
   AuditWorkbenchListItemDto,
   AuditWorkbenchListResponseDto,
+  AuditWorkbenchProvenanceStatus,
   AuditWorkbenchRiskLevel,
   AuditWorkbenchSortBy,
   AuditWorkbenchSortOrder,
@@ -37,6 +36,11 @@ type RequestMeta = {
   ipAddress?: string
   userAgent?: string
   query?: ProjectReviewQueryDto
+}
+
+type ClauseLookup = {
+  byId: Map<string, RegulationClause>
+  byCode: Map<string, RegulationClause>
 }
 
 @Injectable()
@@ -60,14 +64,12 @@ export class ProjectReviewService {
     private readonly generationResultRepo: Repository<AIGenerationResult>,
     @InjectRepository(ControlPoint)
     private readonly controlPointRepo: Repository<ControlPoint>,
+    @InjectRepository(RegulationClause)
+    private readonly regulationClauseRepo: Repository<RegulationClause>,
     private readonly auditLogService: AuditLogService,
   ) {}
 
-  async assertAccess(
-    projectId: string,
-    userId: string,
-    meta?: RequestMeta,
-  ): Promise<Project> {
+  async assertAccess(projectId: string, userId: string, meta?: RequestMeta): Promise<Project> {
     const project = await this.projectRepo.findOne({
       where: { id: projectId },
     })
@@ -266,6 +268,7 @@ export class ProjectReviewService {
 
     const taskById = new Map(tasks.map((task) => [task.id, task]))
     const controlPointById = await this.loadControlPointMap(tasks, results)
+    const clauseLookup = await this.loadClauseLookup(tasks, results)
 
     const transformedItems = results
       .map((result) => {
@@ -273,7 +276,7 @@ export class ProjectReviewService {
         if (!task) {
           return null
         }
-        return this.toReviewItem(project, task, result, controlPointById)
+        return this.toReviewItem(project, task, result, controlPointById, clauseLookup)
       })
       .filter((item): item is AuditWorkbenchListItemDto => item !== null)
 
@@ -325,10 +328,12 @@ export class ProjectReviewService {
     task: AITask,
     result: AIGenerationResult,
     controlPointById: Map<string, ControlPoint>,
+    clauseLookup: ClauseLookup,
   ): AuditWorkbenchListItemDto {
     const riskLevel = this.getRiskLevel(result, task)
     const sourcePreview = this.buildSourcePreview(project, task, result)
     const matchedControls = this.resolveMatchedControls(task, result, controlPointById)
+    const provenance = this.buildProvenance(result, sourcePreview, clauseLookup, matchedControls)
 
     return {
       reviewItemId: result.id,
@@ -353,6 +358,8 @@ export class ProjectReviewService {
       sourceRoute: `/projects/${project.id}/review`,
       riskLevel,
       degradationReasons: this.getDegradationReasons(result, task),
+      provenanceStatus: provenance.provenanceStatus,
+      citationChain: provenance.citationChain,
       sourcePreview,
       createdAt: result.createdAt.toISOString(),
       updatedAt: result.updatedAt.toISOString(),
@@ -366,10 +373,7 @@ export class ProjectReviewService {
     )
   }
 
-  private getRiskLevel(
-    result: AIGenerationResult,
-    task: AITask,
-  ): AuditWorkbenchRiskLevel {
+  private getRiskLevel(result: AIGenerationResult, task: AITask): AuditWorkbenchRiskLevel {
     const highRiskDisagreements = result.consistencyReport?.highRiskDisagreements ?? []
 
     if (highRiskDisagreements.length > 0) {
@@ -428,7 +432,7 @@ export class ProjectReviewService {
   }
 
   private buildSourcePreview(
-    project: Project,
+    _project: Project,
     task: AITask,
     result: AIGenerationResult,
   ): AuditWorkbenchListItemDto['sourcePreview'] {
@@ -447,28 +451,11 @@ export class ProjectReviewService {
       }
     }
 
-    const uploadedDocuments = Array.isArray(project.metadata?.uploadedDocuments)
-      ? project.metadata.uploadedDocuments
-      : []
-    const firstDocument = uploadedDocuments.find(
-      (document) =>
-        typeof document?.content === 'string' && typeof document?.name === 'string',
-    ) as { name: string; content: string } | undefined
-
-    if (!firstDocument) {
-      return {
-        aiExcerpt,
-        sourceExcerpt: null,
-        sourceDocumentName: null,
-        extractionQuality: 'missing',
-      }
-    }
-
     return {
       aiExcerpt,
-      sourceExcerpt: firstDocument.content.slice(0, 280),
-      sourceDocumentName: firstDocument.name,
-      extractionQuality: firstDocument.content.length >= 120 ? 'complete' : 'partial',
+      sourceExcerpt: null,
+      sourceDocumentName: null,
+      extractionQuality: 'missing',
     }
   }
 
@@ -481,56 +468,62 @@ export class ProjectReviewService {
       return currentResult.slice(0, 280)
     }
 
-    if (typeof currentResult === 'object' && currentResult !== null && typeof (currentResult as Record<string, any>).overview === 'string') {
-      const record = currentResult as Record<string, any>
-      return record.overview.slice(0, 280)
-    }
-
-    if (typeof currentResult === 'object' && currentResult !== null && typeof (currentResult as Record<string, any>).title === 'string') {
-      const record = currentResult as Record<string, any>
-      return record.title.slice(0, 280)
+    if (
+      typeof currentResult === 'object' &&
+      currentResult !== null &&
+      typeof (currentResult as Record<string, unknown>).overview === 'string'
+    ) {
+      const record = currentResult as Record<string, unknown>
+      return (record.overview as string).slice(0, 280)
     }
 
     if (
       typeof currentResult === 'object' &&
       currentResult !== null &&
-      Array.isArray((currentResult as Record<string, any>).categories)
+      typeof (currentResult as Record<string, unknown>).title === 'string'
     ) {
-      const record = currentResult as Record<string, any>
-      const categoryNames = record.categories
-        .map((category: Record<string, any>) => category?.name)
-        .filter(Boolean)
+      const record = currentResult as Record<string, unknown>
+      return (record.title as string).slice(0, 280)
+    }
+
+    if (
+      typeof currentResult === 'object' &&
+      currentResult !== null &&
+      Array.isArray((currentResult as Record<string, unknown>).categories)
+    ) {
+      const record = currentResult as Record<string, unknown>
+      const categoryNames = (record.categories as Array<Record<string, unknown>>)
+        .map((category) => category.name)
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
         .slice(0, 3)
-      return categoryNames.length > 0
-        ? `聚类类别：${categoryNames.join('、')}`
-        : '聚类结果已生成'
+      return categoryNames.length > 0 ? `聚类类别：${categoryNames.join('、')}` : '聚类结果已生成'
     }
 
     if (
       typeof currentResult === 'object' &&
       currentResult !== null &&
-      Array.isArray((currentResult as Record<string, any>).matrix)
+      Array.isArray((currentResult as Record<string, unknown>).matrix)
     ) {
-      const record = currentResult as Record<string, any>
-      return `成熟度矩阵共 ${record.matrix.length} 行`
+      const record = currentResult as Record<string, unknown>
+      return `成熟度矩阵共 ${(record.matrix as unknown[]).length} 行`
     }
 
     if (
       typeof currentResult === 'object' &&
       currentResult !== null &&
-      Array.isArray((currentResult as Record<string, any>).questionnaire)
+      Array.isArray((currentResult as Record<string, unknown>).questionnaire)
     ) {
-      const record = currentResult as Record<string, any>
-      return `问卷条目共 ${record.questionnaire.length} 题`
+      const record = currentResult as Record<string, unknown>
+      return `问卷条目共 ${(record.questionnaire as unknown[]).length} 题`
     }
 
     if (
       typeof currentResult === 'object' &&
       currentResult !== null &&
-      Array.isArray((currentResult as Record<string, any>).measures)
+      Array.isArray((currentResult as Record<string, unknown>).measures)
     ) {
-      const record = currentResult as Record<string, any>
-      return `改进措施共 ${record.measures.length} 项`
+      const record = currentResult as Record<string, unknown>
+      return `改进措施共 ${(record.measures as unknown[]).length} 项`
     }
 
     if (typeof currentResult === 'object' && currentResult !== null) {
@@ -540,8 +533,302 @@ export class ProjectReviewService {
     return String(currentResult).slice(0, 280)
   }
 
+  private buildProvenance(
+    result: AIGenerationResult,
+    sourcePreview: AuditWorkbenchListItemDto['sourcePreview'],
+    clauseLookup: ClauseLookup,
+    matchedControls: AuditWorkbenchListItemDto['matchedControls'],
+  ): {
+    provenanceStatus: AuditWorkbenchProvenanceStatus
+    citationChain: AuditWorkbenchCitationChainDto | null
+  } {
+    const citationChain = this.resolveCitationChain(result, clauseLookup, matchedControls)
+    if (citationChain) {
+      return {
+        provenanceStatus: 'citation_chain',
+        citationChain,
+      }
+    }
+
+    const hasPreview =
+      Boolean(sourcePreview.sourceExcerpt?.trim()) ||
+      Boolean(sourcePreview.sourceDocumentName?.trim()) ||
+      sourcePreview.extractionQuality !== 'missing'
+    const hasLocationHints =
+      this.hasLocationHints(result.selectedResult) || this.hasLocationHints(result.modifiedResult)
+
+    return {
+      provenanceStatus: hasPreview || hasLocationHints ? 'degraded_preview' : 'missing',
+      citationChain: null,
+    }
+  }
+
+  private resolveCitationChain(
+    result: AIGenerationResult,
+    clauseLookup: ClauseLookup,
+    matchedControls: AuditWorkbenchListItemDto['matchedControls'],
+  ): AuditWorkbenchCitationChainDto | null {
+    if (matchedControls.length === 0) {
+      return null
+    }
+
+    const matchedControlIds = new Set(matchedControls.map((item) => item.controlId))
+    const references = [
+      ...this.collectClauseReferences(result.modifiedResult),
+      ...this.collectClauseReferences(result.selectedResult),
+    ]
+
+    for (const reference of references) {
+      if (reference.clauseId) {
+        const clauseById = clauseLookup.byId.get(reference.clauseId)
+        if (clauseById && this.clauseMatchesCurrentControls(clauseById, matchedControlIds)) {
+          return this.toCitationChain(clauseById)
+        }
+      }
+
+      if (reference.clauseCode) {
+        const clauseByCode = clauseLookup.byCode.get(reference.clauseCode)
+        if (clauseByCode && this.clauseMatchesCurrentControls(clauseByCode, matchedControlIds)) {
+          return this.toCitationChain(clauseByCode)
+        }
+      }
+    }
+
+    return null
+  }
+
+  private toCitationChain(clause: RegulationClause): AuditWorkbenchCitationChainDto {
+    return {
+      sourceId: clause.sourceId,
+      sourceName: clause.source?.sourceName ?? '未命名来源',
+      clauseId: clause.clauseId ?? null,
+      clauseCode: clause.clauseCode ?? null,
+      articleNo: clause.articleNo ?? null,
+      rawText: clause.clauseText ?? null,
+    }
+  }
+
+  private clauseMatchesCurrentControls(
+    clause: RegulationClause,
+    matchedControlIds: Set<string>,
+  ): boolean {
+    const clauseControlMaps = clause.clauseControlMaps ?? []
+    if (clauseControlMaps.length === 0) {
+      return false
+    }
+
+    return clauseControlMaps.some((mapping) => matchedControlIds.has(mapping.controlId))
+  }
+
   private normalizeScore(value: number | null | undefined): number | null {
     return typeof value === 'number' && Number.isFinite(value) ? value : null
+  }
+
+  private async loadClauseLookup(
+    tasks: AITask[],
+    results: AIGenerationResult[],
+  ): Promise<ClauseLookup> {
+    const taskById = new Map(tasks.map((task) => [task.id, task] as const))
+    const clauseIds = new Set<string>()
+    const clauseCodes = new Set<string>()
+
+    for (const result of results) {
+      const task = taskById.get(result.taskId)
+      if (!task) {
+        continue
+      }
+
+      this.collectClauseLookupCandidates(task.input, clauseIds, clauseCodes)
+      this.collectClauseLookupCandidates(result.selectedResult, clauseIds, clauseCodes)
+      this.collectClauseLookupCandidates(result.modifiedResult, clauseIds, clauseCodes)
+    }
+
+    const whereClauses: Array<Record<string, unknown>> = []
+    if (clauseIds.size > 0) {
+      whereClauses.push({ clauseId: In(Array.from(clauseIds)) })
+    }
+    if (clauseCodes.size > 0) {
+      whereClauses.push({ clauseCode: In(Array.from(clauseCodes)) })
+    }
+
+    if (whereClauses.length === 0) {
+      return {
+        byId: new Map(),
+        byCode: new Map(),
+      }
+    }
+
+    const clauses = await this.regulationClauseRepo.find({
+      where: whereClauses,
+      relations: ['source', 'clauseControlMaps'],
+    })
+
+    return {
+      byId: new Map(clauses.map((clause) => [clause.clauseId, clause])),
+      byCode: new Map(clauses.map((clause) => [clause.clauseCode, clause])),
+    }
+  }
+
+  private collectClauseLookupCandidates(
+    value: unknown,
+    clauseIds: Set<string>,
+    clauseCodes: Set<string>,
+    seen: Set<unknown> = new Set(),
+  ): void {
+    const normalizedValue = this.parseStructuredValue(value)
+
+    if (normalizedValue === null || normalizedValue === undefined) {
+      return
+    }
+
+    if (typeof normalizedValue !== 'object') {
+      return
+    }
+
+    if (seen.has(normalizedValue)) {
+      return
+    }
+    seen.add(normalizedValue)
+
+    if (Array.isArray(normalizedValue)) {
+      normalizedValue.forEach((item) =>
+        this.collectClauseLookupCandidates(item, clauseIds, clauseCodes, seen),
+      )
+      return
+    }
+
+    const record = normalizedValue as Record<string, unknown>
+    const clauseId = this.asCandidateString(record.clauseId ?? record.clause_id)
+    const clauseCode = this.asCandidateString(record.clauseCode ?? record.clause_code)
+
+    if (clauseId) {
+      clauseIds.add(clauseId)
+    }
+    if (clauseCode) {
+      clauseCodes.add(clauseCode)
+    }
+
+    Object.values(record).forEach((child) =>
+      this.collectClauseLookupCandidates(child, clauseIds, clauseCodes, seen),
+    )
+  }
+
+  private collectClauseReferences(
+    value: unknown,
+    seen: Set<unknown> = new Set(),
+    results: Array<{ clauseId?: string; clauseCode?: string }> = [],
+    dedupe: Set<string> = new Set(),
+  ): Array<{ clauseId?: string; clauseCode?: string }> {
+    const normalizedValue = this.parseStructuredValue(value)
+
+    if (normalizedValue === null || normalizedValue === undefined) {
+      return results
+    }
+
+    if (typeof normalizedValue !== 'object') {
+      return results
+    }
+
+    if (seen.has(normalizedValue)) {
+      return results
+    }
+    seen.add(normalizedValue)
+
+    if (Array.isArray(normalizedValue)) {
+      normalizedValue.forEach((item) => this.collectClauseReferences(item, seen, results, dedupe))
+      return results
+    }
+
+    const record = normalizedValue as Record<string, unknown>
+    const clauseId = this.asCandidateString(record.clauseId ?? record.clause_id)
+    const clauseCode = this.asCandidateString(record.clauseCode ?? record.clause_code)
+
+    if (clauseId || clauseCode) {
+      const key = `${clauseId ?? ''}::${clauseCode ?? ''}`
+      if (!dedupe.has(key)) {
+        dedupe.add(key)
+        results.push({
+          clauseId: clauseId ?? undefined,
+          clauseCode: clauseCode ?? undefined,
+        })
+      }
+    }
+
+    Object.values(record).forEach((child) =>
+      this.collectClauseReferences(child, seen, results, dedupe),
+    )
+
+    return results
+  }
+
+  private hasLocationHints(value: unknown, seen: Set<unknown> = new Set()): boolean {
+    const normalizedValue = this.parseStructuredValue(value)
+
+    if (normalizedValue === null || normalizedValue === undefined) {
+      return false
+    }
+
+    if (typeof normalizedValue !== 'object') {
+      return false
+    }
+
+    if (seen.has(normalizedValue)) {
+      return false
+    }
+    seen.add(normalizedValue)
+
+    if (Array.isArray(normalizedValue)) {
+      return normalizedValue.some((item) => this.hasLocationHints(item, seen))
+    }
+
+    const record = normalizedValue as Record<string, unknown>
+    const hintValue = [
+      record.clauseId,
+      record.clause_id,
+      record.clauseCode,
+      record.clause_code,
+      record.articleNo,
+      record.article_no,
+      record.sourceName,
+      record.source_name,
+      record.sourceDocumentName,
+      record.source_document_name,
+    ].some((candidate) => Boolean(this.asCandidateString(candidate)))
+
+    if (hintValue) {
+      return true
+    }
+
+    return Object.values(record).some((child) => this.hasLocationHints(child, seen))
+  }
+
+  private parseStructuredValue(value: unknown): unknown {
+    if (typeof value !== 'string') {
+      return value
+    }
+
+    const trimmed = value.trim()
+    if (
+      !(trimmed.startsWith('{') && trimmed.endsWith('}')) &&
+      !(trimmed.startsWith('[') && trimmed.endsWith(']'))
+    ) {
+      return value
+    }
+
+    try {
+      return JSON.parse(trimmed)
+    } catch {
+      return value
+    }
+  }
+
+  private asCandidateString(value: unknown): string | null {
+    if (typeof value !== 'string') {
+      return null
+    }
+
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : null
   }
 
   private compareItems(
@@ -567,12 +854,10 @@ export class ProjectReviewService {
 
     switch (sortBy) {
       case 'createdAt':
-        comparison =
-          new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+        comparison = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
         break
       case 'updatedAt':
-        comparison =
-          new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime()
+        comparison = new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime()
         break
       case 'confidenceLevel':
         comparison =
@@ -581,8 +866,7 @@ export class ProjectReviewService {
         break
       case 'reviewStatus':
         comparison =
-          (reviewStatusRank[left.reviewStatus] ?? 0) -
-          (reviewStatusRank[right.reviewStatus] ?? 0)
+          (reviewStatusRank[left.reviewStatus] ?? 0) - (reviewStatusRank[right.reviewStatus] ?? 0)
         break
       case 'riskLevel':
         comparison = riskRank[left.riskLevel] - riskRank[right.riskLevel]
@@ -593,8 +877,7 @@ export class ProjectReviewService {
     }
 
     if (comparison === 0) {
-      comparison =
-        new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime()
+      comparison = new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime()
     }
 
     if (comparison === 0) {

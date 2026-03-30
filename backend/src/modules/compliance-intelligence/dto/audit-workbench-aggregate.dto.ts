@@ -6,12 +6,10 @@
  */
 
 import type { AITaskType } from '../../../database/entities/ai-task.entity'
-import type {
-  ControlContext,
-  SourceModule,
-} from './unified-control-context.dto'
+import type { ControlContext, SourceModule } from './unified-control-context.dto'
 
 export type AuditWorkbenchRiskLevel = 'high' | 'medium' | 'low'
+export type AuditWorkbenchProvenanceStatus = 'citation_chain' | 'degraded_preview' | 'missing'
 
 export type AuditWorkbenchSortBy =
   | 'createdAt'
@@ -28,6 +26,15 @@ export interface AuditWorkbenchSourcePreviewDto {
   sourceExcerpt: string | null
   sourceDocumentName: string | null
   extractionQuality: 'complete' | 'partial' | 'missing'
+}
+
+export interface AuditWorkbenchCitationChainDto {
+  sourceId: string
+  sourceName: string
+  clauseId: string | null
+  clauseCode: string | null
+  articleNo: string | null
+  rawText: string | null
 }
 
 /**
@@ -65,6 +72,12 @@ export interface AuditWorkbenchAggregateResponseDto extends ControlContext {
 
   /** 是否可重跑 */
   canRerun: boolean
+
+  /** 原文溯源语义状态 */
+  provenanceStatus: AuditWorkbenchProvenanceStatus
+
+  /** 真实条文引用链，仅在 provenanceStatus='citation_chain' 时允许返回 */
+  citationChain: AuditWorkbenchCitationChainDto | null
 }
 
 export interface AuditWorkbenchListItemDto extends AuditWorkbenchAggregateResponseDto {
@@ -124,10 +137,7 @@ export function createEmptyAuditControlContext(): Omit<
 export function createEmptyAuditControlContextForItem(
   reviewItemId: string,
   projectId: string,
-): Omit<
-  ControlContext,
-  'sourceRecordId' | 'sourceModule' | 'sourceRoute'
-> & {
+): Omit<ControlContext, 'sourceRecordId' | 'sourceModule' | 'sourceRoute'> & {
   sourceRecordId: string
   sourceModule: Extract<SourceModule, 'audit'>
   sourceRoute: `/projects/${string}/review`
