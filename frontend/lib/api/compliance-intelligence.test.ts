@@ -74,6 +74,45 @@ describe('compliance-intelligence API client', () => {
     })
   })
 
+  it('should normalize 404 into a non-retryable unavailable state', () => {
+    expect(
+      normalizeControlExplainError({
+        status: 404,
+        message: 'control_point control-123 not found',
+      }),
+    ).toEqual({
+      kind: 'generic',
+      message: '该控制点已移除或停用',
+      retryable: false,
+    })
+  })
+
+  it('should normalize 410 into a non-retryable unavailable state', () => {
+    expect(
+      normalizeControlExplainError({
+        status: 410,
+        message: 'Gone',
+      }),
+    ).toEqual({
+      kind: 'generic',
+      message: '该控制点已移除或停用',
+      retryable: false,
+    })
+  })
+
+  it('should keep generic 404s retryable instead of misclassifying them as removed controls', () => {
+    expect(
+      normalizeControlExplainError({
+        status: 404,
+        message: 'Not Found',
+      }),
+    ).toEqual({
+      kind: 'generic',
+      message: '控制点详情加载失败，请重试',
+      retryable: true,
+    })
+  })
+
   it('should fail fast when required context is missing', async () => {
     await expect(
       getControlExplain({

@@ -74,6 +74,7 @@ export interface ControlExplainErrorState {
 }
 
 const REQUIRED_CONTEXT_ERROR = 'controlId and organizationId are required for control detail drawer'
+const UNAVAILABLE_CONTROL_ERROR_PATTERN = /(control[_ -]?point|control).*(not found|removed|disabled)|\b(gone|removed|disabled)\b/i
 
 export function buildControlExplainPath(input: {
   controlId: string
@@ -99,6 +100,14 @@ export async function getControlExplain(input: {
   return apiFetch(path)
 }
 
+function isUnavailableControlError(status: number | undefined, message: string): boolean {
+  if (status === 410) {
+    return true
+  }
+
+  return status === 404 && UNAVAILABLE_CONTROL_ERROR_PATTERN.test(message)
+}
+
 export function normalizeControlExplainError(error: unknown): ControlExplainErrorState {
   const status = typeof error === 'object' && error !== null && 'status' in error
     ? Number((error as { status?: number }).status)
@@ -113,6 +122,14 @@ export function normalizeControlExplainError(error: unknown): ControlExplainErro
       message: '您没有权限查看该控制点详情',
       retryable: true,
       leakedDataKeys: [],
+    }
+  }
+
+  if (isUnavailableControlError(status, message)) {
+    return {
+      kind: 'generic',
+      message: '该控制点已移除或停用',
+      retryable: false,
     }
   }
 

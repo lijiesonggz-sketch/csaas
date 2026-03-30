@@ -37,6 +37,8 @@ import {
   type ProjectReviewStatus,
 } from '@/lib/api/project-review'
 import type { GenerationResult } from '@/lib/types/ai-generation'
+import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
+import { useOrganizationStore } from '@/lib/stores/useOrganizationStore'
 
 type FilterValue<T extends string> = 'all' | T
 type LocationHint = { label: string; value: string }
@@ -218,6 +220,8 @@ export default function ProjectReviewPage() {
   const { data: session } = useSession()
   const projectId = params.projectId as string
   const reviewerId = session?.user?.id || ''
+  const currentOrganization = useOrganizationStore((state) => state.currentOrganization)
+  const organizationId = currentOrganization?.id
 
   const [items, setItems] = useState<ProjectReviewItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -241,6 +245,15 @@ export default function ProjectReviewPage() {
     riskLevel: 'all',
     reviewStage: 'all',
   })
+
+  // Story 7.4: 控制点详情抽屉状态
+  const [controlDrawerOpen, setControlDrawerOpen] = useState(false)
+  const [selectedControlId, setSelectedControlId] = useState<string | null>(null)
+  const [drawerContext, setDrawerContext] = useState<{
+    organizationId: string
+    controlId: string
+    reviewItemId: string
+  } | null>(null)
 
   const selectedItem = useMemo(
     () => items.find((item) => item.reviewItemId === selectedItemId) ?? null,
@@ -546,6 +559,21 @@ export default function ProjectReviewPage() {
       setActionBusy(null)
     }
   }, [listQuery, loadReviewItems, projectId, reviewerId])
+
+  // Story 7.4: 处理控制点详情打开
+  const handleOpenControlDetail = useCallback((controlId: string) => {
+    if (!organizationId || !selectedItem) {
+      return
+    }
+
+    setDrawerContext({
+      organizationId,
+      controlId,
+      reviewItemId: selectedItem.reviewItemId,
+    })
+    setSelectedControlId(controlId)
+    setControlDrawerOpen(true)
+  }, [organizationId, selectedItem])
 
   return (
     <div className="w-full px-6 py-8">
@@ -858,6 +886,18 @@ export default function ProjectReviewPage() {
                             当前详情没有可提取的 clause / source / article 定位线索。
                           </p>
                         )}
+                        {selectedItem.controlId && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenControlDetail(selectedItem.controlId as string)}
+                            disabled={!organizationId}
+                            className="mt-2"
+                          >
+                            查看控制点详情
+                          </Button>
+                        )}
                       </div>
                       <p className="whitespace-pre-wrap rounded-xl bg-slate-50 p-3">
                         {selectedItem.sourcePreview.sourceExcerpt || '当前没有可展示的原文预览'}
@@ -1086,6 +1126,18 @@ export default function ProjectReviewPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Story 7.4: Control Detail Drawer */}
+      {controlDrawerOpen && drawerContext && (
+        <ControlDetailDrawer
+          open={controlDrawerOpen}
+          onOpenChange={setControlDrawerOpen}
+          organizationId={drawerContext.organizationId}
+          controlId={drawerContext.controlId}
+          sourceModule="audit"
+          sourceRecordId={drawerContext.reviewItemId}
+        />
+      )}
     </div>
   )
 }

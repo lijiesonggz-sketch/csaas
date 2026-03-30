@@ -194,6 +194,36 @@ describe('ControlDetailDrawer', () => {
     expect(getControlExplain).toHaveBeenCalledTimes(2)
   })
 
+  it('should show an explicit unavailable message for removed or disabled controls without leaking stale content', async () => {
+    ;(getControlExplain as jest.Mock)
+      .mockResolvedValueOnce(baseResponse)
+      .mockRejectedValueOnce({
+        status: 404,
+        message: 'control_point control-404 not found',
+      })
+
+    const { rerender } = render(<ControlDetailDrawer {...defaultProps} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('CTRL-DG-004 · 监管报送准确性控制')).toBeInTheDocument()
+    })
+
+    rerender(
+      <ControlDetailDrawer
+        {...defaultProps}
+        controlId="control-404"
+        sourceRecordId="push-404"
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('该控制点已移除或停用')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByText('监管报送前后的自动校验与人工复核记录')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('control-detail-retry')).not.toBeInTheDocument()
+  })
+
   it('should preserve the same structure across audit, radar and report contexts while changing the source badge', async () => {
     const { rerender } = render(<ControlDetailDrawer {...defaultProps} sourceModule="audit" sourceRecordId="review-row-001" />)
 
