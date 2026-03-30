@@ -8,10 +8,12 @@ import { SurveyModule } from '../survey/survey.module'
 import { ControlReportController } from './controllers/control-report.controller'
 import { ControlExplainController } from './controllers/control-explain.controller'
 import { RadarRelevanceController } from './controllers/radar-relevance.controller'
+import { ReportCenterController } from './controllers/report-center.controller'
 import { ComplianceIntelligenceModule } from './compliance-intelligence.module'
 import { ControlReportCompilerService } from './services/control-report-compiler.service'
 import { ControlExplainService } from './services/control-explain.service'
 import { RadarRelevanceEnhancedService } from './services/radar-relevance-enhanced.service'
+import { ReportCenterService } from './services/report-center.service'
 
 describe('ComplianceIntelligenceModule', () => {
   it('should register expected controllers, imports and providers', () => {
@@ -26,6 +28,7 @@ describe('ComplianceIntelligenceModule', () => {
         ControlExplainController,
         RadarRelevanceController,
         ControlReportController,
+        ReportCenterController,
       ]),
     )
     expect(imports).toEqual(
@@ -42,6 +45,7 @@ describe('ComplianceIntelligenceModule', () => {
         ControlExplainService,
         RadarRelevanceEnhancedService,
         ControlReportCompilerService,
+        ReportCenterService,
       ]),
     )
   })

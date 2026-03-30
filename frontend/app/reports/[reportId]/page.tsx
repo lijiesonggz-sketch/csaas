@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { AlertCircle, FileText } from 'lucide-react'
 import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
+import { getReportDetail } from '@/lib/api/report-center'
 import { useOrganizationStore } from '@/lib/stores/useOrganizationStore'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -31,21 +32,13 @@ export default function ControlReportPage() {
 
   useEffect(() => {
     const fetchReport = async () => {
-      if (!organizationId || !reportId) return
+      if (!reportId) return
 
       try {
         setIsLoading(true)
         setError(null)
 
-        const response = await fetch(
-          `/api/kg/report/compile-control-report?organizationId=${organizationId}&reportId=${reportId}`
-        )
-
-        if (!response.ok) {
-          throw new Error('加载报告失败')
-        }
-
-        const data = await response.json()
+        const data = await getReportDetail(reportId)
         setSections(data.sections || [])
       } catch (err) {
         setError(err instanceof Error ? err.message : '加载报告失败')
@@ -55,7 +48,7 @@ export default function ControlReportPage() {
     }
 
     fetchReport()
-  }, [reportId, organizationId])
+  }, [reportId])
 
   // Story 7.3: 处理控制点详情打开
   const handleOpenControlDetail = (control: ControlReportControlNodeDto) => {
