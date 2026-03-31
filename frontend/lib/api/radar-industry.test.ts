@@ -21,6 +21,14 @@ jest.mock('../utils/api', () => ({
 const mockApiFetch = apiFetch as jest.MockedFunction<typeof apiFetch>
 
 describe('Industry Radar API Client', () => {
+  const radarContext = (sourceRoute: string, sourceRecordId: string) => ({
+    controlId: null,
+    matchedControls: [],
+    sourceModule: 'radar' as const,
+    sourceRecordId,
+    sourceRoute,
+  })
+
   beforeEach(() => {
     jest.clearAllMocks()
   })
@@ -30,6 +38,7 @@ describe('Industry Radar API Client', () => {
       const mockResponse = {
         data: [
           {
+            ...radarContext('/radar/industry', 'industry-push-1'),
             pushId: 'industry-push-1',
             radarType: 'industry',
             title: '某银行数字化转型实践',
@@ -128,6 +137,7 @@ describe('Industry Radar API Client', () => {
   describe('getIndustryPushDetail', () => {
     it('should fetch industry push detail by pushId', async () => {
       const mockPush = {
+        ...radarContext('/radar/industry', 'industry-push-1'),
         pushId: 'industry-push-1',
         radarType: 'industry',
         title: '某银行数字化转型实践',
@@ -163,53 +173,51 @@ describe('Industry Radar API Client', () => {
 
   describe('markIndustryPushAsRead', () => {
     it('should mark industry push as read', async () => {
-      mockApiFetch.mockResolvedValue({ ok: true })
+      mockApiFetch.mockResolvedValue(undefined)
 
       await markIndustryPushAsRead('industry-push-1')
 
       expect(mockApiFetch).toHaveBeenCalledWith(
         '/api/radar/pushes/industry-push-1/read',
-        { method: 'POST' }
+        { method: 'PATCH' }
       )
     })
 
     it('should throw error if marking fails', async () => {
-      mockApiFetch.mockResolvedValue({ ok: false, statusText: 'Not Found' })
+      mockApiFetch.mockRejectedValue(new Error('Not Found'))
 
       await expect(markIndustryPushAsRead('invalid-id')).rejects.toThrow(
-        'Failed to mark push as read'
+        'Not Found'
       )
     })
   })
 
   describe('getWatchedPeers', () => {
     it('should fetch watched peers for organization', async () => {
-      const mockWatchedPeers = {
-        data: [
-          { id: 'peer-1', name: '中国银行', type: '国有大行' },
-          { id: 'peer-2', name: '招商银行', type: '股份制银行' },
-        ],
-      }
+      const mockWatchedPeers = [
+        { id: 'peer-1', peerName: '中国银行', institutionType: '国有大行', industry: 'banking' },
+        { id: 'peer-2', peerName: '招商银行', institutionType: '股份制银行', industry: 'banking' },
+      ]
 
       mockApiFetch.mockResolvedValue(mockWatchedPeers)
 
       const result = await getWatchedPeers('org-123')
 
       expect(mockApiFetch).toHaveBeenCalledWith(
-        '/api/radar/watched-peers?organizationId=org-123'
+        '/radar/watched-peers?organizationId=org-123'
       )
-      expect(result.data).toHaveLength(2)
-      expect(result.data[0].name).toBe('中国银行')
+      expect(result).toHaveLength(2)
+      expect(result[0].peerName).toBe('中国银行')
     })
 
     it('should return empty array if no watched peers', async () => {
-      const mockResponse = { data: [] }
+      const mockResponse: any[] = []
 
       mockApiFetch.mockResolvedValue(mockResponse)
 
       const result = await getWatchedPeers('org-123')
 
-      expect(result.data).toHaveLength(0)
+      expect(result).toHaveLength(0)
     })
   })
 })

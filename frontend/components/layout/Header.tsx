@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import {
   AppBar,
   Toolbar,
@@ -13,14 +14,19 @@ import {
   IconButton,
   Divider,
   Stack,
+  Badge,
+  Tooltip,
 } from '@mui/material'
 import {
   Person as PersonIcon,
   Settings as SettingsIcon,
   Logout as LogoutIcon,
   Menu as MenuIcon,
+  NotificationsOutlined as NotificationsIcon,
 } from '@mui/icons-material'
 import { clearTokenCache } from '@/lib/utils/api'
+import { buildRadarHistoryRoute } from '@/lib/api/radar'
+import { useRadarUnreadCount } from '@/lib/hooks/useRadarUnreadCount'
 
 interface HeaderProps {
   onMenuToggle?: () => void
@@ -44,9 +50,16 @@ function getSafeDisplayName(name?: string | null, email?: string | null): string
 
 export default function Header({ onMenuToggle, showMenuButton = false }: HeaderProps) {
   const { data: session } = useSession()
+  const router = useRouter()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const open = Boolean(anchorEl)
   const displayName = getSafeDisplayName(session?.user?.name, session?.user?.email)
+  const organizationId = session?.user?.organizationId
+  const {
+    unreadCount,
+  } = useRadarUnreadCount({
+    enabled: Boolean(session?.user && organizationId),
+  })
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget)
@@ -110,7 +123,24 @@ export default function Header({ onMenuToggle, showMenuButton = false }: HeaderP
 
         <Box>
           {session?.user && (
-            <>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Tooltip title="推送历史">
+                <IconButton
+                  color="inherit"
+                  aria-label="打开推送历史"
+                  onClick={() => router.push(buildRadarHistoryRoute(organizationId))}
+                >
+                  <Badge
+                    color="error"
+                    badgeContent={unreadCount}
+                    max={99}
+                    showZero
+                  >
+                    <NotificationsIcon />
+                  </Badge>
+                </IconButton>
+              </Tooltip>
+
               <Stack
                 direction="row"
                 alignItems="center"
@@ -177,7 +207,7 @@ export default function Header({ onMenuToggle, showMenuButton = false }: HeaderP
                   退出登录
                 </MenuItem>
               </Menu>
-            </>
+            </Stack>
           )}
         </Box>
       </Toolbar>

@@ -6,6 +6,23 @@
 
 import { apiFetch } from '../utils/api'
 
+export const RADAR_UNREAD_COUNT_REFRESH_EVENT = 'radar:unread-count-refresh'
+
+function notifyRadarUnreadCountRefresh() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(RADAR_UNREAD_COUNT_REFRESH_EVENT))
+  }
+}
+
+export function buildRadarHistoryRoute(organizationId?: string): string {
+  if (!organizationId) {
+    return '/radar/history'
+  }
+
+  const params = new URLSearchParams({ orgId: organizationId })
+  return `/radar/history?${params.toString()}`
+}
+
 /**
  * ROI分析数据结构
  */
@@ -37,6 +54,7 @@ export interface RadarPush {
   roiAnalysis?: ROIAnalysis
   isRead: boolean
   readAt?: string
+  isBookmarked?: boolean
 
   // 行业雷达特定字段 (Story 3.3 - Task 1.2)
   peerName?: string                    // 同业机构名称
@@ -180,8 +198,9 @@ export async function getRadarPush(pushId: string): Promise<RadarPush> {
 export async function markPushAsRead(pushId: string): Promise<void> {
   // 修复 Issue #9: apiFetch 已返回解析后的数据,不是 Response 对象
   await apiFetch(`/api/radar/pushes/${pushId}/read`, {
-    method: 'POST',
+    method: 'PATCH',
   })
+  notifyRadarUnreadCountRefresh()
 }
 
 /**
@@ -246,8 +265,9 @@ export async function getIndustryPushDetail(pushId: string): Promise<RadarPush> 
 export async function markIndustryPushAsRead(pushId: string): Promise<void> {
   // 修复 Issue #9: apiFetch 已返回解析后的数据,不是 Response 对象
   await apiFetch(`/api/radar/pushes/${pushId}/read`, {
-    method: 'POST',
+    method: 'PATCH',
   })
+  notifyRadarUnreadCountRefresh()
 }
 
 /**
@@ -383,8 +403,9 @@ export async function markCompliancePushAsRead(pushId: string): Promise<void> {
   // 修复 Issue #1 (Code Review 2026-01-31): apiFetch 返回解析后的数据，不是 Response 对象
   // 移除错误的 response.ok 检查，与 markPushAsRead 和 markIndustryPushAsRead 保持一致
   await apiFetch(`/api/radar/pushes/${pushId}/read`, {
-    method: 'POST',
+    method: 'PATCH',
   })
+  notifyRadarUnreadCountRefresh()
 }
 
 /**
@@ -732,6 +753,7 @@ export interface PushHistoryItem {
   sentAt: string
   readAt: string | null
   isRead: boolean
+  isBookmarked?: boolean
   sourceName?: string
   sourceUrl?: string
   weaknessCategories?: string[]
@@ -739,6 +761,11 @@ export interface PushHistoryItem {
   peerName?: string
   riskLevel?: 'high' | 'medium' | 'low'
   matchedPeers?: string[]
+  controlId: string | null
+  matchedControls: MatchedControlReference[]
+  sourceModule: 'radar'
+  sourceRecordId: string
+  sourceRoute: string
 }
 
 /**
@@ -786,7 +813,10 @@ export async function getPushHistory(
   if (filters?.page) params.append('page', String(filters.page))
   if (filters?.limit) params.append('limit', String(filters.limit))
 
-  const data = await apiFetch(`/api/radar/pushes?${params.toString()}`)
+  const query = params.toString()
+  const data = await apiFetch(
+    query ? `/api/radar/pushes/history?${query}` : '/api/radar/pushes/history',
+  )
 
   return data
 }
@@ -819,6 +849,7 @@ export async function markPushHistoryAsRead(pushId: string): Promise<void> {
   await apiFetch(`/api/radar/pushes/${pushId}/read`, {
     method: 'PATCH',
   })
+  notifyRadarUnreadCountRefresh()
 }
 
 /**
@@ -896,8 +927,9 @@ export async function markPeerMonitoringPushAsRead(pushId: string): Promise<void
   }
 
   await apiFetch(`/api/radar/pushes/${pushId}/read`, {
-    method: 'POST',
+    method: 'PATCH',
   })
+  notifyRadarUnreadCountRefresh()
 }
 
 /**

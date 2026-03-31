@@ -5,9 +5,21 @@
  * 测试目标：验证行业雷达特定字段的TypeScript类型定义
  */
 
-import { normalizeRadarPush, RadarPush } from './radar'
+import {
+  buildRadarHistoryRoute,
+  getPushHistory,
+  markPushHistoryAsRead,
+  normalizeRadarPush,
+  RadarPush,
+} from './radar'
+import { apiFetch } from '../utils/api'
+
+jest.mock('../utils/api', () => ({
+  apiFetch: jest.fn(),
+}))
 
 describe('RadarPush Interface - Industry Radar Fields', () => {
+  const mockApiFetch = apiFetch as jest.MockedFunction<typeof apiFetch>
   const radarContext = (sourceRoute: string, sourceRecordId: string) => ({
     controlId: null,
     matchedControls: [],
@@ -211,6 +223,46 @@ describe('RadarPush Interface - Industry Radar Fields', () => {
           title: 'broken',
         })
       ).toThrow(/Radar push contract violation/)
+    })
+  })
+
+  describe('History Route Helpers', () => {
+    beforeEach(() => {
+      jest.clearAllMocks()
+    })
+
+    it('should build radar history route without organization id', () => {
+      expect(buildRadarHistoryRoute()).toBe('/radar/history')
+    })
+
+    it('should build radar history route with organization id', () => {
+      expect(buildRadarHistoryRoute('org-123')).toBe('/radar/history?orgId=org-123')
+    })
+
+    it('should fetch push history from the dedicated history endpoint', async () => {
+      const mockResponse = {
+        data: [],
+        meta: { total: 0, page: 1, limit: 20, totalPages: 0 },
+      }
+      mockApiFetch.mockResolvedValue(mockResponse)
+
+      await getPushHistory({ radarType: 'tech', page: 2, limit: 10 })
+
+      expect(mockApiFetch).toHaveBeenCalledWith(
+        '/api/radar/pushes/history?radarType=tech&page=2&limit=10',
+      )
+    })
+
+    it('should dispatch unread refresh event after marking history push as read', async () => {
+      const dispatchSpy = jest.spyOn(window, 'dispatchEvent')
+      mockApiFetch.mockResolvedValue(undefined)
+
+      await markPushHistoryAsRead('push-123')
+
+      expect(mockApiFetch).toHaveBeenCalledWith('/api/radar/pushes/push-123/read', {
+        method: 'PATCH',
+      })
+      expect(dispatchSpy).toHaveBeenCalled()
     })
   })
 })

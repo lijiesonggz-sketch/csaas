@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { useSession, signOut } from 'next-auth/react'
 import Header from '../Header'
+import { useRadarUnreadCount } from '@/lib/hooks/useRadarUnreadCount'
 
 // Mock next-auth/react
 jest.mock('next-auth/react', () => ({
@@ -8,17 +9,41 @@ jest.mock('next-auth/react', () => ({
   signOut: jest.fn(),
 }))
 
+const mockPush = jest.fn()
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: mockPush,
+  }),
+}))
+
 // Mock the clearTokenCache function
 jest.mock('@/lib/utils/api', () => ({
   clearTokenCache: jest.fn(),
 }))
 
+jest.mock('@/lib/hooks/useRadarUnreadCount', () => ({
+  useRadarUnreadCount: jest.fn(() => ({
+    unreadCount: 2,
+    isLoading: false,
+    error: null,
+    refresh: jest.fn(),
+  })),
+}))
+
 const mockUseSession = useSession as jest.Mock
 const mockSignOut = signOut as jest.Mock
+const mockUseRadarUnreadCount = useRadarUnreadCount as jest.Mock
 
 describe('Header', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockUseRadarUnreadCount.mockReturnValue({
+      unreadCount: 2,
+      isLoading: false,
+      error: null,
+      refresh: jest.fn(),
+    })
   })
 
   it('renders the logo', () => {
@@ -39,6 +64,7 @@ describe('Header', () => {
           name: 'Test User',
           email: 'test@example.com',
           role: 'consultant',
+          organizationId: 'org-123',
         },
       },
       status: 'authenticated',
@@ -56,6 +82,7 @@ describe('Header', () => {
         user: {
           email: 'test@example.com',
           role: 'client_pm',
+          organizationId: 'org-123',
         },
       },
       status: 'authenticated',
@@ -74,6 +101,7 @@ describe('Header', () => {
           name: 'Radar���û�',
           email: 'radar-test@example.com',
           role: 'consultant',
+          organizationId: 'org-123',
         },
       },
       status: 'authenticated',
@@ -92,6 +120,7 @@ describe('Header', () => {
           name: 'Test User',
           email: 'test@example.com',
           role: 'consultant',
+          organizationId: 'org-123',
         },
       },
       status: 'authenticated',
@@ -115,6 +144,7 @@ describe('Header', () => {
           name: 'Test User',
           email: 'test@example.com',
           role: 'consultant',
+          organizationId: 'org-123',
         },
       },
       status: 'authenticated',
@@ -172,13 +202,14 @@ describe('Header', () => {
     roles.forEach(({ role, label }) => {
       mockUseSession.mockReturnValue({
         data: {
-          user: {
-            name: 'Test User',
-            email: 'test@example.com',
-            role,
-          },
+        user: {
+          name: 'Test User',
+          email: 'test@example.com',
+          role,
+          organizationId: 'org-123',
         },
-        status: 'authenticated',
+      },
+      status: 'authenticated',
       })
 
       const { unmount } = render(<Header />)
@@ -197,5 +228,28 @@ describe('Header', () => {
 
     const appBar = screen.getByRole('banner')
     expect(appBar).toBeInTheDocument()
+  })
+
+  it('shows radar history entry with unread badge and navigates on click', () => {
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          name: 'Test User',
+          email: 'test@example.com',
+          role: 'consultant',
+          organizationId: 'org-123',
+        },
+      },
+      status: 'authenticated',
+    })
+
+    render(<Header />)
+
+    const historyButton = screen.getByRole('button', { name: '打开推送历史' })
+    expect(historyButton).toBeInTheDocument()
+    expect(screen.getByText('2')).toBeInTheDocument()
+
+    fireEvent.click(historyButton)
+    expect(mockPush).toHaveBeenCalledWith('/radar/history?orgId=org-123')
   })
 })

@@ -137,7 +137,7 @@ development_status:
   # PRD: V1-F05, V1-F06
   epic-11: in-progress
   11-1-push-history-backend-controller-wiring: done
-  11-2-radar-nav-push-history-entry: backlog
+  11-2-radar-nav-push-history-entry: done
   11-3-email-notification-channel-integration: backlog
   11-4-push-detail-control-context-integration: backlog
   epic-11-retrospective: optional

@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 
 import RadarDashboardPage from './page'
+import { useRadarUnreadCount } from '@/lib/hooks/useRadarUnreadCount'
 
 const mockPush = jest.fn()
 const mockGet = jest.fn(() => null)
@@ -25,8 +26,18 @@ jest.mock('@/lib/hooks/useOnboarding', () => ({
   })),
 }))
 
+jest.mock('@/lib/hooks/useRadarUnreadCount', () => ({
+  useRadarUnreadCount: jest.fn(() => ({
+    unreadCount: 3,
+    isLoading: false,
+    error: null,
+    refresh: jest.fn(),
+  })),
+}))
+
 describe('RadarDashboardPage', () => {
   const theme = createTheme()
+  const mockUseRadarUnreadCount = useRadarUnreadCount as jest.Mock
 
   const renderWithProviders = () =>
     render(
@@ -38,6 +49,12 @@ describe('RadarDashboardPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockGet.mockImplementation(() => null)
+    mockUseRadarUnreadCount.mockReturnValue({
+      unreadCount: 3,
+      isLoading: false,
+      error: null,
+      refresh: jest.fn(),
+    })
   })
 
   it('renders the dashboard header and three radar entries', async () => {
@@ -64,6 +81,19 @@ describe('RadarDashboardPage', () => {
     expect(mockPush).toHaveBeenCalledWith('/radar/compliance')
   })
 
+  it('renders history entry with unread badge and navigates to history', async () => {
+    renderWithProviders()
+
+    const historyButton = await screen.findByText('推送历史')
+    expect(historyButton).toBeInTheDocument()
+    expect(screen.getByText('3')).toBeInTheDocument()
+
+    mockPush.mockClear()
+    fireEvent.click(historyButton)
+
+    expect(mockPush).toHaveBeenCalledWith('/radar/history')
+  })
+
   it('propagates orgId into radar routes and info box when provided', async () => {
     mockGet.mockImplementation((key: string) => (key === 'orgId' ? 'org-456' : null))
 
@@ -75,6 +105,10 @@ describe('RadarDashboardPage', () => {
     mockPush.mockClear()
     fireEvent.click(screen.getAllByText('进入雷达')[0])
     expect(mockPush).toHaveBeenCalledWith('/radar/tech?orgId=org-456')
+
+    mockPush.mockClear()
+    fireEvent.click(screen.getByText('推送历史'))
+    expect(mockPush).toHaveBeenCalledWith('/radar/history?orgId=org-456')
   })
 
   it('shows the no-organization hint when orgId is missing', async () => {

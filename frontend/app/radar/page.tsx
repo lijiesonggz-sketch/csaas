@@ -1,27 +1,25 @@
 'use client'
 
 import React, { useEffect, useState, Suspense } from 'react'
-import { Box, Container, Typography, CircularProgress, Tooltip } from '@mui/material'
+import { Box, Container, Typography, CircularProgress, Tooltip, Badge } from '@mui/material'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   TrendingUp,
   Business,
-  ArrowForward,
   Settings,
-  ArrowBack,
   ArrowLeft,
   ArrowRight,
   Info,
+  History as HistoryIcon,
 } from '@mui/icons-material'
 import OnboardingWizard from '@/components/radar/OnboardingWizard'
 import { useOnboarding } from '@/lib/hooks/useOnboarding'
-import { apiFetch } from '@/lib/utils/api'
 import { ErrorBoundary } from '@/components/error-boundary/ErrorBoundary'
 import PageHeader from '@/components/ui/mui/PageHeader'
-import ContentCard from '@/components/ui/mui/ContentCard'
 import GradientCard from '@/components/ui/mui/GradientCard'
-import SecondaryButton from '@/components/ui/mui/SecondaryButton'
 import { PrimaryButton as UnifiedButton } from '@/components/ui/mui'
+import { buildRadarHistoryRoute } from '@/lib/api/radar'
+import { useRadarUnreadCount } from '@/lib/hooks/useRadarUnreadCount'
 
 /**
  * Radar Dashboard Page
@@ -38,6 +36,9 @@ function RadarDashboardContent() {
 
   const { isOnboarded, radarActivated, isLoading, refetch } = useOnboarding(orgId)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const { unreadCount } = useRadarUnreadCount({
+    enabled: Boolean(orgId),
+  })
 
   // Show onboarding wizard if not completed and radar not activated
   useEffect(() => {
@@ -99,6 +100,22 @@ function RadarDashboardContent() {
           description="智能推送技术趋势、行业标杆和合规预警，帮助您做出技术投资决策"
           action={
             <Box sx={{ display: 'flex', gap: 2 }}>
+              <UnifiedButton
+                variant="outlined"
+                size="medium"
+                onClick={() => router.push(buildRadarHistoryRoute(orgId ?? undefined))}
+              >
+                <Badge
+                  color="error"
+                  badgeContent={unreadCount}
+                  max={99}
+                  showZero
+                  sx={{ mr: 1.5 }}
+                >
+                  <HistoryIcon sx={{ fontSize: 16 }} />
+                </Badge>
+                推送历史
+              </UnifiedButton>
               <UnifiedButton
                 variant="outlined"
                 size="medium"
