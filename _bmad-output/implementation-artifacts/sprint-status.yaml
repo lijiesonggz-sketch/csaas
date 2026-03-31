@@ -127,7 +127,7 @@ development_status:
 
   # Epic 10: 项目级问卷编辑与再发布
   # PRD: V1-E01
-  epic-10: in-progress
+  epic-10: done
   10-1-project-questionnaire-snapshot-edit-api: done
   10-2-questionnaire-edit-frontend-persistence: done
   10-3-questionnaire-republish-downstream-stale-strategy: done
