@@ -102,6 +102,7 @@ import { PushFeedback } from '../../database/entities/push-feedback.entity'
 import { CostOptimizationModule } from '../admin/cost-optimization/cost-optimization.module'
 import { QualityValidationModule } from '../quality-validation/quality-validation.module'
 import { ResultAggregationModule } from '../result-aggregation/result-aggregation.module'
+import { ComplianceIntelligenceModule } from '../compliance-intelligence/compliance-intelligence.module'
 
 // Story 8.3 providers
 import { PeerContentAnalyzerService } from './services/peer-content-analyzer.service'
@@ -257,6 +258,7 @@ import { PushProcessor } from './processors/push.processor'
     AdminModule, // Story 8.5 - 告警服务依赖
     QualityValidationModule, // Story 8.3 - 质量验证服务依赖
     ResultAggregationModule, // Story 8.3 - 结果聚合服务依赖
+    ComplianceIntelligenceModule,
     // ProjectsModule, // 暂时禁用以避免循环依赖
   ],
   controllers: [

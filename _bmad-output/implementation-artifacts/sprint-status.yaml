@@ -139,5 +139,5 @@ development_status:
   11-1-push-history-backend-controller-wiring: done
   11-2-radar-nav-push-history-entry: done
   11-3-email-notification-channel-integration: done
-  11-4-push-detail-control-context-integration: backlog
+  11-4-push-detail-control-context-integration: done
   epic-11-retrospective: optional

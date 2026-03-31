@@ -25,6 +25,7 @@ import { CurrentOrg } from '../../organizations/decorators/current-org.decorator
 import { IsOptional, IsNumber, IsString, IsEnum, IsInt, Min } from 'class-validator'
 import { Type } from 'class-transformer'
 import type { ControlContext, SourceModule } from '../../compliance-intelligence/dto/unified-control-context.dto'
+import { RadarRelevanceEnhancedService } from '../../compliance-intelligence/services/radar-relevance-enhanced.service'
 import {
   QueryPushHistoryDto,
   UpdatePushBookmarkDto,
@@ -99,6 +100,7 @@ export class RadarPushController {
     @InjectRepository(RawContent)
     private readonly rawContentRepo: Repository<RawContent>,
     private readonly radarPushService: RadarPushService,
+    private readonly radarRelevanceEnhancedService: RadarRelevanceEnhancedService,
   ) {}
 
   private buildRadarControlContext(
@@ -289,10 +291,11 @@ export class RadarPushController {
   @Get(':id')
   async getPushDetail(
     @CurrentTenant() tenantId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
     @Param('id') id: string,
   ) {
     const push = await this.radarPushRepo.findOne({
-      where: { id, tenantId }, // ✅ 添加 tenantId 过滤（Layer 2 防御）
+      where: { id, tenantId, organizationId: currentOrg.organizationId },
     })
 
     if (!push) {
@@ -311,7 +314,10 @@ export class RadarPushController {
           where: { id: analyzed.contentId },
         })
       : null
-    const controlContext = this.buildRadarControlContext(push)
+    const controlContext = await this.buildResolvedRadarControlContext(
+      push,
+      currentOrg.organizationId,
+    )
 
     // Transform priority level from string to number
     const priorityMap: Record<string, 1 | 2 | 3> = {
@@ -389,6 +395,38 @@ export class RadarPushController {
     return {
       pushId: id,
       isBookmarked,
+    }
+  }
+
+  private async buildResolvedRadarControlContext(
+    push: Pick<RadarPush, 'id' | 'radarType' | 'contentId'>,
+    organizationId: string,
+  ): Promise<ControlContext> {
+    if (!push.contentId) {
+      return this.buildRadarControlContext(push)
+    }
+
+    try {
+      const relevance = await this.radarRelevanceEnhancedService.calculateRadarRelevance({
+        organizationId,
+        contentId: push.contentId,
+      })
+
+      return {
+        controlId: relevance.controlId,
+        matchedControls: relevance.matchedControls.map((control) => ({
+          controlId: control.controlId,
+          controlName: control.controlName,
+          packSource: control.reason,
+          priority: relevance.priority,
+        })),
+        sourceModule: 'radar' as SourceModule,
+        sourceRecordId: push.id,
+        sourceRoute: `/radar/${push.radarType}`,
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to resolve radar control context for push ${push.id}: ${error.message}`)
+      return this.buildRadarControlContext(push)
     }
   }
 }

@@ -20,7 +20,8 @@ import {
 import CloseIcon from '@mui/icons-material/Close'
 import dayjs from 'dayjs'
 import { useSession } from 'next-auth/react'
-import { PushHistoryItem } from '@/lib/api/radar'
+import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
+import { getRadarPush, type PushHistoryItem, type RadarPush } from '@/lib/api/radar'
 import { submitPushFeedback, getUserFeedback, PushFeedback } from '@/lib/api/feedback'
 
 interface PushDetailModalProps {
@@ -44,6 +45,7 @@ export default function PushDetailModal({
   onMarkAsRead,
 }: PushDetailModalProps) {
   const { data: session } = useSession()
+  const organizationId = session?.user?.organizationId
 
   // 反馈状态
   const [rating, setRating] = useState<number | null>(null)
@@ -53,40 +55,116 @@ export default function PushDetailModal({
   const [loadingFeedback, setLoadingFeedback] = useState(false)
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const [feedbackSuccess, setFeedbackSuccess] = useState(false)
-
-  if (!push) return null
+  const [controlContext, setControlContext] = useState<Pick<
+    RadarPush,
+    'controlId' | 'matchedControls' | 'sourceModule' | 'sourceRecordId'
+  > | null>(null)
+  const [loadingControlContext, setLoadingControlContext] = useState(false)
+  const [controlDrawerOpen, setControlDrawerOpen] = useState(false)
+  const [selectedControlId, setSelectedControlId] = useState<string | null>(null)
 
   // 加载用户已有的反馈
   useEffect(() => {
-    if (open && push && session?.accessToken) {
-      loadUserFeedback()
+    if (!open || !push || !session?.accessToken) {
+      return
     }
-  }, [open, push?.id, session?.accessToken])
 
-  const loadUserFeedback = async () => {
-    if (!push || !session?.accessToken) return
+    let cancelled = false
 
-    try {
-      setLoadingFeedback(true)
-      setFeedbackError(null)
-      const feedback = await getUserFeedback(session.accessToken, push.id)
+    const loadUserFeedback = async () => {
+      try {
+        setLoadingFeedback(true)
+        setFeedbackError(null)
+        const feedback = await getUserFeedback(session.accessToken!, push.id)
 
-      if (feedback) {
-        setExistingFeedback(feedback)
-        setRating(feedback.rating)
-        setComment(feedback.comment || '')
-      } else {
-        setExistingFeedback(null)
-        setRating(null)
-        setComment('')
+        if (cancelled) {
+          return
+        }
+
+        if (feedback) {
+          setExistingFeedback(feedback)
+          setRating(feedback.rating)
+          setComment(feedback.comment || '')
+        } else {
+          setExistingFeedback(null)
+          setRating(null)
+          setComment('')
+        }
+      } catch (error: any) {
+        if (cancelled) {
+          return
+        }
+
+        console.error('加载反馈失败:', error)
+        setFeedbackError('加载反馈失败')
+      } finally {
+        if (!cancelled) {
+          setLoadingFeedback(false)
+        }
       }
-    } catch (error: any) {
-      console.error('加载反馈失败:', error)
-      setFeedbackError('加载反馈失败')
-    } finally {
-      setLoadingFeedback(false)
     }
-  }
+
+    void loadUserFeedback()
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, push, session?.accessToken])
+
+  useEffect(() => {
+    if (!open || !push) {
+      setControlContext(null)
+      setLoadingControlContext(false)
+      return
+    }
+
+    let cancelled = false
+
+    setLoadingControlContext(true)
+    setControlContext({
+      controlId: push.controlId,
+      matchedControls: push.matchedControls,
+      sourceModule: push.sourceModule,
+      sourceRecordId: push.sourceRecordId,
+    })
+
+    getRadarPush(push.id)
+      .then((detail) => {
+        if (cancelled) {
+          return
+        }
+
+        setControlContext({
+          controlId: detail.controlId,
+          matchedControls: detail.matchedControls,
+          sourceModule: detail.sourceModule,
+          sourceRecordId: detail.sourceRecordId,
+        })
+      })
+      .catch(() => {
+        if (cancelled) {
+          return
+        }
+
+        setControlContext({
+          controlId: push.controlId,
+          matchedControls: push.matchedControls,
+          sourceModule: push.sourceModule,
+          sourceRecordId: push.sourceRecordId,
+        })
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingControlContext(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [open, push])
+
+  if (!push) return null
 
   const handleSubmitFeedback = async () => {
     if (!push || !session?.accessToken || rating === null) return
@@ -129,6 +207,11 @@ export default function PushDetailModal({
     }
   }
 
+  const handleOpenControlDetail = (controlId: string) => {
+    setSelectedControlId(controlId)
+    setControlDrawerOpen(true)
+  }
+
   const getRadarTypeLabel = (type: string) => {
     switch (type) {
       case 'tech':
@@ -167,6 +250,8 @@ export default function PushDetailModal({
         return level
     }
   }
+
+  const matchedControls = controlContext?.matchedControls ?? push.matchedControls
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -296,6 +381,36 @@ export default function PushDetailModal({
           </Typography>
         </Box>
 
+        {(loadingControlContext || matchedControls.length > 0) && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              关联控制点
+            </Typography>
+            {loadingControlContext && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={18} />
+                <Typography variant="body2" color="text.secondary">
+                  正在加载控制点上下文...
+                </Typography>
+              </Box>
+            )}
+            {!loadingControlContext && matchedControls.length > 0 && (
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {matchedControls.map((control) => (
+                  <Button
+                    key={control.controlId}
+                    variant="outlined"
+                    size="small"
+                    onClick={() => handleOpenControlDetail(control.controlId)}
+                  >
+                    查看控制点详情: {control.controlName}
+                  </Button>
+                ))}
+              </Box>
+            )}
+          </Box>
+        )}
+
         <Divider sx={{ my: 3 }} />
 
         {/* 用户反馈表单 - Story 7.2 */}
@@ -378,6 +493,17 @@ export default function PushDetailModal({
         )}
         <Button onClick={onClose}>关闭</Button>
       </DialogActions>
+
+      {organizationId && selectedControlId && (
+        <ControlDetailDrawer
+          open={controlDrawerOpen}
+          onOpenChange={setControlDrawerOpen}
+          organizationId={organizationId}
+          controlId={selectedControlId}
+          sourceModule={controlContext?.sourceModule || 'radar'}
+          sourceRecordId={controlContext?.sourceRecordId || push.id}
+        />
+      )}
     </Dialog>
   )
 }

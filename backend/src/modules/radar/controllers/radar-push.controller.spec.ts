@@ -12,6 +12,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { TenantGuard } from '../../organizations/guards/tenant.guard'
 import { AuditInterceptor } from '../../../common/interceptors/audit.interceptor'
 import { RadarPushService } from '../services/radar-push.service'
+import { RadarRelevanceEnhancedService } from '../../compliance-intelligence/services/radar-relevance-enhanced.service'
 
 describe('RadarPushController', () => {
   let controller: RadarPushController
@@ -34,6 +35,9 @@ describe('RadarPushController', () => {
     getUnreadCount: jest.fn(),
     markAsRead: jest.fn(),
     setBookmark: jest.fn(),
+  }
+  const mockRadarRelevanceEnhancedService = {
+    calculateRadarRelevance: jest.fn(),
   }
 
   // Mock guards
@@ -65,6 +69,10 @@ describe('RadarPushController', () => {
         {
           provide: RadarPushService,
           useValue: mockRadarPushService,
+        },
+        {
+          provide: RadarRelevanceEnhancedService,
+          useValue: mockRadarRelevanceEnhancedService,
         },
       ],
     })
@@ -457,10 +465,33 @@ describe('RadarPushController', () => {
         publishDate: new Date('2024-01-15T09:00:00.000Z'),
         source: 'Test Source',
       })
+      mockRadarRelevanceEnhancedService.calculateRadarRelevance.mockResolvedValue({
+        relevanceScore: 0.92,
+        priority: 'HIGH',
+        controlId: 'control-123',
+        matchedControls: [
+          {
+            controlId: 'control-123',
+            controlCode: 'CTRL-123',
+            controlName: '测试控制点',
+            reason: '命中控制语义：测试',
+          },
+        ],
+        matchedCases: [],
+        matchedClauses: [],
+        suggestedChecks: [],
+        sourceModule: 'radar',
+        sourceRecordId: 'analyzed-1',
+        sourceRoute: '/radar/compliance/analyzed-1',
+      })
 
       mockRepo.findOne.mockResolvedValue(mockPush)
 
-      const result = await controller.getPushDetail('tenant-123', pushId)
+      const result = await controller.getPushDetail(
+        'tenant-123',
+        { organizationId: 'org-123', userId: 'user-123' },
+        pushId,
+      )
 
       expect(result).toEqual({
         pushId: 'push-123',
@@ -479,14 +510,21 @@ describe('RadarPushController', () => {
         roiAnalysis: { score: 0.8 },
         isRead: false,
         readAt: null,
-        controlId: null,
-        matchedControls: [],
+        controlId: 'control-123',
+        matchedControls: [
+          {
+            controlId: 'control-123',
+            controlName: '测试控制点',
+            packSource: '命中控制语义：测试',
+            priority: 'HIGH',
+          },
+        ],
         sourceModule: 'radar',
         sourceRecordId: 'push-123',
         sourceRoute: '/radar/tech',
       })
       expect(mockRepo.findOne).toHaveBeenCalledWith({
-        where: { id: pushId, tenantId: 'tenant-123' },
+        where: { id: pushId, tenantId: 'tenant-123', organizationId: 'org-123' },
       })
     })
 
@@ -507,8 +545,15 @@ describe('RadarPushController', () => {
       mockAnalyzedContentRepo.findOne.mockResolvedValue(null)
       mockRawContentRepo.findOne.mockResolvedValue(null)
       mockRepo.findOne.mockResolvedValue(mockPush)
+      mockRadarRelevanceEnhancedService.calculateRadarRelevance.mockRejectedValue(
+        new Error('relevance failed'),
+      )
 
-      const result = await controller.getPushDetail('tenant-123', pushId)
+      const result = await controller.getPushDetail(
+        'tenant-123',
+        { organizationId: 'org-123', userId: 'user-123' },
+        pushId,
+      )
 
       expect(result).toMatchObject({
         controlId: null,
@@ -524,11 +569,11 @@ describe('RadarPushController', () => {
 
       mockRepo.findOne.mockResolvedValue(null)
 
-      await expect(controller.getPushDetail('tenant-123', pushId)).rejects.toThrow(
-        NotFoundException,
-      )
+      await expect(
+        controller.getPushDetail('tenant-123', { organizationId: 'org-123', userId: 'user-123' }, pushId),
+      ).rejects.toThrow(NotFoundException)
       expect(mockRepo.findOne).toHaveBeenCalledWith({
-        where: { id: pushId, tenantId: 'tenant-123' },
+        where: { id: pushId, tenantId: 'tenant-123', organizationId: 'org-123' },
       })
     })
   })
@@ -601,7 +646,9 @@ describe('RadarPushController', () => {
     it('should always filter by tenantId in getPushDetail', async () => {
       mockRepo.findOne.mockResolvedValue(null)
 
-      await expect(controller.getPushDetail('tenant-789', 'push-123')).rejects.toThrow()
+      await expect(
+        controller.getPushDetail('tenant-789', { organizationId: 'org-123', userId: 'user-123' }, 'push-123'),
+      ).rejects.toThrow()
 
       const callArgs = mockRepo.findOne.mock.calls[0][0]
       expect(callArgs.where.tenantId).toBe('tenant-789')
