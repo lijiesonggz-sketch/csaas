@@ -55,7 +55,17 @@ export class RadarPushService {
       throw new Error('Organization ID is required')
     }
 
-    const { page = 1, limit = 20, radarType, timeRange, startDate, endDate, relevance } = query
+    const {
+      page = 1,
+      limit = 20,
+      radarType,
+      status = 'sent',
+      timeRange,
+      startDate,
+      endDate,
+      relevance,
+      isRead,
+    } = query
 
     // 验证分页参数
     if (page < 1 || limit < 1 || limit > 50) {
@@ -71,11 +81,15 @@ export class RadarPushService {
       .leftJoinAndSelect('analyzed.rawContent', 'raw')
       .where('push.tenantId = :tenantId', { tenantId })
       .andWhere('push.organizationId = :organizationId', { organizationId })
-      .andWhere("push.status = 'sent'") // 只查询已发送的推送
+      .andWhere('push.status = :status', { status })
 
     // 雷达类型筛选
     if (radarType) {
       queryBuilder.andWhere('push.radarType = :radarType', { radarType })
+    }
+
+    if (typeof isRead === 'boolean') {
+      queryBuilder.andWhere('push.isRead = :isRead', { isRead })
     }
 
     // 时间范围筛选
@@ -235,6 +249,51 @@ export class RadarPushService {
   }
 
   /**
+   * 更新推送收藏状态
+   */
+  async setBookmark(
+    pushId: string,
+    tenantId: string,
+    organizationId: string,
+    bookmark: boolean,
+  ): Promise<boolean> {
+    if (!pushId || pushId.trim() === '') {
+      throw new Error('Push ID is required')
+    }
+
+    if (!tenantId || tenantId.trim() === '') {
+      throw new Error('Tenant ID is required')
+    }
+
+    if (!organizationId || organizationId.trim() === '') {
+      throw new Error('Organization ID is required')
+    }
+
+    const push = await this.radarPushRepo.findOne({
+      where: {
+        id: pushId,
+        tenantId,
+        organizationId,
+      },
+    })
+
+    if (!push) {
+      throw new NotFoundException('Push not found')
+    }
+
+    if (push.isBookmarked === bookmark) {
+      return push.isBookmarked
+    }
+
+    await this.radarPushRepo.update(pushId, {
+      isBookmarked: bookmark,
+    })
+
+    this.logger.log(`Push ${pushId} bookmark status updated to ${bookmark}`)
+    return bookmark
+  }
+
+  /**
    * 转换 RadarPush 实体为 DTO
    *
    * @param push - RadarPush 实体
@@ -257,9 +316,15 @@ export class RadarPushService {
       sentAt: push.sentAt?.toISOString() || '',
       readAt: push.readAt?.toISOString() || null,
       isRead: push.isRead || false,
+      isBookmarked: push.isBookmarked || false,
       sourceName: raw?.source || undefined,
       sourceUrl: raw?.url || undefined,
       weaknessCategories: analyzed?.categories || undefined,
+      controlId: null,
+      matchedControls: [],
+      sourceModule: 'radar',
+      sourceRecordId: push.id,
+      sourceRoute: `/radar/${push.radarType}`,
     }
 
     // 技术雷达特有字段

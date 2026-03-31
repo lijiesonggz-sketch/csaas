@@ -3,6 +3,7 @@ import {
   IsEnum,
   IsDateString,
   IsString,
+  IsBoolean,
   MaxLength,
   IsInt,
   Min,
@@ -32,6 +33,16 @@ export class QueryPushHistoryDto {
   @IsOptional()
   @IsEnum(['tech', 'industry', 'compliance'])
   radarType?: 'tech' | 'industry' | 'compliance'
+
+  /**
+   * 推送状态筛选
+   * - scheduled: 已调度
+   * - sent: 已发送
+   * - failed: 推送失败
+   */
+  @IsOptional()
+  @IsEnum(['scheduled', 'sent', 'failed'])
+  status?: 'scheduled' | 'sent' | 'failed'
 
   /**
    * 时间范围快捷选项
@@ -79,6 +90,28 @@ export class QueryPushHistoryDto {
   @IsString()
   @MaxLength(100)
   keyword?: string
+
+  /**
+   * 前端兼容字段：organizationId 允许显式透传，但服务层会以当前组织为准
+   */
+  @IsOptional()
+  @IsString()
+  organizationId?: string
+
+  /**
+   * 前端兼容字段：额外筛选标记（保留，MVP 不在 service 层处理复杂业务）
+   */
+  @IsOptional()
+  @IsString()
+  filter?: string
+
+  /**
+   * 是否已读筛选
+   */
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  isRead?: boolean
 
   /**
    * 页码（从1开始）
@@ -133,6 +166,9 @@ export class PushHistoryItemDto {
   /** 是否已读 */
   isRead: boolean
 
+  /** 是否已收藏 */
+  isBookmarked: boolean
+
   /** 信息来源名称 */
   sourceName?: string
 
@@ -153,6 +189,18 @@ export class PushHistoryItemDto {
 
   /** 匹配的关注同业机构列表（行业雷达） */
   matchedPeers?: string[]
+
+  /** 统一控制点上下文字段 */
+  controlId: string | null
+  matchedControls: Array<{
+    controlId: string
+    controlName: string
+    packSource: string
+    priority: string
+  }>
+  sourceModule: 'radar'
+  sourceRecordId: string
+  sourceRoute: string
 }
 
 /**
@@ -175,4 +223,9 @@ export class PushHistoryResponseDto {
     /** 总页数 */
     totalPages: number
   }
+}
+
+export class UpdatePushBookmarkDto {
+  @IsBoolean()
+  bookmark: boolean
 }

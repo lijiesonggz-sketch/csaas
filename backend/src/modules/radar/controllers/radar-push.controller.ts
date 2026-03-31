@@ -2,8 +2,10 @@ import {
   Controller,
   Get,
   Patch,
+  Post,
   Param,
   Query,
+  Body,
   UseGuards,
   UseInterceptors,
   NotFoundException,
@@ -23,6 +25,11 @@ import { CurrentOrg } from '../../organizations/decorators/current-org.decorator
 import { IsOptional, IsNumber, IsString, IsEnum, IsInt, Min } from 'class-validator'
 import { Type } from 'class-transformer'
 import type { ControlContext, SourceModule } from '../../compliance-intelligence/dto/unified-control-context.dto'
+import {
+  QueryPushHistoryDto,
+  UpdatePushBookmarkDto,
+} from '../dto/push-history.dto'
+import { RadarPushService } from '../services/radar-push.service'
 
 /**
  * DTO for get push history query
@@ -91,6 +98,7 @@ export class RadarPushController {
     private readonly analyzedContentRepo: Repository<AnalyzedContent>,
     @InjectRepository(RawContent)
     private readonly rawContentRepo: Repository<RawContent>,
+    private readonly radarPushService: RadarPushService,
   ) {}
 
   private buildRadarControlContext(
@@ -235,6 +243,38 @@ export class RadarPushController {
   }
 
   /**
+   * 查询推送历史专用列表
+   *
+   * GET /api/radar/pushes/history
+   */
+  @Get('history')
+  async getHistoryFeed(
+    @CurrentTenant() tenantId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
+    @Query() query: QueryPushHistoryDto,
+  ) {
+    return this.radarPushService.getPushHistory(
+      tenantId,
+      currentOrg.organizationId,
+      query,
+    )
+  }
+
+  /**
+   * 获取未读推送数量
+   *
+   * GET /api/radar/pushes/unread-count
+   */
+  @Get('unread-count')
+  async getUnreadCount(
+    @CurrentTenant() tenantId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
+  ) {
+    const count = await this.radarPushService.getUnreadCount(tenantId, currentOrg.organizationId)
+    return { count }
+  }
+
+  /**
    * 获取推送详情
    *
    * GET /api/radar/pushes/:id
@@ -320,22 +360,35 @@ export class RadarPushController {
   @Patch(':id/read')
   async markAsRead(
     @CurrentTenant() tenantId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
     @Param('id') id: string,
   ) {
-    const push = await this.radarPushRepo.findOne({
-      where: { id, tenantId }, // ✅ 添加 tenantId 过滤（Layer 2 防御）
-    })
+    await this.radarPushService.markAsRead(id, currentOrg.userId, tenantId, currentOrg.organizationId)
+    return { success: true }
+  }
 
-    if (!push) {
-      throw new NotFoundException('Push not found')
+  /**
+   * 收藏/取消收藏推送
+   *
+   * POST /api/radar/pushes/:id/bookmark
+   */
+  @Post(':id/bookmark')
+  async setBookmark(
+    @CurrentTenant() tenantId: string,
+    @CurrentOrg() currentOrg: { organizationId: string; userId: string },
+    @Param('id') id: string,
+    @Body() body: UpdatePushBookmarkDto,
+  ) {
+    const isBookmarked = await this.radarPushService.setBookmark(
+      id,
+      tenantId,
+      currentOrg.organizationId,
+      body.bookmark,
+    )
+
+    return {
+      pushId: id,
+      isBookmarked,
     }
-
-    // TODO: Story 5.4 将添加 isRead 和 readAt 字段
-    // await this.radarPushRepo.update(id, {
-    //   isRead: true,
-    //   readAt: new Date(),
-    // })
-
-    return { success: true, message: 'Mark as read functionality will be implemented in Story 5.4' }
   }
 }

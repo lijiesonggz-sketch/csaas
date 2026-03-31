@@ -11,6 +11,7 @@ import { OrganizationGuard } from '../../organizations/guards/organization.guard
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { TenantGuard } from '../../organizations/guards/tenant.guard'
 import { AuditInterceptor } from '../../../common/interceptors/audit.interceptor'
+import { RadarPushService } from '../services/radar-push.service'
 
 describe('RadarPushController', () => {
   let controller: RadarPushController
@@ -27,6 +28,12 @@ describe('RadarPushController', () => {
   const mockRawContentRepo = {
     find: jest.fn(),
     findOne: jest.fn(),
+  }
+  const mockRadarPushService = {
+    getPushHistory: jest.fn(),
+    getUnreadCount: jest.fn(),
+    markAsRead: jest.fn(),
+    setBookmark: jest.fn(),
   }
 
   // Mock guards
@@ -54,6 +61,10 @@ describe('RadarPushController', () => {
         {
           provide: getRepositoryToken(RawContent),
           useValue: mockRawContentRepo,
+        },
+        {
+          provide: RadarPushService,
+          useValue: mockRadarPushService,
         },
       ],
     })
@@ -348,6 +359,72 @@ describe('RadarPushController', () => {
     })
   })
 
+  describe('GET /api/radar/pushes/history', () => {
+    it('should delegate history feed to RadarPushService', async () => {
+      const query: QueryPushHistoryDto = {
+        radarType: 'tech',
+        timeRange: '30d',
+        page: 1,
+        limit: 20,
+      }
+      const serviceResponse = {
+        data: [
+          {
+            id: 'push-1',
+            radarType: 'tech',
+            title: '历史推送',
+            summary: '摘要',
+            relevanceScore: 0.92,
+            relevanceLevel: 'high',
+            sentAt: '2026-03-31T00:00:00.000Z',
+            readAt: null,
+            isRead: false,
+            isBookmarked: false,
+            controlId: null,
+            matchedControls: [],
+            sourceModule: 'radar',
+            sourceRecordId: 'push-1',
+            sourceRoute: '/radar/tech',
+          },
+        ],
+        meta: {
+          total: 1,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        },
+      }
+      mockRadarPushService.getPushHistory.mockResolvedValue(serviceResponse)
+
+      const result = await controller.getHistoryFeed(
+        'tenant-123',
+        { organizationId: 'org-123', userId: 'user-123' },
+        query,
+      )
+
+      expect(result).toEqual(serviceResponse)
+      expect(mockRadarPushService.getPushHistory).toHaveBeenCalledWith(
+        'tenant-123',
+        'org-123',
+        query,
+      )
+    })
+  })
+
+  describe('GET /api/radar/pushes/unread-count', () => {
+    it('should return unread count from RadarPushService', async () => {
+      mockRadarPushService.getUnreadCount.mockResolvedValue(3)
+
+      const result = await controller.getUnreadCount('tenant-123', {
+        organizationId: 'org-123',
+        userId: 'user-123',
+      })
+
+      expect(result).toEqual({ count: 3 })
+      expect(mockRadarPushService.getUnreadCount).toHaveBeenCalledWith('tenant-123', 'org-123')
+    })
+  })
+
   describe('GET /api/radar/pushes/:id', () => {
     it('should return push detail', async () => {
       const pushId = 'push-123'
@@ -459,36 +536,54 @@ describe('RadarPushController', () => {
   describe('PATCH /api/radar/pushes/:id/read', () => {
     it('should mark push as read', async () => {
       const pushId = 'push-123'
-      const mockPush = {
-        id: pushId,
-        tenantId: 'tenant-123',
-        title: 'Test Push',
-      }
+      mockRadarPushService.markAsRead.mockResolvedValue(undefined)
 
-      mockRepo.findOne.mockResolvedValue(mockPush)
+      const result = await controller.markAsRead(
+        'tenant-123',
+        { organizationId: 'org-123', userId: 'user-123' },
+        pushId,
+      )
 
-      const result = await controller.markAsRead('tenant-123', pushId)
-
-      expect(result).toEqual({
-        success: true,
-        message: 'Mark as read functionality will be implemented in Story 5.4',
-      })
-      expect(mockRepo.findOne).toHaveBeenCalledWith({
-        where: { id: pushId, tenantId: 'tenant-123' },
-      })
+      expect(result).toEqual({ success: true })
+      expect(mockRadarPushService.markAsRead).toHaveBeenCalledWith(
+        pushId,
+        'user-123',
+        'tenant-123',
+        'org-123',
+      )
     })
 
     it('should throw NotFoundException if push not found', async () => {
       const pushId = 'non-existent'
+      mockRadarPushService.markAsRead.mockRejectedValue(new NotFoundException('Push not found'))
 
-      mockRepo.findOne.mockResolvedValue(null)
+      await expect(
+        controller.markAsRead('tenant-123', { organizationId: 'org-123', userId: 'user-123' }, pushId),
+      ).rejects.toThrow(NotFoundException)
+    })
+  })
 
-      await expect(controller.markAsRead('tenant-123', pushId)).rejects.toThrow(
-        NotFoundException,
+  describe('POST /api/radar/pushes/:id/bookmark', () => {
+    it('should update bookmark status', async () => {
+      mockRadarPushService.setBookmark.mockResolvedValue(true)
+
+      const result = await controller.setBookmark(
+        'tenant-123',
+        { organizationId: 'org-123', userId: 'user-123' },
+        'push-123',
+        { bookmark: true },
       )
-      expect(mockRepo.findOne).toHaveBeenCalledWith({
-        where: { id: pushId, tenantId: 'tenant-123' },
+
+      expect(result).toEqual({
+        pushId: 'push-123',
+        isBookmarked: true,
       })
+      expect(mockRadarPushService.setBookmark).toHaveBeenCalledWith(
+        'push-123',
+        'tenant-123',
+        'org-123',
+        true,
+      )
     })
   })
 
@@ -513,12 +608,18 @@ describe('RadarPushController', () => {
     })
 
     it('should always filter by tenantId in markAsRead', async () => {
-      mockRepo.findOne.mockResolvedValue(null)
+      mockRadarPushService.markAsRead.mockRejectedValue(new NotFoundException('Push not found'))
 
-      await expect(controller.markAsRead('tenant-999', 'push-123')).rejects.toThrow()
+      await expect(
+        controller.markAsRead('tenant-999', { organizationId: 'org-123', userId: 'user-123' }, 'push-123'),
+      ).rejects.toThrow()
 
-      const callArgs = mockRepo.findOne.mock.calls[0][0]
-      expect(callArgs.where.tenantId).toBe('tenant-999')
+      expect(mockRadarPushService.markAsRead).toHaveBeenCalledWith(
+        'push-123',
+        'user-123',
+        'tenant-999',
+        'org-123',
+      )
     })
   })
 })

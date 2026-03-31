@@ -84,6 +84,15 @@ describe('RadarPushService', () => {
       expect(result.meta.page).toBe(1)
       expect(result.meta.limit).toBe(20)
       expect(result.meta.totalPages).toBe(1)
+      expect(result.data[0]).toMatchObject({
+        id: 'push-1',
+        isBookmarked: false,
+        controlId: null,
+        matchedControls: [],
+        sourceModule: 'radar',
+        sourceRecordId: 'push-1',
+        sourceRoute: '/radar/tech',
+      })
       expect(mockQueryBuilder.where).toHaveBeenCalledWith('push.tenantId = :tenantId', {
         tenantId: mockTenantId,
       })
@@ -297,7 +306,9 @@ describe('RadarPushService', () => {
 
       await service.getPushHistory(mockTenantId, mockOrgId, query)
 
-      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith("push.status = 'sent'")
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('push.status = :status', {
+        status: 'sent',
+      })
     })
   })
 
@@ -380,6 +391,52 @@ describe('RadarPushService', () => {
       const count = await service.getUnreadCount(mockTenantId, mockOrgId)
 
       expect(count).toBe(0)
+    })
+  })
+
+  describe('setBookmark', () => {
+    it('should update bookmark status', async () => {
+      const pushId = '12345678-1234-1234-1234-123456789abc'
+
+      mockRepository.findOne.mockResolvedValue({
+        id: pushId,
+        isBookmarked: false,
+      })
+      mockRepository.update.mockResolvedValue({ affected: 1 })
+
+      const result = await service.setBookmark(pushId, mockTenantId, mockOrgId, true)
+
+      expect(result).toBe(true)
+      expect(mockRepository.findOne).toHaveBeenCalledWith({
+        where: { id: pushId, tenantId: mockTenantId, organizationId: mockOrgId },
+      })
+      expect(mockRepository.update).toHaveBeenCalledWith(pushId, {
+        isBookmarked: true,
+      })
+    })
+
+    it('should return existing status without update when bookmark state is unchanged', async () => {
+      const pushId = '12345678-1234-1234-1234-123456789abc'
+
+      mockRepository.findOne.mockResolvedValue({
+        id: pushId,
+        isBookmarked: true,
+      })
+
+      const result = await service.setBookmark(pushId, mockTenantId, mockOrgId, true)
+
+      expect(result).toBe(true)
+      expect(mockRepository.update).not.toHaveBeenCalled()
+    })
+
+    it('should throw if push is not found', async () => {
+      const pushId = '12345678-1234-1234-1234-123456789abc'
+
+      mockRepository.findOne.mockResolvedValue(null)
+
+      await expect(service.setBookmark(pushId, mockTenantId, mockOrgId, true)).rejects.toThrow(
+        'Push not found',
+      )
     })
   })
 })

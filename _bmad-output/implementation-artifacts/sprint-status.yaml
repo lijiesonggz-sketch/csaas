@@ -135,8 +135,8 @@ development_status:
 
   # Epic 11: KG 关联推送与历史闭环
   # PRD: V1-F05, V1-F06
-  epic-11: backlog
-  11-1-push-history-backend-controller-wiring: backlog
+  epic-11: in-progress
+  11-1-push-history-backend-controller-wiring: done
   11-2-radar-nav-push-history-entry: backlog
   11-3-email-notification-channel-integration: backlog
   11-4-push-detail-control-context-integration: backlog
