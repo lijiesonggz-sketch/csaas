@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import * as nodemailer from 'nodemailer'
 import { Transporter } from 'nodemailer'
+import * as he from 'he'
 import { EmailTemplateService } from '../branding/email-template.service'
 import { AdminBrandingService } from '../branding/admin-branding.service'
 
@@ -24,6 +25,70 @@ export class EmailService {
     private readonly brandingService: AdminBrandingService,
   ) {
     this.initializeTransporter()
+  }
+
+  async sendRadarPushNotificationSummary({
+    to,
+    clientName,
+    tenantId,
+    organizationId,
+    pushes,
+  }: {
+    to: string
+    clientName: string
+    tenantId?: string
+    organizationId: string
+    pushes: RadarPushNotificationEmailItem[]
+  }): Promise<void> {
+    if (!this.transporter) {
+      this.logger.warn(`[Email Disabled] Radar push summary email would be sent to ${to}`)
+      return
+    }
+
+    if (!pushes.length) {
+      this.logger.debug(`Skip radar push summary email for ${to}: no eligible pushes`)
+      return
+    }
+
+    let brandConfig: any = {}
+    let companyName = 'Csaas'
+
+    if (tenantId) {
+      try {
+        brandConfig = await this.brandingService.getBranding(tenantId)
+        companyName = brandConfig.companyName || 'Csaas'
+      } catch (error) {
+        this.logger.warn(`Failed to load brand config for tenant ${tenantId}, using defaults`)
+      }
+    }
+
+    const loginUrl = `${this.configService.get<string>('APP_URL', 'https://csaas.com')}/radar/history?orgId=${organizationId}`
+    const subject = `${companyName} 雷达更新：${pushes.length} 条新推送`
+
+    const template = this.emailTemplateService.getPushNotificationTemplate()
+    const content = this.emailTemplateService.renderTemplate(template, {
+      clientName: he.encode(clientName),
+      companyName: he.encode(companyName),
+      pushCount: String(pushes.length),
+      pushList: this.buildRadarPushSummaryHtml(pushes),
+      loginUrl: he.encode(loginUrl),
+      primaryColor: brandConfig.primaryColor || '#1890ff',
+    })
+
+    const html = this.emailTemplateService.renderBrandedEmail(content, {
+      companyName: brandConfig.companyName,
+      logoUrl: brandConfig.logoUrl,
+      primaryColor: brandConfig.primaryColor,
+      contactEmail: brandConfig.contactEmail,
+      contactPhone: brandConfig.contactPhone,
+      emailSignature: brandConfig.emailSignature,
+    })
+
+    await this.sendMailWithSingleRetry({
+      to,
+      subject,
+      html,
+    }, `radar push summary to ${to}`)
   }
 
   /**
@@ -434,4 +499,109 @@ export class EmailService {
       this.logger.error(`Failed to send cost exceeded alert to ${to}`, error)
     }
   }
+
+  private buildRadarPushSummaryHtml(pushes: RadarPushNotificationEmailItem[]): string {
+    return pushes
+      .map((push) => {
+        const radarTypeLabel = this.getRadarTypeLabel(push.radarType)
+        const summary = he.encode((push.summary || '').trim())
+        const source = he.encode(push.source || '')
+        const publishDate = this.formatEmailDate(push.publishDate)
+        const relevance = typeof push.relevanceScore === 'number'
+          ? `${Math.round(push.relevanceScore * 100)}%`
+          : null
+
+        return `
+<div style="margin-bottom: 16px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: #ffffff;">
+  <div style="margin-bottom: 8px;">
+    <span style="display: inline-block; padding: 4px 8px; border-radius: 999px; background-color: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 600;">
+      ${radarTypeLabel}
+    </span>
+    ${relevance ? `<span style="margin-left: 8px; font-size: 12px; color: #6b7280;">相关性 ${relevance}</span>` : ''}
+  </div>
+  <div style="font-size: 16px; font-weight: 600; color: #111827; margin-bottom: 8px;">
+    ${he.encode(push.title)}
+  </div>
+  ${summary ? `<div style="font-size: 14px; color: #4b5563; margin-bottom: 8px;">${summary}</div>` : ''}
+  <div style="font-size: 12px; color: #6b7280;">
+    ${source ? `<span>${source}</span>` : ''}
+    ${source && publishDate ? '<span style="margin: 0 6px;">|</span>' : ''}
+    ${publishDate ? `<span>${publishDate}</span>` : ''}
+  </div>
+</div>
+        `.trim()
+      })
+      .join('\n')
+  }
+
+  private getRadarTypeLabel(radarType: 'tech' | 'industry' | 'compliance'): string {
+    switch (radarType) {
+      case 'tech':
+        return '技术雷达'
+      case 'industry':
+        return '行业雷达'
+      case 'compliance':
+        return '合规雷达'
+      default:
+        return radarType
+    }
+  }
+
+  private formatEmailDate(value?: string | Date | null): string {
+    if (!value) {
+      return ''
+    }
+
+    const date = value instanceof Date ? value : new Date(value)
+    if (Number.isNaN(date.getTime())) {
+      return ''
+    }
+
+    return date.toISOString().slice(0, 10)
+  }
+
+  private async sendMailWithSingleRetry(
+    options: {
+      to: string
+      subject: string
+      html: string
+    },
+    context: string,
+  ): Promise<void> {
+    let lastError: unknown
+
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        const info = await this.transporter!.sendMail({
+          from: this.configService.get<string>('EMAIL_FROM', 'noreply@csaas.com'),
+          to: options.to,
+          subject: options.subject,
+          html: options.html,
+        })
+
+        this.logger.log(`Email sent (${context}) on attempt ${attempt}: ${info.messageId}`)
+        return
+      } catch (error) {
+        lastError = error
+
+        if (attempt === 1) {
+          this.logger.warn(`Email send failed (${context}) on attempt ${attempt}, retrying once`)
+          continue
+        }
+
+        this.logger.error(`Email send failed (${context}) after retry`, error)
+      }
+    }
+
+    throw lastError
+  }
+}
+
+export interface RadarPushNotificationEmailItem {
+  radarType: 'tech' | 'industry' | 'compliance'
+  title: string
+  summary?: string | null
+  source?: string | null
+  publishDate?: string | Date | null
+  relevanceScore?: number
 }

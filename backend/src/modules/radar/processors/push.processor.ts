@@ -1,6 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq'
 import { Job } from 'bullmq'
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, Optional } from '@nestjs/common'
 import { PushSchedulerService } from '../services/push-scheduler.service'
 import { AnalyzedContentService } from '../services/analyzed-content.service'
 import { AIAnalysisService } from '../services/ai-analysis.service'
@@ -10,10 +10,16 @@ import { RadarPush } from '../../../database/entities/radar-push.entity'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { WeaknessSnapshot } from '../../../database/entities/weakness-snapshot.entity'
+import { Organization } from '../../../database/entities/organization.entity'
+import { PushPreference } from '../../../database/entities/push-preference.entity'
 import {
   WeaknessCategory,
   getCategoryDisplayName as getWeaknessCategoryDisplayName,
 } from '../../../constants/categories'
+import {
+  EmailService,
+  RadarPushNotificationEmailItem,
+} from '../../admin/clients/email.service'
 
 /**
  * PushProcessor - 推送任务处理器
@@ -47,6 +53,14 @@ export class PushProcessor extends WorkerHost {
     private readonly tasksGateway: TasksGateway,
     @InjectRepository(WeaknessSnapshot)
     private readonly weaknessSnapshotRepo: Repository<WeaknessSnapshot>,
+    @Optional()
+    private readonly emailService?: EmailService,
+    @Optional()
+    @InjectRepository(Organization)
+    private readonly organizationRepo?: Repository<Organization>,
+    @Optional()
+    @InjectRepository(PushPreference)
+    private readonly pushPreferenceRepo?: Repository<PushPreference>,
   ) {
     super()
   }
@@ -89,16 +103,22 @@ export class PushProcessor extends WorkerHost {
 
       for (const [orgId, orgPushes] of groupedPushes) {
         this.logger.log(`Processing ${orgPushes.length} pushes for organization ${orgId}`)
+        const organizationContext = await this.getOrganizationNotificationContext(orgId)
+        const preference = await this.getPushPreference(orgId)
+        const emailSummaryItems: RadarPushNotificationEmailItem[] = []
 
         for (const push of orgPushes) {
           try {
-            await this.sendPushViaWebSocket(push)
+            await this.sendPushViaWebSocket(push, organizationContext.brandName)
 
             // Code Review Fix #3: 使用try-finally确保日志记录的一致性
             try {
               await this.pushSchedulerService.markAsSent(push.id)
               await this.pushLogService.logSuccess(push.id)
               totalSent++
+              if (this.shouldIncludeInEmail(push, preference)) {
+                emailSummaryItems.push(this.toEmailSummaryItem(push))
+              }
             } catch (logError) {
               // 如果标记失败，回滚推送状态
               this.logger.error(
@@ -120,6 +140,8 @@ export class PushProcessor extends WorkerHost {
             totalFailed++
           }
         }
+
+        await this.sendPushSummaryEmail(organizationContext, emailSummaryItems)
       }
 
       this.logger.log(
@@ -142,7 +164,7 @@ export class PushProcessor extends WorkerHost {
    *
    * @param push - 推送记录
    */
-  private async sendPushViaWebSocket(push: RadarPush): Promise<void> {
+  private async sendPushViaWebSocket(push: RadarPush, preloadedBrandName?: string): Promise<void> {
     const content = push.analyzedContent
 
     if (!content) {
@@ -183,21 +205,7 @@ export class PushProcessor extends WorkerHost {
     }
 
     // Story 6.3: 获取品牌信息
-    let brandName = 'Csaas' // 默认品牌名称
-    try {
-      // 通过 organization 关系获取 tenant 品牌配置
-      const organization = await this.weaknessSnapshotRepo.manager.findOne('organizations', {
-        where: { id: push.organizationId },
-        relations: ['tenant'],
-      }) as any
-
-      if (organization?.tenant?.brandConfig?.companyName) {
-        brandName = organization.tenant.brandConfig.companyName
-      }
-    } catch (error) {
-      this.logger.warn(`Failed to load brand name for push ${push.id}`, error.message)
-      // 使用默认品牌名称
-    }
+    const brandName = preloadedBrandName || 'Csaas'
 
     // 构建基础事件数据
     const eventData: any = {
@@ -292,5 +300,100 @@ export class PushProcessor extends WorkerHost {
    */
   private getCategoryDisplayName(category: string): string {
     return getWeaknessCategoryDisplayName(category as WeaknessCategory)
+  }
+
+  private async getOrganizationNotificationContext(organizationId: string): Promise<{
+    organizationId: string
+    organizationName: string
+    contactEmail: string | null
+    tenantId: string | null
+    brandName: string
+  }> {
+    if (!this.organizationRepo) {
+      return {
+        organizationId,
+        organizationName: organizationId,
+        contactEmail: null,
+        tenantId: null,
+        brandName: 'Csaas',
+      }
+    }
+
+    const organization = await this.organizationRepo.findOne({
+      where: { id: organizationId },
+      relations: ['tenant'],
+    })
+
+    return {
+      organizationId,
+      organizationName: organization?.name || organizationId,
+      contactEmail: organization?.contactEmail || null,
+      tenantId: organization?.tenantId || null,
+      brandName: organization?.tenant?.brandConfig?.companyName || organization?.tenant?.name || 'Csaas',
+    }
+  }
+
+  private async getPushPreference(organizationId: string): Promise<PushPreference | null> {
+    if (!this.pushPreferenceRepo) {
+      return null
+    }
+
+    return this.pushPreferenceRepo.findOne({
+      where: { organizationId },
+    })
+  }
+
+  private shouldIncludeInEmail(push: RadarPush, preference: PushPreference | null): boolean {
+    const score = Number(push.relevanceScore ?? 0)
+    const relevanceFilter = preference?.relevanceFilter || 'high_only'
+
+    if (relevanceFilter === 'high_medium') {
+      return score >= 0.7
+    }
+
+    return score >= 0.9
+  }
+
+  private toEmailSummaryItem(push: RadarPush): RadarPushNotificationEmailItem {
+    const content = push.analyzedContent
+    const rawContent = content?.rawContent
+
+    return {
+      radarType: push.radarType,
+      title: rawContent?.title || 'Untitled',
+      summary: content?.aiSummary || rawContent?.summary || '',
+      source: rawContent?.source || '',
+      publishDate: rawContent?.publishDate || push.sentAt || push.scheduledAt,
+      relevanceScore: Number(push.relevanceScore ?? 0),
+    }
+  }
+
+  private async sendPushSummaryEmail(
+    organizationContext: {
+      organizationId: string
+      organizationName: string
+      contactEmail: string | null
+      tenantId: string | null
+      brandName: string
+    },
+    pushes: RadarPushNotificationEmailItem[],
+  ): Promise<void> {
+    if (!this.emailService || !organizationContext.contactEmail || pushes.length === 0) {
+      return
+    }
+
+    try {
+      await this.emailService.sendRadarPushNotificationSummary({
+        to: organizationContext.contactEmail,
+        clientName: organizationContext.organizationName,
+        tenantId: organizationContext.tenantId || undefined,
+        organizationId: organizationContext.organizationId,
+        pushes,
+      })
+    } catch (error) {
+      this.logger.warn(
+        `Failed to send radar push summary email to ${organizationContext.contactEmail}: ${error.message}`,
+      )
+    }
   }
 }
