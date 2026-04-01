@@ -101,6 +101,24 @@ describe('ComplianceCaseService', () => {
     ).rejects.toThrow('case_control_map case-id/control-id already exists')
   })
 
+  it('should filter compliance cases by import batch id', async () => {
+    complianceCaseRepository.findAndCount.mockResolvedValue([[], 0])
+
+    await service.findAllCases({
+      batchId: 'PBOC-batch-001',
+      page: 1,
+      limit: 20,
+    })
+
+    expect(complianceCaseRepository.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          importBatchId: 'PBOC-batch-001',
+        }),
+      }),
+    )
+  })
+
   it('should return empty array when a control point has no mapped cases', async () => {
     const queryBuilder = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),

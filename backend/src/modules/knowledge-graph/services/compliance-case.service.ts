@@ -38,6 +38,10 @@ export class ComplianceCaseService {
   async findAllCases(query: QueryComplianceCaseDto) {
     const where: Record<string, unknown> = {}
 
+    if (query.batchId) {
+      where.importBatchId = query.batchId
+    }
+
     if (query.caseCode) {
       where.caseCode = query.caseCode
     }

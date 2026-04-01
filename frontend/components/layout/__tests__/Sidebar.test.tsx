@@ -89,6 +89,7 @@ describe('Sidebar', () => {
       expect(screen.getByText('成本优化')).toBeInTheDocument()
       expect(screen.getByText('品牌配置')).toBeInTheDocument()
       expect(screen.getByText('信息源配置')).toBeInTheDocument()
+      expect(screen.getByText('案例运营')).toBeInTheDocument()
       expect(screen.getByText('同业爬虫管理')).toBeInTheDocument()
       expect(screen.getByText('爬虫健康监控')).toBeInTheDocument()
     })

@@ -46,6 +46,11 @@ export class QueryComplianceCaseDto extends PaginationDto {
   @IsOptional()
   @IsString()
   @Length(1, 100)
+  batchId?: string
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
   caseCode?: string
 
   @IsOptional()

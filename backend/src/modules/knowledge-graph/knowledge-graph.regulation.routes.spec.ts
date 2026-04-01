@@ -193,6 +193,43 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
     )
   })
 
+  it('should pass batchId query through to compliance case list service', async () => {
+    mockComplianceCaseService.findAllCases.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+    })
+
+    const response = await request(app.getHttpServer())
+      .get('/api/admin/knowledge-graph/compliance-cases')
+      .query({
+        batchId: 'PBOC-batch-001',
+        regulatorCode: 'PBOC',
+        status: 'clustered',
+        keyword: '客户身份识别',
+      })
+      .expect(200)
+
+    expect(response.body).toEqual({
+      success: true,
+      data: {
+        items: [],
+        total: 0,
+        page: 1,
+        limit: 20,
+      },
+    })
+    expect(mockComplianceCaseService.findAllCases).toHaveBeenCalledWith(
+      expect.objectContaining({
+        batchId: 'PBOC-batch-001',
+        regulatorCode: 'PBOC',
+        status: 'clustered',
+        keyword: '客户身份识别',
+      }),
+    )
+  })
+
   it('should return regulatory links with empty cases array when no cases are mapped', async () => {
     mockControlPointService.findOne.mockResolvedValue({
       controlId: '77777777-7777-4777-8777-777777777777',
