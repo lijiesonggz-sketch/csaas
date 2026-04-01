@@ -144,6 +144,6 @@ development_status:
 
   # Epic 12: KG 知识运营后台
   # Productizes FR11 admin operating entry without reopening Epic 5 core capability
-  epic-12: in-progress
+  epic-12: done
   12-1-case-import-and-human-review-admin-page: done
   epic-12-retrospective: optional
