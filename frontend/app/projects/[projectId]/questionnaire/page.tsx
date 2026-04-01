@@ -34,6 +34,28 @@ import {
 } from '@/components/ui/dialog'
 
 type EditableQuestion = ProjectQuestionnaireSnapshotQuestion
+type QuestionnaireDisplayQuestion = {
+  question_id: string
+  question_template_id?: string | null
+  source_question_id?: string | null
+  control_id?: string
+  cluster_id: string
+  cluster_name: string
+  question_text: string
+  question_type: 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' | 'RATING' | 'BINARY'
+  options: Array<{
+    option_id: string
+    text: string
+    score: number
+    level?: string
+    description?: string
+  }>
+  required: boolean
+  guidance: string
+  display_order?: number
+  scoring_rule?: Record<string, unknown> | null
+  is_project_custom?: boolean
+}
 
 function buildCoverageMap(questions: EditableQuestion[]): Record<string, number> {
   return questions.reduce<Record<string, number>>((acc, question) => {
@@ -86,6 +108,43 @@ function toSnapshotDraftRequest(questions: EditableQuestion[]) {
       displayOrder: question.display_order,
     })),
   }
+}
+
+function adaptDisplayQuestionsToSnapshot(
+  questions: QuestionnaireDisplayQuestion[],
+  previousQuestions: EditableQuestion[],
+): EditableQuestion[] {
+  const previousById = new Map(previousQuestions.map((question) => [question.question_id, question]))
+
+  return questions.map((question, index) => {
+    const previous = previousById.get(question.question_id)
+
+    return {
+      question_id: question.question_id,
+      question_template_id: question.question_template_id ?? previous?.question_template_id ?? null,
+      source_question_id: question.source_question_id ?? previous?.source_question_id ?? null,
+      control_id: question.control_id ?? previous?.control_id ?? '',
+      cluster_id: question.cluster_id,
+      cluster_name: question.cluster_name,
+      question_text: question.question_text,
+      question_type:
+        question.question_type === 'BINARY'
+          ? (previous?.question_type ?? 'SINGLE_CHOICE')
+          : question.question_type,
+      options: question.options.map((option) => ({
+        option_id: option.option_id,
+        text: option.text,
+        score: option.score,
+        level: option.level,
+        description: option.description,
+      })),
+      required: question.required,
+      guidance: question.guidance,
+      display_order: question.display_order ?? previous?.display_order ?? index,
+      scoring_rule: question.scoring_rule ?? previous?.scoring_rule ?? null,
+      is_project_custom: question.is_project_custom ?? previous?.is_project_custom ?? false,
+    }
+  })
 }
 
 export default function QuestionnairePage() {
@@ -191,6 +250,15 @@ export default function QuestionnairePage() {
       },
     } as GenerationResult
   }, [editableQuestions, generationResult, snapshotInfo])
+
+  const handleEditableQuestionsChange = useCallback(
+    (questions: QuestionnaireDisplayQuestion[]) => {
+      setEditableQuestions((previousQuestions) =>
+        adaptDisplayQuestionsToSnapshot(questions, previousQuestions),
+      )
+    },
+    [],
+  )
 
   const isSnapshotMode = Boolean(snapshotInfo)
   const isDraftSnapshot = snapshotInfo?.lifecycleStatus === 'draft'
@@ -669,7 +737,7 @@ export default function QuestionnairePage() {
                 result={questionnaireDisplayResult}
                 editable={isQuestionnaireEditable}
                 questions={isSnapshotMode ? editableQuestions : undefined}
-                onQuestionsChange={isSnapshotMode ? setEditableQuestions : undefined}
+                onQuestionsChange={isSnapshotMode ? handleEditableQuestionsChange : undefined}
               />
             )}
           </CardContent>
