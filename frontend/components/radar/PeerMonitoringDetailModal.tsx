@@ -3,34 +3,30 @@
 import React from 'react'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
-  Box,
-  Typography,
-  Chip,
-  Button,
-  Grid,
-  Avatar,
-  IconButton,
-  Divider,
-} from '@mui/material'
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Avatar } from '@/components/ui/avatar'
 import {
-  Close,
+  X as Close,
   Bookmark,
-  BookmarkBorder,
   CheckCircle,
-  Business,
-  AttachMoney,
-  Schedule,
-  EmojiEvents,
+  Building2,
+  DollarSign,
+  Clock,
+  Trophy,
   Lightbulb,
   Link as LinkIcon,
-  CalendarToday,
-  TrendingUp,
-} from '@mui/icons-material'
+  Calendar,
+} from 'lucide-react'
 import { PeerMonitoringPush } from './PeerMonitoringCard'
 import { formatChinaDate } from '@/lib/utils/dateTime'
+import { cn } from '@/lib/utils'
 
 /**
  * 详情弹窗扩展的数据结构
@@ -76,300 +72,231 @@ export const PeerMonitoringDetailModal = React.memo(function PeerMonitoringDetai
   onMarkAsRead,
 }: PeerMonitoringDetailModalProps) {
   // 优先级配置
-  const priorityConfig: Record<string, { label: string; color: 'error' | 'warning' | 'default' }> = {
-    high: { label: '高优先级', color: 'error' },
-    medium: { label: '中优先级', color: 'warning' },
-    low: { label: '低优先级', color: 'default' },
+  const priorityConfig: Record<string, { label: string; color: string }> = {
+    high: { label: '高优先级', color: 'text-red-600 bg-red-50 border-red-200' },
+    medium: { label: '中优先级', color: 'text-amber-600 bg-amber-50 border-amber-200' },
+    low: { label: '低优先级', color: 'text-gray-600 bg-gray-50 border-gray-200' },
   }
 
-  const priority = priorityConfig[push.priorityLevel] || { label: '普通', color: 'default' }
+  const priority = priorityConfig[push.priorityLevel] || { label: '普通', color: 'text-gray-600 bg-gray-50 border-gray-200' }
 
   // 相关性评分显示
   const relevancePercent = Math.round((push.relevanceScore || 0) * 100)
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      scroll="paper"
-    >
-      {/* 标题区域 */}
-      <DialogTitle sx={{ pb: 1, pr: 6 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-          {push.peerLogo ? (
-            <Avatar
-              src={push.peerLogo}
-              alt={push.peerName}
-              sx={{ width: 48, height: 48 }}
-            />
-          ) : (
-            <Avatar sx={{ width: 48, height: 48, bgcolor: 'primary.main' }}>
-              <Business sx={{ color: 'white', fontSize: 28 }} />
-            </Avatar>
-          )}
-          <Box>
-            <Typography variant="h5" fontWeight="bold">
-              {push.peerName}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
-              <Chip
-                label="同业动态"
-                color="primary"
-                size="small"
-                sx={{ fontWeight: 600 }}
-              />
-              <Chip
-                label={priority.label}
-                color={priority.color}
-                size="small"
-                variant="outlined"
-              />
-              <Chip
-                label={`${relevancePercent}% 相关`}
-                color={relevancePercent >= 90 ? 'warning' : 'default'}
-                size="small"
-                variant="outlined"
-              />
-            </Box>
-          </Box>
-        </Box>
-        <IconButton
-          onClick={onClose}
-          sx={{ position: 'absolute', right: 8, top: 8 }}
-        >
-          <Close />
-        </IconButton>
-      </DialogTitle>
+    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="rounded-sm max-w-3xl max-h-[90vh] overflow-y-auto">
+        {/* 标题区域 */}
+        <DialogHeader>
+          <div className="flex items-start gap-4">
+            {push.peerLogo ? (
+              <Avatar className="w-12 h-12">
+                <img src={push.peerLogo} alt={push.peerName} />
+              </Avatar>
+            ) : (
+              <Avatar className="w-12 h-12 bg-[#1E3A5F]">
+                <Building2 className="w-7 h-7 text-white" />
+              </Avatar>
+            )}
+            <div className="flex-1">
+              <DialogTitle className="text-xl font-bold text-[#1E3A5F] mb-1">
+                {push.peerName}
+              </DialogTitle>
+              <div className="flex flex-wrap gap-2 mt-1">
+                <Badge className="rounded-sm bg-[#1E3A5F]">同业动态</Badge>
+                <Badge variant="outline" className={cn("rounded-sm", priority.color)}>
+                  {priority.label}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "rounded-sm",
+                    relevancePercent >= 90
+                      ? "text-amber-600 bg-amber-50 border-amber-200"
+                      : "text-gray-600 bg-gray-50 border-gray-200"
+                  )}
+                >
+                  {relevancePercent}% 相关
+                </Badge>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="rounded-sm"
+            >
+              <Close className="w-5 h-5" />
+            </Button>
+          </div>
+        </DialogHeader>
 
-      <DialogContent dividers>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div className="space-y-6">
           {/* 同业机构背景 */}
           {push.peerBackground && (
-            <Box
-              sx={{
-                p: 2.5,
-                background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
-                borderRadius: 2,
-                border: '1px solid',
-                borderColor: 'success.light',
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                <Business color="success" />
-                <Typography variant="subtitle1" fontWeight="bold" color="success.main">
-                  同业机构背景
-                </Typography>
-              </Box>
-              <Typography variant="body1" color="text.primary" sx={{ lineHeight: 1.8 }}>
+            <div className="p-4 border-2 border-green-300 rounded-sm bg-gradient-to-br from-green-50 to-green-100">
+              <div className="flex items-center gap-2 mb-2">
+                <Building2 className="w-5 h-5 text-[#059669]" />
+                <h3 className="text-lg font-semibold text-[#059669]">同业机构背景</h3>
+              </div>
+              <p className="text-sm text-[#1E3A5F] leading-relaxed">
                 {push.peerBackground}
-              </Typography>
-            </Box>
+              </p>
+            </div>
           )}
 
           {/* 技术实践详细描述 */}
-          <Box>
-            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+          <div>
+            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-2">
               技术实践详细描述
-            </Typography>
-            <Typography
-              variant="body1"
-              color="text.secondary"
-              sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8 }}
-            >
+            </h3>
+            <p className="text-sm text-[#94A3B8] whitespace-pre-wrap leading-relaxed">
               {push.practiceDescription}
-            </Typography>
-          </Box>
-
-          <Divider />
+            </p>
+          </div>
 
           {/* 投入成本/实施周期/效果 */}
-          <Grid container spacing={2}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* 投入成本 */}
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Box
-                sx={{
-                  p: 2.5,
-                  bgcolor: 'background.paper',
-                  borderRadius: 2,
-                  boxShadow: 1,
-                  height: '100%',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <AttachMoney color="primary" />
-                  <Typography variant="subtitle2" fontWeight="bold">
-                    投入成本
-                  </Typography>
-                </Box>
-                <Typography variant="h5" fontWeight="bold" color="text.primary" gutterBottom>
-                  {push.estimatedCost}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  包含软硬件采购、实施服务等
-                </Typography>
-              </Box>
-            </Grid>
+            <div className="p-4 bg-white border border-[#E2E8F0] rounded-sm shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="w-5 h-5 text-[#1E3A5F]" />
+                <h4 className="text-sm font-semibold text-[#1E3A5F]">
+                  投入成本
+                </h4>
+              </div>
+              <p className="text-2xl font-bold text-[#1E3A5F] mb-1">
+                {push.estimatedCost}
+              </p>
+              <p className="text-xs text-[#94A3B8]">
+                包含软硬件采购、实施服务等
+              </p>
+            </div>
 
             {/* 实施周期 */}
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Box
-                sx={{
-                  p: 2.5,
-                  bgcolor: 'background.paper',
-                  borderRadius: 2,
-                  boxShadow: 1,
-                  height: '100%',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <Schedule color="warning" />
-                  <Typography variant="subtitle2" fontWeight="bold">
-                    实施周期
-                  </Typography>
-                </Box>
-                <Typography variant="h5" fontWeight="bold" color="text.primary" gutterBottom>
-                  {push.implementationPeriod}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  从启动到上线的预计时间
-                </Typography>
-              </Box>
-            </Grid>
+            <div className="p-4 bg-white border border-[#E2E8F0] rounded-sm shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="w-5 h-5 text-orange-500" />
+                <h4 className="text-sm font-semibold text-[#1E3A5F]">
+                  实施周期
+                </h4>
+              </div>
+              <p className="text-2xl font-bold text-[#1E3A5F] mb-1">
+                {push.implementationPeriod}
+              </p>
+              <p className="text-xs text-[#94A3B8]">
+                从启动到上线的预计时间
+              </p>
+            </div>
 
             {/* 技术效果 */}
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Box
-                sx={{
-                  p: 2.5,
-                  bgcolor: 'background.paper',
-                  borderRadius: 2,
-                  boxShadow: 1,
-                  height: '100%',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                  <EmojiEvents color="success" />
-                  <Typography variant="subtitle2" fontWeight="bold">
-                    技术效果
-                  </Typography>
-                </Box>
-                <Typography variant="body1" fontWeight="bold" color="success.main" gutterBottom>
-                  {push.technicalEffect}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  实际效果和收益
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
+            <div className="p-4 bg-white border border-[#E2E8F0] rounded-sm shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Trophy className="w-5 h-5 text-[#059669]" />
+                <h4 className="text-sm font-semibold text-[#1E3A5F]">
+                  技术效果
+                </h4>
+              </div>
+              <p className="text-lg font-bold text-[#059669] mb-1">
+                {push.technicalEffect}
+              </p>
+              <p className="text-xs text-[#94A3B8]">
+                实际效果和收益
+              </p>
+            </div>
+          </div>
 
           {/* 可借鉴点总结 */}
           {push.learnablePoints && push.learnablePoints.length > 0 && (
-            <Box
-              sx={{
-                p: 2.5,
-                background: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
-                borderRadius: 2,
-                border: '1px solid',
-                borderColor: 'warning.light',
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Lightbulb color="warning" />
-                <Typography variant="subtitle1" fontWeight="bold" color="warning.main">
-                  可借鉴点总结
-                </Typography>
-              </Box>
-              <Box component="ul" sx={{ m: 0, pl: 2 }}>
+            <div className="p-4 border-2 border-amber-300 rounded-sm bg-gradient-to-br from-amber-50 to-orange-50">
+              <div className="flex items-center gap-2 mb-3">
+                <Lightbulb className="w-5 h-5 text-amber-600" />
+                <h3 className="text-lg font-semibold text-amber-700">可借鉴点总结</h3>
+              </div>
+              <ul className="space-y-2">
                 {push.learnablePoints.map((point, index) => (
-                  <Typography
+                  <li
                     key={index}
-                    component="li"
-                    variant="body1"
-                    color="text.primary"
-                    sx={{ mb: 1, lineHeight: 1.6 }}
+                    className="text-sm text-[#1E3A5F] pl-4 relative before:content-['•'] before:absolute before:left-0 before:text-amber-600"
                   >
                     {point}
-                  </Typography>
+                  </li>
                 ))}
-              </Box>
-            </Box>
+              </ul>
+            </div>
           )}
 
-          <Divider />
-
           {/* 信息来源和发布日期 */}
-          <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+          <div className="flex flex-wrap gap-6">
             {push.source && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <LinkIcon color="action" fontSize="small" />
-                <Typography variant="body2" color="text.secondary">
+              <div className="flex items-center gap-2">
+                <LinkIcon className="w-4 h-4 text-[#94A3B8]" />
+                <p className="text-sm text-[#94A3B8]">
                   来源: {push.source}
-                </Typography>
-              </Box>
+                </p>
+              </div>
             )}
             {push.publishDate && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CalendarToday color="action" fontSize="small" />
-                <Typography variant="body2" color="text.secondary">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#94A3B8]" />
+                <p className="text-sm text-[#94A3B8]">
                   发布日期: {formatChinaDate(push.publishDate)}
-                </Typography>
-              </Box>
+                </p>
+              </div>
             )}
-          </Box>
+          </div>
 
           {/* 相关技术标签 */}
           {push.tags && push.tags.length > 0 && (
-            <Box>
-              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+            <div>
+              <h4 className="text-sm font-semibold text-[#1E3A5F] mb-2">
                 相关技术
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              </h4>
+              <div className="flex flex-wrap gap-2">
                 {push.tags.map((tag) => (
-                  <Chip
+                  <Badge
                     key={tag}
-                    label={tag}
-                    variant="outlined"
-                    color="primary"
-                    size="small"
-                  />
+                    variant="outline"
+                    className="rounded-sm"
+                  >
+                    {tag}
+                  </Badge>
                 ))}
-              </Box>
-            </Box>
+              </div>
+            </div>
           )}
-        </Box>
-      </DialogContent>
+        </div>
 
-      <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
-        <Button
-          startIcon={push.isBookmarked ? <Bookmark /> : <BookmarkBorder />}
-          variant="outlined"
-          onClick={onBookmark}
-          color={push.isBookmarked ? 'primary' : 'inherit'}
-        >
-          {push.isBookmarked ? '已收藏' : '收藏'}
-        </Button>
-        <Button
-          startIcon={<CheckCircle />}
-          variant="contained"
-          onClick={onMarkAsRead}
-          disabled={push.isRead}
-          color={push.isRead ? 'success' : 'primary'}
-        >
-          {push.isRead ? '已读' : '标记为已读'}
-        </Button>
-        <Button onClick={onClose} variant="outlined">
-          关闭
-        </Button>
-      </DialogActions>
+        <DialogFooter className="flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={onBookmark}
+            className={cn(
+              "rounded-sm",
+              push.isBookmarked && "border-[#1E3A5F] text-[#1E3A5F]"
+            )}
+          >
+            <Bookmark className={cn("w-4 h-4 mr-2", push.isBookmarked ? "fill-current" : "")} />
+            {push.isBookmarked ? '已收藏' : '收藏'}
+          </Button>
+          <Button
+            onClick={onMarkAsRead}
+            disabled={push.isRead}
+            className={cn(
+              "rounded-sm",
+              push.isRead
+                ? "bg-[#94A3B8] hover:bg-[#7a8ba3]"
+                : "bg-[#1E3A5F] hover:bg-[#152a47]"
+            )}
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            {push.isRead ? '已读' : '标记为已读'}
+          </Button>
+          <Button variant="outline" onClick={onClose} className="rounded-sm">
+            关闭
+          </Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   )
 })

@@ -3,23 +3,16 @@
 import React from 'react'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
-  Box,
-  Typography,
-  Chip,
-  CircularProgress,
-  Alert,
-  Paper,
-  Divider,
-} from '@mui/material'
-import {
-  CheckCircle as SuccessIcon,
-  Error as ErrorIcon,
-  AccessTime as TimeIcon,
-} from '@mui/icons-material'
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Loader2, CheckCircle, AlertCircle, Clock } from 'lucide-react'
 import { RadarSource } from '@/lib/api/radar-sources'
 
 /**
@@ -54,159 +47,124 @@ export function TestCrawlDialog({
   const isFailed = result && !result.success
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {isLoading && <CircularProgress size={20} />}
-          {isSuccess && <SuccessIcon color="success" />}
-          {isFailed && <ErrorIcon color="error" />}
-          <Typography variant="h6">
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {isLoading && <Loader2 className="h-5 w-5 animate-spin" />}
+            {isSuccess && <CheckCircle className="h-5 w-5 text-green-500" />}
+            {isFailed && <AlertCircle className="h-5 w-5 text-destructive" />}
             测试采集 - {source?.source || ''}
-          </Typography>
-        </Box>
-      </DialogTitle>
+          </DialogTitle>
+        </DialogHeader>
 
-      <DialogContent>
         {isLoading && (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <CircularProgress size={40} />
-            <Typography variant="body1" sx={{ mt: 2 }}>
-              正在采集，请稍候...
-            </Typography>
-          </Box>
+          <div className="text-center py-8">
+            <Loader2 className="h-10 w-10 mx-auto animate-spin text-primary" />
+            <p className="text-sm mt-4">正在采集，请稍候...</p>
+          </div>
         )}
 
         {isFailed && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            <Typography variant="subtitle1" fontWeight="bold">
-              采集失败
-            </Typography>
-            <Typography variant="body2">{result.error}</Typography>
+          <Alert variant="destructive" className="mb-4">
+            <p className="text-sm font-semibold mb-1">采集失败</p>
+            <p className="text-sm">{result.error}</p>
           </Alert>
         )}
 
         {isSuccess && (
-          <Box>
+          <div className="space-y-4">
             {/* 状态栏 */}
-            <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-              <Chip
-                icon={<SuccessIcon />}
-                label="采集成功"
-                color="success"
-                size="small"
-              />
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="default" className="gap-1">
+                <CheckCircle className="h-3 w-3" />
+                采集成功
+              </Badge>
               {result.result?.duration && (
-                <Chip
-                  icon={<TimeIcon />}
-                  label={`耗时: ${result.result.duration}ms`}
-                  size="small"
-                />
+                <Badge variant="secondary" className="gap-1">
+                  <Clock className="h-3 w-3" />
+                  耗时: {result.result.duration}ms
+                </Badge>
               )}
-            </Box>
+            </div>
 
-            <Divider sx={{ my: 2 }} />
+            <div className="border-t" />
 
             {/* 标题 */}
             {result.result?.title && (
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  标题
-                </Typography>
-                <Typography variant="h6">
-                  {result.result.title}
-                </Typography>
-              </Box>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">标题</p>
+                <p className="text-lg font-semibold">{result.result.title}</p>
+              </div>
             )}
 
             {/* 作者 */}
             {result.result?.author && (
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  作者
-                </Typography>
-                <Typography variant="body1">
-                  {result.result.author}
-                </Typography>
-              </Box>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">作者</p>
+                <p className="text-sm">{result.result.author}</p>
+              </div>
             )}
 
             {/* 发布日期 */}
             {result.result?.publishDate && (
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  发布日期
-                </Typography>
-                <Typography variant="body1">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">发布日期</p>
+                <p className="text-sm">
                   {new Date(result.result.publishDate).toLocaleString('zh-CN')}
-                </Typography>
-              </Box>
+                </p>
+              </div>
             )}
 
             {/* 摘要 */}
             {result.result?.summary && (
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  摘要
-                </Typography>
-                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
-                  <Typography variant="body2">
-                    {result.result.summary}
-                  </Typography>
-                </Paper>
-              </Box>
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">摘要</p>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-sm">{result.result.summary}</p>
+                </div>
+              </div>
             )}
 
             {/* 正文预览 */}
             {result.result?.contentPreview && (
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  正文预览（前500字）
-                </Typography>
-                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      maxHeight: 200,
-                      overflow: 'auto',
-                    }}
-                  >
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">正文预览（前500字）</p>
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-sm whitespace-pre-wrap break-words max-h-48 overflow-auto">
                     {result.result.contentPreview}
-                  </Typography>
-                </Paper>
-              </Box>
+                  </p>
+                </div>
+              </div>
             )}
 
             {/* 原始URL */}
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" color="text.secondary">
-                采集URL
-              </Typography>
-              <Typography
-                variant="body2"
-                component="a"
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">采集URL</p>
+              <a
                 href={result.result?.url || source?.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                sx={{ color: 'primary.main' }}
+                className="text-sm text-primary hover:underline"
               >
                 {result.result?.url || source?.url}
-              </Typography>
-            </Box>
+              </a>
+            </div>
 
-            <Alert severity="info" sx={{ mt: 2 }}>
-              注意：测试采集的内容不会保存到数据库，仅用于验证配置是否正确。
+            <Alert>
+              <AlertDescription>
+                注意：测试采集的内容不会保存到数据库，仅用于验证配置是否正确。
+              </AlertDescription>
             </Alert>
-          </Box>
+          </div>
         )}
-      </DialogContent>
 
-      <DialogActions>
-        <Button onClick={onClose}>
-          {isLoading ? '取消' : '关闭'}
-        </Button>
-      </DialogActions>
+        <DialogFooter>
+          <Button onClick={onClose}>
+            {isLoading ? '取消' : '关闭'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   )
 }

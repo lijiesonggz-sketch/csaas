@@ -293,12 +293,6 @@ export const PushCard = React.memo(
 
           {/* 元信息 */}
           <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-border text-xs text-muted-foreground">
-            {push.brandName && (
-              <>
-                <span className="text-primary font-semibold">来自 {push.brandName} 的推送</span>
-                <span>•</span>
-              </>
-            )}
             <span>来源: {push.source}</span>
             <span>•</span>
             <span>{formatChinaDate(push.publishDate)}</span>

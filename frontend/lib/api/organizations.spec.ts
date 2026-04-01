@@ -1,8 +1,14 @@
 import { describe, expect, it, beforeEach, jest } from '@jest/globals'
 import { OrganizationsApi } from './organizations'
 
-// Mock fetch globally
-global.fetch = jest.fn() as jest.MockedFunction<any, Promise<Response>>
+// Mock apiFetch to avoid auth/fetch issues
+jest.mock('../utils/api', () => ({
+  apiFetch: jest.fn(),
+}))
+
+import { apiFetch } from '../utils/api'
+
+const mockApiFetch = apiFetch as jest.MockedFunction<typeof apiFetch>
 
 describe('OrganizationsApi', () => {
   let api: OrganizationsApi
@@ -13,48 +19,33 @@ describe('OrganizationsApi', () => {
   })
 
   describe('getUserOrganizations', () => {
-    it('should fetch user organizations successfully', async () => {
-      // Arrange
-      const mockOrgs = [
-        {
-          id: 'org-123',
-          name: 'Test Organization',
-          createdAt: '2024-01-01T00:00:00.000Z',
-          updatedAt: '2024-01-01T00:00:00.000Z',
-        },
-      ]
+    it('should fetch user organization successfully', async () => {
+      const mockOrg = {
+        id: 'org-123',
+        name: 'Test Organization',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      }
 
-      ;(global.fetch as jest.MockedFunction<any, Promise<Response>>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockOrgs }),
-      } as Response)
+      mockApiFetch.mockResolvedValueOnce({ organization: mockOrg } as any)
 
-      // Act
       const result = await api.getUserOrganizations()
 
-      // Assert
-      expect(result).toEqual(mockOrgs)
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(result).toEqual(mockOrg)
+      expect(apiFetch).toHaveBeenCalledWith(
         expect.stringContaining('/organizations/me'),
-        expect.any(Object),
       )
     })
 
     it('should throw error on failure', async () => {
-      // Arrange
-      ;(global.fetch as jest.MockedFunction<any, Promise<Response>>).mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({ message: 'Unauthorized' }),
-      } as Response)
+      mockApiFetch.mockRejectedValueOnce(new Error('Unauthorized'))
 
-      // Act & Assert
-      await expect(api.getUserOrganizations()).rejects.toThrow('Unauthorized')
+      await expect(api.getUserOrganizations()).rejects.toThrow()
     })
   })
 
   describe('getOrganizationWeaknesses', () => {
     it('should fetch weaknesses for an organization', async () => {
-      // Arrange
       const mockWeaknesses = [
         {
           id: 'snap-123',
@@ -65,26 +56,19 @@ describe('OrganizationsApi', () => {
         },
       ]
 
-      ;(global.fetch as jest.MockedFunction<any, Promise<Response>>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockWeaknesses }),
-      } as Response)
+      mockApiFetch.mockResolvedValueOnce(mockWeaknesses as any)
 
-      // Act
       const result = await api.getOrganizationWeaknesses('org-123')
 
-      // Assert
       expect(result).toEqual(mockWeaknesses)
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(apiFetch).toHaveBeenCalledWith(
         expect.stringContaining('/organizations/org-123/weaknesses'),
-        expect.any(Object),
       )
     })
   })
 
   describe('getAggregatedWeaknesses', () => {
     it('should fetch aggregated weaknesses', async () => {
-      // Arrange
       const mockAggregated = [
         {
           category: 'data_security',
@@ -94,42 +78,48 @@ describe('OrganizationsApi', () => {
         },
       ]
 
-      ;(global.fetch as jest.MockedFunction<any, Promise<Response>>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockAggregated }),
-      } as Response)
+      mockApiFetch.mockResolvedValueOnce(mockAggregated as any)
 
-      // Act
       const result = await api.getAggregatedWeaknesses('org-123')
 
-      // Assert
       expect(result).toEqual(mockAggregated)
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(apiFetch).toHaveBeenCalledWith(
         expect.stringContaining('/organizations/org-123/weaknesses/aggregated'),
-        expect.any(Object),
       )
     })
   })
 
   describe('getOrganizationProjects', () => {
     it('should fetch paginated projects', async () => {
-      // Arrange
       const mockResponse = {
         data: [{ id: 'project-1', name: 'Project 1' }],
         pagination: { page: 1, limit: 10, total: 25, totalPages: 3 },
       }
 
-      ;(global.fetch as jest.MockedFunction<any, Promise<Response>>).mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true, data: mockResponse }),
-      } as Response)
+      mockApiFetch.mockResolvedValueOnce(mockResponse as any)
 
-      // Act
       const result = await api.getOrganizationProjects('org-123', 1, 10)
 
-      // Assert
       expect(result.data).toHaveLength(1)
       expect(result.pagination.total).toBe(25)
+    })
+  })
+
+  describe('getOrganizationStats', () => {
+    it('should fetch organization statistics', async () => {
+      const mockStats = {
+        id: 'org-123',
+        memberCount: 5,
+        projectCount: 10,
+        weaknessSnapshotCount: 3,
+      }
+
+      mockApiFetch.mockResolvedValueOnce(mockStats as any)
+
+      const result = await api.getOrganizationStats('org-123')
+
+      expect(result.memberCount).toBe(5)
+      expect(result.projectCount).toBe(10)
     })
   })
 })

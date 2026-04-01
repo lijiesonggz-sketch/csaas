@@ -6,30 +6,28 @@
  */
 
 import React from 'react'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import CardHeader from '@mui/material/CardHeader'
-import Chip from '@mui/material/Chip'
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import Grid from '@mui/material/Grid'
-import Divider from '@mui/material/Divider'
-import LinearProgress from '@mui/material/LinearProgress'
-import Table from '@mui/material/Table'
-import TableBody from '@mui/material/TableBody'
-import TableCell from '@mui/material/TableCell'
-import TableContainer from '@mui/material/TableContainer'
-import TableHead from '@mui/material/TableHead'
-import TableRow from '@mui/material/TableRow'
-import Paper from '@mui/material/Paper'
-import DescriptionIcon from '@mui/icons-material/Description'
-import BarChartIcon from '@mui/icons-material/BarChart'
-import TrendingDownIcon from '@mui/icons-material/TrendingDown'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
-import LightbulbIcon from '@mui/icons-material/Lightbulb'
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { cn } from '@/lib/utils'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  FileText,
+  BarChart3,
+  TrendingDown,
+  TrendingUp,
+  Award,
+  Lightbulb,
+  Calendar,
+  CheckCircle,
+} from 'lucide-react'
 import MaturityRadarChart, { MaturityRadarData } from './MaturityRadarChart'
 
 /**
@@ -115,12 +113,12 @@ export interface GapAnalysisReportProps {
 /**
  * 获取等级颜色
  */
-const getGradeColor = (grade: string): 'secondary' | 'primary' | 'success' | 'warning' | 'error' => {
-  if (grade.includes('卓越级')) return 'secondary'
-  if (grade.includes('系统优化级')) return 'primary'
-  if (grade.includes('充分规范级')) return 'success'
-  if (grade.includes('初步规范级')) return 'warning'
-  return 'error'
+const getGradeColor = (grade: string): string => {
+  if (grade.includes('卓越级')) return 'bg-[#8B5CF6] text-white'
+  if (grade.includes('系统优化级')) return 'bg-[#1E3A5F] text-white'
+  if (grade.includes('充分规范级')) return 'bg-[#059669] text-white'
+  if (grade.includes('初步规范级')) return 'bg-[#F59E0B] text-white'
+  return 'bg-[#DC2626] text-white'
 }
 
 /**
@@ -224,18 +222,18 @@ export const GapAnalysisReport: React.FC<GapAnalysisReportProps> = ({
     <div className={`gap-analysis-report ${className}`} data-project-name={projectName}>
       {/* 封面页 */}
       {showCover && (
-        <div className="report-cover print-page-break">
-          <div className="report-cover-content">
-            <div className="report-cover-icon">
-              <DescriptionIcon sx={{ fontSize: 48 }} />
+        <div className="report-cover print-page-break bg-gradient-to-br from-[#1E3A5F] to-[#059669] text-white p-16 min-h-screen flex items-center justify-center">
+          <div className="report-cover-content text-center">
+            <div className="report-cover-icon flex justify-center mb-8">
+              <FileText className="h-16 w-16" />
             </div>
-            <h1 className="report-cover-title">差距分析报告</h1>
-            <div className="report-cover-project">{projectName}</div>
-            <div className="report-cover-date">
-              <CalendarTodayIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} /> {reportDate}
+            <h1 className="report-cover-title text-5xl font-bold mb-6">差距分析报告</h1>
+            <div className="report-cover-project text-2xl font-medium mb-4">{projectName}</div>
+            <div className="report-cover-date flex items-center justify-center text-lg opacity-90 mb-8">
+              <Calendar className="h-5 w-5 mr-2" /> {reportDate}
             </div>
-            <div className="report-cover-divider" />
-            <div className="report-cover-subtitle">
+            <div className="report-cover-divider w-32 h-1 bg-white/30 mx-auto mb-6" />
+            <div className="report-cover-subtitle text-lg opacity-80">
               基于 CMMI 成熟度模型的全面评估
             </div>
           </div>
@@ -243,73 +241,65 @@ export const GapAnalysisReport: React.FC<GapAnalysisReportProps> = ({
       )}
 
       {/* 报告内容 */}
-      <div className="report-content">
+      <div className="report-content bg-[#FEFDFB] p-8">
         {/* 成熟度概览 */}
-        <section className="report-section">
-          <h2 className="report-section-title">
-            <BarChartIcon sx={{ verticalAlign: 'middle', mr: 1 }} /> 成熟度概览
+        <section className="report-section mb-8">
+          <h2 className="report-section-title text-2xl font-bold text-[#1E3A5F] mb-4 flex items-center">
+            <BarChart3 className="mr-3" /> 成熟度概览
           </h2>
-          <Card className="report-card">
-            <CardContent>
-              <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="body2" color="text.secondary">总体成熟度等级</Typography>
-                    <Typography variant="h3" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
-                      {overall.maturityLevel.toFixed(2)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">/ 5.0</Typography>
-                    <Box sx={{ mt: 2 }}>
-                      <Chip label={overall.grade} color={getGradeColor(overall.grade)} />
-                    </Box>
-                    <Typography variant="body2" sx={{ mt: 2, color: 'text.secondary' }}>
-                      {overall.description}
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid size={{ xs: 12, md: 8 }}>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableBody>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 'bold' }}>计算公式</TableCell>
-                          <TableCell><code className="report-code">{overall.calculation.formula}</code></TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 'bold' }}>总得分</TableCell>
-                          <TableCell><strong style={{ fontSize: 18 }}>{overall.calculation.totalScore}</strong></TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 'bold' }}>满分</TableCell>
-                          <TableCell><strong style={{ fontSize: 18 }}>{overall.calculation.maxScore}</strong></TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  <Box sx={{ mt: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography variant="body2">成熟度进度</Typography>
-                      <Typography variant="body2">{overall.maturityLevel.toFixed(2)} / 5.0</Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={getMaturityProgress(overall.maturityLevel)}
-                      sx={{ height: 10, borderRadius: 5 }}
-                    />
-                  </Box>
-                </Grid>
-              </Grid>
+          <Card className="report-card border-[#E2E8F0]">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="text-center">
+                  <p className="text-sm text-[#64748B] mb-2">总体成熟度等级</p>
+                  <p className="text-4xl font-bold text-[#1E3A5F]">
+                    {overall.maturityLevel.toFixed(2)}
+                  </p>
+                  <p className="text-sm text-[#64748B]">/ 5.0</p>
+                  <div className="mt-3">
+                    <Badge className={getGradeColor(overall.grade)}>
+                      {overall.grade}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-[#64748B] mt-3">
+                    {overall.description}
+                  </p>
+                </div>
+                <div className="md:col-span-3">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-[#1E3A5F]">计算公式</span>
+                      <code className="report-code bg-[#F1F5F9] px-2 py-1 rounded text-sm">{overall.calculation.formula}</code>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-[#1E3A5F]">总得分</span>
+                      <span className="text-xl font-bold text-[#1E3A5F]">{overall.calculation.totalScore}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-[#1E3A5F]">满分</span>
+                      <span className="text-xl font-bold text-[#1E3A5F]">{overall.calculation.maxScore}</span>
+                    </div>
+                    <div className="mt-4">
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm text-[#64748B]">成熟度进度</span>
+                        <span className="text-sm text-[#64748B]">{overall.maturityLevel.toFixed(2)} / 5.0</span>
+                      </div>
+                      <Progress value={getMaturityProgress(overall.maturityLevel)} className="h-2.5" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </section>
 
         {/* 雷达图 */}
-        <section className="report-section">
-          <h2 className="report-section-title">
-            <BarChartIcon sx={{ verticalAlign: 'middle', mr: 1 }} /> 维度成熟度分布
+        <section className="report-section mb-8">
+          <h2 className="report-section-title text-2xl font-bold text-[#1E3A5F] mb-4 flex items-center">
+            <BarChart3 className="mr-3" /> 维度成熟度分布
           </h2>
-          <Card className="report-card">
-            <CardContent>
+          <Card className="report-card border-[#E2E8F0]">
+            <CardContent className="p-6">
               <MaturityRadarChart
                 data={radarData}
                 comparisonData={targetRadarData}
@@ -324,54 +314,56 @@ export const GapAnalysisReport: React.FC<GapAnalysisReportProps> = ({
         </section>
 
         {/* 维度详情表格 */}
-        <section className="report-section">
-          <h2 className="report-section-title">
-            <EmojiEventsIcon sx={{ verticalAlign: 'middle', mr: 1 }} /> 各维度成熟度详情
+        <section className="report-section mb-8">
+          <h2 className="report-section-title text-2xl font-bold text-[#1E3A5F] mb-4 flex items-center">
+            <Award className="mr-3" /> 各维度成熟度详情
           </h2>
-          <Card className="report-card">
-            <CardContent>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>维度</TableCell>
-                      <TableCell>聚类数</TableCell>
-                      <TableCell>成熟度等级</TableCell>
-                      <TableCell>等级评定</TableCell>
+          <Card className="report-card border-[#E2E8F0]">
+            <CardContent className="p-6">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#F8FAFC]">
+                    <TableHead className="text-[#1E3A5F]">维度</TableHead>
+                    <TableHead className="text-[#1E3A5F]">聚类数</TableHead>
+                    <TableHead className="text-[#1E3A5F]">成熟度等级</TableHead>
+                    <TableHead className="text-[#1E3A5F]">等级评定</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dimensionMaturity.map((d, index) => (
+                    <TableRow key={index}>
+                      <TableCell>{d.dimension}</TableCell>
+                      <TableCell>{d.clusterCount}</TableCell>
+                      <TableCell>{d.maturityLevel.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Badge className={getGradeColor(d.grade)} variant="secondary">
+                          {d.grade}
+                        </Badge>
+                      </TableCell>
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {dimensionMaturity.map((d, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{d.dimension}</TableCell>
-                        <TableCell>{d.clusterCount}</TableCell>
-                        <TableCell>{d.maturityLevel.toFixed(2)}</TableCell>
-                        <TableCell><Chip label={d.grade} color={getGradeColor(d.grade)} size="small" /></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </section>
 
         {/* TOP 3 短板 */}
-        <section className="report-section">
-          <h2 className="report-section-title">
-            <TrendingDownIcon sx={{ verticalAlign: 'middle', mr: 1, color: '#ff4d4f' }} /> TOP 3 短板维度
+        <section className="report-section mb-8">
+          <h2 className="report-section-title text-2xl font-bold text-[#1E3A5F] mb-4 flex items-center">
+            <TrendingDown className="mr-3 text-[#DC2626]" /> TOP 3 短板维度
           </h2>
-          <Card className="report-card">
-            <CardContent>
+          <Card className="report-card border-[#E2E8F0]">
+            <CardContent className="p-6">
               {topShortcomings.slice(0, 3).map((item) => (
-                <div key={item.rank} className="report-ranked-item">
-                  <div className="report-ranked-item-header">
-                    <Chip label={String(item.rank)} color="error" size="small" sx={{ mr: 1 }} />
-                    <span className="report-item-name">{item.cluster_name}</span>
+                <div key={item.rank} className="report-ranked-item mb-4 p-4 bg-[#FEF2F2] border border-[#FECACA] rounded-sm">
+                  <div className="report-ranked-item-header flex items-center gap-2 mb-2">
+                    <Badge className="bg-[#DC2626] text-white">{item.rank}</Badge>
+                    <span className="report-item-name font-semibold text-[#1E3A5F]">{item.cluster_name}</span>
                   </div>
-                  <div className="report-item-details">
+                  <div className="report-item-details flex items-center gap-4 text-sm text-[#64748B]">
                     <span>成熟度: {item.maturityLevel.toFixed(2)}</span>
-                    <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+                    <div className="w-px h-4 bg-[#E2E8F0]" />
                     <span>差距: {item.gap?.toFixed(2) || 'N/A'}</span>
                   </div>
                 </div>
@@ -381,21 +373,21 @@ export const GapAnalysisReport: React.FC<GapAnalysisReportProps> = ({
         </section>
 
         {/* TOP 3 优势 */}
-        <section className="report-section">
-          <h2 className="report-section-title">
-            <TrendingUpIcon sx={{ verticalAlign: 'middle', mr: 1, color: '#52c41a' }} /> TOP 3 优势维度
+        <section className="report-section mb-8">
+          <h2 className="report-section-title text-2xl font-bold text-[#1E3A5F] mb-4 flex items-center">
+            <TrendingUp className="mr-3 text-[#059669]" /> TOP 3 优势维度
           </h2>
-          <Card className="report-card">
-            <CardContent>
+          <Card className="report-card border-[#E2E8F0]">
+            <CardContent className="p-6">
               {topStrengths.slice(0, 3).map((item) => (
-                <div key={item.rank} className="report-ranked-item">
-                  <div className="report-ranked-item-header">
-                    <Chip label={String(item.rank)} color="success" size="small" sx={{ mr: 1 }} />
-                    <span className="report-item-name">{item.cluster_name}</span>
+                <div key={item.rank} className="report-ranked-item mb-4 p-4 bg-[#F0FDF4] border border-[#BBF7D0] rounded-sm">
+                  <div className="report-ranked-item-header flex items-center gap-2 mb-2">
+                    <Badge className="bg-[#059669] text-white">{item.rank}</Badge>
+                    <span className="report-item-name font-semibold text-[#1E3A5F]">{item.cluster_name}</span>
                   </div>
-                  <div className="report-item-details">
+                  <div className="report-item-details flex items-center gap-4 text-sm text-[#64748B]">
                     <span>成熟度: {item.maturityLevel.toFixed(2)}</span>
-                    <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+                    <div className="w-px h-4 bg-[#E2E8F0]" />
                     <span>优势: {item.advantage?.toFixed(2) || 'N/A'}</span>
                   </div>
                 </div>
@@ -405,30 +397,27 @@ export const GapAnalysisReport: React.FC<GapAnalysisReportProps> = ({
         </section>
 
         {/* 改进建议 */}
-        <section className="report-section">
-          <h2 className="report-section-title">
-            <LightbulbIcon sx={{ verticalAlign: 'middle', mr: 1, color: '#faad14' }} /> 改进建议
+        <section className="report-section mb-8">
+          <h2 className="report-section-title text-2xl font-bold text-[#1E3A5F] mb-4 flex items-center">
+            <Lightbulb className="mr-3 text-[#F59E0B]" /> 改进建议
           </h2>
-          <Card className="report-card">
-            <CardContent>
+          <Card className="report-card border-[#E2E8F0]">
+            <CardContent className="p-6">
               {suggestions.map((suggestion, index) => (
-                <div key={index} className="report-suggestion-item">
-                  <div className="report-suggestion-header">
-                    <CheckCircleIcon sx={{ color: 'success.main', mr: 1, fontSize: 20 }} />
-                    <strong>{suggestion.dimension}</strong>
-                    <Chip
-                      label={`Level ${suggestion.currentLevel.toFixed(1)} → ${suggestion.targetLevel.toFixed(1)}`}
-                      color="primary"
-                      size="small"
-                      sx={{ ml: 1 }}
-                    />
+                <div key={index} className="report-suggestion-item mb-6">
+                  <div className="report-suggestion-header flex items-center gap-2 mb-3">
+                    <CheckCircle className="h-5 w-5 text-[#059669]" />
+                    <strong className="text-[#1E3A5F]">{suggestion.dimension}</strong>
+                    <Badge className="bg-[#1E3A5F] text-white ml-2">
+                      Level {suggestion.currentLevel.toFixed(1)} → {suggestion.targetLevel.toFixed(1)}
+                    </Badge>
                   </div>
-                  <ul className="report-suggestion-list">
+                  <ul className="report-suggestion-list list-disc pl-6 space-y-2 text-sm text-[#64748B]">
                     {suggestion.suggestions.map((s, i) => (
                       <li key={i}>{s}</li>
                     ))}
                   </ul>
-                  {index < suggestions.length - 1 && <Divider sx={{ my: 2 }} />}
+                  {index < suggestions.length - 1 && <div className="h-px bg-[#E2E8F0] my-4" />}
                 </div>
               ))}
             </CardContent>
@@ -436,46 +425,50 @@ export const GapAnalysisReport: React.FC<GapAnalysisReportProps> = ({
         </section>
 
         {/* 聚类详情 */}
-        <section className="report-section">
-          <h2 className="report-section-title">
-            <EmojiEventsIcon sx={{ verticalAlign: 'middle', mr: 1 }} /> 各聚类详细成熟度
+        <section className="report-section mb-8">
+          <h2 className="report-section-title text-2xl font-bold text-[#1E3A5F] mb-4 flex items-center">
+            <Award className="mr-3" /> 各聚类详细成熟度
           </h2>
-          <Card className="report-card">
-            <CardContent>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>聚类名称</TableCell>
-                      <TableCell>所属维度</TableCell>
-                      <TableCell>成熟度</TableCell>
-                      <TableCell>等级</TableCell>
-                      <TableCell>问题数</TableCell>
-                      <TableCell>状态</TableCell>
+          <Card className="report-card border-[#E2E8F0]">
+            <CardContent className="p-6">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#F8FAFC]">
+                    <TableHead className="text-[#1E3A5F]">聚类名称</TableHead>
+                    <TableHead className="text-[#1E3A5F]">所属维度</TableHead>
+                    <TableHead className="text-[#1E3A5F]">成熟度</TableHead>
+                    <TableHead className="text-[#1E3A5F]">等级</TableHead>
+                    <TableHead className="text-[#1E3A5F]">问题数</TableHead>
+                    <TableHead className="text-[#1E3A5F]">状态</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {clusterMaturity.map((c) => (
+                    <TableRow key={c.cluster_id}>
+                      <TableCell>{c.cluster_name}</TableCell>
+                      <TableCell>{c.dimension}</TableCell>
+                      <TableCell>{c.maturityLevel.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Badge className={getGradeColor(c.grade)} variant="secondary">
+                          {c.grade}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{c.questionsCount}</TableCell>
+                      <TableCell>
+                        {c.isShortcoming && <Badge className="bg-[#DC2626] text-white">短板</Badge>}
+                      </TableCell>
                     </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {clusterMaturity.map((c) => (
-                      <TableRow key={c.cluster_id}>
-                        <TableCell>{c.cluster_name}</TableCell>
-                        <TableCell>{c.dimension}</TableCell>
-                        <TableCell>{c.maturityLevel.toFixed(2)}</TableCell>
-                        <TableCell><Chip label={c.grade} color={getGradeColor(c.grade)} size="small" /></TableCell>
-                        <TableCell>{c.questionsCount}</TableCell>
-                        <TableCell>{c.isShortcoming ? <Chip label="短板" color="error" size="small" /> : null}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </section>
 
         {/* 报告页脚 */}
-        <footer className="report-footer">
-          <Divider />
-          <p className="report-footer-text">
+        <footer className="report-footer mt-8">
+          <div className="h-px bg-[#E2E8F0]" />
+          <p className="report-footer-text text-sm text-[#64748B] text-center mt-4">
             本报告由 CSAAS 平台自动生成 | 生成时间: {new Date().toLocaleString('zh-CN')}
           </p>
         </footer>

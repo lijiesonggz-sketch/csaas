@@ -235,13 +235,13 @@ export default function ProjectWorkbenchPage() {
   const getProjectStatusConfig = (status: string | undefined) => {
     switch (status) {
       case 'COMPLETED':
-        return { variant: 'default' as const, text: '已完成', className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' }
+        return { variant: 'default' as const, text: '已完成', className: 'bg-[#059669] text-white hover:bg-[#047857]' }
       case 'ACTIVE':
-        return { variant: 'default' as const, text: '进行中', className: 'bg-blue-100 text-blue-700 hover:bg-blue-100' }
+        return { variant: 'default' as const, text: '进行中', className: 'bg-blue-600 text-white hover:bg-blue-700' }
       case 'DRAFT':
-        return { variant: 'secondary' as const, text: '草稿', className: 'bg-slate-100 text-slate-700 hover:bg-slate-100' }
+        return { variant: 'secondary' as const, text: '草稿', className: 'bg-slate-100 text-slate-700 hover:bg-slate-200' }
       case 'ARCHIVED':
-        return { variant: 'outline' as const, text: '已归档', className: 'bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200' }
+        return { variant: 'outline' as const, text: '已归档', className: 'bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200' }
       default:
         return { variant: 'secondary' as const, text: status || '未知', className: '' }
     }
@@ -252,13 +252,13 @@ export default function ProjectWorkbenchPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">已完成</Badge>
+        return <Badge className="bg-[#059669] text-white hover:bg-[#047857] rounded-sm">已完成</Badge>
       case 'processing':
-        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 animate-pulse">进行中</Badge>
+        return <Badge className="bg-blue-600 text-white hover:bg-blue-700 animate-pulse rounded-sm">进行中</Badge>
       case 'failed':
-        return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">失败</Badge>
+        return <Badge className="bg-red-600 text-white hover:bg-red-700 rounded-sm">失败</Badge>
       default:
-        return <Badge variant="secondary">待开始</Badge>
+        return <Badge variant="outline" className="rounded-sm">待开始</Badge>
     }
   }
 
@@ -266,8 +266,8 @@ export default function ProjectWorkbenchPage() {
     return (
       <main className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-500 rounded-full animate-spin" />
-          <p className="text-slate-500">加载中...</p>
+          <div className="w-12 h-12 border-4 border-[#E2E8F0] border-t-[#1E3A5F] rounded-full animate-spin" />
+          <p className="text-[#94A3B8]">加载中...</p>
         </div>
       </main>
     )
@@ -276,20 +276,20 @@ export default function ProjectWorkbenchPage() {
   return (
     <main className="w-full px-6 py-8">
       {/* 页面头部 */}
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-8 mb-8 text-white">
+      <div className="bg-[#1E3A5F] rounded-sm p-8 mb-8 text-white">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 rounded-xl">
+            <div className="p-3 bg-white/10 rounded-sm">
               <FolderOpen className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">{project?.name || '项目详情'}</h1>
-              <p className="text-white/80 mt-1">{project?.description || '管理项目功能模块，跟踪AI分析进度'}</p>
+              <h1 className="text-2xl font-bold font-[var(--font-plus-jakarta)]">{project?.name || '项目详情'}</h1>
+              <p className="text-white/80 mt-1 font-[var(--font-inter)]">{project?.description || '管理项目功能模块，跟踪AI分析进度'}</p>
             </div>
           </div>
           <Button
             onClick={() => router.push('/projects')}
-            className="bg-white text-indigo-600 hover:bg-white/90"
+            className="bg-white text-[#1E3A5F] hover:bg-white/90 rounded-sm"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             返回项目列表
@@ -332,6 +332,7 @@ export default function ProjectWorkbenchPage() {
 
       {/* 功能模块网格 - 流体布局 */}
       <div className="mb-8">
+        <h2 className="text-xl font-semibold font-[var(--font-plus-jakarta)] text-[#1E3A5F] mb-4">功能模块</h2>
         <div
           role="list"
           aria-label="功能模块"
@@ -342,28 +343,28 @@ export default function ProjectWorkbenchPage() {
             return (
               <Card
                 key={step.id}
-                className="group cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-t-4 border-t-indigo-500 h-full flex flex-col"
+                className="group cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 border-t-4 border-t-[#1E3A5F] h-full flex flex-col"
                 onClick={() => router.push(step.route)}
                 role="link"
                 aria-label={`${step.name} - ${step.description}`}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-gradient-to-br from-indigo-50 to-purple-50">
-                      <Icon className="w-5 h-5 text-indigo-600" />
+                    <div className="p-2 rounded-sm bg-slate-100">
+                      <Icon className="w-5 h-5 text-[#1E3A5F]" />
                     </div>
-                    <h3 className="font-semibold text-slate-900">{step.name}</h3>
+                    <h3 className="font-semibold text-[#1E3A5F]">{step.name}</h3>
                   </div>
                 </CardHeader>
 
                 <CardContent className="flex-1 flex flex-col gap-4">
                   <div>{getStatusBadge(step.status)}</div>
 
-                  <p className="text-sm text-slate-500 flex-1">{step.description}</p>
+                  <p className="text-sm text-[#94A3B8] flex-1">{step.description}</p>
 
-                  <div className="pt-3 border-t border-slate-100">
+                  <div className="pt-3 border-t border-[#E2E8F0]">
                     <Button
-                      className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                      className="w-full bg-[#1E3A5F] hover:bg-[#152a47] rounded-sm"
                       onClick={() => router.push(step.route)}
                     >
                       {index === 0 ? '开始' : step.status === 'completed' ? '查看' : '进入'}
@@ -383,47 +384,47 @@ export default function ProjectWorkbenchPage() {
         <Card className="p-6">
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-slate-500 text-sm">项目状态</span>
+              <span className="text-[#94A3B8] text-sm">项目状态</span>
               <Badge variant={projectStatusConfig.variant} className={projectStatusConfig.className}>
                 {projectStatusConfig.text}
               </Badge>
             </div>
 
             <div className="flex justify-between items-center">
-              <span className="text-slate-500 text-sm">客户名称</span>
-              <span className="font-medium text-slate-900">{project?.clientName || '-'}</span>
+              <span className="text-[#94A3B8] text-sm">客户名称</span>
+              <span className="font-medium text-[#1E3A5F]">{project?.clientName || '-'}</span>
             </div>
 
             <div className="flex justify-between items-center">
-              <span className="text-slate-500 text-sm">合规标准</span>
-              <span className="font-medium text-slate-900">{project?.standardName || '-'}</span>
+              <span className="text-[#94A3B8] text-sm">合规标准</span>
+              <span className="font-medium text-[#1E3A5F]">{project?.standardName || '-'}</span>
             </div>
 
             <div className="flex justify-between items-center">
-              <span className="text-slate-500 text-sm">完成进度</span>
+              <span className="text-[#94A3B8] text-sm">完成进度</span>
               <div className="flex items-center gap-3">
                 <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-500"
+                    className="h-full bg-[#1E3A5F] transition-all duration-500"
                     style={{ width: `${project?.progress || 0}%` }}
                   />
                 </div>
-                <span className="font-medium text-slate-900 text-sm">{project?.progress}%</span>
+                <span className="font-medium text-[#1E3A5F] text-sm">{project?.progress}%</span>
               </div>
             </div>
 
-            <div className="border-t border-slate-100 pt-4">
+            <div className="border-t border-[#E2E8F0] pt-4">
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 text-sm">创建时间</span>
-                <span className="text-slate-500 text-sm">
+                <span className="text-[#94A3B8] text-sm">创建时间</span>
+                <span className="text-[#94A3B8] text-sm">
                   {project?.createdAt ? new Date(project.createdAt).toLocaleString('zh-CN') : '-'}
                 </span>
               </div>
             </div>
 
             <div className="flex justify-between items-center">
-              <span className="text-slate-500 text-sm">最后更新</span>
-              <span className="text-slate-500 text-sm">
+              <span className="text-[#94A3B8] text-sm">最后更新</span>
+              <span className="text-[#94A3B8] text-sm">
                 {project?.updatedAt ? new Date(project.updatedAt).toLocaleString('zh-CN') : '-'}
               </span>
             </div>

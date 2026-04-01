@@ -225,7 +225,7 @@ export default function SummaryPage() {
   return (
     <div className="w-full px-6 py-8">
       {/* 渐变头部 */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 mb-8">
+      <div className="relative overflow-hidden rounded-3xl bg-[#1E3A5F] p-8 mb-8">
         {/* 装饰性径向渐变 */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
 
@@ -279,26 +279,26 @@ export default function SummaryPage() {
         <Card className="border-0 shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)]">
           <CardContent className="py-16 text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-indigo-500" />
-            <h3 className="text-xl font-semibold text-slate-900">正在加载...</h3>
+            <h3 className="text-xl font-semibold text-[#1E3A5F]">正在加载...</h3>
           </CardContent>
         </Card>
       ) : loading ? (
         <Card className="border-0 shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)]">
           <CardContent className="py-16 text-center">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-indigo-500" />
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">正在生成综述...</h3>
-            <p className="text-sm text-slate-500 mb-6">
+            <h3 className="text-xl font-semibold text-[#1E3A5F] mb-2">正在生成综述...</h3>
+            <p className="text-sm text-[#94A3B8] mb-6">
               AI正在分析您的文档并生成综述，这可能需要1-2分钟
             </p>
             {progress && (
               <div className="max-w-md mx-auto">
                 <div className="flex justify-between mb-2 text-sm">
-                  <span className="text-slate-500">进度</span>
+                  <span className="text-[#94A3B8]">进度</span>
                   <span className="font-semibold">{progress.percentage || 0}%</span>
                 </div>
                 <Progress value={progress.percentage || 0} className="h-2" />
                 {progress.stage && (
-                  <p className="text-xs text-slate-500 mt-2">{progress.stage}</p>
+                  <p className="text-xs text-[#94A3B8] mt-2">{progress.stage}</p>
                 )}
               </div>
             )}
@@ -308,14 +308,14 @@ export default function SummaryPage() {
         <Card className="border-0 shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)]">
           <CardContent className="py-16 text-center">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center mx-auto mb-4">
-              <Sparkles className="w-6 h-6 text-indigo-600" />
+              <Sparkles className="w-6 h-6 text-[#1E3A5F]" />
             </div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">还没有生成综述</h3>
-            <p className="text-sm text-slate-500 mb-8">点击下方按钮开始生成综述</p>
+            <h3 className="text-xl font-semibold text-[#1E3A5F] mb-2">还没有生成综述</h3>
+            <p className="text-sm text-[#94A3B8] mb-8">点击下方按钮开始生成综述</p>
             <Button
               onClick={handleGenerate}
               disabled={loading}
-              className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 text-lg"
+              className="bg-[#1E3A5F] hover:from-[#1E3A5F] hover:to-[#152a47] text-white px-6 py-3 text-lg"
             >
               <Sparkles className="w-5 h-5 mr-2" />
               {loading ? '生成中...' : '生成综述'}

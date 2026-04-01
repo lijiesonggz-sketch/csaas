@@ -110,7 +110,7 @@ describe('EditMemberDialog', () => {
 
     expect(screen.getByText('编辑成员角色')).toBeInTheDocument()
     // Should show fallback text for null member
-    expect(screen.getByText(/-/)).toBeInTheDocument()
+    expect(screen.getAllByText(/-/).length).toBeGreaterThanOrEqual(1)
   })
 
   it('should disable inputs when loading', () => {

@@ -24,7 +24,7 @@ import { getAlerts, resolveAlert, Alert } from '@/lib/api/dashboard'
 import { CrawlerHealthDashboard } from '@/components/admin/CrawlerHealthDashboard'
 import { CrawlerTaskLogList } from '@/components/admin/CrawlerTaskLogList'
 import { AlertList } from '@/components/admin/AlertList'
-import { ArrowPathIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { ArrowLeft, RefreshCw } from 'lucide-react'
 
 export default function PeerCrawlerHealthPage() {
   const { data: session, status } = useSession()
@@ -140,7 +140,7 @@ export default function PeerCrawlerHealthPage() {
   if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1E3A5F]"></div>
       </div>
     )
   }
@@ -152,7 +152,7 @@ export default function PeerCrawlerHealthPage() {
           <p className="text-red-600 mb-4">{error}</p>
           <button
             onClick={handleRefresh}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-4 py-2 bg-[#1E3A5F] text-white rounded hover:bg-[#1E3A5F]/80"
           >
             重试
           </button>
@@ -162,15 +162,15 @@ export default function PeerCrawlerHealthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-[#FEFDFB] p-6">
       <div className="max-w-7xl mx-auto">
         {/* Back Button */}
         <div className="mb-4">
           <button
             onClick={handleBack}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+            className="flex items-center space-x-2 text-[#94A3B8] hover:text-[#1E3A5F] transition-colors"
           >
-            <ArrowLeftIcon className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5" />
             <span>返回仪表板</span>
           </button>
         </div>
@@ -179,16 +179,16 @@ export default function PeerCrawlerHealthPage() {
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">爬虫健康度监控</h1>
-              <p className="mt-1 text-sm text-gray-600">监控同业采集爬虫的健康状态和性能指标</p>
+              <h1 className="text-3xl font-bold text-[#1E3A5F]">爬虫健康度监控</h1>
+              <p className="mt-1 text-sm text-[#94A3B8]">监控同业采集爬虫的健康状态和性能指标</p>
             </div>
 
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="flex items-center space-x-2 px-4 py-2 bg-white border border-[#E2E8F0] rounded-sm hover:bg-[#FEFDFB] disabled:opacity-50"
             >
-              <ArrowPathIcon className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
               <span>{refreshing ? '刷新中...' : '手动刷新'}</span>
             </button>
           </div>
@@ -199,15 +199,15 @@ export default function PeerCrawlerHealthPage() {
 
         {/* Alerts Section */}
         <div className="mt-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">爬虫告警</h2>
-          <div className="bg-white rounded-lg border p-6">
+          <h2 className="text-xl font-semibold text-[#1E3A5F] mb-4">爬虫告警</h2>
+          <div className="bg-white rounded-sm border border-[#E2E8F0] shadow-sm p-6">
             <AlertList alerts={alerts} onResolve={handleResolveAlert} loading={loading} />
           </div>
         </div>
 
         {/* Task Log List */}
         <div className="mt-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">任务日志</h2>
+          <h2 className="text-xl font-semibold text-[#1E3A5F] mb-4">任务日志</h2>
           <CrawlerTaskLogList
             tasks={tasks}
             total={taskTotal}
@@ -222,18 +222,18 @@ export default function PeerCrawlerHealthPage() {
         {/* Stats Summary */}
         {stats && (
           <div className="mt-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">采集统计（最近30天）</h2>
-            <div className="bg-white rounded-lg border p-6">
+            <h2 className="text-xl font-semibold text-[#1E3A5F] mb-4">采集统计（最近30天）</h2>
+            <div className="bg-white rounded-sm border border-[#E2E8F0] shadow-sm p-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Success Rate Trend */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-600 mb-3">成功率趋势</h3>
+                  <h3 className="text-sm font-medium text-[#94A3B8] mb-3">成功率趋势</h3>
                   <div className="space-y-2">
                     {stats.successRateTrend.slice(-7).map((item) => (
                       <div key={item.date} className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500">{item.date}</span>
+                        <span className="text-sm text-[#94A3B8]">{item.date}</span>
                         <div className="flex items-center">
-                          <div className="w-24 h-2 bg-gray-200 rounded-full mr-2">
+                          <div className="w-24 h-2 bg-[#E2E8F0] rounded-full mr-2">
                             <div
                               className="h-full bg-green-500 rounded-full"
                               style={{ width: `${item.rate}%` }}
@@ -248,11 +248,11 @@ export default function PeerCrawlerHealthPage() {
 
                 {/* Source Comparison */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-600 mb-3">采集源对比</h3>
+                  <h3 className="text-sm font-medium text-[#94A3B8] mb-3">采集源对比</h3>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {stats.sourceComparison.slice(0, 5).map((item) => (
                       <div key={item.peerName} className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500 truncate max-w-[100px]">
+                        <span className="text-sm text-[#94A3B8] truncate max-w-[100px]">
                           {item.peerName}
                         </span>
                         <div className="flex items-center space-x-2">
@@ -266,11 +266,11 @@ export default function PeerCrawlerHealthPage() {
 
                 {/* Content Type Distribution */}
                 <div>
-                  <h3 className="text-sm font-medium text-gray-600 mb-3">内容类型分布</h3>
+                  <h3 className="text-sm font-medium text-[#94A3B8] mb-3">内容类型分布</h3>
                   <div className="space-y-2">
                     {stats.contentTypeDistribution.map((item) => (
                       <div key={item.type} className="flex items-center justify-between">
-                        <span className="text-sm text-gray-500">{item.type}</span>
+                        <span className="text-sm text-[#94A3B8]">{item.type}</span>
                         <span className="text-sm font-medium">{item.count} 条</span>
                       </div>
                     ))}

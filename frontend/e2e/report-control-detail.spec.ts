@@ -8,8 +8,8 @@ test.describe('Story 7.3: 报告页面控制点详情抽屉', () => {
   test.beforeEach(async ({ page }) => {
     // 登录并导航到报告页面
     await page.goto('/login')
-    await page.fill('input[name="email"]', 'test@example.com')
-    await page.fill('input[name="password"]', 'Test123456!')
+    await page.fill('input[name="email"]', 'admin@test.com')
+    await page.fill('input[name="password"]', 'admin123')
     await page.click('button[type="submit"]')
     await page.waitForURL('/dashboard')
   })

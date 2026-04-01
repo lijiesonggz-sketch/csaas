@@ -1,50 +1,10 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-
-// Constants
-const DEFAULT_PAGE_SIZE = 10
-const CONTENT_PREVIEW_LENGTH = 500
-const SNACKBAR_DURATION = 6000
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Button,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Grid,
-  Pagination,
-  Alert,
-  Snackbar,
-  Tooltip,
-  CircularProgress,
-} from '@mui/material'
-import {
-  Refresh as RefreshIcon,
-  Delete as DeleteIcon,
-  Visibility as VisibilityIcon,
-  ArrowBack as ArrowBackIcon,
-  Clear as ClearIcon,
-} from '@mui/icons-material'
+import { ArrowLeft, RefreshCw, Eye, Loader2, X } from 'lucide-react'
+import { toast } from 'sonner'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import {
@@ -59,6 +19,33 @@ import {
   reanalyzeRawContent,
   deleteRawContent,
 } from '@/lib/api/raw-content'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { AlertCircle } from 'lucide-react'
+
+// Constants
+const DEFAULT_PAGE_SIZE = 10
 
 // 配置 dayjs
 dayjs.locale('zh-cn')
@@ -118,17 +105,6 @@ export default function RawContentsPage() {
   const [selectedContent, setSelectedContent] = useState<RawContent | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
 
-  // 提示消息
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean
-    message: string
-    severity: 'success' | 'error' | 'info'
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  })
-
   // 初始加载
   useEffect(() => {
     loadStats()
@@ -147,7 +123,7 @@ export default function RawContentsPage() {
       setStats(data)
     } catch (err: any) {
       console.error('加载统计数据失败:', err)
-      showSnackbar('加载统计数据失败: ' + (err.message || '未知错误'), 'error')
+      toast.error('加载统计数据失败: ' + (err.message || '未知错误'))
     } finally {
       setStatsLoading(false)
     }
@@ -204,7 +180,7 @@ export default function RawContentsPage() {
       setSelectedContent(detail)
       setDetailOpen(true)
     } catch (err: any) {
-      showSnackbar(err.message || '加载详情失败', 'error')
+      toast.error(err.message || '加载详情失败')
     } finally {
       setDetailLoading(false)
     }
@@ -220,11 +196,11 @@ export default function RawContentsPage() {
   const handleReanalyze = async (id: string) => {
     try {
       await reanalyzeRawContent(id)
-      showSnackbar('重新分析已触发', 'success')
+      toast.success('重新分析已触发')
       loadRawContents()
       loadStats()
     } catch (err: any) {
-      showSnackbar(err.message || '重新分析失败', 'error')
+      toast.error(err.message || '重新分析失败')
     }
   }
 
@@ -234,25 +210,12 @@ export default function RawContentsPage() {
 
     try {
       await deleteRawContent(id)
-      showSnackbar('删除成功', 'success')
+      toast.success('删除成功')
       loadRawContents()
       loadStats()
     } catch (err: any) {
-      showSnackbar(err.message || '删除失败', 'error')
+      toast.error(err.message || '删除失败')
     }
-  }
-
-  // 显示提示消息
-  const showSnackbar = (
-    message: string,
-    severity: 'success' | 'error' | 'info' = 'success',
-  ) => {
-    setSnackbar({ open: true, message, severity })
-  }
-
-  // 关闭提示消息
-  const handleCloseSnackbar = () => {
-    setSnackbar((prev) => ({ ...prev, open: false }))
   }
 
   // 返回上一页
@@ -261,18 +224,18 @@ export default function RawContentsPage() {
   }
 
   // 获取状态颜色
-  const getStatusColor = (status: RawContentStatus) => {
+  const getStatusColor = (status: RawContentStatus): string => {
     switch (status) {
       case 'pending':
-        return 'warning'
+        return 'bg-yellow-600 text-white'
       case 'analyzing':
-        return 'info'
+        return 'bg-blue-600 text-white'
       case 'analyzed':
-        return 'success'
+        return 'bg-[#059669] text-white'
       case 'failed':
-        return 'error'
+        return 'bg-red-600 text-white'
       default:
-        return 'default'
+        return 'bg-[#94A3B8] text-white'
     }
   }
 
@@ -322,551 +285,364 @@ export default function RawContentsPage() {
 
   // 统计卡片数据
   const statCards = [
-    { key: 'pending', label: '待分析', color: 'warning' as const },
-    { key: 'analyzing', label: '分析中', color: 'info' as const },
-    { key: 'analyzed', label: '已分析', color: 'success' as const },
-    { key: 'failed', label: '失败', color: 'error' as const },
-    { key: 'todayImported', label: '今日导入', color: 'default' as const },
+    { key: 'pending', label: '待分析', color: 'text-yellow-600' as const },
+    { key: 'analyzing', label: '分析中', color: 'text-blue-600' as const },
+    { key: 'analyzed', label: '已分析', color: 'text-[#059669]' as const },
+    { key: 'failed', label: '失败', color: 'text-red-600' as const },
+    { key: 'todayImported', label: '今日导入', color: 'text-[#1E3A5F]' as const },
   ]
 
   return (
-    <Box sx={{ p: 3 }}>
+    <div className="p-6 bg-[#FEFDFB] min-h-screen">
       {/* 返回按钮 */}
-      <Box sx={{ mb: 2 }}>
-        <IconButton
+      <div className="mb-6">
+        <Button
+          variant="outline"
           onClick={handleBack}
-          sx={{
-            color: 'primary.main',
-            '&:hover': {
-              backgroundColor: 'primary.light',
-              color: 'white',
-            },
-          }}
+          className="rounded-sm"
         >
-          <ArrowBackIcon />
-        </IconButton>
-      </Box>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          返回
+        </Button>
+      </div>
 
       {/* 页面标题 */}
-      <Typography variant="h4" gutterBottom>
+      <h1 className="text-3xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)] mb-6">
         文件导入管理
-      </Typography>
+      </h1>
 
       {/* 统计卡片区域 */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         {statCards.map((stat) => (
-          <Grid size={{ xs: 12, sm: 6, md: 2.4 }} key={stat.key}>
-            <Card>
-              <CardContent sx={{ textAlign: 'center' }}>
-                <Typography variant="h4" color={`${stat.color}.main`} gutterBottom>
-                  {statsLoading ? (
-                    <CircularProgress size={32} />
-                  ) : (
-                    stats?.[stat.key as keyof RawContentStats] ?? 0
-                  )}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {stat.label}
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+          <Card key={stat.key} className="border-[#E2E8F0] rounded-sm shadow-sm">
+            <CardContent className="p-4 text-center">
+              {statsLoading ? (
+                <Loader2 className="w-8 h-8 animate-spin text-[#94A3B8] mx-auto" />
+              ) : (
+                <p className={`text-4xl font-bold ${stat.color}`}>
+                  {stats?.[stat.key as keyof RawContentStats] ?? 0}
+                </p>
+              )}
+              <p className="text-sm text-[#94A3B8] mt-1">{stat.label}</p>
+            </CardContent>
+          </Card>
         ))}
-      </Grid>
+      </div>
 
       {/* 筛选区域 */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Grid container spacing={2} alignItems="center">
+      <Card className="mb-6 border-[#E2E8F0] rounded-sm shadow-sm">
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
             {/* 状态下拉框 */}
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>状态</InputLabel>
-                <Select
-                  value={statusFilter}
-                  label="状态"
-                  onChange={(e) => setStatusFilter(e.target.value as RawContentStatus | 'all')}
-                >
-                  <MenuItem value="all">全部</MenuItem>
-                  <MenuItem value="pending">待分析</MenuItem>
-                  <MenuItem value="analyzing">分析中</MenuItem>
-                  <MenuItem value="analyzed">已分析</MenuItem>
-                  <MenuItem value="failed">失败</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+            <div className="space-y-2">
+              <Label htmlFor="status-filter">状态</Label>
+              <Select
+                value={statusFilter}
+                onValueChange={(v) => setStatusFilter(v as RawContentStatus | 'all')}
+              >
+                <SelectTrigger className="rounded-sm" id="status-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部</SelectItem>
+                  <SelectItem value="pending">待分析</SelectItem>
+                  <SelectItem value="analyzing">分析中</SelectItem>
+                  <SelectItem value="analyzed">已分析</SelectItem>
+                  <SelectItem value="failed">失败</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* 分类下拉框 */}
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>分类</InputLabel>
-                <Select
-                  value={categoryFilter}
-                  label="分类"
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                >
-                  <MenuItem value="all">全部</MenuItem>
-                  <MenuItem value="tech">技术</MenuItem>
-                  <MenuItem value="industry">行业</MenuItem>
-                  <MenuItem value="compliance">合规</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+            <div className="space-y-2">
+              <Label htmlFor="category-filter">分类</Label>
+              <Select
+                value={categoryFilter}
+                onValueChange={(v) => setCategoryFilter(v as RawContentCategory | 'all')}
+              >
+                <SelectTrigger className="rounded-sm" id="category-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部</SelectItem>
+                  <SelectItem value="tech">技术</SelectItem>
+                  <SelectItem value="industry">行业</SelectItem>
+                  <SelectItem value="compliance">合规</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* 来源下拉框 */}
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>来源</InputLabel>
-                <Select
-                  value={sourceFilter}
-                  label="来源"
-                  onChange={(e) => setSourceFilter(e.target.value)}
-                >
-                  <MenuItem value="all">全部</MenuItem>
-                  <MenuItem value="wechat">微信公众号</MenuItem>
-                  <MenuItem value="website">网站</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+            <div className="space-y-2">
+              <Label htmlFor="source-filter">来源</Label>
+              <Select
+                value={sourceFilter}
+                onValueChange={(v) => setSourceFilter(v as RawContentSource | 'all')}
+              >
+                <SelectTrigger className="rounded-sm" id="source-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部</SelectItem>
+                  <SelectItem value="wechat">微信公众号</SelectItem>
+                  <SelectItem value="website">网站</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* 搜索框 */}
-            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="搜索标题..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                InputProps={{
-                  endAdornment: searchQuery && (
-                    <IconButton size="small" onClick={() => setSearchQuery('')}>
-                      <ClearIcon fontSize="small" />
-                    </IconButton>
-                  ),
-                }}
-              />
-            </Grid>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="search">搜索</Label>
+              <div className="relative">
+                <Input
+                  id="search"
+                  placeholder="搜索标题..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  className="rounded-sm pr-8"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#1E3A5F]"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
 
             {/* 清除筛选按钮 */}
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+            <div className="flex items-end">
               <Button
-                variant="outlined"
-                fullWidth
+                variant="outline"
                 onClick={handleClearFilters}
-                startIcon={<ClearIcon />}
+                className="rounded-sm w-full"
               >
+                <X className="w-4 h-4 mr-2" />
                 清除筛选
               </Button>
-            </Grid>
-          </Grid>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
       {/* 错误提示 */}
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-          {error}
+        <Alert variant="destructive" className="mb-6 rounded-sm">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
       {/* 内容列表表格 */}
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>标题</TableCell>
-              <TableCell>来源</TableCell>
-              <TableCell>分类</TableCell>
-              <TableCell>状态</TableCell>
-              <TableCell>导入时间</TableCell>
-              <TableCell align="center">操作</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                  <CircularProgress />
-                </TableCell>
-              </TableRow>
-            ) : rawContents.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">暂无数据</Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              rawContents.map((content) => (
-                <TableRow key={content.id} hover>
-                  <TableCell>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        maxWidth: 300,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                      title={content.title}
-                    >
-                      {content.title}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={getSourceLabel(content.source)}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={getCategoryLabel(content.category)}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={getStatusLabel(content.status)}
-                      size="small"
-                      color={getStatusColor(content.status)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {dayjs(content.createdAt).format('YYYY-MM-DD HH:mm')}
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                      {/* 详情按钮 */}
-                      <Tooltip title="查看详情">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleViewDetail(content)}
-                        >
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-
-                      {/* 重新分析按钮 */}
-                      <Tooltip title="重新分析">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleReanalyze(content.id)}
-                        >
-                          <RefreshIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-
-                      {/* 删除按钮 */}
-                      <Tooltip title="删除">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDelete(content.id)}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
+      <Card className="border-[#E2E8F0] rounded-sm shadow-sm">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-[#1E3A5F] hover:bg-[#1E3A5F]">
+                  <TableHead className="text-white">标题</TableHead>
+                  <TableHead className="text-white">来源</TableHead>
+                  <TableHead className="text-white">分类</TableHead>
+                  <TableHead className="text-white">状态</TableHead>
+                  <TableHead className="text-white">导入时间</TableHead>
+                  <TableHead className="text-white text-center">操作</TableHead>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      <Loader2 className="w-8 h-8 animate-spin text-[#1E3A5F] mx-auto" />
+                    </TableCell>
+                  </TableRow>
+                ) : rawContents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8">
+                      <p className="text-[#94A3B8]">暂无数据</p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  rawContents.map((content) => (
+                    <TableRow key={content.id} className="hover:bg-[#FEFDFB]">
+                      <TableCell className="max-w-xs truncate">
+                        {content.title}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="rounded-sm border-[#94A3B8] text-[#94A3B8]">
+                          {getSourceLabel(content.source)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="rounded-sm border-[#1E3A5F] text-[#1E3A5F]">
+                          {getCategoryLabel(content.category)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={`rounded-sm ${getStatusColor(content.status)}`}>
+                          {getStatusLabel(content.status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {dayjs(content.createdAt).format('YYYY-MM-DD HH:mm')}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center gap-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={() => handleViewDetail(content)}
+                                  className="p-2 hover:bg-[#E2E8F0] rounded-sm"
+                                >
+                                  <Eye className="w-4 h-4 text-[#1E3A5F]" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>查看详情</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={() => handleReanalyze(content.id)}
+                                  className="p-2 hover:bg-[#E2E8F0] rounded-sm"
+                                >
+                                  <RefreshCw className="w-4 h-4 text-[#059669]" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>重新分析</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={() => handleDelete(content.id)}
+                                  className="p-2 hover:bg-red-50 rounded-sm text-red-600"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>删除</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-      {/* 分页 */}
-      {!loading && rawContents.length > 0 && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-          <Pagination
-            count={pagination.totalPages}
-            page={pagination.page}
-            onChange={(_, page) => setPagination((prev) => ({ ...prev, page }))}
-            color="primary"
-          />
-        </Box>
-      )}
+          {/* 分页 */}
+          {!loading && rawContents.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-[#E2E8F0]">
+              <p className="text-sm text-[#94A3B8]">
+                显示 {pagination.page * pagination.limit - pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} 共 {pagination.total} 条
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
+                  disabled={pagination.page === 1}
+                  className="h-8 rounded-sm"
+                >
+                  上一页
+                </Button>
+                <span className="text-sm text-[#94A3B8]">
+                  第 {pagination.page} / {pagination.totalPages} 页
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
+                  disabled={pagination.page >= pagination.totalPages}
+                  className="h-8 rounded-sm"
+                >
+                  下一页
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* 详情对话框 */}
-      <Dialog
-        open={detailOpen}
-        onClose={handleCloseDetail}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          内容详情
-          {detailLoading && (
-            <CircularProgress size={20} sx={{ ml: 2 }} />
-          )}
-        </DialogTitle>
-        <DialogContent>
+      <Dialog open={detailOpen} onOpenChange={handleCloseDetail}>
+        <DialogContent className="rounded-sm max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
+              内容详情
+              {detailLoading && <Loader2 className="w-4 h-4 ml-2 animate-spin inline" />}
+            </DialogTitle>
+          </DialogHeader>
           {selectedContent && (
-            <Box sx={{ pt: 1 }}>
+            <div className="space-y-4">
               {/* 基本信息网格 */}
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    标题
-                  </Typography>
-                  <Typography variant="body1">{selectedContent.title}</Typography>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    来源
-                  </Typography>
-                  <Chip
-                    label={getSourceLabel(selectedContent.source)}
-                    size="small"
-                    variant="outlined"
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    分类
-                  </Typography>
-                  <Chip
-                    label={getCategoryLabel(selectedContent.category)}
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    状态
-                  </Typography>
-                  <Chip
-                    label={getStatusLabel(selectedContent.status)}
-                    size="small"
-                    color={getStatusColor(selectedContent.status)}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    导入时间
-                  </Typography>
-                  <Typography variant="body1">
-                    {dayjs(selectedContent.createdAt).format('YYYY-MM-DD HH:mm:ss')}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    更新时间
-                  </Typography>
-                  <Typography variant="body1">
-                    {dayjs(selectedContent.updatedAt).format('YYYY-MM-DD HH:mm:ss')}
-                  </Typography>
-                </Grid>
-              </Grid>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-[#94A3B8]">标题</p>
+                  <p className="font-medium">{selectedContent.title}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-[#94A3B8]">来源</p>
+                  <Badge variant="outline" className="rounded-sm border-[#94A3B8] text-[#94A3B8]">
+                    {getSourceLabel(selectedContent.source)}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-[#94A3B8]">分类</p>
+                  <Badge variant="outline" className="rounded-sm border-[#1E3A5F] text-[#1E3A5F]">
+                    {getCategoryLabel(selectedContent.category)}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-[#94A3B8]">状态</p>
+                  <Badge className={`rounded-sm ${getStatusColor(selectedContent.status)}`}>
+                    {getStatusLabel(selectedContent.status)}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-sm text-[#94A3B8]">导入时间</p>
+                  <p className="text-sm">{dayjs(selectedContent.createdAt).format('YYYY-MM-DD HH:mm:ss')}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-[#94A3B8]">更新时间</p>
+                  <p className="text-sm">{dayjs(selectedContent.updatedAt).format('YYYY-MM-DD HH:mm:ss')}</p>
+                </div>
+              </div>
 
-              {/* 错误信息（如果失败） */}
+              {/* 错误信息 */}
               {selectedContent.status === 'failed' && selectedContent.errorMessage && (
-                <Alert severity="error" sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2">错误信息：</Typography>
-                  <Typography variant="body2">{selectedContent.errorMessage}</Typography>
+                <Alert variant="destructive" className="rounded-sm">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <p className="font-semibold">错误信息：</p>
+                    <p>{selectedContent.errorMessage}</p>
+                  </AlertDescription>
                 </Alert>
               )}
 
               {/* 内容预览 */}
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                内容预览（共 {selectedContent.fullContent?.length || 0} 字符）
-              </Typography>
-              <Paper
-                variant="outlined"
-                sx={{
-                  p: 2,
-                  maxHeight: 400,
-                  overflow: 'auto',
-                  backgroundColor: 'grey.50',
-                }}
-              >
-                <Typography
-                  variant="body2"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {decodeHtmlEntities(selectedContent.fullContent)}
-                </Typography>
-              </Paper>
-
-              {/* AI分析结果 */}
-              {(selectedContent.aiSummary || selectedContent.aiAnalysisStatus || selectedContent.complianceAnalysis) && (
-                <Box sx={{ mt: 4 }}>
-                  <Typography variant="h6" gutterBottom>
-                    AI分析结果
-                  </Typography>
-
-                  {/* AI摘要 */}
-                  {selectedContent.aiSummary && (
-                    <Box sx={{ mb: 3 }}>
-                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                        AI摘要
-                      </Typography>
-                      <Paper variant="outlined" sx={{ p: 2, backgroundColor: 'primary.50' }}>
-                        <Typography variant="body2">{selectedContent.aiSummary}</Typography>
-                      </Paper>
-                    </Box>
-                  )}
-
-                  {/* AI模型和状态 */}
-                  <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        AI模型
-                      </Typography>
-                      <Chip
-                        label={selectedContent.aiModel || '未知'}
-                        size="small"
-                        color="info"
-                        variant="outlined"
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        分析状态
-                      </Typography>
-                      <Chip
-                        label={selectedContent.aiAnalysisStatus === 'success' ? '成功' : selectedContent.aiAnalysisStatus}
-                        size="small"
-                        color={selectedContent.aiAnalysisStatus === 'success' ? 'success' : 'default'}
-                      />
-                    </Grid>
-                  </Grid>
-
-                  {/* 关键词 */}
-                  {selectedContent.keywords && selectedContent.keywords.length > 0 && (
-                    <Box sx={{ mb: 3 }}>
-                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                        关键词
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {selectedContent.keywords.map((keyword, index) => (
-                          <Chip key={index} label={keyword} size="small" variant="outlined" />
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-
-                  {/* 技术分类 */}
-                  {selectedContent.categories && selectedContent.categories.length > 0 && (
-                    <Box sx={{ mb: 3 }}>
-                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                        技术分类
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {selectedContent.categories.map((category, index) => (
-                          <Chip key={index} label={category} size="small" color="primary" variant="outlined" />
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-
-                  {/* 合规分析结果 */}
-                  {selectedContent.complianceAnalysis && (
-                    <Box sx={{ mb: 3 }}>
-                      <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                        合规分析
-                      </Typography>
-                      <Paper variant="outlined" sx={{ p: 2, backgroundColor: 'warning.50' }}>
-                        {selectedContent.complianceAnalysis.complianceRiskCategory && (
-                          <Box sx={{ mb: 1 }}>
-                            <Typography variant="caption" color="text.secondary">风险类别：</Typography>
-                            <Chip
-                              label={selectedContent.complianceAnalysis.complianceRiskCategory}
-                              size="small"
-                              color="warning"
-                              variant="outlined"
-                            />
-                          </Box>
-                        )}
-                        {selectedContent.complianceAnalysis.penaltyCase && (
-                          <Box sx={{ mb: 1 }}>
-                            <Typography variant="caption" color="text.secondary">处罚案例：</Typography>
-                            <Typography variant="body2">{selectedContent.complianceAnalysis.penaltyCase}</Typography>
-                          </Box>
-                        )}
-                        {selectedContent.complianceAnalysis.policyRequirements && (
-                          <Box sx={{ mb: 1 }}>
-                            <Typography variant="caption" color="text.secondary">政策要求：</Typography>
-                            <Typography variant="body2">{selectedContent.complianceAnalysis.policyRequirements}</Typography>
-                          </Box>
-                        )}
-                        {selectedContent.complianceAnalysis.remediationSuggestions && (
-                          <Box>
-                            <Typography variant="caption" color="text.secondary">整改建议：</Typography>
-                            <Typography variant="body2">{selectedContent.complianceAnalysis.remediationSuggestions}</Typography>
-                          </Box>
-                        )}
-                      </Paper>
-                    </Box>
-                  )}
-                </Box>
-              )}
-            </Box>
+              <div>
+                <p className="text-sm text-[#94A3B8] mb-2">
+                  内容预览（共 {selectedContent.fullContent?.length || 0} 字符）
+                </p>
+                <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-sm p-4 max-h-64 overflow-auto">
+                  <p className="text-sm whitespace-pre-wrap break-words">
+                    {decodeHtmlEntities(selectedContent.fullContent)}
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
         </DialogContent>
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-          {selectedContent && (
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={async () => {
-                try {
-                  setDetailLoading(true)
-                  const detail = await getRawContentById(selectedContent.id)
-                  setSelectedContent(detail)
-                  showSnackbar('详情已刷新', 'success')
-                } catch (err: any) {
-                  showSnackbar(err.message || '刷新失败', 'error')
-                } finally {
-                  setDetailLoading(false)
-                }
-              }}
-              disabled={detailLoading}
-            >
-              刷新
-            </Button>
-          )}
-          {selectedContent && (
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={() => {
-                handleCloseDetail()
-                handleReanalyze(selectedContent.id)
-              }}
-            >
-              重新分析
-            </Button>
-          )}
-          <Button variant="contained" onClick={handleCloseDetail}>
-            关闭
-          </Button>
-        </Box>
       </Dialog>
-
-      {/* 提示消息 */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={SNACKBAR_DURATION}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+    </div>
   )
 }

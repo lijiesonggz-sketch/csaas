@@ -1,6 +1,5 @@
 import React from 'react'
 import { fireEvent, render, screen } from '@testing-library/react'
-import { ThemeProvider, createTheme } from '@mui/material/styles'
 
 import RadarDashboardPage from './page'
 import { useRadarUnreadCount } from '@/lib/hooks/useRadarUnreadCount'
@@ -36,15 +35,9 @@ jest.mock('@/lib/hooks/useRadarUnreadCount', () => ({
 }))
 
 describe('RadarDashboardPage', () => {
-  const theme = createTheme()
   const mockUseRadarUnreadCount = useRadarUnreadCount as jest.Mock
 
-  const renderWithProviders = () =>
-    render(
-      <ThemeProvider theme={theme}>
-        <RadarDashboardPage />
-      </ThemeProvider>,
-    )
+  const renderWithProviders = () => render(<RadarDashboardPage />)
 
   beforeEach(() => {
     jest.clearAllMocks()

@@ -8,15 +8,11 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import Button from '@mui/material/Button'
-import TextField from '@mui/material/TextField'
-import Alert from '@mui/material/Alert'
-import AlertTitle from '@mui/material/AlertTitle'
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import CloudUploadIcon from '@mui/icons-material/CloudUpload'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import InfoIcon from '@mui/icons-material/Info'
+import { Upload, FileText, Info, CheckCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { cn } from '@/lib/utils'
 import mammoth from 'mammoth'
 import {
   needsNormalization,
@@ -204,163 +200,152 @@ export default function DocumentUploader({ onDocumentChange, disabled }: Documen
   )
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+    <div className="flex flex-col gap-3">
+      <div className="flex gap-2 mb-2">
         <Button
-          variant={uploadMode === 'text' ? 'contained' : 'outlined'}
+          variant={uploadMode === 'text' ? 'default' : 'outline'}
           onClick={() => setUploadMode('text')}
           disabled={disabled}
+          className={cn(
+            uploadMode === 'text' && 'bg-[#1E3A5F] text-white'
+          )}
         >
           文本输入
         </Button>
         <Button
-          variant={uploadMode === 'file' ? 'contained' : 'outlined'}
+          variant={uploadMode === 'file' ? 'default' : 'outline'}
           onClick={() => setUploadMode('file')}
           disabled={disabled}
+          className={cn(
+            uploadMode === 'file' && 'bg-[#1E3A5F] text-white'
+          )}
         >
           文件上传
         </Button>
-      </Box>
+      </div>
 
       {uploadMode === 'text' ? (
-        <TextField
-          multiline
+        <Textarea
           rows={20}
           placeholder="请粘贴标准文档内容...\n\n示例：\nISO/IEC 27001:2013 信息安全管理体系要求\n\n第一章 总则\n\n第一条 为规范...\n\n第二条 本标准所称..."
           onChange={handleTextChange}
           value={textContent}
           disabled={disabled}
-          InputProps={{
-            sx: { fontFamily: 'monospace' },
-          }}
+          className="font-mono resize-none"
         />
       ) : (
-        <Box
+        <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
-          sx={{
-            border: '2px dashed',
-            borderColor: 'grey.300',
-            borderRadius: 2,
-            p: 4,
-            textAlign: 'center',
-            bgcolor: 'grey.50',
-            '&:hover': {
-              borderColor: 'primary.main',
-              bgcolor: 'primary.50',
-            },
-          }}
+          className={cn(
+            'border-2 border-dashed rounded-sm p-8 text-center transition-colors',
+            'border-[#CBD5E1] bg-[#F8FAFC]',
+            'hover:border-[#1E3A5F] hover:bg-[#F1F5F9]'
+          )}
         >
           <input
             type="file"
             accept=".txt,.md,.docx"
             onChange={handleFileInputChange}
             disabled={disabled}
-            style={{ display: 'none' }}
+            className="hidden"
             id="file-upload-input"
           />
-          <label htmlFor="file-upload-input">
-            <CloudUploadIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
+          <label htmlFor="file-upload-input" className="cursor-pointer">
+            <Upload className="h-12 w-12 text-[#1E3A5F] mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-2">
               点击或拖拽文件到此区域上传
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
+            </h3>
+            <p className="text-sm text-[#64748B]">
               支持格式：.txt, .md, .docx
               <br />
               最大文件大小：10MB
               <br />
-              <Box component="span" sx={{ color: 'warning.main' }}>
+              <span className="text-[#F59E0B]">
                 💡 .pdf 支持即将推出
-              </Box>
-            </Typography>
+              </span>
+            </p>
           </label>
-        </Box>
+        </div>
       )}
 
       {/* 格式警告提示 */}
       {showFormatWarning && formatIssues.length > 0 && (
-        <Alert
-          severity="warning"
-          icon={<InfoIcon />}
-          onClose={() => setShowFormatWarning(false)}
-          sx={{ mt: 2 }}
-        >
-          <AlertTitle>检测到文档格式问题</AlertTitle>
-          <Box sx={{ mt: 1 }}>
-            {formatIssues.map((issue, index) => (
-              <Typography key={index} variant="body2" sx={{ mb: 0.5 }}>
-                {issue}
-              </Typography>
-            ))}
+        <Alert className="mt-3 border-[#FEF3C7] bg-[#FFFBEB]">
+          <Info className="h-4 w-4 text-[#F59E0B]" />
+          <AlertTitle className="text-[#92400E]">检测到文档格式问题</AlertTitle>
+          <AlertDescription>
+            <div className="mt-2">
+              {formatIssues.map((issue, index) => (
+                <p key={index} className="text-sm text-[#78716C] mb-1">
+                  {issue}
+                </p>
+              ))}
 
-            {normalizationChanges.length > 0 && (
-              <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="body2" sx={{ fontWeight: 'medium', color: 'primary.main', mb: 1 }}>
-                  🔧 自动规范化内容：
-                </Typography>
-                <Box component="ul" sx={{ pl: 2, m: 0 }}>
-                  {normalizationChanges.map((change, index) => (
-                    <Typography component="li" key={index} variant="body2" color="text.secondary">
-                      {change}
-                    </Typography>
-                  ))}
-                </Box>
-              </Box>
-            )}
+              {normalizationChanges.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-[#E5E7EB]">
+                  <p className="text-sm font-medium text-[#1E3A5F] mb-2">
+                    🔧 自动规范化内容：
+                  </p>
+                  <ul className="pl-5 m-0 list-disc">
+                    {normalizationChanges.map((change, index) => (
+                      <li key={index} className="text-sm text-[#64748B]">
+                        {change}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-            <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<CheckCircleIcon />}
-                onClick={applyNormalizedContent}
-              >
-                应用规范化
-              </Button>
-              <Button size="small" onClick={useOriginalContent}>
-                使用原格式
-              </Button>
-            </Box>
+              <div className="flex gap-2 mt-3">
+                <Button
+                  size="sm"
+                  onClick={applyNormalizedContent}
+                  className="bg-[#059669] hover:bg-[#047857] text-white"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  应用规范化
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={useOriginalContent}
+                  className="border-[#E2E8F0] text-[#64748B]"
+                >
+                  使用原格式
+                </Button>
+              </div>
 
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              💡 规范化后将自动转换圆点项目、数字编号为标准"第X条"格式，提升AI识别准确率至95%+
-            </Typography>
-          </Box>
+              <p className="text-xs text-[#64748B] mt-2">
+                💡 规范化后将自动转换圆点项目、数字编号为标准"第X条"格式，提升AI识别准确率至95%+
+              </p>
+            </div>
+          </AlertDescription>
         </Alert>
       )}
 
       {/* 上传文件名显示 */}
       {uploadedFileName && (
-        <Box
-          sx={{
-            bgcolor: 'primary.50',
-            border: '1px solid',
-            borderColor: 'primary.200',
-            borderRadius: 1,
-            px: 2,
-            py: 1.5,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography color="primary.main" fontWeight="medium">
+        <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-sm px-3 py-2">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-[#1E3A5F]" />
+            <span className="text-sm font-medium text-[#1E3A5F]">
               📄 已上传文件：
-            </Typography>
-            <Typography color="primary.dark">{uploadedFileName}</Typography>
-          </Box>
-        </Box>
+            </span>
+            <span className="text-sm text-[#1E3A5F]">{uploadedFileName}</span>
+          </div>
+        </div>
       )}
 
-      <Box sx={{ typography: 'body2', color: 'text.secondary' }}>
-        <Typography variant="body2" gutterBottom>
-          💡 提示：
-        </Typography>
-        <Box component="ul" sx={{ pl: 2, m: 0 }}>
+      <div className="text-sm text-[#64748B]">
+        <p className="font-medium mb-1">💡 提示：</p>
+        <ul className="pl-5 m-0 list-disc space-y-1">
           <li>请上传完整的IT标准文档（如ISO 27001、COBIT等）</li>
           <li>建议文档长度在1000-10000字之间</li>
           <li>支持中文和英文文档</li>
           <li>系统会自动检测格式并提示规范化（圆点、数字编号→标准条款格式）</li>
-        </Box>
-      </Box>
-    </Box>
+        </ul>
+      </div>
+    </div>
   )
 }

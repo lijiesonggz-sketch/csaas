@@ -3,17 +3,8 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import {
-  Container,
-  Box,
-  Alert,
-  Snackbar,
-  IconButton,
-  Typography,
-  Tabs,
-  Tab,
-} from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
+import { ArrowLeft } from 'lucide-react'
+import { toast } from 'sonner'
 import { PeerCrawlerSourceList } from '@/components/admin/PeerCrawlerSourceList'
 import { PeerCrawlerSourceForm } from '@/components/admin/PeerCrawlerSourceForm'
 import { TestCrawlDialog } from '@/components/admin/TestCrawlDialog'
@@ -28,6 +19,8 @@ import {
   CreateRadarSourceData,
   UpdateRadarSourceData,
 } from '@/lib/api/radar-sources'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 /**
  * 同业采集源管理页面
@@ -61,15 +54,6 @@ export default function PeerCrawlerPage() {
   const [testDialogOpen, setTestDialogOpen] = useState(false)
   const [testingSource, setTestingSource] = useState<RadarSource | null>(null)
   const [testResult, setTestResult] = useState<any>(null)
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean
-    message: string
-    severity: 'success' | 'error' | 'info'
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  })
 
   // 返回上一页
   const handleBack = () => {
@@ -85,7 +69,7 @@ export default function PeerCrawlerPage() {
       setSources(response.data)
     } catch (err: any) {
       setError(err.message || '加载采集源失败')
-      showSnackbar('加载采集源失败', 'error')
+      toast.error('加载采集源失败')
     } finally {
       setLoading(false)
     }
@@ -95,19 +79,6 @@ export default function PeerCrawlerPage() {
   useEffect(() => {
     loadSources()
   }, [])
-
-  // 显示提示消息
-  const showSnackbar = (
-    message: string,
-    severity: 'success' | 'error' | 'info' = 'success',
-  ) => {
-    setSnackbar({ open: true, message, severity })
-  }
-
-  // 关闭提示消息
-  const handleCloseSnackbar = () => {
-    setSnackbar((prev) => ({ ...prev, open: false }))
-  }
 
   // 打开创建表单
   const handleCreate = () => {
@@ -135,14 +106,14 @@ export default function PeerCrawlerPage() {
       if (editingSource) {
         // 更新
         await updateRadarSource(editingSource.id, data as UpdateRadarSourceData)
-        showSnackbar('采集源更新成功', 'success')
+        toast.success('采集源更新成功')
       } else {
         // 创建（固定category为industry）
         await createRadarSource({
           ...(data as CreateRadarSourceData),
           category: 'industry',
         })
-        showSnackbar('采集源创建成功', 'success')
+        toast.success('采集源创建成功')
       }
       await loadSources()
       handleCloseForm()
@@ -155,10 +126,10 @@ export default function PeerCrawlerPage() {
   const handleDelete = async (id: string) => {
     try {
       await deleteRadarSource(id)
-      showSnackbar('采集源删除成功', 'success')
+      toast.success('采集源删除成功')
       await loadSources()
     } catch (err: any) {
-      showSnackbar(err.message || '删除失败', 'error')
+      toast.error(err.message || '删除失败')
     }
   }
 
@@ -166,10 +137,10 @@ export default function PeerCrawlerPage() {
   const handleToggleActive = async (id: string) => {
     try {
       await toggleRadarSourceActive(id)
-      showSnackbar('状态更新成功', 'success')
+      toast.success('状态更新成功')
       await loadSources()
     } catch (err: any) {
-      showSnackbar(err.message || '状态更新失败', 'error')
+      toast.error(err.message || '状态更新失败')
     }
   }
 
@@ -183,7 +154,7 @@ export default function PeerCrawlerPage() {
       const result = await testRadarSourceCrawl(source.id)
       setTestResult(result.data)
     } catch (err: any) {
-      showSnackbar(err.message || '测试采集失败', 'error')
+      toast.error(err.message || '测试采集失败')
       setTestResult({ success: false, error: err.message })
     }
   }
@@ -202,94 +173,77 @@ export default function PeerCrawlerPage() {
       : sources.filter((s) => s.type === typeFilter)
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box>
-        {/* 返回按钮 */}
-        <Box sx={{ mb: 2 }}>
-          <IconButton
-            onClick={handleBack}
-            sx={{
-              color: 'primary.main',
-              '&:hover': {
-                backgroundColor: 'primary.light',
-                color: 'white',
-              },
-            }}
-          >
-            <ArrowBackIcon />
-          </IconButton>
-        </Box>
-
-        {/* 页面标题 */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            同业采集源管理
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            配置和管理同业采集源（官网、公众号、知乎、会议等）
-          </Typography>
-        </Box>
-
-        {/* 类型筛选标签 */}
-        <Box sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs
-            value={typeFilter}
-            onChange={(_, value) => setTypeFilter(value)}
-            variant="scrollable"
-            scrollButtons="auto"
-          >
-            <Tab label="全部" value="all" />
-            <Tab label="官网" value="website" />
-            <Tab label="公众号" value="wechat" />
-            <Tab label="招聘" value="recruitment" />
-            <Tab label="会议" value="conference" />
-          </Tabs>
-        </Box>
-
-        {/* 采集源列表 */}
-        <PeerCrawlerSourceList
-          sources={filteredSources}
-          loading={loading}
-          error={error}
-          onEdit={handleEdit}
-          onCreate={handleCreate}
-          onDelete={handleDelete}
-          onToggleActive={handleToggleActive}
-          onTestCrawl={handleTestCrawl}
-        />
-
-        {/* 创建/编辑表单 */}
-        <PeerCrawlerSourceForm
-          open={formOpen}
-          source={editingSource}
-          onClose={handleCloseForm}
-          onSubmit={handleSubmitForm}
-        />
-
-        {/* 测试采集对话框 */}
-        <TestCrawlDialog
-          open={testDialogOpen}
-          source={testingSource}
-          result={testResult}
-          onClose={handleCloseTestDialog}
-        />
-
-        {/* 提示消息 */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+    <div className="max-w-7xl mx-auto py-16 px-6 bg-[#FEFDFB] min-h-screen">
+      {/* 返回按钮 */}
+      <div className="mb-6">
+        <Button
+          variant="outline"
+          onClick={handleBack}
+          className="rounded-sm"
         >
-          <Alert
-            onClose={handleCloseSnackbar}
-            severity={snackbar.severity}
-            sx={{ width: '100%' }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </Container>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          返回
+        </Button>
+      </div>
+
+      {/* 页面标题 */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
+          同业采集源管理
+        </h1>
+        <p className="text-[#94A3B8] mt-1">
+          配置和管理同业采集源（官网、公众号、知乎、会议等）
+        </p>
+      </div>
+
+      {/* 类型筛选标签 */}
+      <Tabs value={typeFilter} onValueChange={setTypeFilter} className="mb-6">
+        <TabsList className="bg-[#E2E8F0] rounded-sm p-1">
+          <TabsTrigger value="all" className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white">
+            全部
+          </TabsTrigger>
+          <TabsTrigger value="website" className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white">
+            官网
+          </TabsTrigger>
+          <TabsTrigger value="wechat" className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white">
+            公众号
+          </TabsTrigger>
+          <TabsTrigger value="recruitment" className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white">
+            招聘
+          </TabsTrigger>
+          <TabsTrigger value="conference" className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white">
+            会议
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {/* 采集源列表 */}
+      <PeerCrawlerSourceList
+        sources={filteredSources}
+        loading={loading}
+        error={error}
+        onEdit={handleEdit}
+        onCreate={handleCreate}
+        onDelete={handleDelete}
+        onToggleActive={handleToggleActive}
+        onTestCrawl={handleTestCrawl}
+      />
+
+      {/* 创建/编辑表单 */}
+      <PeerCrawlerSourceForm
+        open={formOpen}
+        source={editingSource}
+        onClose={handleCloseForm}
+        onSubmit={handleSubmitForm}
+      />
+
+      {/* 测试采集对话框 */}
+      <TestCrawlDialog
+        open={testDialogOpen}
+        source={testingSource}
+        result={testResult}
+        onClose={handleCloseTestDialog}
+      />
+    </div>
   )
 }

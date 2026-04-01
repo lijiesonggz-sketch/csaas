@@ -1,9 +1,9 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Container, Box, AppBar, Toolbar, Typography, Breadcrumbs, Link, IconButton, Divider } from '@mui/material'
-import { ArrowBack, Home, Dashboard } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
+import { ArrowLeft, Home, LayoutDashboard, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
 import { ProjectProvider, useProject } from '@/lib/contexts/ProjectContext'
 import StepsTabNavigator, { DEFAULT_STEPS, Step } from '@/components/projects/StepsTabNavigator'
 
@@ -14,7 +14,6 @@ function ProjectWorkbenchContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (project) {
-      // TODO: 根据项目的任务状态更新步骤状态
       const stepsWithRoutes = DEFAULT_STEPS.map((step) => ({
         ...step,
         route: `/projects/${project.id}/${step.id}`,
@@ -25,61 +24,62 @@ function ProjectWorkbenchContent({ children }: { children: React.ReactNode }) {
 
   if (loading || !project) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <Typography>加载中...</Typography>
-      </Box>
+      <div className="flex items-center justify-center min-h-screen bg-[#FEFDFB]">
+        <p className="text-[#64748b]">加载中...</p>
+      </div>
     )
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {/* 顶部导航栏 */}
-      <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Container maxWidth="xl">
-          <Toolbar variant="dense" sx={{ gap: 2 }}>
-            <IconButton edge="start" onClick={() => router.push('/projects')}>
-              <ArrowBack />
-            </IconButton>
+    <div className="flex flex-col min-h-screen bg-[#FEFDFB]">
+      {/* Top breadcrumb bar */}
+      <div className="border-b border-[#E2E8F0] bg-white">
+        <div className="max-w-[1400px] mx-auto px-6 h-12 flex items-center gap-3">
+          <button
+            onClick={() => router.push('/projects')}
+            className="p-1 rounded hover:bg-gray-100 transition-colors"
+            aria-label="返回项目列表"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#64748b]" />
+          </button>
 
-            <Breadcrumbs aria-label="breadcrumb">
-              <Link underline="hover" color="inherit" href="/dashboard" display="flex" alignItems="center" gap={0.5}>
-                <Dashboard fontSize="inherit" />
-                工作台
-              </Link>
-              <Link underline="hover" color="inherit" href="/projects" display="flex" alignItems="center" gap={0.5}>
-                <Home fontSize="inherit" />
-                项目列表
-              </Link>
-              <Typography color="text.primary">{project.name}</Typography>
-            </Breadcrumbs>
+          {/* Breadcrumb */}
+          <nav className="flex items-center gap-1.5 text-sm">
+            <Link href="/dashboard" className="flex items-center gap-1 text-[#64748b] hover:text-[#1E3A5F] transition-colors">
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              <span>工作台</span>
+            </Link>
+            <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
+            <Link href="/projects" className="flex items-center gap-1 text-[#64748b] hover:text-[#1E3A5F] transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>项目列表</span>
+            </Link>
+            <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
+            <span className="text-[#1E3A5F] font-medium">{project.name}</span>
+          </nav>
 
-            <Box sx={{ flexGrow: 1 }} />
+          <div className="flex-1" />
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                客户: {project.clientName || '-'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                标准: {project.standardName || '-'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                进度: {project.progress}%
-              </Typography>
-            </Box>
-          </Toolbar>
-        </Container>
-      </AppBar>
+          <div className="flex items-center gap-4 text-xs text-[#64748b]">
+            <span>客户: {project.clientName || '-'}</span>
+            <span className="text-[#E2E8F0]">|</span>
+            <span>标准: {project.standardName || '-'}</span>
+            <span className="text-[#E2E8F0]">|</span>
+            <span>进度: {project.progress}%</span>
+          </div>
+        </div>
+      </div>
 
-      {/* 步骤导航 */}
-      <Container maxWidth="xl" sx={{ mt: 3 }}>
+      {/* Step navigation */}
+      <div className="max-w-[1400px] mx-auto px-6 mt-4">
         <StepsTabNavigator projectId={project.id} steps={steps} />
-      </Container>
+      </div>
 
-      {/* 主内容区 */}
-      <Container maxWidth="xl" sx={{ flexGrow: 1, py: 3 }}>
+      {/* Main content */}
+      <div className="max-w-[1400px] mx-auto px-6 py-4 flex-1">
         {children}
-      </Container>
-    </Box>
+      </div>
+    </div>
   )
 }
 

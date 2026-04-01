@@ -58,7 +58,9 @@ describe('MainLayout', () => {
       </MainLayout>
     )
 
-    expect(screen.getByRole('progressbar')).toBeInTheDocument()
+    // Loader2 icon is displayed, not a progressbar role element
+    const loader = document.querySelector('.animate-spin')
+    expect(loader).toBeInTheDocument()
     expect(screen.queryByTestId('child-content')).not.toBeInTheDocument()
   })
 

@@ -4,26 +4,20 @@ import { useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import {
-  AppBar,
-  Toolbar,
-  Box,
-  Typography,
-  Avatar,
+  User,
+  Settings,
+  LogOut,
   Menu,
-  MenuItem,
-  IconButton,
-  Divider,
-  Stack,
-  Badge,
-  Tooltip,
-} from '@mui/material'
+  Bell,
+} from 'lucide-react'
 import {
-  Person as PersonIcon,
-  Settings as SettingsIcon,
-  Logout as LogoutIcon,
-  Menu as MenuIcon,
-  NotificationsOutlined as NotificationsIcon,
-} from '@mui/icons-material'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { clearTokenCache } from '@/lib/utils/api'
 import { buildRadarHistoryRoute } from '@/lib/api/radar'
 import { useRadarUnreadCount } from '@/lib/hooks/useRadarUnreadCount'
@@ -35,44 +29,23 @@ interface HeaderProps {
 
 function getSafeDisplayName(name?: string | null, email?: string | null): string {
   const trimmedName = name?.trim()
-
-  if (!trimmedName) {
-    return email || ''
-  }
-
-  // Fallback when the stored display name already contains Unicode replacement chars.
-  if (trimmedName.includes('\uFFFD')) {
-    return email || trimmedName
-  }
-
+  if (!trimmedName) return email || ''
+  if (trimmedName.includes('\uFFFD')) return email || trimmedName
   return trimmedName
 }
 
 export default function Header({ onMenuToggle, showMenuButton = false }: HeaderProps) {
   const { data: session } = useSession()
   const router = useRouter()
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
-  const open = Boolean(anchorEl)
   const displayName = getSafeDisplayName(session?.user?.name, session?.user?.email)
   const organizationId = session?.user?.organizationId
-  const {
-    unreadCount,
-  } = useRadarUnreadCount({
+  const { unreadCount } = useRadarUnreadCount({
     enabled: Boolean(session?.user && organizationId),
   })
-
-  const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget)
-  }
-
-  const handleClose = () => {
-    setAnchorEl(null)
-  }
 
   const handleLogout = () => {
     clearTokenCache()
     signOut({ callbackUrl: '/login' })
-    handleClose()
   }
 
   const getRoleLabel = (role: string) => {
@@ -85,132 +58,76 @@ export default function Header({ onMenuToggle, showMenuButton = false }: HeaderP
   }
 
   return (
-    <AppBar
-      position="fixed"
-      elevation={1}
-      sx={{
-        bgcolor: 'background.paper',
-        color: 'text.primary',
-        zIndex: (theme) => theme.zIndex.drawer + 1,
-      }}
-    >
-      <Toolbar sx={{ justifyContent: 'space-between', px: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {showMenuButton && (
-            <IconButton
-              color="inherit"
-              aria-label="toggle menu"
-              onClick={onMenuToggle}
-              edge="start"
-            >
-              <MenuIcon />
-            </IconButton>
-          )}
-          <Typography
-            variant="h6"
-            sx={{
-              fontWeight: 700,
-              fontSize: 20,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}
+    <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-[#FEFDFB] border-b border-[#E2E8F0] flex items-center justify-between px-6">
+      {/* Left: Logo + Menu toggle */}
+      <div className="flex items-center gap-3">
+        {showMenuButton && (
+          <button
+            onClick={onMenuToggle}
+            className="p-1.5 rounded hover:bg-gray-100 transition-colors"
+            aria-label="toggle menu"
           >
-            Csaas
-          </Typography>
-        </Box>
+            <Menu className="w-5 h-5 text-gray-600" />
+          </button>
+        )}
+        <span
+          className="text-xl font-bold text-[#1E3A5F]"
+          style={{ fontFamily: 'var(--font-plus-jakarta), sans-serif' }}
+        >
+          CSAAS
+        </span>
+      </div>
 
-        <Box>
-          {session?.user && (
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Tooltip title="推送历史">
-                <IconButton
-                  color="inherit"
-                  aria-label="打开推送历史"
-                  onClick={() => router.push(buildRadarHistoryRoute(organizationId))}
-                >
-                  <Badge
-                    color="error"
-                    badgeContent={unreadCount}
-                    max={99}
-                    showZero
-                  >
-                    <NotificationsIcon />
-                  </Badge>
-                </IconButton>
-              </Tooltip>
+      {/* Right: Notifications + User menu */}
+      {session?.user && (
+        <div className="flex items-center gap-3">
+          {/* Notifications */}
+          <button
+            onClick={() => router.push(buildRadarHistoryRoute(organizationId))}
+            className="relative p-2 rounded hover:bg-gray-100 transition-colors"
+            aria-label="推送历史"
+          >
+            <Bell className="w-5 h-5 text-gray-500" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 min-w-[16px] h-4 flex items-center justify-center text-[10px] font-bold text-white bg-red-500 rounded-full px-1">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
 
-              <Stack
-                direction="row"
-                alignItems="center"
-                spacing={1}
-                onClick={handleClick}
-                sx={{
-                  cursor: 'pointer',
-                  py: 0.5,
-                  px: 1,
-                  borderRadius: 1,
-                  '&:hover': {
-                    bgcolor: 'action.hover',
-                  },
-                }}
-                aria-controls={open ? 'user-menu' : undefined}
-                aria-haspopup="true"
-                aria-expanded={open ? 'true' : undefined}
-              >
-                <Avatar
-                  sx={{
-                    width: 32,
-                    height: 32,
-                    bgcolor: 'primary.main',
-                  }}
-                >
-                  <PersonIcon fontSize="small" />
+          {/* User dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2 py-1 px-2 rounded hover:bg-gray-100 transition-colors">
+                <Avatar className="w-8 h-8 bg-[#1E3A5F]">
+                  <AvatarFallback className="bg-[#1E3A5F] text-white text-sm">
+                    {displayName?.[0]?.toUpperCase() || <User className="w-4 h-4" />}
+                  </AvatarFallback>
                 </Avatar>
-                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, lineHeight: 1.4 }}>
-                    {displayName}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.4 }}>
-                    {getRoleLabel(session.user.role)}
-                  </Typography>
-                </Box>
-              </Stack>
-
-              <Menu
-                id="user-menu"
-                anchorEl={anchorEl}
-                open={open}
-                onClose={handleClose}
-                onClick={handleClose}
-                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-                PaperProps={{
-                  sx: {
-                    minWidth: 180,
-                    mt: 1,
-                  },
-                }}
-              >
-                <MenuItem onClick={handleClose}>
-                  <PersonIcon fontSize="small" sx={{ mr: 1.5 }} />
-                  个人信息
-                </MenuItem>
-                <MenuItem onClick={handleClose}>
-                  <SettingsIcon fontSize="small" sx={{ mr: 1.5 }} />
-                  设置
-                </MenuItem>
-                <Divider />
-                <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
-                  <LogoutIcon fontSize="small" sx={{ mr: 1.5 }} />
-                  退出登录
-                </MenuItem>
-              </Menu>
-            </Stack>
-          )}
-        </Box>
-      </Toolbar>
-    </AppBar>
+                <div className="hidden sm:block text-left">
+                  <div className="text-sm font-medium text-gray-900 leading-tight">{displayName}</div>
+                  <div className="text-[11px] text-gray-400 leading-tight">{getRoleLabel(session.user.role)}</div>
+                </div>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem>
+                <User className="w-4 h-4 mr-2" />
+                个人信息
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <Settings className="w-4 h-4 mr-2" />
+                设置
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                <LogOut className="w-4 h-4 mr-2" />
+                退出登录
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+    </header>
   )
 }

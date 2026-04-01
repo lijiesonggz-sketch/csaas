@@ -1,7 +1,5 @@
 import React from 'react'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import { ThemeProvider } from '@mui/material/styles'
-import { createTheme, Theme } from '@mui/material/styles'
 import { PeerMonitoringDetailModal } from './PeerMonitoringDetailModal'
 
 /**
@@ -19,11 +17,7 @@ import { PeerMonitoringDetailModal } from './PeerMonitoringDetailModal'
  * - 标记已读功能
  */
 describe('PeerMonitoringDetailModal Component', () => {
-  const theme: Theme = createTheme()
-
-  const renderWithProviders = (component: React.ReactElement) => {
-    return render(<ThemeProvider theme={theme}>{component}</ThemeProvider>)
-  }
+  const renderWithProviders = (component: React.ReactElement) => render(component)
 
   const mockPush = {
     id: 'peer-push-1',

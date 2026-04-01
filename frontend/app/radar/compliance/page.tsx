@@ -156,16 +156,16 @@ export default function ComplianceRadarPage() {
       </div>
 
       {/* Page Header */}
-      <Card className="mb-6 bg-gradient-to-br from-red-500 via-orange-500 to-amber-500 text-white border-0">
+      <Card className="mb-6 bg-red-600 text-white border-0 rounded-sm">
         <CardContent className="p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+              <div className="p-2 bg-white/10 rounded-sm">
                 <AlertTriangle className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold">合规雷达 - 风险预警与应对剧本</h1>
-                <p className="text-sm text-white/80 mt-1">
+                <h1 className="text-xl sm:text-2xl font-bold font-[var(--font-plus-jakarta)]">合规雷达 - 风险预警与应对剧本</h1>
+                <p className="text-sm text-white/80 mt-1 font-[var(--font-inter)]">
                   监控监管风险，获取应对剧本，快速启动自查整改流程
                 </p>
               </div>
@@ -175,7 +175,7 @@ export default function ComplianceRadarPage() {
               size="sm"
               onClick={handleRefresh}
               disabled={isLoading}
-              className="bg-white/20 text-white hover:bg-white/30 border-0"
+              className="bg-white/10 text-white hover:bg-white/20 border-0 rounded-sm"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               刷新

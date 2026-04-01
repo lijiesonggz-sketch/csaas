@@ -12,13 +12,13 @@
 import React from 'react'
 import { CrawlerHealth } from '@/lib/api/peer-crawler-health'
 import {
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  XCircleIcon,
-  ServerIcon,
-  QueueListIcon,
-  ChartBarIcon,
-} from '@heroicons/react/24/outline'
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Server,
+  ListTodo,
+  BarChart3,
+} from 'lucide-react'
 
 interface CrawlerHealthDashboardProps {
   health: CrawlerHealth
@@ -29,11 +29,11 @@ export function CrawlerHealthDashboard({ health, loading = false }: CrawlerHealt
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'healthy':
-        return <CheckCircleIcon className="h-12 w-12 text-green-500" />
+        return <CheckCircle className="h-12 w-12 text-[#059669]" />
       case 'warning':
-        return <ExclamationTriangleIcon className="h-12 w-12 text-yellow-500" />
+        return <AlertTriangle className="h-12 w-12 text-amber-500" />
       case 'critical':
-        return <XCircleIcon className="h-12 w-12 text-red-500" />
+        return <XCircle className="h-12 w-12 text-red-600" />
       default:
         return null
     }
@@ -42,13 +42,13 @@ export function CrawlerHealthDashboard({ health, loading = false }: CrawlerHealt
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'healthy':
-        return 'bg-green-50 border-green-200'
+        return 'bg-green-50 border-green-300'
       case 'warning':
-        return 'bg-yellow-50 border-yellow-200'
+        return 'bg-amber-50 border-amber-300'
       case 'critical':
-        return 'bg-red-50 border-red-200'
+        return 'bg-red-50 border-red-300'
       default:
-        return 'bg-gray-50 border-gray-200'
+        return 'bg-slate-50 border-[#E2E8F0]'
     }
   }
 
@@ -69,9 +69,9 @@ export function CrawlerHealthDashboard({ health, loading = false }: CrawlerHealt
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="bg-white rounded-lg border p-6 animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+          <div key={i} className="bg-white rounded-sm border border-[#E2E8F0] shadow-sm p-6 animate-pulse">
+            <div className="h-4 bg-[#E2E8F0] rounded w-1/2 mb-4"></div>
+            <div className="h-8 bg-[#E2E8F0] rounded w-1/3"></div>
           </div>
         ))}
       </div>
@@ -81,11 +81,11 @@ export function CrawlerHealthDashboard({ health, loading = false }: CrawlerHealt
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {/* Overall Status Card */}
-      <div className={`rounded-lg border p-6 ${getStatusColor(health.overallStatus)}`}>
+      <div className={`rounded-sm border border-[#E2E8F0] shadow-sm p-6 ${getStatusColor(health.overallStatus)}`}>
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">整体状态</p>
-            <p className="mt-2 text-3xl font-bold text-gray-900">
+            <p className="text-sm font-medium text-[#94A3B8]">整体状态</p>
+            <p className="mt-2 text-3xl font-bold text-[#1E3A5F]">
               {getStatusText(health.overallStatus)}
             </p>
           </div>
@@ -94,56 +94,56 @@ export function CrawlerHealthDashboard({ health, loading = false }: CrawlerHealt
       </div>
 
       {/* Sources Stats Card */}
-      <div className="bg-white rounded-lg border p-6">
+      <div className="bg-white rounded-sm border border-[#E2E8F0] shadow-sm p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">采集源</p>
-            <p className="mt-2 text-3xl font-bold text-gray-900">{health.sources.total}</p>
-            <p className="mt-1 text-sm text-gray-500">
-              <span className="text-green-600">{health.sources.active} 活跃</span>
+            <p className="text-sm font-medium text-[#94A3B8]">采集源</p>
+            <p className="mt-2 text-3xl font-bold text-[#1E3A5F]">{health.sources.total}</p>
+            <p className="mt-1 text-sm text-[#94A3B8]">
+              <span className="text-[#059669]">{health.sources.active} 活跃</span>
               <span className="mx-1">/</span>
-              <span className="text-gray-400">{health.sources.inactive} 停用</span>
+              <span className="text-slate-400">{health.sources.inactive} 停用</span>
             </p>
           </div>
-          <ServerIcon className="h-12 w-12 text-blue-500" />
+          <Server className="h-12 w-12 text-[#1E3A5F]" />
         </div>
       </div>
 
       {/* Recent Tasks Card */}
-      <div className="bg-white rounded-lg border p-6">
+      <div className="bg-white rounded-sm border border-[#E2E8F0] shadow-sm p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">最近任务</p>
-            <p className="mt-2 text-3xl font-bold text-gray-900">
+            <p className="text-sm font-medium text-[#94A3B8]">最近任务</p>
+            <p className="mt-2 text-3xl font-bold text-[#1E3A5F]">
               {health.recentTasks.completed + health.recentTasks.failed + health.recentTasks.pending}
             </p>
-            <p className="mt-1 text-sm text-gray-500">
-              <span className="text-green-600">{health.recentTasks.completed} 完成</span>
+            <p className="mt-1 text-sm text-[#94A3B8]">
+              <span className="text-[#059669]">{health.recentTasks.completed} 完成</span>
               <span className="mx-1">/</span>
               <span className="text-red-600">{health.recentTasks.failed} 失败</span>
               <span className="mx-1">/</span>
               <span className="text-yellow-600">{health.recentTasks.pending} 待执行</span>
             </p>
           </div>
-          <QueueListIcon className="h-12 w-12 text-purple-500" />
+          <ListTodo className="h-12 w-12 text-purple-600" />
         </div>
       </div>
 
       {/* Last 24h Stats Card */}
-      <div className="bg-white rounded-lg border p-6">
+      <div className="bg-white rounded-sm border border-[#E2E8F0] shadow-sm p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-gray-600">24小时统计</p>
-            <p className="mt-2 text-3xl font-bold text-gray-900">
+            <p className="text-sm font-medium text-[#94A3B8]">24小时统计</p>
+            <p className="mt-2 text-3xl font-bold text-[#1E3A5F]">
               {(health.last24h.successRate * 100).toFixed(1)}%
             </p>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-[#94A3B8]">
               <span>成功率</span>
               <span className="mx-1">|</span>
               <span>{health.last24h.crawlCount} 次采集</span>
             </p>
           </div>
-          <ChartBarIcon className="h-12 w-12 text-orange-500" />
+          <BarChart3 className="h-12 w-12 text-orange-500" />
         </div>
       </div>
     </div>

@@ -513,7 +513,7 @@ export default function GapAnalysisPage() {
   return (
     <main className="w-full px-6 py-8">
       {/* 渐变头部 */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 mb-8">
+      <div className="relative overflow-hidden rounded-3xl bg-[#1E3A5F] p-8 mb-8">
         {/* 装饰性径向渐变 */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
 
@@ -556,7 +556,7 @@ export default function GapAnalysisPage() {
                 <Button
                   onClick={handleGenerateActionPlan}
                   disabled={Boolean(freshness?.isStale)}
-                  className="bg-white text-indigo-600 hover:bg-white/90"
+                  className="bg-white text-[#1E3A5F] hover:bg-white/90"
                 >
                   <Rocket className="w-4 h-4 mr-2" />
                   生成改进措施
@@ -595,8 +595,8 @@ export default function GapAnalysisPage() {
               <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
                 <Upload className="w-8 h-8 text-slate-400" />
               </div>
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">上传问卷答案</h3>
-              <p className="text-sm text-slate-500 mb-6">
+              <h3 className="text-lg font-semibold text-[#1E3A5F] mb-2">上传问卷答案</h3>
+              <p className="text-sm text-[#94A3B8] mb-6">
                 请上传包含问卷答案的CSV或Excel文件，系统将进行差距分析
               </p>
               <div className="flex gap-2 justify-center">
@@ -608,7 +608,7 @@ export default function GapAnalysisPage() {
                   <Button
                     onClick={handleStartAnalysis}
                     disabled={loading}
-                    className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                    className="bg-[#1E3A5F] hover:from-[#1E3A5F] hover:to-[#152a47]"
                   >
                     <BarChart3 className="w-4 h-4 mr-2" />
                     {loading ? '分析中...' : '开始分析'}
@@ -617,7 +617,7 @@ export default function GapAnalysisPage() {
               </div>
             </div>
 
-            <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center mb-4">
+            <div className="border-2 border-dashed border-[#E2E8F0] rounded-lg p-8 text-center mb-4">
               <input
                 type="file"
                 accept=".csv,.xlsx,.xls"
@@ -633,7 +633,7 @@ export default function GapAnalysisPage() {
                   </span>
                 </Button>
               </label>
-              <p className="text-sm text-slate-500 mt-2">
+              <p className="text-sm text-[#94A3B8] mt-2">
                 支持 CSV 或 Excel (.xlsx, .xls) 格式的问卷答案文件
               </p>
             </div>
@@ -662,7 +662,7 @@ export default function GapAnalysisPage() {
         <div className="text-center py-8">
           <div className="animate-pulse space-y-4">
             <div className="h-48 bg-slate-200 rounded-lg"></div>
-            <p className="text-slate-500">正在进行差距分析...</p>
+            <p className="text-[#94A3B8]">正在进行差距分析...</p>
           </div>
         </div>
       )}
@@ -690,12 +690,12 @@ export default function GapAnalysisPage() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                      <User className="w-5 h-5 text-indigo-600" />
+                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center">
+                      <User className="w-5 h-5 text-[#1E3A5F]" />
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500">姓名</p>
-                      <p className="text-sm font-medium text-slate-900">{analysis.respondentInfo.name || '未填写'}</p>
+                      <p className="text-xs text-[#94A3B8]">姓名</p>
+                      <p className="text-sm font-medium text-[#1E3A5F]">{analysis.respondentInfo.name || '未填写'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
@@ -703,8 +703,8 @@ export default function GapAnalysisPage() {
                       <Building2 className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500">部门</p>
-                      <p className="text-sm font-medium text-slate-900">{analysis.respondentInfo.department || '未填写'}</p>
+                      <p className="text-xs text-[#94A3B8]">部门</p>
+                      <p className="text-sm font-medium text-[#1E3A5F]">{analysis.respondentInfo.department || '未填写'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
@@ -712,8 +712,8 @@ export default function GapAnalysisPage() {
                       <Briefcase className="w-5 h-5 text-emerald-600" />
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500">职位</p>
-                      <p className="text-sm font-medium text-slate-900">{analysis.respondentInfo.position || '未填写'}</p>
+                      <p className="text-xs text-[#94A3B8]">职位</p>
+                      <p className="text-sm font-medium text-[#1E3A5F]">{analysis.respondentInfo.position || '未填写'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
@@ -721,8 +721,8 @@ export default function GapAnalysisPage() {
                       <Calendar className="w-5 h-5 text-amber-600" />
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500">提交时间</p>
-                      <p className="text-sm font-medium text-slate-900">
+                      <p className="text-xs text-[#94A3B8]">提交时间</p>
+                      <p className="text-sm font-medium text-[#1E3A5F]">
                         {analysis.respondentInfo.submittedAt
                           ? new Date(analysis.respondentInfo.submittedAt).toLocaleString('zh-CN')
                           : '未知'}
@@ -741,27 +741,27 @@ export default function GapAnalysisPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="text-center">
-                  <div className="text-4xl font-bold text-indigo-600 mb-2">
+                  <div className="text-4xl font-bold text-[#1E3A5F] mb-2">
                     {analysis.overall.maturityLevel.toFixed(2)}
                     <span className="text-xl text-slate-400"> / 5.0</span>
                   </div>
                   <Badge className={getGradeClassName(analysis.overall.grade)}>
                     {analysis.overall.grade}
                   </Badge>
-                  <p className="text-sm text-slate-500 mt-2">
+                  <p className="text-sm text-[#94A3B8] mt-2">
                     {analysis.overall.description}
                   </p>
                 </div>
                 <div className="md:col-span-2 space-y-3">
                   <div>
-                    <p className="text-sm text-slate-500 mb-1">计算公式</p>
+                    <p className="text-sm text-[#94A3B8] mb-1">计算公式</p>
                     <code className="text-sm bg-slate-100 px-2 py-1 rounded">{analysis.overall.calculation.formula}</code>
                   </div>
                   <div>
-                    <p className="text-sm text-slate-500">总得分: <strong className="text-slate-900">{analysis.overall.calculation.totalScore}</strong></p>
+                    <p className="text-sm text-[#94A3B8]">总得分: <strong className="text-[#1E3A5F]">{analysis.overall.calculation.totalScore}</strong></p>
                   </div>
                   <div>
-                    <p className="text-sm text-slate-500">满分: <strong className="text-slate-900">{analysis.overall.calculation.maxScore}</strong></p>
+                    <p className="text-sm text-[#94A3B8]">满分: <strong className="text-[#1E3A5F]">{analysis.overall.calculation.maxScore}</strong></p>
                   </div>
                   <Progress
                     value={getMaturityProgress(analysis.overall.maturityLevel)}
@@ -792,7 +792,7 @@ export default function GapAnalysisPage() {
                     const percentage = total > 0 ? (item.count / total) * 100 : 0
                     return (
                       <div key={item.level} className="flex items-center gap-4">
-                        <div className="w-32 text-sm font-medium text-slate-700">{item.label}</div>
+                        <div className="w-32 text-sm font-medium text-[#64748B]">{item.label}</div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden">
@@ -813,7 +813,7 @@ export default function GapAnalysisPage() {
                     )
                   })}
                 </div>
-                <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm text-slate-500">
+                <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm text-[#94A3B8]">
                   <span>总题数: {analysis.statistics.totalQuestions}题</span>
                   <span>
                     主要集中: Level {
@@ -846,8 +846,8 @@ export default function GapAnalysisPage() {
                     <div className="flex items-center gap-2">
                       <Badge variant="destructive">{item.rank}</Badge>
                       <div>
-                        <p className="font-semibold text-slate-900">{item.cluster_name}</p>
-                        <p className="text-xs text-slate-500">
+                        <p className="font-semibold text-[#1E3A5F]">{item.cluster_name}</p>
+                        <p className="text-xs text-[#94A3B8]">
                           成熟度: {item.maturityLevel.toFixed(2)} (差距: {item.gap.toFixed(2)})
                         </p>
                       </div>
@@ -867,8 +867,8 @@ export default function GapAnalysisPage() {
                     <div className="flex items-center gap-2">
                       <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">{item.rank}</Badge>
                       <div>
-                        <p className="font-semibold text-slate-900">{item.cluster_name}</p>
-                        <p className="text-xs text-slate-500">
+                        <p className="font-semibold text-[#1E3A5F]">{item.cluster_name}</p>
+                        <p className="text-xs text-[#94A3B8]">
                           成熟度: {item.maturityLevel.toFixed(2)} (优势: {item.advantage.toFixed(2)})
                         </p>
                       </div>
@@ -887,20 +887,20 @@ export default function GapAnalysisPage() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <p className="text-sm text-slate-500">总问题数</p>
-                  <p className="text-xl font-semibold text-slate-900">{analysis.statistics.totalQuestions}</p>
+                  <p className="text-sm text-[#94A3B8]">总问题数</p>
+                  <p className="text-xl font-semibold text-[#1E3A5F]">{analysis.statistics.totalQuestions}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">总聚类数</p>
-                  <p className="text-xl font-semibold text-slate-900">{analysis.statistics.totalClusters}</p>
+                  <p className="text-sm text-[#94A3B8]">总聚类数</p>
+                  <p className="text-xl font-semibold text-[#1E3A5F]">{analysis.statistics.totalClusters}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">平均聚类成熟度</p>
-                  <p className="text-xl font-semibold text-slate-900">{analysis.statistics.averageClusterMaturity.toFixed(2)}</p>
+                  <p className="text-sm text-[#94A3B8]">平均聚类成熟度</p>
+                  <p className="text-xl font-semibold text-[#1E3A5F]">{analysis.statistics.averageClusterMaturity.toFixed(2)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">成熟度标准差</p>
-                  <p className="text-xl font-semibold text-slate-900">{analysis.statistics.clusterMaturityStdDev.toFixed(2)}</p>
+                  <p className="text-sm text-[#94A3B8]">成熟度标准差</p>
+                  <p className="text-xl font-semibold text-[#1E3A5F]">{analysis.statistics.clusterMaturityStdDev.toFixed(2)}</p>
                 </div>
               </div>
             </CardContent>
@@ -918,17 +918,17 @@ export default function GapAnalysisPage() {
                     <AccordionTrigger className="hover:no-underline">
                       <div className="flex items-center justify-between w-full pr-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900">{cluster.cluster_name}</span>
+                          <span className="font-semibold text-[#1E3A5F]">{cluster.cluster_name}</span>
                           <Badge className={getGradeClassName(cluster.grade)}>{cluster.grade}</Badge>
                           {cluster.isShortcoming && <Badge variant="destructive">短板</Badge>}
                         </div>
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-[#94A3B8]">
                           成熟度: {cluster.maturityLevel.toFixed(2)} | 维度: {cluster.dimension} | 问题数: {cluster.questionsCount}
                         </span>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <p className="text-sm font-medium text-slate-900 mb-3">问题详情</p>
+                      <p className="text-sm font-medium text-[#1E3A5F] mb-3">问题详情</p>
                       {cluster.questions.map((question, idx) => (
                         <div
                           key={question.question_id}
@@ -937,15 +937,15 @@ export default function GapAnalysisPage() {
                           <div className="flex gap-2">
                             <Badge variant="outline">{idx + 1}</Badge>
                             <div className="flex-1">
-                              <p className="text-sm text-slate-700">{question.question_text}</p>
-                              <p className="text-xs text-indigo-600 mt-1">
+                              <p className="text-sm text-[#64748B]">{question.question_text}</p>
+                              <p className="text-xs text-[#1E3A5F] mt-1">
                                 选择: {question.selected_option_text || '未选择'}
                               </p>
                               <div className="flex gap-4 mt-1">
-                                <span className="text-xs text-slate-500">
+                                <span className="text-xs text-[#94A3B8]">
                                   得分: {question.score}/5
                                 </span>
-                                <span className="text-xs text-slate-500">
+                                <span className="text-xs text-[#94A3B8]">
                                   等级: Level {question.level}
                                 </span>
                               </div>
@@ -968,7 +968,7 @@ export default function GapAnalysisPage() {
             <Button
               onClick={handleGenerateActionPlan}
               disabled={Boolean(freshness?.isStale)}
-              className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+              className="bg-[#1E3A5F] hover:from-[#1E3A5F] hover:to-[#152a47]"
             >
               <Rocket className="w-4 h-4 mr-2" />
               生成改进措施

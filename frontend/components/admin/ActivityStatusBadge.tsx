@@ -7,13 +7,14 @@
  */
 
 import React from 'react'
-import { Chip, Tooltip, Box, Typography } from '@mui/material'
+import { Badge } from '@/components/ui/badge'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
-  CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  TrendingDown as TrendingDownIcon,
-} from '@mui/icons-material'
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  TrendingDown,
+} from 'lucide-react'
 import {
   ActivityStatus,
   ACTIVITY_STATUS_LABELS,
@@ -27,11 +28,11 @@ interface ActivityStatusBadgeProps {
   size?: 'small' | 'medium'
 }
 
-const STATUS_ICONS: Record<ActivityStatus, React.ReactElement> = {
-  [ActivityStatus.HIGH_ACTIVE]: <CheckCircleIcon fontSize="small" />,
-  [ActivityStatus.MEDIUM_ACTIVE]: <WarningIcon fontSize="small" />,
-  [ActivityStatus.LOW_ACTIVE]: <ErrorIcon fontSize="small" />,
-  [ActivityStatus.CHURN_RISK]: <TrendingDownIcon fontSize="small" />,
+const STATUS_ICONS: Record<ActivityStatus, React.ReactNode> = {
+  [ActivityStatus.HIGH_ACTIVE]: <CheckCircle className="h-3 w-3" />,
+  [ActivityStatus.MEDIUM_ACTIVE]: <AlertTriangle className="h-3 w-3" />,
+  [ActivityStatus.LOW_ACTIVE]: <XCircle className="h-3 w-3" />,
+  [ActivityStatus.CHURN_RISK]: <TrendingDown className="h-3 w-3" />,
 }
 
 const STATUS_TOOLTIPS: Record<ActivityStatus, string> = {
@@ -39,6 +40,13 @@ const STATUS_TOOLTIPS: Record<ActivityStatus, string> = {
   [ActivityStatus.MEDIUM_ACTIVE]: '月活率 60-85%，客户活跃度正常',
   [ActivityStatus.LOW_ACTIVE]: '月活率 < 60%，需要关注',
   [ActivityStatus.CHURN_RISK]: '月活率 < 60%，有流失风险，建议立即干预',
+}
+
+const STATUS_VARIANTS: Record<ActivityStatus, 'default' | 'destructive' | 'outline' | 'secondary'> = {
+  [ActivityStatus.HIGH_ACTIVE]: 'default',
+  [ActivityStatus.MEDIUM_ACTIVE]: 'secondary',
+  [ActivityStatus.LOW_ACTIVE]: 'outline',
+  [ActivityStatus.CHURN_RISK]: 'destructive',
 }
 
 export function ActivityStatusBadge({
@@ -49,36 +57,32 @@ export function ActivityStatusBadge({
 }: ActivityStatusBadgeProps) {
   const icon = STATUS_ICONS[status]
   const label = ACTIVITY_STATUS_LABELS[status]
-  const color = ACTIVITY_STATUS_COLORS[status]
   const tooltip = STATUS_TOOLTIPS[status]
 
   const displayLabel = rate !== undefined ? `${label} (${rate.toFixed(1)}%)` : label
 
+  const isPulse = status === ActivityStatus.CHURN_RISK
+
   return (
-    <Tooltip title={tooltip} arrow>
-      <Chip
-        icon={showIcon ? icon : undefined}
-        label={displayLabel}
-        color={color}
-        size={size}
-        variant={status === ActivityStatus.CHURN_RISK ? 'filled' : 'outlined'}
-        sx={{
-          fontWeight: status === ActivityStatus.CHURN_RISK ? 'bold' : 'normal',
-          animation: status === ActivityStatus.CHURN_RISK ? 'pulse 2s infinite' : 'none',
-          '@keyframes pulse': {
-            '0%': {
-              boxShadow: '0 0 0 0 rgba(244, 67, 54, 0.4)',
-            },
-            '70%': {
-              boxShadow: '0 0 0 6px rgba(244, 67, 54, 0)',
-            },
-            '100%': {
-              boxShadow: '0 0 0 0 rgba(244, 67, 54, 0)',
-            },
-          },
-        }}
-      />
-    </Tooltip>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge
+            variant={STATUS_VARIANTS[status]}
+            className={`
+              ${size === 'small' ? 'text-xs px-2 py-0.5' : 'text-sm px-3 py-1'}
+              ${isPulse ? 'font-bold animate-pulse' : ''}
+            `}
+          >
+            {showIcon && <span className="mr-1">{icon}</span>}
+            {displayLabel}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{tooltip}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -97,20 +101,12 @@ export function ActivityRateDisplay({ rate, showStatus = true }: ActivityRateDis
     status = ActivityStatus.CHURN_RISK
   }
 
-  const color = ACTIVITY_STATUS_COLORS[status]
-
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Typography
-        variant="body2"
-        sx={{
-          fontWeight: 'bold',
-          color: `${color}.main`,
-        }}
-      >
+    <div className="flex items-center gap-2">
+      <span className="text-sm font-bold">
         {rate.toFixed(1)}%
-      </Typography>
+      </span>
       {showStatus && <ActivityStatusBadge status={status} size="small" showIcon={false} />}
-    </Box>
+    </div>
   )
 }

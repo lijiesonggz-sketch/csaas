@@ -2,12 +2,11 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Box, Container, CircularProgress } from '@mui/material'
 import { useEffect, useState } from 'react'
+import { Loader2 } from 'lucide-react'
 import Header from './Header'
 import Sidebar from './Sidebar'
 
-// Sidebar width constants - must match Sidebar component
 export const SIDEBAR_WIDTH = 200
 export const SIDEBAR_COLLAPSED_WIDTH = 64
 
@@ -28,16 +27,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   if (status === 'loading') {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-        }}
-      >
-        <CircularProgress />
-      </Box>
+      <div className="flex items-center justify-center h-screen bg-[#FEFDFB]">
+        <Loader2 className="w-8 h-8 text-[#1E3A5F] animate-spin" />
+      </div>
     )
   }
 
@@ -45,24 +37,21 @@ export default function MainLayout({ children }: MainLayoutProps) {
     return null
   }
 
+  const currentSidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
+
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="flex min-h-screen bg-[#FEFDFB]">
       <Header />
       <Sidebar
         collapsed={sidebarCollapsed}
         onCollapseChange={setSidebarCollapsed}
       />
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          mt: 8, // Header height (64px = 8 * 8px)
-          minHeight: 'calc(100vh - 64px)',
-          boxSizing: 'border-box',
-        }}
+      <main
+        className="flex-1 mt-16 min-h-[calc(100vh-64px)] transition-all duration-200"
+        style={{ marginLeft: `${currentSidebarWidth}px` }}
       >
         {children}
-      </Box>
-    </Box>
+      </main>
+    </div>
   )
 }

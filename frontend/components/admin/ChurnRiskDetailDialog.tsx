@@ -11,36 +11,29 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useState, useEffect, useCallback } from 'react'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
-  Box,
-  Typography,
-  Grid,
-  Chip,
-  Stack,
-  Alert,
-  AlertTitle,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  CircularProgress,
-  Paper,
-} from '@mui/material'
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Loader2 } from 'lucide-react'
 import {
-  Warning as WarningIcon,
-  TrendingDown as TrendingDownIcon,
-  Person as PersonIcon,
-  Email as EmailIcon,
-  Phone as PhoneIcon,
-  CalendarToday as CalendarIcon,
-  Assessment as AssessmentIcon,
-  History as HistoryIcon,
-} from '@mui/icons-material'
+  AlertTriangle,
+  TrendingDown,
+  User,
+  Mail,
+  Calendar,
+  BarChart3,
+  History,
+  Phone,
+} from 'lucide-react'
 import {
   ClientActivity,
   Intervention,
@@ -107,207 +100,176 @@ export function ChurnRiskDetailDialog({
 
   if (!client) return null
 
+  const resultBadgeVariant = (result: string): 'default' | 'destructive' | 'outline' | 'secondary' => {
+    if (result === 'resolved') return 'default'
+    if (result === 'churned') return 'destructive'
+    if (result === 'contacted') return 'secondary'
+    return 'outline'
+  }
+
   return (
     <>
-      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <WarningIcon color="error" />
-            <Typography variant="h6">流失风险客户详情</Typography>
-          </Box>
-          <Typography variant="body2" color="text.secondary">
-            {client.name}
-          </Typography>
-        </DialogTitle>
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              流失风险客户详情
+            </DialogTitle>
+            <DialogDescription>{client.name}</DialogDescription>
+          </DialogHeader>
 
-        <DialogContent>
           {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
           ) : (
-            <Grid container spacing={3}>
+            <div className="space-y-4">
               {/* 风险告警 */}
-              <Grid size={{ xs: 12 }}>
-                <Alert severity="error" variant="filled">
-                  <AlertTitle>流失风险警告</AlertTitle>
+              <Alert variant="destructive">
+                <AlertTitle>流失风险警告</AlertTitle>
+                <AlertDescription>
                   该客户月活率为 {client.monthlyActivityRate.toFixed(1)}%，低于 60% 阈值，建议立即采取干预措施。
-                </Alert>
-              </Grid>
+                </AlertDescription>
+              </Alert>
 
-              {/* 基本信息 */}
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Paper sx={{ p: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    联系信息
-                  </Typography>
-                  <Stack spacing={1}>
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* 基本信息 */}
+                <div className="border rounded-lg p-4">
+                  <h4 className="text-sm font-medium mb-3">联系信息</h4>
+                  <div className="space-y-2">
                     {client.contactPerson && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <PersonIcon fontSize="small" color="action" />
-                        <Typography variant="body2">{client.contactPerson}</Typography>
-                      </Box>
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{client.contactPerson}</span>
+                      </div>
                     )}
                     {client.contactEmail && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <EmailIcon fontSize="small" color="action" />
-                        <Typography variant="body2">{client.contactEmail}</Typography>
-                      </Box>
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{client.contactEmail}</span>
+                      </div>
                     )}
                     {client.lastActiveAt && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CalendarIcon fontSize="small" color="action" />
-                        <Typography variant="body2">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">
                           最后活跃: {new Date(client.lastActiveAt).toLocaleString('zh-CN')}
-                        </Typography>
-                      </Box>
+                        </span>
+                      </div>
                     )}
-                  </Stack>
-                </Paper>
-              </Grid>
+                  </div>
+                </div>
 
-              {/* 活跃度统计 */}
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Paper sx={{ p: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    活跃度统计
-                  </Typography>
-                  <Stack spacing={1}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">月活率</Typography>
-                      <Typography variant="body2" fontWeight="bold" color="error">
+                {/* 活跃度统计 */}
+                <div className="border rounded-lg p-4">
+                  <h4 className="text-sm font-medium mb-3">活跃度统计</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">月活率</span>
+                      <span className="text-sm font-bold text-destructive">
                         {client.monthlyActivityRate.toFixed(1)}%
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">30天活跃天数</Typography>
-                      <Typography variant="body2">{client.activeDaysLast30} 天</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">登录活跃率</Typography>
-                      <Typography variant="body2">{client.loginActivityRate.toFixed(1)}%</Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="text.secondary">内容消费率</Typography>
-                      <Typography variant="body2">{client.contentActivityRate.toFixed(1)}%</Typography>
-                    </Box>
-                  </Stack>
-                </Paper>
-              </Grid>
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">30天活跃天数</span>
+                      <span className="text-sm">{client.activeDaysLast30} 天</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">登录活跃率</span>
+                      <span className="text-sm">{client.loginActivityRate.toFixed(1)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">内容消费率</span>
+                      <span className="text-sm">{client.contentActivityRate.toFixed(1)}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* 流失原因 */}
               {client.churnRiskFactors.length > 0 && (
-                <Grid size={{ xs: 12 }}>
-                  <Paper sx={{ p: 2 }}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      流失原因分析
-                    </Typography>
-                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                      {client.churnRiskFactors.map((factor, index) => (
-                        <Chip
-                          key={index}
-                          icon={<TrendingDownIcon />}
-                          label={factor}
-                          color="error"
-                          variant="outlined"
-                        />
-                      ))}
-                    </Stack>
-                  </Paper>
-                </Grid>
+                <div className="border rounded-lg p-4">
+                  <h4 className="text-sm font-medium mb-3">流失原因分析</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {client.churnRiskFactors.map((factor, index) => (
+                      <Badge key={index} variant="destructive" className="gap-1">
+                        <TrendingDown className="h-3 w-3" />
+                        {factor}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
               )}
 
               {/* 干预建议 */}
               {suggestions.length > 0 && (
-                <Grid size={{ xs: 12 }}>
-                  <Paper sx={{ p: 2 }}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      干预建议
-                    </Typography>
-                    <List dense>
-                      {suggestions.map((suggestion, index) => (
-                        <ListItem key={index}>
-                          <ListItemIcon>
-                            <AssessmentIcon color={
-                              suggestion.priority === 'high' ? 'error' :
-                              suggestion.priority === 'medium' ? 'warning' : 'action'
-                            } />
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={suggestion.title}
-                            secondary={suggestion.description}
-                          />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </Paper>
-                </Grid>
+                <div className="border rounded-lg p-4">
+                  <h4 className="text-sm font-medium mb-3">干预建议</h4>
+                  <div className="space-y-2">
+                    {suggestions.map((suggestion, index) => (
+                      <div key={index} className="flex items-start gap-3 p-2 rounded hover:bg-muted">
+                        <BarChart3
+                          className={cn(
+                            "h-5 w-5 mt-0.5",
+                            suggestion.priority === 'high' ? 'text-destructive' :
+                            suggestion.priority === 'medium' ? 'text-orange-500' :
+                            'text-muted-foreground'
+                          )}
+                        />
+                        <div>
+                          <p className="text-sm font-medium">{suggestion.title}</p>
+                          <p className="text-xs text-muted-foreground">{suggestion.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
 
               {/* 干预历史 */}
               {interventions.length > 0 && (
-                <Grid size={{ xs: 12 }}>
-                  <Paper sx={{ p: 2 }}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      干预历史
-                    </Typography>
-                    <List dense>
-                      {interventions.map((intervention) => (
-                        <ListItem key={intervention.id}>
-                          <ListItemIcon>
-                            <HistoryIcon />
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="body2">
-                                  {INTERVENTION_TYPE_LABELS[intervention.interventionType]}
-                                </Typography>
-                                <Chip
-                                  label={INTERVENTION_RESULT_LABELS[intervention.result]}
-                                  size="small"
-                                  color={
-                                    intervention.result === 'resolved' ? 'success' :
-                                    intervention.result === 'churned' ? 'error' :
-                                    intervention.result === 'contacted' ? 'info' : 'default'
-                                  }
-                                />
-                              </Box>
-                            }
-                            secondary={
-                              <>
-                                <Typography variant="caption" display="block">
-                                  {intervention.notes}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {new Date(intervention.createdAt).toLocaleString('zh-CN')}
-                                </Typography>
-                              </>
-                            }
-                          />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </Paper>
-                </Grid>
+                <div className="border rounded-lg p-4">
+                  <h4 className="text-sm font-medium mb-3">干预历史</h4>
+                  <div className="space-y-3">
+                    {interventions.map((intervention) => (
+                      <div key={intervention.id} className="flex items-start gap-3 p-2 rounded hover:bg-muted">
+                        <History className="h-5 w-5 mt-0.5 text-muted-foreground" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium">
+                              {INTERVENTION_TYPE_LABELS[intervention.interventionType]}
+                            </span>
+                            <Badge variant={resultBadgeVariant(intervention.result)} className="text-xs">
+                              {INTERVENTION_RESULT_LABELS[intervention.result]}
+                            </Badge>
+                          </div>
+                          <p className="text-xs mb-1">{intervention.notes}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(intervention.createdAt).toLocaleString('zh-CN')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
-            </Grid>
+            </div>
           )}
-        </DialogContent>
 
-        <DialogActions>
-          <Button onClick={onClose}>
-            关闭
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={() => setInterventionDialogOpen(true)}
-            startIcon={<PhoneIcon />}
-          >
-            记录干预
-          </Button>
-        </DialogActions>
+          <DialogFooter>
+            <Button onClick={onClose} variant="outline">
+              关闭
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => setInterventionDialogOpen(true)}
+            >
+              <Phone className="h-4 w-4 mr-1" />
+              记录干预
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       <InterventionDialog

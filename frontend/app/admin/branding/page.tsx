@@ -2,17 +2,8 @@
 
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Container,
-  Box,
-  Paper,
-  Typography,
-  Alert,
-  Snackbar,
-  IconButton,
-  CircularProgress,
-} from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { BrandingForm } from '@/components/admin/BrandingForm'
 import { BrandingPreview } from '@/components/admin/BrandingPreview'
 import {
@@ -23,6 +14,10 @@ import {
   resetBranding,
   UpdateBrandingData,
 } from '@/lib/api/branding'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AlertCircle } from 'lucide-react'
 
 /**
  * 品牌配置管理页面
@@ -81,11 +76,11 @@ export default function BrandingPage() {
     severity: 'success' | 'error' | 'info' = 'success',
   ) => {
     setSnackbar({ open: true, message, severity })
-  }
-
-  // 关闭提示消息
-  const handleCloseSnackbar = () => {
-    setSnackbar((prev) => ({ ...prev, open: false }))
+    if (severity === 'success') {
+      toast.success(message)
+    } else {
+      toast.error(message)
+    }
   }
 
   // 更新品牌配置
@@ -135,6 +130,7 @@ export default function BrandingPage() {
       showSnackbar('品牌配置已重置为默认值', 'success')
     } catch (err: any) {
       showSnackbar(err.message || '重置失败', 'error')
+      throw err
     } finally {
       setSaving(false)
     }
@@ -142,54 +138,53 @@ export default function BrandingPage() {
 
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress />
-        </Box>
-      </Container>
+      <div className="max-w-7xl mx-auto py-16 px-6 bg-[#FEFDFB]">
+        <div className="flex justify-center items-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin text-[#1E3A5F]" />
+        </div>
+      </div>
     )
   }
 
   if (!config) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Alert severity="error">无法加载品牌配置</Alert>
-      </Container>
+      <div className="max-w-7xl mx-auto py-16 px-6 bg-[#FEFDFB]">
+        <Alert variant="destructive" className="rounded-sm">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>无法加载品牌配置</AlertDescription>
+        </Alert>
+      </div>
     )
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box>
-        {/* 返回按钮 */}
-        <Box sx={{ mb: 2 }}>
-          <IconButton
-            onClick={handleBack}
-            sx={{
-              color: 'primary.main',
-              '&:hover': {
-                backgroundColor: 'primary.light',
-                color: 'white',
-              },
-            }}
-          >
-            <ArrowBackIcon />
-          </IconButton>
-        </Box>
+    <div className="max-w-7xl mx-auto py-16 px-6 bg-[#FEFDFB] min-h-screen">
+      {/* 返回按钮 */}
+      <div className="mb-6">
+        <Button
+          variant="outline"
+          onClick={handleBack}
+          className="rounded-sm"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          返回
+        </Button>
+      </div>
 
-        {/* 页面标题 */}
-        <Typography variant="h4" component="h1" gutterBottom>
-          品牌配置
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-          配置您的品牌标识，包括 Logo、主题色和公司信息
-        </Typography>
+      {/* 页面标题 */}
+      <h1 className="text-3xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)] mb-2">
+        品牌配置
+      </h1>
+      <p className="text-[#94A3B8] mb-8">
+        配置您的品牌标识，包括 Logo、主题色和公司信息
+      </p>
 
-        {/* 主要内容区域 */}
-        <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', lg: 'row' } }}>
-          {/* 左侧: 配置表单 */}
-          <Box sx={{ flex: 1 }}>
-            <Paper sx={{ p: 3 }}>
+      {/* 主要内容区域 */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* 左侧: 配置表单 */}
+        <div className="flex-1">
+          <Card className="border-[#E2E8F0] rounded-sm shadow-sm">
+            <CardContent className="p-6">
               <BrandingForm
                 config={config}
                 onUpdate={handleUpdateBranding}
@@ -198,33 +193,19 @@ export default function BrandingPage() {
                 saving={saving}
                 uploading={uploading}
               />
-            </Paper>
-          </Box>
+            </CardContent>
+          </Card>
+        </div>
 
-          {/* 右侧: 实时预览 */}
-          <Box sx={{ flex: 1 }}>
-            <Paper sx={{ p: 3, position: 'sticky', top: 24 }}>
+        {/* 右侧: 实时预览 */}
+        <div className="flex-1">
+          <Card className="border-[#E2E8F0] rounded-sm shadow-sm sticky top-6">
+            <CardContent className="p-6">
               <BrandingPreview config={config} />
-            </Paper>
-          </Box>
-        </Box>
-
-        {/* 提示消息 */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert
-            onClose={handleCloseSnackbar}
-            severity={snackbar.severity}
-            sx={{ width: '100%' }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </Container>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
   )
 }

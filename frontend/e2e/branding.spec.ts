@@ -79,10 +79,10 @@ test.describe('[P1] 品牌配置 - 基础功能测试', () => {
     // WHEN: 用户输入联系邮箱
     const emailInput = page.getByLabel('联系邮箱')
     if (await emailInput.isVisible()) {
-      await emailInput.fill('test@example.com')
+      await emailInput.fill('admin@test.com')
 
       // THEN: 输入值应该被保存
-      await expect(emailInput).toHaveValue('test@example.com')
+      await expect(emailInput).toHaveValue('admin@test.com')
     }
   })
 

@@ -3,19 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Divider,
-  MenuItem,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material'
 import { toast } from 'sonner'
+import { ArrowLeft, AlertCircle, CheckCircle2, Info, Loader2 } from 'lucide-react'
 import { UserRole } from '@/lib/auth/types'
 import {
   OrganizationProfile,
@@ -44,6 +33,17 @@ import {
   OrganizationProfileRequestError,
   organizationsApi,
 } from '@/lib/api/organizations'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 type BooleanFormValue = '' | 'true' | 'false'
 
@@ -381,128 +381,165 @@ export default function OrganizationProfilePage() {
 
   if (status === 'loading' || loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
-        <CircularProgress />
-      </Box>
+      <div className="flex justify-center items-center min-h-[50vh] bg-[#FEFDFB]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1E3A5F]" />
+      </div>
     )
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Stack spacing={3}>
-        <Box>
-          <Box sx={{ mb: 2 }}>
-            <Button variant="outlined" onClick={() => router.back()}>
+    <div className="p-6 bg-[#FEFDFB] min-h-screen">
+      <div className="max-w-5xl mx-auto space-y-6">
+        {/* Header */}
+        <div>
+          <div className="mb-4">
+            <Button
+              variant="outline"
+              onClick={() => router.back()}
+              className="rounded-sm"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
               返回
             </Button>
-          </Box>
-          <Typography variant="h4" component="h1" gutterBottom>
+          </div>
+          <h1 className="text-3xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
             机构画像配置
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
+          </h1>
+          <p className="text-[#94A3B8] mt-1">
             配置机构的 16 个最小必需画像字段，供 KG 规则引擎推导适用控制点使用。
-          </Typography>
-        </Box>
+          </p>
+        </div>
 
         {!activeOrgId && (
-          <Alert severity="error">未找到组织信息，无法进入机构画像配置页。</Alert>
+          <Alert variant="destructive" className="rounded-sm">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>错误</AlertTitle>
+            <AlertDescription>未找到组织信息，无法进入机构画像配置页。</AlertDescription>
+          </Alert>
         )}
 
         {isReadOnly && !loadError && (
-          <Alert severity="info">
-            当前账号仅可查看机构画像，不能修改。
+          <Alert className="rounded-sm border-[#059669] bg-[#F0FDF4]">
+            <Info className="h-4 w-4 text-[#059669]" />
+            <AlertDescription className="text-[#059669]">
+              当前账号仅可查看机构画像，不能修改。
+            </AlertDescription>
           </Alert>
         )}
 
         {loadError ? (
-          <Paper sx={{ p: 3 }}>
-            <Stack spacing={2}>
-              <Alert severity="error">{loadError}</Alert>
-              <Box>
-                <Button variant="contained" onClick={() => void loadProfile()}>
-                  重试
-                </Button>
-              </Box>
-            </Stack>
-          </Paper>
+          <Card className="border-[#E2E8F0] rounded-sm shadow-sm">
+            <CardContent className="p-6 space-y-4">
+              <Alert variant="destructive" className="rounded-sm">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{loadError}</AlertDescription>
+              </Alert>
+              <Button
+                onClick={() => void loadProfile()}
+                className="bg-[#1E3A5F] hover:bg-[#162e4d] rounded-sm"
+              >
+                重试
+              </Button>
+            </CardContent>
+          </Card>
         ) : (
-          <Paper sx={{ p: 3 }}>
-            <Stack spacing={3}>
+          <Card className="border-[#E2E8F0] rounded-sm shadow-sm">
+            <CardContent className="p-6 space-y-6">
               {isFirstTimeConfig && (
-                <Alert severity="info">
-                  首次配置机构画像。当前机构还没有画像记录，请先完成首次配置。
+                <Alert className="rounded-sm border-[#059669] bg-[#F0FDF4]">
+                  <Info className="h-4 w-4 text-[#059669]" />
+                  <AlertDescription className="text-[#059669]">
+                    首次配置机构画像。当前机构还没有画像记录，请先完成首次配置。
+                  </AlertDescription>
                 </Alert>
               )}
 
-              {saveError && <Alert severity="error">{saveError}</Alert>}
+              {saveError && (
+                <Alert variant="destructive" className="rounded-sm">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{saveError}</AlertDescription>
+                </Alert>
+              )}
 
-              {saveSuccessMessage && <Alert severity="success">{saveSuccessMessage}</Alert>}
+              {saveSuccessMessage && (
+                <Alert className="rounded-sm border-[#059669] bg-[#F0FDF4]">
+                  <CheckCircle2 className="h-4 w-4 text-[#059669]" />
+                  <AlertDescription className="text-[#059669]">{saveSuccessMessage}</AlertDescription>
+                </Alert>
+              )}
 
               {lastUpdatedAt && (
-                <Typography variant="body2" color="text.secondary">
+                <p className="text-sm text-[#94A3B8]">
                   最近保存：{formatUpdatedAt(lastUpdatedAt)}
-                </Typography>
+                </p>
               )}
 
               {FIELD_SECTIONS.map((section) => (
-                <Stack spacing={2} key={section.title}>
-                  <Box>
-                    <Typography variant="h6">{section.title}</Typography>
-                    <Divider sx={{ mt: 1 }} />
-                  </Box>
+                <div key={section.title} className="space-y-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
+                      {section.title}
+                    </h2>
+                    <div className="h-px bg-[#E2E8F0] mt-2" />
+                  </div>
 
-                  <Box
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
-                      gap: 2,
-                    }}
-                  >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {section.fields.map((field) => (
-                      <TextField
-                        key={field.key}
-                        fullWidth
-                        select
-                        label={field.label}
-                        value={formState[field.key]}
-                        disabled={isReadOnly || saving}
-                        error={Boolean(errors[field.key])}
-                        helperText={errors[field.key] || ' '}
-                        InputLabelProps={{ shrink: true }}
-                        onChange={(event) =>
-                          handleFieldChange(field.key, event.target.value)
-                        }
-                        SelectProps={{ displayEmpty: true }}
-                      >
-                        <MenuItem value="">
-                          {`请选择${field.label}`}
-                        </MenuItem>
-                        {field.options.map((option) => (
-                          <MenuItem key={option.value} value={option.value}>
-                            {option.label}
-                          </MenuItem>
-                        ))}
-                      </TextField>
+                      <div key={field.key} className="space-y-2">
+                        <Label htmlFor={field.key} className="text-[#1E3A5F]">
+                          {field.label}
+                        </Label>
+                        <Select
+                          value={formState[field.key]}
+                          onValueChange={(value) => handleFieldChange(field.key, value)}
+                          disabled={isReadOnly || saving}
+                        >
+                          <SelectTrigger
+                            className={`rounded-sm ${errors[field.key] ? 'border-red-500' : ''}`}
+                            id={field.key}
+                          >
+                            <SelectValue placeholder={`请选择${field.label}`} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">{`请选择${field.label}`}</SelectItem>
+                            {field.options.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {errors[field.key] && (
+                          <p className="text-sm text-red-600">{errors[field.key]}</p>
+                        )}
+                      </div>
                     ))}
-                  </Box>
-                </Stack>
+                  </div>
+                </div>
               ))}
 
               {!isReadOnly && (
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div className="flex justify-end">
                   <Button
-                    variant="contained"
                     onClick={() => void handleSave()}
                     disabled={saving}
+                    className="bg-[#1E3A5F] hover:bg-[#162e4d] text-white rounded-sm"
                   >
-                    {saving ? '保存中...' : '保存画像'}
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        保存中...
+                      </>
+                    ) : (
+                      '保存画像'
+                    )}
                   </Button>
-                </Box>
+                </div>
               )}
-            </Stack>
-          </Paper>
+            </CardContent>
+          </Card>
         )}
-      </Stack>
-    </Box>
+      </div>
+    </div>
   )
 }

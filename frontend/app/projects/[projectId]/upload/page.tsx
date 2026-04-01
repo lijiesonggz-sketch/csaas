@@ -277,20 +277,16 @@ export default function UploadPage() {
 
   return (
     <main className="w-full px-6 py-8">
-      {/* 渐变头部 */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 mb-8">
-        {/* 装饰性径向渐变 */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
-
-        <div className="relative flex items-start justify-between">
+      {/* 页面头部 */}
+      <div className="bg-[#1E3A5F] rounded-sm p-8 mb-8 text-white">
+        <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
-            {/* 毛玻璃图标背景 */}
-            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <UploadCloud className="w-6 h-6 text-white" />
+            <div className="p-3 bg-white/10 rounded-sm">
+              <UploadCloud className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white mb-1">上传文档</h1>
-              <p className="text-sm text-white/80">
+              <h1 className="text-2xl font-bold font-[var(--font-plus-jakarta)]">上传文档</h1>
+              <p className="text-sm text-white/80 font-[var(--font-inter)]">
                 上传项目相关文档，支持 PDF、Word、Excel 等格式
               </p>
             </div>
@@ -299,7 +295,7 @@ export default function UploadPage() {
           <Button
             variant="outline"
             onClick={() => router.back()}
-            className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+            className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white rounded-sm"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             返回
@@ -308,16 +304,16 @@ export default function UploadPage() {
       </div>
 
       {/* 上传区域 */}
-      <Card className="mb-6 shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)] hover:shadow-[0_10px_15px_-3px_rgba(99,102,241,0.2),0_4px_6px_-2px_rgba(99,102,241,0.05)] transition-all duration-200">
+      <Card className="mb-6 border border-[#E2E8F0] rounded-sm shadow-sm">
         <CardContent className="p-6">
           <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 ${
+            className={`border-2 border-dashed rounded-sm p-12 text-center transition-all duration-200 ${
               dragOver
-                ? 'border-indigo-500 bg-indigo-50'
-                : 'border-slate-200 bg-white'
+                ? 'border-[#1E3A5F] bg-slate-50'
+                : 'border-[#E2E8F0] bg-white'
             }`}
           >
             <input
@@ -331,7 +327,7 @@ export default function UploadPage() {
             <label htmlFor="file-upload" className="cursor-pointer">
               <Button
                 disabled={uploading}
-                className="mb-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                className="mb-4 bg-[#1E3A5F] hover:bg-[#152a47] rounded-sm"
                 asChild
               >
                 <span>
@@ -341,23 +337,23 @@ export default function UploadPage() {
               </Button>
             </label>
 
-            <p className="text-sm text-slate-500 mt-2">
+            <p className="text-sm text-[#94A3B8] mt-2">
               支持 PDF、TXT、MD、DOCX 格式，最大 10MB
             </p>
 
             {uploading && currentFile && (
               <div className="mt-6 max-w-md mx-auto">
                 <div className="flex items-center mb-2">
-                  <FileText className="w-4 h-4 text-indigo-500 mr-2" />
-                  <span className="text-sm text-slate-700 flex-1 truncate">
+                  <FileText className="w-4 h-4 text-[#1E3A5F] mr-2" />
+                  <span className="text-sm text-[#1E3A5F] flex-1 truncate">
                     {currentFile.name}
                   </span>
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-[#94A3B8]">
                     {formatFileSize(currentFile.size)}
                   </span>
                 </div>
                 <Progress value={progress} className="h-2" />
-                <p className="text-xs text-slate-500 mt-1">{progress}%</p>
+                <p className="text-xs text-[#94A3B8] mt-1">{progress}%</p>
               </div>
             )}
           </div>
@@ -373,35 +369,35 @@ export default function UploadPage() {
 
       {/* 已上传文档列表 */}
       {uploadedDocs.length > 0 && (
-        <Card className="shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)] hover:shadow-[0_10px_15px_-3px_rgba(99,102,241,0.2),0_4px_6px_-2px_rgba(99,102,241,0.05)] transition-all duration-200">
+        <Card className="border border-[#E2E8F0] rounded-sm shadow-sm">
           <CardHeader>
-            <CardTitle>已上传文档 ({uploadedDocs.length})</CardTitle>
+            <CardTitle className="text-[#1E3A5F]">已上传文档 ({uploadedDocs.length})</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {uploadedDocs.map((doc) => (
                 <div
                   key={doc.id}
-                  className="flex items-start gap-3 p-4 rounded-lg border border-slate-200 bg-white"
+                  className="flex items-start gap-3 p-4 rounded-sm border border-[#E2E8F0] bg-white"
                 >
-                  <FileText className="w-5 h-5 text-indigo-500 mt-0.5 flex-shrink-0" />
+                  <FileText className="w-5 h-5 text-[#1E3A5F] mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-slate-900 truncate">
+                    <p className="font-medium text-[#1E3A5F] truncate">
                       {doc.filename}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-[#94A3B8]">
                       文档名: {doc.name} · {formatFileSize(doc.size)} ·{' '}
                       {doc.charCount} 字符 · 上传于 {formatDate(doc.createdAt)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50">
+                    <Badge variant="outline" className="text-[#059669] border-[#059669] bg-green-50 rounded-sm">
                       <CheckCircle className="w-3 h-3 mr-1" />
                       上传成功
                     </Badge>
                     <button
                       onClick={() => handleDelete(doc.id)}
-                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      className="p-1.5 text-[#94A3B8] hover:text-red-600 hover:bg-red-50 rounded-sm transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

@@ -1,7 +1,5 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ThemeProvider } from '@mui/material/styles'
-import { createTheme, Theme } from '@mui/material/styles'
 import { PeerMonitoringCard } from './PeerMonitoringCard'
 
 /**
@@ -15,11 +13,7 @@ import { PeerMonitoringCard } from './PeerMonitoringCard'
  * - 查看详情按钮交互
  */
 describe('PeerMonitoringCard Component', () => {
-  const theme: Theme = createTheme()
-
-  const renderWithProviders = (component: React.ReactElement) => {
-    return render(<ThemeProvider theme={theme}>{component}</ThemeProvider>)
-  }
+  const renderWithProviders = (component: React.ReactElement) => render(component)
 
   const mockPeerMonitoringPush = {
     id: 'peer-push-1',
@@ -232,7 +226,7 @@ describe('PeerMonitoringCard Component', () => {
         />
       )
 
-      expect(screen.getByText('⭐ 关注')).toBeInTheDocument()
+      expect(screen.getByText('关注')).toBeInTheDocument()
     })
 
     it('should not display star icon for non-watched peer', () => {

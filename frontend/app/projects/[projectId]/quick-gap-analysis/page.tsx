@@ -96,7 +96,7 @@ export default function QuickGapAnalysisPage() {
   return (
     <main className="w-full px-6 py-8">
       {/* 渐变头部 */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 mb-8">
+      <div className="relative overflow-hidden rounded-3xl bg-[#1E3A5F] p-8 mb-8">
         {/* 装饰性径向渐变 */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
 
@@ -138,7 +138,7 @@ export default function QuickGapAnalysisPage() {
               <Button
                 onClick={handleSubmit}
                 disabled={loading || !input.trim()}
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                className="bg-[#1E3A5F] hover:from-[#1E3A5F] hover:to-[#152a47]"
               >
                 <Send className="w-4 h-4 mr-2" />
                 {loading ? '分析中...' : '开始分析'}
@@ -147,7 +147,7 @@ export default function QuickGapAnalysisPage() {
             {loading && (
               <div className="mt-4">
                 <Progress value={undefined} className="h-2" />
-                <p className="text-sm text-slate-500 mt-2 text-center">
+                <p className="text-sm text-[#94A3B8] mt-2 text-center">
                   正在分析您的现状...
                 </p>
               </div>
@@ -164,31 +164,31 @@ export default function QuickGapAnalysisPage() {
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div>
-                  <p className="text-sm text-slate-500">合规率</p>
-                  <p className="text-3xl font-bold text-slate-900">
+                  <p className="text-sm text-[#94A3B8]">合规率</p>
+                  <p className="text-3xl font-bold text-[#1E3A5F]">
                     {result.gap_analysis.compliance_rate}%
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">总要求数</p>
-                  <p className="text-3xl font-bold text-slate-900">
+                  <p className="text-sm text-[#94A3B8]">总要求数</p>
+                  <p className="text-3xl font-bold text-[#1E3A5F]">
                     {result.gap_analysis.total_requirements}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">已满足</p>
+                  <p className="text-sm text-[#94A3B8]">已满足</p>
                   <p className="text-3xl font-bold text-emerald-600">
                     {result.gap_analysis.satisfied_requirements}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-500">差距项</p>
+                  <p className="text-sm text-[#94A3B8]">差距项</p>
                   <p className="text-3xl font-bold text-red-600">
                     {result.gap_analysis.gap_requirements}
                   </p>
                 </div>
               </div>
-              <p className="text-slate-700">{result.gap_analysis.overview}</p>
+              <p className="text-[#64748B]">{result.gap_analysis.overview}</p>
             </CardContent>
           </Card>
 
@@ -203,12 +203,12 @@ export default function QuickGapAnalysisPage() {
                   className="mb-4 pb-4 border-b border-slate-100 last:border-0"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-lg font-semibold text-slate-900">
+                    <h3 className="text-lg font-semibold text-[#1E3A5F]">
                       {gap.requirement}
                     </h3>
                     {getSeverityBadge(gap.severity)}
                   </div>
-                  <p className="text-sm text-slate-500">{gap.recommendation}</p>
+                  <p className="text-sm text-[#94A3B8]">{gap.recommendation}</p>
                 </div>
               ))}
             </CardContent>

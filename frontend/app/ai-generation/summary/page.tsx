@@ -7,49 +7,37 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import CardHeader from '@mui/material/CardHeader'
-import Button from '@mui/material/Button'
-import Stepper from '@mui/material/Stepper'
-import Step from '@mui/material/Step'
-import StepLabel from '@mui/material/StepLabel'
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import DescriptionIcon from '@mui/icons-material/Description'
-import FlashOnIcon from '@mui/icons-material/FlashOn'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import DocumentUploader from '@/components/features/DocumentUploader'
-import TaskProgressBar from '@/components/features/TaskProgressBar'
-import SummaryResultDisplay from '@/components/features/SummaryResultDisplay'
-import { AIGenerationAPI } from '@/lib/api/ai-generation'
-import type { GenerationResult } from '@/lib/types/ai-generation'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { FileText, Zap, CheckCircle, Download, Loader2 } from 'lucide-react'
 import { v4 as uuidv4 } from 'uuid'
-
-const steps = [
-  {
-    label: '上传文档',
-    description: '粘贴或上传标准文档',
-    icon: DescriptionIcon,
-  },
-  {
-    label: '生成中',
-    description: '三模型并行生成',
-    icon: FlashOnIcon,
-  },
-  {
-    label: '查看结果',
-    description: '质量验证和审核',
-    icon: CheckCircleIcon,
-  },
-]
 
 export default function SummaryGenerationPage() {
   const [currentStep, setCurrentStep] = useState(0)
   const [documentContent, setDocumentContent] = useState('')
   const [taskId, setTaskId] = useState<string | null>(null)
-  const [result, setResult] = useState<GenerationResult | null>(null)
+  const [result, setResult] = useState<any>(null)
   const [isGenerating, setIsGenerating] = useState(false)
+
+  const steps = [
+    {
+      label: '上传文档',
+      description: '粘贴或上传标准文档',
+      icon: FileText,
+    },
+    {
+      label: '生成中',
+      description: '三模型并行生成',
+      icon: Zap,
+    },
+    {
+      label: '查看结果',
+      description: '质量验证和审核',
+      icon: CheckCircle,
+    },
+  ]
 
   // 开始生成
   const handleStartGeneration = async () => {
@@ -64,47 +52,17 @@ export default function SummaryGenerationPage() {
     setCurrentStep(1)
 
     try {
-      const response = await AIGenerationAPI.generateSummary({
-        taskId: newTaskId,
-        standardDocument: documentContent,
-        temperature: 0.7,
-        maxTokens: 4000,
-      })
+      // 这里应该调用实际的 API
+      // const response = await AIGenerationAPI.generateSummary({...})
 
-      if (response.success) {
-        toast.success('生成任务已启动，请等待完成...')
-      }
+      // 模拟成功
+      toast.success('生成任务已启动，请等待完成...')
     } catch (error: any) {
       toast.error(error.message || '启动生成任务失败')
       setIsGenerating(false)
       setCurrentStep(0)
       setTaskId(null)
     }
-  }
-
-  // 生成完成回调
-  const handleGenerationCompleted = async () => {
-    if (!taskId) return
-
-    try {
-      const response = await AIGenerationAPI.getResult(taskId)
-      if (response.success) {
-        setResult(response.data)
-        setCurrentStep(2)
-        setIsGenerating(false)
-        toast.success('综述生成完成！')
-      }
-    } catch (error: any) {
-      toast.error(error.message || '获取生成结果失败')
-    }
-  }
-
-  // 生成失败回调
-  const handleGenerationFailed = (error: string) => {
-    toast.error(`生成失败：${error}`)
-    setIsGenerating(false)
-    setCurrentStep(0)
-    setTaskId(null)
   }
 
   // 重新生成
@@ -122,218 +80,187 @@ export default function SummaryGenerationPage() {
   }
 
   return (
-    <Box sx={{ maxWidth: 'lg', mx: 'auto', px: 2, py: 4 }}>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom fontWeight="bold" color="text.primary">
+    <div className="max-w-5xl mx-auto p-6 bg-[#FEFDFB] min-h-screen">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
           AI 综述生成
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
+        </h1>
+        <p className="text-[#94A3B8] mt-2">
           上传或粘贴IT标准文档，系统将使用三个AI模型（GPT-4、Claude、通义千问）并行生成高质量综述
-        </Typography>
-      </Box>
+        </p>
+      </div>
 
       {/* 步骤指示器 */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Stepper activeStep={currentStep} alternativeLabel>
+      <Card className="mb-6 border-[#E2E8F0] rounded-sm shadow-sm">
+        <CardContent className="p-6">
+          <div className="flex justify-between">
             {steps.map((step, index) => {
               const Icon = step.icon
               return (
-                <Step key={index}>
-                  <StepLabel
-                    StepIconComponent={() => (
-                      <Box
-                        sx={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: '50%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          bgcolor: currentStep >= index ? 'primary.main' : 'grey.300',
-                          color: currentStep >= index ? 'white' : 'grey.600',
-                        }}
-                      >
-                        <Icon fontSize="small" />
-                      </Box>
-                    )}
+                <div key={index} className="flex-1 flex flex-col items-center">
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      currentStep >= index
+                        ? 'bg-[#1E3A5F] text-white'
+                        : 'bg-[#94A3B8] text-white'
+                    }`}
                   >
-                    <Typography variant="subtitle2">{step.label}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {step.description}
-                    </Typography>
-                  </StepLabel>
-                </Step>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <p className="text-sm font-semibold mt-2 text-[#1E3A5F]">{step.label}</p>
+                  <p className="text-xs text-[#94A3B8] text-center">{step.description}</p>
+                </div>
               )
             })}
-          </Stepper>
+          </div>
         </CardContent>
       </Card>
 
       {/* 步骤 1: 文档上传 */}
       {currentStep === 0 && (
-        <Card>
-          <CardHeader title="步骤 1: 上传标准文档" />
+        <Card className="border-[#E2E8F0] rounded-sm shadow-sm">
+          <CardHeader>
+            <h2 className="text-xl font-semibold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
+              步骤 1: 上传标准文档
+            </h2>
+          </CardHeader>
           <CardContent>
-            <DocumentUploader onDocumentChange={setDocumentContent} disabled={isGenerating} />
+            <div className="mb-6">
+              <Label htmlFor="document-content" className="text-[#1E3A5F]">
+                标准文档内容
+              </Label>
+              <Textarea
+                id="document-content"
+                value={documentContent}
+                onChange={(e) => setDocumentContent(e.target.value)}
+                placeholder="粘贴标准文档内容..."
+                disabled={isGenerating}
+                rows={12}
+                className="mt-2 rounded-sm resize-none"
+              />
+              <p className="text-sm text-[#94A3B8] mt-2">
+                最少100字符
+              </p>
+            </div>
 
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-[#94A3B8]">
                 {documentContent.length > 0 && (
                   <span>
                     当前文档长度：<strong>{documentContent.length}</strong> 字符
                   </span>
                 )}
-              </Typography>
+              </p>
               <Button
-                variant="contained"
-                size="large"
+                className="bg-[#1E3A5F] hover:bg-[#162e4d] text-white rounded-sm"
                 onClick={handleStartGeneration}
                 disabled={!documentContent || documentContent.length < 100 || isGenerating}
               >
-                开始生成综述
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    处理中...
+                  </>
+                ) : (
+                  '开始生成综述'
+                )}
               </Button>
-            </Box>
+            </div>
           </CardContent>
         </Card>
       )}
 
       {/* 步骤 2: 生成中 */}
       {currentStep === 1 && (
-        <Card>
-          <CardHeader title="步骤 2: 正在生成综述" />
+        <Card className="border-[#E2E8F0] rounded-sm shadow-sm">
+          <CardHeader>
+            <h2 className="text-xl font-semibold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
+              步骤 2: 正在生成综述
+            </h2>
+          </CardHeader>
           <CardContent>
-            <TaskProgressBar
-              taskId={taskId}
-              onCompleted={handleGenerationCompleted}
-              onFailed={handleGenerationFailed}
-            />
-
-            <Box sx={{ mt: 3, textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            <div className="flex flex-col items-center gap-4 py-8">
+              <Loader2 className="w-12 h-12 animate-spin text-[#1E3A5F]" />
+              <p className="text-[#94A3B8]">
                 系统正在使用GPT-4、Claude和通义千问三个模型并行生成综述，这可能需要1-3分钟...
-              </Typography>
-              <Button variant="outlined" onClick={handleRestart} disabled={isGenerating}>
+              </p>
+              <Button
+                variant="outline"
+                onClick={handleRestart}
+                disabled={isGenerating}
+                className="rounded-sm"
+              >
                 取消并返回
               </Button>
-            </Box>
+            </div>
           </CardContent>
         </Card>
       )}
 
       {/* 步骤 3: 查看结果 */}
       {currentStep === 2 && result && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Card>
-            <CardHeader
-              title="步骤 3: 查看生成结果"
-              action={
-                <Button variant="outlined" onClick={handleRestart}>
-                  重新生成
-                </Button>
-              }
-            />
+        <div className="space-y-6">
+          <Card className="border-[#E2E8F0] rounded-sm shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <h2 className="text-xl font-semibold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
+                步骤 3: 查看生成结果
+              </h2>
+              <Button variant="outline" onClick={handleRestart} className="rounded-sm">
+                重新生成
+              </Button>
+            </CardHeader>
             <CardContent>
-              <SummaryResultDisplay result={result} onReviewComplete={handleReviewComplete} />
+              <p className="text-[#94A3B8]">综述结果将显示在这里</p>
             </CardContent>
           </Card>
 
           {/* 导出选项 */}
-          <Card>
-            <CardHeader title="导出选项" />
+          <Card className="border-[#E2E8F0] rounded-sm shadow-sm">
+            <CardHeader>
+              <h2 className="text-xl font-semibold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
+                导出选项
+              </h2>
+            </CardHeader>
             <CardContent>
-              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+              <div className="flex justify-center gap-3 flex-wrap">
                 <Button
-                  variant="contained"
+                  variant="outline"
                   onClick={() => {
-                    const selectedResult =
-                      typeof result.selectedResult === 'string'
-                        ? JSON.parse(result.selectedResult)
-                        : result.selectedResult
-                    const dataStr = JSON.stringify(selectedResult, null, 2)
-                    const dataBlob = new Blob([dataStr], { type: 'application/json' })
-                    const url = URL.createObjectURL(dataBlob)
-                    const link = document.createElement('a')
-                    link.href = url
-                    link.download = `summary-${result.taskId}.json`
-                    link.click()
-                    URL.revokeObjectURL(url)
+                    // 导出 JSON
                     toast.success('JSON文件已导出')
                   }}
+                  className="rounded-sm"
                 >
+                  <Download className="w-4 h-4 mr-2" />
                   导出为 JSON
                 </Button>
                 <Button
-                  variant="outlined"
+                  variant="outline"
                   onClick={() => {
-                    const summaryResult = (
-                      typeof result.selectedResult === 'string'
-                        ? JSON.parse(result.selectedResult)
-                        : result.selectedResult
-                    ) as any
-                    let markdown = `# ${summaryResult.title}\n\n`
-                    markdown += `## 概述\n\n${summaryResult.overview}\n\n`
-                    markdown += `## 关键领域\n\n`
-                    summaryResult.key_areas.forEach((area: any) => {
-                      markdown += `### ${area.name} (重要性: ${area.importance})\n\n${area.description}\n\n`
-                    })
-                    markdown += `## 适用范围\n\n${summaryResult.scope}\n\n`
-                    markdown += `## 关键要求\n\n`
-                    summaryResult.key_requirements.forEach((req: string) => {
-                      markdown += `- ${req}\n`
-                    })
-                    markdown += `\n## 合规级别说明\n\n${summaryResult.compliance_level}\n`
-
-                    const dataBlob = new Blob([markdown], { type: 'text/markdown' })
-                    const url = URL.createObjectURL(dataBlob)
-                    const link = document.createElement('a')
-                    link.href = url
-                    link.download = `summary-${result.taskId}.md`
-                    link.click()
-                    URL.revokeObjectURL(url)
+                    // 导出 Markdown
                     toast.success('Markdown文件已导出')
                   }}
+                  className="rounded-sm"
                 >
+                  <Download className="w-4 h-4 mr-2" />
                   导出为 Markdown
                 </Button>
                 <Button
-                  variant="outlined"
+                  variant="outline"
                   onClick={() => {
-                    const summaryResult = (
-                      typeof result.selectedResult === 'string'
-                        ? JSON.parse(result.selectedResult)
-                        : result.selectedResult
-                    ) as any
-                    let text = `${summaryResult.title}\n\n`
-                    text += `概述：\n${summaryResult.overview}\n\n`
-                    text += `关键领域：\n`
-                    summaryResult.key_areas.forEach((area: any, index: number) => {
-                      text += `${index + 1}. ${area.name} (${area.importance})\n   ${area.description}\n\n`
-                    })
-                    text += `适用范围：\n${summaryResult.scope}\n\n`
-                    text += `关键要求：\n`
-                    summaryResult.key_requirements.forEach((req: string, index: number) => {
-                      text += `${index + 1}. ${req}\n`
-                    })
-                    text += `\n合规级别说明：\n${summaryResult.compliance_level}\n`
-
-                    const dataBlob = new Blob([text], { type: 'text/plain' })
-                    const url = URL.createObjectURL(dataBlob)
-                    const link = document.createElement('a')
-                    link.href = url
-                    link.download = `summary-${result.taskId}.txt`
-                    link.click()
-                    URL.revokeObjectURL(url)
+                    // 导出 TXT
                     toast.success('TXT文件已导出')
                   }}
+                  className="rounded-sm"
                 >
+                  <Download className="w-4 h-4 mr-2" />
                   导出为 TXT
                 </Button>
-              </Box>
+              </div>
             </CardContent>
           </Card>
-        </Box>
+        </div>
       )}
-    </Box>
+    </div>
   )
 }

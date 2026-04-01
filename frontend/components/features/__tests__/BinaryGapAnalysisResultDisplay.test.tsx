@@ -242,7 +242,8 @@ describe('BinaryGapAnalysisResultDisplay', () => {
       render(
         <BinaryGapAnalysisResultDisplay result={mockResult} onGenerateActionPlan={mockFn} loading={true} />
       )
-      const button = screen.getByRole('button', { name: /生成改进措施/ })
+      // When loading, button text changes to "生成中..."
+      const button = screen.getByRole('button', { name: /生成中/ })
       expect(button).toBeDisabled()
     })
 

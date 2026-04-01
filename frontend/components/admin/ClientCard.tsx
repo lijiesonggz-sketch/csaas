@@ -7,26 +7,24 @@
  */
 
 import React from 'react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
-  Card,
-  CardContent,
-  CardActions,
-  Typography,
-  Box,
-  Chip,
-  IconButton,
   Tooltip,
-  Stack,
-} from '@mui/material'
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Settings as SettingsIcon,
-  Business as BusinessIcon,
-  Person as PersonIcon,
-  Email as EmailIcon,
-  TrendingUp as TrendingUpIcon,
-} from '@mui/icons-material'
+  Edit,
+  Trash2,
+  Settings,
+  Building2,
+  User,
+  Mail,
+  TrendingUp,
+} from 'lucide-react'
 import {
   Client,
   IndustryType,
@@ -65,14 +63,14 @@ const STATUS_LABELS: Record<OrganizationStatus, string> = {
   [OrganizationStatus.TRIAL]: '试用',
 }
 
-// 状态颜色映射
-const STATUS_COLORS: Record<
+// 状态 Badge 变体映射
+const STATUS_VARIANTS: Record<
   OrganizationStatus,
-  'success' | 'default' | 'warning' | 'error'
+  'default' | 'secondary' | 'destructive' | 'outline'
 > = {
-  [OrganizationStatus.ACTIVE]: 'success',
-  [OrganizationStatus.INACTIVE]: 'default',
-  [OrganizationStatus.TRIAL]: 'warning',
+  [OrganizationStatus.ACTIVE]: 'default',
+  [OrganizationStatus.INACTIVE]: 'secondary',
+  [OrganizationStatus.TRIAL]: 'outline',
 }
 
 export function ClientCard({
@@ -91,170 +89,155 @@ export function ClientCard({
 
   return (
     <Card
-      data-testid="client-card"
-      sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        cursor: onSelect ? 'pointer' : 'default',
-        border: selected ? '2px solid' : '1px solid',
-        borderColor: selected ? 'primary.main' : 'divider',
-        transition: 'all 0.2s',
-        '&:hover': {
-          boxShadow: 3,
-          borderColor: onSelect ? 'primary.main' : 'divider',
-        },
-      }}
+      className={`
+        h-full flex flex-col cursor-pointer transition-all
+        ${selected ? 'border-2 border-primary' : 'border hover:border-primary/50'}
+        hover:shadow-md
+      `}
       onClick={onSelect ? handleCardClick : undefined}
     >
-      <CardContent sx={{ flexGrow: 1, pb: 1 }}>
+      <CardContent className="flex-1 pt-6">
         {/* 客户名称和状态 */}
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
-          <BusinessIcon sx={{ mr: 1, color: 'primary.main', mt: 0.5 }} />
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" component="div" gutterBottom data-testid="client-name">
-              {client.name}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <div className="flex items-start gap-2 mb-4">
+          <Building2 className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <h3 className="text-lg font-semibold mb-2 truncate">{client.name}</h3>
+            <div className="flex flex-wrap gap-2">
               {client.status && (
-                <Chip
-                  data-testid="client-status"
-                  label={STATUS_LABELS[client.status]}
-                  color={STATUS_COLORS[client.status]}
-                  size="small"
-                />
+                <Badge variant={STATUS_VARIANTS[client.status]}>
+                  {STATUS_LABELS[client.status]}
+                </Badge>
               )}
               {client.industryType && (
-                <Chip
-                  data-testid="client-industry"
-                  label={INDUSTRY_LABELS[client.industryType]}
-                  variant="outlined"
-                  size="small"
-                />
+                <Badge variant="outline">
+                  {INDUSTRY_LABELS[client.industryType]}
+                </Badge>
               )}
               {client.scale && (
-                <Chip
-                  label={SCALE_LABELS[client.scale]}
-                  variant="outlined"
-                  size="small"
-                />
+                <Badge variant="outline">
+                  {SCALE_LABELS[client.scale]}
+                </Badge>
               )}
-            </Box>
-          </Box>
-        </Box>
+            </div>
+          </div>
+        </div>
 
         {/* 联系信息 */}
-        <Stack spacing={1} sx={{ mb: 2 }}>
+        <div className="space-y-2 mb-4">
           {client.contactPerson && (
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <PersonIcon sx={{ fontSize: 18, mr: 1, color: 'text.secondary' }} />
-              <Typography variant="body2" color="text.secondary">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">
                 {client.contactPerson}
-              </Typography>
-            </Box>
+              </span>
+            </div>
           )}
           {client.contactEmail && (
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <EmailIcon sx={{ fontSize: 18, mr: 1, color: 'text.secondary' }} />
-              <Typography variant="body2" color="text.secondary" noWrap>
+            <div className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground truncate">
                 {client.contactEmail}
-              </Typography>
-            </Box>
+              </span>
+            </div>
           )}
-        </Stack>
+        </div>
 
         {/* 统计信息 */}
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 2,
-            p: 1.5,
-            backgroundColor: 'action.hover',
-            borderRadius: 1,
-          }}
-        >
-          <Box sx={{ flex: 1, textAlign: 'center' }}>
-            <Typography variant="h6" color="primary">
+        <div className="flex gap-2 p-2 bg-muted rounded-lg mb-3">
+          <div className="flex-1 text-center">
+            <p className="text-lg font-semibold text-primary">
               {client.userCount || 0}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              用户数
-            </Typography>
-          </Box>
-          <Box sx={{ flex: 1, textAlign: 'center' }}>
-            <Typography variant="h6" color="primary">
+            </p>
+            <p className="text-xs text-muted-foreground">用户数</p>
+          </div>
+          <div className="flex-1 text-center">
+            <p className="text-lg font-semibold text-primary">
               {client.pushCount || 0}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              推送数
-            </Typography>
-          </Box>
-        </Box>
+            </p>
+            <p className="text-xs text-muted-foreground">推送数</p>
+          </div>
+        </div>
 
         {/* 推送配置信息 */}
         {(client.pushStartTime || client.dailyPushLimit) && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="caption" color="text.secondary" display="block">
-              推送配置:
-            </Typography>
-            <Typography variant="body2" color="text.primary">
+          <div className="mt-2">
+            <p className="text-xs text-muted-foreground mb-1">推送配置:</p>
+            <p className="text-sm">
               {client.pushStartTime && client.pushEndTime
                 ? `${client.pushStartTime} - ${client.pushEndTime}`
                 : '未设置'}
               {client.dailyPushLimit && ` · 每日${client.dailyPushLimit}条`}
-            </Typography>
-          </Box>
+            </p>
+          </div>
         )}
 
         {/* 最后推送时间 */}
         {client.lastPushAt && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="caption" color="text.secondary">
+          <div className="mt-1">
+            <p className="text-xs text-muted-foreground">
               最后推送: {new Date(client.lastPushAt).toLocaleString('zh-CN')}
-            </Typography>
-          </Box>
+            </p>
+          </div>
         )}
       </CardContent>
 
       {/* 操作按钮 */}
-      <CardActions sx={{ justifyContent: 'flex-end', pt: 0 }} data-testid="client-actions">
-        <Tooltip title="推送配置">
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={(e) => {
-              e.stopPropagation()
-              onConfig(client)
-            }}
-          >
-            <SettingsIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="编辑">
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={(e) => {
-              e.stopPropagation()
-              onEdit(client)
-            }}
-          >
-            <EditIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="删除">
-          <IconButton
-            size="small"
-            color="error"
-            onClick={(e) => {
-              e.stopPropagation()
-              onDelete(client)
-            }}
-          >
-            <DeleteIcon />
-          </IconButton>
-        </Tooltip>
-      </CardActions>
+      <div className="flex justify-end gap-1 p-4 pt-0">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onConfig(client)
+                }}
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>推送配置</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEdit(client)
+                }}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>编辑</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDelete(client)
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>删除</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
     </Card>
   )
 }

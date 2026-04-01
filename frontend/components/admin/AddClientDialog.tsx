@@ -9,16 +9,23 @@
 import React, { useState, useEffect } from 'react'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  MenuItem,
-  Stack,
-  Alert,
-  Box,
-} from '@mui/material'
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Client,
   CreateClientData,
@@ -162,115 +169,137 @@ export function AddClientDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="add-client-modal">
-      <DialogTitle>{mode === 'create' ? '添加客户' : '编辑客户'}</DialogTitle>
-      <DialogContent>
-        <Stack spacing={3} sx={{ mt: 2 }}>
-          {error && <Alert severity="error">{error}</Alert>}
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{mode === 'create' ? '添加客户' : '编辑客户'}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
           {/* 客户名称 */}
-          <TextField
-            data-testid="client-name-input"
-            fullWidth
-            required
-            label="客户名称"
-            value={formData.name}
-            onChange={(e) => handleChange('name', e.target.value)}
-            error={!!errors.name}
-            helperText={errors.name}
-            placeholder="例如: 杭州银行"
-          />
+          <div className="space-y-2">
+            <Label htmlFor="client-name">
+              客户名称 <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="client-name"
+              value={formData.name}
+              onChange={(e) => handleChange('name', e.target.value)}
+              placeholder="例如: 杭州银行"
+              className={errors.name ? 'border-destructive' : ''}
+            />
+            {errors.name && (
+              <p className="text-sm text-destructive">{errors.name}</p>
+            )}
+          </div>
 
           {/* 联系人姓名 */}
-          <TextField
-            data-testid="contact-person-input"
-            fullWidth
-            label="联系人姓名"
-            value={formData.contactPerson || ''}
-            onChange={(e) => handleChange('contactPerson', e.target.value)}
-            placeholder="例如: 张三"
-          />
+          <div className="space-y-2">
+            <Label htmlFor="contact-person">联系人姓名</Label>
+            <Input
+              id="contact-person"
+              value={formData.contactPerson || ''}
+              onChange={(e) => handleChange('contactPerson', e.target.value)}
+              placeholder="例如: 张三"
+            />
+          </div>
 
           {/* 联系人邮箱 */}
-          <TextField
-            data-testid="contact-email-input"
-            fullWidth
-            label="联系人邮箱"
-            type="email"
-            value={formData.contactEmail || ''}
-            onChange={(e) => handleChange('contactEmail', e.target.value)}
-            error={!!errors.contactEmail}
-            helperText={errors.contactEmail}
-            placeholder="例如: zhangsan@example.com"
-          />
+          <div className="space-y-2">
+            <Label htmlFor="contact-email">联系人邮箱</Label>
+            <Input
+              id="contact-email"
+              type="email"
+              value={formData.contactEmail || ''}
+              onChange={(e) => handleChange('contactEmail', e.target.value)}
+              placeholder="例如: zhangsan@example.com"
+              className={errors.contactEmail ? 'border-destructive' : ''}
+            />
+            {errors.contactEmail && (
+              <p className="text-sm text-destructive">{errors.contactEmail}</p>
+            )}
+          </div>
 
           {/* 行业类型 */}
-          <TextField
-            data-testid="industry-type-select"
-            fullWidth
-            select
-            label="行业类型"
-            value={formData.industryType || ''}
-            onChange={(e) => handleChange('industryType', e.target.value || undefined)}
-          >
-            <MenuItem value="">
-              <em>未选择</em>
-            </MenuItem>
-            {INDUSTRY_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
+          <div className="space-y-2">
+            <Label>行业类型</Label>
+            <Select
+              value={formData.industryType || ''}
+              onValueChange={(value) =>
+                handleChange('industryType', value || undefined)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="未选择" />
+              </SelectTrigger>
+              <SelectContent>
+                {INDUSTRY_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* 机构规模 */}
-          <TextField
-            data-testid="scale-select"
-            fullWidth
-            select
-            label="机构规模"
-            value={formData.scale || ''}
-            onChange={(e) => handleChange('scale', e.target.value || undefined)}
-          >
-            <MenuItem value="">
-              <em>未选择</em>
-            </MenuItem>
-            {SCALE_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
+          <div className="space-y-2">
+            <Label>机构规模</Label>
+            <Select
+              value={formData.scale || ''}
+              onValueChange={(value) => handleChange('scale', value || undefined)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="未选择" />
+              </SelectTrigger>
+              <SelectContent>
+                {SCALE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* 状态（仅编辑模式） */}
           {mode === 'edit' && (
-            <TextField
-              fullWidth
-              select
-              label="状态"
-              value={(formData as UpdateClientData).status || ''}
-              onChange={(e) => handleChange('status', e.target.value || undefined)}
-            >
-              <MenuItem value="">
-                <em>未选择</em>
-              </MenuItem>
-              {STATUS_OPTIONS.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </TextField>
+            <div className="space-y-2">
+              <Label>状态</Label>
+              <Select
+                value={(formData as UpdateClientData).status || ''}
+                onValueChange={(value) => handleChange('status', value || undefined)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="未选择" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
-        </Stack>
+        </div>
+
+        <DialogFooter>
+          <Button onClick={onClose} disabled={submitting} variant="outline">
+            取消
+          </Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            {submitting ? '提交中...' : mode === 'create' ? '添加' : '保存'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          取消
-        </Button>
-        <Button data-testid="submit-button" onClick={handleSubmit} variant="contained" disabled={submitting}>
-          {submitting ? '提交中...' : mode === 'create' ? '添加' : '保存'}
-        </Button>
-      </DialogActions>
     </Dialog>
   )
 }

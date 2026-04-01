@@ -138,28 +138,28 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-500 to-purple-600 py-8 flex items-center">
+    <div className="min-h-screen bg-[#FEFDFB] py-12 flex items-center">
       <div className="w-full max-w-md mx-auto px-4">
-        <Card className="border-0 shadow-lg overflow-hidden">
+        <Card className="border border-[#E2E8F0] shadow-sm rounded-sm overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 py-8 px-6 text-center">
+          <div className="bg-[#1E3A5F] py-10 px-6 text-center">
             <div className="relative z-10">
-              <h1 className="text-2xl font-bold text-white mb-1">
+              <h1 className="text-2xl font-bold text-white mb-2 font-[var(--font-plus-jakarta)]">
                 Csaas 注册
               </h1>
-              <p className="text-white/90 text-sm">
+              <p className="text-white/80 text-sm font-[var(--font-inter)]">
                 创建您的账号，开始使用
               </p>
             </div>
           </div>
 
           {/* Form */}
-          <CardContent className="p-6 pt-4">
-            <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          <CardContent className="p-8 pt-6">
+            <form onSubmit={handleSubmit} noValidate className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="name">姓名</Label>
+                <Label htmlFor="name" className="text-[#1E3A5F]">姓名</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
                   <Input
                     id="name"
                     name="name"
@@ -168,10 +168,10 @@ export default function RegisterPage() {
                     value={form.name}
                     onChange={(e) => handleChange('name', e.target.value)}
                     onBlur={() => handleBlur('name')}
-                    className={`pl-10 h-11 rounded-lg bg-white ${
+                    className={`pl-10 h-11 rounded-sm bg-white border-[#E2E8F0] ${
                       touched.name && errors.name
                         ? 'border-red-500 focus-visible:ring-red-500'
-                        : ''
+                        : 'focus-visible:ring-[#059669]'
                     }`}
                   />
                 </div>
@@ -181,9 +181,9 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">邮箱</Label>
+                <Label htmlFor="email" className="text-[#1E3A5F]">邮箱</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
                   <Input
                     id="email"
                     name="email"
@@ -193,10 +193,10 @@ export default function RegisterPage() {
                     value={form.email}
                     onChange={(e) => handleChange('email', e.target.value)}
                     onBlur={() => handleBlur('email')}
-                    className={`pl-10 h-11 rounded-lg bg-white ${
+                    className={`pl-10 h-11 rounded-sm bg-white border-[#E2E8F0] ${
                       touched.email && errors.email
                         ? 'border-red-500 focus-visible:ring-red-500'
-                        : ''
+                        : 'focus-visible:ring-[#059669]'
                     }`}
                   />
                 </div>
@@ -206,9 +206,9 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">密码</Label>
+                <Label htmlFor="password" className="text-[#1E3A5F]">密码</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
                   <Input
                     id="password"
                     name="password"
@@ -218,16 +218,16 @@ export default function RegisterPage() {
                     value={form.password}
                     onChange={(e) => handleChange('password', e.target.value)}
                     onBlur={() => handleBlur('password')}
-                    className={`pl-10 pr-10 h-11 rounded-lg bg-white ${
+                    className={`pl-10 pr-10 h-11 rounded-sm bg-white border-[#E2E8F0] ${
                       touched.password && errors.password
                         ? 'border-red-500 focus-visible:ring-red-500'
-                        : ''
+                        : 'focus-visible:ring-[#059669]'
                     }`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#1E3A5F]"
                   >
                     {showPassword ? (
                       <EyeOff className="w-5 h-5" />
@@ -242,9 +242,9 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">确认密码</Label>
+                <Label htmlFor="confirmPassword" className="text-[#1E3A5F]">确认密码</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
                   <Input
                     id="confirmPassword"
                     name="confirmPassword"
@@ -254,16 +254,16 @@ export default function RegisterPage() {
                     value={form.confirmPassword}
                     onChange={(e) => handleChange('confirmPassword', e.target.value)}
                     onBlur={() => handleBlur('confirmPassword')}
-                    className={`pl-10 pr-10 h-11 rounded-lg bg-white ${
+                    className={`pl-10 pr-10 h-11 rounded-sm bg-white border-[#E2E8F0] ${
                       touched.confirmPassword && errors.confirmPassword
                         ? 'border-red-500 focus-visible:ring-red-500'
-                        : ''
+                        : 'focus-visible:ring-[#059669]'
                     }`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#1E3A5F]"
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="w-5 h-5" />
@@ -278,7 +278,7 @@ export default function RegisterPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="role">角色</Label>
+                <Label htmlFor="role" className="text-[#1E3A5F]">角色</Label>
                 <Select
                   value={form.role}
                   onValueChange={(value) => handleChange('role', value)}
@@ -287,10 +287,10 @@ export default function RegisterPage() {
                     id="role"
                     aria-label="角色"
                     onBlur={() => handleBlur('role')}
-                    className={`h-11 rounded-lg bg-white ${
+                    className={`h-11 rounded-sm bg-white border-[#E2E8F0] ${
                       touched.role && errors.role
                         ? 'border-red-500 focus-visible:ring-red-500'
-                        : ''
+                        : 'focus-visible:ring-[#059669]'
                     }`}
                   >
                     <SelectValue placeholder="请选择角色" />
@@ -309,16 +309,16 @@ export default function RegisterPage() {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-11 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium rounded-lg"
+                className="w-full h-11 bg-[#1E3A5F] hover:bg-[#162e4d] text-white font-medium rounded-sm"
               >
                 {loading ? '注册中...' : '注册'}
               </Button>
 
-              <p className="text-sm text-slate-500 text-center">
+              <p className="text-sm text-[#94A3B8] text-center font-[var(--font-inter)]">
                 已有账号？{' '}
                 <Link
                   href="/login"
-                  className="text-indigo-600 font-semibold hover:underline"
+                  className="text-[#059669] font-semibold hover:underline"
                 >
                   立即登录
                 </Link>
@@ -328,10 +328,10 @@ export default function RegisterPage() {
         </Card>
 
         {/* Back to home */}
-        <p className="text-sm text-slate-500 text-center mt-6">
+        <p className="text-sm text-[#94A3B8] text-center mt-8 font-[var(--font-inter)]">
           <Link
             href="/"
-            className="text-slate-500 hover:text-slate-700"
+            className="text-[#94A3B8] hover:text-[#1E3A5F]"
           >
             ← 返回首页
           </Link>

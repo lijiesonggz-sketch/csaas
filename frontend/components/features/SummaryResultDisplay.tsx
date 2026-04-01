@@ -7,28 +7,12 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import CardHeader from '@mui/material/CardHeader'
-import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
-import Alert from '@mui/material/Alert'
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import Divider from '@mui/material/Divider'
-import List from '@mui/material/List'
-import ListItem from '@mui/material/ListItem'
-import ListItemText from '@mui/material/ListItemText'
-import ListItemIcon from '@mui/material/ListItemIcon'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import CancelIcon from '@mui/icons-material/Cancel'
-import InfoIcon from '@mui/icons-material/Info'
-import LinearProgress from '@mui/material/LinearProgress'
-import Accordion from '@mui/material/Accordion'
-import AccordionSummary from '@mui/material/AccordionSummary'
-import AccordionDetails from '@mui/material/AccordionDetails'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import DownloadIcon from '@mui/icons-material/Download'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Progress } from '@/components/ui/progress'
+import { CheckCircle, XCircle, Info, Download } from 'lucide-react'
 import type { GenerationResult, SummaryResult } from '@/lib/types/ai-generation'
 
 interface SummaryResultDisplayProps {
@@ -120,16 +104,16 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
     }
   }
 
-  const getConfidenceColor = (level: string): 'success' | 'warning' | 'error' => {
+  const getConfidenceColor = (level: string) => {
     switch (level) {
       case 'HIGH':
-        return 'success'
+        return 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
       case 'MEDIUM':
-        return 'warning'
+        return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200'
       case 'LOW':
-        return 'error'
+        return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200'
       default:
-        return 'warning'
+        return 'bg-gray-100 text-gray-700'
     }
   }
 
@@ -146,12 +130,26 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
     }
   }
 
+  const getImportanceColor = (importance: string) => {
+    switch (importance) {
+      case 'HIGH':
+        return 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700'
+      case 'MEDIUM':
+        return 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700'
+      case 'LOW':
+        return 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700'
+      default:
+        return 'bg-gray-100 text-gray-700 border-gray-300'
+    }
+  }
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <div className="space-y-6">
       {/* 导出按钮 */}
       <Card>
-        <CardContent>
-          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportWord}>
+        <CardContent className="pt-6">
+          <Button variant="outline" onClick={handleExportWord}>
+            <Download className="w-4 h-4 mr-2" />
             导出Word
           </Button>
         </CardContent>
@@ -159,152 +157,162 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
 
       {/* 头部信息卡片 */}
       <Card>
-        <CardHeader title="生成信息" />
+        <CardHeader>
+          <h3 className="text-lg font-semibold">生成信息</h3>
+        </CardHeader>
         <CardContent>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
-            <Typography variant="body2"><strong>任务ID:</strong> {result.taskId}</Typography>
-            <Typography variant="body2"><strong>生成时间:</strong> {new Date(result.createdAt).toLocaleString('zh-CN')}</Typography>
-            <Typography variant="body2"><strong>选中模型:</strong> <Chip size="small" color="primary" label={getModelName(result.selectedModel)} /></Typography>
-            <Typography variant="body2"><strong>置信度:</strong> <Chip size="small" color={getConfidenceColor(result.confidenceLevel)} label={result.confidenceLevel} /></Typography>
-            <Typography variant="body2"><strong>审核状态:</strong>
-              {result.reviewStatus === 'PENDING' && <Chip size="small" color="warning" label="待审核" />}
-              {result.reviewStatus === 'APPROVED' && <Chip size="small" color="success" label="已批准" />}
-              {result.reviewStatus === 'MODIFIED' && <Chip size="small" color="info" label="已修改" />}
-              {result.reviewStatus === 'REJECTED' && <Chip size="small" color="error" label="已拒绝" />}
-            </Typography>
-            <Typography variant="body2"><strong>版本:</strong> v{result.version}</Typography>
-          </Box>
+          <div className="grid grid-cols-2 gap-4">
+            <p className="text-sm"><strong>任务ID:</strong> {result.taskId}</p>
+            <p className="text-sm"><strong>生成时间:</strong> {new Date(result.createdAt).toLocaleString('zh-CN')}</p>
+            <p className="text-sm">
+              <strong>选中模型:</strong>{' '}
+              <Badge variant="outline">{getModelName(result.selectedModel)}</Badge>
+            </p>
+            <p className="text-sm">
+              <strong>置信度:</strong>{' '}
+              <Badge className={getConfidenceColor(result.confidenceLevel)} variant="outline">
+                {result.confidenceLevel}
+              </Badge>
+            </p>
+            <p className="text-sm">
+              <strong>审核状态:</strong>
+              {result.reviewStatus === 'PENDING' && <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200">待审核</Badge>}
+              {result.reviewStatus === 'APPROVED' && <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200">已批准</Badge>}
+              {result.reviewStatus === 'MODIFIED' && <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">已修改</Badge>}
+              {result.reviewStatus === 'REJECTED' && <Badge className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200">已拒绝</Badge>}
+            </p>
+            <p className="text-sm"><strong>版本:</strong> v{result.version}</p>
+          </div>
         </CardContent>
       </Card>
 
       {/* 质量评分卡片 */}
       {result.qualityScores && (
         <Card>
-          <CardHeader title="质量评分" />
+          <CardHeader>
+            <h3 className="text-lg font-semibold">质量评分</h3>
+          </CardHeader>
           <CardContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2">结构一致性 (要求 ≥90%)</Typography>
-                  <Typography variant="body2" fontWeight="bold">{((result.qualityScores?.structural || 0) * 100).toFixed(1)}%</Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
+            <div className="space-y-4">
+              <div>
+                <div className="flex justify-between mb-2">
+                  <p className="text-sm">结构一致性 (要求 ≥90%)</p>
+                  <p className="text-sm font-semibold">{((result.qualityScores?.structural || 0) * 100).toFixed(1)}%</p>
+                </div>
+                <Progress
                   value={parseFloat(((result.qualityScores?.structural || 0) * 100).toFixed(1))}
-                  color={(result.qualityScores?.structural || 0) >= 0.9 ? 'success' : 'error'}
+                  className={(result.qualityScores?.structural || 0) >= 0.9 ? '[&>div]:bg-green-500' : '[&>div]:bg-red-500'}
                 />
-              </Box>
+              </div>
 
-              <Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2">语义一致性 (要求 ≥80%)</Typography>
-                  <Typography variant="body2" fontWeight="bold">{((result.qualityScores?.semantic || 0) * 100).toFixed(1)}%</Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
+              <div>
+                <div className="flex justify-between mb-2">
+                  <p className="text-sm">语义一致性 (要求 ≥80%)</p>
+                  <p className="text-sm font-semibold">{((result.qualityScores?.semantic || 0) * 100).toFixed(1)}%</p>
+                </div>
+                <Progress
                   value={parseFloat(((result.qualityScores?.semantic || 0) * 100).toFixed(1))}
-                  color={(result.qualityScores?.semantic || 0) >= 0.8 ? 'success' : 'error'}
+                  className={(result.qualityScores?.semantic || 0) >= 0.8 ? '[&>div]:bg-green-500' : '[&>div]:bg-red-500'}
                 />
-              </Box>
+              </div>
 
-              <Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2">细节一致性 (要求 ≥60%)</Typography>
-                  <Typography variant="body2" fontWeight="bold">{((result.qualityScores?.detail || 0) * 100).toFixed(1)}%</Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
+              <div>
+                <div className="flex justify-between mb-2">
+                  <p className="text-sm">细节一致性 (要求 ≥60%)</p>
+                  <p className="text-sm font-semibold">{((result.qualityScores?.detail || 0) * 100).toFixed(1)}%</p>
+                </div>
+                <Progress
                   value={parseFloat(((result.qualityScores?.detail || 0) * 100).toFixed(1))}
-                  color={(result.qualityScores?.detail || 0) >= 0.6 ? 'success' : 'error'}
+                  className={(result.qualityScores?.detail || 0) >= 0.6 ? '[&>div]:bg-green-500' : '[&>div]:bg-red-500'}
                 />
-              </Box>
-            </Box>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
 
       {/* 综述内容卡片 */}
       <Card>
-        <CardHeader
-          title={summaryResult.title}
-          action={
-            result.reviewStatus === 'PENDING' && (
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button variant="contained" color="success" startIcon={<CheckCircleIcon />} onClick={handleApprove}>
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <h3 className="text-xl font-semibold">{summaryResult.title}</h3>
+            {result.reviewStatus === 'PENDING' && (
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleApprove}>
+                  <CheckCircle className="w-4 h-4 mr-2" />
                   批准
                 </Button>
-                <Button variant="outlined" color="error" startIcon={<CancelIcon />} onClick={handleReject}>
+                <Button size="sm" variant="outline" onClick={handleReject}>
+                  <XCircle className="w-4 h-4 mr-2" />
                   驳回
                 </Button>
-              </Box>
-            )
-          }
-        />
+              </div>
+            )}
+          </div>
+        </CardHeader>
         <CardContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div className="space-y-6">
             {/* 概述 */}
-            <Box>
-              <Typography variant="h6" gutterBottom color="primary.main">概述</Typography>
-              <Typography variant="body1">{summaryResult.overview}</Typography>
-            </Box>
+            <div>
+              <h4 className="text-lg font-semibold mb-2 text-blue-600 dark:text-blue-400">概述</h4>
+              <p>{summaryResult.overview}</p>
+            </div>
 
-            <Divider />
+            <div className="border-t border-gray-200 dark:border-gray-700" />
 
             {/* 关键领域 */}
-            <Box>
-              <Typography variant="h6" gutterBottom color="primary.main">关键领域</Typography>
-              {summaryResult.key_areas.map((area, index) => (
-                <Card key={index} variant="outlined" sx={{ mb: 2, bgcolor: 'grey.50' }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <Typography variant="subtitle1" fontWeight="bold">{area.name}</Typography>
-                      <Chip
-                        size="small"
-                        color={area.importance === 'HIGH' ? 'error' : area.importance === 'MEDIUM' ? 'warning' : 'info'}
-                        label={area.importance === 'HIGH' ? '高' : area.importance === 'MEDIUM' ? '中' : '低'}
-                      />
-                    </Box>
-                    <Typography variant="body2" color="text.secondary">{area.description}</Typography>
-                  </CardContent>
-                </Card>
-              ))}
-            </Box>
+            <div>
+              <h4 className="text-lg font-semibold mb-4 text-blue-600 dark:text-blue-400">关键领域</h4>
+              <div className="space-y-4">
+                {summaryResult.key_areas.map((area, index) => (
+                  <Card key={index} className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <p className="font-semibold">{area.name}</p>
+                        <Badge className={getImportanceColor(area.importance)} variant="outline">
+                          {area.importance === 'HIGH' ? '高' : area.importance === 'MEDIUM' ? '中' : '低'}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">{area.description}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
 
-            <Divider />
+            <div className="border-t border-gray-200 dark:border-gray-700" />
 
             {/* 适用范围 */}
-            <Box>
-              <Typography variant="h6" gutterBottom color="primary.main">适用范围</Typography>
-              <Typography variant="body1">{summaryResult.scope}</Typography>
-            </Box>
+            <div>
+              <h4 className="text-lg font-semibold mb-2 text-blue-600 dark:text-blue-400">适用范围</h4>
+              <p>{summaryResult.scope}</p>
+            </div>
 
-            <Divider />
+            <div className="border-t border-gray-200 dark:border-gray-700" />
 
             {/* 关键要求 */}
-            <Box>
-              <Typography variant="h6" gutterBottom color="primary.main">关键要求</Typography>
-              <List>
+            <div>
+              <h4 className="text-lg font-semibold mb-4 text-blue-600 dark:text-blue-400">关键要求</h4>
+              <ul className="space-y-2">
                 {summaryResult.key_requirements.map((req, index) => (
-                  <ListItem key={index} sx={{ py: 0.5 }}>
-                    <ListItemIcon sx={{ minWidth: 32 }}>
-                      <CheckCircleIcon color="success" fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText primary={req} />
-                  </ListItem>
+                  <li key={index} className="flex items-start gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span>{req}</span>
+                  </li>
                 ))}
-              </List>
-            </Box>
+              </ul>
+            </div>
 
-            <Divider />
+            <div className="border-t border-gray-200 dark:border-gray-700" />
 
             {/* 合规级别 */}
-            <Box>
-              <Typography variant="h6" gutterBottom color="primary.main">合规级别说明</Typography>
-              <Typography variant="body1">{summaryResult.compliance_level}</Typography>
-            </Box>
-          </Box>
+            <div>
+              <h4 className="text-lg font-semibold mb-2 text-blue-600 dark:text-blue-400">合规级别说明</h4>
+              <p>{summaryResult.compliance_level}</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
-    </Box>
+    </div>
   )
 }

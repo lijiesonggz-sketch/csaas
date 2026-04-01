@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import TaskStatusIndicator from '../TaskStatusIndicator'
 
 // Mock current StatusChip component
-jest.mock('@/components/ui/mui', () => ({
+jest.mock('@/components/ui/status-chip', () => ({
   StatusChip: ({ statusType, label, size }: any) => (
     <span data-testid="status-badge" data-status={statusType} data-size={size}>{label}</span>
   ),

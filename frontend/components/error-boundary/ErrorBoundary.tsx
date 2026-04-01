@@ -1,8 +1,9 @@
 'use client'
 
 import React from 'react'
-import { Box, Container, Typography, Button, Alert } from '@mui/material'
-import { ErrorOutline } from '@mui/icons-material'
+import { AlertCircle, RefreshCw } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 
 interface ErrorBoundaryState {
   hasError: boolean
@@ -41,35 +42,42 @@ export class ErrorBoundary extends React.Component<
       }
 
       return (
-        <Container maxWidth="md" sx={{ mt: 8 }}>
-          <Alert severity="error" sx={{ mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              组件加载失败
-            </Typography>
-            {this.state.error && (
-              <Typography variant="body2" color="text.secondary">
-                错误信息: {this.state.error.message}
-              </Typography>
-            )}
-          </Alert>
+        <div className="min-h-screen bg-[#FEFDFB] flex items-center justify-center p-4">
+          <div className="max-w-md w-full space-y-6">
+            <Alert variant="destructive" className="border-[#FECACA] bg-[#FEF2F2]">
+              <AlertCircle className="h-4 w-4 text-[#DC2626]" />
+              <AlertTitle className="text-[#991B1B] font-semibold">
+                组件加载失败
+              </AlertTitle>
+              {this.state.error && (
+                <AlertDescription className="text-[#7F1D1D] mt-2">
+                  错误信息: {this.state.error.message}
+                </AlertDescription>
+              )}
+            </Alert>
 
-          <Box sx={{ textAlign: 'center', mt: 4 }}>
-            <ErrorOutline sx={{ fontSize: 60, color: 'error.main', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              哎呀，出错了
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              页面加载时遇到了问题，请刷新页面重试
-            </Typography>
-            <Button
-              variant="contained"
-              onClick={() => window.location.reload()}
-              color="primary"
-            >
-              刷新页面
-            </Button>
-          </Box>
-        </Container>
+            <div className="text-center space-y-4">
+              <div className="flex justify-center">
+                <div className="h-16 w-16 rounded-full bg-[#FEF2F2] flex items-center justify-center">
+                  <AlertCircle className="h-10 w-10 text-[#DC2626]" />
+                </div>
+              </div>
+              <h2 className="text-xl font-semibold text-[#1E3A5F]">
+                哎呀，出错了
+              </h2>
+              <p className="text-sm text-[#64748B]">
+                页面加载时遇到了问题，请刷新页面重试
+              </p>
+              <Button
+                onClick={() => window.location.reload()}
+                className="bg-[#1E3A5F] hover:bg-[#1E3A5F]/90 text-white"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                刷新页面
+              </Button>
+            </div>
+          </div>
+        </div>
       )
     }
 

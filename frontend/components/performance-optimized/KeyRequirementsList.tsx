@@ -7,27 +7,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useMemo, useCallback, useState } from 'react'
-import {
-  List,
-  ListItem,
-  Card,
-  CardContent,
-  Chip,
-  IconButton,
-  Collapse,
-  Grid,
-  Typography,
-  Box,
-  Divider,
-  Pagination,
-} from '@mui/material'
-import {
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-  MenuBook as MenuBookIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-} from '@mui/icons-material'
+import { CheckCircle, XCircle, BookOpen, ChevronDown, ChevronUp } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
 interface KeyRequirement {
   clause_id: string
@@ -97,12 +80,12 @@ const RequirementDetail = React.memo<{
   }, [item.compliance_criteria])
 
   const getPriorityColor = useCallback((priority: string) => {
-    const colors: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
-      HIGH: 'error',
-      MEDIUM: 'warning',
-      LOW: 'info',
+    const colors: Record<string, string> = {
+      HIGH: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700',
+      MEDIUM: 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700',
+      LOW: 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700',
     }
-    return colors[priority] || 'default'
+    return colors[priority] || 'bg-gray-100 text-gray-700 border-gray-300'
   }, [])
 
   const hasInterpretation = useMemo(() => {
@@ -116,109 +99,99 @@ const RequirementDetail = React.memo<{
   }, [item.interpretation])
 
   return (
-    <ListItem sx={{ width: '100%', px: 0 }}>
-      <Card sx={{ width: '100%' }} variant="outlined">
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <Chip color={getPriorityColor(item.priority)} label={item.clause_id} size="small" />
-              <Typography variant="body1">{item.clause_text}</Typography>
+    <li className="w-full px-0 list-none">
+      <Card className="w-full border border-gray-200 dark:border-gray-700">
+        <CardContent className="p-4">
+          <div className="flex justify-between items-center flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge className={getPriorityColor(item.priority)} variant="outline">{item.clause_id}</Badge>
+              <p className="text-sm">{item.clause_text}</p>
               {hasInterpretation && (
-                <Chip
-                  color="success"
-                  icon={<CheckCircleIcon />}
-                  label="已解读"
-                  size="small"
-                />
+                <Badge
+                  className="bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400"
+                  variant="outline"
+                >
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  已解读
+                </Badge>
               )}
-            </Box>
-            <IconButton
-              size="small"
+            </div>
+            <Button
+              size="sm"
+              variant="ghost"
               onClick={(e) => {
                 e.stopPropagation()
                 setExpanded(!expanded)
               }}
             >
-              {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </IconButton>
-          </Box>
+              {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </Button>
+          </div>
 
-          <Collapse in={expanded}>
-            <Box sx={{ mt: 2 }}>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+          {expanded && (
+            <div className="mt-4 space-y-4">
+              <div>
+                <p className="text-sm mb-2 font-semibold">
                   解读：
-                </Typography>
-                <Box
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    backgroundColor: hasInterpretation ? '#f6ffed' : '#fff2e8',
-                    padding: '8px',
-                    borderRadius: '4px',
-                  }}
+                </p>
+                <div
+                  className="whitespace-pre-wrap break-words bg-gray-50 dark:bg-gray-800 p-2 rounded-sm border border-gray-200 dark:border-gray-700"
                 >
                   {interpretationText || '暂无解读'}
-                </Box>
-              </Box>
+                </div>
+              </div>
 
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+              <div>
+                <p className="text-sm mb-2 font-semibold">
                   合规标准：
-                </Typography>
-                <Box
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    fontSize: '13px',
-                  }}
-                >
+                </p>
+                <div className="whitespace-pre-wrap break-words text-sm">
                   {criteriaText || '无'}
-                </Box>
-              </Box>
+                </div>
+              </div>
 
-              <Grid container spacing={2}>
+              <div className="flex flex-wrap gap-2">
                 {item.estimated_effort && (
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <Chip color="info" label={`预估工期：${item.estimated_effort}`} size="small" />
-                  </Grid>
+                  <Badge className="bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700" variant="outline">
+                    预估工期：{item.estimated_effort}
+                  </Badge>
                 )}
                 {item.dependencies && item.dependencies.length > 0 && (
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <Chip color="warning" label={`依赖：${item.dependencies.join(', ')}`} size="small" />
-                  </Grid>
+                  <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700" variant="outline">
+                    依赖：{item.dependencies.join(', ')}
+                  </Badge>
                 )}
-              </Grid>
+              </div>
 
               {item.best_practices && item.best_practices.length > 0 && (
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                <div>
+                  <p className="text-sm mb-2 font-semibold">
                     最佳实践：
-                  </Typography>
-                  <ul style={{ marginBottom: 0 }}>
+                  </p>
+                  <ul className="mb-0 pl-4 space-y-1">
                     {item.best_practices.map((practice, idx) => (
                       <li key={idx}>{practice}</li>
                     ))}
                   </ul>
-                </Box>
+                </div>
               )}
               {item.common_mistakes && item.common_mistakes.length > 0 && (
-                <Box sx={{ mt: 2 }}>
-                  <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
+                <div>
+                  <p className="text-sm mb-2 font-semibold">
                     常见错误：
-                  </Typography>
-                  <ul style={{ marginBottom: 0 }}>
+                  </p>
+                  <ul className="mb-0 pl-4 space-y-1">
                     {item.common_mistakes.map((mistake, idx) => (
-                      <li key={idx} style={{ color: '#d32f2f' }}>{mistake}</li>
+                      <li key={idx} className="text-red-600 dark:text-red-400">{mistake}</li>
                     ))}
                   </ul>
-                </Box>
+                </div>
               )}
-            </Box>
-          </Collapse>
+            </div>
+          )}
         </CardContent>
       </Card>
-    </ListItem>
+    </li>
   )
 })
 
@@ -254,7 +227,7 @@ export const KeyRequirementsList = React.memo<KeyRequirementsListProps>(({
     return requirements.slice(start, end)
   }, [requirements, currentPage, pageSize])
 
-  const handlePageChange = useCallback((_: React.ChangeEvent<unknown>, page: number) => {
+  const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page)
     // 滚动到顶部
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -262,98 +235,108 @@ export const KeyRequirementsList = React.memo<KeyRequirementsListProps>(({
 
   const completionRate = stats.total > 0 ? ((stats.interpreted / stats.total) * 100).toFixed(1) : '0.0'
 
-  return (
-    <Box>
-      {/* 统计信息 */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <MenuBookIcon color="action" />
-                <Box>
-                  <Typography variant="body2" color="text.secondary">总条款数</Typography>
-                  <Typography variant="h5">{stats.total}</Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CheckCircleIcon color="success" />
-                <Box>
-                  <Typography variant="body2" color="text.secondary">已解读</Typography>
-                  <Typography variant="h5" color="success.main">{stats.interpreted}</Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CancelIcon color="error" />
-                <Box>
-                  <Typography variant="body2" color="text.secondary">未解读</Typography>
-                  <Typography variant="h5" color="error.main">{stats.notInterpreted}</Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">完成率</Typography>
-                  <Typography
-                    variant="h5"
-                    color={
-                      stats.interpreted / stats.total >= 0.8
-                        ? 'success.main'
-                        : stats.interpreted / stats.total >= 0.5
-                          ? 'warning.main'
-                          : 'error.main'
-                    }
-                  >
-                    {completionRate}%
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+  const pageCount = Math.ceil(requirements.length / pageSize)
 
-      <Divider sx={{ my: 2 }} />
+  return (
+    <div>
+      {/* 统计信息 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-gray-500" />
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">总条款数</p>
+                <p className="text-2xl font-semibold">{stats.total}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">已解读</p>
+                <p className="text-2xl font-semibold text-green-600 dark:text-green-400">{stats.interpreted}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-red-500" />
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">未解读</p>
+                <p className="text-2xl font-semibold text-red-600 dark:text-red-400">{stats.notInterpreted}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">完成率</p>
+                <p
+                  className="text-2xl font-semibold"
+                  style={{
+                    color:
+                      stats.interpreted / stats.total >= 0.8
+                        ? '#059669'
+                        : stats.interpreted / stats.total >= 0.5
+                          ? '#eab308'
+                          : '#dc2626'
+                  }}
+                >
+                  {completionRate}%
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="my-4 border-t border-gray-200 dark:border-gray-700" />
 
       {/* 分页列表 */}
-      <List>
+      <ul className="space-y-4">
         {paginatedData.map((item) => (
           <RequirementDetail
             key={item.clause_id}
             item={item}
           />
         ))}
-      </List>
+      </ul>
 
       {/* 分页 */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-        <Pagination
-          count={Math.ceil(requirements.length / pageSize)}
-          page={currentPage}
-          onChange={handlePageChange}
-          color="primary"
-          showFirstButton
-          showLastButton
-        />
-      </Box>
-    </Box>
+      {pageCount > 1 && (
+        <div className="flex justify-center items-center gap-2 mt-6">
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-sm"
+            disabled={currentPage <= 1}
+            onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+          >
+            上一页
+          </Button>
+          <span className="text-sm text-[#64748B]">
+            {currentPage} / {pageCount}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-sm"
+            disabled={currentPage >= pageCount}
+            onClick={() => handlePageChange(Math.min(pageCount, currentPage + 1))}
+          >
+            下一页
+          </Button>
+        </div>
+      )}
+    </div>
   )
 })
 

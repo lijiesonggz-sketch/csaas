@@ -3,30 +3,27 @@
 import React, { useState } from 'react'
 import { Project } from '@/lib/api/projects'
 import {
-  ViewKanban,
-  Business,
-  VerifiedUser,
+  LayoutDashboard,
+  Building2,
+  ShieldCheck,
   TrendingUp,
-  CalendarToday,
-  Delete,
-} from '@mui/icons-material'
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  Button,
-  Box,
-  Typography,
-  IconButton,
-  LinearProgress,
-} from '@mui/material'
+  Calendar,
+  Trash2,
+} from 'lucide-react'
 import { apiFetch } from '@/lib/utils/api'
 import { message } from '@/lib/message'
 import { formatChinaDate } from '@/lib/utils/dateTime'
-import ContentCard from '@/components/ui/mui/ContentCard'
-import StatusChip from '@/components/ui/mui/StatusChip'
+import { ContentCard } from '@/components/ui/content-card'
+import { StatusChip } from '@/components/ui/status-chip'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface ProjectCardProps {
   project: Project
@@ -80,182 +77,129 @@ export default function ProjectCard({ project, onClick, onDelete }: ProjectCardP
   return (
     <>
       <ContentCard
-        sx={{
-          cursor: 'pointer',
-          height: '100%',
-          minHeight: '320px',
-          display: 'flex',
-          flexDirection: 'column',
-          transition: 'all 0.2s ease-in-out',
-          '&:hover': {
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-            transform: 'translateY(-2px)',
-          },
-        }}
+        padding="none"
+        hover
+        className="cursor-pointer min-h-[320px] flex flex-col transition-all duration-200 hover:-translate-y-0.5"
         onClick={handleCardClick}
         role="button"
         aria-label={`项目: ${project.name}`}
       >
         {/* 顶部渐变彩色条 */}
-        <Box
-          sx={{
-            height: '6px',
-            width: '100%',
-            background: 'linear-gradient(90deg, #6366f1 0%, #a855f7 100%)',
-          }}
-        />
+        <div className="h-1.5 w-full bg-gradient-to-r from-[#6366f1] to-[#a855f7]" />
 
-        <Box sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div className="p-4 flex-1 flex flex-col">
           {/* 头部：标题 + 状态 + 删除按钮 */}
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, minWidth: 0 }}>
-              <Box
-                sx={{
-                  p: 1.5,
-                  borderRadius: 1.5,
-                  background: 'linear-gradient(135deg, #eef2ff 0%, #ddd6fe 100%)',
-                }}
-              >
-                <ViewKanban sx={{ fontSize: 20, color: '#6366f1' }} />
-              </Box>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 600,
-                  color: 'text.primary',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-[#eef2ff] to-[#ddd6fe]">
+                <LayoutDashboard className="h-5 w-5 text-[#6366f1]" />
+              </div>
+              <h3 className="font-semibold text-[#1E3A5F] truncate text-base">
                 {project.name}
-              </Typography>
-            </Box>
+              </h3>
+            </div>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <div className="flex items-center gap-2">
               <StatusChip statusType={statusConfig.status} label={statusConfig.text} size="small" />
 
-              <IconButton
+              <button
                 data-delete-button="true"
-                sx={{ color: 'text.secondary' }}
+                className="text-[#64748B] hover:text-[#DC2626] transition-colors p-1 rounded-sm hover:bg-[#FEE2E2]"
                 title="删除项目"
                 onClick={() => setDeleteDialogOpen(true)}
               >
-                <Delete sx={{ fontSize: 18 }} />
-              </IconButton>
-            </Box>
-          </Box>
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
 
           {/* 描述 */}
-          <Typography
-            variant="body2"
-            sx={{
-              color: 'text.secondary',
-              mb: 3,
-              height: '40px',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-            }}
-          >
+          <p className="text-sm text-[#64748B] mb-4 h-10 line-clamp-2">
             {project.description || '\u00A0'}
-          </Typography>
+          </p>
 
           {/* 信息列表 */}
-          <Box sx={{ mb: 3, flex: 1 }}>
+          <div className="mb-4 flex-1 space-y-2">
             {project.clientName && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <Business sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: 'text.secondary',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-[#64748B] flex-shrink-0" />
+                <p className="text-sm text-[#64748B] truncate">
                   {project.clientName}
-                </Typography>
-              </Box>
+                </p>
+              </div>
             )}
 
             {project.standardName && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <VerifiedUser sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: 'text.secondary',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-[#64748B] flex-shrink-0" />
+                <p className="text-sm text-[#64748B] truncate">
                   {project.standardName}
-                </Typography>
-              </Box>
+                </p>
+              </div>
             )}
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <TrendingUp sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  进度
-                </Typography>
-                <Box sx={{ flex: 1, maxWidth: '120px', height: '8px', bgcolor: '#e5e7eb', borderRadius: 1, overflow: 'hidden' }}>
-                  <Box
-                    sx={{
-                      height: '100%',
-                      background: 'linear-gradient(90deg, #6366f1 0%, #a855f7 100%)',
-                      transition: 'all 0.5s ease',
-                      width: `${project.progress}%`,
-                    }}
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-[#64748B] flex-shrink-0" />
+              <div className="flex items-center gap-2 flex-1">
+                <span className="text-sm text-[#64748B]">进度</span>
+                <div className="flex-1 max-w-[120px] h-2 bg-[#E5E7EB] rounded-sm overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-[#6366f1] to-[#a855f7] transition-all duration-500"
+                    style={{ width: `${project.progress}%` }}
                   />
-                </Box>
-                <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 500, ml: 0.5 }}>
+                </div>
+                <span className="text-xs font-medium text-[#1E3A5F]">
                   {project.progress}%
-                </Typography>
-              </Box>
-            </Box>
+                </span>
+              </div>
+            </div>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <CalendarToday sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0 }} />
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-[#64748B] flex-shrink-0" />
+              <span className="text-xs text-[#64748B]">
                 {formatChinaDate(project.createdAt)}
-              </Typography>
-            </Box>
-          </Box>
+              </span>
+            </div>
+          </div>
 
           {/* 底部：操作提示 */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 2, borderTop: '1px solid #e5e7eb' }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          <div className="flex items-center justify-between pt-3 border-t border-[#E5E7EB]">
+            <span className="text-xs text-[#64748B]">
               点击查看详情
-            </Typography>
-          </Box>
-        </Box>
+            </span>
+          </div>
+        </div>
       </ContentCard>
 
       {/* 删除确认对话框 */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-      >
-        <DialogTitle>删除项目</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            确定要删除这个项目吗？删除后无法恢复。
-          </DialogContentText>
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-[#1E3A5F]">
+              删除项目
+            </DialogTitle>
+            <DialogDescription className="text-sm text-[#64748B]">
+              确定要删除这个项目吗？删除后无法恢复。
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleting}
+              className="border-[#E2E8F0] text-[#64748B] hover:bg-[#F1F5F9]"
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-[#DC2626] hover:bg-[#B91C1C] text-white"
+            >
+              {deleting ? '删除中...' : '确定'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
-            取消
-          </Button>
-          <Button onClick={handleDelete} color="error" disabled={deleting}>
-            {deleting ? '删除中...' : '确定'}
-          </Button>
-        </DialogActions>
       </Dialog>
     </>
   )

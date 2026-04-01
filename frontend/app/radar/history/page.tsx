@@ -4,32 +4,29 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Button,
-  Chip,
-  CircularProgress,
-  Alert,
-  Grid,
-} from '@mui/material'
-import { DatePicker } from '@mui/x-date-pickers/DatePicker'
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
-import dayjs, { Dayjs } from 'dayjs'
-import relativeTime from 'dayjs/plugin/relativeTime'
-import 'dayjs/locale/zh-cn'
-import {
   getPushHistory,
   markPushHistoryAsRead,
   PushHistoryItem,
   PushHistoryResponse,
 } from '@/lib/api/radar'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Loader2, TrendingUp, Building2, AlertTriangle } from 'lucide-react'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+import 'dayjs/locale/zh-cn'
+import { cn } from '@/lib/utils'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import PushDetailModal from './components/PushDetailModal'
 
 // 配置 dayjs
@@ -60,8 +57,8 @@ export default function PushHistoryPage() {
   const [radarType, setRadarType] = useState<string>('all')
   const [timeRange, setTimeRange] = useState<string>('30d')
   const [relevance, setRelevance] = useState<string>('all')
-  const [startDate, setStartDate] = useState<Dayjs | null>(null)
-  const [endDate, setEndDate] = useState<Dayjs | null>(null)
+  const [startDate, setStartDate] = useState<string>('')
+  const [endDate, setEndDate] = useState<string>('')
 
   // 详情弹窗
   const [selectedPush, setSelectedPush] = useState<PushHistoryItem | null>(null)
@@ -85,8 +82,8 @@ export default function PushHistoryPage() {
       filters.radarType = radarType as PushHistoryFilters['radarType']
     }
     if (timeRange === 'custom' && startDate && endDate) {
-      filters.startDate = startDate.toISOString()
-      filters.endDate = endDate.toISOString()
+      filters.startDate = new Date(startDate).toISOString()
+      filters.endDate = new Date(endDate).toISOString()
     } else if (timeRange !== 'all') {
       filters.timeRange = timeRange as PushHistoryFilters['timeRange']
     }
@@ -240,8 +237,8 @@ export default function PushHistoryPage() {
     setRadarType('all')
     setTimeRange('30d')
     setRelevance('all')
-    setStartDate(null)
-    setEndDate(null)
+    setStartDate('')
+    setEndDate('')
   }
 
   /**
@@ -250,13 +247,13 @@ export default function PushHistoryPage() {
   const getRadarTypeColor = (type: string) => {
     switch (type) {
       case 'tech':
-        return 'primary'
+        return 'bg-blue-600'
       case 'industry':
-        return 'success'
+        return 'bg-green-600'
       case 'compliance':
-        return 'warning'
+        return 'bg-orange-600'
       default:
-        return 'default'
+        return 'bg-gray-600'
     }
   }
 
@@ -273,6 +270,22 @@ export default function PushHistoryPage() {
         return '合规雷达'
       default:
         return type
+    }
+  }
+
+  /**
+   * 获取雷达类型图标
+   */
+  const getRadarTypeIcon = (type: string) => {
+    switch (type) {
+      case 'tech':
+        return TrendingUp
+      case 'industry':
+        return Building2
+      case 'compliance':
+        return AlertTriangle
+      default:
+        return TrendingUp
     }
   }
 
@@ -327,199 +340,204 @@ export default function PushHistoryPage() {
   }
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="zh-cn">
-      <Box sx={{ p: 3 }}>
+    <div className="min-h-screen bg-[#FEFDFB] p-6">
+      <div className="max-w-5xl mx-auto">
         {/* 页面标题 */}
-        <Typography variant="h4" gutterBottom>
+        <h1 className="text-3xl font-bold font-[var(--font-plus-jakarta)] text-[#1E3A5F] mb-6">
           推送历史
-        </Typography>
+        </h1>
 
         {/* 筛选器区域 */}
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Grid container spacing={2} alignItems="center">
+        <Card className="border border-[#E2E8F0] rounded-sm shadow-sm mb-6">
+          <div className="p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
               {/* 雷达类型筛选 */}
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>雷达类型</InputLabel>
-                  <Select
-                    value={radarType}
-                    label="雷达类型"
-                    onChange={(e) => setRadarType(e.target.value)}
-                  >
-                    <MenuItem value="all">全部</MenuItem>
-                    <MenuItem value="tech">技术雷达</MenuItem>
-                    <MenuItem value="industry">行业雷达</MenuItem>
-                    <MenuItem value="compliance">合规雷达</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
+              <div className="space-y-2">
+                <Label htmlFor="radar-type">雷达类型</Label>
+                <Select
+                  value={radarType}
+                  onValueChange={setRadarType}
+                >
+                  <SelectTrigger className="rounded-sm border-[#E2E8F0]">
+                    <SelectValue placeholder="全部" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部</SelectItem>
+                    <SelectItem value="tech">技术雷达</SelectItem>
+                    <SelectItem value="industry">行业雷达</SelectItem>
+                    <SelectItem value="compliance">合规雷达</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* 时间范围筛选 */}
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>时间范围</InputLabel>
-                  <Select
-                    value={timeRange}
-                    label="时间范围"
-                    onChange={(e) => setTimeRange(e.target.value)}
-                  >
-                    <MenuItem value="7d">最近7天</MenuItem>
-                    <MenuItem value="30d">最近30天</MenuItem>
-                    <MenuItem value="90d">最近90天</MenuItem>
-                    <MenuItem value="all">全部</MenuItem>
-                    <MenuItem value="custom">自定义</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
+              <div className="space-y-2">
+                <Label htmlFor="time-range">时间范围</Label>
+                <Select
+                  value={timeRange}
+                  onValueChange={setTimeRange}
+                >
+                  <SelectTrigger className="rounded-sm border-[#E2E8F0]">
+                    <SelectValue placeholder="最近30天" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7d">最近7天</SelectItem>
+                    <SelectItem value="30d">最近30天</SelectItem>
+                    <SelectItem value="90d">最近90天</SelectItem>
+                    <SelectItem value="all">全部</SelectItem>
+                    <SelectItem value="custom">自定义</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* 自定义日期范围 */}
               {timeRange === 'custom' && (
                 <>
-                  <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-                    <DatePicker
-                      label="开始日期"
+                  <div className="space-y-2">
+                    <Label htmlFor="start-date">开始日期</Label>
+                    <Input
+                      id="start-date"
+                      type="date"
                       value={startDate}
-                      onChange={(newValue) => setStartDate(newValue)}
-                      slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="rounded-sm border-[#E2E8F0]"
                     />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-                    <DatePicker
-                      label="结束日期"
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="end-date">结束日期</Label>
+                    <Input
+                      id="end-date"
+                      type="date"
                       value={endDate}
-                      onChange={(newValue) => setEndDate(newValue)}
-                      slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="rounded-sm border-[#E2E8F0]"
                     />
-                  </Grid>
+                  </div>
                 </>
               )}
 
               {/* 相关性筛选 */}
-              <Grid size={{ xs: 12, sm: 6, md: timeRange === 'custom' ? 2 : 3 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>相关性</InputLabel>
-                  <Select
-                    value={relevance}
-                    label="相关性"
-                    onChange={(e) => setRelevance(e.target.value)}
-                  >
-                    <MenuItem value="all">全部</MenuItem>
-                    <MenuItem value="high">高相关</MenuItem>
-                    <MenuItem value="medium">中相关</MenuItem>
-                    <MenuItem value="low">低相关</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
+              <div className={cn(
+                "space-y-2",
+                timeRange === 'custom' ? '' : 'lg:col-span-2'
+              )}>
+                <Label htmlFor="relevance">相关性</Label>
+                <Select
+                  value={relevance}
+                  onValueChange={setRelevance}
+                >
+                  <SelectTrigger className="rounded-sm border-[#E2E8F0]">
+                    <SelectValue placeholder="全部" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部</SelectItem>
+                    <SelectItem value="high">高相关</SelectItem>
+                    <SelectItem value="medium">中相关</SelectItem>
+                    <SelectItem value="low">低相关</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
               {/* 重置按钮 */}
-              <Grid size={{ xs: 12, sm: 6, md: timeRange === 'custom' ? 2 : 3 }}>
-                <Button variant="outlined" fullWidth onClick={handleResetFilters}>
+              <div className={timeRange === 'custom' ? '' : 'lg:col-span-4'}>
+                <Button
+                  variant="outline"
+                  className="rounded-sm w-full"
+                  onClick={handleResetFilters}
+                >
                   重置筛选
                 </Button>
-              </Grid>
-            </Grid>
-          </CardContent>
+              </div>
+            </div>
+          </div>
         </Card>
 
         {/* 错误提示 */}
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-            {error}
+          <Alert variant="destructive" className="mb-6 rounded-sm">
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
         {/* 加载状态 */}
         {loading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
-          </Box>
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-8 h-8 text-[#1E3A5F] animate-spin" />
+          </div>
         )}
 
         {/* 推送列表 */}
         {!loading && pushHistory.length === 0 && (
-          <Alert severity="info">暂无推送历史</Alert>
+          <Alert className="rounded-sm">
+            <AlertDescription>暂无推送历史</AlertDescription>
+          </Alert>
         )}
 
         {!loading && pushHistory.length > 0 && (
           <>
-            <Grid container spacing={2}>
-              {pushHistory.map((push) => (
-                <Grid size={{ xs: 12 }} key={push.id}>
+            <div className="space-y-4">
+              {pushHistory.map((push) => {
+                const IconComponent = getRadarTypeIcon(push.radarType)
+                return (
                   <Card
-                    sx={{
-                      borderLeft: push.isRead ? 'none' : '4px solid #1976d2',
-                      cursor: 'pointer',
-                      '&:hover': {
-                        boxShadow: 3,
-                      },
-                    }}
+                    key={push.id}
+                    className={cn(
+                      "border border-[#E2E8F0] rounded-sm shadow-sm cursor-pointer transition-shadow hover:shadow-md",
+                      !push.isRead && "border-l-4 border-l-[#1E3A5F]"
+                    )}
                     onClick={() => handleViewDetail(push)}
                   >
-                    <CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                          <Chip
-                            label={getRadarTypeLabel(push.radarType)}
-                            color={getRadarTypeColor(push.radarType)}
-                            size="small"
-                          />
-                          <Typography variant="body2" color="text.secondary">
+                    <div className="p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="flex gap-2 items-center">
+                          <Badge className={cn("rounded-sm", getRadarTypeColor(push.radarType))}>
+                            <IconComponent className="w-3 h-3 mr-1" />
+                            {getRadarTypeLabel(push.radarType)}
+                          </Badge>
+                          <span className="text-sm text-[#94A3B8]">
                             {getRelevanceIcon(push.relevanceLevel)}{' '}
                             {getRelevanceLabel(push.relevanceLevel)}
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                          <Typography variant="body2" color="text.secondary">
+                          </span>
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <span className="text-sm text-[#94A3B8]">
                             {formatRelativeTime(push.sentAt)}
-                          </Typography>
+                          </span>
                           {push.isRead && (
-                            <Chip label="已读" size="small" variant="outlined" />
+                            <Badge variant="outline" className="rounded-sm">已读</Badge>
                           )}
-                        </Box>
-                      </Box>
+                        </div>
+                      </div>
 
-                      <Typography variant="h6" gutterBottom>
+                      <h3 className="text-lg font-semibold text-[#1E3A5F] mb-2">
                         {push.title}
-                      </Typography>
+                      </h3>
 
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        sx={{
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                        }}
-                      >
+                      <p className="text-sm text-[#94A3B8] line-clamp-2">
                         {push.summary}
-                      </Typography>
+                      </p>
 
                       {/* 行业雷达：显示匹配的同业机构 */}
                       {push.radarType === 'industry' && push.matchedPeers && push.matchedPeers.length > 0 && (
-                        <Box sx={{ mt: 1 }}>
-                          <Typography variant="caption" color="text.secondary">
+                        <div className="mt-2">
+                          <p className="text-xs text-[#94A3B8]">
                             与您关注的 {push.matchedPeers.join('、')} 相关
-                          </Typography>
-                        </Box>
+                          </p>
+                        </div>
                       )}
-                    </CardContent>
+                    </div>
                   </Card>
-                </Grid>
-              ))}
-            </Grid>
+                )
+              })}
+            </div>
 
             {/* HIGH-3 修复: 无限滚动加载指示器 */}
-            <Box ref={observerTarget} sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 2 }}>
-              {loadingMore && <CircularProgress size={24} />}
+            <div ref={observerTarget} className="flex justify-center mt-6 mb-4">
+              {loadingMore && <Loader2 className="w-6 h-6 text-[#1E3A5F] animate-spin" />}
               {!hasMore && pushHistory.length > 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  没有更多推送了
-                </Typography>
+                <p className="text-sm text-[#94A3B8]">没有更多推送了</p>
               )}
-            </Box>
+            </div>
           </>
         )}
 
@@ -530,7 +548,7 @@ export default function PushHistoryPage() {
           onClose={handleCloseDetail}
           onMarkAsRead={handleMarkAsRead}
         />
-      </Box>
-    </LocalizationProvider>
+      </div>
+    </div>
   )
 }

@@ -14,8 +14,8 @@ test.describe('AI Generation Migration', () => {
   test.beforeEach(async ({ page }) => {
     // GIVEN: User is logged in
     await page.goto('/login')
-    await page.getByRole('textbox', { name: /email/i }).fill('test@example.com')
-    await page.getByRole('textbox', { name: /password/i }).fill('password123')
+    await page.getByRole('textbox', { name: /email/i }).fill('admin@test.com')
+    await page.getByRole('textbox', { name: /password/i }).fill('admin123')
     await page.getByRole('button', { name: /登录|login/i }).click()
     await page.waitForURL('**/dashboard')
   })

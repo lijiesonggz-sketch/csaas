@@ -102,14 +102,14 @@ test.describe('[P0] 推送历史查看 - 需要登录', () => {
     // 方式1：通过 UI 登录
     await page.goto('/login')
     // 根据实际的登录页面调整选择器
-    await page.fill('input[name="email"]', 'test@example.com')
-    await page.fill('input[type="password"]', 'password')
+    await page.fill('input[name="email"]', 'admin@test.com')
+    await page.fill('input[type="password"]', 'admin123')
     await page.click('button[type="submit"]')
     await page.waitForURL('/dashboard')
 
     // 方式2：通过 API 登录（更快）
     // const response = await page.request.post('/api/auth/login', {
-    //   data: { email: 'test@example.com', password: 'password' }
+    //   data: { email: 'admin@test.com', password: 'admin123' }
     // })
     // const { token } = await response.json()
     // await page.evaluate((token) => {

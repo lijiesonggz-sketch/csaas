@@ -32,7 +32,7 @@ import { CostBreakdownChart } from '@/components/admin/CostBreakdownChart';
 import { HighCostClientList } from '@/components/admin/HighCostClientList';
 import { OptimizationSuggestionsList } from '@/components/admin/OptimizationSuggestionsList';
 import { BatchOptimizeDialog } from '@/components/admin/BatchOptimizeDialog';
-import { ArrowPathIcon, ArrowDownTrayIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { RefreshCw, Download, ArrowLeft } from 'lucide-react';
 import { formatChinaDate } from '@/lib/utils/dateTime';
 
 export default function CostOptimizationPage() {
@@ -219,7 +219,7 @@ export default function CostOptimizationPage() {
   if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1E3A5F]"></div>
       </div>
     );
   }
@@ -231,7 +231,7 @@ export default function CostOptimizationPage() {
           <p className="text-red-600 mb-4">{error}</p>
           <button
             onClick={handleRefresh}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="px-4 py-2 bg-[#1E3A5F] text-white rounded hover:bg-[#1E3A5F]/80"
           >
             重试
           </button>
@@ -241,15 +241,15 @@ export default function CostOptimizationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-[#FEFDFB] p-6">
       <div className="max-w-7xl mx-auto">
         {/* Back Button */}
         <div className="mb-4">
           <button
             onClick={handleBack}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+            className="flex items-center space-x-2 text-[#94A3B8] hover:text-[#1E3A5F] transition-colors"
           >
-            <ArrowLeftIcon className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5" />
             <span>返回仪表板</span>
           </button>
         </div>
@@ -258,8 +258,8 @@ export default function CostOptimizationPage() {
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">AI成本优化</h1>
-              <p className="mt-1 text-sm text-gray-600">
+              <h1 className="text-3xl font-bold text-[#1E3A5F]">AI成本优化</h1>
+              <p className="mt-1 text-sm text-[#94A3B8]">
                 监控AI使用成本并获取优化建议
               </p>
             </div>
@@ -268,7 +268,7 @@ export default function CostOptimizationPage() {
               {selectedOrganizations.length > 0 && (
                 <button
                   onClick={() => setShowBatchDialog(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-4 py-2 bg-[#1E3A5F] text-white rounded-sm hover:bg-[#1E3A5F]/80"
                 >
                   批量优化 ({selectedOrganizations.length})
                 </button>
@@ -276,18 +276,18 @@ export default function CostOptimizationPage() {
 
               <button
                 onClick={() => handleExportReport('csv')}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="flex items-center space-x-2 px-4 py-2 bg-white border border-[#E2E8F0] rounded-sm hover:bg-[#FEFDFB]"
               >
-                <ArrowDownTrayIcon className="h-5 w-5" />
+                <Download className="h-5 w-5" />
                 <span>导出报告</span>
               </button>
 
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                className="flex items-center space-x-2 px-4 py-2 bg-white border border-[#E2E8F0] rounded-sm hover:bg-[#FEFDFB] disabled:opacity-50"
               >
-                <ArrowPathIcon className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
                 <span>{refreshing ? '刷新中...' : '刷新'}</span>
               </button>
             </div>

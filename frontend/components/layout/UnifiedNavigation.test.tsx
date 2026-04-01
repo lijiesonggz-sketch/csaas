@@ -1,7 +1,5 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ThemeProvider } from '@mui/material/styles'
-import { createTheme, Theme } from '@mui/material/styles'
 import UnifiedNavigation from './UnifiedNavigation'
 
 // Mock Next.js router
@@ -19,19 +17,9 @@ jest.mock('next/navigation', () => ({
 }))
 
 describe('UnifiedNavigation Component', () => {
-  const theme: Theme = createTheme()
-
-  const renderWithProviders = (component: React.ReactElement, orgId?: string) => {
-    return render(
-      <ThemeProvider theme={theme}>
-        {component}
-      </ThemeProvider>,
-    )
-  }
-
   describe('AC 7: 统一顶部导航', () => {
     it('should render all 4 navigation items', () => {
-      renderWithProviders(<UnifiedNavigation />)
+      render(<UnifiedNavigation />)
 
       expect(screen.getByText('Dashboard')).toBeInTheDocument()
       expect(screen.getByText('标准评估')).toBeInTheDocument()
@@ -40,10 +28,11 @@ describe('UnifiedNavigation Component', () => {
     })
 
     it('should activate Dashboard tab when at root path', () => {
-      renderWithProviders(<UnifiedNavigation />)
+      render(<UnifiedNavigation />)
 
-      const dashboardTab = screen.getByRole('tab', { name: /Dashboard/i })
-      expect(dashboardTab).toHaveClass('Mui-selected')
+      const dashboardTab = screen.getByRole('button', { name: /Dashboard/i })
+      expect(dashboardTab).toHaveClass('text-[#059669]')
+      expect(dashboardTab).toHaveClass('border-[#059669]')
     })
 
     it('should activate Radar Service tab when at /radar path', () => {
@@ -51,12 +40,12 @@ describe('UnifiedNavigation Component', () => {
       const { usePathname } = require('next/navigation')
       usePathname.mockReturnValue('/radar')
 
-      renderWithProviders(<UnifiedNavigation />)
+      render(<UnifiedNavigation />)
 
       // Find Radar Service tab (it should be selected)
-      const tabs = screen.getAllByRole('tab')
-      const radarTab = tabs.find((tab) => tab.textContent?.includes('Radar Service'))
-      expect(radarTab).toHaveClass('Mui-selected')
+      const radarTab = screen.getByRole('button', { name: /Radar Service/i })
+      expect(radarTab).toHaveClass('text-[#059669]')
+      expect(radarTab).toHaveClass('border-[#059669]')
     })
 
     it('should navigate to /radar when clicking Radar Service tab', () => {
@@ -64,9 +53,9 @@ describe('UnifiedNavigation Component', () => {
       const { useRouter } = require('next/navigation')
       useRouter.mockReturnValue({ push: mockPush })
 
-      renderWithProviders(<UnifiedNavigation />)
+      render(<UnifiedNavigation />)
 
-      const radarTab = screen.getByRole('tab', { name: /Radar Service/i })
+      const radarTab = screen.getByRole('button', { name: /Radar Service/i })
       fireEvent.click(radarTab)
 
       expect(mockPush).toHaveBeenCalledWith('/radar')
@@ -77,9 +66,9 @@ describe('UnifiedNavigation Component', () => {
       const { useRouter } = require('next/navigation')
       useRouter.mockReturnValue({ push: mockPush })
 
-      renderWithProviders(<UnifiedNavigation organizationId="org-123" />)
+      render(<UnifiedNavigation organizationId="org-123" />)
 
-      const radarTab = screen.getByRole('tab', { name: /Radar Service/i })
+      const radarTab = screen.getByRole('button', { name: /Radar Service/i })
       fireEvent.click(radarTab)
 
       expect(mockPush).toHaveBeenCalledWith('/radar?orgId=org-123')
@@ -88,17 +77,47 @@ describe('UnifiedNavigation Component', () => {
 
   describe('Component Rendering', () => {
     it('should match snapshot', () => {
-      const { container } = renderWithProviders(<UnifiedNavigation />)
+      const { container } = render(<UnifiedNavigation />)
       expect(container).toMatchSnapshot()
     })
 
-    it('should have correct minHeight for tabs', () => {
-      renderWithProviders(<UnifiedNavigation />)
+    it('should have correct height for tabs', () => {
+      render(<UnifiedNavigation />)
 
-      const tabs = screen.getAllByRole('tab')
-      tabs.forEach((tab) => {
-        expect(tab).toHaveStyle({ minHeight: '64px' })
+      const buttons = screen.getAllByRole('button')
+      buttons.forEach((button) => {
+        expect(button).toHaveClass('h-16')
       })
+    })
+
+    it('should render icons correctly', () => {
+      render(<UnifiedNavigation />)
+
+      // Check if icons are rendered (Lucide icons are rendered as SVG)
+      const container = screen.getByText('Dashboard').parentElement
+      expect(container).toBeInTheDocument()
+    })
+  })
+
+  describe('Tab Activation Logic', () => {
+    it('should activate projects tab when path starts with /projects', () => {
+      const { usePathname } = require('next/navigation')
+      usePathname.mockReturnValue('/projects/test-project')
+
+      render(<UnifiedNavigation />)
+
+      const projectsTab = screen.getByRole('button', { name: /标准评估/i })
+      expect(projectsTab).toHaveClass('text-[#059669]')
+    })
+
+    it('should activate dashboard tab for root path', () => {
+      const { usePathname } = require('next/navigation')
+      usePathname.mockReturnValue('/')
+
+      render(<UnifiedNavigation />)
+
+      const dashboardTab = screen.getByRole('button', { name: /Dashboard/i })
+      expect(dashboardTab).toHaveClass('text-[#059669]')
     })
   })
 })

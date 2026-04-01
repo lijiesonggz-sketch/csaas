@@ -1,31 +1,27 @@
 import React from 'react'
-import { Box, Typography } from '@mui/material'
-import { Inbox } from '@mui/icons-material'
+import { Inbox } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface EmptyStateProps {
   description?: string
   icon?: React.ReactNode
+  className?: string
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
   description = '暂无数据',
-  icon = <Inbox sx={{ fontSize: 48, color: 'text.disabled' }} />,
+  icon = <Inbox className="h-12 w-12 text-[#94A3B8]" />,
+  className,
 }) => {
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        py: 4,
-        color: 'text.secondary',
-      }}
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center py-16 text-[#64748B]',
+        className
+      )}
     >
-      <Box sx={{ mb: 2 }}>{icon}</Box>
-      <Typography variant="body1" color="text.secondary">
-        {description}
-      </Typography>
-    </Box>
+      <div className="mb-4">{icon}</div>
+      <p className="text-sm">{description}</p>
+    </div>
   )
 }

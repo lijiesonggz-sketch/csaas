@@ -18,16 +18,26 @@ import { useOrganizationStore } from './useOrganizationStore'
 describe('useOrganizationStore', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    // Reset zustand store state between tests
+    useOrganizationStore.setState({
+      currentOrganization: null,
+      organizations: [],
+      weaknesses: [],
+      aggregatedWeaknesses: [],
+      loading: false,
+      error: null,
+    })
   })
 
   describe('initial state', () => {
     it('should have correct initial state', () => {
       const { result } = renderHook(() => useOrganizationStore())
 
-      expect(result.current).toEqual({
+      expect(result.current).toMatchObject({
         currentOrganization: null,
         organizations: [],
         weaknesses: [],
+        aggregatedWeaknesses: [],
         loading: false,
         error: null,
       })
@@ -37,17 +47,15 @@ describe('useOrganizationStore', () => {
   describe('fetchOrganizations', () => {
     it('should fetch and set organizations', async () => {
       // Arrange
-      const mockOrgs = [
-        {
-          id: 'org-123',
-          name: 'Test Organization',
-          createdAt: '2024-01-01T00:00:00.000Z',
-          updatedAt: '2024-01-01T00:00:00.000Z',
-        },
-      ]
+      const mockOrg = {
+        id: 'org-123',
+        name: 'Test Organization',
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: '2024-01-01T00:00:00.000Z',
+      }
 
       const { organizationsApi } = require('../api/organizations')
-      organizationsApi.getUserOrganizations.mockResolvedValue(mockOrgs)
+      organizationsApi.getUserOrganizations.mockResolvedValue(mockOrg)
 
       const { result } = renderHook(() => useOrganizationStore())
 
@@ -57,7 +65,8 @@ describe('useOrganizationStore', () => {
       })
 
       // Assert
-      expect(result.current.organizations).toEqual(mockOrgs)
+      expect(result.current.organizations).toEqual([mockOrg])
+      expect(result.current.currentOrganization).toEqual(mockOrg)
       expect(result.current.loading).toBe(false)
     })
 
@@ -114,6 +123,29 @@ describe('useOrganizationStore', () => {
 
       expect(result.current.currentOrganization).toBeNull()
     })
+
+    it('should clear weaknesses and aggregated weaknesses when setting new organization', () => {
+      const { result } = renderHook(() => useOrganizationStore())
+
+      // First set an org and add some weaknesses
+      act(() => {
+        result.current.setCurrentOrganization({
+          id: 'org-123',
+          name: 'Test Org',
+        } as any)
+      })
+
+      // Set a new organization - weaknesses should be cleared
+      act(() => {
+        result.current.setCurrentOrganization({
+          id: 'org-456',
+          name: 'New Org',
+        } as any)
+      })
+
+      expect(result.current.weaknesses).toEqual([])
+      expect(result.current.aggregatedWeaknesses).toEqual([])
+    })
   })
 
   describe('fetchWeaknesses', () => {
@@ -129,8 +161,18 @@ describe('useOrganizationStore', () => {
         },
       ]
 
+      const mockAggregatedWeaknesses = [
+        {
+          category: 'data_security',
+          level: 2,
+          description: 'Weak security',
+          projectIds: ['p1', 'p2'],
+        },
+      ]
+
       const { organizationsApi } = require('../api/organizations')
       organizationsApi.getOrganizationWeaknesses.mockResolvedValue(mockWeaknesses)
+      organizationsApi.getAggregatedWeaknesses.mockResolvedValue(mockAggregatedWeaknesses)
 
       const { result } = renderHook(() => useOrganizationStore())
 
@@ -146,6 +188,7 @@ describe('useOrganizationStore', () => {
 
       // Assert
       expect(result.current.weaknesses).toEqual(mockWeaknesses)
+      expect(result.current.aggregatedWeaknesses).toEqual(mockAggregatedWeaknesses)
     })
 
     it('should not fetch if no current organization', async () => {
@@ -155,7 +198,27 @@ describe('useOrganizationStore', () => {
         await result.current.fetchWeaknesses()
       })
 
-      expect(require('../api/organizations').getOrganizationWeaknesses).not.toHaveBeenCalled()
+      expect(require('../api/organizations').organizationsApi.getOrganizationWeaknesses).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('clearError', () => {
+    it('should clear error state', () => {
+      const { result } = renderHook(() => useOrganizationStore())
+
+      // Set an error
+      act(() => {
+        result.current.error = 'Test error'
+      })
+
+      expect(result.current.error).toBe('Test error')
+
+      // Clear it
+      act(() => {
+        result.current.clearError()
+      })
+
+      expect(result.current.error).toBeNull()
     })
   })
 })

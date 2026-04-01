@@ -9,28 +9,24 @@
 import React, { useState, useEffect } from 'react'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Stack,
-  Alert,
-  Box,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  IconButton,
-  Chip,
-  Typography,
-  Divider,
-} from '@mui/material'
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import {
-  Delete as DeleteIcon,
-  Add as AddIcon,
-  Group as GroupIcon,
-} from '@mui/icons-material'
+  Trash2,
+  Plus,
+  Users,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react'
 import { ClientGroup, CreateClientGroupData, Client } from '@/lib/api/clients'
 
 interface ClientGroupDialogProps {
@@ -141,165 +137,170 @@ export function ClientGroupDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>客户分组管理</DialogTitle>
-      <DialogContent>
-        <Stack spacing={3} sx={{ mt: 2 }}>
-          {error && <Alert severity="error">{error}</Alert>}
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>客户分组管理</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6 mt-2">
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
           {/* 选中的客户提示 */}
           {selectedClients.length > 0 && (
-            <Alert severity="info">
-              已选择 {selectedClients.length} 个客户，可以将它们添加到分组中
+            <Alert>
+              <AlertDescription>
+                已选择 {selectedClients.length} 个客户，可以将它们添加到分组中
+              </AlertDescription>
             </Alert>
           )}
 
           {/* 创建新分组 */}
-          <Box>
-            <Typography variant="subtitle2" gutterBottom>
-              创建新分组
-            </Typography>
-            <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label="分组名称"
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium">创建新分组</h4>
+            <div className="flex gap-2">
+              <Input
+                placeholder="分组名称"
                 value={newGroupName}
                 onChange={(e) => setNewGroupName(e.target.value)}
-                placeholder="例如: 城商行客户"
+                className="flex-1"
               />
-              <TextField
-                fullWidth
-                size="small"
-                label="描述 (可选)"
+              <Input
+                placeholder="描述 (可选)"
                 value={newGroupDescription}
                 onChange={(e) => setNewGroupDescription(e.target.value)}
-                placeholder="例如: 城市商业银行客户分组"
+                className="flex-1"
               />
               <Button
-                variant="contained"
-                startIcon={<AddIcon />}
                 onClick={handleCreateGroup}
                 disabled={creating || !newGroupName.trim()}
-                sx={{ minWidth: 100 }}
               >
+                <Plus className="h-4 w-4 mr-1" />
                 创建
               </Button>
-            </Stack>
-          </Box>
+            </div>
+          </div>
 
-          <Divider />
+          <div className="border-t" />
 
           {/* 分组列表 */}
-          <Box>
-            <Typography variant="subtitle2" gutterBottom>
-              现有分组 ({groups.length})
-            </Typography>
+          <div className="space-y-3">
+            <h4 className="text-sm font-medium">现有分组 ({groups.length})</h4>
             {groups.length === 0 ? (
-              <Alert severity="info">暂无分组，请创建新分组</Alert>
+              <Alert>
+                <AlertDescription>暂无分组，请创建新分组</AlertDescription>
+              </Alert>
             ) : (
-              <List sx={{ maxHeight: 400, overflow: 'auto' }}>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
                 {groups.map((group) => (
-                  <Box key={group.id}>
-                    <ListItem
-                      sx={{
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        mb: 1,
-                        cursor: 'pointer',
-                        '&:hover': {
-                          backgroundColor: 'action.hover',
-                        },
-                      }}
+                  <div key={group.id}>
+                    <div
+                      className={`
+                        border rounded-lg p-3 cursor-pointer transition-colors
+                        hover:bg-muted
+                      `}
                       onClick={() => toggleGroup(group.id)}
                     >
-                      <GroupIcon sx={{ mr: 2, color: 'primary.main' }} />
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="subtitle1">{group.name}</Typography>
-                            <Chip
-                              label={`${group.memberships?.length || 0} 个客户`}
-                              size="small"
-                            />
-                          </Box>
-                        }
-                        secondary={group.description}
-                      />
-                      <ListItemSecondaryAction>
-                        {selectedClients.length > 0 && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          <Users className="h-5 w-5 text-primary" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium truncate">{group.name}</span>
+                              <Badge variant="secondary" className="text-xs">
+                                {group.memberships?.length || 0} 个客户
+                              </Badge>
+                            </div>
+                            {group.description && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                {group.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {selectedClients.length > 0 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleAddToGroup(group.id)
+                              }}
+                            >
+                              添加选中
+                            </Button>
+                          )}
                           <Button
-                            size="small"
-                            variant="outlined"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleAddToGroup(group.id)
+                              handleDeleteGroup(group.id)
                             }}
-                            sx={{ mr: 1 }}
                           >
-                            添加选中
+                            <Trash2 className="h-4 w-4" />
                           </Button>
-                        )}
-                        <IconButton
-                          edge="end"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteGroup(group.id)
-                          }}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </ListItemSecondaryAction>
-                    </ListItem>
+                          {expandedGroup === group.id ? (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
                     {/* 展开显示分组成员 */}
                     {expandedGroup === group.id && group.memberships && group.memberships.length > 0 && (
-                      <Box
-                        sx={{
-                          ml: 4,
-                          mb: 2,
-                          p: 2,
-                          backgroundColor: 'action.hover',
-                          borderRadius: 1,
-                        }}
-                      >
-                        <Typography variant="caption" color="text.secondary" gutterBottom>
-                          分组成员:
-                        </Typography>
-                        <List dense>
+                      <div className="ml-8 mt-2 p-3 bg-muted rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-2">分组成员:</p>
+                        <div className="space-y-2">
                           {group.memberships.map((membership) => (
-                            <ListItem key={membership.id}>
-                              <ListItemText
-                                primary={membership.organization?.name || '未知客户'}
-                                secondary={membership.organization?.contactEmail}
-                              />
-                              <ListItemSecondaryAction>
-                                <IconButton
-                                  edge="end"
-                                  size="small"
-                                  onClick={() =>
-                                    handleRemoveFromGroup(group.id, membership.organizationId)
-                                  }
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </ListItemSecondaryAction>
-                            </ListItem>
+                            <div
+                              key={membership.id}
+                              className="flex items-center justify-between p-2 bg-background rounded"
+                            >
+                              <div>
+                                <p className="text-sm font-medium">
+                                  {membership.organization?.name || '未知客户'}
+                                </p>
+                                {membership.organization?.contactEmail && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {membership.organization.contactEmail}
+                                  </p>
+                                )}
+                              </div>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6"
+                                onClick={() =>
+                                  handleRemoveFromGroup(group.id, membership.organizationId)
+                                }
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
                           ))}
-                        </List>
-                      </Box>
+                        </div>
+                      </div>
                     )}
-                  </Box>
+                  </div>
                 ))}
-              </List>
+              </div>
             )}
-          </Box>
-        </Stack>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button onClick={onClose}>关闭</Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>关闭</Button>
-      </DialogActions>
     </Dialog>
   )
 }

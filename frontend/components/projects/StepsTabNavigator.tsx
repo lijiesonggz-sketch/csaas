@@ -1,19 +1,21 @@
 'use client'
 
 import React, { useMemo, useCallback, useState } from 'react'
-import { Box, Tab, Tabs, Typography, Badge } from '@mui/material'
 import { useRouter, usePathname } from 'next/navigation'
 import {
   CloudUpload,
-  Description,
-  Category,
-  GridOn,
-  Assignment,
+  FileText,
+  Layers,
+  Grid3X3,
+  ClipboardList,
   TrendingUp,
-  TaskAlt,
-  MenuBook,
-  Speed,
-} from '@mui/icons-material'
+  CheckCircle,
+  BookOpen,
+  Zap,
+  Loader2,
+  X,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export interface Step {
   id: string
@@ -34,7 +36,6 @@ export default function StepsTabNavigator({ projectId, steps, currentStep }: Ste
   const pathname = usePathname()
   const [isNavigating, setIsNavigating] = useState(false)
 
-  // 使用useMemo缓存当前步骤的判断
   const currentStepValue = useMemo(() => {
     if (currentStep) return currentStep
     const pathSegment = pathname.split('/').pop()
@@ -42,153 +43,114 @@ export default function StepsTabNavigator({ projectId, steps, currentStep }: Ste
     return validStepIds.includes(pathSegment || '') ? pathSegment : 'upload'
   }, [currentStep, pathname, steps])
 
-  // 使用useCallback缓存handleChange函数
-  const handleChange = useCallback((_event: React.SyntheticEvent, newValue: string) => {
-    if (isNavigating || newValue === currentStepValue) return // 避免重复导航
+  const handleChange = useCallback((stepId: string) => {
+    if (isNavigating || stepId === currentStepValue) return
 
-    const step = steps.find((s) => s.id === newValue)
+    const step = steps.find((s) => s.id === stepId)
     if (step) {
       setIsNavigating(true)
-      // 使用replaceState避免触发完整的页面重新渲染
       router.push(step.route)
-      // 延迟重置导航状态，确保切换动画完成
       setTimeout(() => setIsNavigating(false), 300)
     }
   }, [steps, currentStepValue, isNavigating, router])
 
-  // 缓存状态相关的计算
-  const stepBadges = useMemo(() => {
-    const getStatusColor = (status: Step['status']) => {
-      switch (status) {
-        case 'completed': return 'success'
-        case 'processing': return 'primary'
-        case 'failed': return 'error'
-        default: return 'default'
-      }
+  const getStatusIcon = (status: Step['status']) => {
+    switch (status) {
+      case 'completed': return <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+      case 'processing': return <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />
+      case 'failed': return <X className="w-3.5 h-3.5 text-red-500" />
+      default: return null
     }
-
-    const getStatusLabel = (status: Step['status']) => {
-      switch (status) {
-        case 'completed': return '✓'
-        case 'processing': return '⟳'
-        case 'failed': return '✕'
-        default: return ''
-      }
-    }
-
-    return steps.map(step => ({
-      id: step.id,
-      label: getStatusLabel(step.status),
-      color: getStatusColor(step.status)
-    }))
-  }, [steps])
+  }
 
   return (
-    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-      <Tabs
-        value={currentStepValue}
-        onChange={handleChange}
-        variant="scrollable"
-        scrollButtons="auto"
-        sx={{
-          // 优化过渡动画
-          '& .MuiTab-root': {
-            transition: 'all 0.2s ease-in-out',
-            minWidth: 'auto',
-          },
-        }}
-      >
-        {steps.map((step, index) => {
-          const badge = stepBadges[index]
+    <div className="border-b border-[#E2E8F0] mb-6">
+      <nav className="flex gap-0.5 overflow-x-auto pb-0" role="tablist">
+        {steps.map((step) => {
+          const isActive = step.id === currentStepValue
+          const statusIcon = getStatusIcon(step.status)
+
           return (
-            <Tab
+            <button
               key={step.id}
-              value={step.id}
+              role="tab"
+              aria-selected={isActive}
               disabled={isNavigating}
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Badge
-                    badgeContent={badge.label}
-                    color={badge.color as any}
-                    sx={{
-                      '& .MuiBadge-badge': {
-                        fontSize: '0.7rem',
-                        height: 16,
-                        minWidth: 16,
-                      },
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      {step.icon}
-                      <Typography variant="body2" component="span">
-                        {step.name}
-                      </Typography>
-                    </Box>
-                  </Badge>
-                </Box>
-              }
-            />
+              onClick={() => handleChange(step.id)}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors',
+                isActive
+                  ? 'text-[#1E3A5F] border-[#1E3A5F] bg-[#FEFDFB]'
+                  : 'text-[#64748b] border-transparent hover:text-[#1E3A5F] hover:bg-gray-50',
+                isNavigating && 'opacity-50 cursor-wait'
+              )}
+            >
+              {statusIcon}
+              <span className="flex items-center gap-1.5">
+                {step.icon}
+                {step.name}
+              </span>
+            </button>
           )
         })}
-      </Tabs>
-    </Box>
+      </nav>
+    </div>
   )
 }
 
-// 默认步骤配置
 export const DEFAULT_STEPS: Omit<Step, 'route'>[] = [
   {
     id: 'upload',
     name: '上传文档',
-    icon: <CloudUpload fontSize="small" />,
+    icon: <CloudUpload className="w-4 h-4" />,
     status: 'pending',
   },
   {
     id: 'summary',
     name: '综述生成',
-    icon: <Description fontSize="small" />,
+    icon: <FileText className="w-4 h-4" />,
     status: 'pending',
   },
   {
     id: 'clustering',
     name: '聚类分析',
-    icon: <Category fontSize="small" />,
+    icon: <Layers className="w-4 h-4" />,
     status: 'pending',
   },
   {
     id: 'standard-interpretation',
     name: '标准解读',
-    icon: <MenuBook fontSize="small" />,
+    icon: <BookOpen className="w-4 h-4" />,
     status: 'pending',
   },
   {
     id: 'matrix',
     name: '成熟度矩阵',
-    icon: <GridOn fontSize="small" />,
+    icon: <Grid3X3 className="w-4 h-4" />,
     status: 'pending',
   },
   {
     id: 'questionnaire',
     name: '问卷生成',
-    icon: <Assignment fontSize="small" />,
+    icon: <ClipboardList className="w-4 h-4" />,
     status: 'pending',
   },
   {
     id: 'gap-analysis',
     name: '差距分析',
-    icon: <TrendingUp fontSize="small" />,
+    icon: <TrendingUp className="w-4 h-4" />,
     status: 'pending',
   },
   {
     id: 'quick-gap-analysis',
     name: '超简版差距分析',
-    icon: <Speed fontSize="small" />,
+    icon: <Zap className="w-4 h-4" />,
     status: 'pending',
   },
   {
     id: 'action-plan',
     name: '改进措施',
-    icon: <TaskAlt fontSize="small" />,
+    icon: <CheckCircle className="w-4 h-4" />,
     status: 'pending',
   },
 ]

@@ -8,13 +8,10 @@
 import { useEffect } from 'react'
 import { useTaskProgress } from '@/lib/hooks/useTaskProgress'
 import { toast } from 'sonner'
-import CircularProgress from '@mui/material/CircularProgress'
-import LinearProgress from '@mui/material/LinearProgress'
-import Alert from '@mui/material/Alert'
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import ErrorIcon from '@mui/icons-material/Error'
+import { Loader2, CheckCircle, AlertCircle } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Progress } from '@/components/ui/progress'
+import { cn } from '@/lib/utils'
 
 interface TaskProgressBarProps {
   taskId: string | null
@@ -43,96 +40,97 @@ export default function TaskProgressBar({ taskId, onCompleted, onFailed }: TaskP
   }
 
   return (
-    <Box sx={{ p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+    <div className="p-4 bg-[#F8FAFC] rounded-sm border border-[#E2E8F0]">
+      <div className="flex items-center gap-3 mb-3">
         {isCompleted ? (
-          <CheckCircleIcon color="success" sx={{ fontSize: 32 }} />
+          <CheckCircle className="h-8 w-8 text-[#059669]" />
         ) : isFailed ? (
-          <ErrorIcon color="error" sx={{ fontSize: 32 }} />
+          <AlertCircle className="h-8 w-8 text-[#DC2626]" />
         ) : (
-          <CircularProgress size={32} />
+          <Loader2 className="h-8 w-8 text-[#1E3A5F] animate-spin" />
         )}
 
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h6">
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-[#1E3A5F]">
             {isCompleted ? '✅ 生成完成' : isFailed ? '❌ 生成失败' : '🔄 正在生成...'}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
+          </h3>
+          <p className="text-sm text-[#64748B]">
             {message || '准备中...'}
-          </Typography>
-        </Box>
-      </Box>
+          </p>
+        </div>
+      </div>
 
-      <LinearProgress
-        variant="determinate"
+      <Progress
         value={progress}
-        color={isCompleted ? 'success' : isFailed ? 'error' : 'primary'}
-        sx={{ mb: 2, height: 8, borderRadius: 1 }}
+        className={cn(
+          'mb-3 h-2',
+          isCompleted && 'bg-[#059669]',
+          isFailed && 'bg-[#DC2626]'
+        )}
       />
 
       {currentStep && !isCompleted && !isFailed && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <p className="text-sm text-[#64748B] mb-3">
           <strong>当前步骤：</strong>
           {currentStep}
-        </Typography>
+        </p>
       )}
 
       {isCompleted && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          <Typography variant="subtitle2">综述生成成功</Typography>
-          <Typography variant="body2">
+        <Alert className="mb-3 border-[#D1FAE5] bg-[#FEFDFB]">
+          <CheckCircle className="h-4 w-4 text-[#059669]" />
+          <AlertTitle className="text-[#059669]">综述生成成功</AlertTitle>
+          <AlertDescription className="text-[#64748B]">
             三模型并行调用完成，质量验证通过，结果已聚合。请查看下方的生成结果。
-          </Typography>
+          </AlertDescription>
         </Alert>
       )}
 
       {isFailed && error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          <Typography variant="subtitle2">综述生成失败</Typography>
-          <Typography variant="body2">{error}</Typography>
+        <Alert className="mb-3 border-[#FECACA] bg-[#FEF2F2]">
+          <AlertCircle className="h-4 w-4 text-[#DC2626]" />
+          <AlertTitle className="text-[#DC2626]">综述生成失败</AlertTitle>
+          <AlertDescription className="text-[#991B1B]">{error}</AlertDescription>
         </Alert>
       )}
 
       {!isCompleted && !isFailed && (
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, textAlign: 'center' }}>
-          <Box
-            sx={{
-              p: 2,
-              borderRadius: 1,
-              bgcolor: progress >= 33 ? 'success.light' : 'grey.100',
-            }}
+        <div className="grid grid-cols-3 gap-3 text-center">
+          <div
+            className={cn(
+              'p-3 rounded-sm',
+              progress >= 33 ? 'bg-[#D1FAE5]' : 'bg-[#F3F4F6]'
+            )}
           >
-            <Typography variant="subtitle2">GPT-4</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <p className="text-sm font-semibold text-[#1E3A5F]">GPT-4</p>
+            <p className="text-xs text-[#64748B]">
               {progress >= 33 ? '已完成' : progress > 0 ? '处理中...' : '等待中'}
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              p: 2,
-              borderRadius: 1,
-              bgcolor: progress >= 66 ? 'success.light' : 'grey.100',
-            }}
+            </p>
+          </div>
+          <div
+            className={cn(
+              'p-3 rounded-sm',
+              progress >= 66 ? 'bg-[#D1FAE5]' : 'bg-[#F3F4F6]'
+            )}
           >
-            <Typography variant="subtitle2">Claude</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <p className="text-sm font-semibold text-[#1E3A5F]">Claude</p>
+            <p className="text-xs text-[#64748B]">
               {progress >= 66 ? '已完成' : progress > 33 ? '处理中...' : '等待中'}
-            </Typography>
-          </Box>
-          <Box
-            sx={{
-              p: 2,
-              borderRadius: 1,
-              bgcolor: progress >= 100 ? 'success.light' : 'grey.100',
-            }}
+            </p>
+          </div>
+          <div
+            className={cn(
+              'p-3 rounded-sm',
+              progress >= 100 ? 'bg-[#D1FAE5]' : 'bg-[#F3F4F6]'
+            )}
           >
-            <Typography variant="subtitle2">通义千问</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <p className="text-sm font-semibold text-[#1E3A5F]">通义千问</p>
+            <p className="text-xs text-[#64748B]">
               {progress >= 100 ? '已完成' : progress > 66 ? '处理中...' : '等待中'}
-            </Typography>
-          </Box>
-        </Box>
+            </p>
+          </div>
+        </div>
       )}
-    </Box>
+    </div>
   )
 }

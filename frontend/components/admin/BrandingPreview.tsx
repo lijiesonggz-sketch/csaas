@@ -11,21 +11,10 @@
  */
 
 import React from 'react'
-import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Button,
-  Chip,
-  Avatar,
-  Stack,
-  Divider,
-} from '@mui/material'
-import {
-  Notifications as NotificationIcon,
-  TrendingUp as TrendingUpIcon,
-} from '@mui/icons-material'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Bell, TrendingUp } from 'lucide-react'
 import { BrandingConfig } from '@/lib/api/branding'
 
 interface BrandingPreviewProps {
@@ -39,246 +28,168 @@ export function BrandingPreview({ config }: BrandingPreviewProps) {
   const logoUrl = config.brandLogoUrl
 
   return (
-    <Box>
-      <Typography variant="h6" gutterBottom>
-        实时预览
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+    <div>
+      <h3 className="text-lg font-semibold mb-2">实时预览</h3>
+      <p className="text-sm text-muted-foreground mb-6">
         查看品牌配置应用后的效果
-      </Typography>
+      </p>
 
-      <Stack spacing={3}>
+      <div className="space-y-6">
         {/* 导航栏预览 */}
-        <Card variant="outlined">
-          <CardContent>
-            <Typography variant="subtitle2" gutterBottom color="text.secondary">
-              导航栏
-            </Typography>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                p: 2,
-                backgroundColor: primaryColor,
-                borderRadius: 1,
-                color: 'white',
-              }}
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground mb-3">导航栏</p>
+            <div
+              className="flex items-center justify-between p-3 rounded text-white"
+              style={{ backgroundColor: primaryColor }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <div className="flex items-center gap-3">
                 {logoUrl ? (
-                  <Avatar
-                    src={logoUrl}
-                    alt={companyName}
-                    variant="rounded"
-                    sx={{ width: 40, height: 40 }}
-                  />
-                ) : (
-                  <Box
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      backgroundColor: 'rgba(255,255,255,0.2)',
-                      borderRadius: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
+                  <div
+                    className="w-10 h-10 rounded bg-white/20 flex items-center justify-center overflow-hidden"
                   >
-                    <Typography variant="h6">{companyName.charAt(0)}</Typography>
-                  </Box>
+                    <img
+                      src={logoUrl}
+                      alt={companyName}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded bg-white/20 flex items-center justify-center">
+                    <span className="text-lg font-semibold">{companyName.charAt(0)}</span>
+                  </div>
                 )}
-                <Typography variant="h6">{companyName}</Typography>
-              </Box>
-              <NotificationIcon />
-            </Box>
+                <span className="text-lg font-semibold">{companyName}</span>
+              </div>
+              <Bell className="h-5 w-5" />
+            </div>
           </CardContent>
         </Card>
 
         {/* 按钮预览 */}
-        <Card variant="outlined">
-          <CardContent>
-            <Typography variant="subtitle2" gutterBottom color="text.secondary">
-              按钮样式
-            </Typography>
-            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground mb-3">按钮样式</p>
+            <div className="flex gap-2 mt-2">
               <Button
-                variant="contained"
-                sx={{
-                  backgroundColor: primaryColor,
-                  '&:hover': {
-                    backgroundColor: primaryColor,
-                    opacity: 0.9,
-                  },
-                }}
+                style={{ backgroundColor: primaryColor }}
+                className="hover:opacity-90"
               >
                 主要按钮
               </Button>
               <Button
-                variant="outlined"
-                sx={{
+                variant="outline"
+                style={{
                   borderColor: primaryColor,
                   color: primaryColor,
-                  '&:hover': {
-                    borderColor: primaryColor,
-                    backgroundColor: `${primaryColor}10`,
-                  },
                 }}
+                className="hover:bg-opacity-10"
               >
                 次要按钮
               </Button>
-            </Stack>
+            </div>
           </CardContent>
         </Card>
 
         {/* 推送卡片预览 */}
-        <Card variant="outlined">
-          <CardContent>
-            <Typography variant="subtitle2" gutterBottom color="text.secondary">
-              推送内容
-            </Typography>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground mb-3">推送内容</p>
             <Card
-              sx={{
-                mt: 2,
-                border: '1px solid',
-                borderColor: 'divider',
-                '&:hover': {
-                  borderColor: primaryColor,
-                  boxShadow: `0 0 0 1px ${primaryColor}`,
-                },
-              }}
+              className="border hover:border-opacity-100 transition-all"
+              style={{ borderColor: primaryColor }}
             >
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                  <Chip
-                    label="技术雷达"
-                    size="small"
-                    sx={{
-                      backgroundColor: primaryColor,
-                      color: 'white',
-                    }}
-                  />
-                  <Typography variant="caption" color="text.secondary">
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Badge
+                    className="text-white"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    技术雷达
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
                     来自 {companyName} 的推送
-                  </Typography>
-                </Box>
-                <Typography variant="h6" gutterBottom>
+                  </span>
+                </div>
+                <h4 className="text-lg font-semibold mb-2">
                   微服务架构最佳实践
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                </h4>
+                <p className="text-sm text-muted-foreground mb-3">
                   本文介绍了微服务架构的核心概念和实施要点...
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Chip
-                    icon={<TrendingUpIcon />}
-                    label="高相关度"
-                    size="small"
-                    sx={{
-                      backgroundColor: secondaryColor,
-                      color: 'white',
-                    }}
-                  />
-                  <Typography variant="caption" color="text.secondary">
+                </p>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    className="text-white gap-1"
+                    style={{ backgroundColor: secondaryColor }}
+                  >
+                    <TrendingUp className="h-3 w-3" />
+                    高相关度
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">
                     2 小时前
-                  </Typography>
-                </Box>
+                  </span>
+                </div>
               </CardContent>
             </Card>
           </CardContent>
         </Card>
 
         {/* 邮件预览 */}
-        <Card variant="outlined">
-          <CardContent>
-            <Typography variant="subtitle2" gutterBottom color="text.secondary">
-              邮件模板
-            </Typography>
-            <Box
-              sx={{
-                mt: 2,
-                p: 3,
-                backgroundColor: 'background.default',
-                borderRadius: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground mb-3">邮件模板</p>
+            <div className="p-4 bg-muted rounded border">
               {/* 邮件头部 */}
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 2,
-                  mb: 3,
-                  pb: 2,
-                  borderBottom: '2px solid',
-                  borderColor: primaryColor,
-                }}
-              >
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b-2" style={{ borderColor: primaryColor }}>
                 {logoUrl ? (
-                  <Avatar
-                    src={logoUrl}
-                    alt={companyName}
-                    variant="rounded"
-                    sx={{ width: 48, height: 48 }}
-                  />
+                  <div className="w-12 h-12 rounded overflow-hidden">
+                    <img
+                      src={logoUrl}
+                      alt={companyName}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                 ) : (
-                  <Box
-                    sx={{
-                      width: 48,
-                      height: 48,
-                      backgroundColor: primaryColor,
-                      borderRadius: 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                    }}
+                  <div
+                    className="w-12 h-12 rounded flex items-center justify-center text-white"
+                    style={{ backgroundColor: primaryColor }}
                   >
-                    <Typography variant="h5">{companyName.charAt(0)}</Typography>
-                  </Box>
+                    <span className="text-xl font-semibold">{companyName.charAt(0)}</span>
+                  </div>
                 )}
-                <Typography variant="h6">{companyName}</Typography>
-              </Box>
+                <span className="text-lg font-semibold">{companyName}</span>
+              </div>
 
               {/* 邮件内容 */}
-              <Typography variant="body2" paragraph>
-                您好，
-              </Typography>
-              <Typography variant="body2" paragraph>
+              <p className="text-sm mb-2">您好，</p>
+              <p className="text-sm mb-2">
                 这是一封来自 {companyName} 的推送摘要邮件。
-              </Typography>
-              <Typography variant="body2" paragraph>
-                今日为您推送了 3 条相关内容...
-              </Typography>
+              </p>
+              <p className="text-sm mb-4">今日为您推送了 3 条相关内容...</p>
 
               {/* 邮件签名 */}
               {config.emailSignature && (
                 <>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ whiteSpace: 'pre-line' }}
-                  >
+                  <div className="border-t my-3" />
+                  <p className="text-sm text-muted-foreground whitespace-pre-line">
                     {config.emailSignature}
-                  </Typography>
+                  </p>
                 </>
               )}
 
               {/* 联系信息 */}
               {(config.contactEmail || config.contactPhone) && (
-                <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                  <Typography variant="caption" color="text.secondary">
+                <div className="pt-2 mt-2 border-t">
+                  <p className="text-xs text-muted-foreground">
                     {config.contactEmail && <div>邮箱: {config.contactEmail}</div>}
                     {config.contactPhone && <div>电话: {config.contactPhone}</div>}
-                  </Typography>
-                </Box>
+                  </p>
+                </div>
               )}
-            </Box>
+            </div>
           </CardContent>
         </Card>
-      </Stack>
-    </Box>
+      </div>
+    </div>
   )
 }

@@ -32,9 +32,9 @@ jest.mock('../CreateProjectDialog', () => ({
     ) : null,
 }))
 
-jest.mock('@/components/ui/mui/PageHeader', () => ({
+jest.mock('@/components/ui/page-header', () => ({
   __esModule: true,
-  default: ({ title, description, action }: any) => (
+  PageHeader: ({ title, description, action }: any) => (
     <div data-testid="page-header">
       <h1>{title}</h1>
       <p>{description}</p>
@@ -43,18 +43,18 @@ jest.mock('@/components/ui/mui/PageHeader', () => ({
   ),
 }))
 
-jest.mock('@/components/ui/mui/PrimaryButton', () => ({
+jest.mock('@/components/ui/button', () => ({
   __esModule: true,
-  default: ({ children, onClick, ...props }: any) => (
+  Button: ({ children, onClick, ...props }: any) => (
     <button onClick={onClick} {...props}>
       {children}
     </button>
   ),
 }))
 
-jest.mock('@/components/ui/mui/ContentCard', () => ({
+jest.mock('@/components/ui/content-card', () => ({
   __esModule: true,
-  default: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+  ContentCard: ({ children, ...props }: any) => <div {...props}>{children}</div>,
 }))
 
 const mockApiFetch = apiFetch as jest.Mock

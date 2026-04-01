@@ -14,8 +14,8 @@ test.describe('[P1] 项目列表页面 - 视觉一致性测试', () => {
   test.beforeEach(async ({ page }) => {
     // 登录并访问项目列表
     await page.goto('/login')
-    await page.fill('input[type="email"]', 'test@example.com')
-    await page.fill('input[type="password"]', 'password')
+    await page.fill('input[type="email"]', 'admin@test.com')
+    await page.fill('input[type="password"]', 'admin123')
     await page.click('button[type="submit"]')
     await page.waitForURL('/dashboard')
     await page.goto('/projects')
@@ -84,8 +84,8 @@ test.describe('[P1] 项目详情九宫格 - 功能测试', () => {
   test.beforeEach(async ({ page }) => {
     // 登录并访问项目详情
     await page.goto('/login')
-    await page.fill('input[type="email"]', 'test@example.com')
-    await page.fill('input[type="password"]', 'password')
+    await page.fill('input[type="email"]', 'admin@test.com')
+    await page.fill('input[type="password"]', 'admin123')
     await page.click('button[type="submit"]')
     await page.waitForURL('/dashboard')
   })
@@ -153,8 +153,8 @@ test.describe('[P1] 子页面 - 统一头部样式测试', () => {
   test.beforeEach(async ({ page }) => {
     // 登录
     await page.goto('/login')
-    await page.fill('input[type="email"]', 'test@example.com')
-    await page.fill('input[type="password"]', 'password')
+    await page.fill('input[type="email"]', 'admin@test.com')
+    await page.fill('input[type="password"]', 'admin123')
     await page.click('button[type="submit"]')
     await page.waitForURL('/dashboard')
   })
@@ -181,8 +181,8 @@ test.describe('[P2] 响应式设计测试', () => {
   test.beforeEach(async ({ page }) => {
     // 登录
     await page.goto('/login')
-    await page.fill('input[type="email"]', 'test@example.com')
-    await page.fill('input[type="password"]', 'password')
+    await page.fill('input[type="email"]', 'admin@test.com')
+    await page.fill('input[type="password"]', 'admin123')
     await page.click('button[type="submit"]')
     await page.waitForURL('/dashboard')
   })
@@ -256,8 +256,8 @@ test.describe('[P1] 设计系统一致性测试', () => {
   test.beforeEach(async ({ page }) => {
     // 登录
     await page.goto('/login')
-    await page.fill('input[type="email"]', 'test@example.com')
-    await page.fill('input[type="password"]', 'password')
+    await page.fill('input[type="email"]', 'admin@test.com')
+    await page.fill('input[type="password"]', 'admin123')
     await page.click('button[type="submit"]')
     await page.waitForURL('/dashboard')
     await page.goto('/projects')

@@ -9,18 +9,24 @@
 import React, { useState, useEffect } from 'react'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  MenuItem,
-  Stack,
-  Alert,
-  Typography,
-  Box,
-  Chip,
-} from '@mui/material'
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Client, BulkConfigData, RelevanceFilter } from '@/lib/api/clients'
 
 interface BulkConfigDialogProps {
@@ -159,112 +165,138 @@ export function BulkConfigDialog({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>批量配置推送设置</DialogTitle>
-      <DialogContent>
-        <Stack spacing={3} sx={{ mt: 2 }}>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>批量配置推送设置</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
           {/* 选中的客户数量 */}
-          <Box>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+          <div>
+            <p className="text-sm text-muted-foreground mb-2">
               已选择 {selectedClients.length} 个客户
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2">
               {selectedClients.slice(0, 5).map((client) => (
-                <Chip key={client.id} label={client.name} size="small" />
+                <Badge key={client.id} variant="secondary">
+                  {client.name}
+                </Badge>
               ))}
               {selectedClients.length > 5 && (
-                <Chip label={`+${selectedClients.length - 5} 个`} size="small" />
+                <Badge variant="secondary">+{selectedClients.length - 5} 个</Badge>
               )}
-            </Box>
-          </Box>
+            </div>
+          </div>
 
-          {errors.general && <Alert severity="error">{errors.general}</Alert>}
-          {error && <Alert severity="error">{error}</Alert>}
+          {errors.general && (
+            <Alert variant="destructive">
+              <AlertDescription>{errors.general}</AlertDescription>
+            </Alert>
+          )}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
           {/* 推送时间范围 */}
-          <Box>
-            <Typography variant="subtitle2" gutterBottom>
-              推送时间范围
-            </Typography>
-            <Stack direction="row" spacing={2}>
-              <TextField
-                fullWidth
-                label="开始时间"
-                value={formData.pushStartTime}
-                onChange={(e) => handleChange('pushStartTime', e.target.value)}
-                error={!!errors.pushStartTime}
-                helperText={errors.pushStartTime}
-                placeholder="09:00"
-                inputProps={{
-                  pattern: '[0-2][0-9]:[0-5][0-9]',
-                }}
-              />
-              <TextField
-                fullWidth
-                label="结束时间"
-                value={formData.pushEndTime}
-                onChange={(e) => handleChange('pushEndTime', e.target.value)}
-                error={!!errors.pushEndTime}
-                helperText={errors.pushEndTime}
-                placeholder="18:00"
-                inputProps={{
-                  pattern: '[0-2][0-9]:[0-5][0-9]',
-                }}
-              />
-            </Stack>
-          </Box>
+          <div className="space-y-2">
+            <Label>推送时间范围</Label>
+            <div className="flex gap-2">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="start-time" className="text-xs">开始时间</Label>
+                <Input
+                  id="start-time"
+                  value={formData.pushStartTime}
+                  onChange={(e) => handleChange('pushStartTime', e.target.value)}
+                  placeholder="09:00"
+                  className={errors.pushStartTime ? 'border-destructive' : ''}
+                />
+                {errors.pushStartTime && (
+                  <p className="text-xs text-destructive">{errors.pushStartTime}</p>
+                )}
+              </div>
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="end-time" className="text-xs">结束时间</Label>
+                <Input
+                  id="end-time"
+                  value={formData.pushEndTime}
+                  onChange={(e) => handleChange('pushEndTime', e.target.value)}
+                  placeholder="18:00"
+                  className={errors.pushEndTime ? 'border-destructive' : ''}
+                />
+                {errors.pushEndTime && (
+                  <p className="text-xs text-destructive">{errors.pushEndTime}</p>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* 每日推送上限 */}
-          <TextField
-            fullWidth
-            type="number"
-            label="每日推送上限"
-            value={formData.dailyPushLimit || ''}
-            onChange={(e) =>
-              handleChange('dailyPushLimit', e.target.value ? Number(e.target.value) : undefined)
-            }
-            error={!!errors.dailyPushLimit}
-            helperText={errors.dailyPushLimit || '设置每天最多推送的内容数量 (1-20)'}
-            inputProps={{
-              min: 1,
-              max: 20,
-            }}
-            placeholder="5"
-          />
+          <div className="space-y-2">
+            <Label htmlFor="daily-limit">每日推送上限</Label>
+            <Input
+              id="daily-limit"
+              type="number"
+              value={formData.dailyPushLimit || ''}
+              onChange={(e) =>
+                handleChange('dailyPushLimit', e.target.value ? Number(e.target.value) : undefined)
+              }
+              placeholder="5"
+              min={1}
+              max={20}
+              className={errors.dailyPushLimit ? 'border-destructive' : ''}
+            />
+            {errors.dailyPushLimit ? (
+              <p className="text-xs text-destructive">{errors.dailyPushLimit}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                设置每天最多推送的内容数量 (1-20)
+              </p>
+            )}
+          </div>
 
           {/* 相关性过滤 */}
-          <TextField
-            fullWidth
-            select
-            label="相关性过滤级别"
-            value={formData.relevanceFilter || ''}
-            onChange={(e) => handleChange('relevanceFilter', e.target.value || undefined)}
-            helperText="设置推送内容的最低相关性要求"
-          >
-            <MenuItem value="">
-              <em>不设置</em>
-            </MenuItem>
-            {RELEVANCE_OPTIONS.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
+          <div className="space-y-2">
+            <Label>相关性过滤级别</Label>
+            <Select
+              value={formData.relevanceFilter || ''}
+              onValueChange={(value) => handleChange('relevanceFilter', value || undefined)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="不设置" />
+              </SelectTrigger>
+              <SelectContent>
+                {RELEVANCE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              设置推送内容的最低相关性要求
+            </p>
+          </div>
 
           {/* 说明 */}
-          <Alert severity="info">
-            批量配置将覆盖所选客户的现有推送设置。未填写的字段将保持不变。
+          <Alert>
+            <AlertDescription>
+              批量配置将覆盖所选客户的现有推送设置。未填写的字段将保持不变。
+            </AlertDescription>
           </Alert>
-        </Stack>
+        </div>
+
+        <DialogFooter>
+          <Button onClick={onClose} disabled={submitting} variant="outline">
+            取消
+          </Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            {submitting ? '配置中...' : '确认配置'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          取消
-        </Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={submitting}>
-          {submitting ? '配置中...' : '确认配置'}
-        </Button>
-      </DialogActions>
     </Dialog>
   )
 }

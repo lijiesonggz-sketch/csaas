@@ -15,40 +15,42 @@ export const dynamic = 'force-dynamic'
  */
 
 import React, { useState, useEffect, useCallback } from 'react'
-import {
-  Box,
-  Typography,
-  Card,
-  CardHeader,
-  CardContent,
-  Grid,
-  IconButton,
-  Breadcrumbs,
-  Link as MuiLink,
-  Skeleton,
-  Modal,
-  TextField,
-  Divider,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  Chip,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-} from '@mui/material'
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
-import { TimePicker } from '@mui/x-date-pickers/TimePicker'
-import { Slider } from '@mui/material'
-import type { Dayjs } from 'dayjs'
-import dayjs from 'dayjs'
-import { message } from '@/lib/message'
-import { Add, Delete } from '@mui/icons-material'
-import { EmptyState } from '@/components/common/EmptyState'
 import { useRouter, useSearchParams } from 'next/navigation'
-import MuiButton from '@mui/material/Button'
+import {
+  TrendingUp,
+  Building2,
+  Plus,
+  Trash2,
+  ChevronRight,
+  Save,
+  Clock,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
+import { EmptyState } from '@/components/common/EmptyState'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { formatChinaDate } from '@/lib/utils/dateTime'
 import {
   getWatchedTopics,
   createWatchedTopic,
@@ -63,8 +65,8 @@ import {
   UpdatePushPreferenceDto,
 } from '@/lib/api/radar'
 import { INSTITUTION_PRESETS, INDUSTRY_LABELS, IndustryKey } from '@/lib/constants/institution-presets'
-import { ConfirmDialog } from '@/components/common/ConfirmDialog'
-import { formatChinaDate } from '@/lib/utils/dateTime'
+import { message } from '@/lib/message'
+import { cn } from '@/lib/utils'
 
 // 预设技术领域选项
 const PRESET_TOPICS = [
@@ -105,8 +107,8 @@ export default function RadarSettingsPage() {
   const [preferenceSaving, setPreferenceSaving] = useState(false)
   const [deleteTopicDialog, setDeleteTopicDialog] = useState<{ open: boolean; topicId: string; topicName: string }>({ open: false, topicId: '', topicName: '' })
   const [deletePeerDialog, setDeletePeerDialog] = useState<{ open: boolean; peerId: string; peerName: string }>({ open: false, peerId: '', peerName: '' })
-  const [pushStartTime, setPushStartTime] = useState<Dayjs | null>(dayjs('09:00', 'HH:mm'))
-  const [pushEndTime, setPushEndTime] = useState<Dayjs | null>(dayjs('18:00', 'HH:mm'))
+  const [pushStartTime, setPushStartTime] = useState('09:00')
+  const [pushEndTime, setPushEndTime] = useState('18:00')
   const [dailyPushLimit, setDailyPushLimit] = useState<number>(5)
   const [relevanceFilter, setRelevanceFilter] = useState<'high_only' | 'high_medium'>('high_only')
 
@@ -297,8 +299,8 @@ export default function RadarSettingsPage() {
     setPreferenceLoading(true)
     try {
       const data = await getPushPreference(organizationId)
-      setPushStartTime(dayjs(data.pushStartTime, 'HH:mm'))
-      setPushEndTime(dayjs(data.pushEndTime, 'HH:mm'))
+      setPushStartTime(data.pushStartTime)
+      setPushEndTime(data.pushEndTime)
       setDailyPushLimit(data.dailyPushLimit)
       setRelevanceFilter(data.relevanceFilter)
     } catch (error) {
@@ -330,14 +332,16 @@ export default function RadarSettingsPage() {
     }
 
     // Check if start time equals end time
-    if (pushStartTime.format('HH:mm') === pushEndTime.format('HH:mm')) {
+    if (pushStartTime === pushEndTime) {
       message.warning('开始时间和结束时间不能相同')
       return
     }
 
     // Validate time span (at least 1 hour)
-    const startMinutes = pushStartTime.hour() * 60 + pushStartTime.minute()
-    const endMinutes = pushEndTime.hour() * 60 + pushEndTime.minute()
+    const [startHour, startMinute] = pushStartTime.split(':').map(Number)
+    const [endHour, endMinute] = pushEndTime.split(':').map(Number)
+    const startMinutes = startHour * 60 + startMinute
+    const endMinutes = endHour * 60 + endMinute
     let spanMinutes: number
     if (startMinutes < endMinutes) {
       spanMinutes = endMinutes - startMinutes
@@ -353,8 +357,8 @@ export default function RadarSettingsPage() {
     setPreferenceSaving(true)
     try {
       const dto: UpdatePushPreferenceDto = {
-        pushStartTime: pushStartTime.format('HH:mm'),
-        pushEndTime: pushEndTime.format('HH:mm'),
+        pushStartTime,
+        pushEndTime,
         dailyPushLimit,
         relevanceFilter,
       }
@@ -371,514 +375,520 @@ export default function RadarSettingsPage() {
   // 如果认证失败，显示错误状态
   if (authError) {
     return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography variant="h5" color="error" sx={{ mb: 2 }}>
-          无法访问
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          未找到组织信息，请从雷达首页进入
-        </Typography>
-        <MuiButton variant="contained" onClick={() => router.push('/radar')} sx={{ mt: 2 }}>
-          返回雷达首页
-        </MuiButton>
-      </Box>
+      <div className="min-h-screen bg-[#FEFDFB] p-6">
+        <div className="max-w-4xl mx-auto text-center py-12">
+          <h2 className="text-2xl font-semibold text-red-600 mb-2">无法访问</h2>
+          <p className="text-[#94A3B8] mb-4">未找到组织信息，请从雷达首页进入</p>
+          <Button
+            onClick={() => router.push('/radar')}
+            className="rounded-sm bg-[#1E3A5F] hover:bg-[#152a47]"
+          >
+            返回雷达首页
+          </Button>
+        </div>
+      </div>
     )
   }
 
   // 等待 organizationId 加载
   if (!organizationId) {
     return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Skeleton variant="rectangular" height={400} />
-      </Box>
+      <div className="min-h-screen bg-[#FEFDFB] p-6">
+        <div className="max-w-6xl mx-auto animate-pulse">
+          <div className="h-96 bg-slate-200 rounded-sm" />
+        </div>
+      </div>
     )
   }
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs}>
-    <Box sx={{ p: 3 }}>
-      {/* 面包屑导航 */}
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <MuiLink
-          href={`/radar${organizationId ? `?orgId=${organizationId}` : ''}`}
-          underline="hover"
-          color="inherit"
-          sx={{ cursor: 'pointer' }}
-          onClick={(e) => {
-            e.preventDefault()
-            router.push(`/radar${organizationId ? `?orgId=${organizationId}` : ''}`)
-          }}
-        >
-          雷达首页
-        </MuiLink>
-        <Typography color="text.primary">配置管理</Typography>
-      </Breadcrumbs>
+    <div className="min-h-screen bg-[#FEFDFB] p-6">
+      <div className="max-w-6xl mx-auto">
+        {/* 面包屑导航 */}
+        <nav className="mb-4 text-sm">
+          <ol className="flex items-center gap-2 text-[#94A3B8]">
+            <li>
+              <button
+                onClick={() => router.push(`/radar${organizationId ? `?orgId=${organizationId}` : ''}`)}
+                className="hover:text-[#1E3A5F] transition-colors"
+              >
+                雷达首页
+              </button>
+            </li>
+            <li>
+              <ChevronRight className="w-4 h-4" />
+            </li>
+            <li className="text-[#1E3A5F]">配置管理</li>
+          </ol>
+        </nav>
 
-      {/* 页面标题 */}
-      <Typography variant="h4" sx={{ mt: 2, mb: 3 }}>
-        雷达配置管理
-      </Typography>
+        {/* 页面标题 */}
+        <h1 className="text-3xl font-bold font-[var(--font-plus-jakarta)] text-[#1E3A5F] mb-6">
+          雷达配置管理
+        </h1>
 
-      {/* 关注技术领域配置区域 */}
-      <Card>
-        <CardHeader
-          title="关注技术领域"
-          action={
-            <MuiButton
-              variant="contained"
-              startIcon={<Add />}
+        {/* 关注技术领域配置区域 */}
+        <Card className="border border-[#E2E8F0] rounded-sm shadow-sm mb-6">
+          <div className="p-6 border-b border-[#E2E8F0] flex items-center justify-between">
+            <h2 className="text-xl font-semibold font-[var(--font-plus-jakarta)] text-[#1E3A5F]">
+              关注技术领域
+            </h2>
+            <Button
               onClick={() => setAddModalVisible(true)}
+              className="rounded-sm bg-[#059669] hover:bg-[#047857]"
             >
+              <Plus className="w-4 h-4 mr-2" />
               添加关注领域
-            </MuiButton>
-          }
-        />
-        <CardContent>
-          {loading ? (
-            <Grid container spacing={2}>
-              {[1, 2, 3].map((i) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
-                  <Skeleton variant="rectangular" height={120} />
-                </Grid>
-              ))}
-            </Grid>
-          ) : topics.length === 0 ? (
-            <EmptyState description="暂无关注领域,点击上方按钮添加" />
-          ) : (
-            <Grid container spacing={2}>
-              {topics.map((topic) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={topic.id}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                        <Typography variant="h6" sx={{ mb: 1 }}>
-                          {topic.topicName}
-                        </Typography>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDelete(topic.id, topic.topicName)}
-                        >
-                          <Delete />
-                        </IconButton>
-                      </Box>
-                      <Typography variant="body2" color="text.secondary">
-                        添加时间: {formatDate(topic.createdAt)}
-                      </Typography>
-                      {topic.relatedPushCount !== undefined && topic.relatedPushCount > 0 && (
-                        <Typography variant="caption" color="primary" sx={{ mt: 1, display: 'block' }}>
-                          已推送 {topic.relatedPushCount} 条相关内容
-                        </Typography>
-                      )}
-                    </CardContent>
+            </Button>
+          </div>
+          <div className="p-6">
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-32 bg-slate-200 animate-pulse rounded-sm" />
+                ))}
+              </div>
+            ) : topics.length === 0 ? (
+              <EmptyState description="暂无关注领域,点击上方按钮添加" />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {topics.map((topic) => (
+                  <Card key={topic.id} className="border border-[#E2E8F0] rounded-sm shadow-sm p-4">
+                    <div className="flex justify-between items-start">
+                      <h3 className="text-lg font-semibold text-[#1E3A5F] mb-2">
+                        {topic.topicName}
+                      </h3>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDelete(topic.id, topic.topicName)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-sm"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-[#94A3B8]">
+                      添加时间: {formatDate(topic.createdAt)}
+                    </p>
+                    {topic.relatedPushCount !== undefined && topic.relatedPushCount > 0 && (
+                      <p className="text-xs text-[#059669] mt-2">
+                        已推送 {topic.relatedPushCount} 条相关内容
+                      </p>
+                    )}
                   </Card>
-                </Grid>
-              ))}
-            </Grid>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
 
-      {/* Story 5.2: 关注同业机构配置区域 */}
-      <Card sx={{ mt: 3 }}>
-        <CardHeader
-          title="关注同业机构"
-          action={
-            <MuiButton
-              variant="contained"
-              startIcon={<Add />}
+        {/* Story 5.2: 关注同业机构配置区域 */}
+        <Card className="border border-[#E2E8F0] rounded-sm shadow-sm mb-6">
+          <div className="p-6 border-b border-[#E2E8F0] flex items-center justify-between">
+            <h2 className="text-xl font-semibold font-[var(--font-plus-jakarta)] text-[#1E3A5F]">
+              关注同业机构
+            </h2>
+            <Button
               onClick={() => setAddPeerModalVisible(true)}
+              className="rounded-sm bg-[#059669] hover:bg-[#047857]"
             >
+              <Plus className="w-4 h-4 mr-2" />
               添加关注同业
-            </MuiButton>
-          }
-        />
-        <CardContent>
-          {peersLoading ? (
-            <Grid container spacing={2}>
-              {[1, 2, 3].map((i) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
-                  <Skeleton variant="rectangular" height={120} />
-                </Grid>
-              ))}
-            </Grid>
-          ) : peers.length === 0 ? (
-            <EmptyState description="暂无关注同业,点击上方按钮添加" />
-          ) : (
-            <Grid container spacing={2}>
-              {peers.map((peer) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={peer.id}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                        <Box>
-                          <Typography variant="h6" sx={{ mb: 0.5 }}>
-                            {peer.peerName}
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
-                            <Chip
-                              label={getIndustryLabel(peer.industry)}
-                              size="small"
-                              color="secondary"
-                              variant="outlined"
-                            />
-                            <Chip
-                              label={peer.institutionType}
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                            />
-                          </Box>
-                        </Box>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDeletePeer(peer.id, peer.peerName)}
-                        >
-                          <Delete />
-                        </IconButton>
-                      </Box>
-                      <Typography variant="body2" color="text.secondary">
-                        添加时间: {formatDate(peer.createdAt)}
-                      </Typography>
-                      {peer.relatedPushCount !== undefined && peer.relatedPushCount > 0 && (
-                        <Typography variant="caption" color="primary" sx={{ mt: 1, display: 'block' }}>
-                          已推送 {peer.relatedPushCount} 条相关内容
-                        </Typography>
-                      )}
-                    </CardContent>
+            </Button>
+          </div>
+          <div className="p-6">
+            {peersLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-32 bg-slate-200 animate-pulse rounded-sm" />
+                ))}
+              </div>
+            ) : peers.length === 0 ? (
+              <EmptyState description="暂无关注同业,点击上方按钮添加" />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {peers.map((peer) => (
+                  <Card key={peer.id} className="border border-[#E2E8F0] rounded-sm shadow-sm p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-lg font-semibold text-[#1E3A5F] mb-1">
+                          {peer.peerName}
+                        </h3>
+                        <div className="flex gap-1 mb-2">
+                          <Badge variant="outline" className="rounded-sm text-xs">
+                            {getIndustryLabel(peer.industry)}
+                          </Badge>
+                          <Badge variant="outline" className="rounded-sm text-xs">
+                            {peer.institutionType}
+                          </Badge>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeletePeer(peer.id, peer.peerName)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-sm"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-sm text-[#94A3B8]">
+                      添加时间: {formatDate(peer.createdAt)}
+                    </p>
+                    {peer.relatedPushCount !== undefined && peer.relatedPushCount > 0 && (
+                      <p className="text-xs text-[#059669] mt-2">
+                        已推送 {peer.relatedPushCount} 条相关内容
+                      </p>
+                    )}
                   </Card>
-                </Grid>
-              ))}
-            </Grid>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
 
-      {/* Story 5.3: 推送偏好配置区域 */}
-      <Card sx={{ mt: 3 }}>
-        <CardHeader
-          title="推送偏好设置"
-          action={
-            <MuiButton
-              variant="contained"
+        {/* Story 5.3: 推送偏好配置区域 */}
+        <Card className="border border-[#E2E8F0] rounded-sm shadow-sm">
+          <div className="p-6 border-b border-[#E2E8F0] flex items-center justify-between">
+            <h2 className="text-xl font-semibold font-[var(--font-plus-jakarta)] text-[#1E3A5F]">
+              推送偏好设置
+            </h2>
+            <Button
               onClick={handleSavePreference}
               disabled={preferenceSaving}
+              className="rounded-sm bg-[#1E3A5F] hover:bg-[#152a47]"
             >
+              <Save className="w-4 h-4 mr-2" />
               {preferenceSaving ? '保存中...' : '保存设置'}
-            </MuiButton>
-          }
-        />
-        <CardContent>
-          {preferenceLoading ? (
-            <Skeleton variant="rectangular" height={200} />
-          ) : (
-            <Grid container spacing={3}>
-              {/* 推送时段设置 */}
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                  推送时段
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <TimePicker
-                    value={pushStartTime}
-                    onChange={setPushStartTime}
-                    format="HH:mm"
-                    slotProps={{ textField: { size: 'small', placeholder: '开始时间', sx: { width: 120 } } }}
-                  />
-                  <Typography>至</Typography>
-                  <TimePicker
-                    value={pushEndTime}
-                    onChange={setPushEndTime}
-                    format="HH:mm"
-                    slotProps={{ textField: { size: 'small', placeholder: '结束时间', sx: { width: 120 } } }}
-                  />
-                </Box>
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  系统仅在设置的时段内推送消息（合规雷达除外）
-                </Typography>
-              </Grid>
+            </Button>
+          </div>
+          <div className="p-6">
+            {preferenceLoading ? (
+              <div className="h-48 bg-slate-200 animate-pulse rounded-sm" />
+            ) : (
+              <div className="space-y-6">
+                {/* 推送时段设置 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-[#1E3A5F] mb-3 flex items-center gap-2">
+                      <Clock className="w-5 h-5" />
+                      推送时段
+                    </h3>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="time"
+                        value={pushStartTime}
+                        onChange={(e) => setPushStartTime(e.target.value)}
+                        className="rounded-sm border-[#E2E8F0] w-32"
+                      />
+                      <span className="text-[#94A3B8]">至</span>
+                      <Input
+                        type="time"
+                        value={pushEndTime}
+                        onChange={(e) => setPushEndTime(e.target.value)}
+                        className="rounded-sm border-[#E2E8F0] w-32"
+                      />
+                    </div>
+                    <p className="text-xs text-[#94A3B8] mt-2">
+                      系统仅在设置的时段内推送消息（合规雷达除外）
+                    </p>
+                  </div>
 
-              {/* 单日推送上限 */}
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                  单日推送上限: {dailyPushLimit} 条
-                </Typography>
-                <Slider
-                  min={1}
-                  max={20}
-                  value={dailyPushLimit}
-                  onChange={(_, value) => setDailyPushLimit(value as number)}
-                  marks={[
-                    { value: 1, label: '1条' },
-                    { value: 5, label: '5条' },
-                    { value: 10, label: '10条' },
-                    { value: 15, label: '15条' },
-                    { value: 20, label: '20条' },
-                  ]}
-                  valueLabelDisplay="auto"
-                />
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                  范围：1-20 条，超出上限的推送将自动延迟到次日
-                </Typography>
-              </Grid>
+                  {/* 单日推送上限 */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-[#1E3A5F] mb-3 flex items-center gap-2">
+                      <SlidersHorizontal className="w-5 h-5" />
+                      单日推送上限: {dailyPushLimit} 条
+                    </h3>
+                    <Slider
+                      min={1}
+                      max={20}
+                      value={[dailyPushLimit]}
+                      onValueChange={(value) => setDailyPushLimit(value[0])}
+                      step={1}
+                      className="my-4"
+                    />
+                    <div className="flex justify-between text-xs text-[#94A3B8]">
+                      <span>1条</span>
+                      <span>5条</span>
+                      <span>10条</span>
+                      <span>15条</span>
+                      <span>20条</span>
+                    </div>
+                    <p className="text-xs text-[#94A3B8] mt-2">
+                      范围：1-20 条，超出上限的推送将自动延迟到次日
+                    </p>
+                  </div>
+                </div>
 
-              {/* 相关性过滤 */}
-              <Grid size={{ xs: 12 }}>
-                <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                  相关性过滤
-                </Typography>
-                <RadioGroup
-                  row
-                  value={relevanceFilter}
-                  onChange={(e) => setRelevanceFilter(e.target.value as 'high_only' | 'high_medium')}
+                {/* 相关性过滤 */}
+                <div>
+                  <h3 className="text-lg font-semibold text-[#1E3A5F] mb-3">相关性过滤</h3>
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3 cursor-pointer p-3 border border-[#E2E8F0] rounded-sm hover:bg-slate-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="relevance"
+                        value="high_only"
+                        checked={relevanceFilter === 'high_only'}
+                        onChange={(e) => setRelevanceFilter(e.target.value as 'high_only' | 'high_medium')}
+                        className="mt-1"
+                      />
+                      <div>
+                        <p className="font-medium text-[#1E3A5F]">仅推送高相关内容</p>
+                        <p className="text-sm text-[#94A3B8]">相关性评分 ≥ 0.9</p>
+                      </div>
+                    </label>
+                    <label className="flex items-start gap-3 cursor-pointer p-3 border border-[#E2E8F0] rounded-sm hover:bg-slate-50 transition-colors">
+                      <input
+                        type="radio"
+                        name="relevance"
+                        value="high_medium"
+                        checked={relevanceFilter === 'high_medium'}
+                        onChange={(e) => setRelevanceFilter(e.target.value as 'high_only' | 'high_medium')}
+                        className="mt-1"
+                      />
+                      <div>
+                        <p className="font-medium text-[#1E3A5F]">推送高+中相关内容</p>
+                        <p className="text-sm text-[#94A3B8]">相关性评分 ≥ 0.7</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* 添加关注领域弹窗 */}
+        <Dialog open={addModalVisible} onOpenChange={(open) => !submitting && setAddModalVisible(open)}>
+          <DialogContent className="rounded-sm max-w-lg">
+            <DialogHeader>
+              <DialogTitle>添加关注领域</DialogTitle>
+              <DialogDescription>选择预设领域或输入自定义领域名称</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {PRESET_TOPICS.map((topic) => (
+                <label
+                  key={topic.name}
+                  className={cn(
+                    "flex items-start gap-3 p-3 border rounded-sm cursor-pointer transition-colors",
+                    selectedTopic === topic.name
+                      ? "border-[#059669] bg-green-50"
+                      : "border-[#E2E8F0] hover:bg-slate-50"
+                  )}
                 >
-                  <FormControlLabel
-                    value="high_only"
-                    control={<Radio />}
-                    label={
-                      <Box>
-                        <Typography variant="body1">仅推送高相关内容</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          相关性评分 ≥ 0.9
-                        </Typography>
-                      </Box>
-                    }
+                  <input
+                    type="radio"
+                    name="topic"
+                    value={topic.name}
+                    checked={selectedTopic === topic.name}
+                    onChange={(e) => {
+                      setSelectedTopic(e.target.value)
+                      setCustomTopic('')
+                    }}
+                    disabled={submitting}
+                    className="mt-1"
                   />
-                  <FormControlLabel
-                    value="high_medium"
-                    control={<Radio />}
-                    label={
-                      <Box>
-                        <Typography variant="body1">推送高+中相关内容</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          相关性评分 ≥ 0.7
-                        </Typography>
-                      </Box>
-                    }
-                  />
-                </RadioGroup>
-              </Grid>
-            </Grid>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 添加关注领域弹窗 */}
-      <Modal
-        open={addModalVisible}
-        onClose={() => !submitting && setAddModalVisible(false)}
-        aria-labelledby="add-topic-modal"
-      >
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 500,
-            bgcolor: 'background.paper',
-            boxShadow: 24,
-            p: 4,
-            borderRadius: 2,
-            maxHeight: '80vh',
-            overflow: 'auto',
-          }}
-        >
-          <Typography variant="h6" component="h2" sx={{ mb: 3 }}>
-            添加关注领域
-          </Typography>
-
-          {/* 预设选项 */}
-          <RadioGroup
-            value={selectedTopic}
-            onChange={(e) => {
-              setSelectedTopic(e.target.value)
-              setCustomTopic('')
-            }}
-          >
-            {PRESET_TOPICS.map((topic) => (
-              <FormControlLabel
-                key={topic.name}
-                value={topic.name}
-                control={<Radio />}
-                label={
-                  <Box>
-                    <Typography variant="body1">{topic.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {topic.desc}
-                    </Typography>
-                  </Box>
-                }
-                sx={{ mb: 1 }}
-              />
-            ))}
-          </RadioGroup>
-
-          <Divider sx={{ my: 2 }}>或</Divider>
-
-          {/* 自定义输入 */}
-          <TextField
-            fullWidth
-            label="自定义领域名称"
-            value={customTopic}
-            onChange={(e) => {
-              setCustomTopic(e.target.value)
-              setSelectedTopic('')
-            }}
-            placeholder="输入自定义技术领域"
-            disabled={submitting}
-          />
-
-          {/* 操作按钮 */}
-          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <MuiButton onClick={() => setAddModalVisible(false)} disabled={submitting}>
-              取消
-            </MuiButton>
-            <MuiButton variant="contained" onClick={handleAdd} disabled={submitting}>
-              {submitting ? '提交中...' : '确认'}
-            </MuiButton>
-          </Box>
-        </Box>
-      </Modal>
-
-      {/* Story 5.2: 添加关注同业弹窗 */}
-      <Modal
-        open={addPeerModalVisible}
-        onClose={() => !peerSubmitting && setAddPeerModalVisible(false)}
-        aria-labelledby="add-peer-modal"
-      >
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 500,
-            bgcolor: 'background.paper',
-            boxShadow: 24,
-            p: 4,
-            borderRadius: 2,
-            maxHeight: '80vh',
-            overflow: 'auto',
-          }}
-        >
-          <Typography variant="h6" component="h2" sx={{ mb: 3 }}>
-            添加关注同业
-          </Typography>
-
-          {/* 行业选择 */}
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>行业类别</InputLabel>
-            <Select
-              value={selectedIndustry}
-              label="行业类别"
-              onChange={(e) => {
-                setSelectedIndustry(e.target.value as IndustryKey)
-                setSelectedPeer('')
-              }}
-              disabled={peerSubmitting}
-            >
-              {Object.entries(INDUSTRY_LABELS).map(([key, label]) => (
-                <MenuItem key={key} value={key}>{label}</MenuItem>
+                  <div>
+                    <p className="font-medium text-[#1E3A5F]">{topic.name}</p>
+                    <p className="text-sm text-[#94A3B8]">{topic.desc}</p>
+                  </div>
+                </label>
               ))}
-            </Select>
-          </FormControl>
+            </div>
 
-          {/* 预设选项 */}
-          <RadioGroup
-            value={selectedPeer}
-            onChange={(e) => {
-              setSelectedPeer(e.target.value)
-              setCustomPeerName('')
-            }}
-          >
-            {INSTITUTION_PRESETS[selectedIndustry].map((peer) => (
-              <FormControlLabel
-                key={peer.name}
-                value={peer.name}
-                control={<Radio />}
-                label={
-                  <Box>
-                    <Typography variant="body1">{peer.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {peer.type} - {peer.desc}
-                    </Typography>
-                  </Box>
-                }
-                sx={{ mb: 1 }}
+            <div className="flex items-center gap-2 my-4">
+              <div className="flex-1 h-px bg-[#E2E8F0]" />
+              <span className="text-sm text-[#94A3B8]">或</span>
+              <div className="flex-1 h-px bg-[#E2E8F0]" />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="custom-topic">自定义领域名称</Label>
+              <Input
+                id="custom-topic"
+                value={customTopic}
+                onChange={(e) => {
+                  setCustomTopic(e.target.value)
+                  setSelectedTopic('')
+                }}
+                placeholder="输入自定义技术领域"
+                disabled={submitting}
+                className="rounded-sm border-[#E2E8F0]"
               />
-            ))}
-          </RadioGroup>
+            </div>
 
-          <Divider sx={{ my: 2 }}>或</Divider>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setAddModalVisible(false)}
+                disabled={submitting}
+                className="rounded-sm"
+              >
+                取消
+              </Button>
+              <Button
+                onClick={handleAdd}
+                disabled={submitting}
+                className="rounded-sm bg-[#059669] hover:bg-[#047857]"
+              >
+                {submitting ? '提交中...' : '确认'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-          {/* 自定义输入 */}
-          <TextField
-            fullWidth
-            label="自定义机构名称"
-            value={customPeerName}
-            onChange={(e) => {
-              setCustomPeerName(e.target.value)
-              setSelectedPeer('')
-            }}
-            placeholder="输入自定义机构名称"
-            disabled={peerSubmitting}
-            sx={{ mb: 2 }}
-          />
+        {/* Story 5.2: 添加关注同业弹窗 */}
+        <Dialog open={addPeerModalVisible} onOpenChange={(open) => !peerSubmitting && setAddPeerModalVisible(open)}>
+          <DialogContent className="rounded-sm max-w-lg">
+            <DialogHeader>
+              <DialogTitle>添加关注同业</DialogTitle>
+              <DialogDescription>选择预设机构或输入自定义机构</DialogDescription>
+            </DialogHeader>
 
-          {/* 自定义类型输入 */}
-          {customPeerName && (
-            <TextField
-              fullWidth
-              label="机构类型"
-              value={customInstitutionType}
-              onChange={(e) => setCustomInstitutionType(e.target.value)}
-              placeholder="例如：城商行、券商、寿险公司"
-              helperText="请输入机构的具体类型"
-              disabled={peerSubmitting}
-              sx={{ mb: 2 }}
-            />
-          )}
+            <div className="space-y-4">
+              {/* 行业选择 */}
+              <div className="space-y-2">
+                <Label htmlFor="industry-select">行业类别</Label>
+                <Select
+                  value={selectedIndustry}
+                  onValueChange={(value) => {
+                    setSelectedIndustry(value as IndustryKey)
+                    setSelectedPeer('')
+                  }}
+                  disabled={peerSubmitting}
+                >
+                  <SelectTrigger className="rounded-sm border-[#E2E8F0]">
+                    <SelectValue placeholder="选择行业" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(INDUSTRY_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {/* 操作按钮 */}
-          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <MuiButton onClick={() => setAddPeerModalVisible(false)} disabled={peerSubmitting}>
-              取消
-            </MuiButton>
-            <MuiButton variant="contained" onClick={handleAddPeer} disabled={peerSubmitting}>
-              {peerSubmitting ? '提交中...' : '确认'}
-            </MuiButton>
-          </Box>
-        </Box>
-      </Modal>
+              {/* 预设选项 */}
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {INSTITUTION_PRESETS[selectedIndustry].map((peer) => (
+                  <label
+                    key={peer.name}
+                    className={cn(
+                      "flex items-start gap-3 p-3 border rounded-sm cursor-pointer transition-colors",
+                      selectedPeer === peer.name
+                        ? "border-[#059669] bg-green-50"
+                        : "border-[#E2E8F0] hover:bg-slate-50"
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="peer"
+                      value={peer.name}
+                      checked={selectedPeer === peer.name}
+                      onChange={(e) => {
+                        setSelectedPeer(e.target.value)
+                        setCustomPeerName('')
+                      }}
+                      disabled={peerSubmitting}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="font-medium text-[#1E3A5F]">{peer.name}</p>
+                      <p className="text-sm text-[#94A3B8]">{peer.type} - {peer.desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
 
-      {/* 删除关注领域确认对话框 */}
-      <ConfirmDialog
-        open={deleteTopicDialog.open}
-        title="确定取消关注该领域吗?"
-        content={`取消后,系统将不再推送"${deleteTopicDialog.topicName}"相关内容`}
-        confirmText="确定"
-        cancelText="取消"
-        confirmColor="error"
-        onConfirm={handleConfirmDeleteTopic}
-        onCancel={() => setDeleteTopicDialog({ open: false, topicId: '', topicName: '' })}
-      />
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-px bg-[#E2E8F0]" />
+                <span className="text-sm text-[#94A3B8]">或</span>
+                <div className="flex-1 h-px bg-[#E2E8F0]" />
+              </div>
 
-      {/* 删除关注同业确认对话框 */}
-      <ConfirmDialog
-        open={deletePeerDialog.open}
-        title="确定取消关注该同业机构吗?"
-        content={`取消后,系统将不再推送"${deletePeerDialog.peerName}"相关内容`}
-        confirmText="确定"
-        cancelText="取消"
-        confirmColor="error"
-        onConfirm={handleConfirmDeletePeer}
-        onCancel={() => setDeletePeerDialog({ open: false, peerId: '', peerName: '' })}
-      />
-    </Box>
-    </LocalizationProvider>
+              {/* 自定义输入 */}
+              <div className="space-y-2">
+                <Label htmlFor="custom-peer">自定义机构名称</Label>
+                <Input
+                  id="custom-peer"
+                  value={customPeerName}
+                  onChange={(e) => {
+                    setCustomPeerName(e.target.value)
+                    setSelectedPeer('')
+                  }}
+                  placeholder="输入自定义机构名称"
+                  disabled={peerSubmitting}
+                  className="rounded-sm border-[#E2E8F0]"
+                />
+              </div>
+
+              {/* 自定义类型输入 */}
+              {customPeerName && (
+                <div className="space-y-2">
+                  <Label htmlFor="institution-type">机构类型</Label>
+                  <Input
+                    id="institution-type"
+                    value={customInstitutionType}
+                    onChange={(e) => setCustomInstitutionType(e.target.value)}
+                    placeholder="例如：城商行、券商、寿险公司"
+                    disabled={peerSubmitting}
+                    className="rounded-sm border-[#E2E8F0]"
+                  />
+                  <p className="text-xs text-[#94A3B8]">请输入机构的具体类型</p>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setAddPeerModalVisible(false)}
+                disabled={peerSubmitting}
+                className="rounded-sm"
+              >
+                取消
+              </Button>
+              <Button
+                onClick={handleAddPeer}
+                disabled={peerSubmitting}
+                className="rounded-sm bg-[#059669] hover:bg-[#047857]"
+              >
+                {peerSubmitting ? '提交中...' : '确认'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* 删除关注领域确认对话框 */}
+        <ConfirmDialog
+          open={deleteTopicDialog.open}
+          title="确定取消关注该领域吗?"
+          content={`取消后,系统将不再推送"${deleteTopicDialog.topicName}"相关内容`}
+          confirmText="确定"
+          cancelText="取消"
+          confirmColor="error"
+          onConfirm={handleConfirmDeleteTopic}
+          onCancel={() => setDeleteTopicDialog({ open: false, topicId: '', topicName: '' })}
+        />
+
+        {/* 删除关注同业确认对话框 */}
+        <ConfirmDialog
+          open={deletePeerDialog.open}
+          title="确定取消关注该同业机构吗?"
+          content={`取消后,系统将不再推送"${deletePeerDialog.peerName}"相关内容`}
+          confirmText="确定"
+          cancelText="取消"
+          confirmColor="error"
+          onConfirm={handleConfirmDeletePeer}
+          onCancel={() => setDeletePeerDialog({ open: false, peerId: '', peerName: '' })}
+        />
+      </div>
+    </div>
   )
 }
-  const getErrorMessage = (error: unknown, fallback: string) =>
-    error instanceof Error && error.message ? error.message : fallback
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message ? error.message : fallback

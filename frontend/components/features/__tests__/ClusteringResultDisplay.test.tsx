@@ -9,6 +9,16 @@ jest.mock('sonner', () => ({
   },
 }))
 
+// Mock Accordion to always render content (Radix Accordion doesn't expand in JSDOM)
+jest.mock('@/components/ui/accordion', () => ({
+  Accordion: ({ children }: any) => <div>{children}</div>,
+  AccordionItem: ({ children, value }: any) => <div data-testid={`accordion-item-${value}`}>{children}</div>,
+  AccordionTrigger: ({ children, ...props }: any) => (
+    <button type="button" {...props}>{children}</button>
+  ),
+  AccordionContent: ({ children }: any) => <div>{children}</div>,
+}))
+
 const mockResult = {
   taskId: 'test-task-123',
   projectId: 'project-123',
@@ -72,7 +82,6 @@ describe('ClusteringResultDisplay', () => {
       <ClusteringResultDisplay result={mockResult} documents={mockDocuments} />
     )
 
-    // Check basic info is displayed
     expect(screen.getByText('聚类任务完成！下一步：生成成熟度矩阵')).toBeInTheDocument()
     expect(screen.getByText('test-task-123')).toBeInTheDocument()
   })

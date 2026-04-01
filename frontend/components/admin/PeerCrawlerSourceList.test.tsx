@@ -1,9 +1,21 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { ThemeProvider } from '@mui/material/styles'
-import { createTheme } from '@mui/material/styles'
 import { PeerCrawlerSourceList } from './PeerCrawlerSourceList'
 import { RadarSource } from '@/lib/api/radar-sources'
+
+// Mock Tooltip to render content inline with aria-label on trigger child (Radix Tooltip portals don't work in JSDOM)
+jest.mock('@/components/ui/tooltip', () => {
+  const React = require('react')
+  return {
+    TooltipProvider: ({ children }: any) => <>{children}</>,
+    Tooltip: ({ children }: any) => <>{children}</>,
+    TooltipTrigger: React.forwardRef(({ children, ...props }: any, ref: any) => {
+      // Don't clone to add props, just render children as-is
+      return <>{children}</>
+    }),
+    TooltipContent: ({ children }: any) => <>{children}</>,
+  }
+})
 
 /**
  * PeerCrawlerSourceList Component Tests
@@ -11,11 +23,7 @@ import { RadarSource } from '@/lib/api/radar-sources'
  * Story 8.1: 同业采集源管理列表
  */
 describe('PeerCrawlerSourceList Component', () => {
-  const theme = createTheme()
-
-  const renderWithTheme = (component: React.ReactElement) => {
-    return render(<ThemeProvider theme={theme}>{component}</ThemeProvider>)
-  }
+  const renderWithTheme = (component: React.ReactElement) => render(component)
 
   const mockSources: RadarSource[] = [
     {
@@ -88,7 +96,8 @@ describe('PeerCrawlerSourceList Component', () => {
         />
       )
 
-      expect(screen.getByRole('progressbar')).toBeInTheDocument()
+      // Loader2 spinner doesn't have progressbar role; check for the spinner SVG
+      expect(document.querySelector('.animate-spin')).toBeInTheDocument()
     })
 
     it('should not show table when loading', () => {
@@ -239,11 +248,20 @@ describe('PeerCrawlerSourceList Component', () => {
         />
       )
 
-      expect(screen.getByText('Connection timeout')).toBeInTheDocument()
+      // Error message appears both in tooltip and inline; get all matches
+      const errorTexts = screen.getAllByText('Connection timeout')
+      expect(errorTexts.length).toBeGreaterThanOrEqual(1)
     })
   })
 
   describe('User Interactions', () => {
+    // Helper: get action buttons from a specific row
+    // Each row's last <td> has 3 action buttons: [0]=test, [1]=edit, [2]=delete
+    function getRowActionButtons(rowText: string) {
+      const row = screen.getByText(rowText).closest('tr')!
+      return row.querySelectorAll('td:last-child button')
+    }
+
     it('should call onCreate when add button clicked', () => {
       renderWithTheme(
         <PeerCrawlerSourceList
@@ -266,8 +284,9 @@ describe('PeerCrawlerSourceList Component', () => {
         />
       )
 
-      const editButtons = screen.getAllByRole('button', { name: /编辑/i })
-      fireEvent.click(editButtons[0])
+      // Edit is the second action button [1] in the row
+      const buttons = getRowActionButtons('杭州银行金融科技')
+      fireEvent.click(buttons[1])
 
       expect(mockHandlers.onEdit).toHaveBeenCalledWith(mockSources[0])
     })
@@ -283,8 +302,9 @@ describe('PeerCrawlerSourceList Component', () => {
         />
       )
 
-      const deleteButtons = screen.getAllByRole('button', { name: /删除/i })
-      fireEvent.click(deleteButtons[0])
+      // Delete is the third action button [2] in the row
+      const buttons = getRowActionButtons('杭州银行金融科技')
+      fireEvent.click(buttons[2])
 
       expect(window.confirm).toHaveBeenCalledWith('确定要删除这个采集源吗？')
       await waitFor(() => {
@@ -302,8 +322,8 @@ describe('PeerCrawlerSourceList Component', () => {
         />
       )
 
-      const deleteButtons = screen.getAllByRole('button', { name: /删除/i })
-      fireEvent.click(deleteButtons[0])
+      const buttons = getRowActionButtons('杭州银行金融科技')
+      fireEvent.click(buttons[2])
 
       expect(window.confirm).toHaveBeenCalled()
       expect(mockHandlers.onDelete).not.toHaveBeenCalled()
@@ -317,8 +337,7 @@ describe('PeerCrawlerSourceList Component', () => {
         />
       )
 
-      // Find switches by their CSS class since MUI Switch doesn't always have checkbox role
-      const switches = document.querySelectorAll('.MuiSwitch-root input')
+      const switches = document.querySelectorAll('[role="switch"]')
       expect(switches.length).toBeGreaterThan(0)
       fireEvent.click(switches[0])
 
@@ -335,8 +354,9 @@ describe('PeerCrawlerSourceList Component', () => {
         />
       )
 
-      const testButtons = screen.getAllByRole('button', { name: /测试采集/i })
-      fireEvent.click(testButtons[0])
+      // Test is the first action button [0] in the row
+      const buttons = getRowActionButtons('杭州银行金融科技')
+      fireEvent.click(buttons[0])
 
       await waitFor(() => {
         expect(mockHandlers.onTestCrawl).toHaveBeenCalledWith(mockSources[0])
@@ -353,15 +373,15 @@ describe('PeerCrawlerSourceList Component', () => {
         />
       )
 
-      const testButtons = screen.getAllByRole('button', { name: /测试采集/i })
-      fireEvent.click(testButtons[0])
+      const buttons = getRowActionButtons('杭州银行金融科技')
+      fireEvent.click(buttons[0])
 
       // Button should be disabled during testing
-      expect(testButtons[0]).toBeDisabled()
+      expect(buttons[0]).toBeDisabled()
 
       // Wait for the operation to complete
       await waitFor(() => {
-        expect(testButtons[0]).not.toBeDisabled()
+        expect(buttons[0]).not.toBeDisabled()
       }, { timeout: 200 })
     })
 
@@ -376,12 +396,12 @@ describe('PeerCrawlerSourceList Component', () => {
         />
       )
 
-      const deleteButtons = screen.getAllByRole('button', { name: /删除/i })
-      fireEvent.click(deleteButtons[0])
+      const buttons = getRowActionButtons('杭州银行金融科技')
+      fireEvent.click(buttons[2])
 
       // Button should be disabled during deletion
       await waitFor(() => {
-        expect(deleteButtons[0]).toBeDisabled()
+        expect(buttons[2]).toBeDisabled()
       })
     })
   })
@@ -395,28 +415,30 @@ describe('PeerCrawlerSourceList Component', () => {
         />
       )
 
-      // Find switches by their CSS class
-      const switches = document.querySelectorAll('.MuiSwitch-root input')
+      // Custom Switch uses aria-checked attribute
+      const switches = document.querySelectorAll('[role="switch"]')
       expect(switches.length).toBe(3)
-      expect(switches[0]).toBeChecked() // source-1 is active
-      expect(switches[1]).not.toBeChecked() // source-2 is inactive
-      expect(switches[2]).toBeChecked() // source-3 is active
+      // source-1 is active
+      expect(switches[0]).toHaveAttribute('aria-checked', 'true')
+      // source-2 is inactive
+      expect(switches[1]).toHaveAttribute('aria-checked', 'false')
+      // source-3 is active
+      expect(switches[2]).toHaveAttribute('aria-checked', 'true')
     })
   })
 
   describe('URL Display', () => {
     it('should truncate long URLs', () => {
-      renderWithTheme(
+      const { container } = renderWithTheme(
         <PeerCrawlerSourceList
           sources={mockSources}
           {...mockHandlers}
         />
       )
 
-      // URLs should be displayed (even if truncated)
+      // URLs should be displayed (even if truncated) - each URL appears at least once
       mockSources.forEach(source => {
-        const urlElements = screen.getAllByText(source.url)
-        expect(urlElements.length).toBeGreaterThan(0)
+        expect(container.textContent).toContain(source.url)
       })
     })
   })

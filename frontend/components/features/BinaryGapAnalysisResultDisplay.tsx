@@ -6,26 +6,11 @@
  */
 
 import { useState } from 'react'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import CardHeader from '@mui/material/CardHeader'
-import Chip from '@mui/material/Chip'
-import Button from '@mui/material/Button'
-import Grid from '@mui/material/Grid'
-import Alert from '@mui/material/Alert'
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import Stack from '@mui/material/Stack'
-import Divider from '@mui/material/Divider'
-import List from '@mui/material/List'
-import ListItem from '@mui/material/ListItem'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import WarningIcon from '@mui/icons-material/Warning'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
-import LightbulbIcon from '@mui/icons-material/Lightbulb'
-import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
-import BarChartIcon from '@mui/icons-material/BarChart'
-import CircularProgress from '@mui/material/CircularProgress'
+import { CheckCircle, AlertTriangle, TrendingUp, Lightbulb, Rocket, BarChart3, Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 interface BinaryGapAnalysisResult {
   total_clauses: number
@@ -79,16 +64,16 @@ export default function BinaryGapAnalysisResultDisplay({
   // 显示的差距（默认只显示前10个）
   const displayedGaps = showAllGaps ? sortedGapDetails : sortedGapDetails.slice(0, 10)
 
-  const getPriorityColor = (priority: string): 'error' | 'warning' | 'success' | 'default' => {
+  const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'HIGH':
-        return 'error'
+        return 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-700'
       case 'MEDIUM':
-        return 'warning'
+        return 'bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700'
       case 'LOW':
-        return 'success'
+        return 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700'
       default:
-        return 'default'
+        return 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
     }
   }
 
@@ -98,57 +83,60 @@ export default function BinaryGapAnalysisResultDisplay({
       MEDIUM: '中优先级',
       LOW: '低优先级',
     }
-    return <Chip label={labels[priority] || priority} color={getPriorityColor(priority)} size="small" />
+    return (
+      <Badge className={getPriorityColor(priority)} variant="outline">
+        {labels[priority] || priority}
+      </Badge>
+    )
   }
 
   const getComplianceRateColor = (rate: number) => {
-    if (rate >= 0.8) return '#52c41a'
-    if (rate >= 0.6) return '#faad14'
-    return '#f5222d'
+    if (rate >= 0.8) return 'text-green-600'
+    if (rate >= 0.6) return 'text-yellow-600'
+    return 'text-red-600'
   }
 
   return (
     <div className="space-y-6">
       {/* 总体统计 */}
       <Card>
-        <CardContent>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 6, md: 3 }}>
-              <Box>
-                <Typography variant="body2" color="text.secondary">合规率</Typography>
-                <Typography variant="h4" sx={{ color: getComplianceRateColor(result.compliance_rate), display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <BarChartIcon /> {(result.compliance_rate * 100).toFixed(1)}%
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 6, md: 3 }}>
-              <Box>
-                <Typography variant="body2" color="text.secondary">总条款</Typography>
-                <Typography variant="h4">{result.total_clauses} <Typography component="span" variant="body2">项</Typography></Typography>
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 6, md: 3 }}>
-              <Box>
-                <Typography variant="body2" color="text.secondary">已满足</Typography>
-                <Typography variant="h4" sx={{ color: '#52c41a', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <CheckCircleIcon /> {result.satisfied_clauses} <Typography component="span" variant="body2">项</Typography>
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 6, md: 3 }}>
-              <Box>
-                <Typography variant="body2" color="text.secondary">差距条款</Typography>
-                <Typography variant="h4" sx={{ color: '#f5222d', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <WarningIcon /> {result.gap_clauses} <Typography component="span" variant="body2">项</Typography>
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">合规率</p>
+              <p className={`text-3xl font-bold flex items-center gap-1 ${getComplianceRateColor(result.compliance_rate)}`}>
+                <BarChart3 className="w-6 h-6" />
+                {(result.compliance_rate * 100).toFixed(1)}%
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">总条款</p>
+              <p className="text-3xl font-bold">
+                {result.total_clauses} <span className="text-sm">项</span>
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">已满足</p>
+              <p className="text-3xl font-bold text-green-600 flex items-center gap-1">
+                <CheckCircle className="w-6 h-6" />
+                {result.satisfied_clauses} <span className="text-sm">项</span>
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">差距条款</p>
+              <p className="text-3xl font-bold text-red-600 flex items-center gap-1">
+                <AlertTriangle className="w-6 h-6" />
+                {result.gap_clauses} <span className="text-sm">项</span>
+              </p>
+            </div>
+          </div>
 
           {result.summary.overview && (
             <>
-              <Divider sx={{ my: 2 }} />
-              <Alert severity="info" sx={{ mb: 2 }}>{result.summary.overview}</Alert>
+              <div className="my-4 border-t border-gray-200 dark:border-gray-700" />
+              <Alert>
+                <AlertDescription>{result.summary.overview}</AlertDescription>
+              </Alert>
             </>
           )}
         </CardContent>
@@ -157,37 +145,37 @@ export default function BinaryGapAnalysisResultDisplay({
       {/* 差距聚类汇总 */}
       {result.gap_clusters.length > 0 && (
         <Card>
-          <CardHeader
-            title={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><WarningIcon /> 差距聚类汇总</Box>}
-            titleTypographyProps={{ variant: 'subtitle1' }}
-          />
+          <CardHeader className="flex flex-row items-center gap-2 pb-4">
+            <AlertTriangle className="w-5 h-5" />
+            <h3 className="text-lg font-semibold">差距聚类汇总</h3>
+          </CardHeader>
           <CardContent>
-            <Grid container spacing={2}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {result.gap_clusters.map((cluster) => (
-                <Grid size={{ xs: 12, md: 4 }} key={cluster.cluster_id}>
-                  <Card variant="outlined" sx={{ height: '100%' }}>
-                    <CardContent>
-                      <Typography variant="body1" gutterBottom>{cluster.cluster_name}</Typography>
-                      <Typography variant="h4" sx={{
-                        color: cluster.gap_rate >= 0.5 ? '#f5222d' : cluster.gap_rate >= 0.3 ? '#faad14' : '#52c41a',
-                      }}>
-                        {(cluster.gap_rate * 100).toFixed(1)}%
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        {cluster.gap_clauses} / {cluster.total_clauses} 条款未满足
-                      </Typography>
-                      <Box sx={{ mt: 1 }}>{getPriorityTag(cluster.priority)}</Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
+                <Card key={cluster.cluster_id} className="h-full border-2">
+                  <CardContent className="p-4">
+                    <p className="text-base mb-2">{cluster.cluster_name}</p>
+                    <p className={`text-3xl font-bold ${
+                      cluster.gap_rate >= 0.5 ? 'text-red-600' :
+                      cluster.gap_rate >= 0.3 ? 'text-yellow-600' :
+                      'text-green-600'
+                    }`}>
+                      {(cluster.gap_rate * 100).toFixed(1)}%
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      {cluster.gap_clauses} / {cluster.total_clauses} 条款未满足
+                    </p>
+                    <div className="mt-2">{getPriorityTag(cluster.priority)}</div>
+                  </CardContent>
+                </Card>
               ))}
-            </Grid>
+            </div>
 
             {result.summary.top_gap_clusters && result.summary.top_gap_clusters.length > 0 && (
               <>
-                <Divider sx={{ my: 2 }} />
-                <Alert severity="warning">
-                  <Typography variant="subtitle2" gutterBottom>差距最严重的聚类</Typography>
+                <div className="my-4 border-t border-gray-200 dark:border-gray-700" />
+                <Alert variant="destructive">
+                  <p className="text-sm font-medium mb-2">差距最严重的聚类</p>
                   <ul className="mb-0">
                     {result.summary.top_gap_clusters.map((cluster, idx) => (
                       <li key={idx}>{cluster}</li>
@@ -203,43 +191,56 @@ export default function BinaryGapAnalysisResultDisplay({
       {/* 具体差距详情 */}
       {result.gap_details.length > 0 && (
         <Card>
-          <CardHeader
-            title={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><WarningIcon /> 差距详情</Box>}
-            titleTypographyProps={{ variant: 'subtitle1' }}
-            action={
-              <Button size="small" onClick={() => setShowAllGaps(!showAllGaps)}>
-                {showAllGaps ? '收起' : `查看全部 (${result.gap_details.length})`}
-              </Button>
-            }
-          />
+          <CardHeader className="flex flex-row items-center justify-between pb-4">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              <h3 className="text-lg font-semibold">差距详情</h3>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowAllGaps(!showAllGaps)}
+            >
+              {showAllGaps ? '收起' : `查看全部 (${result.gap_details.length})`}
+            </Button>
+          </CardHeader>
           <CardContent>
-            <List>
+            <div className="space-y-4">
               {displayedGaps.map((item, idx) => (
-                <ListItem key={idx} sx={{ flexDirection: 'column', alignItems: 'flex-start', borderBottom: '1px solid', borderColor: 'divider' }}>
-                  <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
-                    <Chip label={item.cluster_name} size="small" />
-                    <Chip label={item.clause_id} size="small" variant="outlined" />
+                <div
+                  key={idx}
+                  className="flex flex-col items-start p-4 border-b border-gray-200 dark:border-gray-700 last:border-0"
+                >
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    <Badge variant="outline">{item.cluster_name}</Badge>
+                    <Badge variant="outline">{item.clause_id}</Badge>
                     {getPriorityTag(item.priority)}
-                  </Stack>
-                  <Box sx={{ width: '100%' }}>
-                    <Typography variant="body2"><strong>条款要求：</strong> {item.clause_text}</Typography>
-                    <Typography variant="body2"><strong>问题：</strong> {item.question_text}</Typography>
-                    <Typography variant="body2" component="div">
-                      <strong>用户回答：</strong>{' '}
-                      <Chip label={item.user_answer ? '有' : '没有'} color={item.user_answer ? 'success' : 'error'} size="small" />
-                      {item.gap && <Chip label="存在差距" color="error" size="small" sx={{ ml: 1 }} />}
-                    </Typography>
-                  </Box>
-                </ListItem>
+                  </div>
+                  <div className="w-full space-y-2">
+                    <p className="text-sm"><strong>条款要求：</strong> {item.clause_text}</p>
+                    <p className="text-sm"><strong>问题：</strong> {item.question_text}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm"><strong>用户回答：</strong>{' '}</span>
+                      <Badge className={item.user_answer ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}>
+                        {item.user_answer ? '有' : '没有'}
+                      </Badge>
+                      {item.gap && (
+                        <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 ml-1">
+                          存在差距
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
               ))}
-            </List>
+            </div>
           </CardContent>
         </Card>
       )}
 
       {/* 无差距情况 */}
       {result.gap_details.length === 0 && (
-        <Alert severity="success">
+        <Alert className="bg-green-50 text-green-800 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
           恭喜！未发现明显差距 - 您的组织现状已基本满足标准要求。
         </Alert>
       )}
@@ -247,10 +248,10 @@ export default function BinaryGapAnalysisResultDisplay({
       {/* 改进建议 */}
       {result.summary.recommendations && result.summary.recommendations.length > 0 && (
         <Card>
-          <CardHeader
-            title={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><LightbulbIcon /> 改进建议</Box>}
-            titleTypographyProps={{ variant: 'subtitle1' }}
-          />
+          <CardHeader className="flex flex-row items-center gap-2 pb-4">
+            <Lightbulb className="w-5 h-5" />
+            <h3 className="text-lg font-semibold">改进建议</h3>
+          </CardHeader>
           <CardContent>
             <ul>
               {result.summary.recommendations.map((rec, idx) => (
@@ -264,27 +265,36 @@ export default function BinaryGapAnalysisResultDisplay({
       {/* 生成改进措施按钮 */}
       {onGenerateActionPlan && result.gap_details.length > 0 && (
         <Card>
-          <CardContent>
-            <Box sx={{ textAlign: 'center' }}>
-              <Stack spacing={2} alignItems="center">
-                <Box>
-                  <RocketLaunchIcon sx={{ fontSize: 48, color: 'primary.main' }} />
-                  <Typography variant="h6" sx={{ mt: 1 }}>需要改进措施吗？</Typography>
-                  <Typography variant="body2" color="text.secondary">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="flex flex-col items-center gap-6">
+                <div className="text-center">
+                  <TrendingUp className="w-12 h-12 text-blue-600 mx-auto mb-2" />
+                  <h3 className="text-lg font-semibold">需要改进措施吗？</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                     基于以上差距分析，AI可以为您生成针对性的改进措施
-                  </Typography>
-                </Box>
+                  </p>
+                </div>
                 <Button
-                  variant="contained"
-                  size="large"
-                  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <TrendingUpIcon />}
+                  size="lg"
                   onClick={onGenerateActionPlan}
                   disabled={loading}
+                  className="min-w-[160px]"
                 >
-                  生成改进措施
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      生成中...
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="w-4 h-4 mr-2" />
+                      生成改进措施
+                    </>
+                  )}
                 </Button>
-              </Stack>
-            </Box>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}

@@ -253,7 +253,7 @@ export default function StandardInterpretationPage() {
       case 'LOW':
         return 'bg-emerald-100 text-emerald-800 border-emerald-200'
       default:
-        return 'bg-slate-100 text-slate-800 border-slate-200'
+        return 'bg-slate-100 text-slate-800 border-[#E2E8F0]'
     }
   }
 
@@ -274,18 +274,18 @@ export default function StandardInterpretationPage() {
     return (
       <div className="w-full px-6 py-8">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center">
-            <BookOpen className="w-5 h-5 text-indigo-600" />
+          <div className="w-10 h-10 rounded-sm bg-slate-100 flex items-center justify-center">
+            <BookOpen className="w-5 h-5 text-[#1E3A5F]" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">标准解读</h1>
-            <p className="text-sm text-slate-500">基于上传的标准文档，AI智能解读条款要求</p>
+            <h1 className="text-2xl font-bold text-[#1E3A5F]">标准解读</h1>
+            <p className="text-sm text-[#94A3B8]">基于上传的标准文档，AI智能解读条款要求</p>
           </div>
         </div>
-        <Card className="border-0 shadow-sm">
+        <Card className="border border-[#E2E8F0] rounded-sm shadow-sm">
           <CardContent className="py-16 text-center">
-            <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-indigo-500" />
-            <h3 className="text-xl font-semibold text-slate-900">正在加载...</h3>
+            <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-[#1E3A5F]" />
+            <h3 className="text-xl font-semibold text-[#1E3A5F]">正在加载...</h3>
           </CardContent>
         </Card>
       </div>
@@ -295,33 +295,31 @@ export default function StandardInterpretationPage() {
   if (status === 'unauthenticated') {
     return (
       <div className="w-full px-6 py-8">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 mb-8">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
-
-          <div className="relative flex items-start justify-between">
+        <div className="bg-[#1E3A5F] rounded-sm p-8 mb-8 text-white">
+          <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-white" />
+              <div className="p-3 bg-white/10 rounded-sm">
+                <BookOpen className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white mb-1">标准解读</h1>
-                <p className="text-sm text-white/80">基于上传的标准文档，AI智能解读条款要求</p>
+                <h1 className="text-2xl font-bold font-[var(--font-plus-jakarta)]">标准解读</h1>
+                <p className="text-sm text-white/80 font-[var(--font-inter)]">基于上传的标准文档，AI智能解读条款要求</p>
               </div>
             </div>
           </div>
         </div>
 
-        <Alert variant="destructive" className="mb-6">
+        <Alert variant="destructive" className="mb-6 rounded-sm">
           <AlertCircle className="w-4 h-4" />
           <AlertTitle>登录已失效</AlertTitle>
           <AlertDescription>请先登录后再查看或生成标准解读。</AlertDescription>
         </Alert>
 
-        <Card className="border-0 shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)]">
+        <Card className="border border-[#E2E8F0] rounded-sm shadow-sm">
           <CardContent className="py-16 text-center">
             <Button
               onClick={() => router.push('/login')}
-              className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6"
+              className="bg-[#1E3A5F] hover:bg-[#152a47] text-white px-6 rounded-sm"
             >
               去登录
             </Button>
@@ -333,27 +331,23 @@ export default function StandardInterpretationPage() {
 
   return (
     <div className="w-full px-6 py-8">
-      {/* 渐变头部 */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 mb-8">
-        {/* 装饰性径向渐变 */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
-
-        <div className="relative flex items-start justify-between">
+      {/* 页面头部 */}
+      <div className="bg-[#1E3A5F] rounded-sm p-8 mb-8 text-white">
+        <div className="flex items-start justify-between">
           <div className="flex items-center gap-4">
-            {/* 毛玻璃图标背景 */}
-            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <BookOpen className="w-6 h-6 text-white" />
+            <div className="p-3 bg-white/10 rounded-sm">
+              <BookOpen className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white mb-1">标准解读</h1>
-              <p className="text-sm text-white/80">基于上传的标准文档，AI智能解读条款要求</p>
+              <h1 className="text-2xl font-bold font-[var(--font-plus-jakarta)]">标准解读</h1>
+              <p className="text-sm text-white/80 font-[var(--font-inter)]">基于上传的标准文档，AI智能解读条款要求</p>
             </div>
           </div>
 
           <Button
             variant="outline"
             onClick={() => router.back()}
-            className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+            className="bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white rounded-sm"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             返回
@@ -372,7 +366,7 @@ export default function StandardInterpretationPage() {
       {!result ? (
         <Card className="border-0 shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)]">
           <CardContent className="p-6">
-            <div className="border-2 border-dashed border-slate-200 rounded-lg p-12 text-center">
+            <div className="border-2 border-dashed border-[#E2E8F0] rounded-lg p-12 text-center">
               {documents.length === 0 ? (
                 <Alert className="mb-6 text-left">
                   <AlertCircle className="w-4 h-4" />
@@ -382,10 +376,10 @@ export default function StandardInterpretationPage() {
               ) : (
                 <div className="mb-6">
                   <FileText className="w-12 h-12 text-indigo-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                  <h3 className="text-lg font-semibold text-[#1E3A5F] mb-2">
                     已准备好 {documents.length} 个文档
                   </h3>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-[#94A3B8]">
                     文档已就绪，点击下方按钮开始AI智能解读
                   </p>
                 </div>
@@ -394,7 +388,7 @@ export default function StandardInterpretationPage() {
               <Button
                 onClick={handleAnalyze}
                 disabled={loading || documents.length === 0}
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6"
+                className="bg-[#1E3A5F] hover:from-[#1E3A5F] hover:to-[#152a47] text-white px-6"
               >
                 {loading ? (
                   <>
@@ -413,16 +407,16 @@ export default function StandardInterpretationPage() {
                 <div className="mt-6 max-w-md mx-auto">
                   <Progress value={progress?.percentage || 0} className="h-2 mb-4" />
                   {progress ? (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left">
+                    <div className="rounded-xl border border-[#E2E8F0] bg-slate-50 px-4 py-3 text-left">
                       <div className="mb-2 flex items-center justify-between text-sm">
-                        <span className="font-medium text-slate-700">{progressPhaseLabel}</span>
-                        <span className="font-semibold text-indigo-600">
+                        <span className="font-medium text-[#64748B]">{progressPhaseLabel}</span>
+                        <span className="font-semibold text-[#1E3A5F]">
                           {progress.percentage || 0}%
                         </span>
                       </div>
 
                       {progress.details?.totalClauses ? (
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-[#94A3B8]">
                           已识别 {progress.details.totalClauses} 个条款
                           {progress.details.totalBatches
                             ? `，共 ${progress.details.totalBatches} 个批次`
@@ -433,17 +427,17 @@ export default function StandardInterpretationPage() {
                       {progress.details?.phase === 'interpretation' &&
                       progress.details?.currentBatch &&
                       progress.details?.totalBatches ? (
-                        <p className="mt-2 text-xs font-medium text-slate-600">
+                        <p className="mt-2 text-xs font-medium text-[#94A3B8]">
                           当前批次：{progress.details.currentBatch}/{progress.details.totalBatches}
                         </p>
                       ) : null}
 
-                      <p className="mt-2 text-xs text-slate-500">
+                      <p className="mt-2 text-xs text-[#94A3B8]">
                         {progress.stageMessage || progress.message || '正在处理...'}
                       </p>
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-500">正在获取解读进度...</p>
+                    <p className="text-xs text-[#94A3B8]">正在获取解读进度...</p>
                   )}
                 </div>
               )}
@@ -475,34 +469,34 @@ export default function StandardInterpretationPage() {
 
               {/* 概述 */}
               <TabsContent value="overview" className="p-6">
-                <h2 className="text-xl font-semibold text-slate-900 mb-6">标准概述</h2>
+                <h2 className="text-xl font-semibold text-[#1E3A5F] mb-6">标准概述</h2>
 
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-lg font-medium text-indigo-600 mb-2">背景</h3>
-                    <p className="text-slate-700">{result.overview?.background || '暂无信息'}</p>
+                    <h3 className="text-lg font-medium text-[#1E3A5F] mb-2">背景</h3>
+                    <p className="text-[#64748B]">{result.overview?.background || '暂无信息'}</p>
                   </div>
 
                   <div>
-                    <h3 className="text-lg font-medium text-indigo-600 mb-2">适用范围</h3>
-                    <p className="text-slate-700">{result.overview?.scope || '暂无信息'}</p>
+                    <h3 className="text-lg font-medium text-[#1E3A5F] mb-2">适用范围</h3>
+                    <p className="text-[#64748B]">{result.overview?.scope || '暂无信息'}</p>
                   </div>
 
                   <div>
-                    <h3 className="text-lg font-medium text-indigo-600 mb-2">核心目标</h3>
+                    <h3 className="text-lg font-medium text-[#1E3A5F] mb-2">核心目标</h3>
                     <ul className="list-disc list-inside space-y-1">
                       {result.overview?.core_objectives?.map((obj, idx) => (
-                        <li key={idx} className="text-slate-700">{obj}</li>
-                      )) || <li className="text-slate-500">暂无信息</li>}
+                        <li key={idx} className="text-[#64748B]">{obj}</li>
+                      )) || <li className="text-[#94A3B8]">暂无信息</li>}
                     </ul>
                   </div>
 
                   <div>
-                    <h3 className="text-lg font-medium text-indigo-600 mb-2">目标受众</h3>
+                    <h3 className="text-lg font-medium text-[#1E3A5F] mb-2">目标受众</h3>
                     <ul className="list-disc list-inside space-y-1">
                       {result.overview?.target_audience?.map((aud, idx) => (
-                        <li key={idx} className="text-slate-700">{aud}</li>
-                      )) || <li className="text-slate-500">暂无信息</li>}
+                        <li key={idx} className="text-[#64748B]">{aud}</li>
+                      )) || <li className="text-[#94A3B8]">暂无信息</li>}
                     </ul>
                   </div>
                 </div>
@@ -510,29 +504,29 @@ export default function StandardInterpretationPage() {
 
               {/* 关键术语 */}
               <TabsContent value="terms" className="p-6">
-                <h2 className="text-xl font-semibold text-slate-900 mb-6">关键术语定义</h2>
+                <h2 className="text-xl font-semibold text-[#1E3A5F] mb-6">关键术语定义</h2>
                 <Accordion type="single" collapsible className="w-full">
                   {result.key_terms?.map((term, idx) => (
                     <AccordionItem key={idx} value={`term-${idx}`}>
                       <AccordionTrigger className="text-left">
-                        <span className="text-indigo-600 font-medium">{term.term}</span>
+                        <span className="text-[#1E3A5F] font-medium">{term.term}</span>
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="space-y-4 pt-2">
                           <div>
-                            <h4 className="text-sm font-medium text-slate-700 mb-1">定义</h4>
-                            <p className="text-sm text-slate-600">{term.definition}</p>
+                            <h4 className="text-sm font-medium text-[#64748B] mb-1">定义</h4>
+                            <p className="text-sm text-[#94A3B8]">{term.definition}</p>
                           </div>
                           <div>
-                            <h4 className="text-sm font-medium text-slate-700 mb-1">解释</h4>
-                            <p className="text-sm text-slate-600">{term.explanation}</p>
+                            <h4 className="text-sm font-medium text-[#64748B] mb-1">解释</h4>
+                            <p className="text-sm text-[#94A3B8]">{term.explanation}</p>
                           </div>
                           {term.examples && term.examples.length > 0 && (
                             <div>
-                              <h4 className="text-sm font-medium text-slate-700 mb-1">示例</h4>
+                              <h4 className="text-sm font-medium text-[#64748B] mb-1">示例</h4>
                               <ul className="list-disc list-inside space-y-1">
                                 {term.examples.map((ex, i) => (
-                                  <li key={i} className="text-sm text-slate-600">{ex}</li>
+                                  <li key={i} className="text-sm text-[#94A3B8]">{ex}</li>
                                 ))}
                               </ul>
                             </div>
@@ -540,13 +534,13 @@ export default function StandardInterpretationPage() {
                         </div>
                       </AccordionContent>
                     </AccordionItem>
-                  )) || <p className="text-slate-500">暂无术语定义</p>}
+                  )) || <p className="text-[#94A3B8]">暂无术语定义</p>}
                 </Accordion>
               </TabsContent>
 
               {/* 条款要求 */}
               <TabsContent value="requirements" className="p-6">
-                <h2 className="text-xl font-semibold text-slate-900 mb-6">关键条款要求</h2>
+                <h2 className="text-xl font-semibold text-[#1E3A5F] mb-6">关键条款要求</h2>
                 <Accordion type="single" collapsible className="w-full">
                   {result.key_requirements?.map((req, idx) => (
                     <AccordionItem key={idx} value={`req-${idx}`}>
@@ -555,7 +549,7 @@ export default function StandardInterpretationPage() {
                           <Badge variant="outline" className="bg-indigo-50 text-indigo-700">
                             {req.clause_id}
                           </Badge>
-                          <span className="font-medium text-slate-700">
+                          <span className="font-medium text-[#64748B]">
                             {req.clause_summary || req.clause_text?.substring(0, 50) + '...'}
                           </span>
                           <Badge className={getPriorityColor(req.priority)}>
@@ -566,98 +560,98 @@ export default function StandardInterpretationPage() {
                       <AccordionContent>
                         <div className="space-y-4 pt-2">
                           {req.chapter && (
-                            <p className="text-xs text-slate-500">所属章节: {req.chapter}</p>
+                            <p className="text-xs text-[#94A3B8]">所属章节: {req.chapter}</p>
                           )}
                           <div>
-                            <h4 className="text-sm font-medium text-slate-700 mb-1">条款内容</h4>
-                            <p className="text-sm text-slate-600">{req.clause_full_text || req.clause_text}</p>
+                            <h4 className="text-sm font-medium text-[#64748B] mb-1">条款内容</h4>
+                            <p className="text-sm text-[#94A3B8]">{req.clause_full_text || req.clause_text}</p>
                           </div>
                           <div>
-                            <h4 className="text-sm font-medium text-slate-700 mb-1">AI解读</h4>
-                            <p className="text-sm text-slate-600">
+                            <h4 className="text-sm font-medium text-[#64748B] mb-1">AI解读</h4>
+                            <p className="text-sm text-[#94A3B8]">
                               {typeof req.interpretation === 'string'
                                 ? req.interpretation
                                 : (req.interpretation as any)?.what || '暂无解读'}
                             </p>
                           </div>
                           <div>
-                            <h4 className="text-sm font-medium text-slate-700 mb-1">合规要求</h4>
+                            <h4 className="text-sm font-medium text-[#64748B] mb-1">合规要求</h4>
                             <ul className="list-disc list-inside space-y-1">
                               {Array.isArray(req.compliance_criteria)
                                 ? req.compliance_criteria.map((criteria, i) => (
-                                    <li key={i} className="text-sm text-slate-600">{criteria}</li>
+                                    <li key={i} className="text-sm text-[#94A3B8]">{criteria}</li>
                                   ))
-                                : <li className="text-sm text-slate-500">暂无具体要求</li>
+                                : <li className="text-sm text-[#94A3B8]">暂无具体要求</li>
                               }
                             </ul>
                           </div>
                         </div>
                       </AccordionContent>
                     </AccordionItem>
-                  )) || <p className="text-slate-500">暂无条款要求</p>}
+                  )) || <p className="text-[#94A3B8]">暂无条款要求</p>}
                 </Accordion>
               </TabsContent>
 
               {/* 实施指南 */}
               <TabsContent value="guidance" className="p-6">
-                <h2 className="text-xl font-semibold text-slate-900 mb-6">实施指南</h2>
+                <h2 className="text-xl font-semibold text-[#1E3A5F] mb-6">实施指南</h2>
 
                 <div className="space-y-8">
                   <div>
-                    <h3 className="text-lg font-medium text-indigo-600 mb-3">准备工作</h3>
+                    <h3 className="text-lg font-medium text-[#1E3A5F] mb-3">准备工作</h3>
                     <ul className="list-disc list-inside space-y-1">
                       {result.implementation_guidance?.preparation?.map((item, idx) => (
-                        <li key={idx} className="text-slate-700">{item}</li>
-                      )) || <li className="text-slate-500">暂无信息</li>}
+                        <li key={idx} className="text-[#64748B]">{item}</li>
+                      )) || <li className="text-[#94A3B8]">暂无信息</li>}
                     </ul>
                   </div>
 
-                  <div className="border-t border-slate-200 pt-6">
-                    <h3 className="text-lg font-medium text-indigo-600 mb-3">实施步骤</h3>
+                  <div className="border-t border-[#E2E8F0] pt-6">
+                    <h3 className="text-lg font-medium text-[#1E3A5F] mb-3">实施步骤</h3>
                     <Accordion type="single" collapsible className="w-full">
                       {result.implementation_guidance?.implementation_steps?.map((step, idx) => (
                         <AccordionItem key={idx} value={`step-${idx}`}>
                           <AccordionTrigger>
-                            <span className="font-medium text-slate-700">{step.phase}</span>
+                            <span className="font-medium text-[#64748B]">{step.phase}</span>
                           </AccordionTrigger>
                           <AccordionContent>
                             <ol className="list-decimal list-inside space-y-1 pt-2">
                               {step.steps?.map((s, i) => (
-                                <li key={i} className="text-sm text-slate-600">{s}</li>
+                                <li key={i} className="text-sm text-[#94A3B8]">{s}</li>
                               ))}
                             </ol>
                           </AccordionContent>
                         </AccordionItem>
-                      )) || <p className="text-slate-500">暂无实施步骤</p>}
+                      )) || <p className="text-[#94A3B8]">暂无实施步骤</p>}
                     </Accordion>
                   </div>
 
-                  <div className="border-t border-slate-200 pt-6">
-                    <h3 className="text-lg font-medium text-indigo-600 mb-3">最佳实践</h3>
+                  <div className="border-t border-[#E2E8F0] pt-6">
+                    <h3 className="text-lg font-medium text-[#1E3A5F] mb-3">最佳实践</h3>
                     <ul className="list-disc list-inside space-y-1">
                       {result.implementation_guidance?.best_practices?.map((item, idx) => (
-                        <li key={idx} className="text-slate-700">{item}</li>
-                      )) || <li className="text-slate-500">暂无信息</li>}
+                        <li key={idx} className="text-[#64748B]">{item}</li>
+                      )) || <li className="text-[#94A3B8]">暂无信息</li>}
                     </ul>
                   </div>
 
-                  <div className="border-t border-slate-200 pt-6">
-                    <h3 className="text-lg font-medium text-indigo-600 mb-3">常见陷阱</h3>
+                  <div className="border-t border-[#E2E8F0] pt-6">
+                    <h3 className="text-lg font-medium text-[#1E3A5F] mb-3">常见陷阱</h3>
                     <Alert className="border-amber-200 bg-amber-50">
                       <AlertTriangle className="w-4 h-4 text-amber-600" />
                       <AlertDescription>
                         <ul className="list-disc list-inside space-y-1 mt-2">
                           {result.implementation_guidance?.common_pitfalls?.map((item, idx) => (
-                            <li key={idx} className="text-sm text-slate-700">{item}</li>
-                          )) || <li className="text-sm text-slate-500">暂无信息</li>}
+                            <li key={idx} className="text-sm text-[#64748B]">{item}</li>
+                          )) || <li className="text-sm text-[#94A3B8]">暂无信息</li>}
                         </ul>
                       </AlertDescription>
                     </Alert>
                   </div>
 
-                  <div className="border-t border-slate-200 pt-6">
-                    <h3 className="text-lg font-medium text-indigo-600 mb-3">预计时间</h3>
-                    <p className="text-slate-700">
+                  <div className="border-t border-[#E2E8F0] pt-6">
+                    <h3 className="text-lg font-medium text-[#1E3A5F] mb-3">预计时间</h3>
+                    <p className="text-[#64748B]">
                       {result.implementation_guidance?.timeline_estimate || '暂无信息'}
                     </p>
                   </div>

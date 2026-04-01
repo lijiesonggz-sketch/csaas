@@ -2,22 +2,22 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Divider,
-  MenuItem,
-  Paper,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material'
+import { AlertCircle, CheckCircle2, Info, Loader2, AlertTriangle } from 'lucide-react'
 import { resolveControls, ResolveControlsResponse, ResolvedControl } from '@/lib/api/applicability-engine'
 import { organizationsApi } from '@/lib/api/organizations'
 import { ProfileCompletenessGate } from '@/components/organizations/ProfileCompletenessGate'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 const FRESH_PROFILE_WINDOW_MS = 5 * 60 * 1000
 
@@ -115,24 +115,28 @@ function ApplicableControlsResult({ organizationId }: { organizationId: string }
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress />
-      </Box>
+      <div className="flex justify-center py-8 bg-[#FEFDFB]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1E3A5F]" />
+      </div>
     )
   }
 
   if (error) {
     return (
-      <Paper sx={{ p: 3 }}>
-        <Stack spacing={2}>
-          <Alert severity="error">{error}</Alert>
-          <Box>
-            <Button variant="contained" onClick={() => void loadResult()}>
-              重试
-            </Button>
-          </Box>
-        </Stack>
-      </Paper>
+      <Card className="border-[#E2E8F0] rounded-sm shadow-sm">
+        <CardContent className="p-6 space-y-4">
+          <Alert variant="destructive" className="rounded-sm">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <Button
+            onClick={() => void loadResult()}
+            className="bg-[#1E3A5F] hover:bg-[#162e4d] text-white rounded-sm"
+          >
+            重试
+          </Button>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -141,146 +145,189 @@ function ApplicableControlsResult({ organizationId }: { organizationId: string }
   }
 
   return (
-    <Stack spacing={3}>
+    <div className="space-y-6">
       {shouldShowFreshnessWarning && (
-        <Alert severity="warning">
-          画像刚更新，结果可能需要刷新。
-          <Button onClick={() => void loadResult()} size="small" sx={{ ml: 2 }}>
-            手动刷新
-          </Button>
+        <Alert className="rounded-sm border-yellow-600 bg-yellow-50">
+          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+          <AlertDescription className="text-yellow-800">
+            画像刚更新，结果可能需要刷新。
+            <Button
+              onClick={() => void loadResult()}
+              size="sm"
+              variant="link"
+              className="text-yellow-800 underline ml-2 h-auto p-0"
+            >
+              手动刷新
+            </Button>
+          </AlertDescription>
         </Alert>
       )}
 
-      <Paper sx={{ p: 3 }}>
-        <Stack spacing={2}>
-          <Typography variant="h6">解析摘要</Typography>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Chip label={`控制点 ${result.summary.totalControls}`} color="primary" />
-            <Chip label={`强制 ${result.summary.mandatoryCount}`} />
-            <Chip label={`命中包 ${result.summary.matchedPacks}`} />
-            <Chip label={`命中规则 ${result.summary.matchedRules}`} />
-          </Box>
-          <Typography variant="body2" color="text.secondary">
+      {/* 解析摘要 */}
+      <Card className="border-[#E2E8F0] rounded-sm shadow-sm">
+        <CardContent className="p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
+            解析摘要
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            <Badge className="bg-[#1E3A5F] text-white rounded-sm">
+              控制点 {result.summary.totalControls}
+            </Badge>
+            <Badge variant="outline" className="rounded-sm border-[#94A3B8] text-[#94A3B8]">
+              强制 {result.summary.mandatoryCount}
+            </Badge>
+            <Badge variant="outline" className="rounded-sm border-[#059669] text-[#059669]">
+              命中包 {result.summary.matchedPacks}
+            </Badge>
+            <Badge variant="outline" className="rounded-sm border-[#94A3B8] text-[#94A3B8]">
+              命中规则 {result.summary.matchedRules}
+            </Badge>
+          </div>
+          <p className="text-sm text-[#94A3B8]">
             关键画像字段：{result.influencingProfileFields.length > 0 ? result.influencingProfileFields.join('、') : '无'}
-          </Typography>
-        </Stack>
-      </Paper>
+          </p>
+        </CardContent>
+      </Card>
 
-      <Paper sx={{ p: 3 }}>
-        <Stack spacing={2}>
-          <Typography variant="h6">筛选浏览</Typography>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
-              gap: 2,
-            }}
-          >
-            <TextField
-              select
-              label="按控制包筛选"
-              value={packFilter}
-              onChange={(event) => setPackFilter(event.target.value)}
-              InputLabelProps={{ shrink: true }}
-              SelectProps={{ displayEmpty: true }}
-            >
-              {availablePacks.map((pack) => (
-                <MenuItem key={pack} value={pack}>
-                  {pack === 'all' ? '全部控制包' : pack}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="按 mandatory 筛选"
-              value={mandatoryFilter}
-              onChange={(event) => setMandatoryFilter(event.target.value as typeof mandatoryFilter)}
-              InputLabelProps={{ shrink: true }}
-              SelectProps={{ displayEmpty: true }}
-            >
-              <MenuItem value="all">全部</MenuItem>
-              <MenuItem value="mandatory">仅强制</MenuItem>
-              <MenuItem value="optional">仅可选</MenuItem>
-            </TextField>
-            <TextField
-              select
-              label="按 priority 筛选"
-              value={priorityFilter}
-              onChange={(event) => setPriorityFilter(event.target.value as typeof priorityFilter)}
-              InputLabelProps={{ shrink: true }}
-              SelectProps={{ displayEmpty: true }}
-            >
-              <MenuItem value="all">全部</MenuItem>
-              <MenuItem value="HIGH">HIGH</MenuItem>
-              <MenuItem value="MEDIUM">MEDIUM</MenuItem>
-              <MenuItem value="LOW">LOW</MenuItem>
-            </TextField>
-          </Box>
-        </Stack>
-      </Paper>
+      {/* 筛选浏览 */}
+      <Card className="border-[#E2E8F0] rounded-sm shadow-sm">
+        <CardContent className="p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
+            筛选浏览
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="pack-filter" className="text-[#1E3A5F]">按控制包筛选</Label>
+              <Select value={packFilter} onValueChange={setPackFilter}>
+                <SelectTrigger className="rounded-sm" id="pack-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availablePacks.map((pack) => (
+                    <SelectItem key={pack} value={pack}>
+                      {pack === 'all' ? '全部控制包' : pack}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="mandatory-filter" className="text-[#1E3A5F]">按 mandatory 筛选</Label>
+              <Select value={mandatoryFilter} onValueChange={(v) => setMandatoryFilter(v as typeof mandatoryFilter)}>
+                <SelectTrigger className="rounded-sm" id="mandatory-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部</SelectItem>
+                  <SelectItem value="mandatory">仅强制</SelectItem>
+                  <SelectItem value="optional">仅可选</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="priority-filter" className="text-[#1E3A5F]">按 priority 筛选</Label>
+              <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as typeof priorityFilter)}>
+                <SelectTrigger className="rounded-sm" id="priority-filter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全部</SelectItem>
+                  <SelectItem value="HIGH">HIGH</SelectItem>
+                  <SelectItem value="MEDIUM">MEDIUM</SelectItem>
+                  <SelectItem value="LOW">LOW</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
+      {/* 控制点列表 */}
       {filteredControls.length === 0 ? (
-        <Paper sx={{ p: 4 }}>
-          <Alert severity="info">
-            当前机构没有命中可展示的适用控制点，或当前筛选条件下没有结果。
-          </Alert>
-        </Paper>
+        <Card className="border-[#E2E8F0] rounded-sm shadow-sm">
+          <CardContent className="p-6">
+            <Alert className="rounded-sm border-[#94A3B8] bg-[#F8FAFC]">
+              <Info className="h-4 w-4 text-[#94A3B8]" />
+              <AlertDescription className="text-[#94A3B8]">
+                当前机构没有命中可展示的适用控制点，或当前筛选条件下没有结果。
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
       ) : (
-        <Stack spacing={2}>
+        <div className="space-y-4">
           {filteredControls.map((control) => {
             const fields = getControlFields(control, ruleFieldMap)
 
             return (
-              <Paper key={control.controlId} sx={{ p: 3 }}>
-                <Stack spacing={2}>
-                  <Box>
-                    <Typography variant="h6">
+              <Card key={control.controlId} className="border-[#E2E8F0] rounded-sm shadow-sm">
+                <CardContent className="p-6 space-y-4">
+                  {/* 标题和基本信息 */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
                       {control.controlCode} {control.controlName}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    </h3>
+                    <p className="text-sm text-[#94A3B8]">
                       控制族：{control.controlFamily}
-                    </Typography>
-                  </Box>
+                    </p>
+                  </div>
 
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Chip label={`Priority ${control.priority}`} color="primary" />
-                    <Chip
-                      label={control.mandatory ? 'Mandatory' : 'Optional'}
-                      color={control.mandatory ? 'warning' : 'default'}
-                    />
+                  {/* 标签 */}
+                  <div className="flex flex-wrap gap-2">
+                    <Badge className="bg-[#1E3A5F] text-white rounded-sm">
+                      Priority {control.priority}
+                    </Badge>
+                    <Badge
+                      variant={control.mandatory ? 'default' : 'secondary'}
+                      className={
+                        control.mandatory
+                          ? 'bg-yellow-600 text-white rounded-sm'
+                          : 'bg-[#94A3B8] text-white rounded-sm'
+                      }
+                    >
+                      {control.mandatory ? 'Mandatory' : 'Optional'}
+                    </Badge>
                     {control.matchedPacks.map((pack) => (
-                      <Chip key={pack} label={pack} variant="outlined" />
+                      <Badge key={pack} variant="outline" className="rounded-sm border-[#059669] text-[#059669]">
+                        {pack}
+                      </Badge>
                     ))}
-                  </Box>
+                  </div>
 
-                  <Divider />
+                  <div className="h-px bg-[#E2E8F0]" />
 
-                  <Typography variant="subtitle2">命中原因</Typography>
-                  <Box component="ul" sx={{ pl: 3, m: 0 }}>
-                    {control.reasons.map((reason) => (
-                      <li key={reason}>
-                        <Typography variant="body2">{reason}</Typography>
-                      </li>
-                    ))}
-                  </Box>
+                  {/* 命中原因 */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#1E3A5F] mb-2">命中原因</h4>
+                    <ul className="list-disc list-inside space-y-1">
+                      {control.reasons.map((reason) => (
+                        <li key={reason} className="text-sm text-[#94A3B8]">
+                          {reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
-                  <Typography variant="subtitle2">规则与来源</Typography>
-                  <Typography variant="body2">
-                    规则：{control.matchedRules.join('、') || '无'}
-                  </Typography>
-                  <Typography variant="body2">
-                    控制包：{control.matchedPacks.join('、') || '无'}
-                  </Typography>
-                  <Typography variant="body2">
-                    关键画像字段：{fields.length > 0 ? fields.join('、') : '无'}
-                  </Typography>
-                </Stack>
-              </Paper>
+                  {/* 规则与来源 */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#1E3A5F] mb-2">规则与来源</h4>
+                    <p className="text-sm text-[#94A3B8]">
+                      规则：{control.matchedRules.join('、') || '无'}
+                    </p>
+                    <p className="text-sm text-[#94A3B8]">
+                      控制包：{control.matchedPacks.join('、') || '无'}
+                    </p>
+                    <p className="text-sm text-[#94A3B8]">
+                      关键画像字段：{fields.length > 0 ? fields.join('、') : '无'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             )
           })}
-        </Stack>
+        </div>
       )}
-    </Stack>
+    </div>
   )
 }
 
@@ -289,16 +336,16 @@ export default function ApplicableControlsPage() {
   const organizationId = typeof params?.orgId === 'string' ? params.orgId : ''
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Stack spacing={3}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
+    <div className="p-6 bg-[#FEFDFB] min-h-screen">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
             适用控制点解析结果
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
+          </h1>
+          <p className="text-[#94A3B8] mt-1">
             查看当前机构命中的控制包、控制点、优先级与适用原因。
-          </Typography>
-        </Box>
+          </p>
+        </div>
 
         <ProfileCompletenessGate
           organizationId={organizationId}
@@ -307,7 +354,7 @@ export default function ApplicableControlsPage() {
         >
           <ApplicableControlsResult organizationId={organizationId} />
         </ProfileCompletenessGate>
-      </Stack>
-    </Box>
+      </div>
+    </div>
   )
 }

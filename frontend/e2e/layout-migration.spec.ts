@@ -9,8 +9,8 @@ test.describe('Layout Migration', () => {
   test.beforeEach(async ({ page }) => {
     // Login before each test
     await page.goto('/login')
-    await page.fill('input[type="email"]', 'test@example.com')
-    await page.fill('input[type="password"]', 'password123')
+    await page.fill('input[type="email"]', 'admin@test.com')
+    await page.fill('input[type="password"]', 'admin123')
     await page.click('button[type="submit"]')
     await page.waitForURL('**/dashboard')
   })
@@ -24,12 +24,12 @@ test.describe('Layout Migration', () => {
 
     test('should display user information', async ({ page }) => {
       const header = page.locator('header')
-      await expect(header.getByText('test@example.com')).toBeVisible()
+      await expect(header.getByText('admin@test.com')).toBeVisible()
     })
 
     test('should open user menu when clicked', async ({ page }) => {
       const header = page.locator('header')
-      await header.getByText('test@example.com').click()
+      await header.getByText('admin@test.com').click()
 
       // Check menu items
       await expect(page.getByRole('menuitem', { name: '个人信息' })).toBeVisible()
@@ -39,7 +39,7 @@ test.describe('Layout Migration', () => {
 
     test('should logout when logout is clicked', async ({ page }) => {
       const header = page.locator('header')
-      await header.getByText('test@example.com').click()
+      await header.getByText('admin@test.com').click()
       await page.getByRole('menuitem', { name: '退出登录' }).click()
 
       // Should redirect to login

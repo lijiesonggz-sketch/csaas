@@ -9,7 +9,7 @@
 'use client'
 
 import React from 'react'
-import { Paper, Typography, Box, useTheme } from '@mui/material'
+import { Card, CardContent } from '@/components/ui/card'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { ClientSegment, ActivityStatus } from '@/lib/api/clients-activity'
 
@@ -32,13 +32,11 @@ const LABELS: Record<string, string> = {
 }
 
 export function ClientSegmentationChart({ data }: ClientSegmentationChartProps) {
-  const theme = useTheme()
-
   const chartData = data.map((segment) => ({
     name: LABELS[segment.name] || segment.label,
     value: segment.count,
     percentage: segment.percentage,
-    fill: COLORS[segment.name] || theme.palette.grey[500],
+    fill: COLORS[segment.name] || '#94A3B8',
   }))
 
   const renderLabel = (entry: any) => {
@@ -49,28 +47,21 @@ export function ClientSegmentationChart({ data }: ClientSegmentationChartProps) 
     if (active && payload && payload.length) {
       const data = payload[0].payload
       return (
-        <Paper sx={{ p: 1.5, boxShadow: 2 }}>
-          <Typography variant="body2" fontWeight="bold">
-            {data.name}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            数量: {data.value} 家
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            占比: {data.percentage}%
-          </Typography>
-        </Paper>
+        <div className="bg-background border rounded-lg p-3 shadow-lg">
+          <p className="text-sm font-semibold">{data.name}</p>
+          <p className="text-sm text-muted-foreground">数量: {data.value} 家</p>
+          <p className="text-sm text-muted-foreground">占比: {data.percentage}%</p>
+        </div>
       )
     }
     return null
   }
 
   return (
-    <Paper sx={{ p: 3, height: 400 }}>
-      <Typography variant="h6" gutterBottom>
-        客户活跃度分布
-      </Typography>
-      <Box sx={{ width: '100%', height: 320 }}>
+    <Card className="border border-[#E2E8F0] rounded-sm h-[400px]">
+      <CardContent className="p-6">
+      <h3 className="text-lg font-semibold mb-4">客户活跃度分布</h3>
+      <div className="w-full h-[320px]">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -97,7 +88,8 @@ export function ClientSegmentationChart({ data }: ClientSegmentationChartProps) 
             />
           </PieChart>
         </ResponsiveContainer>
-      </Box>
-    </Paper>
+      </div>
+      </CardContent>
+    </Card>
   )
 }

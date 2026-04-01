@@ -341,33 +341,110 @@ body {
   }
 }
 
+/* ============================================
+   Showcase Theme Variables
+   4组专业金融咨询风格主题
+   ============================================ */
+
+.theme-swiss {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 10%;
+  --primary: 0 0% 0%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 10%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 217 91% 60%;
+  --accent-foreground: 0 0% 100%;
+  --border: 0 0% 88%;
+  --ring: 0 0% 10%;
+  --radius: 0px;
+}
+
+.theme-trust {
+  --background: 210 20% 98%;
+  --foreground: 215 25% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 25% 15%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 214 20% 95%;
+  --secondary-foreground: 215 20% 35%;
+  --muted: 214 20% 95%;
+  --muted-foreground: 215 15% 45%;
+  --accent: 160 84% 39%;
+  --accent-foreground: 0 0% 100%;
+  --border: 214 20% 90%;
+  --ring: 217 91% 60%;
+  --radius: 6px;
+}
+
+.theme-financial {
+  --background: 220 20% 97%;
+  --foreground: 220 20% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 20% 15%;
+  --primary: 220 70% 35%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 20% 94%;
+  --secondary-foreground: 220 10% 45%;
+  --muted: 220 20% 94%;
+  --muted-foreground: 220 10% 45%;
+  --accent: 142 71% 45%;
+  --accent-foreground: 0 0% 100%;
+  --border: 220 15% 90%;
+  --ring: 220 70% 35%;
+  --radius: 8px;
+}
+
+.theme-soft {
+  --background: 210 20% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 220 14% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 142 71% 45%;
+  --accent-foreground: 0 0% 100%;
+  --border: 214 20% 90%;
+  --ring: 217 91% 60%;
+  --radius: 12px;
+}
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 40 33% 99%;
+    --foreground: 213 47% 24%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 213 47% 24%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
+    --popover-foreground: 213 47% 24%;
+    --primary: 213 47% 24%;
+    --primary-foreground: 40 33% 99%;
+    --secondary: 214 20% 60%;
+    --secondary-foreground: 213 47% 24%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 160 84% 39%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 14% 89%;
+    --input: 215 14% 89%;
+    --ring: 213 47% 24%;
+    --chart-1: 213 47% 24%;
+    --chart-2: 160 84% 39%;
+    --chart-3: 214 20% 60%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --radius: 4px;
   }
   .dark {
     --background: 222.2 84% 4.9%;

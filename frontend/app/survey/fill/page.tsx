@@ -10,26 +10,15 @@ export const dynamic = 'force-dynamic'
  */
 
 import { useState, useEffect } from 'react'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  Button,
-  Radio,
-  RadioGroup,
-  FormControlLabel,
-  Checkbox,
-  TextField,
-  LinearProgress,
-  Box,
-  Typography,
-} from '@mui/material'
-import {
-  Save,
-  Send,
-  ArrowBack,
-} from '@mui/icons-material'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Save, Send, ArrowLeft } from 'lucide-react'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Progress } from '@/components/ui/progress'
 import { SurveyAPI } from '@/lib/api/survey'
 import { AIGenerationAPI } from '@/lib/api/ai-generation'
 import type { SurveyResponse } from '@/lib/api/survey'
@@ -188,161 +177,184 @@ export default function SurveyFillPage() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <Typography>加载中...</Typography>
-      </Box>
+      <div className="flex justify-center items-center min-h-screen bg-[#FEFDFB]">
+        <p className="text-[#94A3B8]">加载中...</p>
+      </div>
     )
   }
 
   if (showInfoForm) {
     return (
-      <Box sx={{ maxWidth: 600, mx: 'auto', p: 3 }}>
-        <Card>
-          <CardHeader title="填写人信息" />
-          <CardContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                label="姓名 *"
+      <div className="max-w-2xl mx-auto p-6 bg-[#FEFDFB] min-h-screen">
+        <Card className="border border-[#E2E8F0] shadow-sm rounded-sm">
+          <CardHeader className="border-b border-[#E2E8F0]">
+            <h2 className="text-xl font-semibold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">填写人信息</h2>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-[#1E3A5F]">姓名 *</Label>
+              <Input
+                id="name"
                 value={respondentInfo.respondentName}
                 onChange={(e) => setRespondentInfo({ ...respondentInfo, respondentName: e.target.value })}
-                fullWidth
+                className="rounded-sm"
               />
-              <TextField
-                label="邮箱"
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-[#1E3A5F]">邮箱</Label>
+              <Input
+                id="email"
                 type="email"
                 value={respondentInfo.respondentEmail}
                 onChange={(e) => setRespondentInfo({ ...respondentInfo, respondentEmail: e.target.value })}
-                fullWidth
+                className="rounded-sm"
               />
-              <TextField
-                label="部门"
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="department" className="text-[#1E3A5F]">部门</Label>
+              <Input
+                id="department"
                 value={respondentInfo.respondentDepartment}
                 onChange={(e) => setRespondentInfo({ ...respondentInfo, respondentDepartment: e.target.value })}
-                fullWidth
+                className="rounded-sm"
               />
-              <TextField
-                label="职位"
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="position" className="text-[#1E3A5F]">职位</Label>
+              <Input
+                id="position"
                 value={respondentInfo.respondentPosition}
                 onChange={(e) => setRespondentInfo({ ...respondentInfo, respondentPosition: e.target.value })}
-                fullWidth
+                className="rounded-sm"
               />
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
-                <Button onClick={() => router.back()} startIcon={<ArrowBack />}>返回</Button>
-                <Button
-                  variant="contained"
-                  onClick={handleStartSurvey}
-                  disabled={!respondentInfo.respondentName.trim() || submitting}
-                >
-                  {submitting ? '提交中...' : '开始填写'}
-                </Button>
-              </Box>
-            </Box>
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button onClick={() => router.back()} variant="outline" className="rounded-sm">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                返回
+              </Button>
+              <Button
+                onClick={handleStartSurvey}
+                disabled={!respondentInfo.respondentName.trim() || submitting}
+                className="bg-[#1E3A5F] hover:bg-[#162e4d] text-white rounded-sm"
+              >
+                {submitting ? '提交中...' : '开始填写'}
+              </Button>
+            </div>
           </CardContent>
         </Card>
-      </Box>
+      </div>
     )
   }
 
   return (
-    <Box sx={{ maxWidth: 900, mx: 'auto', p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 2 }}>{questionnaire?.questionnaire_metadata?.title || '调研问卷'}</Typography>
+    <div className="max-w-3xl mx-auto p-6 bg-[#FEFDFB] min-h-screen">
+      <h1 className="text-2xl font-bold mb-6 text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
+        {questionnaire?.questionnaire_metadata?.title || '调研问卷'}
+      </h1>
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-            <Typography variant="body2">填写进度</Typography>
-            <Typography variant="body2" color="text.secondary">
+      <Card className="mb-6 border border-[#E2E8F0] shadow-sm rounded-sm">
+        <CardContent className="pt-6">
+          <div className="flex justify-between mb-2">
+            <p className="text-sm text-[#94A3B8]">填写进度</p>
+            <p className="text-sm text-[#94A3B8]">
               {Object.keys(answers).length} / {questionnaire?.questionnaire?.length || 0}
-            </Typography>
-          </Box>
-          <LinearProgress variant="determinate" value={calculateProgress()} />
+            </p>
+          </div>
+          <Progress value={calculateProgress()} className="h-2" />
         </CardContent>
       </Card>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div className="flex flex-col gap-4">
         {questionnaire?.questionnaire?.map((question: any, index: number) => (
-          <Card key={question.question_id}>
-            <CardContent>
-              <Typography variant="h6" sx={{ mb: 2 }}>
+          <Card key={question.question_id} className="border border-[#E2E8F0] shadow-sm rounded-sm">
+            <CardContent className="pt-6">
+              <h3 className="text-lg font-semibold mb-4 text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
                 {index + 1}. {question.question_text}
-              </Typography>
+              </h3>
 
               {question.question_type === 'SINGLE_CHOICE' && (
                 <RadioGroup
                   value={answers[question.question_id]?.answer || ''}
-                  onChange={(e) => {
+                  onValueChange={(value) => {
                     const selectedOption = question.options.find(
-                      (opt: any) => opt.option_id === e.target.value
+                      (opt: any) => opt.option_id === value
                     )
                     handleAnswerChange(
                       question.question_id,
-                      e.target.value,
+                      value,
                       selectedOption?.score || 0
                     )
                   }}
                 >
                   {question.options.map((option: any) => (
-                    <FormControlLabel
-                      key={option.option_id}
-                      value={option.option_id}
-                      control={<Radio />}
-                      label={option.text}
-                    />
+                    <div key={option.option_id} className="flex items-center space-x-2 mb-2">
+                      <RadioGroupItem value={option.option_id} id={option.option_id} />
+                      <Label htmlFor={option.option_id} className="cursor-pointer">
+                        {option.text}
+                      </Label>
+                    </div>
                   ))}
                 </RadioGroup>
               )}
 
               {question.question_type === 'MULTIPLE_CHOICE' && (
-                <Box>
+                <div>
                   {question.options.map((option: any) => (
-                    <FormControlLabel
-                      key={option.option_id}
-                      control={
-                        <Checkbox
-                          checked={(answers[question.question_id]?.answer || []).includes(option.option_id)}
-                          onChange={(e) => {
-                            const currentAnswers = answers[question.question_id]?.answer || []
-                            let newAnswers
-                            if (e.target.checked) {
-                              newAnswers = [...currentAnswers, option.option_id]
-                            } else {
-                              newAnswers = currentAnswers.filter((id: string) => id !== option.option_id)
-                            }
-                            const totalScore = newAnswers.reduce((sum: number, optionId: string) => {
-                              const opt = question.options.find((o: any) => o.option_id === optionId)
-                              return sum + (opt?.score || 0)
-                            }, 0)
-                            handleAnswerChange(question.question_id, newAnswers, totalScore)
-                          }}
-                        />
-                      }
-                      label={option.text}
-                    />
+                    <div key={option.option_id} className="flex items-center space-x-2 mb-2">
+                      <Checkbox
+                        id={option.option_id}
+                        checked={(answers[question.question_id]?.answer || []).includes(option.option_id)}
+                        onCheckedChange={(checked) => {
+                          const currentAnswers = answers[question.question_id]?.answer || []
+                          let newAnswers
+                          if (checked) {
+                            newAnswers = [...currentAnswers, option.option_id]
+                          } else {
+                            newAnswers = currentAnswers.filter((id: string) => id !== option.option_id)
+                          }
+                          const totalScore = newAnswers.reduce((sum: number, optionId: string) => {
+                            const opt = question.options.find((o: any) => o.option_id === optionId)
+                            return sum + (opt?.score || 0)
+                          }, 0)
+                          handleAnswerChange(question.question_id, newAnswers, totalScore)
+                        }}
+                      />
+                      <Label htmlFor={option.option_id} className="cursor-pointer">
+                        {option.text}
+                      </Label>
+                    </div>
                   ))}
-                </Box>
+                </div>
               )}
             </CardContent>
           </Card>
         ))}
-      </Box>
+      </div>
 
-      <Card sx={{ mt: 3, position: 'sticky', bottom: 16 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-            <Button onClick={handleSaveDraft} disabled={submitting} startIcon={<Save />}>
+      <Card className="mt-6 sticky bottom-4 border border-[#E2E8F0] shadow-sm rounded-sm">
+        <CardContent className="pt-6">
+          <div className="flex justify-end gap-2">
+            <Button
+              onClick={handleSaveDraft}
+              disabled={submitting}
+              variant="outline"
+              className="rounded-sm"
+            >
+              <Save className="w-4 h-4 mr-2" />
               保存草稿
             </Button>
             <Button
-              variant="contained"
               onClick={handleSubmit}
               disabled={submitting || calculateProgress() < 100}
-              startIcon={<Send />}
+              className="bg-[#1E3A5F] hover:bg-[#162e4d] text-white rounded-sm"
             >
+              <Send className="w-4 h-4 mr-2" />
               提交问卷
             </Button>
-          </Box>
+          </div>
         </CardContent>
       </Card>
-    </Box>
+    </div>
   )
 }

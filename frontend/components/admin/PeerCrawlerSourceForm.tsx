@@ -3,28 +3,28 @@
 import React, { useState, useEffect } from 'react'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  FormControl,
-  InputLabel,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
   Select,
-  MenuItem,
-  FormControlLabel,
-  Switch,
-  Box,
-  Alert,
-  CircularProgress,
-  Typography,
-  Tabs,
-  Tab,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-} from '@mui/material'
-import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Loader2 } from 'lucide-react'
+import {
+  ChevronDown,
+} from 'lucide-react'
 import {
   RadarSource,
   CreateRadarSourceData,
@@ -104,6 +104,7 @@ export function PeerCrawlerSourceForm({
   const [activeTab, setActiveTab] = useState(0)
   const [crawlConfigJson, setCrawlConfigJson] = useState('')
   const [jsonError, setJsonError] = useState<string | null>(null)
+  const [expandedSection, setExpandedSection] = useState<'json' | 'fields' | null>(null)
 
   const isEditMode = !!source
 
@@ -248,250 +249,327 @@ export function PeerCrawlerSourceForm({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        {isEditMode ? '编辑采集源' : '添加采集源'}
-      </DialogTitle>
-      <DialogContent>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-          <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
-            <Tab label="基本信息" />
-            <Tab label="选择器配置" />
-          </Tabs>
-        </Box>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>
+            {isEditMode ? '编辑采集源' : '添加采集源'}
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Tab 导航 */}
+        <div className="border-b">
+          <div className="flex">
+            <button
+              className={`
+                px-4 py-2 text-sm font-medium transition-colors
+                ${activeTab === 0
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+                }
+              `}
+              onClick={() => setActiveTab(0)}
+            >
+              基本信息
+            </button>
+            <button
+              className={`
+                px-4 py-2 text-sm font-medium transition-colors
+                ${activeTab === 1
+                  ? 'border-b-2 border-primary text-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+                }
+              `}
+              onClick={() => setActiveTab(1)}
+            >
+              选择器配置
+            </button>
+          </div>
+        </div>
 
         {submitError && (
-          <Alert severity="error" onClose={() => setSubmitError(null)} sx={{ mb: 2 }}>
-            {submitError}
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{submitError}</AlertDescription>
           </Alert>
         )}
 
         {activeTab === 0 && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div className="space-y-4 mt-4">
             {/* 同业机构名称 */}
-            <TextField
-              label="同业机构名称"
-              value={formData.source}
-              onChange={(e) => handleChange('source', e.target.value)}
-              error={!!errors.source}
-              helperText={errors.source || '例如：杭州银行金融科技'}
-              fullWidth
-              required
-            />
+            <div className="space-y-2">
+              <Label htmlFor="source">
+                同业机构名称 <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="source"
+                value={formData.source}
+                onChange={(e) => handleChange('source', e.target.value)}
+                placeholder="例如：杭州银行金融科技"
+                className={errors.source ? 'border-destructive' : ''}
+              />
+              {errors.source && (
+                <p className="text-sm text-destructive">{errors.source}</p>
+              )}
+              {!errors.source && (
+                <p className="text-sm text-muted-foreground">例如：杭州银行金融科技</p>
+              )}
+            </div>
 
             {/* URL */}
-            <TextField
-              label="采集URL"
-              value={formData.url}
-              onChange={(e) => handleChange('url', e.target.value)}
-              error={!!errors.url}
-              helperText={errors.url || '采集目标的完整URL地址'}
-              fullWidth
-              required
-            />
+            <div className="space-y-2">
+              <Label htmlFor="url">
+                采集URL <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="url"
+                value={formData.url}
+                onChange={(e) => handleChange('url', e.target.value)}
+                placeholder="采集目标的完整URL地址"
+                className={errors.url ? 'border-destructive' : ''}
+              />
+              {errors.url && (
+                <p className="text-sm text-destructive">{errors.url}</p>
+              )}
+              {!errors.url && (
+                <p className="text-sm text-muted-foreground">采集目标的完整URL地址</p>
+              )}
+            </div>
 
             {/* 类型 */}
-            <FormControl fullWidth required>
-              <InputLabel>来源类型</InputLabel>
+            <div className="space-y-2">
+              <Label>来源类型</Label>
               <Select
                 value={formData.type}
-                label="来源类型"
-                onChange={(e) =>
-                  handleChange('type', e.target.value as FormData['type'])
+                onValueChange={(value) =>
+                  handleChange('type', value as FormData['type'])
                 }
               >
-                <MenuItem value="website">官网</MenuItem>
-                <MenuItem value="wechat">公众号</MenuItem>
-                <MenuItem value="recruitment">招聘</MenuItem>
-                <MenuItem value="conference">会议</MenuItem>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="website">官网</SelectItem>
+                  <SelectItem value="wechat">公众号</SelectItem>
+                  <SelectItem value="recruitment">招聘</SelectItem>
+                  <SelectItem value="conference">会议</SelectItem>
+                </SelectContent>
               </Select>
-            </FormControl>
+            </div>
 
             {/* 采集频率 */}
-            <FormControl fullWidth required>
-              <InputLabel>采集频率</InputLabel>
+            <div className="space-y-2">
+              <Label>采集频率</Label>
               <Select
                 value={formData.crawlSchedule}
-                label="采集频率"
-                onChange={(e) => handleChange('crawlSchedule', e.target.value)}
-                error={!!errors.crawlSchedule}
+                onValueChange={(value) => handleChange('crawlSchedule', value)}
               >
-                {cronPresets.map((preset) => (
-                  <MenuItem key={preset.value} value={preset.value}>
-                    {preset.label} ({preset.value})
-                  </MenuItem>
-                ))}
-                <MenuItem value="custom">自定义</MenuItem>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {cronPresets.map((preset) => (
+                    <SelectItem key={preset.value} value={preset.value}>
+                      {preset.label} ({preset.value})
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">自定义</SelectItem>
+                </SelectContent>
               </Select>
-            </FormControl>
+            </div>
 
             {formData.crawlSchedule.startsWith('custom') && (
-              <TextField
-                label="自定义Cron表达式"
-                value={formData.crawlSchedule === 'custom' ? '' : formData.crawlSchedule.replace('custom-', '')}
-                onChange={(e) => handleChange('crawlSchedule', `custom-${e.target.value}`)}
-                error={!!errors.crawlSchedule}
-                helperText={errors.crawlSchedule || '例如：0 */6 * * * (每6小时)'}
-                fullWidth
-              />
+              <div className="space-y-2">
+                <Label>自定义Cron表达式</Label>
+                <Input
+                  value={formData.crawlSchedule === 'custom' ? '' : formData.crawlSchedule.replace('custom-', '')}
+                  onChange={(e) => handleChange('crawlSchedule', `custom-${e.target.value}`)}
+                  placeholder="例如：0 */6 * * * (每6小时)"
+                  className={errors.crawlSchedule ? 'border-destructive' : ''}
+                />
+                {errors.crawlSchedule && (
+                  <p className="text-sm text-destructive">{errors.crawlSchedule}</p>
+                )}
+              </div>
             )}
 
             {/* 启用状态 */}
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formData.isActive}
-                  onChange={(e) => handleChange('isActive', e.target.checked)}
-                  color="primary"
-                />
-              }
-              label="启用此采集源"
-            />
-          </Box>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="isActive">启用此采集源</Label>
+              <Switch
+                id="isActive"
+                checked={formData.isActive}
+                onCheckedChange={(checked) => handleChange('isActive', checked)}
+              />
+            </div>
+          </div>
         )}
 
         {activeTab === 1 && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Typography variant="body2" color="text.secondary">
+          <div className="space-y-4 mt-4">
+            <p className="text-sm text-muted-foreground">
               配置CSS选择器以精确提取内容。如果不配置，系统将使用默认选择器。
-            </Typography>
+            </p>
 
-            <Accordion defaultExpanded>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography>JSON编辑器</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <TextField
-                  label="选择器配置 (JSON)"
-                  value={crawlConfigJson}
-                  onChange={(e) => handleCrawlConfigChange(e.target.value)}
-                  error={!!jsonError}
-                  helperText={jsonError || '配置选择器JSON'}
-                  fullWidth
-                  multiline
-                  rows={10}
-                  InputProps={{
-                    sx: { fontFamily: 'monospace' },
-                  }}
+            {/* JSON编辑器 */}
+            <div className="border rounded-lg">
+              <button
+                className="w-full flex items-center justify-between p-3 hover:bg-muted transition-colors"
+                onClick={() => setExpandedSection(expandedSection === 'json' ? null : 'json')}
+              >
+                <span className="font-medium">JSON编辑器</span>
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${expandedSection === 'json' ? 'rotate-180' : ''}`}
                 />
-              </AccordionDetails>
-            </Accordion>
+              </button>
+              {expandedSection === 'json' && (
+                <div className="p-3 pt-0">
+                  <textarea
+                    value={crawlConfigJson}
+                    onChange={(e) => handleCrawlConfigChange(e.target.value)}
+                    placeholder="配置选择器JSON"
+                    rows={10}
+                    className={`
+                      w-full font-mono text-sm rounded-md border p-3
+                      ${jsonError ? 'border-destructive' : ''}
+                    `}
+                  />
+                  {jsonError && (
+                    <p className="text-sm text-destructive mt-1">{jsonError}</p>
+                  )}
+                </div>
+              )}
+            </div>
 
-            <Accordion>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography>单个字段配置</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <TextField
-                    label="标题选择器"
-                    value={formData.crawlConfig.titleSelector || ''}
-                    onChange={(e) =>
-                      handleChange('crawlConfig', {
-                        ...formData.crawlConfig,
-                        titleSelector: e.target.value,
-                      })
-                    }
-                    helperText="例如：h1.article-title"
-                    fullWidth
-                  />
-                  <TextField
-                    label="内容选择器"
-                    value={formData.crawlConfig.contentSelector || ''}
-                    onChange={(e) =>
-                      handleChange('crawlConfig', {
-                        ...formData.crawlConfig,
-                        contentSelector: e.target.value,
-                      })
-                    }
-                    helperText="例如：div.article-content"
-                    fullWidth
-                  />
-                  <TextField
-                    label="日期选择器"
-                    value={formData.crawlConfig.dateSelector || ''}
-                    onChange={(e) =>
-                      handleChange('crawlConfig', {
-                        ...formData.crawlConfig,
-                        dateSelector: e.target.value,
-                      })
-                    }
-                    helperText="例如：time.publish-date"
-                    fullWidth
-                  />
-                  <TextField
-                    label="作者选择器"
-                    value={formData.crawlConfig.authorSelector || ''}
-                    onChange={(e) =>
-                      handleChange('crawlConfig', {
-                        ...formData.crawlConfig,
-                        authorSelector: e.target.value,
-                      })
-                    }
-                    helperText="例如：span.author-name"
-                    fullWidth
-                  />
-                  <TextField
-                    label="列表选择器"
-                    value={formData.crawlConfig.listSelector || ''}
-                    onChange={(e) =>
-                      handleChange('crawlConfig', {
-                        ...formData.crawlConfig,
-                        listSelector: e.target.value,
-                      })
-                    }
-                    helperText="用于列表页，例如：article.news-item"
-                    fullWidth
-                  />
-                  <TextField
-                    label="最大页数"
-                    type="number"
-                    value={formData.crawlConfig.maxPages || 1}
-                    onChange={(e) =>
-                      handleChange('crawlConfig', {
-                        ...formData.crawlConfig,
-                        maxPages: parseInt(e.target.value) || 1,
-                      })
-                    }
-                    helperText="最大采集页数"
-                    fullWidth
-                  />
-                </Box>
-              </AccordionDetails>
-            </Accordion>
+            {/* 单个字段配置 */}
+            <div className="border rounded-lg">
+              <button
+                className="w-full flex items-center justify-between p-3 hover:bg-muted transition-colors"
+                onClick={() => setExpandedSection(expandedSection === 'fields' ? null : 'fields')}
+              >
+                <span className="font-medium">单个字段配置</span>
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${expandedSection === 'fields' ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {expandedSection === 'fields' && (
+                <div className="p-3 pt-0 space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">标题选择器</Label>
+                    <Input
+                      value={formData.crawlConfig.titleSelector || ''}
+                      onChange={(e) =>
+                        handleChange('crawlConfig', {
+                          ...formData.crawlConfig,
+                          titleSelector: e.target.value,
+                        })
+                      }
+                      placeholder="例如：h1.article-title"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">内容选择器</Label>
+                    <Input
+                      value={formData.crawlConfig.contentSelector || ''}
+                      onChange={(e) =>
+                        handleChange('crawlConfig', {
+                          ...formData.crawlConfig,
+                          contentSelector: e.target.value,
+                        })
+                      }
+                      placeholder="例如：div.article-content"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">日期选择器</Label>
+                    <Input
+                      value={formData.crawlConfig.dateSelector || ''}
+                      onChange={(e) =>
+                        handleChange('crawlConfig', {
+                          ...formData.crawlConfig,
+                          dateSelector: e.target.value,
+                        })
+                      }
+                      placeholder="例如：time.publish-date"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">作者选择器</Label>
+                    <Input
+                      value={formData.crawlConfig.authorSelector || ''}
+                      onChange={(e) =>
+                        handleChange('crawlConfig', {
+                          ...formData.crawlConfig,
+                          authorSelector: e.target.value,
+                        })
+                      }
+                      placeholder="例如：span.author-name"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">列表选择器</Label>
+                    <Input
+                      value={formData.crawlConfig.listSelector || ''}
+                      onChange={(e) =>
+                        handleChange('crawlConfig', {
+                          ...formData.crawlConfig,
+                          listSelector: e.target.value,
+                        })
+                      }
+                      placeholder="用于列表页，例如：article.news-item"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">最大页数</Label>
+                    <Input
+                      type="number"
+                      value={formData.crawlConfig.maxPages || 1}
+                      onChange={(e) =>
+                        handleChange('crawlConfig', {
+                          ...formData.crawlConfig,
+                          maxPages: parseInt(e.target.value) || 1,
+                        })
+                      }
+                      placeholder="最大采集页数"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
 
-            <Alert severity="info">
-              配置示例：
-              <pre style={{ margin: '8px 0', overflow: 'auto' }}>
-                {JSON.stringify(
-                  {
-                    titleSelector: 'h1.article-title',
-                    contentSelector: 'div.article-content',
-                    dateSelector: 'time.publish-date',
-                    authorSelector: 'span.author',
-                    maxPages: 3,
-                  },
-                  null,
-                  2
-                )}
-              </pre>
+            <Alert>
+              <AlertDescription>
+                配置示例：
+                <pre className="mt-2 text-xs overflow-auto p-2 bg-muted rounded">
+                  {JSON.stringify(
+                    {
+                      titleSelector: 'h1.article-title',
+                      contentSelector: 'div.article-content',
+                      dateSelector: 'time.publish-date',
+                      authorSelector: 'span.author',
+                      maxPages: 3,
+                    },
+                    null,
+                    2
+                  )}
+                </pre>
+              </AlertDescription>
             </Alert>
-          </Box>
+          </div>
         )}
+
+        <DialogFooter>
+          <Button onClick={onClose} disabled={submitting} variant="outline">
+            取消
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting || !!jsonError}
+          >
+            {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {submitting ? '提交中...' : isEditMode ? '保存' : '创建'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          取消
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={submitting || !!jsonError}
-          startIcon={submitting ? <CircularProgress size={20} /> : null}
-        >
-          {submitting ? '提交中...' : isEditMode ? '保存' : '创建'}
-        </Button>
-      </DialogActions>
     </Dialog>
   )
 }

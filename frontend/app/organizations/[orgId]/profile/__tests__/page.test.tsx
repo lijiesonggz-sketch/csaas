@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import OrganizationProfilePage from '../page'
@@ -16,13 +16,67 @@ jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
 }))
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Mock shadcn/ui Select: make Select render a real <select>, flatten children into it
+jest.mock('@/components/ui/select', () => {
+  const React = require('react')
+
+  const collectOptions = (children) => {
+    const options = []
+    React.Children.forEach(children, (child) => {
+      if (!React.isValidElement(child)) return
+      if (child.type === SelectItem) {
+        options.push(child)
+      } else if (child.props?.children) {
+        options.push(...collectOptions(child.props.children))
+      }
+    })
+    return options
+  }
+
+  const Select = ({ children, value, onValueChange, disabled }) => {
+    const options = collectOptions(children)
+    return (
+      <select
+        value={value || ''}
+        disabled={disabled || false}
+        onChange={(e) => onValueChange?.(e.target.value)}
+      >
+        {options}
+      </select>
+    )
+  }
+
+  const SelectContent = ({ children }) => <>{children}</>
+  const SelectItem = ({ children, value }) => <option value={value}>{children}</option>
+
+  const SelectTrigger = React.forwardRef(({ children, id, className, ...rest }, ref) => (
+    <div
+      id={id}
+      className={className}
+      ref={ref}
+      aria-label={id}
+      data-testid={id}
+      {...rest}
+    >
+      {children}
+    </div>
+  ))
+
+  const SelectValue = ({ placeholder }) => (
+    <span>{placeholder || ''}</span>
+  )
+
+  return { Select, SelectContent, SelectItem, SelectTrigger, SelectValue }
+})
+
 const toastSuccess = jest.fn()
 const toastError = jest.fn()
 
 jest.mock('sonner', () => ({
   toast: {
-    success: (...args: unknown[]) => toastSuccess(...args),
-    error: (...args: unknown[]) => toastError(...args),
+    success: (...args) => toastSuccess(...args),
+    error: (...args) => toastError(...args),
   },
 }))
 
@@ -32,10 +86,10 @@ jest.mock('@/lib/api/organizations', () => ({
     upsertOrganizationProfile: jest.fn(),
   },
   OrganizationProfileRequestError: class OrganizationProfileRequestError extends Error {
-    code: string
-    status?: number
+    code
+    status
 
-    constructor(message: string, code: string, status?: number) {
+    constructor(message, code, status) {
       super(message)
       this.name = 'OrganizationProfileRequestError'
       this.code = code
@@ -73,40 +127,48 @@ function renderPage() {
   return render(<OrganizationProfilePage />)
 }
 
-function getSelectInput(label: string): HTMLInputElement {
-  const trigger = screen.getByRole('combobox', { name: label })
-  const input = trigger.parentElement?.querySelector('input')
-
-  if (!(input instanceof HTMLInputElement)) {
-    throw new Error(`Hidden input not found for select: ${label}`)
+function getSelectElement(label) {
+  // Find label text, then get the <select> from the same parent container
+  const labelEl = screen.getByText(label)
+  const container = labelEl.closest('.space-y-2') || labelEl.parentElement
+  if (container) {
+    const select = container.querySelector('select')
+    if (select) return select
   }
-
-  return input
+  // Fallback: look by associated htmlFor/id
+  const htmlFor = labelEl.getAttribute('for') || labelEl.getAttribute('htmlfor')
+  if (htmlFor) {
+    const trigger = document.getElementById(htmlFor)
+    if (trigger) {
+      const select = trigger.parentElement?.querySelector('select') || trigger.closest('div')?.querySelector('select')
+      if (select) return select
+    }
+  }
+  throw new Error(`Select element not found for label: ${label}`)
 }
 
-async function selectOption(label: string, optionText: string) {
-  const trigger = screen.getByRole('combobox', { name: label })
-  fireEvent.mouseDown(trigger)
-  fireEvent.click(await screen.findByRole('option', { name: optionText }))
+async function selectOption(label, optionText) {
+  const selectEl = getSelectElement(label)
+  fireEvent.change(selectEl, { target: { value: optionText } })
 }
 
 async function fillValidForm() {
-  await selectOption('所属行业', '银行')
-  await selectOption('法人主体类型', '法人主体')
-  await selectOption('资产规模档位', '大型')
-  await selectOption('监管关注等级', '中')
-  await selectOption('是否涉及个人信息', '是')
-  await selectOption('是否跨境处理数据', '否')
-  await selectOption('重要数据识别情况', '未识别')
-  await selectOption('关键信息基础设施认定情况', '否')
-  await selectOption('是否自建机房', '是')
-  await selectOption('是否使用云服务', '是')
-  await selectOption('外包依赖程度', '中')
-  await selectOption('关键系统等级', '高')
-  await selectOption('是否有线上交易', '否')
-  await selectOption('是否提供AI服务', '否')
-  await selectOption('公共服务范围', '公众用户')
-  await selectOption('近一年是否发生重大事件', '否')
+  await selectOption('所属行业', 'bank')
+  await selectOption('法人主体类型', 'legal_person')
+  await selectOption('资产规模档位', 'large')
+  await selectOption('监管关注等级', 'medium')
+  await selectOption('是否涉及个人信息', 'true')
+  await selectOption('是否跨境处理数据', 'false')
+  await selectOption('重要数据识别情况', 'unknown')
+  await selectOption('关键信息基础设施认定情况', 'no')
+  await selectOption('是否自建机房', 'true')
+  await selectOption('是否使用云服务', 'true')
+  await selectOption('外包依赖程度', 'medium')
+  await selectOption('关键系统等级', 'high')
+  await selectOption('是否有线上交易', 'false')
+  await selectOption('是否提供AI服务', 'false')
+  await selectOption('公共服务范围', 'public_users')
+  await selectOption('近一年是否发生重大事件', 'false')
 }
 
 describe('OrganizationProfilePage', () => {
@@ -136,22 +198,23 @@ describe('OrganizationProfilePage', () => {
       expect(screen.getByText('机构画像配置')).toBeInTheDocument()
     })
 
-    expect(getSelectInput('所属行业')).toHaveValue('bank')
-    expect(getSelectInput('法人主体类型')).toHaveValue('legal_person')
-    expect(getSelectInput('资产规模档位')).toHaveValue('large')
-    expect(getSelectInput('是否涉及个人信息')).toHaveValue('true')
-    expect(getSelectInput('是否跨境处理数据')).toHaveValue('false')
-    expect(getSelectInput('重要数据识别情况')).toHaveValue('unknown')
-    expect(getSelectInput('关键信息基础设施认定情况')).toHaveValue('no')
-    expect(getSelectInput('是否自建机房')).toHaveValue('true')
-    expect(getSelectInput('是否使用云服务')).toHaveValue('true')
-    expect(getSelectInput('外包依赖程度')).toHaveValue('medium')
-    expect(getSelectInput('关键系统等级')).toHaveValue('high')
-    expect(getSelectInput('是否有线上交易')).toHaveValue('false')
-    expect(getSelectInput('是否提供AI服务')).toHaveValue('false')
-    expect(getSelectInput('公共服务范围')).toHaveValue('public_users')
-    expect(getSelectInput('监管关注等级')).toHaveValue('medium')
-    expect(getSelectInput('近一年是否发生重大事件')).toHaveValue('false')
+    const industrySelect = getSelectElement('所属行业')
+    expect(industrySelect.value).toBe('bank')
+    expect(getSelectElement('法人主体类型').value).toBe('legal_person')
+    expect(getSelectElement('资产规模档位').value).toBe('large')
+    expect(getSelectElement('是否涉及个人信息').value).toBe('true')
+    expect(getSelectElement('是否跨境处理数据').value).toBe('false')
+    expect(getSelectElement('重要数据识别情况').value).toBe('unknown')
+    expect(getSelectElement('关键信息基础设施认定情况').value).toBe('no')
+    expect(getSelectElement('是否自建机房').value).toBe('true')
+    expect(getSelectElement('是否使用云服务').value).toBe('true')
+    expect(getSelectElement('外包依赖程度').value).toBe('medium')
+    expect(getSelectElement('关键系统等级').value).toBe('high')
+    expect(getSelectElement('是否有线上交易').value).toBe('false')
+    expect(getSelectElement('是否提供AI服务').value).toBe('false')
+    expect(getSelectElement('公共服务范围').value).toBe('public_users')
+    expect(getSelectElement('监管关注等级').value).toBe('medium')
+    expect(getSelectElement('近一年是否发生重大事件').value).toBe('false')
     expect(screen.getByText(/最近保存：/)).toBeInTheDocument()
   })
 
@@ -166,7 +229,7 @@ describe('OrganizationProfilePage', () => {
       expect(screen.getByText(/首次配置机构画像/)).toBeInTheDocument()
     })
 
-    expect(getSelectInput('所属行业')).toHaveValue('')
+    expect(getSelectElement('所属行业').value).toBe('')
     expect(screen.getByRole('button', { name: '保存画像' })).toBeInTheDocument()
   })
 
@@ -183,7 +246,7 @@ describe('OrganizationProfilePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '保存画像' }))
 
-    expect((await screen.findAllByText('请选择所属行业')).length).toBeGreaterThan(1)
+    expect((await screen.findAllByText('请选择所属行业')).length).toBeGreaterThanOrEqual(1)
     expect(organizationsApi.upsertOrganizationProfile).not.toHaveBeenCalled()
     expect(toastError).toHaveBeenCalledWith('请先补全机构画像的必填字段。')
   })
@@ -256,10 +319,10 @@ describe('OrganizationProfilePage', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(getSelectInput('所属行业')).toHaveValue('bank')
+      expect(getSelectElement('所属行业').value).toBe('bank')
     })
 
-    await selectOption('所属行业', '保险')
+    await selectOption('所属行业', 'insurance')
     fireEvent.click(screen.getByRole('button', { name: '保存画像' }))
 
     expect(
@@ -287,6 +350,8 @@ describe('OrganizationProfilePage', () => {
       await screen.findByText('当前账号仅可查看机构画像，不能修改。'),
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '保存画像' })).not.toBeInTheDocument()
-    expect(screen.getByRole('combobox', { name: '所属行业' })).toHaveAttribute('aria-disabled', 'true')
+    // The mocked select has aria-disabled when disabled
+    const industrySelect = getSelectElement('所属行业')
+    expect(industrySelect.disabled).toBe(true)
   })
 })

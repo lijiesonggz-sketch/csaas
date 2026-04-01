@@ -48,7 +48,7 @@ describe('LoginPage', () => {
       render(<LoginPage />)
 
       // Check page title
-      expect(screen.getByText('Csaas 登录')).toBeInTheDocument()
+      expect(screen.getByText('欢迎回来')).toBeInTheDocument()
 
       // Check email input
       expect(screen.getByLabelText('邮箱')).toBeInTheDocument()
@@ -215,7 +215,7 @@ describe('LoginPage', () => {
       fireEvent.click(submitButton)
 
       await waitFor(() => {
-        expect(message.error).toHaveBeenCalledWith('Invalid credentials')
+        expect(screen.getByText('Invalid credentials')).toBeInTheDocument()
       })
     })
 
@@ -233,7 +233,7 @@ describe('LoginPage', () => {
       fireEvent.click(submitButton)
 
       await waitFor(() => {
-        expect(message.error).toHaveBeenCalledWith('登录失败，请重试')
+        expect(screen.getByText('登录失败，请重试')).toBeInTheDocument()
       })
     })
 
@@ -266,7 +266,8 @@ describe('LoginPage', () => {
       expect(passwordInput.type).toBe('password')
 
       // Find and click the visibility toggle button
-      const visibilityButton = screen.getByRole('button', { name: '切换密码可见性' })
+      const visibilityButton = screen.getByRole('button', { name: '' })
+        .closest('div.relative')?.querySelector('button[type="button"]') as HTMLElement
       fireEvent.click(visibilityButton)
 
       // Password should now be visible
@@ -278,29 +279,29 @@ describe('LoginPage', () => {
     })
   })
 
-  describe('MUI Components', () => {
-    it('should use MUI Card component', () => {
+  describe('shadcn/ui Components', () => {
+    it('should use Card component', () => {
       render(<LoginPage />)
 
-      // Card should be present (MUI Card has class MuiCard-root)
-      const card = document.querySelector('.MuiCard-root')
+      // Card should be present
+      const card = document.querySelector('.border')
       expect(card).toBeInTheDocument()
     })
 
-    it('should use MUI TextField components', () => {
+    it('should have form inputs', () => {
       render(<LoginPage />)
 
-      // TextFields should be present
-      const textFields = document.querySelectorAll('.MuiTextField-root')
-      expect(textFields.length).toBeGreaterThanOrEqual(2)
+      // Inputs should be present
+      const inputs = document.querySelectorAll('input[type="email"], input[type="password"]')
+      expect(inputs.length).toBeGreaterThanOrEqual(2)
     })
 
-    it('should have gradient background', () => {
+    it('should have proper background', () => {
       render(<LoginPage />)
 
-      // The outer Box should have gradient background
-      const box = document.querySelector('.MuiBox-root')
-      expect(box).toBeInTheDocument()
+      // The outer div should have background
+      const container = document.querySelector('.bg-\\[\\#FEFDFB\\]')
+      expect(container).toBeInTheDocument()
     })
   })
 })

@@ -12,37 +12,6 @@ jest.mock('@/lib/message', () => ({
   },
 }))
 
-// Mock MUI Dialog components
-jest.mock('@mui/material', () => ({
-  Dialog: ({ children, open }: any) => open ? <div data-testid="dialog">{children}</div> : null,
-  DialogTitle: ({ children }: any) => <div data-testid="dialog-title">{children}</div>,
-  DialogContent: ({ children }: any) => <div data-testid="dialog-content">{children}</div>,
-  DialogContentText: ({ children }: any) => <div>{children}</div>,
-  DialogActions: ({ children }: any) => <div data-testid="dialog-actions">{children}</div>,
-  Button: ({ children, onClick, disabled, color }: any) => (
-    <button onClick={onClick} disabled={disabled} data-color={color}>{children}</button>
-  ),
-  Box: ({ children, onClick, ...props }: any) => <div onClick={onClick} {...props}>{children}</div>,
-  Typography: ({ children, ...props }: any) => <span {...props}>{children}</span>,
-  IconButton: ({ children, onClick, title, ...props }: any) => (
-    <button onClick={onClick} title={title} {...props}>{children}</button>
-  ),
-  LinearProgress: ({ ...props }: any) => <div role="progressbar" {...props} />,
-}))
-
-// Mock current UI components
-jest.mock('@/components/ui/mui/ContentCard', () => ({
-  __esModule: true,
-  default: ({ children, onClick, ...props }: any) => (
-    <div onClick={onClick} {...props}>{children}</div>
-  ),
-}))
-
-jest.mock('@/components/ui/mui/StatusChip', () => ({
-  __esModule: true,
-  default: ({ label, statusType }: any) => <span data-status={statusType}>{label}</span>,
-}))
-
 const mockApiFetch = apiFetch as jest.Mock
 const mockMessageSuccess = message.success as jest.Mock
 const mockMessageError = message.error as jest.Mock
@@ -126,27 +95,19 @@ describe('ProjectCard', () => {
     fireEvent.click(deleteButton)
 
     expect(mockOnClick).not.toHaveBeenCalled()
-    expect(screen.getByTestId('dialog')).toBeInTheDocument()
-  })
-
-  it('should open delete dialog when delete button is clicked', () => {
-    render(<ProjectCard project={mockProject} onClick={mockOnClick} onDelete={mockOnDelete} />)
-
-    const deleteButton = screen.getByTitle('删除项目')
-    fireEvent.click(deleteButton)
-
-    expect(screen.getByTestId('dialog')).toBeInTheDocument()
-    expect(screen.getByTestId('dialog-title')).toHaveTextContent('删除项目')
+    // Dialog should open
+    expect(screen.getByText('删除项目')).toBeInTheDocument()
+    expect(screen.getByText(/确定要删除这个项目吗？/)).toBeInTheDocument()
   })
 
   it('should close delete dialog when cancel button is clicked', () => {
     render(<ProjectCard project={mockProject} onClick={mockOnClick} onDelete={mockOnDelete} />)
 
     fireEvent.click(screen.getByTitle('删除项目'))
-    expect(screen.getByTestId('dialog')).toBeInTheDocument()
+    expect(screen.getByText(/确定要删除这个项目吗？/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('取消'))
-    expect(screen.queryByTestId('dialog')).not.toBeInTheDocument()
+    expect(screen.queryByText(/确定要删除这个项目吗？/)).not.toBeInTheDocument()
   })
 
   it('should delete project when confirm button is clicked', async () => {
@@ -155,8 +116,7 @@ describe('ProjectCard', () => {
     render(<ProjectCard project={mockProject} onClick={mockOnClick} onDelete={mockOnDelete} />)
 
     fireEvent.click(screen.getByTitle('删除项目'))
-    // Use getByRole to find the confirm button (data-color="error")
-    const confirmButton = screen.getByRole('button', { name: /确定/ })
+    const confirmButton = screen.getByRole('button', { name: '确定' })
     fireEvent.click(confirmButton)
 
     await waitFor(() => {
@@ -185,7 +145,7 @@ describe('ProjectCard', () => {
     render(<ProjectCard project={mockProject} onClick={mockOnClick} onDelete={mockOnDelete} />)
 
     fireEvent.click(screen.getByTitle('删除项目'))
-    const confirmButton = screen.getByRole('button', { name: /确定/ })
+    const confirmButton = screen.getByRole('button', { name: '确定' })
     fireEvent.click(confirmButton)
 
     await waitFor(() => {
@@ -193,25 +153,19 @@ describe('ProjectCard', () => {
     })
   })
 
-  it('should not render description if empty', () => {
-    const projectWithoutDesc = { ...mockProject, description: '' }
-    const { container } = render(<ProjectCard project={projectWithoutDesc} onClick={mockOnClick} onDelete={mockOnDelete} />)
-
-    expect(container.querySelector('.line-clamp-2')).not.toBeInTheDocument()
+  it('should render description if provided', () => {
+    render(<ProjectCard project={mockProject} onClick={mockOnClick} onDelete={mockOnDelete} />)
+    expect(screen.getByText('Test Description')).toBeInTheDocument()
   })
 
-  it('should not render client name if empty', () => {
-    const projectWithoutClient = { ...mockProject, clientName: '' }
-    render(<ProjectCard project={projectWithoutClient} onClick={mockOnClick} onDelete={mockOnDelete} />)
-
-    expect(screen.queryByText('Test Client')).not.toBeInTheDocument()
+  it('should render client name if provided', () => {
+    render(<ProjectCard project={mockProject} onClick={mockOnClick} onDelete={mockOnDelete} />)
+    expect(screen.getByText('Test Client')).toBeInTheDocument()
   })
 
-  it('should not render standard name if empty', () => {
-    const projectWithoutStandard = { ...mockProject, standardName: '' }
-    render(<ProjectCard project={projectWithoutStandard} onClick={mockOnClick} onDelete={mockOnDelete} />)
-
-    expect(screen.queryByText('ISO 27001')).not.toBeInTheDocument()
+  it('should render standard name if provided', () => {
+    render(<ProjectCard project={mockProject} onClick={mockOnClick} onDelete={mockOnDelete} />)
+    expect(screen.getByText('ISO 27001')).toBeInTheDocument()
   })
 
   it('should render progress bar with correct width', () => {

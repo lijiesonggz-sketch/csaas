@@ -116,16 +116,16 @@ export default function TechRadarPage() {
   return (
     <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
       {/* Page Header */}
-      <Card className="mb-6 bg-gradient-to-br from-indigo-500 via-purple-500 to-purple-600 text-white border-0">
+      <Card className="mb-6 bg-blue-600 text-white border-0 rounded-sm">
         <CardContent className="p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+              <div className="p-2 bg-white/10 rounded-sm">
                 <TrendingUp className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold">技术雷达 - ROI导向的技术决策支持</h1>
-                <p className="text-sm text-white/80 mt-1">
+                <h1 className="text-xl sm:text-2xl font-bold font-[var(--font-plus-jakarta)]">技术雷达 - ROI导向的技术决策支持</h1>
+                <p className="text-sm text-white/80 mt-1 font-[var(--font-inter)]">
                   基于您的薄弱项和关注领域，为您推荐最具性价比的技术方案
                 </p>
               </div>
@@ -135,7 +135,7 @@ export default function TechRadarPage() {
               size="sm"
               onClick={handleRefresh}
               disabled={isLoading}
-              className="bg-white/20 text-white hover:bg-white/30 border-0"
+              className="bg-white/10 text-white hover:bg-white/20 border-0 rounded-sm"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               刷新

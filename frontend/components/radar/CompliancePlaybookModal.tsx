@@ -4,51 +4,43 @@
 
 import React, { useState, useEffect } from 'react'
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Typography,
-  Box,
-  Button,
-  Alert,
-  List,
-  ListItem,
-  ListItemText,
-  Checkbox,
-  Table,
-  TableBody,
-  TableRow,
-  TableCell,
-  TableContainer,
-  Paper,
-  Link,
-  Chip,
-  CircularProgress,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Grid,
-  Divider,
-} from '@mui/material'
-import {
-  ExpandMore,
-  CheckCircle,
-  ContentCopy,
-  FavoriteBorder,
-  Share,
-  MarkEmailRead,
-  Warning,
-  Security,
-  Replay,
-} from '@mui/icons-material'
-import {
   CompliancePlaybook,
   getCompliancePlaybook,
   submitChecklist,
   markCompliancePushAsRead,
 } from '@/lib/api/radar'
 import { message } from '@/lib/message'
+import { cn } from '@/lib/utils'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import {
+  CheckCircle,
+  Copy,
+  Heart,
+  Share,
+  MailCheck,
+  AlertTriangle,
+  Shield,
+  RefreshCw,
+  ChevronDown,
+  ExternalLink,
+} from 'lucide-react'
 
 /**
  * 应对剧本弹窗属性
@@ -56,7 +48,7 @@ import { message } from '@/lib/message'
 interface CompliancePlaybookModalProps {
   visible: boolean
   pushId: string
-  organizationId: string  // 添加 organizationId 属性
+  organizationId: string
   push?: {
     complianceRiskCategory?: string
     penaltyCase?: string
@@ -91,9 +83,9 @@ export const CompliancePlaybookModal: React.FC<CompliancePlaybookModalProps> = (
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set())
   const [submitted, setSubmitted] = useState(false)
   const [copyButtonText, setCopyButtonText] = useState('复制汇报模板')
-  const [retryCount, setRetryCount] = useState(0)  // 用于重试机制 (Issue #6)
+  const [retryCount, setRetryCount] = useState(0)
 
-  // 加载应对剧本数据 (Task 5.1) - 修复 Issue #6: 添加 retryCount 依赖
+  // 加载应对剧本数据
   useEffect(() => {
     const loadPlaybook = async () => {
       if (!pushId || !visible || !organizationId) return
@@ -130,9 +122,9 @@ export const CompliancePlaybookModal: React.FC<CompliancePlaybookModalProps> = (
     }
 
     loadPlaybook()
-  }, [pushId, visible, organizationId, retryCount])  // 添加 retryCount 和 organizationId 依赖以支持重试
+  }, [pushId, visible, organizationId, retryCount])
 
-  // 持久化勾选状态 (Task 4.3)
+  // 持久化勾选状态
   useEffect(() => {
     if (pushId && visible) {
       localStorage.setItem(`checklist-${pushId}`, JSON.stringify([...checkedItems]))
@@ -152,7 +144,7 @@ export const CompliancePlaybookModal: React.FC<CompliancePlaybookModalProps> = (
     })
   }
 
-  // 提交自查结果 (Task 5.2)
+  // 提交自查结果
   const handleSubmitChecklist = async () => {
     if (!playbook) return
 
@@ -186,7 +178,7 @@ export const CompliancePlaybookModal: React.FC<CompliancePlaybookModalProps> = (
     }
   }
 
-  // 复制汇报模板 (Task 4.5)
+  // 复制汇报模板
   const handleCopyTemplate = async () => {
     if (!playbook) return
 
@@ -231,387 +223,359 @@ export const CompliancePlaybookModal: React.FC<CompliancePlaybookModalProps> = (
   const isAllChecked = completedCount === totalCount && totalCount > 0
 
   return (
-    <Dialog
-      open={visible}
-      onClose={onClose}
-      maxWidth={false}  // 修复 Issue #4: 禁用预设 maxWidth,使用自定义宽度
-      sx={{
-        '& .MuiDialog-paper': {
-          width: '800px',
-          maxWidth: '800px',
-        },
-      }}
-    >
-      <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Security color="error" />
-          <Typography variant="h5" fontWeight="bold">
-            合规应对剧本
-          </Typography>
-        </Box>
-      </DialogTitle>
+    <Dialog open={visible} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto rounded-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-red-600" />
+            <span className="text-xl font-bold font-[var(--font-plus-jakarta)] text-[#1E3A5F]">
+              合规应对剧本
+            </span>
+          </DialogTitle>
+        </DialogHeader>
 
-      <DialogContent>
-        {/* 加载状态 (Task 5.1) */}
-        {playbookStatus === 'loading' && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
-            <CircularProgress color="error" />
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-              正在加载应对剧本...
-            </Typography>
-          </Box>
-        )}
+        <div className="space-y-4">
+          {/* 加载状态 */}
+          {playbookStatus === 'loading' && (
+            <div className="flex flex-col items-center justify-center py-8">
+              <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-[#94A3B8] mt-3">正在加载应对剧本...</p>
+            </div>
+          )}
 
-        {/* 生成中状态 */}
-        {playbookStatus === 'generating' && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
-            <CircularProgress color="warning" />
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-              正在生成应对剧本，请稍候...
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              (系统将在3秒后自动重试)
-            </Typography>
-          </Box>
-        )}
+          {/* 生成中状态 */}
+          {playbookStatus === 'generating' && (
+            <div className="flex flex-col items-center justify-center py-8">
+              <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-[#94A3B8] mt-3">正在生成应对剧本，请稍候...</p>
+              <p className="text-xs text-[#94A3B8]">(系统将在3秒后自动重试)</p>
+            </div>
+          )}
 
-        {/* 剧本尚未生成 */}
-        {playbookStatus === 'not_found' && (
-          <Box sx={{ py: 4 }}>
-            <Alert severity="info" sx={{ mb: 2 }}>
-              该推送暂无应对剧本数据
+          {/* 剧本尚未生成 */}
+          {playbookStatus === 'not_found' && (
+            <Alert className="rounded-sm">
+              <AlertDescription>该推送暂无应对剧本数据</AlertDescription>
             </Alert>
-          </Box>
-        )}
+          )}
 
-        {/* 失败状态 - 修复 Issue #6: 使用 retryCount 而不是页面重载 */}
-        {playbookStatus === 'failed' && (
-          <Box sx={{ py: 4 }}>
-            <Alert severity="error" sx={{ mb: 2 }}>
-              应对剧本生成失败，请联系管理员
-            </Alert>
-            <Button
-              variant="outlined"
-              startIcon={<Replay />}
-              onClick={() => setRetryCount(prev => prev + 1)}
-            >
-              重试
-            </Button>
-          </Box>
-        )}
+          {/* 失败状态 */}
+          {playbookStatus === 'failed' && (
+            <div className="space-y-3 py-4">
+              <Alert variant="destructive" className="rounded-sm">
+                <AlertDescription>应对剧本生成失败，请联系管理员</AlertDescription>
+              </Alert>
+              <Button
+                variant="outline"
+                onClick={() => setRetryCount((prev) => prev + 1)}
+                className="rounded-sm"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                重试
+              </Button>
+            </div>
+          )}
 
-        {/* 准备就绪 - 显示完整内容 */}
-        {playbookStatus === 'ready' && playbook && (
-          <Box sx={{ mt: 1 }}>
-            {/* Part 1: 风险详情区域 (Task 4.2) */}
-            <Accordion defaultExpanded>
-              <AccordionSummary expandIcon={<ExpandMore />}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Warning color="error" />
-                  <Typography fontWeight="bold">风险详情</Typography>
-                </Box>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={2}>
-                  {/* 风险类别 - 修复 Issue #3: 使用 push.complianceRiskCategory */}
-                  <Grid size={{ xs: 12 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        风险类别：
-                      </Typography>
-                      <Chip label={push?.complianceRiskCategory || '合规风险'} color="error" size="small" />
-                    </Box>
-                  </Grid>
+          {/* 准备就绪 - 显示完整内容 */}
+          {playbookStatus === 'ready' && playbook && (
+            <div className="space-y-4">
+              {/* Part 1: 风险详情区域 */}
+              <CollapsibleSection
+                title="风险详情"
+                icon={<AlertTriangle className="w-4 h-4 text-red-600" />}
+                defaultOpen
+              >
+                <div className="space-y-4">
+                  {/* 风险类别 */}
+                  <div>
+                    <p className="text-sm text-[#94A3B8] mb-1.5">风险类别：</p>
+                    <Badge className="rounded-sm bg-red-600 text-white">
+                      {push?.complianceRiskCategory || '合规风险'}
+                    </Badge>
+                  </div>
 
-                  {/* 政策要求 - 修复 Issue #2, #5 (Code Review 2026-01-31): 从真实数据读取 + 格式验证 */}
-                  <Grid size={{ xs: 12 }}>
-                    <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                      政策要求：
-                    </Typography>
+                  {/* 政策要求 */}
+                  <div>
+                    <p className="text-sm text-[#94A3B8] mb-2">政策要求：</p>
                     {push?.policyRequirements ? (
-                      <List dense>
+                      <ul className="space-y-1.5">
                         {(() => {
-                          // 修复 Issue #5: 智能分割政策要求，支持多种格式
-                          // 1. 尝试按换行符分割
-                          // 2. 如果分割后只有1项且很长，尝试按句号分割
-                          let requirements = push.policyRequirements.split('\n').filter(r => r.trim())
+                          // 智能分割政策要求，支持多种格式
+                          let requirements = push.policyRequirements.split('\n').filter((r) => r.trim())
                           if (requirements.length === 1 && requirements[0].length > 100) {
-                            requirements = requirements[0].split(/。(?=[^。]*$)/).filter(r => r.trim())
+                            requirements = requirements[0].split(/。(?=[^。]*$)/).filter((r) => r.trim())
                             if (requirements.length === 1) {
-                              requirements = requirements[0].split(/；/).filter(r => r.trim())
+                              requirements = requirements[0].split(/；/).filter((r) => r.trim())
                             }
                           }
                           return requirements.map((req, idx) => (
-                            <ListItem key={idx}>
-                              <ListItemText primary={`• ${req.trim()}`} />
-                            </ListItem>
+                            <li key={idx} className="text-sm text-[#1E3A5F] pl-2">
+                              • {req.trim()}
+                            </li>
                           ))
                         })()}
-                      </List>
+                      </ul>
                     ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        暂无政策要求信息
-                      </Typography>
+                      <p className="text-sm text-[#94A3B8]">暂无政策要求信息</p>
                     )}
-                  </Grid>
+                  </div>
 
                   {/* 信息来源 */}
-                  <Grid size={{ xs: 12 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      生成时间: {new Date(playbook.generatedAt).toLocaleString('zh-CN')}
-                    </Typography>
-                  </Grid>
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
+                  <p className="text-xs text-[#94A3B8]">
+                    生成时间: {new Date(playbook.generatedAt).toLocaleString('zh-CN')}
+                  </p>
+                </div>
+              </CollapsibleSection>
 
-            {/* Part 2: 自查清单区域 (Task 4.3) */}
-            <Accordion defaultExpanded>
-              <AccordionSummary expandIcon={<ExpandMore />}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CheckCircle color="success" />
-                  <Typography fontWeight="bold">自查清单</Typography>
-                  <Chip
-                    label={`已完成 ${completedCount}/${totalCount}`}
-                    size="small"
-                    color={isAllChecked ? 'success' : 'default'}
-                  />
-                </Box>
-              </AccordionSummary>
-              <AccordionDetails>
-                <List>
+              {/* Part 2: 自查清单区域 */}
+              <CollapsibleSection
+                title="自查清单"
+                icon={<CheckCircle className="w-4 h-4 text-emerald-600" />}
+                badge={`已完成 ${completedCount}/${totalCount}`}
+                defaultOpen
+              >
+                <div className="space-y-2">
                   {playbook.checklistItems.map((item) => (
-                    <ListItem
+                    <Card
                       key={item.id}
+                      className={cn(
+                        'p-3 rounded-sm border cursor-pointer transition-colors',
+                        checkedItems.has(item.id)
+                          ? 'border-[#059669] bg-green-50'
+                          : 'border-[#E2E8F0] hover:bg-slate-50'
+                      )}
                       onClick={() => handleToggleCheck(item.id)}
-                      component="button"
-                      sx={{ borderRadius: 1, mb: 1, border: '1px solid', borderColor: 'divider' }}
                     >
-                      <Checkbox
-                        edge="start"
-                        checked={checkedItems.has(item.id)}
-                        tabIndex={-1}
-                        disableRipple
-                      />
-                      <ListItemText
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="body2" component="span">
-                              {item.order + 1}. {item.text}
-                            </Typography>
-                            <Chip label={item.category} size="small" variant="outlined" />
-                          </Box>
-                        }
-                      />
-                    </ListItem>
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={checkedItems.has(item.id)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1">
+                          <p className="text-sm text-[#1E3A5F]">
+                            {item.order + 1}. {item.text}
+                          </p>
+                          <Badge variant="outline" className="rounded-sm text-xs mt-1">
+                            {item.category}
+                          </Badge>
+                        </div>
+                      </div>
+                    </Card>
                   ))}
-                </List>
 
-                {/* 提交按钮 */}
-                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button
-                    variant="contained"
-                    color="success"
-                    disabled={!isAllChecked || submitted}
-                    onClick={handleSubmitChecklist}
-                    startIcon={<CheckCircle />}
-                  >
-                    {submitted ? '已提交' : '提交自查结果'}
-                  </Button>
-                </Box>
-              </AccordionDetails>
-            </Accordion>
+                  {/* 提交按钮 */}
+                  <div className="flex justify-end pt-2">
+                    <Button
+                      className="rounded-sm bg-[#059669] hover:bg-[#047857]"
+                      disabled={!isAllChecked || submitted}
+                      onClick={handleSubmitChecklist}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      {submitted ? '已提交' : '提交自查结果'}
+                    </Button>
+                  </div>
+                </div>
+              </CollapsibleSection>
 
-            {/* Part 3: 整改方案对比区域 (Task 4.4) */}
-            <Accordion defaultExpanded>
-              <AccordionSummary expandIcon={<ExpandMore />}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography fontWeight="bold">整改方案对比</Typography>
-                  <Chip label="推荐方案已高亮" size="small" color="success" />
-                </Box>
-              </AccordionSummary>
-              <AccordionDetails>
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
-                    <TableBody>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold' }}>方案名称</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>投入成本</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>预期收益</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>ROI评分</TableCell>
-                        <TableCell sx={{ fontWeight: 'bold' }}>实施周期</TableCell>
-                      </TableRow>
+              {/* Part 3: 整改方案对比区域 */}
+              <CollapsibleSection
+                title="整改方案对比"
+                badge="推荐方案已高亮"
+                defaultOpen
+              >
+                <Card className="rounded-sm border border-[#E2E8F0] overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-100 border-b border-[#E2E8F0]">
+                        <th className="px-4 py-2 text-left font-semibold text-[#1E3A5F]">方案名称</th>
+                        <th className="px-4 py-2 text-left font-semibold text-[#1E3A5F]">投入成本</th>
+                        <th className="px-4 py-2 text-left font-semibold text-[#1E3A5F]">预期收益</th>
+                        <th className="px-4 py-2 text-left font-semibold text-[#1E3A5F]">ROI评分</th>
+                        <th className="px-4 py-2 text-left font-semibold text-[#1E3A5F]">实施周期</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {playbook.solutions.map((solution) => {
                         const maxRoiScore = Math.max(...playbook.solutions.map((s) => s.roiScore))
                         const isRecommended = solution.roiScore === maxRoiScore
 
                         return (
-                          <TableRow
+                          <tr
                             key={solution.name}
-                            sx={{
-                              backgroundColor: isRecommended ? 'success.light' : 'inherit',
-                              fontWeight: isRecommended ? 'bold' : 'normal',
-                            }}
+                            className={cn(
+                              'border-b border-[#E2E8F0] last:border-b-0',
+                              isRecommended && 'bg-green-50'
+                            )}
                           >
-                            <TableCell>
+                            <td className={cn('px-4 py-3', isRecommended && 'font-semibold')}>
                               {solution.name}
                               {isRecommended && (
-                                <Chip label="推荐" size="small" color="success" sx={{ ml: 1 }} />
+                                <Badge className="rounded-sm bg-[#059669] text-white text-xs ml-2">
+                                  推荐
+                                </Badge>
                               )}
-                            </TableCell>
-                            <TableCell>¥{solution.estimatedCost.toLocaleString()}</TableCell>
-                            <TableCell>¥{solution.expectedBenefit.toLocaleString()}</TableCell>
-                            <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Box
-                                  sx={{
-                                    width: 60,
-                                    height: 6,
-                                    bgcolor: 'grey.200',
-                                    borderRadius: 1,
-                                    overflow: 'hidden',
-                                  }}
-                                >
-                                  <Box
-                                    sx={{
-                                      width: `${(solution.roiScore / 10) * 100}%`,
-                                      height: '100%',
-                                      bgcolor: isRecommended ? 'success.main' : 'primary.main',
-                                    }}
+                            </td>
+                            <td className="px-4 py-3">¥{solution.estimatedCost.toLocaleString()}</td>
+                            <td className="px-4 py-3">¥{solution.expectedBenefit.toLocaleString()}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                                  <div
+                                    className={cn(
+                                      'h-full',
+                                      isRecommended ? 'bg-[#059669]' : 'bg-[#1E3A5F]'
+                                    )}
+                                    style={{ width: `${(solution.roiScore / 10) * 100}%` }}
                                   />
-                                </Box>
-                                <Typography variant="body2">{solution.roiScore.toFixed(1)}</Typography>
-                              </Box>
-                            </TableCell>
-                            <TableCell>{solution.implementationTime}</TableCell>
-                          </TableRow>
+                                </div>
+                                <span className="text-xs">{solution.roiScore.toFixed(1)}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">{solution.implementationTime}</td>
+                          </tr>
                         )
                       })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </AccordionDetails>
-            </Accordion>
+                    </tbody>
+                  </table>
+                </Card>
+              </CollapsibleSection>
 
-            {/* Part 4: 汇报模板区域 (Task 4.5) */}
-            <Accordion>
-              <AccordionSummary expandIcon={<ExpandMore />}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography fontWeight="bold">汇报模板</Typography>
-                </Box>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Box
-                  sx={{
-                    p: 2,
-                    bgcolor: 'grey.50',
-                    borderRadius: 1,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    whiteSpace: 'pre-wrap',
-                    fontFamily: 'monospace',
-                    fontSize: '0.875rem',
-                    mb: 2,
-                  }}
-                >
-                  {playbook.reportTemplate}
-                </Box>
-                <Button
-                  variant="outlined"
-                  startIcon={<ContentCopy />}
-                  onClick={handleCopyTemplate}
-                  fullWidth
-                >
-                  {copyButtonText}
-                </Button>
-              </AccordionDetails>
-            </Accordion>
+              {/* Part 4: 汇报模板区域 */}
+              <CollapsibleSection title="汇报模板">
+                <div className="space-y-3">
+                  <Card className="rounded-sm border border-[#E2E8F0] bg-slate-50 p-4">
+                    <pre className="text-sm font-mono whitespace-pre-wrap text-[#1E3A5F]">
+                      {playbook.reportTemplate}
+                    </pre>
+                  </Card>
+                  <Button
+                    variant="outline"
+                    onClick={handleCopyTemplate}
+                    className="rounded-sm w-full"
+                  >
+                    <Copy className="w-4 h-4 mr-2" />
+                    {copyButtonText}
+                  </Button>
+                </div>
+              </CollapsibleSection>
 
-            {/* Part 5: 政策依据区域 (Task 4.6) */}
-            <Accordion>
-              <AccordionSummary expandIcon={<ExpandMore />}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography fontWeight="bold">政策依据</Typography>
-                </Box>
-              </AccordionSummary>
-              <AccordionDetails>
-                <List>
+              {/* Part 5: 政策依据区域 */}
+              <CollapsibleSection title="政策依据">
+                <ul className="space-y-2">
                   {playbook.policyReference.map((policy, idx) => (
-                    <ListItem key={idx}>
-                      <ListItemText
-                        primary={
-                          // 修复 Issue #2 (Code Review 2026-01-31): 使用真实的 policy URL
-                          // 如果 policy 是有效 URL (http/https)，则使用 Link 组件
-                          // 否则显示为普通文本（可能是政策名称或描述）
-                          /^https?:\/\//.test(policy) ? (
-                            <Link
-                              href={policy}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              sx={{ color: 'primary.main' }}
-                            >
-                              {policy}
-                            </Link>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">
-                              {policy}
-                            </Typography>
-                          )
-                        }
-                      />
-                    </ListItem>
+                    <li key={idx}>
+                      {/^https?:\/\//.test(policy) ? (
+                        <a
+                          href={policy}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                        >
+                          {policy}
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      ) : (
+                        <p className="text-sm text-[#94A3B8]">{policy}</p>
+                      )}
+                    </li>
                   ))}
-                </List>
-              </AccordionDetails>
-            </Accordion>
-          </Box>
-        )}
-      </DialogContent>
+                </ul>
+              </CollapsibleSection>
+            </div>
+          )}
+        </div>
 
-      {/* Part 6: 操作按钮区域 (Task 4.7) - 修复 Issue #1: 添加实际功能 */}
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button
-          startIcon={<FavoriteBorder />}
-          color="secondary"
-          onClick={() => {
-            message.info('收藏功能开发中')
-          }}
-        >
-          收藏
-        </Button>
-        <Button
-          startIcon={<Share />}
-          onClick={() => {
-            // 复制分享链接到剪贴板
-            const shareUrl = `${window.location.origin}/radar/compliance?pushId=${pushId}`
-            navigator.clipboard.writeText(shareUrl).then(() => {
-              message.success('分享链接已复制到剪贴板')
-            }).catch(() => {
-              message.error('复制失败，请手动复制链接')
-            })
-          }}
-        >
-          分享
-        </Button>
-        <Button
-          startIcon={<MarkEmailRead />}
-          onClick={async () => {
-            try {
-              await markCompliancePushAsRead(pushId)
-              message.success('已标记为已读')
-              onClose()
-            } catch {
-              message.error('标记失败，请稍后重试')
-            }
-          }}
-        >
-          标记已读
-        </Button>
-        <Divider orientation="vertical" flexItem />
-        <Button onClick={onClose} variant="outlined">
-          关闭
-        </Button>
-      </DialogActions>
+        {/* Part 6: 操作按钮区域 */}
+        <DialogFooter className="flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => message.info('收藏功能开发中')}
+            className="rounded-sm"
+          >
+            <Heart className="w-4 h-4 mr-2" />
+            收藏
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const shareUrl = `${window.location.origin}/radar/compliance?pushId=${pushId}`
+              navigator.clipboard.writeText(shareUrl).then(() => {
+                message.success('分享链接已复制到剪贴板')
+              }).catch(() => {
+                message.error('复制失败，请手动复制链接')
+              })
+            }}
+            className="rounded-sm"
+          >
+            <Share className="w-4 h-4 mr-2" />
+            分享
+          </Button>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                await markCompliancePushAsRead(pushId)
+                message.success('已标记为已读')
+                onClose()
+              } catch {
+                message.error('标记失败，请稍后重试')
+              }
+            }}
+            className="rounded-sm"
+          >
+            <MailCheck className="w-4 h-4 mr-2" />
+            标记已读
+          </Button>
+          <div className="w-px h-8 bg-[#E2E8F0]" />
+          <Button variant="outline" onClick={onClose} className="rounded-sm">
+            关闭
+          </Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
+  )
+}
+
+// 可折叠区域辅助组件
+interface CollapsibleSectionProps {
+  title: string
+  icon?: React.ReactNode
+  badge?: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+}
+
+function CollapsibleSection({
+  title,
+  icon,
+  badge,
+  defaultOpen = false,
+  children,
+}: CollapsibleSectionProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger className="w-full flex items-center justify-between p-3 bg-white border border-[#E2E8F0] rounded-sm hover:bg-slate-50 transition-colors">
+        <div className="flex items-center gap-2">
+          {icon}
+          <span className="font-semibold text-[#1E3A5F]">{title}</span>
+          {badge && (
+            <Badge variant="outline" className="rounded-sm text-xs">
+              {badge}
+            </Badge>
+          )}
+        </div>
+        <ChevronDown
+          className={cn(
+            'w-4 h-4 text-[#94A3B8] transition-transform',
+            isOpen && 'transform rotate-180'
+          )}
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-3">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
   )
 }

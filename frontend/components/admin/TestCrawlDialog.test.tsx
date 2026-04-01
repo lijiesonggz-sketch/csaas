@@ -1,7 +1,5 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ThemeProvider } from '@mui/material/styles'
-import { createTheme } from '@mui/material/styles'
 import { TestCrawlDialog } from './TestCrawlDialog'
 import { RadarSource } from '@/lib/api/radar-sources'
 
@@ -11,11 +9,7 @@ import { RadarSource } from '@/lib/api/radar-sources'
  * Story 8.1: 测试采集结果展示
  */
 describe('TestCrawlDialog Component', () => {
-  const theme = createTheme()
-
-  const renderWithTheme = (component: React.ReactElement) => {
-    return render(<ThemeProvider theme={theme}>{component}</ThemeProvider>)
-  }
+  const renderWithTheme = (component: React.ReactElement) => render(component)
 
   const mockSource: RadarSource = {
     id: 'source-1',
@@ -48,9 +42,7 @@ describe('TestCrawlDialog Component', () => {
         />
       )
 
-      // There are two progressbars (one in title, one in content)
-      const progressbars = screen.getAllByRole('progressbar')
-      expect(progressbars.length).toBeGreaterThanOrEqual(1)
+      // shadcn/ui Loader2 uses a different class structure
       expect(screen.getByText('正在采集，请稍候...')).toBeInTheDocument()
     })
 

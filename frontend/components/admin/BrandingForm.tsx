@@ -11,23 +11,12 @@
  */
 
 import React, { useState, useRef, ChangeEvent } from 'react'
-import {
-  Box,
-  Button,
-  TextField,
-  Typography,
-  IconButton,
-  Avatar,
-  Stack,
-  Divider,
-  Tooltip,
-  Alert,
-} from '@mui/material'
-import {
-  CloudUpload as UploadIcon,
-  Delete as DeleteIcon,
-  RestartAlt as ResetIcon,
-} from '@mui/icons-material'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Upload, Trash2, RotateCcw } from 'lucide-react'
 import { BrandingConfig, UpdateBrandingData } from '@/lib/api/branding'
 
 interface BrandingFormProps {
@@ -192,32 +181,19 @@ export function BrandingForm({
   }
 
   return (
-    <Box>
-      <Typography variant="h6" gutterBottom>
-        品牌配置
-      </Typography>
+    <div>
+      <h3 className="text-lg font-semibold mb-4">品牌配置</h3>
 
-      <Stack spacing={3}>
+      <div className="space-y-6">
         {/* Logo 上传 */}
-        <Box>
-          <Typography variant="subtitle2" gutterBottom>
-            品牌 Logo
-          </Typography>
-          <Box
-            sx={{
-              border: '2px dashed',
-              borderColor: dragActive ? 'primary.main' : 'divider',
-              borderRadius: 2,
-              p: 3,
-              textAlign: 'center',
-              backgroundColor: dragActive ? 'action.hover' : 'background.paper',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              '&:hover': {
-                borderColor: 'primary.main',
-                backgroundColor: 'action.hover',
-              },
-            }}
+        <div className="space-y-2">
+          <Label>品牌 Logo</Label>
+          <div
+            className={`
+              border-2 border-dashed rounded-md p-8 text-center cursor-pointer transition-all
+              ${dragActive ? 'border-primary bg-primary/5' : 'border-border bg-background'}
+              hover:border-primary hover:bg-primary/5
+            `}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
@@ -228,196 +204,200 @@ export function BrandingForm({
               ref={fileInputRef}
               type="file"
               accept="image/png,image/jpeg,image/svg+xml"
-              style={{ display: 'none' }}
+              className="hidden"
               onChange={handleFileInputChange}
               disabled={uploading}
             />
 
             {config.brandLogoUrl ? (
-              <Box>
-                <Avatar
-                  src={config.brandLogoUrl}
-                  alt="Brand Logo"
-                  sx={{ width: 120, height: 120, mx: 'auto', mb: 2 }}
-                  variant="rounded"
-                />
-                <Typography variant="body2" color="text.secondary">
+              <div>
+                <div className="w-32 h-32 mx-auto mb-3 rounded-md overflow-hidden bg-muted">
+                  <img
+                    src={config.brandLogoUrl}
+                    alt="Brand Logo"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <p className="text-sm text-muted-foreground">
                   点击或拖拽文件以更换 Logo
-                </Typography>
-              </Box>
+                </p>
+              </div>
             ) : (
-              <Box>
-                <UploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
-                <Typography variant="body2" color="text.secondary">
+              <div>
+                <Upload className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
                   点击或拖拽文件上传 Logo
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
+                </p>
+                <p className="text-xs text-muted-foreground">
                   支持 PNG、JPG、SVG 格式，最大 2MB
-                </Typography>
-              </Box>
+                </p>
+              </div>
             )}
-          </Box>
+          </div>
           {errors.logo && (
-            <Alert severity="error" sx={{ mt: 1 }}>
-              {errors.logo}
+            <Alert variant="destructive">
+              <AlertDescription>{errors.logo}</AlertDescription>
             </Alert>
           )}
           {uploading && (
-            <Typography variant="caption" color="primary" sx={{ mt: 1, display: 'block' }}>
-              上传中...
-            </Typography>
+            <p className="text-xs text-primary mt-1">上传中...</p>
           )}
-        </Box>
+        </div>
 
-        <Divider />
+        <div className="border-t" />
 
         {/* 主题色选择 */}
-        <Box>
-          <Typography variant="subtitle2" gutterBottom>
-            主题色
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+        <div className="space-y-2">
+          <Label>主题色</Label>
+          <div className="flex flex-wrap gap-2 mb-3">
             {PRESET_COLORS.map((color) => (
-              <Tooltip key={color} title={color}>
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    backgroundColor: color,
-                    borderRadius: 1,
-                    cursor: 'pointer',
-                    border: '2px solid',
-                    borderColor:
-                      formData.brandPrimaryColor === color ? 'text.primary' : 'transparent',
-                    '&:hover': {
-                      borderColor: 'text.secondary',
-                    },
-                  }}
-                  onClick={() => handleChange('brandPrimaryColor', color)}
-                />
-              </Tooltip>
+              <TooltipProvider key={color}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className={`
+                        w-10 h-10 rounded border-2 transition-all
+                        ${formData.brandPrimaryColor === color
+                          ? 'border-foreground'
+                          : 'border-transparent hover:border-muted-foreground'
+                        }
+                      `}
+                      style={{ backgroundColor: color }}
+                      onClick={() => handleChange('brandPrimaryColor', color)}
+                    />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{color}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ))}
-          </Box>
-          <TextField
-            fullWidth
-            label="自定义颜色 (HEX)"
-            value={formData.brandPrimaryColor}
-            onChange={(e) => handleChange('brandPrimaryColor', e.target.value)}
-            placeholder="#1890ff"
-            error={!!errors.brandPrimaryColor}
-            helperText={errors.brandPrimaryColor}
-            InputProps={{
-              startAdornment: (
-                <Box
-                  sx={{
-                    width: 24,
-                    height: 24,
-                    backgroundColor: formData.brandPrimaryColor,
-                    borderRadius: 1,
-                    mr: 1,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                  }}
-                />
-              ),
-            }}
-          />
-        </Box>
+          </div>
+          <div className="flex items-center gap-2">
+            <div
+              className="w-6 h-6 rounded border"
+              style={{ backgroundColor: formData.brandPrimaryColor }}
+            />
+            <div className="flex-1">
+              <Label className="mb-1 block text-xs text-[#64748B]">自定义颜色 (HEX)</Label>
+              <Input
+                value={formData.brandPrimaryColor}
+                onChange={(e) => handleChange('brandPrimaryColor', e.target.value)}
+                placeholder="#1890ff"
+              />
+            </div>
+          </div>
+          {errors.brandPrimaryColor && (
+            <p className="text-sm text-destructive">{errors.brandPrimaryColor}</p>
+          )}
+        </div>
 
         {/* 辅助色 (可选) */}
-        <TextField
-          fullWidth
-          label="辅助色 (可选)"
-          value={formData.brandSecondaryColor || ''}
-          onChange={(e) => handleChange('brandSecondaryColor', e.target.value)}
-          placeholder="#52c41a"
-          error={!!errors.brandSecondaryColor}
-          helperText={errors.brandSecondaryColor || '用于次要按钮和强调元素'}
-          InputProps={{
-            startAdornment: formData.brandSecondaryColor ? (
-              <Box
-                sx={{
-                  width: 24,
-                  height: 24,
-                  backgroundColor: formData.brandSecondaryColor,
-                  borderRadius: 1,
-                  mr: 1,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                }}
+        <div className="space-y-2">
+          <Label>辅助色 (可选)</Label>
+          <div className="flex items-center gap-2">
+            {formData.brandSecondaryColor && (
+              <div
+                className="w-6 h-6 rounded border"
+                style={{ backgroundColor: formData.brandSecondaryColor }}
               />
-            ) : null,
-          }}
-        />
+            )}
+            <Input
+              className="flex-1"
+              value={formData.brandSecondaryColor || ''}
+              onChange={(e) => handleChange('brandSecondaryColor', e.target.value)}
+              placeholder="#52c41a"
+            />
+          </div>
+          {errors.brandSecondaryColor ? (
+            <p className="text-sm text-destructive">{errors.brandSecondaryColor}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">用于次要按钮和强调元素</p>
+          )}
+        </div>
 
-        <Divider />
+        <div className="border-t" />
 
         {/* 公司信息 */}
-        <Typography variant="subtitle2">公司信息</Typography>
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium">公司信息</h4>
 
-        <TextField
-          fullWidth
-          label="公司名称"
-          value={formData.companyName || ''}
-          onChange={(e) => handleChange('companyName', e.target.value)}
-          placeholder="您的公司名称"
-          helperText="将显示在推送内容和邮件中"
-        />
+          <div className="space-y-2">
+            <Label htmlFor="company-name">公司名称</Label>
+            <Input
+              id="company-name"
+              value={formData.companyName || ''}
+              onChange={(e) => handleChange('companyName', e.target.value)}
+              placeholder="您的公司名称"
+            />
+            <p className="text-sm text-muted-foreground">将显示在推送内容和邮件中</p>
+          </div>
 
-        <TextField
-          fullWidth
-          label="联系邮箱"
-          value={formData.contactEmail || ''}
-          onChange={(e) => handleChange('contactEmail', e.target.value)}
-          placeholder="contact@example.com"
-          error={!!errors.contactEmail}
-          helperText={errors.contactEmail}
-        />
+          <div className="space-y-2">
+            <Label htmlFor="contact-email">联系邮箱</Label>
+            <Input
+              id="contact-email"
+              type="email"
+              value={formData.contactEmail || ''}
+              onChange={(e) => handleChange('contactEmail', e.target.value)}
+              placeholder="contact@example.com"
+              className={errors.contactEmail ? 'border-destructive' : ''}
+            />
+            {errors.contactEmail && (
+              <p className="text-sm text-destructive">{errors.contactEmail}</p>
+            )}
+          </div>
 
-        <TextField
-          fullWidth
-          label="联系电话"
-          value={formData.contactPhone || ''}
-          onChange={(e) => handleChange('contactPhone', e.target.value)}
-          placeholder="+86 138-0000-0000"
-          error={!!errors.contactPhone}
-          helperText={errors.contactPhone}
-        />
+          <div className="space-y-2">
+            <Label htmlFor="contact-phone">联系电话</Label>
+            <Input
+              id="contact-phone"
+              value={formData.contactPhone || ''}
+              onChange={(e) => handleChange('contactPhone', e.target.value)}
+              placeholder="+86 138-0000-0000"
+              className={errors.contactPhone ? 'border-destructive' : ''}
+            />
+            {errors.contactPhone && (
+              <p className="text-sm text-destructive">{errors.contactPhone}</p>
+            )}
+          </div>
 
-        <TextField
-          fullWidth
-          multiline
-          rows={4}
-          label="邮件签名"
-          value={formData.emailSignature || ''}
-          onChange={(e) => handleChange('emailSignature', e.target.value)}
-          placeholder="此致&#10;敬礼&#10;&#10;您的公司名称"
-          helperText="将显示在邮件底部"
-        />
+          <div className="space-y-2">
+            <Label htmlFor="email-signature">邮件签名</Label>
+            <textarea
+              id="email-signature"
+              rows={4}
+              value={formData.emailSignature || ''}
+              onChange={(e) => handleChange('emailSignature', e.target.value)}
+              placeholder="此致&#10;敬礼&#10;&#10;您的公司名称"
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+            <p className="text-sm text-muted-foreground">将显示在邮件底部</p>
+          </div>
+        </div>
 
-        <Divider />
+        <div className="border-t" />
 
         {/* 操作按钮 */}
-        <Stack direction="row" spacing={2}>
+        <div className="flex gap-2">
           <Button
-            variant="contained"
             onClick={handleSubmit}
             disabled={saving || uploading}
-            fullWidth
+            className="flex-1"
           >
             {saving ? '保存中...' : '保存配置'}
           </Button>
           <Button
-            variant="outlined"
-            color="secondary"
-            startIcon={<ResetIcon />}
+            variant="outline"
             onClick={onReset}
             disabled={saving || uploading}
           >
+            <RotateCcw className="h-4 w-4 mr-1" />
             重置
           </Button>
-        </Stack>
-      </Stack>
-    </Box>
+        </div>
+      </div>
+    </div>
   )
 }

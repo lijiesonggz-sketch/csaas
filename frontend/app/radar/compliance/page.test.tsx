@@ -1,6 +1,5 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { ThemeProvider, createTheme } from '@mui/material/styles'
 
 import ComplianceRadarPage from './page'
 import { getCompliancePushes, normalizeRadarPush } from '@/lib/api/radar'
@@ -65,14 +64,7 @@ jest.mock('next/navigation', () => ({
 }))
 
 describe('ComplianceRadarPage', () => {
-  const theme = createTheme()
-
-  const renderWithProviders = () =>
-    render(
-      <ThemeProvider theme={theme}>
-        <ComplianceRadarPage />
-      </ThemeProvider>,
-    )
+  const renderWithProviders = () => render(<ComplianceRadarPage />)
 
   const radarContext = (pushId: string) => ({
     controlId: null,

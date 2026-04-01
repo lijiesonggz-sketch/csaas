@@ -1,8 +1,16 @@
 'use client'
 
 import React from 'react'
-import { Box, Chip, Typography, FormControl, InputLabel, Select, MenuItem } from '@mui/material'
-import { FilterList, Star } from '@mui/icons-material'
+import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Funnel, Star } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 /**
  * PeerMonitoringFilter组件属性
@@ -34,93 +42,83 @@ export const PeerMonitoringFilter: React.FC<PeerMonitoringFilterProps> = ({
   onPeerChange,
 }) => {
   return (
-    <Box sx={{ mb: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <FilterList color="action" fontSize="small" />
-        <Typography variant="subtitle2" color="text.secondary">
-          筛选条件
-        </Typography>
-      </Box>
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <Funnel className="w-4 h-4 text-[#94A3B8]" />
+        <span className="text-sm text-[#94A3B8]">筛选条件</span>
+      </div>
 
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div className="flex flex-wrap gap-2 items-center">
         {/* 全部 */}
-        <Chip
-          label="全部同业动态"
-          color={filter === 'all' ? 'primary' : 'default'}
+        <Badge
+          className={cn(
+            "rounded-sm cursor-pointer px-3 py-1.5",
+            filter === 'all'
+              ? "bg-[#1E3A5F] text-white hover:bg-[#152a47]"
+              : "bg-slate-100 text-[#94A3B8] hover:bg-slate-200"
+          )}
           onClick={() => onFilterChange('all')}
-          sx={{
-            fontWeight: filter === 'all' ? 600 : 400,
-            cursor: 'pointer',
-          }}
-        />
+        >
+          全部同业动态
+        </Badge>
 
         {/* 我关注的同业 */}
-        <Chip
-          icon={<Star fontSize="small" />}
-          label="我关注的同业"
-          color={filter === 'watched' ? 'success' : 'default'}
+        <Badge
+          className={cn(
+            "rounded-sm cursor-pointer px-3 py-1.5 flex items-center gap-1",
+            filter === 'watched'
+              ? "bg-[#059669] text-white hover:bg-[#047857]"
+              : "bg-slate-100 text-[#94A3B8] hover:bg-slate-200"
+          )}
           onClick={() => onFilterChange('watched')}
-          sx={{
-            fontWeight: filter === 'watched' ? 600 : 400,
-            cursor: 'pointer',
-          }}
-        />
+        >
+          <Star className="w-3 h-3" />
+          我关注的同业
+        </Badge>
 
         {/* 特定同业选择 */}
         {watchedPeers.length > 0 && (
-          <FormControl
-            size="small"
-            sx={{ minWidth: 150, ml: 1 }}
+          <Select
+            value={filter === 'specific-peer' ? selectedPeer || '__all__' : '__all__'}
+            onValueChange={(peer) => {
+              if (peer && peer !== '__all__') {
+                onFilterChange('specific-peer')
+                onPeerChange?.(peer)
+              } else if (peer === '__all__') {
+                onFilterChange('all')
+                onPeerChange?.('')
+              }
+            }}
           >
-            <InputLabel id="peer-select-label">选择同业</InputLabel>
-            <Select
-              labelId="peer-select-label"
-              value={filter === 'specific-peer' ? selectedPeer || '' : ''}
-              label="选择同业"
-              onChange={(e) => {
-                const peer = e.target.value as string
-                if (peer) {
-                  onFilterChange('specific-peer')
-                  onPeerChange?.(peer)
-                }
-              }}
-              displayEmpty
-            >
-              <MenuItem value="">
-                <em>全部</em>
-              </MenuItem>
+            <SelectTrigger className="rounded-sm border-[#E2E8F0] w-48 ml-2" aria-label="选择同业">
+              <SelectValue placeholder="选择同业" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">全部</SelectItem>
               {watchedPeers.map((peer) => (
-                <MenuItem key={peer} value={peer}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Star fontSize="small" color="warning" />
+                <SelectItem key={peer} value={peer}>
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3 h-3 text-amber-500" />
                     {peer}
-                  </Box>
-                </MenuItem>
+                  </div>
+                </SelectItem>
               ))}
-            </Select>
-          </FormControl>
+            </SelectContent>
+          </Select>
         )}
-      </Box>
+      </div>
 
       {/* 当前筛选状态提示 */}
       {filter === 'watched' && (
-        <Typography
-          variant="caption"
-          color="success.main"
-          sx={{ mt: 1, display: 'block' }}
-        >
+        <p className="text-xs text-[#059669] mt-2">
           仅显示您关注的同业机构动态
-        </Typography>
+        </p>
       )}
       {filter === 'specific-peer' && selectedPeer && (
-        <Typography
-          variant="caption"
-          color="primary.main"
-          sx={{ mt: 1, display: 'block' }}
-        >
+        <p className="text-xs text-[#1E3A5F] mt-2">
           仅显示 {selectedPeer} 的动态
-        </Typography>
+        </p>
       )}
-    </Box>
+    </div>
   )
 }

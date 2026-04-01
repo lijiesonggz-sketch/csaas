@@ -1,6 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import DocumentUploader from '../DocumentUploader'
-import { toast } from 'sonner'
 
 // Mock sonner toast
 jest.mock('sonner', () => ({
@@ -31,9 +30,9 @@ describe('DocumentUploader', () => {
     expect(screen.getByRole('button', { name: '文本输入' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '文件上传' })).toBeInTheDocument()
 
-    // Text input mode should be active (contained variant)
+    // Text input mode should be active (has bg-[#1E3A5F] class for active state)
     const textButton = screen.getByRole('button', { name: '文本输入' })
-    expect(textButton).toHaveClass('MuiButton-contained')
+    expect(textButton).toHaveClass('bg-[#1E3A5F]')
 
     // Textarea should be visible
     expect(screen.getByRole('textbox')).toBeInTheDocument()
@@ -92,7 +91,7 @@ describe('DocumentUploader', () => {
     render(<DocumentUploader onDocumentChange={mockOnDocumentChange} />)
 
     const textarea = screen.getByRole('textbox')
-    expect(textarea).toHaveClass('MuiInputBase-inputMultiline')
+    expect(textarea).toHaveClass('font-mono')
   })
 
   it('[P2] displays placeholder text in textarea', () => {

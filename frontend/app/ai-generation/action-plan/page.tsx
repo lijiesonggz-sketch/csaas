@@ -11,34 +11,32 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { exportActionPlanToExcel } from '@/lib/utils/export-action-plan'
 import { toast } from 'sonner'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import CardHeader from '@mui/material/CardHeader'
-import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
-import Accordion from '@mui/material/Accordion'
-import AccordionSummary from '@mui/material/AccordionSummary'
-import AccordionDetails from '@mui/material/AccordionDetails'
-import Stepper from '@mui/material/Stepper'
-import Step from '@mui/material/Step'
-import StepLabel from '@mui/material/StepLabel'
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import Divider from '@mui/material/Divider'
-import Alert from '@mui/material/Alert'
-import Grid from '@mui/material/Grid'
-import CircularProgress from '@mui/material/CircularProgress'
-import LinearProgress from '@mui/material/LinearProgress'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import RocketLaunchIcon from '@mui/icons-material/RocketLaunch'
-import DownloadIcon from '@mui/icons-material/Download'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
-import ScheduleIcon from '@mui/icons-material/Schedule'
-import SecurityIcon from '@mui/icons-material/Security'
-import GroupsIcon from '@mui/icons-material/Groups'
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
-import LightbulbIcon from '@mui/icons-material/Lightbulb'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Progress } from '@/components/ui/progress'
+import {
+  ArrowLeft,
+  Rocket,
+  Download,
+  TrendingUp,
+  Clock,
+  Shield,
+  Users,
+  DollarSign,
+  Lightbulb,
+  AlertTriangle,
+  CheckCircle,
+  Loader2,
+  Info,
+  AlertCircle,
+} from 'lucide-react'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 
 interface ActionPlanMeasure {
   id: string
@@ -209,13 +207,10 @@ export default function ActionPlanPage() {
     }
   }
 
-  const getPriorityColor = (priority: string): 'error' | 'warning' | 'info' | 'default' => {
-    const colors: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
-      high: 'error',
-      medium: 'warning',
-      low: 'info',
-    }
-    return colors[priority] || 'default'
+  const getPriorityVariant = (priority: string): 'default' | 'destructive' | 'outline' => {
+    if (priority === 'high') return 'destructive'
+    if (priority === 'medium') return 'outline'
+    return 'outline'
   }
 
   const getPriorityText = (priority: string) => {
@@ -237,108 +232,119 @@ export default function ActionPlanPage() {
   }, {} as Record<string, ActionPlanMeasure[]>) || {}
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
+    <div className="p-6 bg-[#FEFDFB] min-h-screen max-w-[1400px] mx-auto">
       {/* 顶部导航 */}
-      <Box sx={{ mb: 3 }}>
+      <div className="mb-6">
         <Button
-          startIcon={<ArrowBackIcon />}
+          variant="outline"
           onClick={() => router.back()}
-          sx={{ mr: 2 }}
+          className="rounded-sm"
         >
+          <ArrowLeft className="w-4 h-4 mr-2" />
           返回成熟度分析
         </Button>
-      </Box>
+      </div>
 
       {/* 页面标题 */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <RocketLaunchIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-              <Box>
-                <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 0 }}>
+      <Card className="mb-6 border-[#E2E8F0] rounded-sm shadow-sm">
+        <CardContent className="p-6">
+          <div className="flex justify-between items-start flex-wrap gap-4">
+            <div className="flex items-center gap-3">
+              <Rocket className="w-10 h-10 text-[#1E3A5F]" />
+              <div>
+                <h1 className="text-3xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
                   成熟度改进措施
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
+                </h1>
+                <p className="text-sm text-[#94A3B8] mt-1">
                   基于差距分析生成的具体、可执行的改进计划
-                </Typography>
-              </Box>
-            </Box>
+                </p>
+              </div>
+            </div>
             {taskStatus?.status === 'completed' && (
               <Button
-                variant="contained"
-                size="large"
-                startIcon={<DownloadIcon />}
+                className="bg-[#1E3A5F] hover:bg-[#162e4d] text-white rounded-sm"
                 onClick={handleExportToExcel}
               >
+                <Download className="w-4 h-4 mr-2" />
                 导出措施报告
               </Button>
             )}
-          </Box>
+          </div>
 
           {/* 目标信息 */}
           {targetMaturity > 0 && (
-            <Alert severity="success" sx={{ mt: 2 }}>
-              <strong>改进目标:</strong> 从当前成熟度提升至{' '}
-              <Chip label={`Level ${targetMaturity.toFixed(1)}`} color="primary" size="small" />
+            <Alert className="mt-4 rounded-sm border-[#059669] bg-[#F0FDF4]">
+              <CheckCircle className="h-4 w-4 text-[#059669]" />
+              <AlertDescription className="text-[#059669]">
+                <strong>改进目标:</strong> 从当前成熟度提升至{' '}
+                <Badge className="ml-2 bg-[#1E3A5F] text-white rounded-sm">
+                  Level {targetMaturity.toFixed(1)}
+                </Badge>
+              </AlertDescription>
             </Alert>
           )}
         </CardContent>
       </Card>
 
       {/* 步骤指示器 */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Stepper activeStep={currentStep} alternativeLabel>
+      <Card className="mb-6 border-[#E2E8F0] rounded-sm shadow-sm">
+        <CardContent className="p-6">
+          <div className="flex justify-between">
             {steps.map((step, index) => (
-              <Step key={index}>
-                <StepLabel>
-                  <Typography variant="subtitle2">{step.label}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {step.description}
-                  </Typography>
-                </StepLabel>
-              </Step>
+              <div key={index} className="flex-1 flex flex-col items-center">
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                    currentStep >= index
+                      ? 'bg-[#1E3A5F] text-white'
+                      : 'bg-[#94A3B8] text-white'
+                  }`}
+                >
+                  {index + 1}
+                </div>
+                <p className="text-sm font-semibold mt-2 text-[#1E3A5F]">{step.label}</p>
+                <p className="text-xs text-[#94A3B8] text-center">{step.description}</p>
+              </div>
             ))}
-          </Stepper>
+          </div>
         </CardContent>
       </Card>
 
       {/* 任务进度 */}
       {(loading || (taskStatus && taskStatus.status !== 'completed')) && (
-        <Card sx={{ mb: 3, textAlign: 'center' }}>
-          <CardContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <CircularProgress size={48} />
-              <Box>
-                <Typography variant="h6">
+        <Card className="mb-6 border-[#E2E8F0] rounded-sm shadow-sm text-center">
+          <CardContent className="p-6">
+            <div className="flex flex-col items-center gap-4">
+              <Loader2 className="w-12 h-12 animate-spin text-[#1E3A5F]" />
+              <div>
+                <h3 className="text-lg font-semibold text-[#1E3A5F]">
                   {taskStatus?.status === 'processing' ? '正在生成改进措施...' : '初始化任务...'}
-                </Typography>
-                <LinearProgress
-                  variant="determinate"
+                </h3>
+                <Progress
                   value={taskStatus?.progress || 0}
-                  sx={{ width: 300, mt: 1, mb: 1 }}
+                  className="w-[300px] mt-2 h-2"
                 />
-                <Typography variant="body2" color="text.secondary">
+                <p className="text-sm text-[#94A3B8] mt-2">
                   AI正在基于您的成熟度分析结果,生成针对性的改进措施
-                </Typography>
-              </Box>
-            </Box>
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
 
       {/* 生成失败 */}
       {taskStatus?.status === 'failed' && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent sx={{ textAlign: 'center' }}>
-            <Typography variant="h6" color="error" gutterBottom>
+        <Card className="mb-6 border-[#E2E8F0] rounded-sm shadow-sm text-center">
+          <CardContent className="p-6">
+            <AlertCircle className="w-8 h-8 text-red-600 mx-auto mb-2" />
+            <h3 className="text-lg font-semibold text-red-600 mb-2">
               生成失败
-            </Typography>
-            <Typography color="error" sx={{ mb: 2 }}>
-              {taskStatus.errorMessage}
-            </Typography>
-            <Button variant="contained" onClick={startGeneration}>
+            </h3>
+            <p className="text-red-600 mb-4">{taskStatus.errorMessage}</p>
+            <Button
+              onClick={startGeneration}
+              className="bg-[#1E3A5F] hover:bg-[#162e4d] text-white rounded-sm"
+            >
               重新生成
             </Button>
           </CardContent>
@@ -349,44 +355,36 @@ export default function ActionPlanPage() {
       {taskStatus?.status === 'completed' && taskStatus.measures.length > 0 && (
         <>
           {/* 统计概览 */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography variant="h4" color="primary.main" fontWeight="bold">
+          <Card className="mb-6 border-[#E2E8F0] rounded-sm shadow-sm">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <div className="text-center">
+                  <p className="text-4xl font-bold text-[#1E3A5F]">
                     {taskStatus.measures.length}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    总计措施数量
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography variant="h4" color="success.main" fontWeight="bold">
+                  </p>
+                  <p className="text-sm text-[#94A3B8]">总计措施数量</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-4xl font-bold text-[#059669]">
                     {Object.keys(groupedMeasures).length}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    涉及聚类
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography variant="h4" color="error.main" fontWeight="bold">
+                  </p>
+                  <p className="text-sm text-[#94A3B8]">涉及聚类</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-4xl font-bold text-red-600">
                     {taskStatus.measures.filter((m) => m.priority === 'high').length}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    高优先级措施
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 6, md: 3 }}>
-                  <Typography variant="h4" color="warning.main" fontWeight="bold">
+                  </p>
+                  <p className="text-sm text-[#94A3B8]">高优先级措施</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-4xl font-bold text-yellow-600">
                     {taskStatus.measures
                       .reduce((sum, m) => sum + m.expectedImprovement, 0)
                       .toFixed(1)}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    预期总提升 (分)
-                  </Typography>
-                </Grid>
-              </Grid>
+                  </p>
+                  <p className="text-sm text-[#94A3B8]">预期总提升 (分)</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -397,185 +395,153 @@ export default function ActionPlanPage() {
             const clusterTarget = measures[0].targetLevel
 
             return (
-              <Card key={clusterName} sx={{ mb: 3 }}>
-                <CardHeader
-                  title={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <SecurityIcon />
-                      <Typography variant="h6">{clusterName}</Typography>
-                      <Chip
-                        color="error"
-                        label={`当前 ${clusterCurrent.toFixed(2)} → 目标 ${clusterTarget.toFixed(1)} (差距 ${clusterGap.toFixed(2)})`}
-                      />
-                    </Box>
-                  }
-                  action={<Chip label={`${measures.length} 条措施`} color="primary" />}
-                />
-                <CardContent>
-                  {measures
-                    .sort((a, b) => a.sortOrder - b.sortOrder)
-                    .map((measure, index) => (
-                      <Accordion key={measure.id} defaultExpanded={index === 0}>
-                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                            <Chip
-                              color={getPriorityColor(measure.priority)}
-                              size="small"
-                              label={getPriorityText(measure.priority)}
-                            />
-                            <Typography variant="subtitle1" sx={{ flex: 1 }}>
-                              {index + 1}. {measure.title}
-                            </Typography>
-                            <Chip
-                              icon={<TrendingUpIcon />}
-                              label={`预期提升: +${measure.expectedImprovement.toFixed(1)}分`}
-                              size="small"
-                            />
-                            <Chip
-                              icon={<ScheduleIcon />}
-                              label={measure.timeline}
-                              size="small"
-                              variant="outlined"
-                            />
-                          </Box>
-                        </AccordionSummary>
-                        <AccordionDetails>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Card key={clusterName} className="mb-6 border-[#E2E8F0] rounded-sm shadow-sm">
+                <CardContent className="p-6">
+                  {/* 聚类标题 */}
+                  <div className="flex items-center justify-between mb-4 pb-4 border-b border-[#E2E8F0]">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-5 h-5 text-[#1E3A5F]" />
+                      <h2 className="text-lg font-semibold text-[#1E3A5F]">{clusterName}</h2>
+                      <Badge variant="destructive" className="rounded-sm">
+                        当前 {clusterCurrent.toFixed(2)} → 目标 {clusterTarget.toFixed(1)} (差距 {clusterGap.toFixed(2)})
+                      </Badge>
+                    </div>
+                    <Badge className="bg-[#1E3A5F] text-white rounded-sm">
+                      {measures.length} 条措施
+                    </Badge>
+                  </div>
+
+                  {/* 措施列表 */}
+                  <div className="space-y-4">
+                    {measures
+                      .sort((a, b) => a.sortOrder - b.sortOrder)
+                      .map((measure, index) => (
+                        <Card key={measure.id} className="border border-[#E2E8F0] rounded-sm shadow-sm">
+                          <CardContent className="p-4">
+                            {/* 措施标题和标签 */}
+                            <div className="flex items-center gap-2 mb-3 flex-wrap">
+                              <Badge variant={getPriorityVariant(measure.priority)} className="rounded-sm">
+                                {getPriorityText(measure.priority)}
+                              </Badge>
+                              <h3 className="text-base font-semibold text-[#1E3A5F] flex-1">
+                                {index + 1}. {measure.title}
+                              </h3>
+                              <Badge variant="outline" className="rounded-sm border-[#059669] text-[#059669]">
+                                <TrendingUp className="w-3 h-3 mr-1" />
+                                预期提升: +{measure.expectedImprovement.toFixed(1)}分
+                              </Badge>
+                              <Badge variant="outline" className="rounded-sm">
+                                <Clock className="w-3 h-3 mr-1" />
+                                {measure.timeline}
+                              </Badge>
+                            </div>
+
                             {/* 描述 */}
-                            <Alert severity="info" icon={<LightbulbIcon />}>
-                              {measure.description}
+                            <Alert className="mb-4 rounded-sm border-[#059669] bg-[#F0FDF4]">
+                              <Lightbulb className="h-4 w-4 text-[#059669]" />
+                              <AlertDescription className="text-[#059669]">
+                                {measure.description}
+                              </AlertDescription>
                             </Alert>
 
                             {/* 实施步骤 */}
-                            <Accordion>
-                              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                <Typography>📋 实施步骤</Typography>
-                              </AccordionSummary>
-                              <AccordionDetails>
-                                <Box component="ol" sx={{ pl: 2 }}>
-                                  {measure.implementationSteps.map((step) => (
-                                    <Box component="li" key={step.stepNumber} sx={{ mb: 2 }}>
-                                      <Typography variant="subtitle2">{step.title}</Typography>
-                                      <Typography variant="body2" color="text.secondary">
-                                        {step.description}
-                                      </Typography>
-                                      <Chip
-                                        label={`预计耗时: ${step.duration}`}
-                                        size="small"
-                                        color="info"
-                                        sx={{ mt: 0.5 }}
-                                      />
-                                    </Box>
-                                  ))}
-                                </Box>
-                              </AccordionDetails>
-                            </Accordion>
+                            <div className="mb-4">
+                              <h4 className="font-semibold text-[#1E3A5F] mb-2">📋 实施步骤</h4>
+                              <ol className="list-decimal list-inside space-y-3">
+                                {measure.implementationSteps.map((step) => (
+                                  <li key={step.stepNumber} className="pl-2">
+                                    <p className="font-semibold text-sm">{step.title}</p>
+                                    <p className="text-sm text-[#94A3B8]">{step.description}</p>
+                                    <Badge variant="outline" className="mt-1 rounded-sm text-xs">
+                                      预计耗时: {step.duration}
+                                    </Badge>
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
 
                             {/* 资源需求 */}
-                            <Accordion>
-                              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                <Typography>💰 资源需求</Typography>
-                              </AccordionSummary>
-                              <AccordionDetails>
-                                <Grid container spacing={2}>
-                                  {measure.resourcesNeeded.budget && (
-                                    <Grid size={{ xs: 12, md: 6 }}>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <AttachMoneyIcon color="primary" />
-                                        <Typography>
-                                          <strong>预算:</strong> {measure.resourcesNeeded.budget}
-                                        </Typography>
-                                      </Box>
-                                    </Grid>
-                                  )}
-                                  {measure.resourcesNeeded.personnel && measure.resourcesNeeded.personnel.length > 0 && (
-                                    <Grid size={{ xs: 12, md: 6 }}>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <GroupsIcon color="primary" />
-                                        <Typography>
-                                          <strong>人员:</strong>{' '}
-                                          {measure.resourcesNeeded.personnel.join(', ')}
-                                        </Typography>
-                                      </Box>
-                                    </Grid>
-                                  )}
-                                  {measure.resourcesNeeded.technology && measure.resourcesNeeded.technology.length > 0 && (
-                                    <Grid size={{ xs: 12 }}>
-                                      <Typography gutterBottom>
-                                        <strong>技术/工具:</strong>
-                                      </Typography>
-                                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                        {measure.resourcesNeeded.technology.map((tech, i) => (
-                                          <Chip key={i} label={tech} color="primary" size="small" />
-                                        ))}
-                                      </Box>
-                                    </Grid>
-                                  )}
-                                  <Grid size={{ xs: 12 }}>
-                                    <Typography>
-                                      <strong>负责部门:</strong> {measure.responsibleDepartment}
-                                    </Typography>
-                                  </Grid>
-                                </Grid>
-                              </AccordionDetails>
-                            </Accordion>
+                            <div className="mb-4">
+                              <h4 className="font-semibold text-[#1E3A5F] mb-2">💰 资源需求</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {measure.resourcesNeeded.budget && (
+                                  <div className="flex items-center gap-2">
+                                    <DollarSign className="w-4 h-4 text-[#1E3A5F]" />
+                                    <p className="text-sm">
+                                      <strong>预算:</strong> {measure.resourcesNeeded.budget}
+                                    </p>
+                                  </div>
+                                )}
+                                {measure.resourcesNeeded.personnel && measure.resourcesNeeded.personnel.length > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <Users className="w-4 h-4 text-[#1E3A5F]" />
+                                    <p className="text-sm">
+                                      <strong>人员:</strong> {measure.resourcesNeeded.personnel.join(', ')}
+                                    </p>
+                                  </div>
+                                )}
+                                {measure.resourcesNeeded.technology && measure.resourcesNeeded.technology.length > 0 && (
+                                  <div className="md:col-span-2">
+                                    <p className="text-sm font-semibold mb-1">技术/工具:</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {measure.resourcesNeeded.technology.map((tech, i) => (
+                                        <Badge key={i} variant="outline" className="rounded-sm">{tech}</Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="md:col-span-2">
+                                  <p className="text-sm">
+                                    <strong>负责部门:</strong> {measure.responsibleDepartment}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
 
                             {/* 风险与缓解 */}
                             {measure.risks && measure.risks.length > 0 && (
-                              <Accordion>
-                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                  <Typography>⚠️ 风险与缓解</Typography>
-                                </AccordionSummary>
-                                <AccordionDetails>
-                                  <Box component="ul" sx={{ pl: 2 }}>
-                                    {measure.risks.map((risk, i) => (
-                                      <Box component="li" key={i} sx={{ mb: 1 }}>
-                                        <Typography color="error" fontWeight="medium">
-                                          风险: {risk.risk}
-                                        </Typography>
-                                        <Typography color="success.main">
-                                          ✓ 缓解措施: {risk.mitigation}
-                                        </Typography>
-                                      </Box>
-                                    ))}
-                                  </Box>
-                                </AccordionDetails>
-                              </Accordion>
+                              <div className="mb-4">
+                                <h4 className="font-semibold text-[#1E3A5F] mb-2">⚠️ 风险与缓解</h4>
+                                <ul className="space-y-2">
+                                  {measure.risks.map((risk, i) => (
+                                    <li key={i} className="pl-2">
+                                      <p className="text-sm font-semibold text-red-600">
+                                        风险: {risk.risk}
+                                      </p>
+                                      <p className="text-sm text-[#059669]">
+                                        ✓ 缓解措施: {risk.mitigation}
+                                      </p>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
                             )}
 
                             {/* KPI指标 */}
                             {measure.kpiMetrics && measure.kpiMetrics.length > 0 && (
-                              <Accordion>
-                                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                                  <Typography>📊 KPI指标</Typography>
-                                </AccordionSummary>
-                                <AccordionDetails>
-                                  <Grid container spacing={2}>
-                                    {measure.kpiMetrics.map((kpi, i) => (
-                                      <Grid size={{ xs: 12, md: 6 }} key={i}>
-                                        <Card variant="outlined" sx={{ bgcolor: 'primary.50' }}>
-                                          <CardContent>
-                                            <Typography variant="subtitle2" gutterBottom>
-                                              {kpi.metric}
-                                            </Typography>
-                                            <Typography variant="body2">
-                                              目标值: <Chip label={kpi.target} color="success" size="small" />
-                                            </Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                              测量方法: {kpi.measurementMethod}
-                                            </Typography>
-                                          </CardContent>
-                                        </Card>
-                                      </Grid>
-                                    ))}
-                                  </Grid>
-                                </AccordionDetails>
-                              </Accordion>
+                              <div>
+                                <h4 className="font-semibold text-[#1E3A5F] mb-2">📊 KPI指标</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {measure.kpiMetrics.map((kpi, i) => (
+                                    <Card key={i} className="border border-[#E2E8F0] bg-[#F0FDF4] rounded-sm">
+                                      <CardContent className="p-3">
+                                        <p className="text-sm font-semibold mb-1">{kpi.metric}</p>
+                                        <p className="text-sm">
+                                          目标值: <Badge className="bg-[#059669] text-white rounded-sm text-xs">{kpi.target}</Badge>
+                                        </p>
+                                        <p className="text-xs text-[#94A3B8] mt-1">
+                                          测量方法: {kpi.measurementMethod}
+                                        </p>
+                                      </CardContent>
+                                    </Card>
+                                  ))}
+                                </div>
+                              </div>
                             )}
-                          </Box>
-                        </AccordionDetails>
-                      </Accordion>
-                    ))}
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
                 </CardContent>
               </Card>
             )
@@ -585,14 +551,12 @@ export default function ActionPlanPage() {
 
       {/* 空状态 */}
       {taskStatus?.status === 'completed' && taskStatus.measures.length === 0 && (
-        <Card>
-          <CardContent sx={{ textAlign: 'center', py: 4 }}>
-            <Typography variant="h6" color="text.secondary">
-              未生成任何措施
-            </Typography>
+        <Card className="border-[#E2E8F0] rounded-sm shadow-sm">
+          <CardContent className="p-12 text-center">
+            <p className="text-lg text-[#94A3B8]">未生成任何措施</p>
           </CardContent>
         </Card>
       )}
-    </Box>
+    </div>
   )
 }

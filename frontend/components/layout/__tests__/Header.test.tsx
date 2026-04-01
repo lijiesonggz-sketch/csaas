@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { useSession, signOut } from 'next-auth/react'
 import Header from '../Header'
 import { useRadarUnreadCount } from '@/lib/hooks/useRadarUnreadCount'
@@ -54,7 +55,7 @@ describe('Header', () => {
 
     render(<Header />)
 
-    expect(screen.getByText('Csaas')).toBeInTheDocument()
+    expect(screen.getByText('CSAAS')).toBeInTheDocument()
   })
 
   it('renders user information when authenticated', () => {
@@ -113,7 +114,7 @@ describe('Header', () => {
     expect(screen.queryByText('Radar���û�')).not.toBeInTheDocument()
   })
 
-  it('opens user menu when clicked', () => {
+  it('opens user menu when clicked', async () => {
     mockUseSession.mockReturnValue({
       data: {
         user: {
@@ -128,13 +129,17 @@ describe('Header', () => {
 
     render(<Header />)
 
-    const userButton = screen.getByText('Test User').closest('div[role="button"]') ||
-                       screen.getByText('Test User').parentElement?.parentElement
-    fireEvent.click(userButton!)
+    // Find the user button by looking for the display name
+    const userButton = screen.getByText('Test User').closest('button')
+    await userEvent.click(userButton!)
 
-    expect(screen.getByText('个人信息')).toBeInTheDocument()
-    expect(screen.getByText('设置')).toBeInTheDocument()
-    expect(screen.getByText('退出登录')).toBeInTheDocument()
+    // shadcn/ui DropdownMenu renders content in a portal
+    // The items should be present after clicking
+    await waitFor(() => {
+      expect(screen.getByText('个人信息')).toBeInTheDocument()
+      expect(screen.getByText('设置')).toBeInTheDocument()
+      expect(screen.getByText('退出登录')).toBeInTheDocument()
+    })
   })
 
   it('calls signOut when logout is clicked', async () => {
@@ -152,12 +157,11 @@ describe('Header', () => {
 
     render(<Header />)
 
-    const userButton = screen.getByText('Test User').closest('div[role="button"]') ||
-                       screen.getByText('Test User').parentElement?.parentElement
-    fireEvent.click(userButton!)
+    const userButton = screen.getByText('Test User').closest('button')
+    await userEvent.click(userButton!)
 
     const logoutButton = await screen.findByText('退出登录')
-    fireEvent.click(logoutButton)
+    await userEvent.click(logoutButton)
 
     await waitFor(() => {
       expect(mockSignOut).toHaveBeenCalledWith({ callbackUrl: '/login' })
@@ -202,14 +206,14 @@ describe('Header', () => {
     roles.forEach(({ role, label }) => {
       mockUseSession.mockReturnValue({
         data: {
-        user: {
-          name: 'Test User',
-          email: 'test@example.com',
-          role,
-          organizationId: 'org-123',
+          user: {
+            name: 'Test User',
+            email: 'test@example.com',
+            role,
+            organizationId: 'org-123',
+          },
         },
-      },
-      status: 'authenticated',
+        status: 'authenticated',
       })
 
       const { unmount } = render(<Header />)
@@ -218,7 +222,7 @@ describe('Header', () => {
     })
   })
 
-  it('has correct AppBar styling', () => {
+  it('has correct header styling', () => {
     mockUseSession.mockReturnValue({
       data: null,
       status: 'unauthenticated',
@@ -226,8 +230,9 @@ describe('Header', () => {
 
     render(<Header />)
 
-    const appBar = screen.getByRole('banner')
-    expect(appBar).toBeInTheDocument()
+    const header = screen.getByRole('banner')
+    expect(header).toBeInTheDocument()
+    expect(header).toHaveClass('h-16')
   })
 
   it('shows radar history entry with unread badge and navigates on click', () => {
@@ -245,7 +250,7 @@ describe('Header', () => {
 
     render(<Header />)
 
-    const historyButton = screen.getByRole('button', { name: '打开推送历史' })
+    const historyButton = screen.getByRole('button', { name: '推送历史' })
     expect(historyButton).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument()
 

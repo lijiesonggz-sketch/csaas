@@ -1,9 +1,8 @@
 'use client'
 
 import React from 'react'
-import { Typography } from '@mui/material'
-import { StatusChip } from '@/components/ui/mui'
-import type { StatusType } from '@/components/ui/mui/StatusChip'
+import { StatusChip } from '@/components/ui/status-chip'
+import type { StatusType } from '@/components/ui/status-chip'
 
 export type TaskStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
@@ -45,9 +44,9 @@ export default function TaskStatusIndicator({
 
   if (!showIcon) {
     return (
-      <Typography component="span" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+      <span className="text-sm text-[#64748B]">
         {displayLabel}
-      </Typography>
+      </span>
     )
   }
 

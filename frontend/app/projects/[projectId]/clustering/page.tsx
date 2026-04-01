@@ -222,7 +222,7 @@ export default function ClusteringPage() {
     return (
       <div className="w-full px-6 py-8">
         {/* 渐变头部 */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 mb-8">
+        <div className="relative overflow-hidden rounded-3xl bg-[#1E3A5F] p-8 mb-8">
           {/* 装饰性径向渐变 */}
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
 
@@ -240,7 +240,7 @@ export default function ClusteringPage() {
         <Card className="border-0 shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)]">
           <CardContent className="py-16 text-center">
             <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-indigo-500" />
-            <h3 className="text-xl font-semibold text-slate-900">正在加载...</h3>
+            <h3 className="text-xl font-semibold text-[#1E3A5F]">正在加载...</h3>
           </CardContent>
         </Card>
       </div>
@@ -250,7 +250,7 @@ export default function ClusteringPage() {
   return (
     <div className="w-full px-6 py-8">
       {/* 渐变头部 */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 mb-8">
+      <div className="relative overflow-hidden rounded-3xl bg-[#1E3A5F] p-8 mb-8">
         {/* 装饰性径向渐变 */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
 
@@ -301,14 +301,14 @@ export default function ClusteringPage() {
         <Card className="border-0 shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)]">
           <CardContent className="py-16 text-center">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center mx-auto mb-4">
-              <Sparkles className="w-6 h-6 text-indigo-600" />
+              <Sparkles className="w-6 h-6 text-[#1E3A5F]" />
             </div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">还没有生成聚类</h3>
-            <p className="text-sm text-slate-500 mb-8">点击下方按钮开始生成聚类分析</p>
+            <h3 className="text-xl font-semibold text-[#1E3A5F] mb-2">还没有生成聚类</h3>
+            <p className="text-sm text-[#94A3B8] mb-8">点击下方按钮开始生成聚类分析</p>
             <Button
               onClick={handleGenerate}
               disabled={loading}
-              className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 text-lg"
+              className="bg-[#1E3A5F] hover:from-[#1E3A5F] hover:to-[#152a47] text-white px-6 py-3 text-lg"
             >
               <Sparkles className="w-5 h-5 mr-2" />
               {loading ? '生成中...' : '开始生成'}
@@ -326,19 +326,19 @@ export default function ClusteringPage() {
       {loading && (
         <Card className="mt-6 border-0 shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)]">
           <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-slate-900 mb-4">生成进度</h3>
+            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-4">生成进度</h3>
 
             {!progress ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-5 h-5 animate-spin mr-2 text-indigo-500" />
-                <span className="text-sm text-slate-500">正在连接服务器...</span>
+                <span className="text-sm text-[#94A3B8]">正在连接服务器...</span>
               </div>
             ) : (
               <>
                 <div className="mb-4">
                   <div className="flex justify-between mb-2">
                     <span className="text-sm font-medium">当前阶段</span>
-                    <span className="text-sm font-medium text-indigo-600">
+                    <span className="text-sm font-medium text-[#1E3A5F]">
                       {progress.stage === 'generating_models' && '模型生成中'}
                       {progress.stage === 'quality_validation' && '质量验证中'}
                       {progress.stage === 'aggregating' && '结果聚合中'}
@@ -381,7 +381,7 @@ export default function ClusteringPage() {
                         />
                         <span className="text-sm font-medium">GPT-4</span>
                       </div>
-                      <span className="text-sm text-slate-500">{progress.progress.gpt4.message}</span>
+                      <span className="text-sm text-[#94A3B8]">{progress.progress.gpt4.message}</span>
                     </div>
                   )}
 
@@ -401,7 +401,7 @@ export default function ClusteringPage() {
                         />
                         <span className="text-sm font-medium">Claude</span>
                       </div>
-                      <span className="text-sm text-slate-500">{progress.progress.claude.message}</span>
+                      <span className="text-sm text-[#94A3B8]">{progress.progress.claude.message}</span>
                     </div>
                   )}
 
@@ -421,7 +421,7 @@ export default function ClusteringPage() {
                         />
                         <span className="text-sm font-medium">国内模型</span>
                       </div>
-                      <span className="text-sm text-slate-500">{progress.progress.domestic.message}</span>
+                      <span className="text-sm text-[#94A3B8]">{progress.progress.domestic.message}</span>
                     </div>
                   )}
                 </div>

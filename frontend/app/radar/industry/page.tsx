@@ -274,16 +274,16 @@ export default function IndustryRadarPage() {
       </div>
 
       {/* Page Header */}
-      <Card className="mb-6 bg-gradient-to-br from-indigo-500 via-purple-500 to-purple-600 text-white border-0">
+      <Card className="mb-6 bg-amber-500 text-white border-0 rounded-sm">
         <CardContent className="p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+              <div className="p-2 bg-white/10 rounded-sm">
                 <Building2 className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold">行业雷达 - 同业标杆学习</h1>
-                <p className="text-sm text-white/80 mt-1">
+                <h1 className="text-xl sm:text-2xl font-bold font-[var(--font-plus-jakarta)]">行业雷达 - 同业标杆学习</h1>
+                <p className="text-sm text-white/80 mt-1 font-[var(--font-inter)]">
                   学习标杆机构的实践经验，洞察同业技术趋势
                 </p>
               </div>
@@ -293,7 +293,7 @@ export default function IndustryRadarPage() {
               size="sm"
               onClick={handleRefresh}
               disabled={isLoading}
-              className="bg-white/20 text-white hover:bg-white/30 border-0"
+              className="bg-white/10 text-white hover:bg-white/20 border-0 rounded-sm"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               刷新
@@ -318,7 +318,7 @@ export default function IndustryRadarPage() {
       </div>
 
       {/* Tab Navigation */}
-      <Card className="mb-4">
+      <Card className="mb-4 border border-[#E2E8F0] rounded-sm">
         <CardContent className="p-2">
           <div className="flex items-center justify-center gap-2">
             {[
@@ -329,10 +329,10 @@ export default function IndustryRadarPage() {
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id as 'industry' | 'peer-monitoring')}
                 className={cn(
-                  'px-4 py-2 rounded-lg font-medium transition-all',
+                  'px-4 py-2 rounded-sm font-medium transition-all',
                   activeTab === tab.id
-                    ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md'
-                    : 'text-muted-foreground hover:bg-muted'
+                    ? 'bg-[#1E3A5F] text-white'
+                    : 'text-[#94A3B8] hover:bg-[#FEFDFB] hover:text-[#1E3A5F]'
                 )}
               >
                 {tab.label}
@@ -351,10 +351,10 @@ export default function IndustryRadarPage() {
                 key={filterOption}
                 onClick={() => handleFilterChange(filterOption)}
                 className={cn(
-                  'px-4 py-2 rounded-full text-sm font-medium transition-all',
+                  'px-4 py-2 rounded-sm text-sm font-medium transition-all',
                   filter === filterOption
-                    ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    ? 'bg-[#1E3A5F] text-white'
+                    : 'bg-white border border-[#E2E8F0] text-[#94A3B8] hover:border-[#1E3A5F] hover:text-[#1E3A5F]'
                 )}
               >
                 {filterOption === 'all' ? '全部' :

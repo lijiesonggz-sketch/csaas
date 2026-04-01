@@ -22,6 +22,60 @@ jest.mock('@/lib/api/applicability-engine', () => ({
   resolveControls: jest.fn(),
 }))
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Mock shadcn/ui Select to use native <select> for JSDOM compatibility
+jest.mock('@/components/ui/select', () => {
+  const React = require('react')
+
+  const collectOptions = (children) => {
+    const options = []
+    React.Children.forEach(children, (child) => {
+      if (!React.isValidElement(child)) return
+      if (child.type === SelectItem) {
+        options.push(child)
+      } else if (child.props?.children) {
+        options.push(...collectOptions(child.props.children))
+      }
+    })
+    return options
+  }
+
+  const Select = ({ children, value, onValueChange, disabled }) => {
+    const options = collectOptions(children)
+    return (
+      <select
+        value={value || ''}
+        disabled={disabled || false}
+        onChange={(e) => onValueChange?.(e.target.value)}
+      >
+        {options}
+      </select>
+    )
+  }
+
+  const SelectContent = ({ children }) => <>{children}</>
+  const SelectItem = ({ children, value }) => <option value={value}>{children}</option>
+
+  const SelectTrigger = React.forwardRef(({ children, id, className, ...rest }, ref) => (
+    <div
+      id={id}
+      className={className}
+      ref={ref}
+      aria-label={id}
+      data-testid={id}
+      {...rest}
+    >
+      {children}
+    </div>
+  ))
+
+  const SelectValue = ({ placeholder }) => (
+    <span>{placeholder || ''}</span>
+  )
+
+  return { Select, SelectContent, SelectItem, SelectTrigger, SelectValue }
+})
+
 const mockUseParams = useParams as jest.Mock
 
 describe('ApplicableControlsPage', () => {
@@ -31,9 +85,12 @@ describe('ApplicableControlsPage', () => {
   })
 
   async function selectFilter(label: string, optionText: string) {
-    const trigger = screen.getByRole('combobox', { name: label })
-    fireEvent.mouseDown(trigger)
-    fireEvent.click(await screen.findByRole('option', { name: optionText }))
+    // With mocked Select, find the <select> element via its Label
+    const labelEl = screen.getByText(label)
+    const container = labelEl.closest('.space-y-2') || labelEl.parentElement
+    const select = container?.querySelector('select')
+    if (!select) throw new Error(`Select not found for label: ${label}`)
+    fireEvent.change(select, { target: { value: optionText } })
   }
 
   it('renders resolved controls and key explanation fields', async () => {

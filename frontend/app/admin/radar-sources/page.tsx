@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { Container, Box, Alert, Snackbar, IconButton } from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
+import { ArrowLeft } from 'lucide-react'
+import { toast } from 'sonner'
 import { RadarSourceList } from '@/components/admin/RadarSourceList'
 import { RadarSourceForm } from '@/components/admin/RadarSourceForm'
 import {
@@ -18,6 +18,7 @@ import {
   CreateRadarSourceData,
   UpdateRadarSourceData,
 } from '@/lib/api/radar-sources'
+import { Button } from '@/components/ui/button'
 
 /**
  * 雷达信息源配置管理页面
@@ -36,12 +37,8 @@ export default function RadarSourcesPage() {
 
   // 权限检查：只允许 admin 和 consultant 访问
   useEffect(() => {
-    let isMounted = true
     if (session?.user && !['admin', 'consultant'].includes(session.user.role)) {
       router.push('/')
-    }
-    return () => {
-      isMounted = false
     }
   }, [session, router])
 
@@ -50,15 +47,6 @@ export default function RadarSourcesPage() {
   const [error, setError] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editingSource, setEditingSource] = useState<RadarSource | null>(null)
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean
-    message: string
-    severity: 'success' | 'error' | 'info'
-  }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  })
 
   // 返回上一页
   const handleBack = () => {
@@ -74,7 +62,7 @@ export default function RadarSourcesPage() {
       setSources(response.data)
     } catch (err: any) {
       setError(err.message || '加载信息源失败')
-      showSnackbar('加载信息源失败', 'error')
+      toast.error('加载信息源失败')
     } finally {
       setLoading(false)
     }
@@ -84,19 +72,6 @@ export default function RadarSourcesPage() {
   useEffect(() => {
     loadSources()
   }, [])
-
-  // 显示提示消息
-  const showSnackbar = (
-    message: string,
-    severity: 'success' | 'error' | 'info' = 'success',
-  ) => {
-    setSnackbar({ open: true, message, severity })
-  }
-
-  // 关闭提示消息
-  const handleCloseSnackbar = () => {
-    setSnackbar((prev) => ({ ...prev, open: false }))
-  }
 
   // 打开创建表单
   const handleCreate = () => {
@@ -124,11 +99,11 @@ export default function RadarSourcesPage() {
       if (editingSource) {
         // 更新
         await updateRadarSource(editingSource.id, data as UpdateRadarSourceData)
-        showSnackbar('信息源更新成功', 'success')
+        toast.success('信息源更新成功')
       } else {
         // 创建
         await createRadarSource(data as CreateRadarSourceData)
-        showSnackbar('信息源创建成功', 'success')
+        toast.success('信息源创建成功')
       }
       await loadSources()
       handleCloseForm()
@@ -141,10 +116,10 @@ export default function RadarSourcesPage() {
   const handleDelete = async (id: string) => {
     try {
       await deleteRadarSource(id)
-      showSnackbar('信息源删除成功', 'success')
+      toast.success('信息源删除成功')
       await loadSources()
     } catch (err: any) {
-      showSnackbar(err.message || '删除失败', 'error')
+      toast.error(err.message || '删除失败')
     }
   }
 
@@ -152,10 +127,10 @@ export default function RadarSourcesPage() {
   const handleToggleActive = async (id: string) => {
     try {
       await toggleRadarSourceActive(id)
-      showSnackbar('状态更新成功', 'success')
+      toast.success('状态更新成功')
       await loadSources()
     } catch (err: any) {
-      showSnackbar(err.message || '状态更新失败', 'error')
+      toast.error(err.message || '状态更新失败')
     }
   }
 
@@ -163,67 +138,47 @@ export default function RadarSourcesPage() {
   const handleTestCrawl = async (id: string) => {
     try {
       await testRadarSourceCrawl(id)
-      showSnackbar('测试爬虫任务已加入队列', 'info')
+      toast.success('测试爬虫任务已加入队列', {
+        description: '请稍后查看结果'
+      })
     } catch (err: any) {
-      showSnackbar(err.message || '测试爬虫失败', 'error')
+      toast.error(err.message || '测试爬虫失败')
     }
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box>
-        {/* 返回按钮 */}
-        <Box sx={{ mb: 2 }}>
-          <IconButton
-            onClick={handleBack}
-            sx={{
-              color: 'primary.main',
-              '&:hover': {
-                backgroundColor: 'primary.light',
-                color: 'white',
-              },
-            }}
-          >
-            <ArrowBackIcon />
-          </IconButton>
-        </Box>
-
-        {/* 信息源列表 */}
-        <RadarSourceList
-          sources={sources}
-          loading={loading}
-          error={error}
-          onEdit={handleEdit}
-          onCreate={handleCreate}
-          onDelete={handleDelete}
-          onToggleActive={handleToggleActive}
-          onTestCrawl={handleTestCrawl}
-        />
-
-        {/* 创建/编辑表单 */}
-        <RadarSourceForm
-          open={formOpen}
-          source={editingSource}
-          onClose={handleCloseForm}
-          onSubmit={handleSubmitForm}
-        />
-
-        {/* 提示消息 */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+    <div className="max-w-7xl mx-auto py-16 px-6 bg-[#FEFDFB] min-h-screen">
+      {/* 返回按钮 */}
+      <div className="mb-6">
+        <Button
+          variant="outline"
+          onClick={handleBack}
+          className="rounded-sm"
         >
-          <Alert
-            onClose={handleCloseSnackbar}
-            severity={snackbar.severity}
-            sx={{ width: '100%' }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </Container>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          返回
+        </Button>
+      </div>
+
+      {/* 信息源列表 */}
+      <RadarSourceList
+        sources={sources}
+        loading={loading}
+        error={error}
+        onEdit={handleEdit}
+        onCreate={handleCreate}
+        onDelete={handleDelete}
+        onToggleActive={handleToggleActive}
+        onTestCrawl={handleTestCrawl}
+      />
+
+      {/* 创建/编辑表单 */}
+      <RadarSourceForm
+        open={formOpen}
+        source={editingSource}
+        onClose={handleCloseForm}
+        onSubmit={handleSubmitForm}
+      />
+    </div>
   )
 }

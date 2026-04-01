@@ -2,29 +2,30 @@
 
 import React, { useState } from 'react'
 import {
-  Box,
-  Paper,
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
+  TableHeader,
   TableRow,
-  Chip,
-  IconButton,
-  Button,
-  Typography,
-  Switch,
-  Tooltip,
-  Alert,
-  CircularProgress,
-} from '@mui/material'
+} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  PlayArrow as TestIcon,
-  Add as AddIcon,
-} from '@mui/icons-material'
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Loader2 } from 'lucide-react'
+import {
+  Edit,
+  Trash2,
+  Play,
+  Plus,
+} from 'lucide-react'
 import { RadarSource } from '@/lib/api/radar-sources'
 
 /**
@@ -46,11 +47,11 @@ interface RadarSourceListProps {
  */
 const categoryConfig: Record<
   'tech' | 'industry' | 'compliance',
-  { label: string; color: 'primary' | 'secondary' | 'warning' }
+  { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }
 > = {
-  tech: { label: '技术雷达', color: 'primary' },
-  industry: { label: '行业雷达', color: 'secondary' },
-  compliance: { label: '合规雷达', color: 'warning' },
+  tech: { label: '技术雷达', variant: 'default' },
+  industry: { label: '行业雷达', variant: 'secondary' },
+  compliance: { label: '合规雷达', variant: 'outline' },
 }
 
 /**
@@ -71,11 +72,11 @@ const typeConfig: Record<
  */
 const statusConfig: Record<
   'pending' | 'success' | 'failed',
-  { label: string; color: 'default' | 'success' | 'error' }
+  { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }
 > = {
-  pending: { label: '待爬取', color: 'default' },
-  success: { label: '成功', color: 'success' },
-  failed: { label: '失败', color: 'error' },
+  pending: { label: '待爬取', variant: 'secondary' },
+  success: { label: '成功', variant: 'default' },
+  failed: { label: '失败', variant: 'destructive' },
 }
 
 /**
@@ -125,194 +126,192 @@ export function RadarSourceList({
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress />
-      </Box>
+      <div className="flex justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     )
   }
 
   if (error) {
     return (
-      <Alert severity="error" sx={{ mb: 2 }}>
-        {error}
+      <Alert variant="destructive" className="mb-4">
+        <AlertDescription>{error}</AlertDescription>
       </Alert>
     )
   }
 
   return (
-    <Box>
+    <div>
       {/* 头部操作栏 */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h5" component="h1">
-          雷达信息源配置
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={onCreate}
-        >
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold">雷达信息源配置</h1>
+        <Button onClick={onCreate}>
+          <Plus className="h-4 w-4 mr-1" />
           添加信息源
         </Button>
-      </Box>
+      </div>
 
       {/* 信息源列表 */}
       {sources.length === 0 ? (
-        <Alert severity="info">
-          暂无信息源配置，点击"添加信息源"按钮创建第一个信息源。
+        <Alert>
+          <AlertDescription>
+            暂无信息源配置，点击"添加信息源"按钮创建第一个信息源。
+          </AlertDescription>
         </Alert>
       ) : (
-        <TableContainer component={Paper}>
+        <div className="border rounded-lg overflow-hidden">
           <Table>
-            <TableHead>
+            <TableHeader>
               <TableRow>
-                <TableCell>信息源名称</TableCell>
-                <TableCell>类别</TableCell>
-                <TableCell>类型</TableCell>
-                <TableCell>URL</TableCell>
-                <TableCell>同业机构</TableCell>
-                <TableCell>爬取频率</TableCell>
-                <TableCell>最后爬取状态</TableCell>
-                <TableCell>启用状态</TableCell>
-                <TableCell align="right">操作</TableCell>
+                <TableHead>信息源名称</TableHead>
+                <TableHead>类别</TableHead>
+                <TableHead>类型</TableHead>
+                <TableHead>URL</TableHead>
+                <TableHead>同业机构</TableHead>
+                <TableHead>爬取频率</TableHead>
+                <TableHead>最后爬取状态</TableHead>
+                <TableHead>启用状态</TableHead>
+                <TableHead className="text-right">操作</TableHead>
               </TableRow>
-            </TableHead>
+            </TableHeader>
             <TableBody>
               {sources.map((source) => (
-                <TableRow key={source.id} hover>
+                <TableRow key={source.id} className="hover:bg-muted/50">
                   <TableCell>
-                    <Typography variant="body2" fontWeight="medium">
-                      {source.source}
-                    </Typography>
+                    <p className="text-sm font-medium">{source.source}</p>
                   </TableCell>
                   <TableCell>
-                    <Chip
-                      label={categoryConfig[source.category].label}
-                      color={categoryConfig[source.category].color}
-                      size="small"
-                    />
+                    <Badge variant={categoryConfig[source.category].variant}>
+                      {categoryConfig[source.category].label}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <div className="flex items-center gap-1">
                       <span>{typeConfig[source.type].icon}</span>
-                      <Typography variant="body2">
-                        {typeConfig[source.type].label}
-                      </Typography>
-                    </Box>
+                      <p className="text-sm">{typeConfig[source.type].label}</p>
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <Tooltip title={source.url}>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          maxWidth: 200,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {source.url}
-                      </Typography>
-                    </Tooltip>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <p className="text-sm max-w-[200px] truncate">
+                            {source.url}
+                          </p>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{source.url}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </TableCell>
                   <TableCell>
                     {source.peerName ? (
-                      <Typography variant="body2">{source.peerName}</Typography>
+                      <p className="text-sm">{source.peerName}</p>
                     ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        -
-                      </Typography>
+                      <p className="text-sm text-muted-foreground">-</p>
                     )}
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" fontFamily="monospace">
-                      {source.crawlSchedule}
-                    </Typography>
+                    <p className="text-sm font-mono">{source.crawlSchedule}</p>
                   </TableCell>
                   <TableCell>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      <Chip
-                        label={statusConfig[source.lastCrawlStatus].label}
-                        color={statusConfig[source.lastCrawlStatus].color}
-                        size="small"
-                      />
+                    <div className="flex flex-col gap-1">
+                      <Badge variant={statusConfig[source.lastCrawlStatus].variant} className="text-xs w-fit">
+                        {statusConfig[source.lastCrawlStatus].label}
+                      </Badge>
                       {source.lastCrawledAt && (
-                        <Typography variant="caption" color="text.secondary">
+                        <p className="text-xs text-muted-foreground">
                           {new Date(source.lastCrawledAt).toLocaleString('zh-CN')}
-                        </Typography>
+                        </p>
                       )}
                       {source.lastCrawlError && (
-                        <Tooltip title={source.lastCrawlError}>
-                          <Typography
-                            variant="caption"
-                            color="error"
-                            sx={{
-                              maxWidth: 150,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {source.lastCrawlError}
-                          </Typography>
-                        </Tooltip>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <p className="text-xs text-destructive max-w-[150px] truncate">
+                                {source.lastCrawlError}
+                              </p>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{source.lastCrawlError}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       )}
-                    </Box>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Switch
                       checked={source.isActive}
-                      onChange={() => onToggleActive(source.id)}
-                      color="primary"
+                      onCheckedChange={() => onToggleActive(source.id)}
                     />
                   </TableCell>
-                  <TableCell align="right">
-                    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                      <Tooltip title="测试爬虫">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleTestCrawl(source.id)}
-                          disabled={testingId === source.id}
-                          aria-label={`测试 ${source.source} 爬虫`}
-                        >
-                          {testingId === source.id ? (
-                            <CircularProgress size={20} />
-                          ) : (
-                            <TestIcon />
-                          )}
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="编辑">
-                        <IconButton
-                          size="small"
-                          onClick={() => onEdit(source)}
-                          aria-label={`编辑 ${source.source}`}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="删除">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDelete(source.id)}
-                          disabled={deletingId === source.id}
-                          aria-label={`删除 ${source.source}`}
-                        >
-                          {deletingId === source.id ? (
-                            <CircularProgress size={20} />
-                          ) : (
-                            <DeleteIcon />
-                          )}
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => handleTestCrawl(source.id)}
+                              disabled={testingId === source.id}
+                            >
+                              {testingId === source.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Play className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>测试爬虫</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8"
+                              onClick={() => onEdit(source)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>编辑</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(source.id)}
+                              disabled={deletingId === source.id}
+                            >
+                              {deletingId === source.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>删除</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-        </TableContainer>
+        </div>
       )}
-    </Box>
+    </div>
   )
 }

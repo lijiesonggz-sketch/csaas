@@ -1,34 +1,32 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
-  Box,
-  Typography,
-  Chip,
-  Button,
-  Divider,
-  Grid,
-  CircularProgress,
-  Alert,
-} from '@mui/material'
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
   TrendingUp,
-  Schedule,
-  AttachMoney,
-  EmojiEvents,
-  Business,
-  OpenInNew,
+  Clock,
+  DollarSign,
+  Trophy,
+  Building2,
+  ExternalLink,
   Bookmark,
-  Share,
+  Share2,
   CheckCircle,
-  Calculate,
-} from '@mui/icons-material'
+  Calculator,
+} from 'lucide-react'
 import { getRadarPush, markPushAsRead, RadarPush } from '@/lib/api/radar'
 import { formatChinaDate } from '@/lib/utils/dateTime'
+import { cn } from '@/lib/utils'
+import { Loader2 } from 'lucide-react'
 
 /**
  * PushDetailModal属性
@@ -111,11 +109,11 @@ export const PushDetailModal = React.memo(function PushDetailModal({
   // 加载状态
   if (isLoading) {
     return (
-      <Dialog open={isOpen} onClose={onClose} maxWidth="md" fullWidth>
-        <DialogContent>
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress />
-          </Box>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="rounded-sm">
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-8 h-8 text-[#1E3A5F] animate-spin" />
+          </div>
         </DialogContent>
       </Dialog>
     )
@@ -124,13 +122,15 @@ export const PushDetailModal = React.memo(function PushDetailModal({
   // 错误状态
   if (error) {
     return (
-      <Dialog open={isOpen} onClose={onClose} maxWidth="md" fullWidth>
-        <DialogContent>
-          <Alert severity="error">{error}</Alert>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="rounded-sm">
+          <div className="p-4 bg-red-50 border border-red-200 rounded-sm text-red-800">
+            {error}
+          </div>
+          <DialogFooter>
+            <Button onClick={onClose} className="rounded-sm">关闭</Button>
+          </DialogFooter>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose}>关闭</Button>
-        </DialogActions>
       </Dialog>
     )
   }
@@ -141,352 +141,300 @@ export const PushDetailModal = React.memo(function PushDetailModal({
   }
 
   return (
-    <Dialog open={isOpen} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ pb: 1 }}>
-        <Typography variant="h5" fontWeight="bold">
-          {push.title}
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-          <Typography variant="caption" color="text.secondary">
-            {push.source}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            •
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {formatChinaDate(push.publishDate)}
-          </Typography>
-        </Box>
-      </DialogTitle>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="rounded-sm max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold font-[var(--font-plus-jakarta)] text-[#1E3A5F]">
+            {push.title}
+          </DialogTitle>
+          <DialogDescription className="flex gap-2 text-sm text-[#94A3B8]">
+            <span>{push.source}</span>
+            <span>•</span>
+            <span>{formatChinaDate(push.publishDate)}</span>
+          </DialogDescription>
+        </DialogHeader>
 
-      <DialogContent dividers>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div className="space-y-6">
           {/* 薄弱项标签 */}
           {push.weaknessCategories.length > 0 && (
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <div className="flex flex-wrap gap-2">
               {push.weaknessCategories.map((category) => (
-                <Chip
+                <Badge
                   key={category}
-                  label={`🎯 关联薄弱项: ${category}`}
-                  color="secondary"
-                  size="small"
-                />
+                  variant="secondary"
+                  className="rounded-sm"
+                >
+                  🎯 关联薄弱项: {category}
+                </Badge>
               ))}
-            </Box>
+            </div>
           )}
 
           {/* 文章全文 */}
-          <Box>
-            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
+          <div>
+            <p className="text-sm text-[#1E3A5F] whitespace-pre-wrap leading-relaxed">
               {push.fullContent || push.summary}
-            </Typography>
-          </Box>
-
-          <Divider />
+            </p>
+          </div>
 
           {/* 行业雷达详情 (Story 3.3 - Phase 3) */}
           {push.radarType === 'industry' && (
             <>
               {/* 同业机构背景区域 */}
               {push.peerName && (
-                <Box
-                  sx={{
-                    p: 3,
-                    border: '2px solid',
-                    borderColor: 'success.light',
-                    borderRadius: 2,
-                    background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Box
-                      sx={{
-                        p: 1,
-                        bgcolor: 'success.main',
-                        borderRadius: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Business sx={{ color: 'white', fontSize: 32 }} />
-                    </Box>
-                    <Box>
-                      <Typography variant="h6" fontWeight="bold" color="success.main">
+                <div className="p-4 border-2 border-green-300 rounded-sm bg-gradient-to-br from-green-50 to-green-100">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 bg-[#059669] rounded-sm flex items-center justify-center">
+                      <Building2 className="w-8 h-8 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-[#059669]">
                         {push.peerName}
-                      </Typography>
-                      <Chip
-                        label="同业标杆机构"
-                        size="small"
-                        color="success"
-                        sx={{ mt: 0.5 }}
-                      />
-                    </Box>
-                  </Box>
-                </Box>
+                      </h3>
+                      <Badge className="rounded-sm bg-[#059669]">同业标杆机构</Badge>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {/* 技术实践详细描述 */}
               {push.practiceDescription && (
-                <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
-                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                <div className="p-3 bg-slate-50 rounded-sm border border-[#E2E8F0]">
+                  <h4 className="text-sm font-semibold text-[#1E3A5F] mb-2">
                     技术实践详细描述
-                  </Typography>
-                  <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.8 }}>
+                  </h4>
+                  <p className="text-sm text-[#1E3A5F] whitespace-pre-wrap leading-relaxed">
                     {push.practiceDescription}
-                  </Typography>
-                </Box>
+                  </p>
+                </div>
               )}
 
               {/* 投入成本/实施周期/效果 */}
-              <Grid container spacing={2}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {push.estimatedCost && (
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <AttachMoney color="success" />
-                        <Typography variant="subtitle2" fontWeight="bold">
-                          投入成本
-                        </Typography>
-                      </Box>
-                      <Typography variant="h6" fontWeight="bold" color="text.primary">
-                        {push.estimatedCost}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        包含软硬件采购、实施服务等
-                      </Typography>
-                    </Box>
-                  </Grid>
+                  <div className="p-4 bg-white border border-[#E2E8F0] rounded-sm shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <DollarSign className="w-5 h-5 text-[#059669]" />
+                      <h4 className="text-sm font-semibold text-[#1E3A5F]">
+                        投入成本
+                      </h4>
+                    </div>
+                    <p className="text-xl font-bold text-[#1E3A5F]">
+                      {push.estimatedCost}
+                    </p>
+                    <p className="text-xs text-[#94A3B8]">
+                      包含软硬件采购、实施服务等
+                    </p>
+                  </div>
                 )}
 
                 {push.implementationPeriod && (
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Schedule color="warning" />
-                        <Typography variant="subtitle2" fontWeight="bold">
-                          实施周期
-                        </Typography>
-                      </Box>
-                      <Typography variant="h6" fontWeight="bold" color="text.primary">
-                        {push.implementationPeriod}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        从启动到上线的预计时间
-                      </Typography>
-                    </Box>
-                  </Grid>
+                  <div className="p-4 bg-white border border-[#E2E8F0] rounded-sm shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Clock className="w-5 h-5 text-orange-500" />
+                      <h4 className="text-sm font-semibold text-[#1E3A5F]">
+                        实施周期
+                      </h4>
+                    </div>
+                    <p className="text-xl font-bold text-[#1E3A5F]">
+                      {push.implementationPeriod}
+                    </p>
+                    <p className="text-xs text-[#94A3B8]">
+                      从启动到上线的预计时间
+                    </p>
+                  </div>
                 )}
 
                 {push.technicalEffect && (
-                  <Grid size={{ xs: 12, md: 4 }}>
-                    <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <EmojiEvents color="success" />
-                        <Typography variant="subtitle2" fontWeight="bold">
-                          技术效果
-                        </Typography>
-                      </Box>
-                      <Typography variant="body1" fontWeight="bold" color="text.primary">
-                        {push.technicalEffect}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        实际效果和收益
-                      </Typography>
-                    </Box>
-                  </Grid>
+                  <div className="p-4 bg-white border border-[#E2E8F0] rounded-sm shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Trophy className="w-5 h-5 text-[#059669]" />
+                      <h4 className="text-sm font-semibold text-[#1E3A5F]">
+                        技术效果
+                      </h4>
+                    </div>
+                    <p className="text-lg font-bold text-[#1E3A5F]">
+                      {push.technicalEffect}
+                    </p>
+                    <p className="text-xs text-[#94A3B8]">
+                      实际效果和收益
+                    </p>
+                  </div>
                 )}
-              </Grid>
+              </div>
 
               {/* 可借鉴点总结 */}
               {push.tags && push.tags.length > 0 && (
-                <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
-                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                <div className="p-4 bg-white border border-[#E2E8F0] rounded-sm shadow-sm">
+                  <h4 className="text-sm font-semibold text-[#1E3A5F] mb-2">
                     可借鉴点总结
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary">
+                  </h4>
+                  <p className="text-sm text-[#94A3B8]">
                     {push.tags.join('、')}
-                  </Typography>
-                </Box>
+                  </p>
+                </div>
               )}
-
-              <Divider />
             </>
           )}
 
           {/* ROI分析详情 (技术雷达) */}
           {push.radarType === 'tech' && push.roiAnalysis && (
-            <Box
-              sx={{
-                p: 3,
-                border: '2px solid',
-                borderColor: 'primary.light',
-                borderRadius: 2,
-                background: 'linear-gradient(135deg, #e3f2fd 0%, #e8eaf6 100%)',
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                <Box
-                  sx={{
-                    p: 1,
-                    bgcolor: 'primary.main',
-                    borderRadius: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <TrendingUp sx={{ color: 'white', fontSize: 32 }} />
-                </Box>
-                <Typography variant="h6" fontWeight="bold" color="primary">
+            <div className="p-4 border-2 border-blue-300 rounded-sm bg-gradient-to-br from-blue-50 to-indigo-50">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-[#1E3A5F] rounded-sm flex items-center justify-center">
+                  <TrendingUp className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-[#1E3A5F]">
                   💰 投资回报率(ROI)分析
-                </Typography>
-              </Box>
+                </h3>
+              </div>
 
-              <Grid container spacing={2}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* 预计投入成本 */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <AttachMoney color="primary" />
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        预计投入成本
-                      </Typography>
-                    </Box>
-                    <Typography variant="h6" fontWeight="bold" color="text.primary">
-                      {push.roiAnalysis.estimatedCost}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      包含软硬件采购、实施服务、培训等
-                    </Typography>
-                  </Box>
-                </Grid>
+                <div className="p-4 bg-white border border-[#E2E8F0] rounded-sm shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <DollarSign className="w-5 h-5 text-[#1E3A5F]" />
+                    <h4 className="text-sm font-semibold text-[#1E3A5F]">
+                      预计投入成本
+                    </h4>
+                  </div>
+                  <p className="text-xl font-bold text-[#1E3A5F]">
+                    {push.roiAnalysis.estimatedCost}
+                  </p>
+                  <p className="text-xs text-[#94A3B8]">
+                    包含软硬件采购、实施服务、培训等
+                  </p>
+                </div>
 
                 {/* 预期收益 */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <EmojiEvents color="success" />
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        预期收益
-                      </Typography>
-                    </Box>
-                    <Typography variant="body1" fontWeight="bold" color="text.primary">
-                      {push.roiAnalysis.expectedBenefit}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      量化收益包含成本节省、风险规避等
-                    </Typography>
-                  </Box>
-                </Grid>
+                <div className="p-4 bg-white border border-[#E2E8F0] rounded-sm shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Trophy className="w-5 h-5 text-[#059669]" />
+                    <h4 className="text-sm font-semibold text-[#1E3A5F]">
+                      预期收益
+                    </h4>
+                  </div>
+                  <p className="text-lg font-bold text-[#1E3A5F]">
+                    {push.roiAnalysis.expectedBenefit}
+                  </p>
+                  <p className="text-xs text-[#94A3B8]">
+                    量化收益包含成本节省、风险规避等
+                  </p>
+                </div>
 
                 {/* ROI估算 */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Box
-                    sx={{
-                      p: 2,
-                      background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
-                      borderRadius: 1,
-                      border: '2px solid',
-                      borderColor: 'success.light',
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <Calculate color="success" />
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        ROI估算
-                      </Typography>
-                    </Box>
-                    <Typography variant="h4" fontWeight="bold" color="success.main">
-                      {push.roiAnalysis.roiEstimate}
-                    </Typography>
-                    <Box sx={{ mt: 1, p: 1, bgcolor: 'white', borderRadius: 1 }}>
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        计算公式：
-                      </Typography>
-                      <Typography variant="caption" fontFamily="monospace" color="text.secondary">
-                        ROI = (预期收益 - 投入成本) / 投入成本
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid>
+                <div className="p-4 border-2 border-green-300 rounded-sm bg-gradient-to-br from-green-50 to-green-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calculator className="w-5 h-5 text-[#059669]" />
+                    <h4 className="text-sm font-semibold text-[#1E3A5F]">
+                      ROI估算
+                    </h4>
+                  </div>
+                  <p className="text-3xl font-bold text-[#059669]">
+                    {push.roiAnalysis.roiEstimate}
+                  </p>
+                  <div className="mt-2 p-2 bg-white rounded-sm border border-[#E2E8F0]">
+                    <p className="text-xs text-[#94A3B8]">计算公式：</p>
+                    <p className="text-xs font-mono text-[#94A3B8]">
+                      ROI = (预期收益 - 投入成本) / 投入成本
+                    </p>
+                  </div>
+                </div>
 
                 {/* 实施周期 */}
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <Schedule color="warning" />
-                      <Typography variant="subtitle2" fontWeight="bold">
-                        实施周期
-                      </Typography>
-                    </Box>
-                    <Typography variant="h6" fontWeight="bold" color="text.primary">
-                      {push.roiAnalysis.implementationPeriod}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      从启动到上线的预计时间
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
+                <div className="p-4 bg-white border border-[#E2E8F0] rounded-sm shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="w-5 h-5 text-orange-500" />
+                    <h4 className="text-sm font-semibold text-[#1E3A5F]">
+                      实施周期
+                    </h4>
+                  </div>
+                  <p className="text-xl font-bold text-[#1E3A5F]">
+                    {push.roiAnalysis.implementationPeriod}
+                  </p>
+                  <p className="text-xs text-[#94A3B8]">
+                    从启动到上线的预计时间
+                  </p>
+                </div>
+              </div>
 
               {/* 推荐供应商 */}
               {push.roiAnalysis.recommendedVendors.length > 0 && (
-                <Box sx={{ mt: 2, p: 2, bgcolor: 'white', borderRadius: 1, boxShadow: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <Business color="secondary" />
-                    <Typography variant="subtitle2" fontWeight="bold">
+                <div className="mt-4 p-4 bg-white border border-[#E2E8F0] rounded-sm shadow-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Building2 className="w-5 h-5 text-[#94A3B8]" />
+                    <h4 className="text-sm font-semibold text-[#1E3A5F]">
                       推荐供应商
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    </h4>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
                     {push.roiAnalysis.recommendedVendors.map((vendor) => (
-                      <Chip key={vendor} label={vendor} variant="outlined" />
+                      <Badge
+                        key={vendor}
+                        variant="outline"
+                        className="rounded-sm"
+                      >
+                        {vendor}
+                      </Badge>
                     ))}
-                  </Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  </div>
+                  <p className="text-xs text-[#94A3B8] mt-2">
                     以上供应商具有金融行业资质和成功案例
-                  </Typography>
-                </Box>
+                  </p>
+                </div>
               )}
-            </Box>
+            </div>
           )}
 
           {/* 原文链接 */}
           {push.url && (
-            <Box>
+            <div>
               <Button
-                variant="outlined"
-                startIcon={<OpenInNew />}
-                href={push.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                fullWidth
+                variant="outline"
+                className="rounded-sm w-full"
+                asChild
               >
-                查看原文
+                <a
+                  href={push.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  查看原文
+                </a>
               </Button>
-            </Box>
+            </div>
           )}
-        </Box>
-      </DialogContent>
+        </div>
 
-      <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button startIcon={<Bookmark />} variant="outlined">
-          收藏
-        </Button>
-        <Button startIcon={<Share />} variant="outlined">
-          分享
-        </Button>
-        <Button
-          startIcon={<CheckCircle />}
-          variant="contained"
-          onClick={handleMarkAsRead}
-          disabled={push.isRead || isMarkingAsRead}
-        >
-          {push.isRead ? '已读' : isMarkingAsRead ? '标记中...' : '标记为已读'}
-        </Button>
-        <Button onClick={onClose}>关闭</Button>
-      </DialogActions>
+        <DialogFooter className="flex flex-wrap gap-2">
+          <Button variant="outline" className="rounded-sm">
+            <Bookmark className="w-4 h-4 mr-2" />
+            收藏
+          </Button>
+          <Button variant="outline" className="rounded-sm">
+            <Share2 className="w-4 h-4 mr-2" />
+            分享
+          </Button>
+          <Button
+            onClick={handleMarkAsRead}
+            disabled={push.isRead || isMarkingAsRead}
+            className={cn(
+              "rounded-sm",
+              push.isRead
+                ? "bg-[#94A3B8] hover:bg-[#7a8ba3]"
+                : "bg-[#059669] hover:bg-[#047857]"
+            )}
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            {push.isRead ? '已读' : isMarkingAsRead ? '标记中...' : '标记为已读'}
+          </Button>
+          <Button variant="outline" onClick={onClose} className="rounded-sm">
+            关闭
+          </Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   )
 })

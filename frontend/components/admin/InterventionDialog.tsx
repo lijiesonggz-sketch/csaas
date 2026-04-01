@@ -13,25 +13,30 @@
 import React, { useState } from 'react'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  MenuItem,
-  Box,
-  Typography,
-  Chip,
-  Stack,
-  Alert,
-  CircularProgress,
-} from '@mui/material'
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import {
-  Phone as PhoneIcon,
-  Assessment as AssessmentIcon,
-  School as SchoolIcon,
-  Settings as SettingsIcon,
-} from '@mui/icons-material'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Loader2 } from 'lucide-react'
+import {
+  Phone,
+  BarChart3,
+  GraduationCap,
+  Settings,
+} from 'lucide-react'
 import {
   CreateInterventionData,
   InterventionSuggestion,
@@ -45,11 +50,11 @@ interface InterventionDialogProps {
   onSubmit: (data: CreateInterventionData) => Promise<void>
 }
 
-const INTERVENTION_ICONS: Record<string, React.ReactElement> = {
-  contact: <PhoneIcon />,
-  survey: <AssessmentIcon />,
-  training: <SchoolIcon />,
-  config_adjustment: <SettingsIcon />,
+const INTERVENTION_ICONS: Record<string, React.ReactNode> = {
+  contact: <Phone className="h-3 w-3" />,
+  survey: <BarChart3 className="h-3 w-3" />,
+  training: <GraduationCap className="h-3 w-3" />,
+  config_adjustment: <Settings className="h-3 w-3" />,
 }
 
 const INTERVENTION_TYPES = [
@@ -109,105 +114,108 @@ export function InterventionDialog({
     setNotes(suggestion.description)
   }
 
-  return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        记录客户干预
-        <Typography variant="body2" color="text.secondary">
-          {organizationName}
-        </Typography>
-      </DialogTitle>
+  const getPriorityVariant = (priority: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
+    if (priority === 'high') return 'destructive'
+    if (priority === 'medium') return 'secondary'
+    return 'outline'
+  }
 
-      <DialogContent>
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>记录客户干预</DialogTitle>
+          <DialogDescription>{organizationName}</DialogDescription>
+        </DialogHeader>
+
         {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
         {/* 干预建议 */}
         {suggestions.length > 0 && (
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              干预建议
-            </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <div className="mb-4">
+            <Label className="mb-2 block">干预建议</Label>
+            <div className="flex flex-wrap gap-2">
               {suggestions.map((suggestion, index) => (
-                <Chip
+                <Badge
                   key={index}
-                  icon={INTERVENTION_ICONS[suggestion.type]}
-                  label={suggestion.title}
-                  color={
-                    suggestion.priority === 'high'
-                      ? 'error'
-                      : suggestion.priority === 'medium'
-                      ? 'warning'
-                      : 'default'
-                  }
+                  variant={getPriorityVariant(suggestion.priority)}
+                  className="cursor-pointer gap-1"
                   onClick={() => handleSuggestionClick(suggestion)}
-                  sx={{ cursor: 'pointer' }}
-                />
+                >
+                  {INTERVENTION_ICONS[suggestion.type]}
+                  {suggestion.title}
+                </Badge>
               ))}
-            </Stack>
-          </Box>
+            </div>
+          </div>
         )}
 
-        <Stack spacing={2}>
-          <TextField
-            select
-            label="干预类型"
-            value={interventionType}
-            onChange={(e) => setInterventionType(e.target.value as CreateInterventionData['interventionType'])}
-            fullWidth
-            required
-          >
-            {INTERVENTION_TYPES.map((type) => (
-              <MenuItem key={type.value} value={type.value}>
-                {type.label}
-              </MenuItem>
-            ))}
-          </TextField>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="intervention-type">干预类型</Label>
+            <Select
+              value={interventionType}
+              onValueChange={(value) => setInterventionType(value as CreateInterventionData['interventionType'])}
+            >
+              <SelectTrigger id="intervention-type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INTERVENTION_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <TextField
-            select
-            label="干预结果"
-            value={result}
-            onChange={(e) => setResult(e.target.value as CreateInterventionData['result'])}
-            fullWidth
-            required
-          >
-            {INTERVENTION_RESULTS.map((r) => (
-              <MenuItem key={r.value} value={r.value}>
-                {r.label}
-              </MenuItem>
-            ))}
-          </TextField>
+          <div className="space-y-2">
+            <Label htmlFor="result">干预结果</Label>
+            <Select
+              value={result}
+              onValueChange={(value) => setResult(value as CreateInterventionData['result'])}
+            >
+              <SelectTrigger id="result">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {INTERVENTION_RESULTS.map((r) => (
+                  <SelectItem key={r.value} value={r.value}>
+                    {r.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <TextField
-            label="备注"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            fullWidth
-            multiline
-            rows={3}
-            placeholder="记录干预详情..."
-          />
-        </Stack>
+          <div className="space-y-2">
+            <Label htmlFor="notes">备注</Label>
+            <textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              placeholder="记录干预详情..."
+              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button onClick={handleClose} disabled={loading} variant="outline">
+            取消
+          </Button>
+          <Button onClick={handleSubmit} disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            保存
+          </Button>
+        </DialogFooter>
       </DialogContent>
-
-      <DialogActions>
-        <Button onClick={handleClose} disabled={loading}>
-          取消
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={loading}
-          startIcon={loading && <CircularProgress size={16} />}
-        >
-          保存
-        </Button>
-      </DialogActions>
     </Dialog>
   )
 }

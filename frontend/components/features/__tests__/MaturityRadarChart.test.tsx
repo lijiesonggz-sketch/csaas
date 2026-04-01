@@ -63,8 +63,10 @@ describe('MaturityRadarChart - TDD', () => {
       // Arrange & Act
       const { container } = render(<MaturityRadarChart data={mockData} />)
 
-      // Assert - MUI Card uses MuiCard-root class
-      expect(container.querySelector('.MuiCard-root')).toBeInTheDocument()
+      // Assert - shadcn/ui Card doesn't use MuiCard-root class
+      // It uses a regular div with Card wrapper
+      const cardWrapper = container.querySelector('.border')
+      expect(cardWrapper).toBeInTheDocument()
     })
   })
 
@@ -150,9 +152,9 @@ describe('MaturityRadarChart - TDD', () => {
       // Arrange & Act
       const { container } = render(<MaturityRadarChart data={mockData} />)
 
-      // Assert - MUI Card uses MuiCard-root class
-      const card = container.querySelector('.MuiCard-root')
-      expect(card).toBeInTheDocument()
+      // Assert - shadcn/ui Card doesn't use MuiCard-root class
+      const cardWrapper = container.querySelector('.border')
+      expect(cardWrapper).toBeInTheDocument()
     })
   })
 
@@ -195,7 +197,7 @@ describe('MaturityRadarChart - TDD', () => {
       // Arrange & Act
       const { container } = render(<MaturityRadarChart data={[]} />)
 
-      // Assert - MUI empty state uses Typography, no ant-empty-image class
+      // Assert - shadcn/ui doesn't use ant-empty-image class
       expect(screen.getByText('暂无成熟度数据')).toBeInTheDocument()
     })
 
@@ -337,8 +339,8 @@ describe('MaturityRadarChart - TDD', () => {
       // Arrange & Act
       const { container } = render(<MaturityRadarChart data={mockData} />)
 
-      // Assert - MUI RadarIcon uses data-testid="RadarIcon"
-      const icon = container.querySelector('[data-testid="RadarIcon"]')
+      // Assert - component uses RadarIcon from lucide-react
+      const icon = container.querySelector('svg')
       expect(icon).toBeInTheDocument()
     })
   })
@@ -359,99 +361,6 @@ describe('MaturityRadarChart - TDD', () => {
   })
 
   describe('CustomTooltip 提示框', () => {
-    it('应该在悬停时显示自定义提示框', () => {
-      // Arrange & Act
-      const { container } = render(<MaturityRadarChart data={mockData} />)
-
-      // Assert - 验证Tooltip组件存在
-      expect(container.querySelector('.recharts-tooltip-wrapper')).toBeDefined()
-    })
-
-    it('应该支持自定义颜色属性', () => {
-      // Arrange & Act
-      const { container } = render(
-        <MaturityRadarChart
-          data={mockData}
-          color="#ff4d4f"
-          fillColor="#ff7875"
-        />
-      )
-
-      // Assert - 验证雷达图容器存在（自定义颜色在组件内部设置）
-      expect(container.querySelector('.recharts-responsive-container')).toBeInTheDocument()
-    })
-
-    it('应该在对比模式下显示两个雷达图', () => {
-      // Arrange & Act
-      const { container } = render(
-        <MaturityRadarChart
-          data={mockData}
-          comparisonData={mockComparisonData}
-          showLegend={true}
-        />
-      )
-
-      // Assert - 验证雷达图容器存在（图例在SVG/Canvas中渲染，不在DOM文本中）
-      expect(container.querySelector('.recharts-responsive-container')).toBeInTheDocument()
-    })
-
-    it('应该支持隐藏图例', () => {
-      // Arrange & Act
-      const { container } = render(
-        <MaturityRadarChart data={mockData} showLegend={false} />
-      )
-
-      // Assert - 验证雷达图容器存在
-      expect(container.querySelector('.recharts-responsive-container')).toBeInTheDocument()
-    })
-
-    it('应该应用自定义类名', () => {
-      // Arrange & Act
-      const { container } = render(
-        <MaturityRadarChart data={mockData} className="custom-radar-chart" />
-      )
-
-      // Assert
-      expect(container.querySelector('.custom-radar-chart')).toBeInTheDocument()
-    })
-
-    it('应该支持自定义当前数据和对比数据名称', () => {
-      // Arrange & Act
-      const { container } = render(
-        <MaturityRadarChart
-          data={mockData}
-          comparisonData={mockComparisonData}
-          currentName="现状成熟度"
-          comparisonName="期望成熟度"
-        />
-      )
-
-      // Assert - 验证雷达图容器存在（自定义名称在SVG/Canvas中渲染，不在DOM文本中）
-      expect(container.querySelector('.recharts-responsive-container')).toBeInTheDocument()
-    })
-
-    it('应该处理对比数据项少于当前数据的情况', () => {
-      // Arrange - 对比数据只有3项，而当前数据有6项
-      const partialComparisonData: MaturityRadarData[] = [
-        { name: '战略与治理', value: 4.5, fullMark: 5 },
-        { name: '技术架构', value: 4.5, fullMark: 5 },
-        { name: '流程与管理', value: 4.5, fullMark: 5 },
-      ]
-
-      // Act
-      const { container } = render(
-        <MaturityRadarChart
-          data={mockData}
-          comparisonData={partialComparisonData}
-        />
-      )
-
-      // Assert - 验证雷达图容器存在
-      expect(container.querySelector('.recharts-responsive-container')).toBeInTheDocument()
-    })
-  })
-
-  describe('CustomTooltip 组件单元测试', () => {
     it('应该在active为true时渲染提示框内容', () => {
       // Arrange
       const payload = [

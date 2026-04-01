@@ -11,8 +11,8 @@ test.describe('Story 7.2: Content Quality Management', () => {
   test('AC1: Push detail shows rating section', async ({ page }) => {
     // Setup: Login as user
     await page.goto('/login');
-    await page.fill('[name="email"]', 'user@test.com');
-    await page.fill('[name="password"]', 'password123');
+    await page.fill('[name="email"]', 'admin@test.com');
+    await page.fill('[name="password"]', 'admin123');
     await page.click('button[type="submit"]');
 
     // Navigate to radar page with push
@@ -32,8 +32,8 @@ test.describe('Story 7.2: Content Quality Management', () => {
   // AC2: 用户提交评分创建反馈记录
   test('AC2: User submits rating creates feedback record', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('[name="email"]', 'user@test.com');
-    await page.fill('[name="password"]', 'password123');
+    await page.fill('[name="email"]', 'admin@test.com');
+    await page.fill('[name="password"]', 'admin123');
     await page.click('button[type="submit"]');
 
     await page.goto('/radar');

@@ -264,7 +264,7 @@ function getStatusTone(status: ProjectReviewStatus) {
     case 'rejected':
       return 'bg-rose-100 text-rose-700'
     default:
-      return 'bg-slate-100 text-slate-700'
+      return 'bg-slate-100 text-[#64748B]'
   }
 }
 
@@ -297,7 +297,7 @@ function getProvenanceTone(status: ProjectReviewItem['provenanceStatus']) {
     case 'degraded_preview':
       return 'bg-amber-100 text-amber-700'
     default:
-      return 'bg-slate-100 text-slate-700'
+      return 'bg-slate-100 text-[#64748B]'
   }
 }
 
@@ -920,10 +920,10 @@ export default function ProjectReviewPage() {
           <CardContent className="space-y-4">
             <div className="grid gap-3">
               <label className="grid gap-1 text-sm">
-                <span className="text-slate-500">审核状态</span>
+                <span className="text-[#94A3B8]">审核状态</span>
                 <select
                   aria-label="审核状态筛选"
-                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
+                  className="h-10 rounded-md border border-[#E2E8F0] bg-white px-3 text-sm"
                   value={filters.reviewStatus}
                   onChange={(event) =>
                     setFilters((current) => ({
@@ -941,10 +941,10 @@ export default function ProjectReviewPage() {
               </label>
 
               <label className="grid gap-1 text-sm">
-                <span className="text-slate-500">风险等级</span>
+                <span className="text-[#94A3B8]">风险等级</span>
                 <select
                   aria-label="风险等级筛选"
-                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
+                  className="h-10 rounded-md border border-[#E2E8F0] bg-white px-3 text-sm"
                   value={filters.riskLevel}
                   onChange={(event) =>
                     setFilters((current) => ({
@@ -962,10 +962,10 @@ export default function ProjectReviewPage() {
               </label>
 
               <label className="grid gap-1 text-sm">
-                <span className="text-slate-500">审核阶段</span>
+                <span className="text-[#94A3B8]">审核阶段</span>
                 <select
                   aria-label="审核阶段筛选"
-                  className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm"
+                  className="h-10 rounded-md border border-[#E2E8F0] bg-white px-3 text-sm"
                   value={filters.reviewStage}
                   onChange={(event) =>
                     setFilters((current) => ({
@@ -983,27 +983,27 @@ export default function ProjectReviewPage() {
               </label>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+            <div className="rounded-2xl border border-[#E2E8F0] bg-slate-50 p-4 space-y-3">
               <div>
-                <p className="text-sm font-medium text-slate-900">当前筛选批次</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-sm font-medium text-[#1E3A5F]">当前筛选批次</p>
+                <p className="text-xs text-[#94A3B8]">
                   整批通过前必须先锁定单一审核阶段，系统会按当前筛选条件执行最新批次校验并记录批次审计
                 </p>
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-xl bg-white px-3 py-2">
-                  <p className="text-xs text-slate-500">总数</p>
-                  <p className="text-lg font-semibold text-slate-900">{batchSummary.totalItems}</p>
+                  <p className="text-xs text-[#94A3B8]">总数</p>
+                  <p className="text-lg font-semibold text-[#1E3A5F]">{batchSummary.totalItems}</p>
                 </div>
                 <div className="rounded-xl bg-white px-3 py-2">
-                  <p className="text-xs text-slate-500">待处理</p>
-                  <p className="text-lg font-semibold text-slate-900">
+                  <p className="text-xs text-[#94A3B8]">待处理</p>
+                  <p className="text-lg font-semibold text-[#1E3A5F]">
                     {batchSummary.pendingCount}
                   </p>
                 </div>
                 <div className="rounded-xl bg-white px-3 py-2">
-                  <p className="text-xs text-slate-500">高风险待确认</p>
+                  <p className="text-xs text-[#94A3B8]">高风险待确认</p>
                   <p className="text-lg font-semibold text-rose-700">
                     {batchSummary.pendingHighRiskCount}
                   </p>
@@ -1026,12 +1026,12 @@ export default function ProjectReviewPage() {
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center rounded-xl border border-dashed border-slate-200 py-12 text-slate-500">
+              <div className="flex items-center justify-center rounded-xl border border-dashed border-[#E2E8F0] py-12 text-[#94A3B8]">
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 正在加载审核项...
               </div>
             ) : items.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-6 text-sm text-slate-500">
+              <div className="rounded-xl border border-dashed border-[#E2E8F0] p-6 text-sm text-[#94A3B8]">
                 当前筛选条件下没有待审项。
               </div>
             ) : (
@@ -1043,14 +1043,14 @@ export default function ProjectReviewPage() {
                     className={`w-full rounded-2xl border p-4 text-left transition ${
                       item.reviewItemId === selectedItemId
                         ? 'border-sky-500 bg-sky-50 shadow-sm'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
+                        : 'border-[#E2E8F0] bg-white hover:border-slate-300'
                     }`}
                     onClick={() => setSelectedItemId(item.reviewItemId)}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-semibold text-slate-900">{item.title}</p>
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="font-semibold text-[#1E3A5F]">{item.title}</p>
+                        <p className="text-xs text-[#94A3B8] mt-1">
                           {new Date(item.updatedAt).toLocaleString('zh-CN')}
                         </p>
                       </div>
@@ -1068,7 +1068,7 @@ export default function ProjectReviewPage() {
                     </div>
 
                     {item.degradationReasons.length > 0 && (
-                      <p className="mt-3 text-xs text-slate-600">
+                      <p className="mt-3 text-xs text-[#94A3B8]">
                         {item.degradationReasons.join('；')}
                       </p>
                     )}
@@ -1086,13 +1086,13 @@ export default function ProjectReviewPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             {!selectedItem ? (
-              <div className="rounded-xl border border-dashed border-slate-200 p-10 text-center text-slate-500">
+              <div className="rounded-xl border border-dashed border-[#E2E8F0] p-10 text-center text-[#94A3B8]">
                 暂无可展示的审核详情。
               </div>
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-xl font-semibold text-slate-900">{selectedItem.title}</h2>
+                  <h2 className="text-xl font-semibold text-[#1E3A5F]">{selectedItem.title}</h2>
                   <Badge className={getStatusTone(selectedItem.reviewStatus)}>
                     {selectedItem.reviewStatus}
                   </Badge>
@@ -1105,7 +1105,7 @@ export default function ProjectReviewPage() {
                 </div>
 
                 <div className="grid gap-4 xl:grid-cols-2">
-                  <Card className="border border-slate-200 shadow-none">
+                  <Card className="border border-[#E2E8F0] shadow-none">
                     <CardHeader>
                       <div className="flex flex-wrap items-center gap-2">
                         <CardTitle className="text-base">
@@ -1119,7 +1119,7 @@ export default function ProjectReviewPage() {
                         {getProvenanceDescription(selectedItemProvenanceStatus)}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-2 text-sm text-slate-700">
+                    <CardContent className="space-y-2 text-sm text-[#64748B]">
                       {selectedItemProvenanceStatus === 'citation_chain' &&
                       selectedItemCitationChain ? (
                         <>
@@ -1159,7 +1159,7 @@ export default function ProjectReviewPage() {
                           </Alert>
                         )}
                       {selectedItemProvenanceStatus === 'missing' && (
-                        <Alert className="border-slate-200 bg-slate-50 text-slate-900">
+                        <Alert className="border-[#E2E8F0] bg-slate-50 text-[#1E3A5F]">
                           <AlertTitle>来源缺失说明</AlertTitle>
                           <AlertDescription>
                             当前缺少原文来源或引用不完整，系统不会猜测或补造原文内容。
@@ -1181,14 +1181,14 @@ export default function ProjectReviewPage() {
                                   {locationHints.map((hint) => (
                                     <Badge
                                       key={`${hint.label}:${hint.value}`}
-                                      className="bg-slate-100 text-slate-700"
+                                      className="bg-slate-100 text-[#64748B]"
                                     >
                                       {hint.label}: {hint.value}
                                     </Badge>
                                   ))}
                                 </div>
                               ) : (
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-[#94A3B8]">
                                   当前详情没有可提取的 clause / source / article 定位线索。
                                 </p>
                               )}
@@ -1222,11 +1222,11 @@ export default function ProjectReviewPage() {
                     </CardContent>
                   </Card>
 
-                  <Card className="border border-slate-200 shadow-none">
+                  <Card className="border border-[#E2E8F0] shadow-none">
                     <CardHeader>
                       <CardTitle className="text-base">AI 结果对照</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2 text-sm text-slate-700">
+                    <CardContent className="space-y-2 text-sm text-[#64748B]">
                       <p>
                         <span className="font-medium">阶段：</span>
                         {selectedItem.reviewStage}
@@ -1243,13 +1243,13 @@ export default function ProjectReviewPage() {
                 </div>
 
                 {detailLoading ? (
-                  <div className="flex items-center justify-center rounded-xl border border-dashed border-slate-200 py-10 text-slate-500">
+                  <div className="flex items-center justify-center rounded-xl border border-dashed border-[#E2E8F0] py-10 text-[#94A3B8]">
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     正在加载详情...
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <Card className="border border-slate-200 shadow-none">
+                    <Card className="border border-[#E2E8F0] shadow-none">
                       <CardHeader>
                         <CardTitle className="text-base">一致性与置信度面板</CardTitle>
                       </CardHeader>
@@ -1273,10 +1273,10 @@ export default function ProjectReviewPage() {
                           ).map(([label, value]) => (
                             <div
                               key={label}
-                              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                              className="rounded-2xl border border-[#E2E8F0] bg-slate-50 p-4"
                             >
-                              <p className="text-sm text-slate-500">{label}</p>
-                              <p className="mt-2 text-2xl font-semibold text-slate-900">
+                              <p className="text-sm text-[#94A3B8]">{label}</p>
+                              <p className="mt-2 text-2xl font-semibold text-[#1E3A5F]">
                                 {formatScore(value)}
                               </p>
                             </div>
@@ -1293,9 +1293,9 @@ export default function ProjectReviewPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <p className="text-sm font-medium text-slate-900">降级原因</p>
+                          <p className="text-sm font-medium text-[#1E3A5F]">降级原因</p>
                           {selectedItem.degradationReasons.length > 0 ? (
-                            <ul className="space-y-2 text-sm text-slate-700">
+                            <ul className="space-y-2 text-sm text-[#64748B]">
                               {selectedItem.degradationReasons.map((reason) => (
                                 <li key={reason} className="rounded-xl bg-slate-50 px-3 py-2">
                                   {reason}
@@ -1303,7 +1303,7 @@ export default function ProjectReviewPage() {
                               ))}
                             </ul>
                           ) : (
-                            <p className="text-sm text-slate-500">当前没有额外降级原因。</p>
+                            <p className="text-sm text-[#94A3B8]">当前没有额外降级原因。</p>
                           )}
                         </div>
                       </CardContent>
@@ -1311,7 +1311,7 @@ export default function ProjectReviewPage() {
 
                     <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
                       <div className="space-y-4">
-                        <Card className="border border-slate-200 shadow-none">
+                        <Card className="border border-[#E2E8F0] shadow-none">
                           <CardHeader>
                             <CardTitle className="text-base">当前结果 JSON</CardTitle>
                             <CardDescription>
@@ -1361,7 +1361,7 @@ export default function ProjectReviewPage() {
                           </Alert>
                         )}
 
-                        <Card className="border border-slate-200 shadow-none">
+                        <Card className="border border-[#E2E8F0] shadow-none">
                           <CardHeader>
                             <CardTitle className="text-base">修改 patch</CardTitle>
                           </CardHeader>
@@ -1378,7 +1378,7 @@ export default function ProjectReviewPage() {
                           </CardContent>
                         </Card>
 
-                        <Card className="border border-slate-200 shadow-none">
+                        <Card className="border border-[#E2E8F0] shadow-none">
                           <CardHeader>
                             <CardTitle className="text-base">审核备注 / 理由</CardTitle>
                           </CardHeader>

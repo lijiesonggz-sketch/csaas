@@ -55,7 +55,7 @@ function getStatusConfig(status: string) {
     case 'completed':
       return { color: 'bg-emerald-100 text-emerald-700', label: '已完成' }
     case 'active':
-      return { color: 'bg-indigo-100 text-indigo-700', label: '进行中' }
+      return { color: 'bg-blue-100 text-blue-700', label: '进行中' }
     case 'draft':
       return { color: 'bg-slate-100 text-slate-700', label: '待启动' }
     case 'archived':
@@ -96,7 +96,7 @@ export default function DashboardPage() {
       icon: Briefcase,
       value: projects.length,
       label: '总项目数',
-      iconBg: 'bg-gradient-to-br from-indigo-500 to-purple-600',
+      iconBg: 'bg-[#1E3A5F]',
       iconColor: 'text-white',
     },
     {
@@ -110,8 +110,8 @@ export default function DashboardPage() {
       icon: Clock,
       value: inProgressCount,
       label: '进行中',
-      iconBg: 'bg-indigo-100',
-      iconColor: 'text-indigo-600',
+      iconBg: 'bg-blue-100',
+      iconColor: 'text-blue-700',
     },
     {
       icon: Rocket,
@@ -124,23 +124,23 @@ export default function DashboardPage() {
 
   return (
     <MainLayout>
-      <div className="w-full px-6 py-8">
+      <div className="w-full px-6 py-8 bg-[#FEFDFB] min-h-screen">
         {/* Header */}
-        <Card className="mb-6 border-0 shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+        <Card className="mb-6 border border-[#E2E8F0] shadow-sm rounded-sm overflow-hidden">
+          <div className="bg-[#1E3A5F] p-6 text-white">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm">
+              <div className="w-12 h-12 rounded-sm bg-white/10 flex items-center justify-center">
                 <LayoutDashboard className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1">
-                <h1 className="text-2xl font-bold">工作台</h1>
-                <p className="text-white/90 text-sm">
+                <h1 className="text-2xl font-bold font-[var(--font-plus-jakarta)]">工作台</h1>
+                <p className="text-white/80 text-sm font-[var(--font-inter)]">
                   欢迎使用 Csaas - AI驱动的IT咨询成熟度评估平台
                 </p>
               </div>
               <Button
                 onClick={() => router.push('/projects/new')}
-                className="bg-white text-indigo-600 hover:bg-white/90"
+                className="bg-white text-[#1E3A5F] hover:bg-white/90 rounded-sm"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 新建项目
@@ -154,15 +154,15 @@ export default function DashboardPage() {
           {stats.map((stat, idx) => {
             const Icon = stat.icon
             return (
-              <Card key={idx} className="border-0 shadow-sm">
+              <Card key={idx} className="border border-[#E2E8F0] shadow-sm rounded-sm">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className={`w-14 h-14 rounded-xl ${stat.iconBg} flex items-center justify-center`}>
+                    <div className={`w-14 h-14 rounded-sm ${stat.iconBg} flex items-center justify-center`}>
                       <Icon className={`w-7 h-7 ${stat.iconColor}`} />
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-slate-900">{stat.value}</div>
-                      <div className="text-sm text-slate-500">{stat.label}</div>
+                      <div className="text-2xl font-bold text-[#1E3A5F]">{stat.value}</div>
+                      <div className="text-sm text-[#94A3B8]">{stat.label}</div>
                     </div>
                   </div>
                 </CardContent>
@@ -172,24 +172,24 @@ export default function DashboardPage() {
         </div>
 
         {/* Radar Service Section */}
-        <Card className="mb-6 border-0 shadow-sm">
+        <Card className="mb-6 border border-[#E2E8F0] shadow-sm rounded-sm">
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-sm bg-[#059669] flex items-center justify-center">
                 <Radar className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1">
-                <h2 className="text-lg font-semibold text-slate-900">
+                <h2 className="text-lg font-semibold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
                   Radar Service - 技术雷达推送
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-[#94A3B8] font-[var(--font-inter)]">
                   基于您的评估结果，智能推送技术趋势、行业标杆和合规预警
                 </p>
               </div>
               <button
                 onClick={fetchProjects}
                 disabled={loading}
-                className="p-2 text-slate-400 hover:text-slate-600 disabled:opacity-50"
+                className="p-2 text-[#94A3B8] hover:text-[#1E3A5F] disabled:opacity-50"
               >
                 <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
               </button>
@@ -202,22 +202,22 @@ export default function DashboardPage() {
                   return (
                     <Card
                       key={project.id}
-                      className="cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border-slate-100"
+                      className="cursor-pointer transition-shadow hover:shadow-md border border-[#E2E8F0] rounded-sm"
                       onClick={() => router.push(`/radar?orgId=${project.organizationId}`)}
                     >
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-slate-900 truncate flex-1">
+                          <h3 className="font-semibold text-[#1E3A5F] truncate flex-1">
                             {project.name}
                           </h3>
-                          <ArrowRight className="w-4 h-4 text-indigo-600 ml-2 flex-shrink-0" />
+                          <ArrowRight className="w-4 h-4 text-[#059669] ml-2 flex-shrink-0" />
                         </div>
                         <div className="mt-2 flex items-center gap-2">
                           <Badge className={statusConfig.color}>
                             {statusConfig.label}
                           </Badge>
                           {project.organization && (
-                            <span className="text-xs text-slate-500">
+                            <span className="text-xs text-[#94A3B8]">
                               {project.organization.name}
                             </span>
                           )}
@@ -228,15 +228,15 @@ export default function DashboardPage() {
                 })}
               </div>
             ) : (
-              <div className="text-center py-12 bg-slate-50 rounded-xl">
-                <TrendingUp className="w-12 h-12 text-slate-400 mx-auto mb-3 opacity-50" />
-                <p className="text-slate-600 mb-1">暂无项目</p>
-                <p className="text-sm text-slate-500 mb-4">
+              <div className="text-center py-12 bg-[#FEFDFB] border border-[#E2E8F0] rounded-sm">
+                <TrendingUp className="w-12 h-12 text-[#94A3B8] mx-auto mb-3 opacity-50" />
+                <p className="text-[#1E3A5F] mb-1 font-[var(--font-plus-jakarta)]">暂无项目</p>
+                <p className="text-sm text-[#94A3B8] mb-4 font-[var(--font-inter)]">
                   创建项目后即可查看Radar推送
                 </p>
                 <Button
                   onClick={() => router.push('/projects/new')}
-                  className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+                  className="bg-[#1E3A5F] hover:bg-[#162e4d] text-white rounded-sm"
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   创建第一个项目
@@ -247,10 +247,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* Quick Start */}
-        <Card className="border-0 shadow-sm">
+        <Card className="border border-[#E2E8F0] shadow-sm rounded-sm">
           <div className="p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-2">快速开始</h2>
-            <p className="text-sm text-slate-500 mb-4">
+            <h2 className="text-lg font-semibold text-[#1E3A5F] mb-2 font-[var(--font-plus-jakarta)]">快速开始</h2>
+            <p className="text-sm text-[#94A3B8] mb-4 font-[var(--font-inter)]">
               按照以下步骤开始使用 Csaas 平台
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -261,14 +261,14 @@ export default function DashboardPage() {
               ].map((item) => (
                 <div
                   key={item.step}
-                  className="p-4 rounded-xl bg-slate-50 hover:bg-indigo-50 cursor-pointer transition-colors"
+                  className="p-4 rounded-sm bg-[#FEFDFB] border border-[#E2E8F0] hover:border-[#059669] cursor-pointer transition-colors"
                   onClick={() => router.push(item.link)}
                 >
-                  <div className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-semibold text-sm mb-3">
+                  <div className="w-8 h-8 rounded-sm bg-[#1E3A5F] text-white flex items-center justify-center font-semibold text-sm mb-3">
                     {item.step}
                   </div>
-                  <h3 className="font-semibold text-slate-900 mb-1">{item.title}</h3>
-                  <p className="text-sm text-slate-500">{item.desc}</p>
+                  <h3 className="font-semibold text-[#1E3A5F] mb-1 font-[var(--font-plus-jakarta)]">{item.title}</h3>
+                  <p className="text-sm text-[#94A3B8] font-[var(--font-inter)]">{item.desc}</p>
                 </div>
               ))}
             </div>

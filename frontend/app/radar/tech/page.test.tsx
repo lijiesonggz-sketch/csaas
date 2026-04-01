@@ -1,6 +1,5 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { ThemeProvider, createTheme } from '@mui/material/styles'
 
 import TechRadarPage from './page'
 import { getRadarPushes, normalizeRadarPush, RadarPush } from '@/lib/api/radar'
@@ -32,14 +31,7 @@ jest.mock('@/lib/stores/useOrganizationStore', () => {
 })
 
 describe('TechRadarPage', () => {
-  const theme = createTheme()
-
-  const renderWithProviders = () =>
-    render(
-      <ThemeProvider theme={theme}>
-        <TechRadarPage />
-      </ThemeProvider>,
-    )
+  const renderWithProviders = () => render(<TechRadarPage />)
 
   const techContext = (pushId: string) => ({
     controlId: null,

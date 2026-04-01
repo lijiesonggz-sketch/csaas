@@ -1,6 +1,5 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { ThemeProvider, createTheme } from '@mui/material/styles'
 
 import IndustryRadarPage from './page'
 import {
@@ -73,14 +72,7 @@ jest.mock('next/link', () => {
 })
 
 describe('IndustryRadarPage', () => {
-  const theme = createTheme()
-
-  const renderWithProviders = () =>
-    render(
-      <ThemeProvider theme={theme}>
-        <IndustryRadarPage />
-      </ThemeProvider>,
-    )
+  const renderWithProviders = () => render(<IndustryRadarPage />)
 
   const industryContext = (pushId: string) => ({
     controlId: null,

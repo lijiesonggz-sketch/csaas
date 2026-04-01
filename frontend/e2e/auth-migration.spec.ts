@@ -124,8 +124,8 @@ test.describe('Auth Migration - Login Page', () => {
       const passwordInput = page.locator('input[type="password"]').first()
       const submitButton = page.getByRole('button', { name: '登录' })
 
-      await emailInput.fill('test@example.com')
-      await passwordInput.fill('test123')
+      await emailInput.fill('admin@test.com')
+      await passwordInput.fill('admin123')
       await submitButton.click()
 
       // Should redirect to dashboard
@@ -138,7 +138,7 @@ test.describe('Auth Migration - Login Page', () => {
       const passwordInput = page.locator('input[type="password"]').first()
       const submitButton = page.getByRole('button', { name: '登录' })
 
-      await emailInput.fill('test@example.com')
+      await emailInput.fill('admin@test.com')
       await passwordInput.fill('wrongpassword')
       await submitButton.click()
 
@@ -151,8 +151,8 @@ test.describe('Auth Migration - Login Page', () => {
       const passwordInput = page.locator('input[type="password"]').first()
       const submitButton = page.getByRole('button', { name: '登录' })
 
-      await emailInput.fill('test@example.com')
-      await passwordInput.fill('test123')
+      await emailInput.fill('admin@test.com')
+      await passwordInput.fill('admin123')
 
       // Click submit button and wait for navigation
       await Promise.all([
@@ -272,7 +272,7 @@ test.describe('Auth Migration - Register Page', () => {
       const passwordInput = page.locator('input[type="password"]').first()
       const confirmPasswordInput = page.locator('input[type="password"]').nth(1)
 
-      await passwordInput.fill('password123')
+      await passwordInput.fill('admin123')
       await confirmPasswordInput.fill('differentpassword')
       await confirmPasswordInput.blur()
 

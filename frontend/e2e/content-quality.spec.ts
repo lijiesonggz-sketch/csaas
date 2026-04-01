@@ -18,8 +18,8 @@ async function loginAsAdmin(page) {
   await page.waitForLoadState('networkidle');
 
   // Fill login form using data-testid selectors
-  await page.fill('[data-testid="email-input"]', 'admin@example.com');
-  await page.fill('[data-testid="password-input"]', 'password');
+  await page.fill('[data-testid="email-input"]', 'admin@test.com');
+  await page.fill('[data-testid="password-input"]', 'admin123');
 
   // Click login button using data-testid selector
   await page.click('[data-testid="login-button"]');
@@ -42,8 +42,8 @@ async function loginAsUser(page) {
   await page.waitForLoadState('networkidle');
 
   // Fill login form using data-testid selectors
-  await page.fill('[data-testid="email-input"]', 'user@example.com');
-  await page.fill('[data-testid="password-input"]', 'password');
+  await page.fill('[data-testid="email-input"]', 'admin@test.com');
+  await page.fill('[data-testid="password-input"]', 'admin123');
 
   // Click login button using data-testid selector
   await page.click('[data-testid="login-button"]');

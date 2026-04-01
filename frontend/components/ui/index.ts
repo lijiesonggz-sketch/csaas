@@ -15,13 +15,9 @@ export {
   SelectTrigger,
   SelectValue,
 } from './select'
-
-export { default as GradientHeader } from './mui/GradientHeader'
-export { default as ContentCard } from './mui/ContentCard'
-export { default as GradientCard } from './mui/GradientCard'
-export { default as StatCard } from './mui/StatCard'
-export { default as PrimaryButton } from './mui/PrimaryButton'
-export { default as SecondaryButton } from './mui/SecondaryButton'
-export { default as StatusChip } from './mui/StatusChip'
-export { default as EmptyState } from './mui/EmptyState'
-export { default as PageHeader } from './mui/PageHeader'
+export { Slider } from './slider'
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from './tooltip'
+export { Collapsible, CollapsibleTrigger, CollapsibleContent } from './collapsible'
+export { Skeleton } from './skeleton'
+export { Alert, AlertDescription, AlertTitle } from './alert'
+export { Progress } from './progress'

@@ -4,31 +4,19 @@ import { useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
-  Box,
-  Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Collapse,
-  Tooltip,
-  IconButton,
-} from '@mui/material'
-import {
-  Dashboard as DashboardIcon,
-  Folder as FolderIcon,
-  Description as DescriptionIcon,
-  Settings as SettingsIcon,
-  People as PeopleIcon,
-  Radar as RadarIcon,
-  Business as BusinessIcon,
-  FactCheck as FactCheckIcon,
-  ExpandLess,
-  ExpandMore,
+  LayoutDashboard,
+  FolderOpen,
+  FileText,
+  Settings,
+  Users,
+  Radar,
+  Building2,
+  ClipboardCheck,
   ChevronLeft,
   ChevronRight,
-} from '@mui/icons-material'
+  ChevronUp,
+  ChevronDown,
+} from 'lucide-react'
 
 interface MenuItem {
   key: string
@@ -39,65 +27,63 @@ interface MenuItem {
   requiresOrganization?: boolean
 }
 
-// 定义所有菜单项（包括管理员专属）
 const allMenuItems: MenuItem[] = [
   {
     key: '/dashboard',
-    icon: <DashboardIcon />,
+    icon: <LayoutDashboard className="w-5 h-5" />,
     label: '工作台',
   },
   {
     key: '/projects',
-    icon: <FolderIcon />,
+    icon: <FolderOpen className="w-5 h-5" />,
     label: '项目管理',
   },
   {
     key: '/organizations/profile',
-    icon: <BusinessIcon />,
+    icon: <Building2 className="w-5 h-5" />,
     label: '机构画像',
     requiresOrganization: true,
   },
   {
     key: '/organizations/applicable-controls',
-    icon: <FactCheckIcon />,
+    icon: <ClipboardCheck className="w-5 h-5" />,
     label: '适用控制点',
     requiresOrganization: true,
   },
   {
     key: '/radar',
-    icon: <RadarIcon />,
+    icon: <Radar className="w-5 h-5" />,
     label: '技术雷达',
   },
   {
     key: '/reports',
-    icon: <DescriptionIcon />,
+    icon: <FileText className="w-5 h-5" />,
     label: '报告中心',
   },
   {
     key: '/team',
-    icon: <PeopleIcon />,
+    icon: <Users className="w-5 h-5" />,
     label: '团队管理',
   },
   {
     key: '/admin',
-    icon: <SettingsIcon />,
+    icon: <Settings className="w-5 h-5" />,
     label: '系统管理',
     adminOnly: true,
     children: [
-      { key: '/admin/dashboard', icon: <DashboardIcon />, label: '运营仪表板' },
-      { key: '/admin/content-quality', icon: <DescriptionIcon />, label: '内容质量管理' },
-      { key: '/admin/clients', icon: <PeopleIcon />, label: '客户管理' },
-      { key: '/admin/cost-optimization', icon: <SettingsIcon />, label: '成本优化' },
-      { key: '/admin/branding', icon: <SettingsIcon />, label: '品牌配置' },
-      { key: '/admin/radar-sources', icon: <RadarIcon />, label: '信息源配置' },
-      { key: '/admin/raw-contents', icon: <DescriptionIcon />, label: '文件导入管理' },
-      { key: '/admin/peer-crawler', icon: <SettingsIcon />, label: '同业爬虫管理' },
-      { key: '/admin/peer-crawler/health', icon: <SettingsIcon />, label: '爬虫健康监控' },
+      { key: '/admin/dashboard', icon: <LayoutDashboard className="w-4 h-4" />, label: '运营仪表板' },
+      { key: '/admin/content-quality', icon: <FileText className="w-4 h-4" />, label: '内容质量管理' },
+      { key: '/admin/clients', icon: <Users className="w-4 h-4" />, label: '客户管理' },
+      { key: '/admin/cost-optimization', icon: <Settings className="w-4 h-4" />, label: '成本优化' },
+      { key: '/admin/branding', icon: <Settings className="w-4 h-4" />, label: '品牌配置' },
+      { key: '/admin/radar-sources', icon: <Radar className="w-4 h-4" />, label: '信息源配置' },
+      { key: '/admin/raw-contents', icon: <FileText className="w-4 h-4" />, label: '文件导入管理' },
+      { key: '/admin/peer-crawler', icon: <Settings className="w-4 h-4" />, label: '同业爬虫管理' },
+      { key: '/admin/peer-crawler/health', icon: <Settings className="w-4 h-4" />, label: '爬虫健康监控' },
     ],
   },
 ]
 
-// Sidebar width constants - must match MainLayout component
 export const SIDEBAR_WIDTH = 200
 export const SIDEBAR_COLLAPSED_WIDTH = 64
 
@@ -120,7 +106,6 @@ export default function Sidebar({
   const [expandedKeys, setExpandedKeys] = useState<string[]>(['/admin'])
   const organizationId = session?.user?.organizationId
 
-  // 根据用户角色过滤菜单项
   const isAdmin = session?.user?.role === 'admin'
   const visibleMenuItems = allMenuItems.filter((item) => {
     if (item.adminOnly && !isAdmin) return false
@@ -153,36 +138,20 @@ export default function Sidebar({
       return
     }
 
-    // Special handling for radar navigation: auto-get user's organization ID
     if (key === '/radar') {
-      console.log('[Sidebar] Clicked tech radar navigation')
       try {
         const response = await fetch('/api/organizations/me')
-        console.log('[Sidebar] /api/organizations/me response status:', response.status)
-
         if (response.ok) {
           const data = await response.json()
-          console.log('[Sidebar] Organization data:', data)
-
           const orgId = data.data?.organization?.id
-          console.log('[Sidebar] Extracted orgId:', orgId)
-
           if (orgId) {
-            const targetUrl = `/radar?orgId=${orgId}`
-            console.log('[Sidebar] Navigating to:', targetUrl)
-            router.push(targetUrl)
+            router.push(`/radar?orgId=${orgId}`)
             return
-          } else {
-            console.warn('[Sidebar] orgId not found, using default navigation')
           }
-        } else {
-          console.warn('[Sidebar] API call failed, status:', response.status)
         }
       } catch (error) {
         console.error('[Sidebar] Failed to get organization:', error)
       }
-      // If fetch fails, still navigate to /radar and let the page handle it
-      console.log('[Sidebar] Using default navigation to /radar')
       router.push('/radar')
     } else {
       router.push(key)
@@ -191,218 +160,99 @@ export default function Sidebar({
 
   const isSelected = (key: string) => {
     if (key === '/organizations/profile') {
-      return (
-        pathname.startsWith('/organizations/') &&
-        pathname.endsWith('/profile')
-      )
+      return pathname.startsWith('/organizations/') && pathname.endsWith('/profile')
     }
-
     if (key === '/organizations/applicable-controls') {
-      return (
-        pathname.startsWith('/organizations/') &&
-        pathname.endsWith('/applicable-controls')
-      )
+      return pathname.startsWith('/organizations/') && pathname.endsWith('/applicable-controls')
     }
-
     return pathname === key || pathname.startsWith(`${key}/`)
   }
-  const isExpanded = (key: string) => expandedKeys.includes(key)
 
-  const renderMenuItem = (item: MenuItem, level = 0) => {
-    const hasChildren = item.children && item.children.length > 0
-    const selected = isSelected(item.key)
-    const expanded = isExpanded(item.key)
-
-    if (hasChildren) {
-      return (
-        <Box key={item.key}>
-          <ListItem disablePadding>
-            {collapsed ? (
-              <Tooltip title={item.label} placement="right">
-                <ListItemButton
-                  onClick={() => handleExpandToggle(item.key)}
-                  selected={selected}
-                  sx={{
-                    minHeight: 48,
-                    px: 2.5,
-                    justifyContent: 'center',
-                  }}
-                >
-                  <ListItemIcon
-                    sx={{
-                      minWidth: 0,
-                      justifyContent: 'center',
-                      color: selected ? 'primary.main' : 'inherit',
-                    }}
-                  >
-                    {item.icon}
-                  </ListItemIcon>
-                </ListItemButton>
-              </Tooltip>
-            ) : (
-              <ListItemButton
-                onClick={() => handleExpandToggle(item.key)}
-                selected={selected}
-                sx={{
-                  minHeight: 48,
-                  px: 2.5,
-                  pl: level * 2 + 2,
-                }}
-              >
-                <ListItemIcon
-                  sx={{
-                    minWidth: 0,
-                    mr: 2,
-                    justifyContent: 'center',
-                    color: selected ? 'primary.main' : 'inherit',
-                  }}
-                >
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.label}
-                  primaryTypographyProps={{
-                    fontSize: 14,
-                    fontWeight: selected ? 600 : 400,
-                  }}
-                />
-                {expanded ? <ExpandLess /> : <ExpandMore />}
-              </ListItemButton>
-            )}
-          </ListItem>
-          {!collapsed && (
-            <Collapse in={expanded} timeout="auto" unmountOnExit>
-              <List component="div" disablePadding>
-                {item.children!.map((child) => (
-                  <ListItem key={child.key} disablePadding>
-                    <ListItemButton
-                      onClick={() => handleNavigation(child.key)}
-                      selected={pathname === child.key}
-                      sx={{
-                        minHeight: 40,
-                        pl: (level + 1) * 2 + 3,
-                      }}
-                    >
-                      <ListItemText
-                        primary={child.label}
-                        primaryTypographyProps={{
-                          fontSize: 13,
-                          fontWeight: pathname === child.key ? 500 : 400,
-                          color: pathname === child.key ? 'primary.main' : 'rgba(255,255,255,0.7)',
-                        }}
-                        sx={{
-                          color: pathname === child.key ? 'primary.main' : 'rgba(255,255,255,0.7)',
-                        }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
-            </Collapse>
-          )}
-        </Box>
-      )
-    }
-
-    return (
-      <ListItem key={item.key} disablePadding>
-        {collapsed ? (
-          <Tooltip title={item.label} placement="right">
-            <ListItemButton
-              onClick={() => handleNavigation(item.key)}
-              selected={selected}
-              sx={{
-                minHeight: 48,
-                px: 2.5,
-                justifyContent: 'center',
-              }}
-            >
-              <ListItemIcon
-                sx={{
-                  minWidth: 0,
-                  justifyContent: 'center',
-                  color: selected ? 'primary.main' : 'inherit',
-                }}
-              >
-                {item.icon}
-              </ListItemIcon>
-            </ListItemButton>
-          </Tooltip>
-        ) : (
-          <ListItemButton
-            onClick={() => handleNavigation(item.key)}
-            selected={selected}
-            sx={{
-              minHeight: 48,
-              px: 2.5,
-              pl: level * 2 + 2,
-            }}
-          >
-            <ListItemIcon
-              sx={{
-                minWidth: 0,
-                mr: 2,
-                justifyContent: 'center',
-                color: selected ? 'primary.main' : 'inherit',
-              }}
-            >
-              {item.icon}
-            </ListItemIcon>
-            <ListItemText
-              primary={item.label}
-              primaryTypographyProps={{
-                fontSize: 14,
-                fontWeight: selected ? 600 : 400,
-              }}
-            />
-          </ListItemButton>
-        )}
-      </ListItem>
-    )
-  }
+  const currentWidth = collapsed ? collapsedWidth : width
 
   return (
-    <Drawer
-      variant="permanent"
-      sx={{
-        width: collapsed ? collapsedWidth : width,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
-          width: collapsed ? collapsedWidth : width,
-          boxSizing: 'border-box',
-          position: 'fixed',
-          left: 0,
-          top: 64,
-          bottom: 0,
-          height: 'calc(100vh - 64px)',
-          bgcolor: 'grey.900',
-          color: 'common.white',
-          transition: (theme) =>
-            theme.transitions.create('width', {
-              easing: theme.transitions.easing.sharp,
-              duration: theme.transitions.duration.enteringScreen,
-            }),
-          overflowX: 'hidden',
-        },
-      }}
+    <nav
+      className="fixed left-0 top-16 bottom-0 bg-[#1E3A5F] text-white transition-all duration-200 overflow-x-hidden overflow-y-auto z-40"
+      style={{ width: `${currentWidth}px` }}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <List sx={{ flexGrow: 1, pt: 2 }}>
-          {visibleMenuItems.map((item) => renderMenuItem(item))}
-        </List>
-        <Box sx={{ p: 1, borderTop: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
-          <IconButton
+      <div className="flex flex-col h-full">
+        {/* Menu items */}
+        <div className="flex-1 pt-2">
+          {visibleMenuItems.map((item) => {
+            const hasChildren = item.children && item.children.length > 0
+            const selected = isSelected(item.key)
+            const expanded = expandedKeys.includes(item.key)
+
+            if (hasChildren) {
+              return (
+                <div key={item.key}>
+                  <button
+                    onClick={() => handleExpandToggle(item.key)}
+                    className={`w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors ${
+                      selected
+                        ? 'bg-white/10 text-white font-semibold'
+                        : 'text-white/70 hover:bg-white/5 hover:text-white'
+                    } ${collapsed ? 'justify-center px-0' : ''}`}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <span className={selected ? 'text-emerald-400' : 'text-white/60'}>{item.icon}</span>
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 text-left">{item.label}</span>
+                        {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </>
+                    )}
+                  </button>
+                  {!collapsed && expanded && (
+                    <div>
+                      {item.children!.map((child) => (
+                        <button
+                          key={child.key}
+                          onClick={() => handleNavigation(child.key)}
+                          className={`w-full flex items-center gap-2 pl-12 pr-5 py-2.5 text-[13px] transition-colors ${
+                            pathname === child.key
+                              ? 'text-emerald-400 font-medium bg-white/5'
+                              : 'text-white/60 hover:text-white hover:bg-white/5'
+                          }`}
+                        >
+                          <span className="text-white/40">{child.icon}</span>
+                          <span>{child.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            }
+
+            return (
+              <button
+                key={item.key}
+                onClick={() => handleNavigation(item.key)}
+                className={`w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors ${
+                  selected
+                    ? 'bg-white/10 text-white font-semibold border-l-2 border-emerald-400'
+                    : 'text-white/70 hover:bg-white/5 hover:text-white'
+                } ${collapsed ? 'justify-center px-0' : ''}`}
+                title={collapsed ? item.label : undefined}
+              >
+                <span className={selected ? 'text-emerald-400' : 'text-white/60'}>{item.icon}</span>
+                {!collapsed && <span>{item.label}</span>}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Collapse toggle */}
+        <div className="p-2 border-t border-white/10">
+          <button
             onClick={handleToggleCollapse}
-            sx={{
-              color: 'common.white',
-              width: '100%',
-              justifyContent: 'center',
-            }}
+            className="w-full flex items-center justify-center py-2 text-white/60 hover:text-white transition-colors"
           >
-            {collapsed ? <ChevronRight /> : <ChevronLeft />}
-          </IconButton>
-        </Box>
-      </Box>
-    </Drawer>
+            {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+          </button>
+        </div>
+      </div>
+    </nav>
   )
 }

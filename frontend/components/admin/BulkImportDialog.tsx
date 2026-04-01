@@ -9,26 +9,15 @@
 import React, { useState, useRef } from 'react'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
-  Box,
-  Typography,
-  Alert,
-  LinearProgress,
-  List,
-  ListItem,
-  ListItemText,
-  Divider,
-  Link,
-} from '@mui/material'
-import {
-  CloudUpload as UploadIcon,
-  CheckCircle as SuccessIcon,
-  Error as ErrorIcon,
-  Download as DownloadIcon,
-} from '@mui/icons-material'
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Upload, CheckCircle, AlertCircle, Download } from 'lucide-react'
 import { BulkImportResult } from '@/lib/api/clients'
 
 interface BulkImportDialogProps {
@@ -147,42 +136,37 @@ export function BulkImportDialog({
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle>批量导入客户</DialogTitle>
-      <DialogContent>
-        <Box sx={{ py: 2 }}>
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>批量导入客户</DialogTitle>
+        </DialogHeader>
+
+        <div className="py-4">
           {/* 下载模板提示 */}
-          <Alert severity="info" sx={{ mb: 3 }}>
-            <Typography variant="body2" gutterBottom>
+          <Alert className="mb-4">
+            <p className="text-sm mb-2">
               请先下载 CSV 模板，按照模板格式填写客户信息后上传。
-            </Typography>
+            </p>
             <Button
-              size="small"
-              startIcon={<DownloadIcon />}
+              size="sm"
+              variant="outline"
               onClick={handleDownloadTemplate}
-              sx={{ mt: 1 }}
+              className="mt-1"
             >
+              <Download className="h-4 w-4 mr-1" />
               下载 CSV 模板
             </Button>
           </Alert>
 
           {/* 文件上传区域 */}
           {!result && (
-            <Box
-              sx={{
-                border: '2px dashed',
-                borderColor: dragActive ? 'primary.main' : 'divider',
-                borderRadius: 2,
-                p: 4,
-                textAlign: 'center',
-                backgroundColor: dragActive ? 'action.hover' : 'background.paper',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                '&:hover': {
-                  borderColor: 'primary.main',
-                  backgroundColor: 'action.hover',
-                },
-              }}
+            <div
+              className={`
+                border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all
+                ${dragActive ? 'border-primary bg-primary/5' : 'border-border bg-background'}
+                hover:border-primary hover:bg-primary/5
+              `}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
@@ -193,118 +177,108 @@ export function BulkImportDialog({
                 ref={fileInputRef}
                 type="file"
                 accept=".csv"
-                style={{ display: 'none' }}
+                className="hidden"
                 onChange={handleFileInputChange}
                 disabled={importing}
               />
 
-              <UploadIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-              <Typography variant="body1" gutterBottom>
+              <Upload className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+              <p className="text-sm mb-1">
                 {file ? file.name : '点击或拖拽 CSV 文件到此处上传'}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
+              </p>
+              <p className="text-xs text-muted-foreground">
                 支持 CSV 格式，最大 5MB
-              </Typography>
-            </Box>
+              </p>
+            </div>
           )}
 
           {/* 错误提示 */}
           {error && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {error}
+            <Alert variant="destructive" className="mt-4">
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
           {/* 导入进度 */}
           {importing && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body2" gutterBottom>
-                正在导入...
-              </Typography>
-              <LinearProgress />
-            </Box>
+            <div className="mt-4">
+              <p className="text-sm mb-2">正在导入...</p>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary animate-pulse w-full" />
+              </div>
+            </div>
           )}
 
           {/* 导入结果 */}
           {result && (
-            <Box sx={{ mt: 2 }}>
+            <div className="mt-4">
               <Alert
-                severity={result.failed === 0 ? 'success' : 'warning'}
-                sx={{ mb: 2 }}
+                variant={result.failed === 0 ? 'default' : 'destructive'}
+                className={result.failed === 0 ? 'border-green-500 text-green-700' : ''}
               >
-                <Typography variant="body2">
+                <p className="text-sm">
                   导入完成: 成功 {result.success} 个，失败 {result.failed} 个
-                </Typography>
+                </p>
               </Alert>
 
               {/* 成功列表 */}
               {result.successList.length > 0 && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    <SuccessIcon
-                      sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5, color: 'success.main' }}
-                    />
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
                     成功导入 ({result.successList.length})
-                  </Typography>
-                  <List dense sx={{ maxHeight: 200, overflow: 'auto' }}>
+                  </h4>
+                  <div className="max-h-48 overflow-auto border rounded-md p-2">
                     {result.successList.slice(0, 10).map((client, index) => (
-                      <ListItem key={index}>
-                        <ListItemText
-                          primary={client.name}
-                          secondary={client.contactEmail}
-                        />
-                      </ListItem>
+                      <div key={index} className="text-sm py-1 border-b last:border-0">
+                        <div className="font-medium">{client.name}</div>
+                        <div className="text-xs text-muted-foreground">{client.contactEmail}</div>
+                      </div>
                     ))}
                     {result.successList.length > 10 && (
-                      <ListItem>
-                        <ListItemText
-                          secondary={`还有 ${result.successList.length - 10} 个...`}
-                        />
-                      </ListItem>
+                      <div className="text-xs text-muted-foreground py-1">
+                        还有 {result.successList.length - 10} 个...
+                      </div>
                     )}
-                  </List>
-                </Box>
+                  </div>
+                </div>
               )}
 
               {/* 失败列表 */}
               {result.failedList.length > 0 && (
-                <Box>
-                  <Typography variant="subtitle2" gutterBottom>
-                    <ErrorIcon
-                      sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5, color: 'error.main' }}
-                    />
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
+                    <AlertCircle className="h-4 w-4 text-destructive" />
                     导入失败 ({result.failedList.length})
-                  </Typography>
-                  <List dense sx={{ maxHeight: 200, overflow: 'auto' }}>
+                  </h4>
+                  <div className="max-h-48 overflow-auto border rounded-md p-2">
                     {result.failedList.map((item, index) => (
-                      <ListItem key={index}>
-                        <ListItemText
-                          primary={`第 ${item.row} 行: ${item.data.name}`}
-                          secondary={item.error}
-                        />
-                      </ListItem>
+                      <div key={index} className="text-sm py-2 border-b last:border-0">
+                        <div className="font-medium">第 {item.row} 行: {item.data.name}</div>
+                        <div className="text-xs text-destructive">{item.error}</div>
+                      </div>
                     ))}
-                  </List>
-                </Box>
+                  </div>
+                </div>
               )}
-            </Box>
+            </div>
           )}
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose}>
-          {result ? '关闭' : '取消'}
-        </Button>
-        {!result && (
-          <Button
-            onClick={handleImport}
-            variant="contained"
-            disabled={!file || importing}
-          >
-            {importing ? '导入中...' : '开始导入'}
+        </div>
+
+        <DialogFooter>
+          <Button onClick={handleClose}>
+            {result ? '关闭' : '取消'}
           </Button>
-        )}
-      </DialogActions>
+          {!result && (
+            <Button
+              onClick={handleImport}
+              disabled={!file || importing}
+            >
+              {importing ? '导入中...' : '开始导入'}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   )
 }

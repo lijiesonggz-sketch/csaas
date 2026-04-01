@@ -3,21 +3,25 @@
 import React, { useState, useEffect } from 'react'
 import {
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  FormControl,
-  InputLabel,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
   Select,
-  MenuItem,
-  FormControlLabel,
-  Switch,
-  Box,
-  Alert,
-  CircularProgress,
-} from '@mui/material'
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Loader2 } from 'lucide-react'
 import {
   RadarSource,
   CreateRadarSourceData,
@@ -189,122 +193,155 @@ export function RadarSourceForm({
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        {isEditMode ? '编辑信息源' : '添加信息源'}
-      </DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {isEditMode ? '编辑信息源' : '添加信息源'}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-2">
           {submitError && (
-            <Alert severity="error" onClose={() => setSubmitError(null)}>
-              {submitError}
+            <Alert variant="destructive">
+              <AlertDescription>{submitError}</AlertDescription>
             </Alert>
           )}
 
           {/* 信息源名称 */}
-          <TextField
-            label="信息源名称"
-            value={formData.source}
-            onChange={(e) => handleChange('source', e.target.value)}
-            error={!!errors.source}
-            helperText={errors.source || '例如：杭州银行金融科技'}
-            fullWidth
-            required
-          />
+          <div className="space-y-2">
+            <Label htmlFor="source">
+              信息源名称 <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="source"
+              value={formData.source}
+              onChange={(e) => handleChange('source', e.target.value)}
+              placeholder="例如：杭州银行金融科技"
+              className={errors.source ? 'border-destructive' : ''}
+            />
+            {errors.source && (
+              <p className="text-sm text-destructive">{errors.source}</p>
+            )}
+            {!errors.source && (
+              <p className="text-sm text-muted-foreground">例如：杭州银行金融科技</p>
+            )}
+          </div>
 
           {/* 类别（仅创建时可选） */}
-          <FormControl fullWidth required disabled={isEditMode}>
-            <InputLabel>雷达类别</InputLabel>
+          <div className="space-y-2">
+            <Label>雷达类别</Label>
             <Select
               value={formData.category}
-              label="雷达类别"
-              onChange={(e) =>
-                handleChange('category', e.target.value as FormData['category'])
+              onValueChange={(value) =>
+                handleChange('category', value as FormData['category'])
               }
+              disabled={isEditMode}
             >
-              <MenuItem value="tech">技术雷达</MenuItem>
-              <MenuItem value="industry">行业雷达</MenuItem>
-              <MenuItem value="compliance">合规雷达</MenuItem>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tech">技术雷达</SelectItem>
+                <SelectItem value="industry">行业雷达</SelectItem>
+                <SelectItem value="compliance">合规雷达</SelectItem>
+              </SelectContent>
             </Select>
-          </FormControl>
+          </div>
 
           {/* URL */}
-          <TextField
-            label="URL"
-            value={formData.url}
-            onChange={(e) => handleChange('url', e.target.value)}
-            error={!!errors.url}
-            helperText={errors.url || '信息源的完整URL地址'}
-            fullWidth
-            required
-          />
+          <div className="space-y-2">
+            <Label htmlFor="url">
+              URL <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="url"
+              value={formData.url}
+              onChange={(e) => handleChange('url', e.target.value)}
+              placeholder="信息源的完整URL地址"
+              className={errors.url ? 'border-destructive' : ''}
+            />
+            {errors.url && (
+              <p className="text-sm text-destructive">{errors.url}</p>
+            )}
+            {!errors.url && (
+              <p className="text-sm text-muted-foreground">信息源的完整URL地址</p>
+            )}
+          </div>
 
           {/* 类型 */}
-          <FormControl fullWidth required>
-            <InputLabel>内容类型</InputLabel>
+          <div className="space-y-2">
+            <Label>内容类型</Label>
             <Select
               value={formData.type}
-              label="内容类型"
-              onChange={(e) =>
-                handleChange('type', e.target.value as FormData['type'])
+              onValueChange={(value) =>
+                handleChange('type', value as FormData['type'])
               }
             >
-              <MenuItem value="wechat">微信公众号</MenuItem>
-              <MenuItem value="recruitment">招聘网站</MenuItem>
-              <MenuItem value="conference">会议/活动</MenuItem>
-              <MenuItem value="website">网站</MenuItem>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="wechat">微信公众号</SelectItem>
+                <SelectItem value="recruitment">招聘网站</SelectItem>
+                <SelectItem value="conference">会议/活动</SelectItem>
+                <SelectItem value="website">网站</SelectItem>
+              </SelectContent>
             </Select>
-          </FormControl>
+          </div>
 
           {/* 同业机构名称（可选） */}
-          <TextField
-            label="同业机构名称"
-            value={formData.peerName}
-            onChange={(e) => handleChange('peerName', e.target.value)}
-            helperText="用于行业雷达，标识信息来源的同业机构"
-            fullWidth
-          />
+          <div className="space-y-2">
+            <Label htmlFor="peerName">同业机构名称</Label>
+            <Input
+              id="peerName"
+              value={formData.peerName}
+              onChange={(e) => handleChange('peerName', e.target.value)}
+              placeholder="用于行业雷达，标识信息来源的同业机构"
+            />
+          </div>
 
           {/* 爬取频率 */}
-          <TextField
-            label="爬取频率（Cron表达式）"
-            value={formData.crawlSchedule}
-            onChange={(e) => handleChange('crawlSchedule', e.target.value)}
-            error={!!errors.crawlSchedule}
-            helperText={
-              errors.crawlSchedule ||
-              '例如：0 3 * * * (每天凌晨3点)'
-            }
-            fullWidth
-            required
-          />
+          <div className="space-y-2">
+            <Label htmlFor="crawlSchedule">
+              爬取频率（Cron表达式） <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="crawlSchedule"
+              value={formData.crawlSchedule}
+              onChange={(e) => handleChange('crawlSchedule', e.target.value)}
+              placeholder="例如：0 3 * * * (每天凌晨3点)"
+              className={errors.crawlSchedule ? 'border-destructive' : ''}
+            />
+            {errors.crawlSchedule && (
+              <p className="text-sm text-destructive">{errors.crawlSchedule}</p>
+            )}
+            {!errors.crawlSchedule && (
+              <p className="text-sm text-muted-foreground">例如：0 3 * * * (每天凌晨3点)</p>
+            )}
+          </div>
 
           {/* 启用状态 */}
-          <FormControlLabel
-            control={
-              <Switch
-                checked={formData.isActive}
-                onChange={(e) => handleChange('isActive', e.target.checked)}
-                color="primary"
-              />
-            }
-            label="启用此信息源"
-          />
-        </Box>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="isActive">启用此信息源</Label>
+            <Switch
+              id="isActive"
+              checked={formData.isActive}
+              onCheckedChange={(checked) => handleChange('isActive', checked)}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button onClick={onClose} disabled={submitting} variant="outline">
+            取消
+          </Button>
+          <Button onClick={handleSubmit} disabled={submitting}>
+            {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {submitting ? '提交中...' : isEditMode ? '保存' : '创建'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
-          取消
-        </Button>
-        <Button
-          onClick={handleSubmit}
-          variant="contained"
-          disabled={submitting}
-          startIcon={submitting ? <CircularProgress size={20} /> : null}
-        >
-          {submitting ? '提交中...' : isEditMode ? '保存' : '创建'}
-        </Button>
-      </DialogActions>
     </Dialog>
   )
 }

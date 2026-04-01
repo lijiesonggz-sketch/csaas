@@ -1,28 +1,26 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
-  Box,
-  Chip,
-  Divider,
-  IconButton,
-  Rating,
-  TextField,
-  Alert,
-  CircularProgress,
-} from '@mui/material'
-import CloseIcon from '@mui/icons-material/Close'
+import { X, Star } from 'lucide-react'
 import dayjs from 'dayjs'
 import { useSession } from 'next-auth/react'
 import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
 import { getRadarPush, type PushHistoryItem, type RadarPush } from '@/lib/api/radar'
 import { submitPushFeedback, getUserFeedback, PushFeedback } from '@/lib/api/feedback'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { Textarea } from '@/components/ui/textarea'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 
 interface PushDetailModalProps {
   open: boolean
@@ -225,16 +223,16 @@ export default function PushDetailModal({
     }
   }
 
-  const getRadarTypeColor = (type: string) => {
+  const getRadarTypeVariant = (type: string): 'default' | 'secondary' | 'destructive' | 'outline' => {
     switch (type) {
       case 'tech':
-        return 'primary'
-      case 'industry':
-        return 'success'
-      case 'compliance':
-        return 'warning'
-      default:
         return 'default'
+      case 'industry':
+        return 'default'
+      case 'compliance':
+        return 'secondary'
+      default:
+        return 'outline'
     }
   }
 
@@ -254,245 +252,247 @@ export default function PushDetailModal({
   const matchedControls = controlContext?.matchedControls ?? push.matchedControls
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">{push.title}</Typography>
-          <IconButton onClick={onClose} size="small">
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
+    <>
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg font-semibold">{push.title}</DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="h-6 w-6"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogHeader>
 
-      <DialogContent dividers>
-        {/* 基础信息 */}
-        <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-            <Chip
-              label={getRadarTypeLabel(push.radarType)}
-              color={getRadarTypeColor(push.radarType) as any}
-              size="small"
-            />
-            <Chip label={getRelevanceLabel(push.relevanceLevel)} size="small" variant="outlined" />
-            {push.isRead && <Chip label="已读" size="small" color="default" />}
-          </Box>
-          <Typography variant="body2" color="text.secondary">
-            推送时间: {dayjs(push.sentAt).format('YYYY-MM-DD HH:mm:ss')}
-          </Typography>
-          {push.readAt && (
-            <Typography variant="body2" color="text.secondary">
-              阅读时间: {dayjs(push.readAt).format('YYYY-MM-DD HH:mm:ss')}
-            </Typography>
-          )}
-        </Box>
+          {/* 基础信息 */}
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <Badge variant={getRadarTypeVariant(push.radarType)}>
+                {getRadarTypeLabel(push.radarType)}
+              </Badge>
+              <Badge variant="outline">{getRelevanceLabel(push.relevanceLevel)}</Badge>
+              {push.isRead && <Badge variant="outline">已读</Badge>}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              推送时间: {dayjs(push.sentAt).format('YYYY-MM-DD HH:mm:ss')}
+            </div>
+            {push.readAt && (
+              <div className="text-sm text-muted-foreground">
+                阅读时间: {dayjs(push.readAt).format('YYYY-MM-DD HH:mm:ss')}
+              </div>
+            )}
+          </div>
 
-        <Divider sx={{ my: 2 }} />
+          <Separator />
 
-        {/* 摘要 */}
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            摘要
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {push.summary}
-          </Typography>
-        </Box>
+          {/* 摘要 */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">摘要</h3>
+            <p className="text-sm text-muted-foreground">{push.summary}</p>
+          </div>
 
-        {/* 信息来源 */}
-        {push.sourceName && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              信息来源
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {push.sourceName}
-            </Typography>
-            {push.sourceUrl && (
-              <Typography variant="body2">
-                <a href={push.sourceUrl} target="_blank" rel="noopener noreferrer">
+          {/* 信息来源 */}
+          {push.sourceName && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">信息来源</h3>
+              <p className="text-sm text-muted-foreground">{push.sourceName}</p>
+              {push.sourceUrl && (
+                <a
+                  href={push.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:underline"
+                >
                   查看原文
                 </a>
-              </Typography>
-            )}
-          </Box>
-        )}
+              )}
+            </div>
+          )}
 
-        {/* 关联薄弱项 */}
-        {push.weaknessCategories && push.weaknessCategories.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              关联薄弱项
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {push.weaknessCategories.map((category, index) => (
-                <Chip key={index} label={category} size="small" />
-              ))}
-            </Box>
-          </Box>
-        )}
-
-        {/* 技术雷达特有: ROI 分析 */}
-        {push.radarType === 'tech' && push.roiScore !== undefined && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              ROI 分析
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              ROI 评分: {(push.roiScore * 100).toFixed(0)}%
-            </Typography>
-          </Box>
-        )}
-
-        {/* 行业雷达特有: 同业机构信息 */}
-        {push.radarType === 'industry' && push.matchedPeers && push.matchedPeers.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              关注的同业机构
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {push.matchedPeers.map((peer, index) => (
-                <Chip key={index} label={peer} size="small" color="success" />
-              ))}
-            </Box>
-          </Box>
-        )}
-
-        {/* 合规雷达特有: 风险级别 */}
-        {push.radarType === 'compliance' && push.riskLevel && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              风险级别
-            </Typography>
-            <Chip
-              label={push.riskLevel === 'high' ? '高风险' : push.riskLevel === 'medium' ? '中风险' : '低风险'}
-              color={push.riskLevel === 'high' ? 'error' : push.riskLevel === 'medium' ? 'warning' : 'success'}
-              size="small"
-            />
-          </Box>
-        )}
-
-        {/* 相关性评分 */}
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            相关性评分
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {(push.relevanceScore * 100).toFixed(0)}% - {getRelevanceLabel(push.relevanceLevel)}
-          </Typography>
-        </Box>
-
-        {(loadingControlContext || matchedControls.length > 0) && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              关联控制点
-            </Typography>
-            {loadingControlContext && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <CircularProgress size={18} />
-                <Typography variant="body2" color="text.secondary">
-                  正在加载控制点上下文...
-                </Typography>
-              </Box>
-            )}
-            {!loadingControlContext && matchedControls.length > 0 && (
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                {matchedControls.map((control) => (
-                  <Button
-                    key={control.controlId}
-                    variant="outlined"
-                    size="small"
-                    onClick={() => handleOpenControlDetail(control.controlId)}
-                  >
-                    查看控制点详情: {control.controlName}
-                  </Button>
+          {/* 关联薄弱项 */}
+          {push.weaknessCategories && push.weaknessCategories.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">关联薄弱项</h3>
+              <div className="flex flex-wrap gap-2">
+                {push.weaknessCategories.map((category, index) => (
+                  <Badge key={index} variant="outline">
+                    {category}
+                  </Badge>
                 ))}
-              </Box>
-            )}
-          </Box>
-        )}
-
-        <Divider sx={{ my: 3 }} />
-
-        {/* 用户反馈表单 - Story 7.2 */}
-        <Box sx={{ mb: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            内容反馈
-          </Typography>
-
-          {loadingFeedback && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-              <CircularProgress size={24} />
-            </Box>
+              </div>
+            </div>
           )}
 
-          {!loadingFeedback && existingFeedback && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              您已经对该推送提交过反馈（评分: {existingFeedback.rating} 星）
-            </Alert>
+          {/* 技术雷达特有: ROI 分析 */}
+          {push.radarType === 'tech' && push.roiScore !== undefined && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">ROI 分析</h3>
+              <p className="text-sm text-muted-foreground">
+                ROI 评分: {(push.roiScore * 100).toFixed(0)}%
+              </p>
+            </div>
           )}
 
-          {!loadingFeedback && !existingFeedback && (
-            <>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  请为这条推送内容评分（1-5星）
-                </Typography>
-                <Rating
-                  value={rating}
-                  onChange={(event, newValue) => {
-                    setRating(newValue)
-                    setFeedbackError(null)
-                  }}
-                  size="large"
-                />
-              </Box>
+          {/* 行业雷达特有: 同业机构信息 */}
+          {push.radarType === 'industry' && push.matchedPeers && push.matchedPeers.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">关注的同业机构</h3>
+              <div className="flex flex-wrap gap-2">
+                {push.matchedPeers.map((peer, index) => (
+                  <Badge key={index} variant="default" className="bg-emerald-600">
+                    {peer}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
 
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="评论（可选）"
-                placeholder="请分享您对这条推送内容的看法..."
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                disabled={submitting}
-                sx={{ mb: 2 }}
-              />
-
-              {feedbackError && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {feedbackError}
-                </Alert>
-              )}
-
-              {feedbackSuccess && (
-                <Alert severity="success" sx={{ mb: 2 }}>
-                  反馈提交成功！感谢您的反馈。
-                </Alert>
-              )}
-
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleSubmitFeedback}
-                disabled={rating === null || submitting}
-                fullWidth
+          {/* 合规雷达特有: 风险级别 */}
+          {push.radarType === 'compliance' && push.riskLevel && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">风险级别</h3>
+              <Badge
+                variant={push.riskLevel === 'high' ? 'destructive' : push.riskLevel === 'medium' ? 'secondary' : 'default'}
+                className="bg-emerald-600"
               >
-                {submitting ? '提交中...' : '提交反馈'}
-              </Button>
-            </>
+                {push.riskLevel === 'high' ? '高风险' : push.riskLevel === 'medium' ? '中风险' : '低风险'}
+              </Badge>
+            </div>
           )}
-        </Box>
-      </DialogContent>
 
-      <DialogActions>
-        {!push.isRead && (
-          <Button onClick={handleMarkAsRead} color="primary">
-            标记为已读
-          </Button>
-        )}
-        <Button onClick={onClose}>关闭</Button>
-      </DialogActions>
+          {/* 相关性评分 */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">相关性评分</h3>
+            <p className="text-sm text-muted-foreground">
+              {(push.relevanceScore * 100).toFixed(0)}% - {getRelevanceLabel(push.relevanceLevel)}
+            </p>
+          </div>
+
+          {(loadingControlContext || matchedControls.length > 0) && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">关联控制点</h3>
+              {loadingControlContext && (
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-4 w-4" />
+                  <span className="text-sm text-muted-foreground">正在加载控制点上下文...</span>
+                </div>
+              )}
+              {!loadingControlContext && matchedControls.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {matchedControls.map((control) => (
+                    <Button
+                      key={control.controlId}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenControlDetail(control.controlId)}
+                      className="h-7"
+                    >
+                      查看控制点详情: {control.controlName}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <Separator />
+
+          {/* 用户反馈表单 - Story 7.2 */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-medium">内容反馈</h3>
+
+            {loadingFeedback && (
+              <div className="flex justify-center py-4">
+                <Skeleton className="h-6 w-24" />
+              </div>
+            )}
+
+            {!loadingFeedback && existingFeedback && (
+              <Alert>
+                <AlertDescription>
+                  您已经对该推送提交过反馈（评分: {existingFeedback.rating} 星）
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {!loadingFeedback && !existingFeedback && (
+              <>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    请为这条推送内容评分（1-5星）
+                  </p>
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => {
+                          setRating(star)
+                          setFeedbackError(null)
+                        }}
+                        className={cn(
+                          'transition-colors',
+                          rating && rating >= star ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'
+                        )}
+                      >
+                        <Star
+                          className="h-6 w-6"
+                          fill={rating && rating >= star ? 'currentColor' : 'none'}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <Textarea
+                  rows={3}
+                  placeholder="请分享您对这条推送内容的看法..."
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  disabled={submitting}
+                  className="resize-none"
+                />
+
+                {feedbackError && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{feedbackError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {feedbackSuccess && (
+                  <Alert className="border-emerald-600 text-emerald-600">
+                    <AlertDescription>反馈提交成功！感谢您的反馈。</AlertDescription>
+                  </Alert>
+                )}
+
+                <Button
+                  onClick={handleSubmitFeedback}
+                  disabled={rating === null || submitting}
+                  className="w-full"
+                >
+                  {submitting ? '提交中...' : '提交反馈'}
+                </Button>
+              </>
+            )}
+          </div>
+
+          <DialogFooter>
+            {!push.isRead && (
+              <Button onClick={handleMarkAsRead} variant="default">
+                标记为已读
+              </Button>
+            )}
+            <Button onClick={onClose} variant="outline">
+              关闭
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {organizationId && selectedControlId && (
         <ControlDetailDrawer
@@ -504,6 +504,6 @@ export default function PushDetailModal({
           sourceRecordId={controlContext?.sourceRecordId || push.id}
         />
       )}
-    </Dialog>
+    </>
   )
 }

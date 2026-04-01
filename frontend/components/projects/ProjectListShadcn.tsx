@@ -68,10 +68,10 @@ export default function ProjectListShadcn({ onProjectClick }: ProjectListProps) 
 
   if (loading) {
     return (
-      <main className="flex items-center justify-center min-h-[400px]" role="status" aria-label="加载中">
+      <main className="flex items-center justify-center min-h-[400px] bg-[#FEFDFB]" role="status" aria-label="加载中">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-500 rounded-full animate-spin" />
-          <p className="text-slate-500">加载项目列表...</p>
+          <div className="w-12 h-12 border-4 border-[#E2E8F0] border-t-[#1E3A5F] rounded-full animate-spin" />
+          <p className="text-[#94A3B8]">加载项目列表...</p>
         </div>
       </main>
     )
@@ -79,12 +79,12 @@ export default function ProjectListShadcn({ onProjectClick }: ProjectListProps) 
 
   if (error) {
     return (
-      <main className="max-w-[1920px] mx-auto px-6 py-6" role="alert" aria-live="polite">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+      <main className="max-w-[1920px] mx-auto px-6 py-6 bg-[#FEFDFB]" role="alert" aria-live="polite">
+        <div className="bg-red-50 border border-red-200 rounded-sm p-4 mb-4">
           <p className="text-red-600">{error}</p>
         </div>
         <div className="flex justify-center">
-          <Button onClick={loadProjects} variant="outline">
+          <Button onClick={loadProjects} variant="outline" className="rounded-sm">
             重试
           </Button>
         </div>
@@ -93,22 +93,22 @@ export default function ProjectListShadcn({ onProjectClick }: ProjectListProps) 
   }
 
   return (
-    <main className="w-full px-6 py-8">
+    <main className="w-full px-6 py-8 bg-[#FEFDFB] min-h-screen">
       {/* 页面头部 */}
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-8 mb-6 text-white">
+      <div className="bg-[#1E3A5F] rounded-sm p-8 mb-6 text-white">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 rounded-xl">
+            <div className="p-3 bg-white/10 rounded-sm">
               <LayoutGrid className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">我的项目</h1>
-              <p className="text-white/80 mt-1">管理您的合规咨询项目，跟踪项目进度和AI分析结果</p>
+              <h1 className="text-2xl font-bold font-[var(--font-plus-jakarta)]">我的项目</h1>
+              <p className="text-white/80 mt-1 font-[var(--font-inter)]">管理您的合规咨询项目，跟踪项目进度和AI分析结果</p>
             </div>
           </div>
           <Button
             onClick={() => setCreateDialogOpen(true)}
-            className="bg-white text-indigo-600 hover:bg-white/90 shadow-lg"
+            className="bg-white text-[#1E3A5F] hover:bg-white/90 shadow-sm rounded-sm"
           >
             <Plus className="w-4 h-4 mr-2" />
             创建项目
@@ -121,7 +121,7 @@ export default function ProjectListShadcn({ onProjectClick }: ProjectListProps) 
         <Button
           variant="ghost"
           onClick={() => router.push('/dashboard')}
-          className="text-slate-500 hover:text-slate-700"
+          className="text-[#94A3B8] hover:text-[#1E3A5F]"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           返回工作台
@@ -131,14 +131,14 @@ export default function ProjectListShadcn({ onProjectClick }: ProjectListProps) 
       {/* 项目列表或空状态 */}
       {projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-          <div className="p-6 rounded-full bg-gradient-to-br from-indigo-50 to-purple-50 mb-6">
-            <Sparkles className="w-12 h-12 text-indigo-500" />
+          <div className="p-6 rounded-full bg-emerald-50 mb-6 border border-[#E2E8F0]">
+            <Sparkles className="w-12 h-12 text-[#059669]" />
           </div>
-          <h2 className="text-xl font-semibold text-slate-900 mb-2">还没有任何项目</h2>
-          <p className="text-slate-500 mb-8">点击上方"创建项目"按钮开始您的第一个咨询项目</p>
+          <h2 className="text-xl font-semibold text-[#1E3A5F] mb-2 font-[var(--font-plus-jakarta)]">还没有任何项目</h2>
+          <p className="text-[#94A3B8] mb-8 font-[var(--font-inter)]">点击上方"创建项目"按钮开始您的第一个咨询项目</p>
           <Button
             onClick={() => setCreateDialogOpen(true)}
-            className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
+            className="bg-[#1E3A5F] hover:bg-[#162e4d] text-white rounded-sm"
           >
             <Plus className="w-4 h-4 mr-2" />
             创建第一个项目

@@ -2,8 +2,8 @@
 
 import React from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { Box, Tabs, Tab, Button } from '@mui/material'
-import { Home, Assessment, Radar, Description } from '@mui/icons-material'
+import { Home, FileText, Radar, BarChart3 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 /**
  * Unified Navigation Component
@@ -23,10 +23,10 @@ export default function UnifiedNavigation({ organizationId }: UnifiedNavigationP
 
   // 定义导航项映射
   const navItems = [
-    { label: 'Dashboard', path: '/', icon: <Home />, value: '/' },
-    { label: '标准评估', path: '/projects', icon: <Assessment />, value: '/projects' },
-    { label: 'Radar Service', path: '/radar', icon: <Radar />, value: '/radar' },
-    { label: '报告中心', path: '/reports', icon: <Description />, value: '/reports' },
+    { label: 'Dashboard', path: '/', icon: Home, value: '/' },
+    { label: '标准评估', path: '/projects', icon: BarChart3, value: '/projects' },
+    { label: 'Radar Service', path: '/radar', icon: Radar, value: '/radar' },
+    { label: '报告中心', path: '/reports', icon: FileText, value: '/reports' },
   ]
 
   // 确定当前激活的标签
@@ -46,38 +46,42 @@ export default function UnifiedNavigation({ organizationId }: UnifiedNavigationP
     return 0
   }
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    const route = navItems[newValue].path
-    if (organizationId && newValue === 2) {
+  const handleTabChange = (path: string) => {
+    if (organizationId && path === '/radar') {
       // Radar页面需要orgId参数
-      router.push(`${route}?orgId=${organizationId}`)
+      router.push(`${path}?orgId=${organizationId}`)
     } else {
-      router.push(route)
+      router.push(path)
     }
   }
 
   return (
-    <Box sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-      <Box sx={{ maxWidth: 1400, mx: 'auto', px: 2 }}>
-        <Tabs
-          value={getActiveTab()}
-          onChange={handleTabChange}
-          aria-label="unified navigation tabs"
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{ minHeight: 64 }}
-        >
-          {navItems.map((item) => (
-            <Tab
-              key={item.value}
-              icon={item.icon}
-              label={item.label}
-              value={item.value}
-              sx={{ minHeight: 64 }}
-            />
-          ))}
-        </Tabs>
-      </Box>
-    </Box>
+    <div className="border-b border-[#E2E8F0] bg-[#FEFDFB]">
+      <div className="max-w-[1400px] mx-auto px-2">
+        <div className="flex items-center h-16">
+          {navItems.map((item) => {
+            const isActive = getActiveTab() === navItems.findIndex(nav => nav.value === item.value)
+            const Icon = item.icon
+
+            return (
+              <button
+                key={item.value}
+                onClick={() => handleTabChange(item.path)}
+                className={cn(
+                  'flex items-center gap-2 px-4 h-16 text-sm font-medium transition-all duration-200 border-b-2',
+                  'hover:text-[#1E3A5F] hover:bg-[#F1F5F9]',
+                  isActive
+                    ? 'text-[#059669] border-[#059669] bg-[#F0FDFA]'
+                    : 'text-[#64748B] border-transparent'
+                )}
+              >
+                <Icon className={cn('h-4 w-4', isActive && 'text-[#059669]')} />
+                <span>{item.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
   )
 }

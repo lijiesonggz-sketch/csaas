@@ -2,8 +2,8 @@
 
 import React from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { Breadcrumbs, Link, Typography, Chip, Box } from '@mui/material'
-import NavigateNextIcon from '@mui/icons-material/NavigateNext'
+import { ChevronRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 /**
  * Breadcrumb Navigation Component
@@ -65,45 +65,41 @@ export default function Breadcrumb({ organizationName }: BreadcrumbProps) {
   }
 
   return (
-    <Box sx={{ py: 2 }}>
-      <Breadcrumbs
-        separator={<NavigateNextIcon fontSize="small" />}
-        aria-label="breadcrumb"
-      >
+    <div className="py-2">
+      <nav aria-label="breadcrumb" className="flex items-center gap-1 text-sm">
         {breadcrumbs.map((crumb, index) => {
           const isLast = index === breadcrumbs.length - 1
 
           if (isLast) {
             return (
-              <Typography key={crumb.path} color="text.primary">
+              <span key={crumb.path} className="text-[#1E3A5F] font-medium">
                 {crumb.label}
-              </Typography>
+              </span>
             )
           }
 
           return (
-            <Link
-              key={crumb.path}
-              href={crumb.path}
-              underline="hover"
-              color="inherit"
-              onClick={(e) => {
-                e.preventDefault()
-                router.push(crumb.path)
-              }}
-            >
-              {crumb.label}
-            </Link>
+            <React.Fragment key={crumb.path}>
+              <button
+                onClick={() => router.push(crumb.path)}
+                className="text-[#64748B] hover:text-[#1E3A5F] transition-colors duration-200"
+              >
+                {crumb.label}
+              </button>
+              <ChevronRight className="h-4 w-4 text-[#94A3B8]" />
+            </React.Fragment>
           )
         })}
-      </Breadcrumbs>
+      </nav>
 
       {/* 可选：显示组织名称 */}
       {organizationName && (
-        <Box sx={{ mt: 1 }}>
-          <Chip label={`组织: ${organizationName}`} size="small" variant="outlined" />
-        </Box>
+        <div className="mt-1">
+          <span className="inline-flex items-center px-2 py-1 rounded-sm text-xs font-medium border border-[#E2E8F0] bg-[#FEFDFB] text-[#1E3A5F]">
+            组织: {organizationName}
+          </span>
+        </div>
       )}
-    </Box>
+    </div>
   )
 }

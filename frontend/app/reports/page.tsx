@@ -133,23 +133,23 @@ export default function ReportsPage() {
 
   return (
     <MainLayout>
-      <div className="w-full px-6 py-8">
-        <Card className="mb-6 overflow-hidden border-0 shadow-lg">
-          <div className="bg-gradient-to-r from-[#0f766e] via-[#0f766e] to-[#155e75] p-6 text-white">
+      <div className="w-full px-6 py-8 bg-[#FEFDFB] min-h-screen">
+        <Card className="mb-6 overflow-hidden border border-[#E2E8F0] shadow-sm rounded-sm">
+          <div className="bg-[#1E3A5F] p-6 text-white">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
+                <div className="flex h-12 w-12 items-center justify-center rounded-sm bg-white/10">
                   <FileText className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold">报告中心</h1>
-                  <p className="text-sm text-white/85">
+                  <h1 className="text-2xl font-bold font-[var(--font-plus-jakarta)]">报告中心</h1>
+                  <p className="text-sm text-white/80 font-[var(--font-inter)]">
                     统一查看各项目的报告状态、风险摘要和差距重点
                   </p>
                 </div>
               </div>
               <Button
-                className="bg-white text-teal-700 hover:bg-white/90"
+                className="bg-white text-[#1E3A5F] hover:bg-white/90 rounded-sm"
                 onClick={() => {
                   setProjectFilter('all')
                   setStatusFilter('all')
@@ -164,34 +164,34 @@ export default function ReportsPage() {
         </Card>
 
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
-          <Card className="border-0 shadow-sm">
+          <Card className="border border-[#E2E8F0] shadow-sm rounded-sm">
             <CardContent className="p-4">
-              <p className="text-sm text-slate-500">项目总数</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-900">
+              <p className="text-sm text-[#94A3B8]">项目总数</p>
+              <p className="mt-2 text-2xl font-semibold text-[#1E3A5F]">
                 {reportCenter?.summary.totalItems ?? 0}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm">
+          <Card className="border border-[#E2E8F0] shadow-sm rounded-sm">
             <CardContent className="p-4">
-              <p className="text-sm text-slate-500">可查看</p>
-              <p className="mt-2 text-2xl font-semibold text-emerald-700">
+              <p className="text-sm text-[#94A3B8]">可查看</p>
+              <p className="mt-2 text-2xl font-semibold text-[#059669]">
                 {reportCenter?.summary.readyCount ?? 0}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm">
+          <Card className="border border-[#E2E8F0] shadow-sm rounded-sm">
             <CardContent className="p-4">
-              <p className="text-sm text-slate-500">未就绪</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-700">
+              <p className="text-sm text-[#94A3B8]">未就绪</p>
+              <p className="mt-2 text-2xl font-semibold text-[#94A3B8]">
                 {reportCenter?.summary.notReadyCount ?? 0}
               </p>
             </CardContent>
           </Card>
-          <Card className="border-0 shadow-sm">
+          <Card className="border border-[#E2E8F0] shadow-sm rounded-sm">
             <CardContent className="p-4">
-              <p className="text-sm text-slate-500">失败项</p>
-              <p className="mt-2 text-2xl font-semibold text-red-700">
+              <p className="text-sm text-[#94A3B8]">失败项</p>
+              <p className="mt-2 text-2xl font-semibold text-red-600">
                 {reportCenter?.summary.failedCount ?? 0}
               </p>
             </CardContent>

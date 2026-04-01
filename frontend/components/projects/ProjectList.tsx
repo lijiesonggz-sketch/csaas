@@ -6,24 +6,18 @@ import { apiFetch } from '@/lib/utils/api'
 import ProjectCard from './ProjectCard'
 import CreateProjectDialog from './CreateProjectDialog'
 import {
-  Add,
-  AutoAwesome,
-  ArrowBack,
-  ViewKanban,
-} from '@mui/icons-material'
-import {
-  Container,
-  Grid,
-  Box,
-  CircularProgress,
-  Typography,
-  Button,
-  Alert,
-} from '@mui/material'
+  Sparkles,
+  ArrowLeft,
+  LayoutDashboard,
+  Plus,
+  Loader2,
+} from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import PageHeader from '@/components/ui/mui/PageHeader'
-import PrimaryButton from '@/components/ui/mui/PrimaryButton'
-import ContentCard from '@/components/ui/mui/ContentCard'
+import { PageHeader } from '@/components/ui/page-header'
+import { Button } from '@/components/ui/button'
+import { ContentCard } from '@/components/ui/content-card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AlertCircle } from 'lucide-react'
 
 interface ProjectListProps {
   onProjectClick?: (project: Project) => void
@@ -66,133 +60,123 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
   if (loading) {
     return (
       <main
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '400px',
-        }}
+        className="flex items-center justify-center min-h-[400px]"
         role="status"
         aria-label="加载中"
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-          <CircularProgress size={48} />
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-[#1E3A5F]" />
+          <p className="text-sm text-[#64748B]">
             加载项目列表...
-          </Typography>
-        </Box>
+          </p>
+        </div>
       </main>
     )
   }
 
   if (error) {
     return (
-      <main style={{ maxWidth: '1920px', margin: '0 auto', padding: '24px 48px' }} role="alert" aria-live="polite">
-        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
-          {error}
+      <main className="max-w-[1920px] mx-auto px-12 py-6" role="alert" aria-live="polite">
+        <Alert variant="destructive" className="mb-4 border-[#FECACA] bg-[#FEF2F2]">
+          <AlertCircle className="h-4 w-4 text-[#DC2626]" />
+          <AlertDescription className="text-[#991B1B]">
+            {error}
+          </AlertDescription>
         </Alert>
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+        <div className="flex justify-center">
           <Button
             onClick={loadProjects}
-            variant="outlined"
-            sx={{ minWidth: 100, minHeight: 44 }}
+            variant="outline"
+            className="min-w-[100px] h-11 border-[#E2E8F0] text-[#64748B] hover:bg-[#F1F5F9]"
           >
             重试
           </Button>
-        </Box>
+        </div>
       </main>
     )
   }
 
   return (
-    <main style={{ width: '100%', margin: '0 auto', padding: '32px 48px' }}>
-      <Container maxWidth={false} disableGutters>
-        {/* 头部：使用 PageHeader 组件 */}
-        <PageHeader
-          title="我的项目"
-          description="管理您的合规咨询项目，跟踪项目进度和AI分析结果"
-          icon={<ViewKanban sx={{ fontSize: 24 }} />}
-          action={
-            <PrimaryButton
-              startIcon={<Add />}
-              onClick={() => setCreateDialogOpen(true)}
-            >
-              创建项目
-            </PrimaryButton>
-          }
-        />
-
-        {/* 返回按钮 */}
-        <Box sx={{ mb: 3 }}>
+    <main className="w-full px-12 py-8">
+      {/* 头部：使用 PageHeader 组件 */}
+      <PageHeader
+        title="我的项目"
+        description="管理您的合规咨询项目，跟踪项目进度和AI分析结果"
+        icon={<LayoutDashboard className="h-6 w-6" />}
+        action={
           <Button
-            startIcon={<ArrowBack />}
-            onClick={() => router.push('/dashboard')}
-            sx={{
-              color: 'text.secondary',
-              minWidth: 'auto',
-            }}
+            onClick={() => setCreateDialogOpen(true)}
+            className="bg-gradient-to-r from-[#1E3A5F] to-[#059669] text-white hover:shadow-lg"
           >
-            返回工作台
+            <Plus className="h-4 w-4 mr-2" />
+            创建项目
           </Button>
-        </Box>
+        }
+      />
 
-        {/* 项目列表或空状态 */}
-        {projects.length === 0 ? (
-          <ContentCard sx={{ py: 16, px: 6, textAlign: 'center' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'center', mb: 6 }}>
-              <Box
-                sx={{
-                  p: 4,
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #eef2ff 0%, #ddd6fe 100%)',
-                }}
-              >
-                <AutoAwesome sx={{ fontSize: 48, color: '#6366f1' }} />
-              </Box>
-            </Box>
-            <Typography variant="h5" sx={{ fontWeight: 600, mb: 2, color: 'text.primary' }}>
-              还没有任何项目
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 8 }}>
-              点击上方&quot;创建项目&quot;按钮开始您的第一个咨询项目
-            </Typography>
-            <PrimaryButton
-              startIcon={<Add />}
-              onClick={() => setCreateDialogOpen(true)}
+      {/* 返回按钮 */}
+      <div className="mb-6">
+        <Button
+          variant="ghost"
+          onClick={() => router.push('/dashboard')}
+          className="text-[#64748B] hover:text-[#1E3A5F] hover:bg-[#F1F5F9]"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          返回工作台
+        </Button>
+      </div>
+
+      {/* 项目列表或空状态 */}
+      {projects.length === 0 ? (
+        <ContentCard padding="lg" className="text-center py-16">
+          <div className="flex justify-center mb-8">
+            <div className="p-8 rounded-full bg-gradient-to-br from-[#eef2ff] to-[#ddd6fe]">
+              <Sparkles className="h-12 w-12 text-[#6366f1]" />
+            </div>
+          </div>
+          <h3 className="text-xl font-semibold text-[#1E3A5F] mb-3">
+            还没有任何项目
+          </h3>
+          <p className="text-sm text-[#64748B] mb-10">
+            点击上方"创建项目"按钮开始您的第一个咨询项目
+          </p>
+          <Button
+            onClick={() => setCreateDialogOpen(true)}
+            className="bg-gradient-to-r from-[#1E3A5F] to-[#059669] text-white hover:shadow-lg"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            创建第一个项目
+          </Button>
+        </ContentCard>
+      ) : (
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 -mx-3 px-3"
+          role="list"
+          aria-label="项目列表"
+        >
+          {projects.map((project) => (
+            <div
+              key={project.id}
+              className="p-3"
             >
-              创建第一个项目
-            </PrimaryButton>
-          </ContentCard>
-        ) : (
-          <Grid container spacing={3} role="list" aria-label="项目列表" sx={{ width: 'calc(100% + 24px)', margin: '-12px' }}>
-            {projects.map((project) => (
-              <Grid
-                size={{ xs: 12, sm: 6, md: 6, lg: 4, xl: 3 }}
-                key={project.id}
-                sx={{
-                  display: 'flex',
-                  padding: '12px !important',
-                }}
-              >
-                <Box sx={{ width: '100%', minWidth: 0 }}>
-                  <ProjectCard
-                    project={project}
-                    onClick={() => onProjectClick?.(project)}
-                    onDelete={handleProjectDeleted}
-                  />
-                </Box>
-              </Grid>
-            ))}
-          </Grid>
-        )}
+              <div className="w-full min-w-0">
+                <ProjectCard
+                  project={project}
+                  onClick={() => onProjectClick?.(project)}
+                  onDelete={handleProjectDeleted}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-        {/* 创建项目对话框 */}
-        <CreateProjectDialog
-          open={createDialogOpen}
-          onClose={() => setCreateDialogOpen(false)}
-          onCreated={handleProjectCreated}
-        />
-      </Container>
+      {/* 创建项目对话框 */}
+      <CreateProjectDialog
+        open={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+        onCreated={handleProjectCreated}
+      />
     </main>
   )
 }

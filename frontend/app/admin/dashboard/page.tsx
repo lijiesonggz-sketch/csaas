@@ -25,7 +25,7 @@ import {
 import { HealthMetricCard } from '@/components/admin/HealthMetricCard';
 import { AlertList } from '@/components/admin/AlertList';
 import { HealthTrendChart } from '@/components/admin/HealthTrendChart';
-import { ArrowPathIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { RefreshCw, ArrowLeft } from 'lucide-react';
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -207,15 +207,15 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-[#FEFDFB] p-6">
       <div className="max-w-7xl mx-auto">
         {/* Back Button */}
         <div className="mb-4">
           <button
             onClick={handleBack}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+            className="flex items-center space-x-2 text-[#94A3B8] hover:text-[#1E3A5F] transition-colors"
           >
-            <ArrowLeftIcon className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5" />
             <span>返回仪表板</span>
           </button>
         </div>
@@ -224,15 +224,15 @@ export default function DashboardPage() {
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">运营仪表板</h1>
-              <p className="mt-1 text-sm text-gray-600">
+              <h1 className="text-3xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">运营仪表板</h1>
+              <p className="mt-1 text-sm text-[#94A3B8] font-[var(--font-inter)]">
                 最后更新: {lastUpdate.toLocaleTimeString('zh-CN')}
               </p>
             </div>
 
             <div className="flex items-center space-x-4">
               {unresolvedCount > 0 && (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                <span className="inline-flex items-center px-3 py-1 rounded-sm text-sm font-medium bg-red-100 text-red-700">
                   {unresolvedCount} 个未处理告警
                 </span>
               )}
@@ -240,9 +240,9 @@ export default function DashboardPage() {
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                className="flex items-center space-x-2 px-4 py-2 bg-white border border-[#E2E8F0] rounded-sm hover:bg-[#FEFDFB] disabled:opacity-50"
               >
-                <ArrowPathIcon
+                <RefreshCw
                   className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`}
                 />
                 <span>{refreshing ? '刷新中...' : '手动刷新'}</span>
@@ -291,8 +291,8 @@ export default function DashboardPage() {
 
         {/* Alerts Section */}
         <div className="mb-6">
-          <div className="bg-white rounded-lg border p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">异常告警</h2>
+          <div className="bg-white rounded-sm border border-[#E2E8F0] shadow-sm p-6">
+            <h2 className="text-xl font-semibold text-[#1E3A5F] mb-4 font-[var(--font-plus-jakarta)]">异常告警</h2>
             <AlertList
               alerts={alerts}
               onResolve={handleResolveAlert}
@@ -304,7 +304,7 @@ export default function DashboardPage() {
         {/* Trend Chart */}
         <div className="mb-6">
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-[#1E3A5F] mb-2">
               选择指标
             </label>
             <div className="flex space-x-2">
@@ -317,10 +317,10 @@ export default function DashboardPage() {
                 <button
                   key={option.value}
                   onClick={() => setSelectedMetric(option.value as any)}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg ${
+                  className={`px-4 py-2 text-sm font-medium rounded-sm ${
                     selectedMetric === option.value
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                      ? 'bg-[#1E3A5F] text-white'
+                      : 'bg-white text-[#1E3A5F] border border-[#E2E8F0] hover:bg-[#FEFDFB]'
                   }`}
                 >
                   {option.label}

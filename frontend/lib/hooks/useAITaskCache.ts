@@ -2,7 +2,7 @@
  * AI任务结果缓存Hook
  * 避免重复加载已完成的任务结果
  */
-import { useState, useEffect } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 interface CacheEntry {
   data: any
@@ -15,11 +15,11 @@ const CACHE_DURATION = 30 * 60 * 1000 // 30分钟
 export function useAITaskCache() {
   const [cache, setCache] = useState<Map<string, CacheEntry>>(new Map())
 
-  const getCacheKey = (projectId: string, taskType: string) => {
+  const getCacheKey = useCallback((projectId: string, taskType: string) => {
     return `${projectId}-${taskType}`
-  }
+  }, [])
 
-  const get = (projectId: string, taskType: string): any | null => {
+  const get = useCallback((projectId: string, taskType: string): any | null => {
     const key = getCacheKey(projectId, taskType)
     const entry = cache.get(key)
 
@@ -41,15 +41,19 @@ export function useAITaskCache() {
 
     // 检查内存缓存是否过期
     if (Date.now() - entry.timestamp > CACHE_DURATION) {
-      cache.delete(key)
+      setCache(prev => {
+        const next = new Map(prev)
+        next.delete(key)
+        return next
+      })
       localStorage.removeItem(`task_cache_${key}`)
       return null
     }
 
     return entry.data
-  }
+  }, [cache, getCacheKey])
 
-  const set = (projectId: string, taskType: string, taskId: string, data: any) => {
+  const set = useCallback((projectId: string, taskType: string, taskId: string, data: any) => {
     const key = getCacheKey(projectId, taskType)
     const entry: CacheEntry = {
       data,
@@ -66,9 +70,9 @@ export function useAITaskCache() {
     } catch (err) {
       console.warn('Failed to save to localStorage:', err)
     }
-  }
+  }, [getCacheKey])
 
-  const clear = (projectId?: string) => {
+  const clear = useCallback((projectId?: string) => {
     if (projectId) {
       // 清除特定项目的缓存
       const keysToDelete: string[] = []
@@ -77,7 +81,13 @@ export function useAITaskCache() {
           keysToDelete.push(key)
         }
       })
-      keysToDelete.forEach(key => cache.delete(key))
+      if (keysToDelete.length > 0) {
+        setCache(prev => {
+          const next = new Map(prev)
+          keysToDelete.forEach(key => next.delete(key))
+          return next
+        })
+      }
 
       // 清除localStorage
       Object.keys(localStorage)
@@ -90,7 +100,7 @@ export function useAITaskCache() {
         .filter(k => k.startsWith('task_cache_'))
         .forEach(k => localStorage.removeItem(k))
     }
-  }
+  }, [cache])
 
-  return { get, set, clear }
+  return useMemo(() => ({ get, set, clear }), [get, set, clear])
 }

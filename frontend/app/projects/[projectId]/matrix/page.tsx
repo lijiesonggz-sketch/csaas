@@ -147,7 +147,7 @@ export default function MatrixPage() {
   return (
     <div className="w-full px-6 py-8">
       {/* 渐变头部 */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#667eea] to-[#764ba2] p-8 mb-8">
+      <div className="relative overflow-hidden rounded-3xl bg-[#1E3A5F] p-8 mb-8">
         {/* 装饰性径向渐变 */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.1)_0%,transparent_50%)]" />
 
@@ -201,28 +201,28 @@ export default function MatrixPage() {
       {!generationResult ? (
         <Card className="border-0 shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)]">
           <CardContent className="py-16 text-center">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center mx-auto mb-4">
-              <Sparkles className="w-6 h-6 text-indigo-600" />
+            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+              <Sparkles className="w-6 h-6 text-[#1E3A5F]" />
             </div>
-            <h3 className="text-xl font-semibold text-slate-900 mb-2">还没有生成成熟度矩阵</h3>
-            <p className="text-sm text-slate-500 mb-8">点击下方按钮开始生成成熟度矩阵</p>
+            <h3 className="text-xl font-semibold text-[#94A3B8]900 mb-2">还没有生成成熟度矩阵</h3>
+            <p className="text-sm text-[#94A3B8]500 mb-8">点击下方按钮开始生成成熟度矩阵</p>
 
             {loading && progress > 0 ? (
               <div className="max-w-md mx-auto">
                 <div className="flex justify-between mb-2">
-                  <span className="text-sm text-slate-500">生成进度</span>
-                  <span className="text-sm font-semibold text-indigo-600">{progress}%</span>
+                  <span className="text-sm text-[#94A3B8]500">生成进度</span>
+                  <span className="text-sm font-semibold text-[#1E3A5F]">{progress}%</span>
                 </div>
                 <Progress value={progress} className="h-3" />
                 {progressMessage && (
-                  <p className="text-sm text-slate-500 mt-2">{progressMessage}</p>
+                  <p className="text-sm text-[#94A3B8]500 mt-2">{progressMessage}</p>
                 )}
               </div>
             ) : (
               <Button
                 onClick={handleGenerate}
                 disabled={loading}
-                className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 text-lg"
+                className="bg-gradient-to-r from-[#1E3A5F] to-[#152a47] hover:from-indigo-600 hover:to-[#0f1f36] text-white px-6 py-3 text-lg"
               >
                 <Sparkles className="w-5 h-5 mr-2" />
                 {loading ? '生成中...' : '生成矩阵'}
@@ -233,9 +233,9 @@ export default function MatrixPage() {
       ) : (
         <Card className="border-0 shadow-[0_4px_6px_-1px_rgba(99,102,241,0.1),0_2px_4px_-1px_rgba(99,102,241,0.06)]">
           <CardContent className="p-6">
-            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-200">
+            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-[#E2E8F0]">
               <CheckCircle className="w-6 h-6 text-emerald-500" />
-              <h3 className="text-xl font-semibold text-slate-900">矩阵生成完成</h3>
+              <h3 className="text-xl font-semibold text-[#94A3B8]900">矩阵生成完成</h3>
             </div>
             <MatrixResultDisplay result={generationResult} />
           </CardContent>

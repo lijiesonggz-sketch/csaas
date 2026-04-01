@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review
 
 generated: '2026-03-24'
-last_updated: '2026-03-31'
+last_updated: '2026-04-01'
 project: 'Csaas'
 project_key: 'NOKEY'
 tracking_system: 'file-system'
@@ -83,7 +83,7 @@ development_status:
   5-5-human-review-and-finalize-case-control-mappings: done
   epic-5-retrospective: optional
 
-  # ===== KG Product Closure (Epic 6-11) - BACKLOG =====
+  # ===== KG Product Closure (Epic 6-12) - BACKLOG =====
 
   # Epic 6: 机构画像产品入口与适用控制点编排
   # PRD: V1-H01, V1-H02
@@ -141,3 +141,9 @@ development_status:
   11-3-email-notification-channel-integration: done
   11-4-push-detail-control-context-integration: done
   epic-11-retrospective: optional
+
+  # Epic 12: KG 知识运营后台
+  # Productizes FR11 admin operating entry without reopening Epic 5 core capability
+  epic-12: backlog
+  12-1-case-import-and-human-review-admin-page: backlog
+  epic-12-retrospective: optional

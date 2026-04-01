@@ -388,7 +388,7 @@ export default function ControlReportPage() {
               </CardHeader>
               <CardContent>
                 {section.l2Sections.map((l2Section) => (
-                  <div key={l2Section.l2Code} className="mb-6 rounded-xl border border-slate-200 p-4">
+                  <div key={l2Section.l2Code} className="mb-6 rounded-sm border border-[#E2E8F0] p-4">
                     <div className="mb-4 flex items-center gap-2">
                       <ChevronRight className="h-4 w-4 text-slate-400" />
                       <Badge variant="outline">{l2Section.l2Code}</Badge>

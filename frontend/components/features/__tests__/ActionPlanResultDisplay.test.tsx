@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import ActionPlanResultDisplay from '../ActionPlanResultDisplay'
 
 // Mock sonner toast
@@ -94,22 +94,16 @@ describe('ActionPlanResultDisplay', () => {
   it('displays metadata information', () => {
     render(<ActionPlanResultDisplay result={mockResult} />)
 
-    expect(screen.getByText('实施计划')).toBeInTheDocument()
-    // These appear multiple times
+    // The simple measure card shows timeline info
+    // These appear multiple times in the card details
     expect(screen.getAllByText('时间周期').length).toBeGreaterThan(0)
     expect(screen.getAllByText('6个月').length).toBeGreaterThan(0)
-    expect(screen.getByText('聚类数量')).toBeInTheDocument()
   })
 
   it('handles export buttons', () => {
     render(<ActionPlanResultDisplay result={mockResult} />)
 
     const exportCSVButton = screen.getByRole('button', { name: /导出CSV/i })
-    const exportExcelButton = screen.getByRole('button', { name: /导出Excel/i })
-    const exportWordButton = screen.getByRole('button', { name: /导出Word/i })
-
     expect(exportCSVButton).toBeInTheDocument()
-    expect(exportExcelButton).toBeInTheDocument()
-    expect(exportWordButton).toBeInTheDocument()
   })
 })

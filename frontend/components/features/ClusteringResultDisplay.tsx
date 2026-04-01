@@ -7,28 +7,29 @@
 
 import React, { useState } from 'react'
 import { toast } from 'sonner'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import CardHeader from '@mui/material/CardHeader'
-import Chip from '@mui/material/Chip'
-import LinearProgress from '@mui/material/LinearProgress'
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
-import Alert from '@mui/material/Alert'
-import Accordion from '@mui/material/Accordion'
-import AccordionSummary from '@mui/material/AccordionSummary'
-import AccordionDetails from '@mui/material/AccordionDetails'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import Grid from '@mui/material/Grid'
-import Button from '@mui/material/Button'
-import Badge from '@mui/material/Badge'
-import Stack from '@mui/material/Stack'
-import WarningIcon from '@mui/icons-material/Warning'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import ClusterIcon from '@mui/icons-material/AccountTree'
-import FileTextIcon from '@mui/icons-material/Description'
-import RobotIcon from '@mui/icons-material/SmartToy'
-import CircularProgress from '@mui/material/CircularProgress'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
+import {
+  ChevronDown,
+  FileText,
+  Network,
+  AlertTriangle,
+  CheckCircle,
+  Bot,
+  Copy,
+  Download,
+  ArrowRight,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import type { GenerationResult } from '@/lib/types/ai-generation'
 import MissingClausesHandler from './MissingClausesHandler'
 
@@ -115,16 +116,19 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
   } catch (parseError) {
     console.error('Failed to parse clustering result:', parseError)
     return (
-      <Alert severity="error">
-        <Typography variant="subtitle1" fontWeight="bold">数据解析失败</Typography>
-        <Typography variant="body2">无法解析聚类结果数据</Typography>
-        <Typography variant="body2">错误: {(parseError as Error).message}</Typography>
-        <details>
-          <summary>查看原始数据</summary>
-          <pre style={{ maxHeight: '300px', overflow: 'auto' }}>
-            {JSON.stringify(result, null, 2)}
-          </pre>
-        </details>
+      <Alert className="border-[#FECACA] bg-[#FEF2F2]">
+        <AlertTriangle className="h-4 w-4 text-[#DC2626]" />
+        <AlertTitle className="text-[#991B1B]">数据解析失败</AlertTitle>
+        <AlertDescription className="text-[#7F1D1D]">
+          <p>无法解析聚类结果数据</p>
+          <p>错误: {(parseError as Error).message}</p>
+          <details className="mt-2">
+            <summary>查看原始数据</summary>
+            <pre className="max-h-[300px] overflow-auto mt-2 text-xs">
+              {JSON.stringify(result, null, 2)}
+            </pre>
+          </details>
+        </AlertDescription>
       </Alert>
     )
   }
@@ -132,9 +136,12 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
   // 检查数据有效性
   if (!clusteringResult) {
     return (
-      <Alert severity="error">
-        <Typography variant="subtitle1" fontWeight="bold">数据为空</Typography>
-        <Typography variant="body2">聚类结果数据为空</Typography>
+      <Alert className="border-[#FECACA] bg-[#FEF2F2]">
+        <AlertTriangle className="h-4 w-4 text-[#DC2626]" />
+        <AlertTitle className="text-[#991B1B]">数据为空</AlertTitle>
+        <AlertDescription className="text-[#7F1D1D]">
+          聚类结果数据为空
+        </AlertDescription>
       </Alert>
     )
   }
@@ -142,16 +149,19 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
   if (!clusteringResult.categories) {
     console.warn('Missing categories in clustering result')
     return (
-      <Alert severity="error">
-        <Typography variant="subtitle1" fontWeight="bold">数据格式错误</Typography>
-        <Typography variant="body2">聚类结果数据格式不正确，缺少 categories 字段</Typography>
-        <Typography variant="body2">可用字段: {Object.keys(clusteringResult).join(', ')}</Typography>
-        <details>
-          <summary>查看完整数据</summary>
-          <pre style={{ maxHeight: '400px', overflow: 'auto' }}>
-            {JSON.stringify(clusteringResult, null, 2)}
-          </pre>
-        </details>
+      <Alert className="border-[#FECACA] bg-[#FEF2F2]">
+        <AlertTriangle className="h-4 w-4 text-[#DC2626]" />
+        <AlertTitle className="text-[#991B1B]">数据格式错误</AlertTitle>
+        <AlertDescription className="text-[#7F1D1D]">
+          <p>聚类结果数据格式不正确，缺少 categories 字段</p>
+          <p>可用字段: {Object.keys(clusteringResult).join(', ')}</p>
+          <details className="mt-2">
+            <summary>查看完整数据</summary>
+            <pre className="max-h-[400px] overflow-auto mt-2 text-xs">
+              {JSON.stringify(clusteringResult, null, 2)}
+            </pre>
+          </details>
+        </AlertDescription>
       </Alert>
     )
   }
@@ -161,17 +171,23 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
   const [coverageSummary, setCoverageSummary] = useState(initialCoverage)
 
   // 风险级别颜色映射
-  const riskColorMap = {
-    HIGH: 'error' as const,
-    MEDIUM: 'warning' as const,
-    LOW: 'success' as const,
+  const getRiskColor = (level: string): string => {
+    switch (level) {
+      case 'HIGH': return 'bg-[#FECACA] text-[#991B1B] border-[#DC2626]'
+      case 'MEDIUM': return 'bg-[#FEF3C7] text-[#92400E] border-[#F59E0B]'
+      case 'LOW': return 'bg-[#D1FAE5] text-[#065F46] border-[#059669]'
+      default: return 'bg-[#F3F4F6] text-[#64748B] border-[#E2E8F0]'
+    }
   }
 
   // 重要性颜色映射
-  const importanceColorMap = {
-    HIGH: 'secondary' as const,
-    MEDIUM: 'primary' as const,
-    LOW: 'default' as const,
+  const getImportanceColor = (level: string): string => {
+    switch (level) {
+      case 'HIGH': return 'bg-[#8B5CF6] text-white border-[#7C3AED]'
+      case 'MEDIUM': return 'bg-[#1E3A5F] text-white border-[#0F2847]'
+      case 'LOW': return 'bg-[#E2E8F0] text-[#64748B] border-[#CBD5E1]'
+      default: return 'bg-[#F3F4F6] text-[#64748B] border-[#E2E8F0]'
+    }
   }
 
   // 从三层结构中提取所有聚类
@@ -354,363 +370,397 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
   const coverageRate = coverageSummary?.overall?.coverage_rate ? (coverageSummary.overall.coverage_rate * 100) : 0
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <div className="flex flex-col gap-6">
       {/* 任务ID显示（重要：用于下一步矩阵生成） */}
-      <Alert severity="success" icon={<CheckCircleIcon />}>
-        <Typography variant="subtitle1" fontWeight="bold">
-          聚类任务完成！下一步：生成成熟度矩阵
-        </Typography>
-        <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography variant="body2" color="text.secondary">任务ID：</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box
-              component="code"
-              sx={{
-                bgcolor: 'grey.100',
-                px: 2,
-                py: 1,
-                borderRadius: 1,
-                fontFamily: 'monospace',
-                flex: 1,
-                userSelect: 'all',
-              }}
-            >
-              {result.taskId}
-            </Box>
-            <Button variant="outlined" size="small" onClick={handleCopyTaskId}>
-              复制ID
-            </Button>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button variant="contained" fullWidth onClick={handleGenerateMatrix}>
-              生成成熟度矩阵
-            </Button>
-            <Button variant="contained" color="success" onClick={handleExportCSV}>
-              导出CSV
-            </Button>
-          </Box>
-        </Box>
+      <Alert className="border-[#BBF7D0] bg-[#F0FDF4]">
+        <CheckCircle className="h-4 w-4 text-[#059669]" />
+        <AlertTitle className="text-[#065F46]">聚类任务完成！下一步：生成成熟度矩阵</AlertTitle>
+        <AlertDescription className="text-[#065F46]">
+          <div className="flex flex-col gap-3 mt-3">
+            <p className="text-sm">任务ID：</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 bg-[#E5E7EB] px-3 py-2 rounded-sm font-mono text-sm select-all">
+                {result.taskId}
+              </code>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyTaskId}
+                className="border-[#E2E8F0] text-[#64748B]"
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                复制ID
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleGenerateMatrix}
+                className="flex-1 bg-[#1E3A5F] hover:bg-[#0F2847] text-white"
+              >
+                生成成熟度矩阵
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+              <Button
+                onClick={handleExportCSV}
+                className="bg-[#059669] hover:bg-[#047857] text-white"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                导出CSV
+              </Button>
+            </div>
+          </div>
+        </AlertDescription>
       </Alert>
 
       {/* 基本信息 */}
-      <Card>
-        <CardContent>
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 6, md: 2 }}>
-              <Box sx={{ textAlign: 'center' }}>
-                <FileTextIcon color="action" />
-                <Typography variant="h6">{categories.length}</Typography>
-                <Typography variant="caption" color="text.secondary">大类数量</Typography>
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 6, md: 2 }}>
-              <Box sx={{ textAlign: 'center' }}>
-                <ClusterIcon color="action" />
-                <Typography variant="h6">{totalClusters}</Typography>
-                <Typography variant="caption" color="text.secondary">聚类数量</Typography>
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 6, md: 2 }}>
-              <Box sx={{ textAlign: 'center' }}>
-                <CheckCircleIcon color={coverageRate >= 95 ? 'success' : 'warning'} />
-                <Typography variant="h6" color={coverageRate >= 95 ? 'success.main' : 'warning.main'}>
-                  {coverageRate.toFixed(1)}%
-                </Typography>
-                <Typography variant="caption" color="text.secondary">覆盖率</Typography>
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 6, md: 2 }}>
-              <Box sx={{ textAlign: 'center' }}>
-                <WarningIcon color="error" />
-                <Typography variant="h6" color="error.main">{highRiskClusters.length}</Typography>
-                <Typography variant="caption" color="text.secondary">高风险聚类</Typography>
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 6, md: 2 }}>
-              <Box sx={{ textAlign: 'center' }}>
-                <RobotIcon color="action" />
-                <Typography variant="h6">{(result as any).selectedModel || 'GPT4'}</Typography>
-                <Typography variant="caption" color="text.secondary">AI模型</Typography>
-              </Box>
-            </Grid>
-          </Grid>
+      <Card className="border-[#E2E8F0]">
+        <CardContent className="p-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+            <div className="text-center">
+              <FileText className="h-6 w-6 mx-auto mb-2 text-[#64748B]" />
+              <p className="text-2xl font-semibold text-[#1E3A5F]">{categories.length}</p>
+              <p className="text-sm text-[#64748B]">大类数量</p>
+            </div>
+            <div className="text-center">
+              <Network className="h-6 w-6 mx-auto mb-2 text-[#64748B]" />
+              <p className="text-2xl font-semibold text-[#1E3A5F]">{totalClusters}</p>
+              <p className="text-sm text-[#64748B]">聚类数量</p>
+            </div>
+            <div className="text-center">
+              <CheckCircle className={cn(
+                'h-6 w-6 mx-auto mb-2',
+                coverageRate >= 95 ? 'text-[#059669]' : 'text-[#F59E0B]'
+              )} />
+              <p className={cn(
+                'text-2xl font-semibold',
+                coverageRate >= 95 ? 'text-[#059669]' : 'text-[#F59E0B]'
+              )}>
+                {coverageRate.toFixed(1)}%
+              </p>
+              <p className="text-sm text-[#64748B]">覆盖率</p>
+            </div>
+            <div className="text-center">
+              <AlertTriangle className="h-6 w-6 mx-auto mb-2 text-[#DC2626]" />
+              <p className="text-2xl font-semibold text-[#DC2626]">{highRiskClusters.length}</p>
+              <p className="text-sm text-[#64748B]">高风险聚类</p>
+            </div>
+            <div className="text-center">
+              <Bot className="h-6 w-6 mx-auto mb-2 text-[#64748B]" />
+              <p className="text-2xl font-semibold text-[#1E3A5F]">{(result as any).selectedModel || 'GPT4'}</p>
+              <p className="text-sm text-[#64748B]">AI模型</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
       {/* 质量分数 - 仅在存在时显示 */}
       {result.qualityScores && (
-        <Card>
-          <CardHeader title="质量评分" />
-          <CardContent>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 4 }}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary">结构一致性</Typography>
-                  <Box sx={{ position: 'relative', display: 'inline-flex', mt: 1 }}>
-                    <CircularProgress
-                      variant="determinate"
-                      value={result.qualityScores.structural * 100}
-                      size={80}
-                      color="success"
+        <Card className="border-[#E2E8F0]">
+          <CardHeader>
+            <CardTitle className="text-lg">质量评分</CardTitle>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-3 gap-6">
+              <div className="text-center">
+                <p className="text-sm text-[#64748B] mb-2">结构一致性</p>
+                <div className="relative inline-flex mt-2">
+                  <svg className="h-20 w-20 transform -rotate-90">
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="36"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="none"
+                      className="text-[#E5E7EB]"
                     />
-                    <Box sx={{
-                      top: 0, left: 0, bottom: 0, right: 0,
-                      position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>
-                      <Typography variant="caption" fontWeight="bold">
-                        {(result.qualityScores.structural * 100).toFixed(1)}%
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              </Grid>
-              <Grid size={{ xs: 4 }}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary">语义一致性</Typography>
-                  <Box sx={{ position: 'relative', display: 'inline-flex', mt: 1 }}>
-                    <CircularProgress
-                      variant="determinate"
-                      value={result.qualityScores.semantic * 100}
-                      size={80}
-                      color="info"
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="36"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="none"
+                      strokeDasharray={`${(result.qualityScores.structural * 100) * 2.26} 226`}
+                      className="text-[#059669]"
+                      style={{ strokeDashoffset: 0 }}
                     />
-                    <Box sx={{
-                      top: 0, left: 0, bottom: 0, right: 0,
-                      position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>
-                      <Typography variant="caption" fontWeight="bold">
-                        {(result.qualityScores.semantic * 100).toFixed(1)}%
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              </Grid>
-              <Grid size={{ xs: 4 }}>
-                <Box sx={{ textAlign: 'center' }}>
-                  <Typography variant="caption" color="text.secondary">细节一致性</Typography>
-                  <Box sx={{ position: 'relative', display: 'inline-flex', mt: 1 }}>
-                    <CircularProgress
-                      variant="determinate"
-                      value={result.qualityScores.detail * 100}
-                      size={80}
-                      color="secondary"
+                  </svg>
+                  <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-[#1E3A5F]">
+                    {(result.qualityScores.structural * 100).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-[#64748B] mb-2">语义一致性</p>
+                <div className="relative inline-flex mt-2">
+                  <svg className="h-20 w-20 transform -rotate-90">
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="36"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="none"
+                      className="text-[#E5E7EB]"
                     />
-                    <Box sx={{
-                      top: 0, left: 0, bottom: 0, right: 0,
-                      position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                    }}>
-                      <Typography variant="caption" fontWeight="bold">
-                        {(result.qualityScores.detail * 100).toFixed(1)}%
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              </Grid>
-            </Grid>
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="36"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="none"
+                      strokeDasharray={`${(result.qualityScores.semantic * 100) * 2.26} 226`}
+                      className="text-[#1E3A5F]"
+                      style={{ strokeDashoffset: 0 }}
+                    />
+                  </svg>
+                  <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-[#1E3A5F]">
+                    {(result.qualityScores.semantic * 100).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-sm text-[#64748B] mb-2">细节一致性</p>
+                <div className="relative inline-flex mt-2">
+                  <svg className="h-20 w-20 transform -rotate-90">
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="36"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="none"
+                      className="text-[#E5E7EB]"
+                    />
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="36"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="none"
+                      strokeDasharray={`${(result.qualityScores.detail * 100) * 2.26} 226`}
+                      className="text-[#8B5CF6]"
+                      style={{ strokeDashoffset: 0 }}
+                    />
+                  </svg>
+                  <span className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-[#1E3A5F]">
+                    {(result.qualityScores.detail * 100).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}
 
       {/* 覆盖率统计 */}
-      <Card>
-        <CardHeader title="覆盖率统计" />
-        <CardContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Card className="border-[#E2E8F0]">
+        <CardHeader>
+          <CardTitle className="text-lg">覆盖率统计</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="flex flex-col gap-4">
             {/* 总体覆盖率 */}
-            <Box>
-              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>总体覆盖率</Typography>
-              <LinearProgress
-                variant="determinate"
+            <div>
+              <p className="text-sm font-semibold text-[#1E3A5F] mb-2">总体覆盖率</p>
+              <Progress
                 value={coverageRate}
-                color={coverageRate >= 95 ? 'success' : 'primary'}
-                sx={{ height: 10, borderRadius: 1 }}
+                className={cn(
+                  'h-2.5',
+                  coverageRate >= 95 ? 'bg-[#059669]' : 'bg-[#1E3A5F]'
+                )}
               />
-              <Typography variant="caption" color="text.secondary">
+              <p className="text-xs text-[#64748B] mt-1">
                 {coverageRate.toFixed(1)}% ({coverageSummary?.overall?.clustered_clauses || 0}/{coverageSummary?.overall?.total_clauses || 0})
-              </Typography>
-            </Box>
+              </p>
+            </div>
 
             {/* 按文档覆盖率 */}
-            <Box>
-              <Typography variant="subtitle2" fontWeight="bold" gutterBottom>各文档覆盖率</Typography>
+            <div>
+              <p className="text-sm font-semibold text-[#1E3A5F] mb-2">各文档覆盖率</p>
               {coverageSummary?.by_document && Object.entries(coverageSummary.by_document).map(([docId, stats]) => {
                 const doc = documents.find((d) => d.id === docId)
-                const coverageRate = stats.total_clauses > 0
+                const docCoverageRate = stats.total_clauses > 0
                   ? (stats.clustered_clauses / stats.total_clauses) * 100
                   : 0
 
                 return (
-                  <Box key={docId} sx={{ mb: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                      <Typography variant="body2" fontWeight="medium">
+                  <div key={docId} className="mb-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-sm font-medium text-[#1E3A5F]">
                         {doc?.name || docId}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      </p>
+                      <p className="text-xs text-[#64748B]">
                         {stats.clustered_clauses}/{stats.total_clauses}
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={coverageRate}
-                      color={coverageRate >= 95 ? 'success' : 'primary'}
-                      sx={{ height: 6, borderRadius: 1 }}
+                      </p>
+                    </div>
+                    <Progress
+                      value={docCoverageRate}
+                      className={cn(
+                        'h-1.5',
+                        docCoverageRate >= 95 ? 'bg-[#059669]' : 'bg-[#1E3A5F]'
+                      )}
                     />
                     {stats.missing_clause_ids?.length > 0 && (
-                      <Typography variant="caption" color="error">
+                      <p className="text-xs text-[#DC2626] mt-1">
                         遗漏条款: {stats.missing_clause_ids.join(', ')}
-                      </Typography>
+                      </p>
                     )}
-                  </Box>
+                  </div>
                 )
               })}
-            </Box>
-          </Box>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
       {/* 聚类逻辑说明 */}
-      <Card>
-        <CardHeader title="聚类逻辑" />
-        <CardContent>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+      <Card className="border-[#E2E8F0]">
+        <CardHeader>
+          <CardTitle className="text-lg">聚类逻辑</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <p className="text-sm whitespace-pre-wrap text-[#64748B]">
             {clustering_logic}
-          </Typography>
+          </p>
         </CardContent>
       </Card>
 
       {/* 聚类详情（三层结构展示）*/}
-      <Card>
-        <CardHeader
-          title={
-            <Stack direction="row" spacing={1} alignItems="center">
-              <span>聚类详情（三层结构）</span>
-              <Chip label={`${categories.length}个大类`} color="secondary" size="small" />
-              <Chip label={`${totalClusters}个聚类`} color="primary" size="small" />
-            </Stack>
-          }
-        />
-        <CardContent>
-          {categories.map((category, categoryIndex) => (
-            <Accordion key={category.id} defaultExpanded={categoryIndex === 0}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%', pr: 2 }}>
-                  <Badge badgeContent={categoryIndex + 1} color="secondary" />
-                  <Typography variant="subtitle1" fontWeight="bold">{category.name}</Typography>
-                  <Chip label="大类" color="secondary" size="small" />
-                  <Box sx={{ flex: 1 }} />
-                  <Chip label={`${category.clusters.length}个聚类`} color="primary" size="small" />
-                </Stack>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {/* 大类描述 */}
-                  <Alert severity="info">
-                    <Typography variant="subtitle2" fontWeight="bold">大类描述</Typography>
-                    <Typography variant="body2">{category.description}</Typography>
-                  </Alert>
+      <Card className="border-[#E2E8F0]">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <span>聚类详情（三层结构）</span>
+            <Badge className="bg-[#8B5CF6] text-white">{categories.length}个大类</Badge>
+            <Badge className="bg-[#1E3A5F] text-white">{totalClusters}个聚类</Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <Accordion type="multiple" defaultValue={[Object.keys(categories)[0]]}>
+            {categories.map((category, categoryIndex) => (
+              <AccordionItem key={category.id} value={category.id}>
+                <AccordionTrigger className="hover:no-underline">
+                  <div className="flex items-center gap-3 w-full pr-4">
+                    <Badge className="bg-[#8B5CF6] text-white">{categoryIndex + 1}</Badge>
+                    <span className="font-semibold text-[#1E3A5F]">{category.name}</span>
+                    <Badge className="bg-[#8B5CF6] text-white">大类</Badge>
+                    <div className="flex-1" />
+                    <Badge className="bg-[#1E3A5F] text-white">{category.clusters.length}个聚类</Badge>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex flex-col gap-4">
+                    {/* 大类描述 */}
+                    <Alert className="border-[#BFDBFE] bg-[#EFF6FF]">
+                      <AlertDescription className="text-[#1E3A5F]">
+                        <p className="font-semibold text-sm">大类描述</p>
+                        <p className="text-sm">{category.description}</p>
+                      </AlertDescription>
+                    </Alert>
 
-                  {/* 该大类下的所有聚类 */}
-                  {category.clusters.map((cluster, clusterIndex) => (
-                    <Accordion key={cluster.id}>
-                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                        <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%', pr: 2 }}>
-                          <Badge badgeContent={clusterIndex + 1} color="success" />
-                          <Typography variant="subtitle2" fontWeight="bold">{cluster.name}</Typography>
-                          <Chip
-                            label={cluster.importance}
-                            color={importanceColorMap[cluster.importance]}
-                            size="small"
-                          />
-                          <Chip
-                            label={`风险: ${cluster.risk_level}`}
-                            color={riskColorMap[cluster.risk_level]}
-                            size="small"
-                            icon={cluster.risk_level === 'HIGH' ? <WarningIcon /> : undefined}
-                          />
-                          <Box sx={{ flex: 1 }} />
-                          <Chip label={`${cluster.clauses.length}个条款`} size="small" />
-                        </Stack>
-                      </AccordionSummary>
-                      <AccordionDetails>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          {/* 聚类描述 */}
-                          <Alert severity="success">
-                            <Typography variant="subtitle2" fontWeight="bold">聚类描述</Typography>
-                            <Typography variant="body2">{cluster.description}</Typography>
-                          </Alert>
+                    {/* 该大类下的所有聚类 */}
+                    {category.clusters.map((cluster, clusterIndex) => (
+                      <Accordion key={cluster.id} type="single">
+                        <AccordionItem value={cluster.id}>
+                          <AccordionTrigger>
+                            <div className="flex items-center gap-3 w-full pr-4">
+                              <Badge className="bg-[#059669] text-white">{clusterIndex + 1}</Badge>
+                              <span className="font-semibold text-[#1E3A5F]">{cluster.name}</span>
+                              <Badge className={getImportanceColor(cluster.importance)}>
+                                {cluster.importance}
+                              </Badge>
+                              <Badge className={getRiskColor(cluster.risk_level)}>
+                                {cluster.risk_level === 'HIGH' && <AlertTriangle className="h-3 w-3 mr-1" />}
+                                {`风险: ${cluster.risk_level}`}
+                              </Badge>
+                              <div className="flex-1" />
+                              <Badge className="bg-[#E2E8F0] text-[#64748B]">{cluster.clauses.length}个条款</Badge>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="flex flex-col gap-4">
+                              {/* 聚类描述 */}
+                              <Alert className="border-[#D1FAE5] bg-[#FEFDFB]">
+                                <AlertDescription className="text-[#065F46]">
+                                  <p className="font-semibold text-sm">聚类描述</p>
+                                  <p className="text-sm">{cluster.description}</p>
+                                </AlertDescription>
+                              </Alert>
 
-                          {/* 条款列表 */}
-                          <Box>
-                            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>包含条款：</Typography>
-                            <Stack spacing={2}>
-                              {cluster.clauses.map((clause) => (
-                                <Card
-                                  key={`${clause.source_document_id}-${clause.clause_id}`}
-                                  variant="outlined"
-                                  sx={{
-                                    borderColor: cluster.risk_level === 'HIGH'
-                                      ? 'error.main'
-                                      : cluster.risk_level === 'MEDIUM'
-                                        ? 'warning.main'
-                                        : 'grey.300',
-                                    bgcolor: cluster.risk_level === 'HIGH'
-                                      ? 'error.50'
-                                      : cluster.risk_level === 'MEDIUM'
-                                        ? 'warning.50'
-                                        : 'inherit',
-                                  }}
-                                >
-                                  <CardContent>
-                                    <Stack spacing={1}>
-                                      {/* 条款头部 */}
-                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <Stack direction="row" spacing={1} alignItems="center">
-                                          <Chip label={clause.source_document_name} color="primary" size="small" />
-                                          <Typography variant="body2" fontFamily="monospace" fontWeight="bold">
-                                            {clause.clause_id}
-                                          </Typography>
-                                        </Stack>
-                                        {cluster.risk_level === 'HIGH' && (
-                                          <Chip label="高风险" color="error" size="small" icon={<WarningIcon />} />
-                                        )}
-                                      </Box>
+                              {/* 条款列表 */}
+                              <div>
+                                <p className="text-sm font-semibold text-[#1E3A5F] mb-3">包含条款：</p>
+                                <div className="space-y-3">
+                                  {cluster.clauses.map((clause) => (
+                                    <Card
+                                      key={`${clause.source_document_id}-${clause.clause_id}`}
+                                      className={cn(
+                                        'border',
+                                        cluster.risk_level === 'HIGH'
+                                          ? 'border-[#DC2626] bg-[#FEF2F2]'
+                                          : cluster.risk_level === 'MEDIUM'
+                                            ? 'border-[#F59E0B] bg-[#FFFBEB]'
+                                            : 'border-[#E2E8F0] bg-white'
+                                      )}
+                                    >
+                                      <CardContent className="p-4">
+                                        <div className="space-y-3">
+                                          {/* 条款头部 */}
+                                          <div className="flex justify-between items-start">
+                                            <div className="flex items-center gap-2">
+                                              <Badge className="bg-[#1E3A5F] text-white">{clause.source_document_name}</Badge>
+                                              <span className="font-mono font-bold text-sm">{clause.clause_id}</span>
+                                            </div>
+                                            {cluster.risk_level === 'HIGH' && (
+                                              <Badge className="bg-[#DC2626] text-white">
+                                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                                高风险
+                                              </Badge>
+                                            )}
+                                          </div>
 
-                                      {/* 条款内容 */}
-                                      <Typography variant="body2" color="text.secondary">
-                                        {clause.clause_text}
-                                      </Typography>
+                                          {/* 条款内容 */}
+                                          <p className="text-sm text-[#64748B]">
+                                            {clause.clause_text}
+                                          </p>
 
-                                      {/* 归类理由 */}
-                                      <Box sx={{ bgcolor: 'grey.100', p: 1, borderRadius: 1 }}>
-                                        <Typography variant="caption">
-                                          <strong>归类理由：</strong>{clause.rationale}
-                                        </Typography>
-                                      </Box>
-                                    </Stack>
-                                  </CardContent>
-                                </Card>
-                              ))}
-                            </Stack>
-                          </Box>
-                        </Box>
-                      </AccordionDetails>
-                    </Accordion>
-                  ))}
-                </Box>
-              </AccordionDetails>
-            </Accordion>
-          ))}
+                                          {/* 归类理由 */}
+                                          <div className="bg-[#F3F4F6] p-3 rounded-sm">
+                                            <p className="text-xs text-[#64748B]">
+                                              <strong>归类理由：</strong>{clause.rationale}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      </Accordion>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </CardContent>
       </Card>
 
       {/* 高风险提醒 */}
       {highRiskClusters.length > 0 && (
-        <Alert severity="warning" icon={<WarningIcon />}>
-          <Typography variant="subtitle1" fontWeight="bold">高风险提醒</Typography>
-          <Typography variant="body2">
+        <Alert className="border-[#FEF3C7] bg-[#FFFBEB]">
+          <AlertTriangle className="h-4 w-4 text-[#F59E0B]" />
+          <AlertTitle className="text-[#92400E]">高风险提醒</AlertTitle>
+          <AlertDescription className="text-[#78716C]">
             检测到 {highRiskClusters.length} 个高风险聚类，建议优先审查：
             {highRiskClusters.map((c) => c.name).join('、')}
-          </Typography>
+          </AlertDescription>
         </Alert>
       )}
 
@@ -724,6 +774,6 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
           onUpdateClustering={handleUpdateClustering}
         />
       )}
-    </Box>
+    </div>
   )
 }

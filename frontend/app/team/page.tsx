@@ -9,34 +9,33 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import {
-  Box,
-  Typography,
-  Button,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  IconButton,
-  Chip,
-  CircularProgress,
-  Alert,
-  Tooltip,
-} from '@mui/material'
-import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  People as PeopleIcon,
-} from '@mui/icons-material'
+import { Users, Plus, Edit, Trash2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { organizationsApi } from '@/lib/api/organizations'
 import { OrganizationMember } from '@/lib/types/organization'
 import { formatChinaDate } from '@/lib/utils/dateTime'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { AddMemberDialog } from './components/AddMemberDialog'
+import { EditMemberDialog } from './components/EditMemberDialog'
+import { ConfirmRemoveDialog } from './components/ConfirmRemoveDialog'
 
 // Extended session user type with organization data
 interface SessionUser {
@@ -47,9 +46,6 @@ interface SessionUser {
   organizationId?: string
   organizationRole?: 'admin' | 'member'
 }
-import { AddMemberDialog } from './components/AddMemberDialog'
-import { EditMemberDialog } from './components/EditMemberDialog'
-import { ConfirmRemoveDialog } from './components/ConfirmRemoveDialog'
 
 export default function TeamManagementPage() {
   const { data: session } = useSession()
@@ -162,12 +158,12 @@ export default function TeamManagementPage() {
   }
 
   // Pagination handlers
-  const handleChangePage = (_: unknown, newPage: number) => {
+  const handleChangePage = (newPage: number) => {
     setPage(newPage)
   }
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10))
+  const handleChangeRowsPerPage = (value: string) => {
+    setRowsPerPage(parseInt(value, 10))
     setPage(0)
   }
 
@@ -184,132 +180,176 @@ export default function TeamManagementPage() {
   // Loading state
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress />
-      </Box>
+      <div className="flex justify-center items-center min-h-[50vh] bg-[#FEFDFB]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1E3A5F]" />
+      </div>
     )
   }
 
   // Error state
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">加载成员列表失败: {error}</Alert>
-      </Box>
+      <div className="p-6 bg-[#FEFDFB]">
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded-sm">
+          加载成员列表失败: {error}
+        </div>
+      </div>
     )
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <div className="p-6 bg-[#FEFDFB] min-h-screen">
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PeopleIcon color="primary" />
-          <Typography variant="h4" component="h1">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-2">
+          <Users className="w-6 h-6 text-[#1E3A5F]" />
+          <h1 className="text-2xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
             团队管理
-          </Typography>
-        </Box>
+          </h1>
+        </div>
         {isAdmin && (
           <Button
-            variant="contained"
-            startIcon={<AddIcon />}
             onClick={() => setAddDialogOpen(true)}
+            className="bg-[#1E3A5F] hover:bg-[#162e4d] text-white rounded-sm"
           >
+            <Plus className="w-4 h-4 mr-2" />
             添加成员
           </Button>
         )}
-      </Box>
+      </div>
 
       {/* Members Table */}
-      <Paper elevation={1}>
-        <TableContainer>
-          <Table aria-label="组织成员列表">
-            <TableHead>
-              <TableRow>
-                <TableCell>姓名</TableCell>
-                <TableCell>邮箱</TableCell>
-                <TableCell>角色</TableCell>
-                <TableCell>加入时间</TableCell>
-                {isAdmin && <TableCell align="right">操作</TableCell>}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {members.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={isAdmin ? 5 : 4} align="center">
-                    <Typography color="text.secondary" sx={{ py: 4 }}>
-                      暂无成员
-                    </Typography>
-                  </TableCell>
+      <Card className="border border-[#E2E8F0] rounded-sm shadow-sm">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-[#1E3A5F] hover:bg-[#1E3A5F]">
+                  <TableHead className="text-white">姓名</TableHead>
+                  <TableHead className="text-white">邮箱</TableHead>
+                  <TableHead className="text-white">角色</TableHead>
+                  <TableHead className="text-white">加入时间</TableHead>
+                  {isAdmin && <TableHead className="text-white text-right">操作</TableHead>}
                 </TableRow>
-              ) : (
-                members.map((member: OrganizationMember) => {
-                  const isSelf = member.userId === session?.user?.id
-                  return (
-                    <TableRow key={member.id}>
-                      <TableCell>{member.user?.name || '-'}</TableCell>
-                      <TableCell>{member.user?.email || '-'}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={member.role === 'admin' ? '管理员' : '成员'}
-                          color={member.role === 'admin' ? 'primary' : 'default'}
-                          size="small"
-                        />
-                      </TableCell>
-
-                      <TableCell>
-                        {formatChinaDate(member.createdAt)}
-                      </TableCell>
-                      {isAdmin && (
-                        <TableCell align="right">
-                          <Tooltip title={isSelf ? '不能编辑自己' : '编辑角色'}>
-                            <span>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleEdit(member)}
-                                disabled={isSelf}
-                                aria-label={`编辑 ${member.user?.name || ''}`}
-                              >
-                                <EditIcon />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
-                          <Tooltip title={isSelf ? '不能移除自己' : '移除成员'}>
-                            <span>
-                              <IconButton
-                                size="small"
-                                onClick={() => handleRemove(member)}
-                                disabled={isSelf}
-                                color="error"
-                                aria-label={`移除 ${member.user?.name || ''}`}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </span>
-                          </Tooltip>
+              </TableHeader>
+              <TableBody>
+                {members.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={isAdmin ? 5 : 4} className="text-center py-8">
+                      <p className="text-[#94A3B8]">暂无成员</p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  members.map((member: OrganizationMember) => {
+                    const isSelf = member.userId === session?.user?.id
+                    return (
+                      <TableRow key={member.id} className="hover:bg-[#FEFDFB]">
+                        <TableCell className="font-medium">{member.user?.name || '-'}</TableCell>
+                        <TableCell>{member.user?.email || '-'}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={member.role === 'admin' ? 'default' : 'secondary'}
+                            className={
+                              member.role === 'admin'
+                                ? 'bg-[#059669] text-white rounded-sm'
+                                : 'bg-[#94A3B8] text-white rounded-sm'
+                            }
+                          >
+                            {member.role === 'admin' ? '管理员' : '成员'}
+                          </Badge>
                         </TableCell>
-                      )}
-                    </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <TablePagination
-          component="div"
-          count={total}
-          page={page}
-          onPageChange={handleChangePage}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          rowsPerPageOptions={[10, 20, 50]}
-          labelRowsPerPage="每页行数"
-          labelDisplayedRows={({ from, to, count }) =>
-            `${from}-${to} 共 ${count} 条`
-          }
-        />
-      </Paper>
+                        <TableCell>{formatChinaDate(member.createdAt)}</TableCell>
+                        {isAdmin && (
+                          <TableCell className="text-right">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-block">
+                                    <button
+                                      onClick={() => handleEdit(member)}
+                                      disabled={isSelf}
+                                      className="p-2 hover:bg-[#E2E8F0] rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                      aria-label={`编辑 ${member.user?.name || ''}`}
+                                    >
+                                      <Edit className="w-4 h-4 text-[#1E3A5F]" />
+                                    </button>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {isSelf ? '不能编辑自己' : '编辑角色'}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-block">
+                                    <button
+                                      onClick={() => handleRemove(member)}
+                                      disabled={isSelf}
+                                      className="p-2 hover:bg-red-50 rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                      aria-label={`移除 ${member.user?.name || ''}`}
+                                    >
+                                      <Trash2 className="w-4 h-4 text-red-600" />
+                                    </button>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {isSelf ? '不能移除自己' : '移除成员'}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-[#E2E8F0]">
+            <p className="text-sm text-[#94A3B8]">
+              显示 {page * rowsPerPage + 1} - {Math.min((page + 1) * rowsPerPage, total)} 共 {total} 条
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-[#94A3B8]">每页行数:</span>
+              <Select value={rowsPerPage.toString()} onValueChange={handleChangeRowsPerPage}>
+                <SelectTrigger className="w-16 h-8 rounded-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleChangePage(page - 1)}
+                  disabled={page === 0}
+                  className="h-8 rounded-sm"
+                >
+                  上一页
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleChangePage(page + 1)}
+                  disabled={(page + 1) * rowsPerPage >= total}
+                  className="h-8 rounded-sm"
+                >
+                  下一页
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Dialogs */}
       <AddMemberDialog
@@ -340,6 +380,6 @@ export default function TeamManagementPage() {
         onConfirm={handleConfirmRemove}
         isLoading={mutating}
       />
-    </Box>
+    </div>
   )
 }

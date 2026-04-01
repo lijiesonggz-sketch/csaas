@@ -13,8 +13,8 @@
 
 import React, { useState } from 'react'
 import Image from 'next/image'
-import { Box, Typography } from '@mui/material'
 import { useBrandLogo, useCompanyName } from './BrandProvider'
+import { cn } from '@/lib/utils'
 
 interface BrandedLogoProps {
   size?: number
@@ -29,7 +29,7 @@ export function BrandedLogo({ size = 40, showText = true }: BrandedLogoProps) {
   // 如果有自定义 Logo 且未加载失败
   if (logoUrl && !imageError) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+      <div className="flex items-center gap-1.5">
         <Image
           src={logoUrl}
           alt={companyName}
@@ -39,38 +39,35 @@ export function BrandedLogo({ size = 40, showText = true }: BrandedLogoProps) {
           onError={() => setImageError(true)}
         />
         {showText && (
-          <Typography variant="h6" component="span" sx={{ fontWeight: 600 }}>
+          <span className="text-lg font-semibold text-[#1E3A5F]">
             {companyName}
-          </Typography>
+          </span>
         )}
-      </Box>
+      </div>
     )
   }
 
   // 默认 Logo (首字母)
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-      <Box
-        sx={{
-          width: size,
-          height: size,
-          backgroundColor: 'primary.main',
-          borderRadius: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white',
-          fontWeight: 700,
-          fontSize: size * 0.5,
+    <div className="flex items-center gap-1.5">
+      <div
+        className={cn(
+          'flex items-center justify-center rounded-sm text-white font-bold',
+          'bg-[#1E3A5F]',
+        )}
+        style={{
+          width: `${size}px`,
+          height: `${size}px`,
+          fontSize: `${size * 0.5}px`,
         }}
       >
         {companyName.charAt(0).toUpperCase()}
-      </Box>
+      </div>
       {showText && (
-        <Typography variant="h6" component="span" sx={{ fontWeight: 600 }}>
+        <span className="text-lg font-semibold text-[#1E3A5F]">
           {companyName}
-        </Typography>
+        </span>
       )}
-    </Box>
+    </div>
   )
 }

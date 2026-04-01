@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from '@mui/material'
+import { Loader2 } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   OrganizationProfileCompleteness,
   OrganizationProfileCompletenessField,
@@ -51,24 +54,24 @@ export function ProfileCompletenessGate({
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-        <CircularProgress />
-      </Box>
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-8 h-8 text-[#1E3A5F] animate-spin" />
+      </div>
     )
   }
 
   if (error) {
     return (
-      <Paper sx={{ p: 3 }}>
-        <Stack spacing={2}>
-          <Alert severity="error">{error}</Alert>
-          <Box>
-            <Button variant="contained" onClick={() => void loadCompleteness()}>
-              重试
-            </Button>
-          </Box>
-        </Stack>
-      </Paper>
+      <Card className="border border-[#E2E8F0] rounded-sm">
+        <CardContent className="p-6 space-y-4">
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <Button onClick={() => void loadCompleteness()} className="rounded-sm bg-[#1E3A5F] hover:bg-[#162e4d]">
+            重试
+          </Button>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -81,39 +84,43 @@ export function ProfileCompletenessGate({
   }
 
   return (
-    <Paper sx={{ p: 3 }}>
-      <Stack spacing={2}>
-        <Alert severity="warning">
-          当前机构画像未完成，暂时不能继续进入{flowLabel}。
+    <Card className="border border-[#E2E8F0] rounded-sm">
+      <CardContent className="p-6 space-y-4">
+        <Alert className="border-amber-200 bg-amber-50">
+          <AlertDescription className="text-amber-800">
+            当前机构画像未完成，暂时不能继续进入{flowLabel}。
+          </AlertDescription>
         </Alert>
 
-        <Typography variant="body1">
+        <p className="text-sm text-[#1E3A5F]">
           完成度：{completeness.completionRatio}（已校验 {completeness.validFieldCount}/
           {completeness.totalRequiredFields} 个必填字段）
-        </Typography>
+        </p>
 
-        <Box>
-          <Typography variant="subtitle1" gutterBottom>
+        <div>
+          <p className="text-sm font-semibold text-[#1E3A5F] mb-2">
             缺失或无效字段
-          </Typography>
-          <Box component="ul" sx={{ pl: 3, m: 0 }}>
+          </p>
+          <ul className="pl-5 m-0 space-y-1">
             {completeness.missingFields.map((field) => (
-              <li key={`${field.field}-${field.reason}`}>
-                <Typography variant="body2">{formatFieldIssue(field)}</Typography>
+              <li key={`${field.field}-${field.reason}`} className="text-sm text-[#64748B]">
+                {formatFieldIssue(field)}
               </li>
             ))}
-          </Box>
-        </Box>
+          </ul>
+        </div>
 
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button component={Link} href={profileEditHref} variant="contained">
-            去补录机构画像
-          </Button>
-          <Button variant="outlined" onClick={() => void loadCompleteness()}>
+        <div className="flex gap-3">
+          <Link href={profileEditHref}>
+            <Button className="rounded-sm bg-[#1E3A5F] hover:bg-[#162e4d]">
+              去补录机构画像
+            </Button>
+          </Link>
+          <Button variant="outline" onClick={() => void loadCompleteness()} className="rounded-sm">
             重新检查
           </Button>
-        </Box>
-      </Stack>
-    </Paper>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
