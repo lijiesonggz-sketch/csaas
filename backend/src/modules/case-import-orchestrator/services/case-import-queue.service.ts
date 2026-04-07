@@ -1,3 +1,4 @@
+import { basename } from 'path'
 import { InjectQueue } from '@nestjs/bullmq'
 import { Injectable } from '@nestjs/common'
 import { Queue } from 'bullmq'
@@ -42,6 +43,7 @@ export class CaseImportQueueService {
     const regulatorCode = dto.regulatorCode.trim().toUpperCase()
     const batchId = dto.batchId ?? `${regulatorCode}-${Date.now()}`
     const jobId = `case-import-${batchId}`
+    const fileName = dto.sourceFileName?.trim() || basename(dto.filePath)
 
     const job = await this.caseImportQueue.add(
       KG_CASE_IMPORT_PARSE_JOB_NAME,
@@ -65,7 +67,7 @@ export class CaseImportQueueService {
     return {
       jobId: String(job.id ?? jobId),
       batchId,
-      filePath: dto.filePath,
+      fileName,
       regulatorCode,
       status: 'queued',
     }

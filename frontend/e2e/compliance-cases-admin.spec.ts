@@ -1,6 +1,81 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('[Story 12.1] 案例运营后台', () => {
+  test('管理员可以通过上传文件创建导入任务', async ({ page }) => {
+    let importRequestSeen = false
+
+    await page.route('**/api/auth/session', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          user: {
+            id: 'admin-1',
+            name: 'Admin User',
+            email: 'admin@example.com',
+            role: 'admin',
+          },
+          accessToken: 'admin-token',
+          expires: '2099-01-01T00:00:00.000Z',
+        }),
+      })
+    })
+
+    await page.route('**/api/admin/knowledge-graph/compliance-cases**', async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.continue()
+        return
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            items: [],
+            total: 0,
+            page: 1,
+            limit: 10,
+          },
+        }),
+      })
+    })
+
+    await page.route('**/api/admin/knowledge-graph/cases/import', async (route) => {
+      importRequestSeen = true
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            jobId: 'case-import-PBOC-batch-001',
+            batchId: 'PBOC-batch-001',
+            fileName: 'cases.xlsx',
+            regulatorCode: 'PBOC',
+            status: 'queued',
+          },
+        }),
+      })
+    })
+
+    await page.goto('/admin/compliance-cases')
+
+    await expect(page.getByLabel('上传文件')).toBeVisible()
+    await page.getByLabel('上传文件').setInputFiles({
+      name: 'cases.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      buffer: Buffer.from('mock workbook'),
+    })
+    await expect(page.getByText('已选择：cases.xlsx')).toBeVisible()
+    await page.locator('#import-regulator-code').fill('PBOC')
+    await page.getByRole('button', { name: '创建导入任务' }).click()
+
+    await expect(page.getByText(/导入任务已创建：文件 `cases\.xlsx`/)).toBeVisible()
+    expect(importRequestSeen).toBe(true)
+  })
+
   test('管理员可以查看案例详情并提交 clustered 人审', async ({ page }) => {
     let reviewed = false
 
@@ -40,6 +115,7 @@ test.describe('[Story 12.1] 案例运营后台', () => {
                 regulatorCode: 'PBOC',
                 caseTitle: '处罚案例',
                 sourceOrg: '人民银行',
+                penalizedPerson: null,
                 industry: 'banking',
                 region: 'CN',
                 caseDate: '2026-04-01T00:00:00.000Z',
@@ -127,6 +203,7 @@ test.describe('[Story 12.1] 案例运营后台', () => {
                 relationType: 'VIOLATES',
                 reviewStatus: reviewed ? 'APPROVED' : 'PENDING',
                 confidenceScore: '0.9000',
+                source: 'RULE',
               },
             ],
           },

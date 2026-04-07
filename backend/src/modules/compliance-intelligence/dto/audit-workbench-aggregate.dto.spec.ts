@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals'
 
 import {
+  AuditWorkbenchAggregateResponseDto,
   createEmptyAuditControlContext,
   createEmptyAuditControlContextForItem,
   enrichAuditResponseWithControlContext,
@@ -28,7 +29,10 @@ describe('AuditWorkbenchAggregateDto', () => {
   })
 
   describe('enrichAuditResponseWithControlContext', () => {
-    const baseResponse = {
+    const baseResponse: Omit<
+      AuditWorkbenchAggregateResponseDto,
+      'controlId' | 'matchedControls' | 'sourceRecordId' | 'sourceModule' | 'sourceRoute'
+    > = {
       reviewItemId: 'review-item-1',
       reviewStatus: 'pending',
       confidenceLevel: 'medium',
@@ -39,6 +43,8 @@ describe('AuditWorkbenchAggregateDto', () => {
       },
       highRiskFlag: false,
       canRerun: true,
+      provenanceStatus: 'missing',
+      citationChain: null,
     }
 
     it('should attach audit source metadata together with explicit empty control context', () => {

@@ -1,10 +1,6 @@
 import { IsOptional, IsString, Length } from 'class-validator'
 
-export class ImportComplianceCasesDto {
-  @IsString()
-  @Length(1, 2000)
-  filePath: string
-
+export class UploadComplianceCasesDto {
   @IsString()
   @Length(2, 20)
   regulatorCode: string
@@ -13,6 +9,17 @@ export class ImportComplianceCasesDto {
   @IsString()
   @Length(1, 100)
   batchId?: string
+}
+
+export class ImportComplianceCasesDto extends UploadComplianceCasesDto {
+  @IsString()
+  @Length(1, 2000)
+  filePath: string
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  sourceFileName?: string
 }
 
 export interface ComplianceCaseImportRowFailure {
@@ -34,7 +41,7 @@ export interface ComplianceCaseImportResult {
 export interface ComplianceCaseImportEnqueueResult {
   jobId: string
   batchId: string
-  filePath: string
+  fileName: string
   regulatorCode: string
   status: 'queued'
 }

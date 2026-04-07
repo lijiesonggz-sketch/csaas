@@ -100,6 +100,7 @@ const clusteredCase = {
   regulatorCode: 'PBOC',
   caseTitle: '处罚案例',
   sourceOrg: '人民银行',
+  penalizedPerson: null,
   industry: 'banking',
   region: 'CN',
   caseDate: '2026-04-01T00:00:00.000Z',
@@ -164,6 +165,7 @@ const clusteringResult = {
       relationType: 'VIOLATES',
       reviewStatus: 'PENDING',
       confidenceScore: '0.9000',
+      source: 'RULE',
     },
   ],
 } as const
@@ -180,7 +182,7 @@ describe('ComplianceCasesAdminPage', () => {
     mockEnqueueImport.mockResolvedValue({
       jobId: 'case-import-PBOC-batch-001',
       batchId: 'PBOC-batch-001',
-      filePath: 'D:/imports/cases.xlsx',
+      fileName: 'cases.xlsx',
       regulatorCode: 'PBOC',
       status: 'queued',
     })
@@ -221,12 +223,52 @@ describe('ComplianceCasesAdminPage', () => {
     })
   })
 
+  it('shows loading state instead of stale empty detail content while detail APIs are in flight', async () => {
+    let resolveExtraction: ((value: typeof extractionResult) => void) | undefined
+    let resolveClustering: ((value: typeof clusteringResult) => void) | undefined
+
+    mockGetExtraction.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveExtraction = resolve
+        }),
+    )
+    mockGetClustering.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveClustering = resolve
+        }),
+    )
+
+    render(<ComplianceCasesAdminPage />)
+
+    await waitFor(() => expect(screen.getByText('查看详情')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('查看详情'))
+
+    await waitFor(() => {
+      expect(mockGetExtraction).toHaveBeenCalledWith('case-1')
+      expect(mockGetClustering).toHaveBeenCalledWith('case-1')
+    })
+
+    expect(screen.queryByText('基础信息')).not.toBeInTheDocument()
+    expect(screen.queryByText('暂无提取主题')).not.toBeInTheDocument()
+    expect(screen.queryByText('当前案例状态为 待处理，不可再次提交人工审核。')).not.toBeInTheDocument()
+
+    resolveExtraction?.(extractionResult)
+    resolveClustering?.(clusteringResult)
+
+    await waitFor(() => {
+      expect(screen.getByText('基础信息')).toBeInTheDocument()
+      expect(screen.getAllByText('客户身份识别').length).toBeGreaterThan(0)
+    })
+  })
+
   it('renders import form and case list', async () => {
     render(<ComplianceCasesAdminPage />)
 
     await waitFor(() => {
       expect(screen.getByText('案例运营')).toBeInTheDocument()
-      expect(screen.getByLabelText('文件路径')).toBeInTheDocument()
+      expect(screen.getByLabelText('上传文件')).toBeInTheDocument()
       expect(screen.getByText('PBOC-CASE-001')).toBeInTheDocument()
     })
   })
@@ -258,11 +300,15 @@ describe('ComplianceCasesAdminPage', () => {
   })
 
   it('submits import job and shows import result', async () => {
+    const file = new File(['mock workbook'], 'cases.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+
     render(<ComplianceCasesAdminPage />)
 
-    await waitFor(() => expect(screen.getByLabelText('文件路径')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByLabelText('上传文件')).toBeInTheDocument())
 
-    fireEvent.change(screen.getByLabelText('文件路径'), { target: { value: 'D:/imports/cases.xlsx' } })
+    fireEvent.change(screen.getByLabelText('上传文件'), { target: { files: [file] } })
     fireEvent.change(
       screen.getByLabelText('监管编码', { selector: 'input#import-regulator-code' }),
       {
@@ -274,7 +320,7 @@ describe('ComplianceCasesAdminPage', () => {
 
     await waitFor(() => {
       expect(mockEnqueueImport).toHaveBeenCalledWith({
-        filePath: 'D:/imports/cases.xlsx',
+        file,
         regulatorCode: 'PBOC',
         batchId: 'PBOC-batch-001',
       })

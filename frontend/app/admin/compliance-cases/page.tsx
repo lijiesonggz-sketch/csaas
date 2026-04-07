@@ -13,6 +13,7 @@ import {
   Search,
   ShieldAlert,
   Trash2,
+  Upload,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -112,6 +113,19 @@ function relationLabel(type: CaseControlRelationType) {
   return { VIOLATES: '违反', RELATED: '相关', SUPPORTS: '支持' }[type]
 }
 
+function sourceLabel(source: 'RULE' | 'LLM_ASSISTED_RULE' | 'LLM_FALLBACK' | 'MANUAL') {
+  return {
+    RULE: '规则命中',
+    LLM_ASSISTED_RULE: 'LLM辅助规则命中',
+    LLM_FALLBACK: 'LLM兜底命中',
+    MANUAL: '人工映射',
+  }[source]
+}
+
+function themesEqual(left: string[] = [], right: string[] = []) {
+  return left.length > 0 && left.length === right.length && left.every((value, index) => value === right[index])
+}
+
 function initialDecisions(clustering: ComplianceCaseClusteringResult | null) {
   if (!clustering) return {}
   return clustering.caseControlMapDrafts.reduce<Record<string, ReviewDecision>>((acc, draft) => {
@@ -139,10 +153,19 @@ export default function ComplianceCasesAdminPage() {
   const [reloadToken, setReloadToken] = useState(0)
   const [pagination, setPagination] = useState({ page: 1, limit: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 })
 
-  const [importForm, setImportForm] = useState({ filePath: '', regulatorCode: '', batchId: '' })
+  const [importForm, setImportForm] = useState<{
+    file: File | null
+    regulatorCode: string
+    batchId: string
+  }>({
+    file: null,
+    regulatorCode: '',
+    batchId: '',
+  })
   const [importing, setImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [importResult, setImportResult] = useState<ComplianceCaseImportJobResult | null>(null)
+  const [importFileInputKey, setImportFileInputKey] = useState(0)
 
   const [selectedCase, setSelectedCase] = useState<ComplianceCaseSummary | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -161,6 +184,10 @@ export default function ComplianceCasesAdminPage() {
 
   const detailStatus = clustering?.status ?? selectedCase?.status ?? null
   const canReview = detailStatus === 'clustered' && canAccess
+  const normalizedNeedsAttention = themesEqual(
+    extraction?.violationThemes ?? [],
+    clustering?.normalizedThemes ?? [],
+  )
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login')
@@ -272,22 +299,32 @@ export default function ComplianceCasesAdminPage() {
 
   const handleImport = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const payload = {
-      filePath: importForm.filePath.trim(),
-      regulatorCode: importForm.regulatorCode.trim(),
-      batchId: importForm.batchId.trim() || undefined,
-    }
-    if (!payload.filePath || !payload.regulatorCode) {
-      setImportError('请输入 filePath 和 regulatorCode。')
+    const file = importForm.file
+    const regulatorCode = importForm.regulatorCode.trim()
+    const batchId = importForm.batchId.trim() || undefined
+
+    if (!file || !regulatorCode) {
+      setImportError('请上传文件并填写 regulatorCode。')
       return
     }
 
     try {
       setImporting(true)
       setImportError(null)
-      const result = await enqueueComplianceCaseImport(payload)
+      setImportResult(null)
+      const result = await enqueueComplianceCaseImport({
+        file,
+        regulatorCode,
+        batchId,
+      })
       setImportResult(result)
       toast.success('案例导入任务已创建')
+      setImportForm((prev) => ({
+        file: null,
+        regulatorCode: prev.regulatorCode,
+        batchId: '',
+      }))
+      setImportFileInputKey((prev) => prev + 1)
       const nextFilters = { ...DEFAULT_FILTERS, batchId: result.batchId, regulatorCode: result.regulatorCode, status: 'all' as const }
       setFilters(nextFilters)
       setAppliedFilters(nextFilters)
@@ -305,6 +342,7 @@ export default function ComplianceCasesAdminPage() {
   const openDetail = (item: ComplianceCaseSummary) => {
     setSelectedCase(item)
     setDetailOpen(true)
+    setDetailLoading(true)
     setDetailError(null)
     setExtraction(null)
     setClustering(null)
@@ -318,6 +356,7 @@ export default function ComplianceCasesAdminPage() {
   const closeDetail = (open: boolean) => {
     setDetailOpen(open)
     if (!open) {
+      setDetailLoading(false)
       setSelectedCase(null)
       setExtraction(null)
       setClustering(null)
@@ -471,13 +510,23 @@ export default function ComplianceCasesAdminPage() {
 
               <form className="grid grid-cols-1 gap-4 md:grid-cols-4" onSubmit={handleImport}>
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="import-file-path">文件路径</Label>
+                  <Label htmlFor="import-file">上传文件</Label>
                   <Input
-                    id="import-file-path"
-                    placeholder="例如 D:/imports/cases.xlsx"
-                    value={importForm.filePath}
-                    onChange={(event) => setImportForm((prev) => ({ ...prev, filePath: event.target.value }))}
+                    key={importFileInputKey}
+                    id="import-file"
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={(event) =>
+                      setImportForm((prev) => ({
+                        ...prev,
+                        file: event.target.files?.[0] ?? null,
+                      }))
+                    }
                   />
+                  <p className="text-xs text-[#64748B]">支持 `.xlsx`、`.xls`、`.csv` 文件。</p>
+                  {importForm.file && (
+                    <p className="text-sm text-[#1E3A5F]">已选择：{importForm.file.name}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -508,7 +557,10 @@ export default function ComplianceCasesAdminPage() {
                         提交中...
                       </>
                     ) : (
-                      '创建导入任务'
+                      <>
+                        <Upload className="mr-2 h-4 w-4" />
+                        创建导入任务
+                      </>
                     )}
                   </Button>
                 </div>
@@ -525,7 +577,7 @@ export default function ComplianceCasesAdminPage() {
                 <Alert className="rounded-sm border-emerald-200 bg-emerald-50">
                   <CheckCircle2 className="h-4 w-4 text-emerald-700" />
                   <AlertDescription className="text-emerald-900">
-                    导入任务已创建：jobId=`{importResult.jobId}`，batchId=`{importResult.batchId}`，状态 `{importResult.status}`。
+                    导入任务已创建：文件 `{importResult.fileName}`，jobId=`{importResult.jobId}`，batchId=`{importResult.batchId}`，状态 `{importResult.status}`。
                   </AlertDescription>
                 </Alert>
               )}
@@ -713,7 +765,8 @@ export default function ComplianceCasesAdminPage() {
                     <h3 className="font-semibold text-[#1E3A5F]">基础信息</h3>
                     <div>标题：{selectedCase.caseTitle || '-'}</div>
                     <div>监管编码：{selectedCase.regulatorCode || '-'}</div>
-                    <div>来源机构：{selectedCase.sourceOrg || '-'}</div>
+                    <div>被处罚单位：{selectedCase.sourceOrg || '-'}</div>
+                    <div>被处罚人：{selectedCase.penalizedPerson || '-'}</div>
                     <div>监管机关：{selectedCase.authorityName || '-'}</div>
                     <div>批次号：{selectedCase.importBatchId || '-'}</div>
                   </CardContent>
@@ -744,7 +797,7 @@ export default function ComplianceCasesAdminPage() {
                   <CardContent className="space-y-3 p-4">
                     <h3 className="font-semibold text-[#1E3A5F]">提取结果</h3>
                     <div className="space-y-2">
-                      <Label>违规主题</Label>
+                      <Label>原始违规表述</Label>
                       <div className="flex flex-wrap gap-2">
                         {extraction?.violationThemes?.length ? (
                           extraction.violationThemes.map((theme) => (
@@ -776,7 +829,12 @@ export default function ComplianceCasesAdminPage() {
                   <CardContent className="space-y-3 p-4">
                     <h3 className="font-semibold text-[#1E3A5F]">聚类结果</h3>
                     <div className="space-y-2">
-                      <Label>归一化主题</Label>
+                      <div className="flex items-center justify-between">
+                        <Label>标准化匹配主题</Label>
+                        {normalizedNeedsAttention && (
+                          <span className="text-xs text-amber-700">该主题尚未完成语义归一化</span>
+                        )}
+                      </div>
                       <div className="flex flex-wrap gap-2">
                         {clustering?.normalizedThemes?.length ? (
                           clustering.normalizedThemes.map((theme) => (
@@ -790,13 +848,16 @@ export default function ComplianceCasesAdminPage() {
                     <div className="space-y-2">
                       <Label>候选新控制点</Label>
                       {clustering?.candidateControlPoints?.length ? (
-                        clustering.candidateControlPoints.map((candidate) => (
-                          <div key={`${candidate.controlName}-${candidate.sourceTheme}`} className="rounded-sm border border-[#E2E8F0] p-3 text-sm">
-                            <div className="font-medium text-[#1E3A5F]">{candidate.controlName}</div>
-                            <div>来源主题：{candidate.sourceTheme}</div>
-                            <div className="text-[#64748B]">{candidate.reason}</div>
-                          </div>
-                        ))
+                        <>
+                          <p className="text-xs text-[#64748B]">未命中现有 KG control point，建议人工补映射或补充 control point 中文别名/关键词。</p>
+                          {clustering.candidateControlPoints.map((candidate) => (
+                            <div key={`${candidate.controlName}-${candidate.sourceTheme}`} className="rounded-sm border border-[#E2E8F0] p-3 text-sm">
+                              <div className="font-medium text-[#1E3A5F]">{candidate.controlName}</div>
+                              <div>来源主题：{candidate.sourceTheme}</div>
+                              <div className="text-[#64748B]">{candidate.reason}</div>
+                            </div>
+                          ))}
+                        </>
                       ) : (
                         <span className="text-sm text-[#64748B]">暂无候选新控制点</span>
                       )}
@@ -837,7 +898,7 @@ export default function ComplianceCasesAdminPage() {
                             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                               <div className="text-sm">
                                 <div className="font-medium text-[#1E3A5F]">{draft.controlCode || '未编码'} · {draft.controlName || '未命名控制点'}</div>
-                                <div className="text-[#64748B]">关系：{relationLabel(draft.relationType)} · 置信度：{draft.confidenceScore || '-'}</div>
+                                <div className="text-[#64748B]">关系：{relationLabel(draft.relationType)} · 置信度：{draft.confidenceScore || '-'} · 来源：{sourceLabel(draft.source)}</div>
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 <Badge variant="outline">{reviewStatusLabel(displayStatus)}</Badge>

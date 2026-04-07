@@ -10,6 +10,7 @@ export type ComplianceCaseStatus =
 
 export type MapReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 export type CaseControlRelationType = 'VIOLATES' | 'RELATED' | 'SUPPORTS'
+export type CaseControlMapSource = 'RULE' | 'LLM_ASSISTED_RULE' | 'LLM_FALLBACK' | 'MANUAL'
 
 export interface ComplianceCaseSummary {
   caseId: string
@@ -17,6 +18,7 @@ export interface ComplianceCaseSummary {
   regulatorCode: string | null
   caseTitle: string | null
   sourceOrg: string | null
+  penalizedPerson: string | null
   industry: string | null
   region: string | null
   caseDate: string | null
@@ -63,6 +65,7 @@ export interface ComplianceCaseControlMapDraft {
   relationType: CaseControlRelationType
   reviewStatus: MapReviewStatus
   confidenceScore: string | null
+  source: CaseControlMapSource
 }
 
 export interface ComplianceCaseExtractionResult {
@@ -104,7 +107,7 @@ export interface ComplianceCaseListParams {
 }
 
 export interface ComplianceCaseImportPayload {
-  filePath: string
+  file: File
   regulatorCode: string
   batchId?: string
 }
@@ -112,7 +115,7 @@ export interface ComplianceCaseImportPayload {
 export interface ComplianceCaseImportJobResult {
   jobId: string
   batchId: string
-  filePath: string
+  fileName: string
   regulatorCode: string
   status: 'queued'
 }
@@ -145,6 +148,9 @@ export interface ControlPointSummary {
   controlCode: string
   controlName: string
   controlDesc: string | null
+  aliases?: string[] | null
+  keywords?: string[] | null
+  canonicalTheme?: string | null
   l1Code: string
   l2Code: string
   controlFamily: string
@@ -185,6 +191,10 @@ function buildQueryString(params: Record<string, string | number | undefined>): 
   return queryString ? `?${queryString}` : ''
 }
 
+const NO_STORE_REQUEST: RequestInit = {
+  cache: 'no-store',
+}
+
 export async function getComplianceCases(
   params: ComplianceCaseListParams = {},
 ): Promise<ComplianceCasesPage> {
@@ -197,31 +207,42 @@ export async function getComplianceCases(
     keyword: params.keyword,
   })
 
-  return apiFetch(`/api/admin/knowledge-graph/compliance-cases${queryString}`)
+  return apiFetch(`/api/admin/knowledge-graph/compliance-cases${queryString}`, NO_STORE_REQUEST)
 }
 
 export async function enqueueComplianceCaseImport(
   payload: ComplianceCaseImportPayload,
 ): Promise<ComplianceCaseImportJobResult> {
+  const formData = new FormData()
+  formData.append('file', payload.file)
+  formData.append('regulatorCode', payload.regulatorCode)
+
+  if (payload.batchId) {
+    formData.append('batchId', payload.batchId)
+  }
+
   return apiFetch('/api/admin/knowledge-graph/cases/import', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
+    body: formData,
   })
 }
 
 export async function getComplianceCaseExtraction(
   caseId: string,
 ): Promise<ComplianceCaseExtractionResult> {
-  return apiFetch(`/api/admin/knowledge-graph/compliance-cases/${caseId}/extraction`)
+  return apiFetch(
+    `/api/admin/knowledge-graph/compliance-cases/${caseId}/extraction`,
+    NO_STORE_REQUEST,
+  )
 }
 
 export async function getComplianceCaseClustering(
   caseId: string,
 ): Promise<ComplianceCaseClusteringResult> {
-  return apiFetch(`/api/admin/knowledge-graph/compliance-cases/${caseId}/clustering`)
+  return apiFetch(
+    `/api/admin/knowledge-graph/compliance-cases/${caseId}/clustering`,
+    NO_STORE_REQUEST,
+  )
 }
 
 export async function submitComplianceCaseHumanReview(
@@ -247,5 +268,5 @@ export async function searchControlPoints(
     keyword: params.keyword,
   })
 
-  return apiFetch(`/api/admin/knowledge-graph/control-points${queryString}`)
+  return apiFetch(`/api/admin/knowledge-graph/control-points${queryString}`, NO_STORE_REQUEST)
 }

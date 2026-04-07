@@ -37,35 +37,44 @@ describe('Compliance Cases API Client', () => {
 
     expect(mockApiFetch).toHaveBeenCalledWith(
       '/api/admin/knowledge-graph/compliance-cases?page=1&limit=10&batchId=PBOC-batch-001&regulatorCode=PBOC&status=clustered&keyword=%E5%AE%A2%E6%88%B7%E8%BA%AB%E4%BB%BD%E8%AF%86%E5%88%AB',
+      { cache: 'no-store' },
     )
   })
 
   it('should post import payload to existing import endpoint', async () => {
+    const file = new File(['mock workbook'], 'cases.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+
     mockApiFetch.mockResolvedValue({
       jobId: 'case-import-PBOC-batch-001',
       batchId: 'PBOC-batch-001',
-      filePath: 'D:/imports/cases.xlsx',
+      fileName: 'cases.xlsx',
       regulatorCode: 'PBOC',
       status: 'queued',
     })
 
     await enqueueComplianceCaseImport({
-      filePath: 'D:/imports/cases.xlsx',
+      file,
       regulatorCode: 'PBOC',
       batchId: 'PBOC-batch-001',
     })
 
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/admin/knowledge-graph/cases/import', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        filePath: 'D:/imports/cases.xlsx',
-        regulatorCode: 'PBOC',
-        batchId: 'PBOC-batch-001',
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/admin/knowledge-graph/cases/import',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.any(FormData),
       }),
-    })
+    )
+
+    const [, options] = mockApiFetch.mock.calls[0]
+    const formData = options.body as FormData
+
+    expect(options.headers).toBeUndefined()
+    expect(formData.get('file')).toBe(file)
+    expect(formData.get('regulatorCode')).toBe('PBOC')
+    expect(formData.get('batchId')).toBe('PBOC-batch-001')
   })
 
   it('should read extraction and clustering detail from existing endpoints', async () => {
@@ -77,10 +86,12 @@ describe('Compliance Cases API Client', () => {
     expect(mockApiFetch).toHaveBeenNthCalledWith(
       1,
       '/api/admin/knowledge-graph/compliance-cases/case-1/extraction',
+      { cache: 'no-store' },
     )
     expect(mockApiFetch).toHaveBeenNthCalledWith(
       2,
       '/api/admin/knowledge-graph/compliance-cases/case-1/clustering',
+      { cache: 'no-store' },
     )
   })
 
@@ -141,6 +152,7 @@ describe('Compliance Cases API Client', () => {
 
     expect(mockApiFetch).toHaveBeenCalledWith(
       '/api/admin/knowledge-graph/control-points?page=1&limit=10&status=ACTIVE&keyword=%E5%AE%A2%E6%88%B7%E8%BA%AB%E4%BB%BD%E8%AF%86%E5%88%AB',
+      { cache: 'no-store' },
     )
   })
 })

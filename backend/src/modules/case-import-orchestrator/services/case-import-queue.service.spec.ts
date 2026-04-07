@@ -37,6 +37,7 @@ describe('CaseImportQueueService', () => {
 
     const result = await service.enqueueImport({
       filePath: 'D:/imports/cases.xlsx',
+      sourceFileName: 'cases.xlsx',
       regulatorCode: 'pboc',
       batchId: 'PBOC-batch-001',
     })
@@ -62,7 +63,7 @@ describe('CaseImportQueueService', () => {
     expect(result).toEqual({
       jobId: 'case-import-PBOC-batch-001',
       batchId: 'PBOC-batch-001',
-      filePath: 'D:/imports/cases.xlsx',
+      fileName: 'cases.xlsx',
       regulatorCode: 'PBOC',
       status: 'queued',
     })

@@ -91,7 +91,10 @@ async function apiFetchInternal(
 
   // Prepare headers
   const headers = new Headers(options.headers)
-  if (!headers.has('Content-Type')) {
+  const isFormDataRequest =
+    typeof FormData !== 'undefined' && options.body instanceof FormData
+
+  if (!headers.has('Content-Type') && !isFormDataRequest) {
     headers.set('Content-Type', 'application/json')
   }
 

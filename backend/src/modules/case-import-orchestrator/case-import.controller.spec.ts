@@ -1,3 +1,4 @@
+import { rm } from 'fs/promises'
 import { INestApplication, UnauthorizedException, ValidationPipe } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
 import * as request from 'supertest'
@@ -7,6 +8,7 @@ import { AuditLogService } from '../audit/audit-log.service'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { RolesGuard } from '../auth/guards/roles.guard'
 import { TenantGuard } from '../organizations/guards/tenant.guard'
+import { KG_CASE_IMPORT_UPLOAD_DIR } from './constants/case-import.constants'
 import { CaseImportController } from './controllers/case-import.controller'
 import { CaseImportAuditFilter } from './filters/case-import-audit.filter'
 import { CaseImportQueueService } from './services/case-import-queue.service'
@@ -96,27 +98,32 @@ describe('CaseImportController (http)', () => {
     mockCaseImportQueueService.enqueueImport.mockResolvedValue({
       jobId: 'case-import-PBOC-batch-001',
       batchId: 'PBOC-batch-001',
-      filePath: 'D:/imports/cases.xlsx',
+      fileName: 'cases.xlsx',
       regulatorCode: 'PBOC',
       status: 'queued',
     })
 
     const response = await request(app.getHttpServer())
       .post('/api/admin/knowledge-graph/cases/import')
-      .send({
-        filePath: 'D:/imports/cases.xlsx',
-        regulatorCode: 'PBOC',
-      })
+      .field('regulatorCode', 'PBOC')
+      .attach('file', Buffer.from('mock workbook'), 'cases.xlsx')
       .expect(201)
 
     expect(response.body.success).toBe(true)
     expect(response.body.data).toEqual({
       jobId: 'case-import-PBOC-batch-001',
       batchId: 'PBOC-batch-001',
-      filePath: 'D:/imports/cases.xlsx',
+      fileName: 'cases.xlsx',
       regulatorCode: 'PBOC',
       status: 'queued',
     })
+    expect(mockCaseImportQueueService.enqueueImport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        regulatorCode: 'PBOC',
+        sourceFileName: 'cases.xlsx',
+        filePath: expect.stringContaining(KG_CASE_IMPORT_UPLOAD_DIR),
+      }),
+    )
     expect(mockAuditLogService.log).toHaveBeenCalledWith(
       expect.objectContaining({
         action: AuditAction.CREATE,
@@ -129,9 +136,7 @@ describe('CaseImportController (http)', () => {
   it('should reject invalid import payloads with 400 before queue submission', async () => {
     await request(app.getHttpServer())
       .post('/api/admin/knowledge-graph/cases/import')
-      .send({
-        filePath: '',
-      })
+      .field('regulatorCode', 'PBOC')
       .expect(400)
 
     expect(mockCaseImportQueueService.enqueueImport).not.toHaveBeenCalled()
@@ -149,10 +154,8 @@ describe('CaseImportController (http)', () => {
 
     await request(app.getHttpServer())
       .post('/api/admin/knowledge-graph/cases/import')
-      .send({
-        filePath: 'D:/imports/cases.xlsx',
-        regulatorCode: 'PBOC',
-      })
+      .field('regulatorCode', 'PBOC')
+      .attach('file', Buffer.from('mock workbook'), 'cases.xlsx')
       .expect(401)
 
     expect(mockAuditLogService.log).toHaveBeenCalledWith(
@@ -169,10 +172,8 @@ describe('CaseImportController (http)', () => {
 
     await request(app.getHttpServer())
       .post('/api/admin/knowledge-graph/cases/import')
-      .send({
-        filePath: 'D:/imports/cases.xlsx',
-        regulatorCode: 'PBOC',
-      })
+      .field('regulatorCode', 'PBOC')
+      .attach('file', Buffer.from('mock workbook'), 'cases.xlsx')
       .expect(403)
 
     expect(mockAuditLogService.log).toHaveBeenCalledWith(
@@ -181,5 +182,9 @@ describe('CaseImportController (http)', () => {
         entityId: null,
       }),
     )
+  })
+
+  afterEach(async () => {
+    await rm(KG_CASE_IMPORT_UPLOAD_DIR, { recursive: true, force: true })
   })
 })

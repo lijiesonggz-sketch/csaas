@@ -1,3 +1,5 @@
+import { unlink } from 'fs/promises'
+import { resolve, sep } from 'path'
 import { BadRequestException, Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import * as XLSX from 'xlsx'
@@ -5,6 +7,9 @@ import { Repository } from 'typeorm'
 import { RawContent } from '../../../database/entities/raw-content.entity'
 import { CreateComplianceCaseDto } from '../../knowledge-graph/dto/compliance-case.dto'
 import { ComplianceCaseService } from '../../knowledge-graph/services/compliance-case.service'
+import {
+  KG_CASE_IMPORT_UPLOAD_DIR,
+} from '../constants/case-import.constants'
 import {
   ComplianceCaseImportResult,
   ComplianceCaseImportRowFailure,
@@ -17,6 +22,7 @@ type NormalizedRow = {
   caseCode: string
   caseTitle: string | null
   sourceOrg: string | null
+  penalizedPerson: string | null
   authorityName: string | null
   regulatorCode: string
   caseDate: string | null
@@ -36,27 +42,42 @@ const FIELD_ALIASES = {
     '处罚决定书文号',
     '决定书文号',
     '文号',
+    '文档id',
+    '索引id',
   ],
   caseTitle: ['case_title', '标题', '案件标题', '处罚标题'],
-  penalizedEntity: [
+  penalizedOrg: [
     'penalized_entity',
     '处罚对象',
     '被处罚对象',
     '被处罚机构',
     '被处罚当事人',
+    '被处罚单位',
     '机构名称',
+  ],
+  penalizedPerson: [
+    'penalized_person',
+    '被处罚当事人姓名',
   ],
   violationSummary: [
     'violation_summary',
     '处罚事宜',
     '违法行为类型',
     '主要违法违规事实',
+    '主要违法违规事实（案由）',
     '事实摘要',
     '违规摘要',
   ],
-  violationReason: ['violation_reason', '处罚原因', '处罚依据', '违规原因', '违法依据'],
-  penaltyDate: ['penalty_date', '处罚日期', '作出处罚决定日期', '决定日期'],
-  sourceUrl: ['source_url', '原文链接', '来源链接', '链接', 'url'],
+  violationReason: [
+    'violation_reason',
+    '处罚原因',
+    '处罚依据',
+    '行政处罚依据',
+    '违规原因',
+    '违法依据',
+  ],
+  penaltyDate: ['penalty_date', '处罚日期', '作出处罚决定日期', '决定日期', '时间'],
+  sourceUrl: ['source_url', '原文链接', '来源链接', '标题链接', '链接', 'url'],
   rawContentId: ['raw_content_id', 'rawcontentid'],
   authorityName: ['authority_name', '来源监管机构', '监管机构名称', '监管机构'],
 } as const
@@ -77,62 +98,67 @@ export class CaseImportService {
 
   async importCases(params: ImportComplianceCasesDto): Promise<ComplianceCaseImportResult> {
     const regulatorCode = this.normalizeRegulatorCode(params.regulatorCode)
-    const workbook = XLSX.readFile(params.filePath)
-    const firstSheetName = workbook.SheetNames[0]
+    try {
+      const workbook = XLSX.readFile(params.filePath)
+      const firstSheetName = workbook.SheetNames[0]
 
-    if (!firstSheetName) {
-      throw new BadRequestException('Workbook does not contain any worksheet')
-    }
-
-    const worksheet = workbook.Sheets[firstSheetName]
-    const rawRows = XLSX.utils.sheet_to_json<SpreadsheetRow>(worksheet, {
-      defval: null,
-      raw: false,
-    })
-    const rows = rawRows.filter((row) => this.hasRowContent(row))
-    const batchId = params.batchId ?? this.buildBatchId(regulatorCode)
-    const failures: ComplianceCaseImportRowFailure[] = []
-    let importedCount = 0
-
-    for (const [index, row] of rows.entries()) {
-      const rowNumber = index + 2
-
-      try {
-        const normalized = await this.normalizeRow(row, rowNumber, regulatorCode)
-        const dto: CreateComplianceCaseDto = {
-          caseCode: normalized.caseCode,
-          caseTitle: normalized.caseTitle,
-          sourceOrg: normalized.sourceOrg,
-          authorityName: normalized.authorityName,
-          regulatorCode: normalized.regulatorCode,
-          caseDate: normalized.caseDate,
-          caseFacts: normalized.caseFacts,
-          penaltyReason: normalized.penaltyReason,
-          rawSourceUrl: normalized.rawSourceUrl,
-          rawContentId: normalized.rawContentId,
-          importBatchId: batchId,
-          status: 'pending',
-        }
-
-        await this.complianceCaseService.createCase(dto)
-        importedCount += 1
-      } catch (error) {
-        failures.push({
-          rowNumber,
-          caseNumber: this.extractCaseNumber(row),
-          message: error instanceof Error ? error.message : 'Unknown import failure',
-        })
+      if (!firstSheetName) {
+        throw new BadRequestException('Workbook does not contain any worksheet')
       }
-    }
 
-    return {
-      batchId,
-      filePath: params.filePath,
-      regulatorCode,
-      totalRows: rows.length,
-      importedCount,
-      failedCount: failures.length,
-      failures,
+      const worksheet = workbook.Sheets[firstSheetName]
+      const rawRows = XLSX.utils.sheet_to_json<SpreadsheetRow>(worksheet, {
+        defval: null,
+        raw: false,
+      })
+      const rows = rawRows.filter((row) => this.hasRowContent(row))
+      const batchId = params.batchId ?? this.buildBatchId(regulatorCode)
+      const failures: ComplianceCaseImportRowFailure[] = []
+      let importedCount = 0
+
+      for (const [index, row] of rows.entries()) {
+        const rowNumber = index + 2
+
+        try {
+          const normalized = await this.normalizeRow(row, rowNumber, regulatorCode)
+          const dto: CreateComplianceCaseDto = {
+            caseCode: normalized.caseCode,
+            caseTitle: normalized.caseTitle,
+            sourceOrg: normalized.sourceOrg,
+            penalizedPerson: normalized.penalizedPerson,
+            authorityName: normalized.authorityName,
+            regulatorCode: normalized.regulatorCode,
+            caseDate: normalized.caseDate,
+            caseFacts: normalized.caseFacts,
+            penaltyReason: normalized.penaltyReason,
+            rawSourceUrl: normalized.rawSourceUrl,
+            rawContentId: normalized.rawContentId,
+            importBatchId: batchId,
+            status: 'pending',
+          }
+
+          await this.complianceCaseService.createCase(dto)
+          importedCount += 1
+        } catch (error) {
+          failures.push({
+            rowNumber,
+            caseNumber: this.extractCaseNumber(row),
+            message: error instanceof Error ? error.message : 'Unknown import failure',
+          })
+        }
+      }
+
+      return {
+        batchId,
+        filePath: params.filePath,
+        regulatorCode,
+        totalRows: rows.length,
+        importedCount,
+        failedCount: failures.length,
+        failures,
+      }
+    } finally {
+      await this.cleanupManagedUpload(params.filePath)
     }
   }
 
@@ -166,7 +192,8 @@ export class CaseImportService {
     return {
       caseCode: this.buildCaseCode(regulatorCode, caseNumber, caseTitle, rowNumber),
       caseTitle,
-      sourceOrg: this.extractString(row, FIELD_ALIASES.penalizedEntity),
+      sourceOrg: this.extractString(row, FIELD_ALIASES.penalizedOrg),
+      penalizedPerson: this.extractString(row, FIELD_ALIASES.penalizedPerson),
       authorityName:
         this.extractString(row, FIELD_ALIASES.authorityName) ??
         REGULATOR_LABELS[regulatorCode] ??
@@ -240,6 +267,16 @@ export class CaseImportService {
       return value
     }
 
+    const compactDashedDateTime = value.match(/^(\d{4})-(\d{2})-(\d{2})\d{2}:\d{2}:\d{2}$/)
+    if (compactDashedDateTime) {
+      return `${compactDashedDateTime[1]}-${compactDashedDateTime[2]}-${compactDashedDateTime[3]}`
+    }
+
+    const compactSlashedDateTime = value.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})\d{2}:\d{2}:\d{2}$/)
+    if (compactSlashedDateTime) {
+      return `${compactSlashedDateTime[1]}-${compactSlashedDateTime[2].padStart(2, '0')}-${compactSlashedDateTime[3].padStart(2, '0')}`
+    }
+
     if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(value)) {
       return value.replace(/\//g, '-').replace(/-(\d)(?!\d)/g, '-0$1')
     }
@@ -310,5 +347,27 @@ export class CaseImportService {
     }
 
     return hash.toString(36).toUpperCase()
+  }
+
+  private async cleanupManagedUpload(filePath: string): Promise<void> {
+    if (!this.isManagedUpload(filePath)) {
+      return
+    }
+
+    try {
+      await unlink(filePath)
+    } catch {
+      // Ignore temp file cleanup errors to avoid masking import results.
+    }
+  }
+
+  private isManagedUpload(filePath: string): boolean {
+    const normalizedUploadDir = resolve(KG_CASE_IMPORT_UPLOAD_DIR)
+    const normalizedFilePath = resolve(filePath)
+
+    return (
+      normalizedFilePath === normalizedUploadDir ||
+      normalizedFilePath.startsWith(`${normalizedUploadDir}${sep}`)
+    )
   }
 }
