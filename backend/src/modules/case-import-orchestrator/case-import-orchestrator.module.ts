@@ -7,6 +7,7 @@ import { ControlPoint } from '../../database/entities/control-point.entity'
 import { RawContent } from '../../database/entities/raw-content.entity'
 import { RegulationClause } from '../../database/entities/regulation-clause.entity'
 import { AuditModule } from '../audit/audit.module'
+import { AIClientsModule } from '../ai-clients/ai-clients.module'
 import { KnowledgeGraphModule } from '../knowledge-graph/knowledge-graph.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
 import { KG_CASE_IMPORT_QUEUE } from './constants/case-import.constants'
@@ -19,6 +20,8 @@ import { CaseExtractionService } from './services/case-extraction.service'
 import { CaseHumanReviewService } from './services/case-human-review.service'
 import { CaseImportService } from './services/case-import.service'
 import { CaseImportQueueService } from './services/case-import-queue.service'
+import { CaseThemeIntelligenceService } from './services/case-theme-intelligence.service'
+import { ComplianceCaseBackfillService } from './services/compliance-case-backfill.service'
 
 @Module({
   imports: [
@@ -41,6 +44,7 @@ import { CaseImportQueueService } from './services/case-import-queue.service'
         removeOnFail: 500,
       },
     }),
+    AIClientsModule,
     KnowledgeGraphModule,
     OrganizationsModule,
     AuditModule,
@@ -52,9 +56,11 @@ import { CaseImportQueueService } from './services/case-import-queue.service'
     CaseExtractionService,
     CaseImportService,
     CaseImportQueueService,
+    CaseThemeIntelligenceService,
+    ComplianceCaseBackfillService,
     CaseImportProcessor,
     CaseImportAuditFilter,
   ],
-  exports: [CaseImportService, CaseImportQueueService],
+  exports: [CaseImportService, CaseImportQueueService, ComplianceCaseBackfillService],
 })
 export class CaseImportOrchestratorModule {}

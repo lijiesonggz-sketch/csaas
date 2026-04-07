@@ -6,6 +6,12 @@ import {
   ComplianceCaseClauseCandidate,
 } from '../../../database/entities/compliance-case.entity'
 import { RegulationClause } from '../../../database/entities/regulation-clause.entity'
+import {
+  extractViolationThemesFromText,
+  isWeakTheme,
+  tokenizeText,
+} from './case-theme.utils'
+import { CaseThemeIntelligenceService } from './case-theme-intelligence.service'
 
 export type CaseExtractionBatchResult = {
   batchId: string
@@ -20,6 +26,7 @@ export class CaseExtractionService {
     private readonly complianceCaseRepository: Repository<ComplianceCase>,
     @InjectRepository(RegulationClause)
     private readonly regulationClauseRepository: Repository<RegulationClause>,
+    private readonly caseThemeIntelligenceService: CaseThemeIntelligenceService,
   ) {}
 
   async extractBatch(batchId: string): Promise<CaseExtractionBatchResult> {
@@ -40,7 +47,19 @@ export class CaseExtractionService {
         .filter((value): value is string => Boolean(value))
         .join('；')
 
-      const violationThemes = this.extractViolationThemes(sourceText)
+      let violationThemes = extractViolationThemesFromText(sourceText)
+
+      if (this.shouldUseLlmRefinement(violationThemes)) {
+        const refinedThemes = await this.caseThemeIntelligenceService.refineViolationThemes(
+          sourceText,
+          violationThemes,
+        )
+
+        if (refinedThemes && refinedThemes.length > 0) {
+          violationThemes = refinedThemes
+        }
+      }
+
       const clauseCandidates = await this.findClauseCandidates(sourceText, violationThemes)
 
       caseRecord.violationThemes = violationThemes
@@ -59,23 +78,12 @@ export class CaseExtractionService {
     }
   }
 
-  private extractViolationThemes(text: string): string[] {
-    const fragments = text
-      .split(/[；;。.\n，,、]/)
-      .map((fragment) => fragment.replace(/\s+/g, '').trim())
-      .filter((fragment) => fragment.length >= 4)
-
-    const themes = Array.from(new Set(fragments.map((fragment) => fragment.slice(0, 24)))).slice(
-      0,
-      5,
-    )
-
-    if (themes.length > 0) {
-      return themes
+  private shouldUseLlmRefinement(violationThemes: string[]): boolean {
+    if (violationThemes.length === 0) {
+      return true
     }
 
-    const fallbackKeywords = this.extractKeywords(text).slice(0, 5)
-    return fallbackKeywords.length > 0 ? fallbackKeywords : ['待人工确认']
+    return violationThemes.every((theme) => isWeakTheme(theme) || theme.length <= 4)
   }
 
   private async findClauseCandidates(
@@ -130,31 +138,6 @@ export class CaseExtractionService {
   }
 
   private extractKeywords(text: string): string[] {
-    const matches =
-      text.match(/[\u4e00-\u9fa5A-Za-z0-9]{2,12}/g)?.map((token) => token.trim()) ?? []
-    const stopwords = new Set(['以及', '按照', '根据', '存在', '相关', '要求', '进行', '落实'])
-
-    return Array.from(
-      new Set(
-        matches
-          .flatMap((token) => {
-            const stripped = token
-              .replace(/(不到位|缺失|未及时|未按|未|不|违规|失败|薄弱|问题)/g, '')
-              .trim()
-
-            return [
-              token,
-              stripped,
-              stripped.length >= 4 ? stripped.slice(0, 4) : null,
-              stripped.length >= 6 ? stripped.slice(0, 6) : null,
-              token.includes('可疑交易') ? '可疑交易' : null,
-            ]
-          })
-          .filter(
-            (token): token is string =>
-              Boolean(token) && !stopwords.has(token) && token.length >= 2,
-          ),
-      ),
-    )
+    return tokenizeText(text)
   }
 }

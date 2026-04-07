@@ -117,6 +117,7 @@ export class CaseHumanReviewService {
         if (existing) {
           existing.relationType = manualMapping.relationType ?? existing.relationType
           existing.reviewStatus = 'APPROVED'
+          existing.source = 'MANUAL'
           existing.confidenceScore =
             manualMapping.confidenceScore === undefined
               ? existing.confidenceScore
@@ -128,6 +129,7 @@ export class CaseHumanReviewService {
             controlId: manualMapping.controlId,
             relationType: manualMapping.relationType ?? 'VIOLATES',
             reviewStatus: 'APPROVED',
+            source: 'MANUAL',
             confidenceScore: manualMapping.confidenceScore?.toFixed(4) ?? '1.0000',
           })
           await manager.save(entity)

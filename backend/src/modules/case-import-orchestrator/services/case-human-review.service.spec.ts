@@ -105,6 +105,7 @@ describe('CaseHumanReviewService', () => {
         controlId: 'control-3',
         relationType: 'RELATED',
         reviewStatus: 'APPROVED',
+        source: 'MANUAL',
       }),
     )
     expect(mockEntityManager.save).toHaveBeenCalledWith(

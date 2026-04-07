@@ -12,6 +12,13 @@ import { MapReviewStatus } from './clause-control-map.entity'
 
 export const CASE_CONTROL_RELATION_TYPES = ['VIOLATES', 'RELATED', 'SUPPORTS'] as const
 export type CaseControlRelationType = (typeof CASE_CONTROL_RELATION_TYPES)[number]
+export const CASE_CONTROL_MAP_SOURCES = [
+  'RULE',
+  'LLM_ASSISTED_RULE',
+  'LLM_FALLBACK',
+  'MANUAL',
+] as const
+export type CaseControlMapSource = (typeof CASE_CONTROL_MAP_SOURCES)[number]
 
 @Entity('case_control_maps')
 @Unique('UQ_case_control_maps_case_control', ['caseId', 'controlId'])
@@ -33,6 +40,9 @@ export class CaseControlMap {
 
   @Column({ name: 'review_status', type: 'varchar', length: 20, default: 'PENDING' })
   reviewStatus: MapReviewStatus
+
+  @Column({ name: 'source', type: 'varchar', length: 30, default: 'RULE' })
+  source: CaseControlMapSource
 
   @ManyToOne(() => ComplianceCase, (caseRecord) => caseRecord.caseControlMaps, {
     onDelete: 'RESTRICT',

@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { ILike, Repository } from 'typeorm'
+import { Brackets, Repository } from 'typeorm'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
 import { TaxonomyL1 } from '../../../database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../../../database/entities/taxonomy-l2.entity'
@@ -33,58 +33,68 @@ export class ControlPointService {
     page: number
     limit: number
   }> {
-    const where: Record<string, unknown> = {}
+    const page = query.page ?? 1
+    const limit = query.limit ?? 20
+    const builder = this.controlPointRepository.createQueryBuilder('control')
 
     if (query.status) {
-      where.status = query.status
+      builder.andWhere('control.status = :status', { status: query.status })
     }
 
     if (query.l1Code) {
-      where.l1Code = query.l1Code
+      builder.andWhere('control.l1Code = :l1Code', { l1Code: query.l1Code })
     }
 
     if (query.l2Code) {
-      where.l2Code = query.l2Code
+      builder.andWhere('control.l2Code = :l2Code', { l2Code: query.l2Code })
     }
 
     if (query.controlFamily) {
-      where.controlFamily = query.controlFamily
+      builder.andWhere('control.controlFamily = :controlFamily', {
+        controlFamily: query.controlFamily,
+      })
     }
 
     if (query.keyword) {
-      const keyword = ILike(`%${query.keyword}%`)
-      const whereWithKeyword = [
-        { ...where, controlName: keyword },
-        { ...where, controlCode: keyword },
-      ]
-
-      const [items, total] = await this.controlPointRepository.findAndCount({
-        where: whereWithKeyword,
-        order: { controlCode: 'ASC' },
-        skip: ((query.page ?? 1) - 1) * (query.limit ?? 20),
-        take: query.limit ?? 20,
-      })
-
-      return {
-        items,
-        total,
-        page: query.page ?? 1,
-        limit: query.limit ?? 20,
-      }
+      const keyword = `%${query.keyword}%`
+      builder.andWhere(
+        new Brackets((subQuery) => {
+          subQuery
+            .where('control.controlName ILIKE :keyword', { keyword })
+            .orWhere('control.controlCode ILIKE :keyword', { keyword })
+            .orWhere('control.controlDesc ILIKE :keyword', { keyword })
+            .orWhere('control.canonicalTheme ILIKE :keyword', { keyword })
+            .orWhere(
+              `EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements_text(COALESCE(control.aliases, '[]'::jsonb)) alias
+                WHERE alias ILIKE :keyword
+              )`,
+              { keyword },
+            )
+            .orWhere(
+              `EXISTS (
+                SELECT 1
+                FROM jsonb_array_elements_text(COALESCE(control.keywords, '[]'::jsonb)) keyword_item
+                WHERE keyword_item ILIKE :keyword
+              )`,
+              { keyword },
+            )
+        }),
+      )
     }
 
-    const [items, total] = await this.controlPointRepository.findAndCount({
-      where,
-      order: { controlCode: 'ASC' },
-      skip: ((query.page ?? 1) - 1) * (query.limit ?? 20),
-      take: query.limit ?? 20,
-    })
+    const [items, total] = await builder
+      .orderBy('control.controlCode', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount()
 
     return {
       items,
       total,
-      page: query.page ?? 1,
-      limit: query.limit ?? 20,
+      page,
+      limit,
     }
   }
 
@@ -160,6 +170,7 @@ export class ControlPointService {
       'controlName',
       'l1Code',
       'l2Code',
+      'canonicalTheme',
       'controlFamily',
       'controlType',
       'mandatoryDefault',

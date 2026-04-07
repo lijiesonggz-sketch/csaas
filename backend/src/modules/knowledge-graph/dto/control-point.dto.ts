@@ -79,6 +79,23 @@ export class CreateControlPointDto {
   @Length(0, 4000)
   controlDesc?: string | null
 
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  aliases?: string[] | null
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  keywords?: string[] | null
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 300)
+  canonicalTheme?: string | null
+
   @IsString()
   @Length(4, 20)
   @Matches(/^IT\d{2}$/)
@@ -129,6 +146,23 @@ export class UpdateControlPointDto {
   @IsString()
   @Length(0, 4000)
   controlDesc?: string | null
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsString({ each: true })
+  aliases?: string[] | null
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  keywords?: string[] | null
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 300)
+  canonicalTheme?: string | null
 
   @ValidateIf((_object, value) => value !== undefined)
   @IsString()

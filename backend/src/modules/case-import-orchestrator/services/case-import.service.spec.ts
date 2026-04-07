@@ -168,6 +168,43 @@ describe('CaseImportService', () => {
     expect(complianceCaseService.createCase).toHaveBeenCalledTimes(2)
   })
 
+  it('should import CSRC spreadsheet headers used by current manual validation file', async () => {
+    ;(XLSX.utils.sheet_to_json as jest.Mock).mockReturnValue([
+      {
+        标题: '关于对李梓平采取出具警示函措施的决定',
+        标题链接: 'https://www.csrc.gov.cn/shanxi/c103686/c7612841/content.shtml',
+        时间: '2026-02-0208:54:12',
+        文档ID: '7612841',
+        被处罚当事人姓名: '李梓平',
+        被处罚单位: '中辉期货有限公司山西省分公司',
+        '主要违法违规事实（案由）': '互联网营销行为管理不到位',
+        行政处罚依据: '违反了期货公司监督管理办法相关规定',
+      },
+    ])
+
+    const result = await service.importCases({
+      filePath: 'D:/imports/csrc-cases.xlsx',
+      regulatorCode: 'CSRC',
+    })
+
+    expect(result.importedCount).toBe(1)
+    expect(result.failedCount).toBe(0)
+    expect(complianceCaseService.createCase).toHaveBeenCalledWith(
+      expect.objectContaining({
+        caseCode: 'CSRC-7612841',
+        caseTitle: '关于对李梓平采取出具警示函措施的决定',
+        sourceOrg: '中辉期货有限公司山西省分公司',
+        penalizedPerson: '李梓平',
+        regulatorCode: 'CSRC',
+        caseDate: '2026-02-02',
+        caseFacts: '互联网营销行为管理不到位',
+        penaltyReason: '违反了期货公司监督管理办法相关规定',
+        rawSourceUrl: 'https://www.csrc.gov.cn/shanxi/c103686/c7612841/content.shtml',
+        status: 'pending',
+      }),
+    )
+  })
+
   it('should fail a row when raw_content_id is not a uuid', async () => {
     ;(XLSX.utils.sheet_to_json as jest.Mock).mockReturnValue([
       {

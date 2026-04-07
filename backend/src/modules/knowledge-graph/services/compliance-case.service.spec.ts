@@ -196,6 +196,7 @@ describe('ComplianceCaseService', () => {
         relationType: 'VIOLATES',
         reviewStatus: 'PENDING',
         confidenceScore: '0.9000',
+        source: 'RULE',
         controlPoint: {
           controlCode: 'CP-001',
           controlName: '客户身份识别',
@@ -228,6 +229,7 @@ describe('ComplianceCaseService', () => {
           relationType: 'VIOLATES',
           reviewStatus: 'PENDING',
           confidenceScore: '0.9000',
+          source: 'RULE',
         },
       ],
     })

@@ -13,6 +13,7 @@ describe('ControlPointService', () => {
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    createQueryBuilder: jest.fn(),
   }
 
   const taxonomyL1Repository = {
@@ -21,6 +22,14 @@ describe('ControlPointService', () => {
 
   const taxonomyL2Repository = {
     findOne: jest.fn(),
+  }
+
+  const queryBuilder = {
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getManyAndCount: jest.fn(),
   }
 
   beforeEach(async () => {
@@ -44,6 +53,12 @@ describe('ControlPointService', () => {
 
     service = module.get(ControlPointService)
     jest.clearAllMocks()
+    queryBuilder.andWhere.mockClear().mockReturnThis()
+    queryBuilder.orderBy.mockClear().mockReturnThis()
+    queryBuilder.skip.mockClear().mockReturnThis()
+    queryBuilder.take.mockClear().mockReturnThis()
+    queryBuilder.getManyAndCount.mockClear()
+    controlPointRepository.createQueryBuilder.mockReturnValue(queryBuilder)
   })
 
   it('should reject invalid l1Code/l2Code hierarchy relations', async () => {
@@ -119,5 +134,19 @@ describe('ControlPointService', () => {
     ).rejects.toThrow('controlType cannot be null')
 
     expect(controlPointRepository.findOne).not.toHaveBeenCalled()
+  })
+
+  it('should search keyword across code name desc and semantic metadata', async () => {
+    queryBuilder.getManyAndCount.mockResolvedValue([[], 0])
+
+    await service.findAll({
+      keyword: '反洗钱',
+      page: 1,
+      limit: 20,
+    })
+
+    expect(controlPointRepository.createQueryBuilder).toHaveBeenCalledWith('control')
+    expect(queryBuilder.andWhere).toHaveBeenCalled()
+    expect(queryBuilder.getManyAndCount).toHaveBeenCalled()
   })
 })

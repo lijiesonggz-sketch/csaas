@@ -69,6 +69,7 @@ export class ComplianceCaseService {
           { ...where, caseCode: keyword },
           { ...where, caseTitle: keyword },
           { ...where, sourceOrg: keyword },
+          { ...where, penalizedPerson: keyword },
           { ...where, caseFacts: keyword },
         ],
         order: { caseDate: 'DESC', caseCode: 'ASC' },
@@ -156,7 +157,7 @@ export class ComplianceCaseService {
   }
 
   async updateCaseControlMap(id: string, dto: UpdateCaseControlMapDto): Promise<CaseControlMap> {
-    this.assertNoNullUpdates(dto, ['caseId', 'controlId', 'relationType', 'reviewStatus'])
+    this.assertNoNullUpdates(dto, ['caseId', 'controlId', 'relationType', 'reviewStatus', 'source'])
 
     const existing = await this.findCaseControlMap(id)
     const nextCaseId = dto.caseId ?? existing.caseId
@@ -190,6 +191,7 @@ export class ComplianceCaseService {
       caseCode: item.caseRecord.caseCode,
       caseTitle: item.caseRecord.caseTitle,
       sourceOrg: item.caseRecord.sourceOrg,
+      penalizedPerson: item.caseRecord.penalizedPerson,
       industry: item.caseRecord.industry,
       authorityName: item.caseRecord.authorityName,
       caseDate: item.caseRecord.caseDate,
@@ -238,6 +240,7 @@ export class ComplianceCaseService {
         relationType: draft.relationType,
         reviewStatus: draft.reviewStatus,
         confidenceScore: draft.confidenceScore,
+        source: draft.source,
       })),
     }
   }

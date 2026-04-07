@@ -321,6 +321,7 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
           relationType: 'VIOLATES',
           reviewStatus: 'PENDING',
           confidenceScore: '0.9000',
+          source: 'RULE',
         },
       ],
     })
@@ -351,6 +352,7 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
             relationType: 'VIOLATES',
             reviewStatus: 'PENDING',
             confidenceScore: '0.9000',
+            source: 'RULE',
           },
         ],
       },

@@ -17,6 +17,8 @@ import {
 import {
   CASE_CONTROL_RELATION_TYPES,
   CaseControlRelationType,
+  CASE_CONTROL_MAP_SOURCES,
+  CaseControlMapSource,
 } from '../../../database/entities/case-control-map.entity'
 import {
   MAP_REVIEW_STATUSES,
@@ -98,6 +100,11 @@ export class CreateComplianceCaseDto {
   @IsString()
   @Length(1, 200)
   sourceOrg?: string | null
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  penalizedPerson?: string | null
 
   @IsOptional()
   @IsString()
@@ -192,6 +199,11 @@ export class UpdateComplianceCaseDto {
   @IsString()
   @Length(1, 200)
   sourceOrg?: string | null
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  penalizedPerson?: string | null
 
   @IsOptional()
   @IsString()
@@ -303,6 +315,10 @@ export class CreateCaseControlMapDto {
   @IsOptional()
   @IsEnum(MAP_REVIEW_STATUSES)
   reviewStatus?: MapReviewStatus = 'PENDING'
+
+  @IsOptional()
+  @IsEnum(CASE_CONTROL_MAP_SOURCES)
+  source?: CaseControlMapSource = 'RULE'
 }
 
 export class UpdateCaseControlMapDto {
@@ -327,4 +343,8 @@ export class UpdateCaseControlMapDto {
   @ValidateIf((_object, value) => value !== undefined)
   @IsEnum(MAP_REVIEW_STATUSES)
   reviewStatus?: MapReviewStatus
+
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsEnum(CASE_CONTROL_MAP_SOURCES)
+  source?: CaseControlMapSource
 }

@@ -96,6 +96,9 @@ export interface ControlPointSeedRecord {
   controlCode: string
   controlName: string
   controlDesc?: string | null
+  aliases?: string[] | null
+  keywords?: string[] | null
+  canonicalTheme?: string | null
   l1Code: string
   l2Code: string
   controlFamily: string
@@ -433,6 +436,14 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
 
     if (control.ownerRoleHint && !Array.isArray(control.ownerRoleHint)) {
       throw new Error(`Control point ${control.controlCode} ownerRoleHint must be an array`)
+    }
+
+    if (control.aliases && !Array.isArray(control.aliases)) {
+      throw new Error(`Control point ${control.controlCode} aliases must be an array`)
+    }
+
+    if (control.keywords && !Array.isArray(control.keywords)) {
+      throw new Error(`Control point ${control.controlCode} keywords must be an array`)
     }
   }
 

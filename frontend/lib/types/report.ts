@@ -14,6 +14,7 @@ export interface ControlReportCaseDto {
   caseCode: string
   caseTitle: string | null
   sourceOrg: string | null
+  penalizedPerson: string | null
   authorityName: string | null
 }
 

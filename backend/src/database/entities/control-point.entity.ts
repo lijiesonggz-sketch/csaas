@@ -35,6 +35,15 @@ export class ControlPoint {
   @Column({ name: 'control_desc', type: 'text', nullable: true })
   controlDesc: string | null
 
+  @Column({ name: 'aliases', type: 'jsonb', nullable: true })
+  aliases: string[] | null
+
+  @Column({ name: 'keywords', type: 'jsonb', nullable: true })
+  keywords: string[] | null
+
+  @Column({ name: 'canonical_theme', type: 'varchar', length: 300, nullable: true })
+  canonicalTheme: string | null
+
   @Column({ name: 'l1_code', type: 'varchar', length: 20 })
   l1Code: string
 

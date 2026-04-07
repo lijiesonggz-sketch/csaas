@@ -56,6 +56,9 @@ export class ComplianceCase {
   @Column({ name: 'source_org', type: 'varchar', length: 200, nullable: true })
   sourceOrg: string | null
 
+  @Column({ name: 'penalized_person', type: 'varchar', length: 200, nullable: true })
+  penalizedPerson: string | null
+
   @Column({ name: 'industry', type: 'varchar', length: 50, nullable: true })
   industry: string | null
 
