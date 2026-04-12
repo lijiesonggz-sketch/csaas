@@ -147,7 +147,14 @@
       "Bash(sed -i \"s/''password123''/''admin123''/g\" *.spec.ts */*.spec.ts)",
       "Bash(sed -i \"s/\"\"password123\"\"/\"\"admin123\"\"/g\" *.spec.ts */*.spec.ts)",
       "Read(//tmp/**)",
-      "Bash(2)"
+      "Bash(2)",
+      "Bash(PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d csaas -c \"SELECT COUNT\\(*\\) as total, import_batch_id FROM compliance_cases GROUP BY import_batch_id ORDER BY total DESC LIMIT 10;\" 2>/dev/null)",
+      "Bash(npx --yes ts-node -e \":*)",
+      "Bash(wmic process:*)",
+      "mcp__plugin_superpowers-chrome_chrome__use_browser",
+      "Bash(xxd)",
+      "Bash(\"docs/kg-theme-seed-v1.md\":*)",
+      "Bash(\"docs/kg-restructure-final-plan.md\":*)"
     ]
   }
 }

@@ -9,6 +9,8 @@ date: '2025-12-24'
 
 # Step 10: 用户旅程流程设计（已整合专家反馈）
 
+> **⚠️ 设计系统迁移说明（2026-04）**：本文档基于 Ant Design 编写，已迁移至 **shadcn/ui + Tailwind CSS**（Advisory Authority 风格）。用户旅程的业务逻辑和交互流程仍然有效，组件引用已过时。
+
 **返回**: [Design Directions 总览](./02-design-directions.md)
 
 ---

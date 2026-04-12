@@ -1,0 +1,351 @@
+                                                                                                             KG 重构 V1 正式方案                                                                                                   
+  吸收前序讨论与评审意见后的整合版                                                                                      
+                                                                                                                        
+  1. 核心结论                                                                                                           
+  当前系统的主要问题不是“点不够多”，而是“语义身份不清”。现有 control_points 同时混杂了问题标签、控制主题、控制域和半成品控制点，导致命名、粒度、映射和证据挂接都不稳定。重构目标不是推倒现有 KG 主干，而是在保留现有法规、条文、映射、证据骨架的前提下，补齐中间语义层、硬控制点生产规则、失效模式和证据模型，并给旧点位一条可执行的迁移路径。                      
+                                                                                                                        
+  2. 目标                                                                                                               
+  本次重构要让系统从“案例像哪个点”升级成“案例暴露了哪类问题、哪种失效模式、违反了什么义务、对应哪些控制目标、该补哪些控制点、要拿什么证据证明补上”。                                                                                         
+                                                                                                                        
+  3. 设计原则                                                                                                           
+                                                                                                                        
+  - 问题分类体系与控制体系分离。                                                                                        
+  - Theme 作为语义导航层，不作为唯一硬锚点。                                                                            
+  - Hard control point 必须来自受控生产规则，而不是感觉延申。                                                           
+  - Failure mode 必须采用受控闭集，禁止随案生长。                                                                       
+  - Evidence model 必须前置设计，不能只在 point 后面挂一个空模板。                                                      
+  - 旧点位必须有明确迁移方案，不能新老两套长期割裂。                                                                    
+  - 每一期必须有可验证验收标准，防止只补模型不出结果。                                                                  
+                                                                                                                        
+  4. 目标分层模型                                                                                                       
+  建议采用六层语义模型：                                                                                                
+                                                                                                                        
+  1. 问题识别层                                                                                                         
+     内容：一级分类、二级分类、规则词、人工复核规则。                                                                   
+     来源：regulatory_it_mapping_singlefile.py 这类文本分类规则。                                                       
+  2. 失效模式层                                                                                                         
+     内容：口径定义错误、字段映射错误、复核缺失、审批缺失、监控缺失、留痕缺失、整改闭环缺失、权限超配、例外未审批等。   
+     作用：把案例从“问题类别”进一步落到“控制是怎么坏掉的”。                                                             
+  3. 法规义务层                                                                                                         
+     内容：法规条文中拆出来的结构化义务。                                                                               
+     作用：说明监管明确要求必须做到什么。                                                                               
+  4. 控制目标层                                                                                                         
+     内容：监管报送准确性、账表一致性、数据可追溯性、外包准入充分性等。                                                 
+     作用：说明要防住什么。                                                                                             
+  5. 控制点层                                                                                                           
+     内容：可执行、可验证、可挂证据的具体控制动作。                                                                     
+     作用：说明具体怎么防。                                                                                             
+  6. 证据/问卷/整改层                                                                                                   
+     内容：证据模板、问题项、自评项、整改动作。                                                                         
+     作用：说明怎么证明做了、怎么查缺口、怎么整改。                                                                     
+                                                                                                                        
+  5. 现有系统哪些保留                                                                                                   
+  以下主干保留，不做推倒重来：                                                                                          
+                                                                                                                        
+  - regulation_sources                                                                                                  
+  - regulation_clauses                                                                                                  
+  - clause_control_maps                                                                                                 
+  - control_points                                                                                                      
+  - control_evidence_maps                                                                                               
+  - 现有 question / remediation / evidence 相关挂载关系                                                                 
+                                                                                                                        
+  现有主干已经具备：                                                                                                    
+  法规源 -> 条文 -> 控制点 -> 证据                                                                                      
+  本次改造是在这条主干中间补层和治理，而不是重建骨架。                                                                  
+                                                                                                                        
+  6. V1 物理模型改造                                                                                                    
+  V1 只新增必要结构，不一次性把所有语义层都建成表。                                                                     
+                                                                                                                        
+  1. 新增 control_themes                                                                                                
+     字段建议：                                                                                                         
+                                                                                                                        
+  - theme_id                                                                                                            
+  - theme_code                                                                                                          
+  - theme_name                                                                                                          
+  - theme_desc                                                                                                          
+  - parent_theme_id                                                                                                     
+  - theme_level                                                                                                         
+  - source_taxonomy_code                                                                                                
+  - source_taxonomy_name                                                                                                
+  - status                                                                                                              
+  - created_at                                                                                                          
+  - updated_at                                                                                                          
+                                                                                                                        
+  2. 新增 control_family_theme_maps                                                                                     
+     字段建议：                                                                                                         
+                                                                                                                        
+  - id                                                                                                                  
+  - theme_id                                                                                                            
+  - control_family                                                                                                      
+  - is_primary                                                                                                          
+  - confidence_score                                                                                                    
+  - notes                                                                                                               
+  - created_at                                                                                                          
+  - updated_at                                                                                                          
+                                                                                                                        
+  3. 扩展 control_points                                                                                                
+     新增字段建议：                                                                                                     
+                                                                                                                        
+  - origin_type                                                                                                         
+  - maturity_level                                                                                                      
+  - objective_summary                                                                                                   
+  - source_basis                                                                                                        
+  - authority_profile_json                                                                                              
+  - authoritative_score                                                                                                 
+  - superseded_by                                                                                                       
+  - retired_reason                                                                                                      
+                                                                                                                        
+  说明：                                                                                                                
+                                                                                                                        
+  - authoritative_score 不应人工填写，只能由 authority_profile_json 推导。                                              
+  - canonical_theme 继续保留，但它只能是“主主题标签”，且必须来自 control_themes.theme_name，不能自由发挥。              
+                                                                                                                        
+  7. authoritative 的评估方式                                                                                           
+  不要直接给一个拍脑袋分数。                                                                                            
+  采用“维度 + 推导分数”的方式。                                                                                         
+                                                                                                                        
+  建议维度：                                                                                                            
+                                                                                                                        
+  - has_source_basis                                                                                                    
+  - has_applicability_scope                                                                                             
+  - has_control_activity                                                                                                
+  - has_expected_evidence                                                                                               
+  - has_human_review                                                                                                    
+  - has_case_validation                                                                                                 
+                                                                                                                        
+  建议规则：                                                                                                            
+                                                                                                                        
+  - authoritative_score 由上述维度自动计算。                                                                            
+  - UI 可以展示维度勾选情况，而不只展示总分。                                                                           
+  - authoritative_score 只做排序和治理辅助，不做唯一决策依据。                                                          
+                                                                                                                        
+  8. failure_mode 受控字典                                                                                              
+  V1 先固定一个小闭集，禁止自由长。                                                                                     
+                                                                                                                        
+  建议 IT04 试点闭集：                                                                                                  
+                                                                                                                        
+  - 口径定义错误                                                                                                        
+  - 字段映射错误                                                                                                        
+  - 数据来源不一致                                                                                                      
+  - 账表勾稽失败                                                                                                        
+  - 复核缺失                                                                                                            
+  - 时效监控缺失                                                                                                        
+  - 信息登记更新不及时                                                                                                  
+  - 整改闭环缺失                                                                                                        
+  - 虚假填报/人为失真                                                                                                   
+  - 留痕缺失                                                                                                            
+                                                                                                                        
+  规则：                                                                                                                
+                                                                                                                        
+  - V1 只允许从闭集中选取。                                                                                             
+  - 新增 failure mode 需要评审，不允许运行时自由生成。                                                                  
+  - V2 再考虑单独建表。                                                                                                 
+                                                                                                                        
+  9. 证据模板模型                                                                                                       
+  V1 不能只挂一个空模板，至少要结构化到下面这些字段：                                                                   
+                                                                                                                        
+  - evidence_type                                                                                                       
+  - required_level                                                                                                      
+  - evidence_category                                                                                                   
+  - frequency                                                                                                           
+  - owner_role                                                                                                          
+  - sampling_requirement                                                                                                
+  - auto_collectable                                                                                                    
+  - review_notes                                                                                                        
+                                                                                                                        
+  建议 evidence_category 枚举：                                                                                         
+                                                                                                                        
+  - POLICY                                                                                                              
+  - PROCESS                                                                                                             
+  - SYSTEM                                                                                                              
+  - LOG                                                                                                                 
+  - APPROVAL_RECORD                                                                                                     
+  - REPORT                                                                                                              
+  - CONFIG                                                                                                              
+  - SAMPLE_RECORD                                                                                                       
+                                                                                                                        
+  建议 required_level：                                                                                                 
+                                                                                                                        
+  - REQUIRED                                                                                                            
+  - RECOMMENDED                                                                                                         
+  - OPTIONAL                                                                                                            
+                                                                                                                        
+  这样后续才能支撑：                                                                                                    
+                                                                                                                        
+  - 用户自评                                                                                                            
+  - 缺口识别                                                                                                            
+  - 自动/半自动证据收集                                                                                                 
+  - 整改建议生成                                                                                                        
+                                                                                                                        
+  10. 旧点位迁移策略                                                                                                    
+  必须单独设计，不可后补。                                                                                              
+                                                                                                                        
+  先把现有 93 条分四类：                                                                                                
+                                                                                                                        
+  1. 保留为 draft-hard                                                                                                  
+     适用对象：当前命名相对明确的 12 条。                                                                               
+     注意：不是 authoritative，只是 draft-hard 候选。                                                                   
+  2. 保留为 candidate                                                                                                   
+     适用对象：全部 CTRL-GEN-*。                                                                                        
+     统一打：                                                                                                           
+                                                                                                                        
+  - origin_type = candidate                                                                                             
+  - maturity_level = candidate                                                                                          
+                                                                                                                        
+  3. 合并候选                                                                                                           
+     适用对象：语义与目标 hard point 明显重复、只是名字更粗的点。                                                       
+     处理方式：                                                                                                         
+                                                                                                                        
+  - 保留旧记录                                                                                                          
+  - 标记 superseded_by                                                                                                  
+  - 新查询不优先返回                                                                                                    
+                                                                                                                        
+  4. 废弃候选                                                                                                           
+     适用对象：粒度不清、语义空泛、无法给出来源和证据模板的点。                                                         
+     处理方式：                                                                                                         
+                                                                                                                        
+  - maturity_level = retired                                                                                            
+  - 保留历史兼容                                                                                                        
+  - 不参与新映射                                                                                                        
+                                                                                                                        
+  兼容原则：                                                                                                            
+                                                                                                                        
+  - 不删除旧 point ID                                                                                                   
+  - 老案例映射保持可读                                                                                                  
+  - 新逻辑优先使用 hard / draft-hard                                                                                    
+  - 老点通过 superseded_by 指向新点                                                                                     
+                                                                                                                        
+  11. IT04 试点方案                                                                                                     
+  IT04 是最合适的试点。                                                                                                 
+                                                                                                                        
+  建议先定义 4 个 Theme：                                                                                               
+                                                                                                                        
+  - 数据治理管理                                                                                                        
+  - 监管报送管理                                                                                                        
+  - 数据质量与一致性管理                                                                                                
+  - 历史问题整改管理                                                                                                    
+                                                                                                                        
+  再把 IT04-01 到 IT04-12 分别挂到这些 Theme。                                                                          
+                                                                                                                        
+  然后给每个 Theme 配置受控 failure_mode。                                                                              
+                                                                                                                        
+  再从 Theme 和 failure mode 推导控制目标，例如：                                                                       
+                                                                                                                        
+  - 报送准确性                                                                                                          
+  - 数据一致性                                                                                                          
+  - 数据时效性                                                                                                          
+  - 整改闭环                                                                                                            
+                                                                                                                        
+  再在控制目标下定义 hard point，例如：                                                                                 
+                                                                                                                        
+  - 报送口径配置变更审批控制                                                                                            
+  - 报送数据生成后双人复核控制                                                                                          
+  - 源系统与监管报表字段映射校验控制                                                                                    
+  - 总账/分账/报表自动勾稽校验控制                                                                                      
+  - 历史报送差错整改跟踪控制                                                                                            
+                                                                                                                        
+  12. 分期方案                                                                                                          
+  V1                                                                                                                    
+  目标：完成 IT04 试点最小闭环。                                                                                        
+                                                                                                                        
+  交付内容：                                                                                                            
+                                                                                                                        
+  - 新增 control_themes                                                                                                 
+  - 新增 control_family_theme_maps                                                                                      
+  - 扩展 control_points 治理字段                                                                                        
+  - IT04 的 Theme 配置完成                                                                                              
+  - IT04 的 failure mode 闭集完成                                                                                       
+  - 现有 93 条 point 完成一次分层治理                                                                                   
+  - 至少一批 IT04 hard point 定义完成                                                                                   
+  - 至少一批 evidence template 完成                                                                                     
+  - 后台能看到可解释输出                                                                                                
+                                                                                                                        
+  V1 验收标准：                                                                                                         
+                                                                                                                        
+  - IT04 下有正式受控的 failure mode 字典                                                                               
+  - 93 条 point 已完成保留/候选/合并候选/废弃候选标注                                                                   
+  - 至少 10-20 个真实案例能跑通：                                                                                       
+    case -> taxonomy -> failure_mode -> point -> evidence_template                                                      
+  - 后台可见 point 的 origin_type / maturity_level / source_basis / evidence category                                   
+  - 至少一个前台或管理端能展示“为什么映到这条控制点”的解释                                                              
+                                                                                                                        
+  V1.5                                                                                                                  
+  目标：把链路跑稳，把旧点位接上。                                                                                      
+                                                                                                                        
+  交付内容：                                                                                                            
+                                                                                                                        
+  - evidence template 结构化完善                                                                                        
+  - migration mapping 初版完成                                                                                          
+  - 部分老案例兼容新点位                                                                                                
+  - case 映射引入 benchmark 验证集                                                                                      
+  - candidate 到 draft-hard 的人工治理流程跑通                                                                          
+                                                                                                                        
+  V1.5 验收标准：                                                                                                       
+                                                                                                                        
+  - evidence template 支持 required/recommended/optional                                                                
+  - 至少 1 批旧点位完成迁移映射                                                                                         
+  - benchmark case 集能稳定回归                                                                                         
+  - 新旧 point 在 UI 中可区分                                                                                           
+  - 用户可看到证据缺口而不只是 point 名称                                                                               
+                                                                                                                        
+  V2                                                                                                                    
+  目标：建立正式生产线。                                                                                                
+                                                                                                                        
+  交付内容：                                                                                                            
+                                                                                                                        
+  - 正式引入 regulation_obligation                                                                                      
+  - 正式引入 control_objective                                                                                          
+  - 形成：                                                                                                              
+    法规义务 -> 控制目标 -> 控制点                                                                                      
+    的生产链路                                                                                                          
+  - 逐步把其他主题迁移进来                                                                                              
+                                                                                                                        
+  V2 验收标准：                                                                                                         
+                                                                                                                        
+  - 新增 hard point 必须能追溯到 obligation                                                                             
+  - 至少 1 个主题族不是手工拍脑袋生产，而是从 obligation 结构化生成                                                     
+  - point、evidence、question、remediation 四层关系跑通                                                                 
+  - 旧点位迁移达到可控状态                                                                                              
+                                                                                                                        
+  13. benchmark 验证集                                                                                                  
+  建议单独建立一组固定基准案例，不能只看主观感觉。                                                                      
+                                                                                                                        
+  建议 IT04 先做：                                                                                                      
+                                                                                                                        
+  - 30 个典型处罚案例                                                                                                   
+  - 每个案例人工标注：                                                                                                  
+      - taxonomy                                                                                                        
+      - failure_mode                                                                                                    
+      - control_objective                                                                                               
+      - expected point                                                                                                  
+      - expected evidence type                                                                                          
+                                                                                                                        
+  作用：                                                                                                                
+                                                                                                                        
+  - 每次改规则、改词库、改模型，都能回归验证                                                                            
+  - 避免“看起来合理，但结果漂移”                                                                                        
+                                                                                                                        
+  14. 非目标                                                                                                            
+  V1 不做这些事：                                                                                                       
+                                                                                                                        
+  - 不一次性重构所有主题                                                                                                
+  - 不删除旧 point                                                                                                      
+  - 不要求所有 point 立刻 authoritative                                                                                 
+  - 不要求 obligation / objective 一开始就完整建表                                                                      
+  - 不把 py 词库直接当 hard point 定义词库                                                                              
+                                                                                                                        
+  15. 立即可执行的下一步                                                                                                
+  建议按这个顺序推进：                                                                                                  
+                                                                                                                        
+  1. 确认 IT04 Theme 和 failure mode 闭集                                                                               
+  2. 定义 hard point 准入规则                                                                                           
+  3. 对 93 条现有 point 做第一次治理分层                                                                                
+  4. 给 IT04 建第一批 hard point 和 evidence template                                                                   
+  5. 选 10-20 个案例做 benchmark 跑通                                                                                   
+  16. 一句话版本                                                                                                        
+  最终方案不是只做 Theme / Family / Point，而是：                                                                       
+                                                                                                                        
+  - 用 Theme 做语义导航                                                                                                 
+  - 用 hard point 做执行单元                                                                                            
+  - 用 evidence model 做交付落地                                                                                        
+  - 用 migration plan 接住旧系统 

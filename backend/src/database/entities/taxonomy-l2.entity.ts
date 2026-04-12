@@ -10,6 +10,7 @@ import {
 } from 'typeorm'
 import { ControlPoint } from './control-point.entity'
 import { TaxonomyL1, TaxonomyStatus } from './taxonomy-l1.entity'
+import { TaxonomyFailureModeMap } from './taxonomy-failure-mode-map.entity'
 
 @Entity('taxonomy_l2')
 export class TaxonomyL2 {
@@ -45,4 +46,7 @@ export class TaxonomyL2 {
 
   @OneToMany(() => ControlPoint, (controlPoint) => controlPoint.taxonomyL2)
   controlPoints: ControlPoint[]
+
+  @OneToMany(() => TaxonomyFailureModeMap, (map) => map.taxonomyL2)
+  taxonomyFailureModeMaps: TaxonomyFailureModeMap[]
 }

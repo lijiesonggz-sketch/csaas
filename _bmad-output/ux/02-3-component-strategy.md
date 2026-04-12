@@ -21,33 +21,46 @@ date: '2025-12-24'
 
 ---
 
-### 11.1 Ant Design 5.x组件覆盖分析
+### 11.1 shadcn/ui 组件覆盖分析（2026-04 更新）
 
-**已有组件可直接使用（无需自定义）：**
+> **⚠️ 迁移说明**：原文档使用 Ant Design 5.x 组件分析，已完整迁移到 shadcn/ui + Tailwind CSS。下方为更新后的组件映射。
 
-| Ant Design组件 | Csaas用途 | 定制程度 | 主题Token调整 |
-|---------------|----------|---------|--------------|
-| **Card** | 差异点卡片、AI推荐卡片容器 | 低 | `paddingLG: 24` |
-| **Table** | 差异点列表、三模型对比表格 | 中 | `padding: 16` |
-| **Button** | 采纳、跳过、自定义等操作 | 低 | `colorPrimary` |
-| **Tag** | 风险标签（高/中/低）、状态标签 | 低 | 使用语义色 |
-| **Progress** | 置信度条、问卷进度 | 低 | `colorSuccess` |
-| **Badge** | 三模型一致性徽章、通知计数 | 低 | 默认 |
-| **Tooltip** | 简单帮助提示 | 低 | 默认 |
-| **Modal** | 确认对话框、详细对比弹窗 | 低 | `borderRadius: 4` |
-| **Form** | 问卷填写、自定义评分输入 | 中 | 默认 |
-| **Input** | 文本输入、评分输入 | 低 | `controlHeight: 32` |
-| **Select** | 模型选择、能力域筛选 | 低 | 默认 |
-| **Tabs** | 三模型切换详细视图 | 低 | 默认 |
-| **Alert** | 降级模式警告、质量预警 | 低 | 语义色 |
-| **Skeleton** | 加载骨架屏 | 低 | 默认 |
-| **Spin** | 加载状态 | 低 | 默认 |
-| **Empty** | 无差异点、无待办任务 | 低 | 默认 |
-| **Statistic** | 成本显示、项目统计 | 低 | `fontFamily` tabular-nums |
-| **Timeline** | 审核历史、决策链 | 低 | 默认 |
-| **Message** | 操作成功/失败提示 | 低 | 默认 |
+**已有 shadcn/ui 组件可直接使用（无需自定义）：**
 
-**评估**: Ant Design已覆盖80%基础组件需求，大幅降低开发成本。
+| shadcn/ui 组件 | Csaas 用途 | 对应原 Ant Design 组件 | 定制程度 |
+|---------------|----------|---------------------|---------|
+| **Card** | 差异点卡片、AI 推荐卡片容器 | Card | 低 |
+| **Table** | 差异点列表、三模型对比表格 | Table | 中 |
+| **Button** | 采纳、跳过、自定义等操作 | Button | 低 |
+| **Badge** | 风险标签（高/中/低）、状态标签 | Tag | 低 |
+| **Progress** | 置信度条、问卷进度 | Progress | 低 |
+| **Tooltip** | 帮助提示 | Tooltip | 低 |
+| **Dialog** | 确认对话框、详细对比弹窗 | Modal | 低 |
+| **Input** | 文本输入、评分输入 | Input | 低 |
+| **Select** | 模型选择、能力域筛选 | Select | 低 |
+| **Tabs** | 三模型切换详细视图 | Tabs | 低 |
+| **Alert** | 降级模式警告、质量预警 | Alert | 低 |
+| **Skeleton** | 加载骨架屏 | Skeleton | 低 |
+| **Accordion** | 渐进式展开 | Collapse | 低 |
+| **Dropdown Menu** | 用户菜单、操作菜单 | Dropdown | 低 |
+| **Avatar** | 用户头像 | Avatar | 低 |
+| **Textarea** | 长文本输入 | Input.TextArea | 低 |
+| **Checkbox** | 多选筛选 | Checkbox | 低 |
+| **Radio Group** | 单选评分 | Radio | 低 |
+| **Toast/Sonner** | 操作成功/失败提示 | Message | 低 |
+| **Separator** | 分割线 | Divider | 低 |
+
+**自定义组件（需基于 shadcn/ui 扩展）：**
+
+| 自定义组件 | 用途 | 基于 | 定制程度 |
+|----------|------|------|---------|
+| **PageHeader** | 深蓝左边线标题 + 暖白背景 | Card + Tailwind | 中 |
+| **StatCard** | 统计卡片（数字+标签+趋势） | Card + Badge | 中 |
+| **EmptyState** | 空态提示（图标+文字+操作） | Card + Button | 中 |
+| **Stepper** | 5 环节进度指示器 | 自定义 Tailwind | 中 |
+| **NavigationButton** | Sidebar 导航按钮 | Button + Tailwind | 低 |
+
+**评估**: shadcn/ui 已覆盖 85% 基础组件需求。相比 Ant Design，优势是零运行时开销、Tailwind 原生集成、源码完全可控。
 
 ---
 

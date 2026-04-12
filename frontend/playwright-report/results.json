@@ -11,7 +11,7 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "actualWorkers": 2
+      "actualWorkers": 1
     },
     "preserveOutput": "always",
     "projects": [
@@ -20,7 +20,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 1
         },
         "id": "chromium",
         "name": "chromium",
@@ -36,7 +36,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 1
         },
         "id": "firefox",
         "name": "firefox",
@@ -52,7 +52,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 1
         },
         "id": "webkit",
         "name": "webkit",
@@ -68,7 +68,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 1
         },
         "id": "Mobile Chrome",
         "name": "Mobile Chrome",
@@ -84,7 +84,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 1
         },
         "id": "Mobile Safari",
         "name": "Mobile Safari",
@@ -130,20 +130,20 @@
   },
   "suites": [
     {
-      "title": "push-history.spec.ts",
-      "file": "push-history.spec.ts",
+      "title": "compliance-cases-admin.spec.ts",
+      "file": "compliance-cases-admin.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "[P1] 推送历史查看 - 基础功能测试",
-          "file": "push-history.spec.ts",
-          "line": 10,
+          "title": "[Story 12.1] 案例运营后台",
+          "file": "compliance-cases-admin.spec.ts",
+          "line": 3,
           "column": 6,
           "specs": [
             {
-              "title": "[P1] 应该能够访问推送历史页面",
+              "title": "管理员可以通过上传文件创建导入任务",
               "ok": true,
               "tags": [],
               "tests": [
@@ -158,12 +158,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 11613,
+                      "duration": 1369,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-03-31T03:11:50.896Z",
+                      "startTime": "2026-04-06T15:08:56.728Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -171,13 +171,13 @@
                   "status": "expected"
                 }
               ],
-              "id": "f3e60d3dcd1ebc09d44d-093b71f631205eb5d357",
-              "file": "push-history.spec.ts",
-              "line": 11,
+              "id": "cc39ced7927c2248340e-5485bae19ac3307b7884",
+              "file": "compliance-cases-admin.spec.ts",
+              "line": 4,
               "column": 7
             },
             {
-              "title": "[P2] 应该显示筛选器组件",
+              "title": "管理员可以查看案例详情并提交 clustered 人审",
               "ok": true,
               "tags": [],
               "tests": [
@@ -192,12 +192,12 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2429,
+                      "duration": 1277,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-03-31T03:12:04.448Z",
+                      "startTime": "2026-04-06T15:08:58.535Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -205,348 +205,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "f3e60d3dcd1ebc09d44d-8e472dcf4e59e70ce815",
-              "file": "push-history.spec.ts",
-              "line": 21,
-              "column": 7
-            },
-            {
-              "title": "[P2] 应该能够处理空状态",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 5955,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-03-31T03:12:06.888Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "f3e60d3dcd1ebc09d44d-38d4b232f909da204c98",
-              "file": "push-history.spec.ts",
-              "line": 35,
-              "column": 7
-            }
-          ]
-        },
-        {
-          "title": "[P2] 推送历史查看 - 响应式测试",
-          "file": "push-history.spec.ts",
-          "line": 50,
-          "column": 6,
-          "specs": [
-            {
-              "title": "[P2] 页面在桌面端应该正常显示",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1975,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-03-31T03:12:12.853Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "f3e60d3dcd1ebc09d44d-a3cc0eb1bc9c4f4265a9",
-              "file": "push-history.spec.ts",
-              "line": 51,
-              "column": 7
-            },
-            {
-              "title": "[P2] 页面在移动端应该正常显示",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 2001,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-03-31T03:12:14.837Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "f3e60d3dcd1ebc09d44d-90674ebe7cfb58cd3b3e",
-              "file": "push-history.spec.ts",
-              "line": 64,
-              "column": 7
-            }
-          ]
-        },
-        {
-          "title": "[P2] 推送历史查看 - 错误处理",
-          "file": "push-history.spec.ts",
-          "line": 78,
-          "column": 6,
-          "specs": [
-            {
-              "title": "[P2] 页面应该能够处理网络错误",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1781,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-03-31T03:12:16.850Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "f3e60d3dcd1ebc09d44d-7b4fef188bb65665e86c",
-              "file": "push-history.spec.ts",
+              "id": "cc39ced7927c2248340e-e4d8eecaf948e6bbbdb9",
+              "file": "compliance-cases-admin.spec.ts",
               "line": 79,
-              "column": 7
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "title": "radar-control-detail-drawer.spec.ts",
-      "file": "radar-control-detail-drawer.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [],
-      "suites": [
-        {
-          "title": "[Story 7.2] 雷达页面控制点详情抽屉",
-          "file": "radar-control-detail-drawer.spec.ts",
-          "line": 187,
-          "column": 6,
-          "specs": [
-            {
-              "title": "AC1: 从推送卡片打开控制点详情抽屉",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 20740,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-03-31T03:11:51.233Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "b8a4a779e2ec19aabd7e-7f39e630d68c5c4acdc7",
-              "file": "radar-control-detail-drawer.spec.ts",
-              "line": 192,
-              "column": 7
-            },
-            {
-              "title": "AC2: 抽屉显示来自雷达的来源标签",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 4007,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-03-31T03:12:13.577Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "b8a4a779e2ec19aabd7e-a5d782415826d8089e38",
-              "file": "radar-control-detail-drawer.spec.ts",
-              "line": 207,
-              "column": 7
-            },
-            {
-              "title": "AC3: 关闭抽屉后雷达推送列表保持可见",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 3923,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-03-31T03:12:17.603Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "b8a4a779e2ec19aabd7e-6f5e9976b4cd89478471",
-              "file": "radar-control-detail-drawer.spec.ts",
-              "line": 223,
-              "column": 7
-            },
-            {
-              "title": "AC4: 抽屉内容包含标准 6 个分节",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 3946,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-03-31T03:12:21.547Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "b8a4a779e2ec19aabd7e-f0e7552cc8a77513b119",
-              "file": "radar-control-detail-drawer.spec.ts",
-              "line": 243,
-              "column": 7
-            },
-            {
-              "title": "AC5: 无匹配控制点的推送不显示控制点详情入口",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 3611,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-03-31T03:12:25.505Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "b8a4a779e2ec19aabd7e-b83dc8aebd507b9d151f",
-              "file": "radar-control-detail-drawer.spec.ts",
-              "line": 259,
               "column": 7
             }
           ]
@@ -556,9 +217,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-03-31T03:11:49.146Z",
-    "duration": 40273.311,
-    "expected": 11,
+    "startTime": "2026-04-06T15:08:55.077Z",
+    "duration": 4857.3240000000005,
+    "expected": 2,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0

@@ -1,0 +1,3158 @@
+
+
+问题： 你整理列一下现在系统的所有KG control point。
+
+• 我已经导出了两份文件：
+
+  - /D:/csaas/docs/kg-control-points-runtime-2026-04-07.md
+  - /D:/csaas/docs/kg-control-points-runtime-2026-04-07.csv
+
+  这两份都是直接基于你本地运行态数据库 csaas 的 control_points 表生成的，不是 seed 推断。
+
+  概要结果：
+
+  - 总数：93
+  - 明确命名 control point：12
+  - CTRL-GEN-* 泛化 control point：81
+
+  如果你要，我下一步可以继续做两件事之一：
+
+  - 按 L1/L2 和 control_family 再生成一份中文业务分组版
+  - 把这 93 个 control point 里明显命名过于泛化的 CTRL-GEN-* 单独拉出来做治理清单
+
+
+问题： 明确命名那12个，看上去也没多详细啊
+
+
+• 对，你这个判断是对的。
+
+  严格说，当前这 12 个“明确命名”的 control point，只是比 CTRL-GEN-* 那 81 个稍微像正式条目一点，但整体仍然偏“标签化”，离
+  一个成熟 KG control point 目录还有明显差距。
+
+  主要问题有 4 个：
+
+  1. 命名仍然偏英文占位，不够业务化
+     像这些：
+
+  - Privileged Access Control
+  - Critical RTO/RPO Control
+  - AI Model Risk Control
+  - Cloud Governance Baseline Control
+
+  它们更像“控制主题标题”，不是面向审计/合规落地的标准控制点名称。
+  正常更成熟的控制点名称应该至少能回答：
+
+  - 控什么
+  - 对谁控
+  - 在什么场景下控
+  - 用什么机制控
+
+  例如不该只是 “Privileged Access Control”，而应该更接近：
+
+  - “特权账号申请审批与定期复核控制”
+  - “跨境数据出境场景识别、审批与接收方约束控制”
+  - “监管报送数据口径校验与双人复核控制”
+
+  2. 描述虽然比 CTRL-GEN-* 好一点，但仍然太短
+     例如：
+
+  - Cloud Governance Baseline Control
+  - CIIO Asset Inventory Control
+  - Online Trading Monitoring Control
+
+  这些条目在运行态数据库里的 control_desc 看起来很多只是把名称又写了一遍，信息量不够。
+  一个好控制点描述至少应该包含：
+
+  - 控制目标
+  - 核心活动
+  - 触发场景
+  - 产出/证据
+
+  3. 缺少语义字段支撑
+     你刚才也看到了，当前运行态里：
+
+  - canonical_theme 基本为空
+  - aliases 基本为空
+  - keywords 基本为空
+
+  这意味着它们虽然“名字存在”，但对案例聚类、语义匹配、问卷生成、证据映射这些 KG 玩法来说，仍然是不够可用的。
+
+  4. 体系结构失衡
+     现在 93 条里：
+
+  - 88 条都在 IT01 / IT01-05
+  - 只有极少数分散在 IT02 / IT03 / IT04 / IT08
+
+  这说明当前 control point catalog 很大概率不是经过系统化建模出来的，而是先生成了一批“可用条目”，但 taxonomy 落点和颗粒
+  度还没整理好。
+
+  所以你的感觉本质上是：
+  不是“12 条还不够多”，而是“这 12 条也还不够像真正的 control point 资产”。
+
+  我会把当前状态分成 3 层：
+
+  - 第 1 层：CTRL-GEN-*
+    这是明显的占位/批量生成控制点，质量最低。
+  - 第 2 层：这 12 条命名 control point
+    已经比占位条目好，但仍处于“主题化条目”阶段，不是高质量治理对象。
+  - 第 3 层：你真正需要的目标状态
+    每条都具备：
+      - 中文主名称
+      - 英文别名
+      - 清晰控制目标
+      - 控制活动描述
+      - keywords
+      - 所属监管/业务域
+      - 可映射证据/问卷/整改动作
+  1. 先把这 12 条“相对像样的 control point”重写成高质量版本
+  2. 给每条补：
+      - 中文标准名
+      - canonicalTheme
+      - aliases
+      - keywords
+      - 更像控制要求的 controlDesc
+  3. 再定义一套规则，把 81 条 CTRL-GEN-* 分成：
+      - 保留并重命名
+      - 合并到已有控制点
+      - 删除/废弃
+
+  如果你要，我可以下一步直接输出一份“12 条 control point 重构建议表”。
+
+
+问题： 你检查下D:\dataj\it校验\regulatory_it_mapping_singlefile.py这个文件，看看里面是不是有详细的分类和关键字
+
+───
+
+• 是的，这个文件里确实有比较详细的分类体系和关键词/规则库，而且细度明显高于你现在库里的 KG control point。
+
+  关键结论：
+
+  - 它不是一个 control point 目录文件
+  - 它更像一个“监管处罚文本 -> IT 分类码”的单文件规则引擎
+  - 里面有完整的分类码表、规则关键词/正则、以及人工复核触发条件
+
+  我检查到的结构
+
+  1. 分类码表
+     文件在 D:/dataj/it校验/regulatory_it_mapping_singlefile.py:16 定义了 IT_TAXONOMY。
+
+  我数了一下：
+
+  - 一级分类：8 个
+  - 二级分类：53 个
+
+  分布是：
+
+  - IT01 4 个
+  - IT02 7 个
+  - IT03 7 个
+  - IT04 12 个
+  - IT05 4 个
+  - IT06 5 个
+  - IT07 8 个
+  - IT08 6 个
+
+  而且每个二级分类都有：
+
+  - 一级编码
+  - 一级类型
+  - 二级编码
+  - 二级子类型
+  - 定义口径
+
+  这说明它不是只有标签名，而是带了分类解释口径。
+
+  2. 关键词/规则库
+     文件在 D:/dataj/it校验/regulatory_it_mapping_singlefile.py:79 定义了 RULES。
+
+  我数了一下：
+
+  - 规则组数：53
+  - 规则总模式数：376
+
+  也就是说，基本上每个二级分类都配了一组关键词/正则模式。
+
+  这些规则不是简单词表，而是混合了：
+
+  - 单个关键词
+  - 短语
+  - 监管场景词
+  - 正则表达式模式
+
+  例如它会匹配这类东西：
+
+  - EAST
+  - 错报 / 漏报 / 报送不实
+  - 访问控制 / 授权控制不到位
+  - 灾备 / 灾难恢复 / 双活 / 同城双中心
+  - 个人信息违规收集/使用
+  - 外包准入尽职调查
+  - 运营中断事件迟报/瞒报
+
+  3. 人工复核规则
+     文件在 D:/dataj/it校验/regulatory_it_mapping_singlefile.py:165 左右定义了 MANUAL_REVIEW_PATTERNS。
+
+  我数了一下：
+
+  - 人工复核触发模式：21 个
+
+  这意味着它不仅做分类，还考虑了：
+
+  - 多码命中
+  - 混合业务词
+  - 需要人工复核的复杂文本
+
+  4. 分类执行逻辑
+     核心逻辑在 D:/dataj/it校验/regulatory_it_mapping_singlefile.py:196 的 classify_text()。
+
+  它会输出：
+
+  - 是否纳入 IT 大口径
+  - 主码
+  - 主一级编码/类型
+  - 主二级子类型
+  - 辅码
+  - 其他命中码
+  - 是否需人工复核
+  - 映射备注
+
+  这说明什么
+  这个文件里的内容，比你当前数据库里的 KG control point 更“有分类学”。
+
+  但要注意，它和 KG control point 不是一回事：
+
+  - 这个文件解决的是：处罚案由文本怎么归到 IT 分类码
+  - KG control point 解决的是：这个违规主题映射到什么控制点
+
+  所以它更接近：
+
+  - taxonomy
+  - theme classification
+  - keyword/rule base
+
+  而不是：
+
+  - control catalog
+  对你现在系统最有价值的地方
+  这个文件可以直接拿来给 KG 做三类增强：
+
+  2. 给 control point 补 aliases / keywords
+     这个文件里的规则关键词可以作为 control point 的初始语义词库来源。
+  3. 给案例导入聚类加“分类先验”
+     先用这里的 53 个 IT 二级分类做粗分类，再映射到 control point，会比直接从案由硬匹配 control point 稳得多。
+
+  - 它的“分类和关键词”远比当前 KG control point 现状成熟
+  - 但它是“IT处罚分类规则库”，不是“最终 control point 目录”
+
+
+
+
+
+问题： 你说“ 一个成熟的系统里：
+
+    - 多个 control point 可以共享同一个大主题，也可以围绕同一语义域展开   ”，这有什么好处？
+
+
+• 好处很大，而且是做 KG 时一个非常关键的抽象层。
+
+  先从本质讲：
+
+  - theme 解决的是“这类问题属于什么语义域”
+  - control point 解决的是“具体该控什么、怎么控、控到什么程度”
+
+  如果把这两层混成一层，系统会很快变得又乱又脆。
+
+  最直接的好处
+
+  1. 把“问题域”跟“具体控制动作”分开
+     现实里的处罚文本、监管条文、整改建议，很多时候先说的是问题域，不是具体控制点。
+
+  例如文本里说：
+
+  - “监管报送数据不准确”
+  - “EAST错报漏报”
+  - “账表不一致”
+
+  这些先表达的是一个共同主题：
+
+  - 监管报送/数据治理
+
+  但落到 control point 时，可能是不同控制点：
+
+  - 报送口径校验控制
+  - 双人复核控制
+  - 账表核对控制
+  - 数据血缘追踪控制
+
+  如果系统允许多个 control point 共享一个大主题，就能先认出“这是一类什么问题”，再在这一类里细分，不会一上来就硬猜唯一控
+  制点。
+
+  2. 降低语义匹配难度
+     处罚文本天然很脏：
+
+  - 表达不统一
+  - 术语漂移
+  - 同义句很多
+  - 句子经常混着说几件事
+
+  如果你直接让文本去撞 93 个 control point，难度很高。
+  如果先把文本归到一个较稳定的 canonical_theme，搜索空间就小很多。
+
+  也就是：
+
+  1. 文本 -> 主题
+  2. 主题 -> 候选 control points
+  3. 候选里再精排
+
+  这比“文本直接命中唯一控制点”稳得多。
+
+  3. 允许“一类问题，多个控制点共同承接”
+     现实里一个大主题往往需要多道控制共同覆盖。
+
+  比如 数据管理 这个主题下，可能同时有：
+
+  - DATA_CLASSIFICATION
+  - DATA_ACCESS
+  - DATA_LIFECYCLE
+  - DATA_TRACEABILITY
+
+  它们不是重复，而是从不同侧面控制同一语义域。
+
+  这样做的好处是：
+
+  - 不会把一个大主题硬塞进单个 control point
+  - 可以表达控制链路
+  - 后续问卷、证据、整改动作都能按不同控制点展开
+
+  4. 统计分析更有意义
+     如果没有共享主题，你做统计时只能看到零散 control point 命中。
+
+  但管理层更关心的通常不是：
+
+  - CTRL-GEN-023 命中了多少次
+
+  而是：
+
+  - 数据治理 类问题多不多
+  - 外包与第三方管理 是不是上升了
+  - 业务连续性 哪些控制点最薄弱
+
+  共享主题以后，你可以做两层统计：
+
+  - 主题层统计：看问题域趋势
+  - 控制点层统计：看具体薄弱点
+
+  这对运营、整改、汇报都更有用。
+
+  5. 便于逐步扩展 KG，而不必推翻旧结构
+     今天你可能只有 1 个 control point 挂在某个主题下。
+     以后随着知识库成熟，你可以在同一主题下继续细分出更多 control point。
+
+  比如一开始只有：
+
+  - 外包与第三方管理
+
+  以后可以拆成：
+
+  - 外包准入尽调
+  - 外包合同管理
+  - 外包持续监督
+  - 外包退出管理
+
+  如果有共享主题，这种扩展是平滑的。
+  如果没有，你每加一个 control point，整个历史映射逻辑都容易被打乱。
+
+  拿你现在系统举例
+
+  比如这几个 family：
+
+  - REG_REPORTING
+  - DATA_CLASSIFICATION
+  - DATA_ACCESS
+  - DATA_TRACEABILITY
+
+  它们完全可以共享更上层的大主题：
+
+  - 数据管理
+    或者
+  - 监管报送与数据治理
+
+  好处是：
+
+  - 案例里只提到“数据治理不到位”，系统仍然能先归到这个大主题
+  - 后面再根据更细粒度证据判断更像哪条 control point
+  - 即使暂时分不清唯一 control point，也不会完全失配
+
+  再比如：
+
+  - OUTSOURCING_DUE_DILIGENCE
+  - OUTSOURCING_MONITOR
+  - OUTSOURCING_RISK
+  - THIRD_PARTY_TRANSFER
+
+  它们可以共享：
+
+  - 外包与第三方管理
+
+  这样外包类处罚不会因为文本里说“合作机构”“第三方平台”“供应商”“外包服务商”而被切碎成互相不连通的小点。
+
+  从工程角度的额外收益
+
+  1. 减少关键词重复维护
+     如果每个 control point 都单独维护一套完全独立关键词，会大量重复。
+
+  共享主题后可以：
+
+  - 主题层放共性词
+  - control point 层放差异词
+
+  维护成本低很多。
+
+  2. 解释性更强
+     人工审核时，系统可以解释成：
+
+  - 先判断该案例属于 数据管理
+  - 再在 数据管理 主题下推荐 DATA_TRACEABILITY、REG_REPORTING
+
+  这比直接说“我猜你是 CTRL-GEN-025”可解释性强很多。
+
+  3. 检索和推荐更自然
+     用户搜“监管报送”“EAST”“账表一致性”
+     这些不同词都能先打到同一主题，再展开 control points。
+
+  但也不是越共享越好
+  这个设计也有边界。
+
+  如果主题过宽，比如什么都叫：
+
+  - 信息科技管理
+
+  那就没意义了，因为候选还是一大堆。
+
+  成熟做法是：
+  - control point 层：具体到可以挂证据、问卷、整改动作
+
+  也就是：
+
+  - 主题要“能聚合”
+  - control point 要“能执行”
+
+  一句话总结
+  多个 control point 共享同一个大主题的最大好处，是让系统能先稳定识别“问题属于哪一类”，再细分到“具体要控哪一点”，从而同
+  时得到：
+
+  - 更稳的语义匹配
+  - 更好的统计分析
+  - 更自然的扩展能力
+  - 更低的维护成本
+  - 更强的人工可解释性
+
+  如果你要，我下一步可以直接拿你当前库里的 control families，给你画一版：
+  “主题 -> controlFamily -> control point”的三层结构草图。
+
+
+问题： 画一版看看
+
+
+• 可以。我先给你一版 V0.1 语义树草图。
+
+  先说明两点，避免误解：
+
+  1. 这不是按数据库当前 L1/L2 硬分的树，而是我按“更合理的语义层”重组的一版。
+  2. 这张图为了可读性，把每个 controlFamily 先放到一个主主题下面；但在成熟系统里，同一个 family 其实可以挂到多个 theme。
+     例如：
+      - REG_REPORTING 既属于“数据治理与监管报送”，也和“信息披露管理”有关
+      - OPS_RECORD 既属于“运行维护”，也属于“审计留痕”
+      - THIRD_PARTY_TRANSFER 既属于“外包与第三方”，也属于“数据治理/数据出境”
+
+  V0.1 三层结构草图
+
+  Theme
+  └─ Control Family
+     └─ Control Point
+
+  1. 治理与职责管理
+     ├─ GOV_ORG
+     │  └─ CTRL-GEN-040  GOV ORG
+     ├─ GOVERNANCE_COMMITTEE
+     │  └─ CTRL-GEN-037  GOVERNANCE COMMITTEE
+     ├─ GOV_IMPORTANT_SYSTEM
+     │  └─ CTRL-GEN-039  GOV IMPORTANT SYSTEM
+     ├─ CIIO_ASSET
+     │  └─ CTRL-CIIO-001  CIIO Asset Inventory Control
+     └─ CLOUD_GOVERNANCE
+        └─ CTRL-CLOUD-001  Cloud Governance Baseline Control
+
+  2. 风险管理控制
+     ├─ GOV_RISK
+     │  └─ CTRL-GEN-042  GOV RISK
+     ├─ AI_MODEL_RISK
+     │  └─ CTRL-AI-001  AI Model Risk Control
+     ├─ ONLINE_TRADING_RISK
+     │  └─ CTRL-GEN-055  ONLINE TRADING RISK
+     ├─ FUTURES_MARKET_RISK
+     │  └─ CTRL-GEN-035  FUTURES MARKET RISK
+     └─ CIIO_MONITOR
+        └─ CTRL-GEN-014  CIIO MONITOR
+
+  3. 访问控制与权限管理
+     ├─ ACC_AUTH
+     │  └─ CTRL-GEN-001  ACC AUTH
+     └─ ACC_PRIVILEGED
+        └─ CTRL-ACC-002  Privileged Access Control
+
+  4. 安全防护与漏洞管理
+     ├─ NET_BOUNDARY
+     │  └─ CTRL-GEN-053  NET BOUNDARY
+     ├─ CLOUD_SECURITY
+     │  └─ CTRL-GEN-017  CLOUD SECURITY
+     ├─ PUBLIC_APP_SECURITY
+     │  └─ CTRL-GEN-074  PUBLIC APP SECURITY
+     └─ VUL_PATCH
+        └─ CTRL-GEN-081  VUL PATCH
+
+  5. 数据治理与监管报送
+     ├─ DATA_CLASSIFICATION
+     │  └─ CTRL-DATA-BASE-001  Baseline Data Classification Control
+     ├─ DATA_ACCESS
+     │  └─ CTRL-GEN-022  DATA ACCESS
+     ├─ DATA_EXIT_ASSESSMENT
+     │  └─ CTRL-GEN-023  DATA EXIT ASSESSMENT
+     ├─ DATA_EXPORT
+     │  └─ CTRL-GEN-024  DATA EXPORT
+     ├─ DATA_GOVERNANCE_REPORTING
+     │  └─ CTRL-GEN-025  DATA GOVERNANCE REPORTING
+     ├─ DATA_LIFECYCLE
+     │  └─ CTRL-GEN-026  DATA LIFECYCLE
+     ├─ DATA_TRACEABILITY
+     │  └─ CTRL-GEN-027  DATA TRACEABILITY
+     ├─ DATA_CROSS_BORDER
+     │  └─ CTRL-DATA-011  Cross-Border Data Transfer Control
+     ├─ IMPORTANT_DATA_IDENTIFICATION
+     │  └─ CTRL-GEN-044  IMPORTANT DATA IDENTIFICATION
+     ├─ IMPORTANT_DATA_PROTECTION
+     │  └─ CTRL-GEN-045  IMPORTANT DATA PROTECTION
+     ├─ IMPORTANT_DATA_EXPORT
+     │  └─ CTRL-GEN-043  IMPORTANT DATA EXPORT
+     └─ REG_REPORTING
+        └─ CTRL-DG-004  Regulatory Reporting Accuracy Control
+
+  6. 个人信息保护
+     ├─ PI_LEGAL_BASIS
+     │  └─ CTRL-GEN-069  PI LEGAL BASIS
+     ├─ PI_MINIMUM_NECESSARY
+     │  └─ CTRL-GEN-070  PI MINIMUM NECESSARY
+     ├─ PI_SENSITIVE
+     │  └─ CTRL-GEN-071  PI SENSITIVE
+     ├─ PI_SHARING
+     │  └─ CTRL-GEN-072  PI SHARING
+     ├─ PI_INCIDENT
+     │  └─ CTRL-GEN-068  PI INCIDENT
+     └─ PI_AUDIT
+        └─ CTRL-GEN-067  PI AUDIT
+
+  7. 审计留痕与复核管理
+     ├─ GOV_AUDIT
+     │  └─ CTRL-GEN-038  GOV AUDIT
+     ├─ LOG_AUDIT
+     │  └─ CTRL-GEN-052  LOG AUDIT
+     ├─ OPS_RECORD
+     │  └─ CTRL-GEN-060  OPS RECORD
+     ├─ AUDIT_FOLLOWUP
+     │  └─ CTRL-GEN-004  AUDIT FOLLOWUP
+     └─ AI_HUMAN_REVIEW
+        └─ CTRL-AI-002  AI Human Review Control
+
+  8. 变更、开发与发布管理
+     ├─ CHANGE_APPROVAL
+     │  └─ CTRL-GEN-012  CHANGE APPROVAL
+     ├─ CHANGE_ROLLBACK
+     │  └─ CTRL-GEN-013  CHANGE ROLLBACK
+     ├─ CRITICAL_SYSTEM_CHANGE
+     │  └─ CTRL-GEN-019  CRITICAL SYSTEM CHANGE
+     ├─ DEV_REVIEW
+     │  └─ CTRL-GEN-028  DEV REVIEW
+     ├─ DEV_SEPARATION
+     │  └─ CTRL-GEN-029  DEV SEPARATION
+     ├─ DEV_TEST
+     │  └─ CTRL-GEN-030  DEV TEST
+     └─ PUBLIC_APP_RELEASE
+        └─ CTRL-PUBLIC-001  Public App Release Control
+
+  9. 业务连续性与灾备
+     ├─ BCP_BACKUP
+     │  └─ CTRL-GEN-009  BCP BACKUP
+     ├─ BCP_DRILL
+     │  └─ CTRL-GEN-010  BCP DRILL
+     ├─ BCP_RPO
+     │  └─ CTRL-GEN-011  BCP RPO
+     ├─ BCP_RTO
+     │  └─ CTRL-BCP-003  Critical RTO/RPO Control
+     ├─ CRITICAL_SYSTEM_DR
+     │  └─ CTRL-GEN-020  CRITICAL SYSTEM DR
+     ├─ CRITICAL_SYSTEM_HA
+     │  └─ CTRL-GEN-021  CRITICAL SYSTEM HA
+     ├─ CLOUD_DR
+     │  └─ CTRL-GEN-016  CLOUD DR
+     └─ PUBLIC_APP_AVAILABILITY
+        └─ CTRL-GEN-073  PUBLIC APP AVAILABILITY
+
+  10. 运行维护与监测
+     ├─ OPS_ALERT
+     │  └─ CTRL-GEN-056  OPS ALERT
+     ├─ OPS_CAPACITY
+     │  └─ CTRL-GEN-057  OPS CAPACITY
+     ├─ OPS_JOB
+     │  └─ CTRL-GEN-058  OPS JOB
+     └─ OPS_MONITOR
+        └─ CTRL-GEN-059  OPS MONITOR
+
+  11. 事件响应与整改
+     ├─ INCIDENT_RESPONSE
+     │  └─ CTRL-GEN-048  INCIDENT RESPONSE
+     ├─ INCIDENT_POSTMORTEM
+     │  └─ CTRL-GEN-047  INCIDENT POSTMORTEM
+     ├─ INCIDENT_CONTROL_ENHANCEMENT
+     │  └─ CTRL-GEN-046  INCIDENT CONTROL ENHANCEMENT
+     ├─ GOV_RECTIFICATION
+     │  └─ CTRL-GEN-041  GOV RECTIFICATION
+     └─ RECTIFICATION_TRACKING
+        └─ CTRL-GEN-075  RECTIFICATION TRACKING
+
+  12. 外包与第三方管理
+     ├─ OUTSOURCING_AUDIT
+     │  └─ CTRL-OUT-001  Heavy Outsourcing Audit Control
+     ├─ OUTSOURCING_CONTINUITY
+     │  └─ CTRL-GEN-061  OUTSOURCING CONTINUITY
+     ├─ OUTSOURCING_CONTRACT
+     │  └─ CTRL-GEN-062  OUTSOURCING CONTRACT
+     ├─ OUTSOURCING_DUE_DILIGENCE
+     │  └─ CTRL-GEN-063  OUTSOURCING DUE DILIGENCE
+     ├─ OUTSOURCING_EXIT
+     │  └─ CTRL-GEN-064  OUTSOURCING EXIT
+     ├─ OUTSOURCING_MONITOR
+     │  └─ CTRL-GEN-065  OUTSOURCING MONITOR
+     ├─ OUTSOURCING_RISK
+     │  └─ CTRL-GEN-066  OUTSOURCING RISK
+     ├─ CLOUD_VENDOR
+     │  └─ CTRL-GEN-018  CLOUD VENDOR
+     └─ THIRD_PARTY_TRANSFER
+        └─ CTRL-GEN-080  THIRD PARTY TRANSFER
+
+  13. 银行业务运营控制
+     ├─ BANK_ACCOUNTING
+     │  └─ CTRL-GEN-005  BANK ACCOUNTING
+     ├─ BANK_BRANCH_OPS
+     │  └─ CTRL-GEN-006  BANK BRANCH OPS
+     ├─ BANK_CORE_SYSTEM
+     │  └─ CTRL-GEN-007  BANK CORE SYSTEM
+     └─ BANK_PAYMENT
+        └─ CTRL-GEN-008  BANK PAYMENT
+
+  14. 证券与线上交易运营控制
+     ├─ SEC_MARKET_DATA
+     │  └─ CTRL-GEN-076  SEC MARKET DATA
+     ├─ SEC_MONITOR
+     │  └─ CTRL-GEN-077  SEC MONITOR
+     ├─ SEC_SETTLEMENT
+     │  └─ CTRL-GEN-078  SEC SETTLEMENT
+     ├─ SEC_TRADING
+     │  └─ CTRL-GEN-079  SEC TRADING
+     ├─ ONLINE_TRADING_MONITOR
+     │  └─ CTRL-ONLINE-001  Online Trading Monitoring Control
+     └─ ONLINE_TRADING_RECON
+        └─ CTRL-GEN-054  ONLINE TRADING RECON
+
+  15. 基金、保险、期货业务运营控制
+     ├─ FUND_CUSTODY
+     │  └─ CTRL-GEN-031  FUND CUSTODY
+     ├─ FUND_NAV
+     │  └─ CTRL-GEN-032  FUND NAV
+     ├─ FUND_SALES
+     │  └─ CTRL-GEN-033  FUND SALES
+     ├─ INS_ACTUARIAL
+     │  └─ CTRL-GEN-049  INS ACTUARIAL
+     ├─ INS_CLAIMS
+     │  └─ CTRL-GEN-050  INS CLAIMS
+     ├─ INS_POLICY
+     │  └─ CTRL-GEN-051  INS POLICY
+     ├─ FUTURES_MARGIN
+     │  └─ CTRL-GEN-034  FUTURES MARGIN
+     └─ FUTURES_SETTLEMENT
+        └─ CTRL-GEN-036  FUTURES SETTLEMENT
+
+  怎么看这张图
+  你真正需要关注的不是 93 个点本身，而是中间这一层 Theme。
+
+  因为一旦有了这层，你就能做到：
+
+  - 案例文本先归到一个稳定主题
+    例如先落到 数据治理与监管报送
+  - 再在该主题下挑候选 family
+    例如 REG_REPORTING、DATA_TRACEABILITY、DATA_GOVERNANCE_REPORTING
+  - 最后再落到具体 control point
+    例如 CTRL-DG-004
+
+  这就是为什么“多个 control point 共享一个大主题”有价值。
+
+  我对这版草图的判断
+  这版已经能看出两个很明显的问题：
+
+  1. IT01 / IT01-05 被滥用了
+     很多 CTRL-GEN-* 都被塞在这里，说明当前库的 taxonomy 层没有把语义分开。
+  2. 现在的 controlFamily 粒度其实已经比 control point 更有用了
+
+  - OUTSOURCING_DUE_DILIGENCE
+  - OUTSOURCING_MONITOR
+  - OUTSOURCING_EXIT
+
+  我建议下一步
+  最值得做的不是先改 93 条 control point，而是先把这张图固化成正式数据模型：
+
+  - Theme
+  - ThemeFamilyMap
+  - ControlFamily
+  - ControlPoint
+
+  而不是继续只有：
+
+  - control_points
+  - control_family
+
+  如果你要，我下一步可以继续直接给你出：
+
+  1. 一版正式的数据模型设计
+  2. 或者一版“当前 93 条里哪些 family 应该合并、哪些应保留”的整理表
+
+
+问题： 现在看起来，每个ControlFamily只有一个ControlPoint，也就是1对1。而theme下面有多个control_family,那不是和之前那个py文件
+  的一级分类和二级分类一致吗？这两者的区别是什么
+
+
+• 对，你这个观察是准确的。
+
+  在当前数据库现状里，因为几乎是：
+
+  - 1 个 ControlFamily = 1 个 ControlPoint
+  - 1 个 Theme 下面挂多个 ControlFamily
+
+  所以它看起来非常像那个 Python 文件里的：
+
+  - 一级分类
+  - 二级分类
+
+  从“结构形状”上看，确实很像。
+
+  但两者本来应该表达的东西不一样。
+  只是现在系统里的 KG 还没长成熟，所以这两个层次被“压扁”了。
+
+  ———
+
+  ## 先给结论
+
+  Python 文件里的 一级/二级分类
+
+  - 是“处罚问题分类体系”
+  - 用来回答：这段处罚文本说的是哪一类问题
+
+  Theme / ControlFamily / ControlPoint
+
+  - 是“控制措施体系”
+  - 用来回答：针对这类问题，应该落到哪类控制、哪条控制点
+
+  所以：
+
+  - Python 分类是 问题空间
+  - KG 控制体系是 控制空间
+
+  ———
+
+  ## 为什么现在看起来像一回事
+
+  因为你当前 KG 里还处于一个早期状态：
+
+  - Theme 只是概念层
+  - ControlFamily 其实已经承担了大部分“二级分类”的角色
+  - ControlPoint 又没有进一步细化，所以经常和 family 1:1
+
+  结果就变成：
+
+  Theme ≈ 一级分类
+  ControlFamily ≈ 二级分类
+  ControlPoint ≈ 二级分类的别名/实例
+
+  这就是你会觉得“这不就是那个 Python 文件的一级二级吗”的原因。
+
+  这个判断对当前现状是对的。
+
+  ———
+
+  ## 但两者本质区别还是有
+
+  ### 1. 分类是在描述“问题”，控制是在描述“应对”
+
+  拿一个例子：
+
+  Python 二级分类：
+
+  - IT04-05 监管报表/监管系统报送数据不准确
+
+  这是在说：
+
+  - 这类处罚问题属于“监管报送数据不准确”
+
+  它是问题标签。
+
+  而 KG 里真正成熟的 control 体系应该表达的是：
+
+  - 报送口径校验控制
+  - 报送前双人复核控制
+  - 系统间账表一致性校验控制
+  - 异常报送自动拦截控制
+
+  这些是控制动作/控制要求。
+
+  所以一个二级分类，理论上可以对应多个 control family / control point。
+
+  ———
+
+  ### 2. 分类体系追求“互斥归类”，控制体系追求“联合覆盖”
+
+  Python 规则库的目标通常是：
+
+  - 尽量把一条处罚文本归到某几个类别里
+  - 方便统计、筛选、口径统一
+
+  所以它更像：
+
+  - 标签系统
+  - taxonomy
+
+  而 control 体系的目标是：
+
+  - 让一个问题能被多个控制共同覆盖
+  - 方便挂证据、问卷、整改动作、责任人
+
+  所以它更像：
+
+  - capability map
+  - control ontology
+
+  举例：
+
+  问题分类：
+
+  - IT03-05 数据安全管理粗放/存在泄露风险
+
+  在分类体系里，这已经够用了。
+
+  但在控制体系里，这类问题往往要同时落到多个控制：
+
+  - 数据分类分级
+  - 数据访问控制
+  - 数据脱敏控制
+  - 数据生命周期管理
+  - 重要数据出境控制
+
+  所以：
+
+  - 分类是“把问题放进一个桶”
+  - 控制是“把问题拆成几道控制链路去管”
+
+  ———
+
+  ### 3. 分类是文本驱动，控制是治理驱动
+
+  Python 文件里的一级/二级分类，是从处罚文本里抽出来的，偏：
+
+  - 文本归类
+  - 监管口径
+  - 处罚案由映射
+
+  而 control family / point 应该偏：
+
+  - 内控设计
+  - 控制实施
+  - 审计证据
+  - 问卷题项
+  - 整改动作
+
+  也就是说：
+
+  - 分类码回答“监管怎么描述这个问题”
+  - 控制点回答“组织应该怎么防这个问题”
+
+  ———
+
+  ### 4. 分类应该相对稳定，控制可以持续细化
+
+  比如：
+
+  - IT05-02 外包准入尽调/日常管理不到位
+
+  这个分类可以长期稳定存在。
+
+  但控制体系会不断细化：
+
+  - 外包供应商准入尽调控制
+  - 外包合同安全条款控制
+  - 外包持续监督控制
+  - 外包退出与交接控制
+
+  所以分类是相对稳定的“上层语义桶”，控制是会逐步演化的“下层执行单元”。
+
+  ———
+
+  ## 你现在系统里真正的问题是什么
+
+  不是你理解错了，而是当前 KG 还没有把“分类体系”和“控制体系”拉开。
+
+  也就是：
+
+  - ControlFamily 现在很多时候还是个“分类标签”
+  - ControlPoint 又没有真正细化成可执行控制点
+  - 所以你看到的就是“换了个名字的二级分类”
+
+  换句话说：
+
+  > 现在的 ControlFamily 很像“伪二级分类”
+  > 现在的 ControlPoint 很像“伪控制点”
+
+  这也是为什么你会觉得很多 control point 不够细、不像真的 control。
+
+  ———
+
+  ## 一个更成熟的目标状态应该是这样
+
+  ### A. 问题分类层
+
+  来自那个 Python 文件：
+
+  - 一级分类：IT04 数据治理与监管数据报送
+  - 二级分类：IT04-05 监管报表/监管系统报送数据不准确
+
+  这是问题识别层。
+
+  ### B. 语义主题层
+
+  做归一化聚合：
+
+  - 监管报送管理
+
+  这是中间语义层。
+
+  ### C. 控制族层
+
+  控制域拆分：
+
+  - 报送口径管理
+  - 报送复核管理
+  - 账表一致性管理
+  - 报送时效管理
+
+  这是控制域层。
+
+  ### D. 控制点层
+
+  真正可执行：
+
+  - 报送前口径配置变更审批控制
+  - 报送数据生成后双人复核控制
+  - 总账/分账/报表自动勾稽校验控制
+  - 报送截止前异常监控与升级控制
+
+  这是可执行控制点层。
+
+  ———
+
+  ## 所以两者区别一句话怎么说
+
+  如果一定要极简表达：
+
+  - Python 的一级/二级分类：是“问题怎么分”
+  - Theme / ControlFamily / ControlPoint：是“问题应该怎么管”
+
+  ———
+
+  ## 再说得更实一点
+
+  ### 在你现在这个系统里
+
+  这两者区别还不大，因为 control 体系太粗，确实在“借壳当分类”。
+
+  ### 在你想要的成熟系统里
+
+  这两者必须分开，否则会出问题：
+
+  - 你做不了“一类问题，多道控制共同覆盖”
+  - 你做不了问卷、证据、整改动作的精细挂接
+  - 你做不了真正的 control explain
+  - 你最后只能停留在“文本分类”，做不成“控制知识图谱”
+
+  ———
+
+  ## 我给你的实际建议
+
+  如果按现在数据质量继续推进，最合理的路径不是直接硬搞四层，而是：
+
+  ### 第一步
+
+  承认现状：
+
+  - 先把 Python 的 一级/二级分类 当成正式“问题分类 taxonomy”
+
+  ### 第二步
+
+  把当前 ControlFamily 先收敛成“控制主题族”
+
+  - 不要求每个 family 都已经是成熟 control family
+  - 先把最乱的 CTRL-GEN-* 整理掉
+
+  ### 第三步
+
+  只对高价值主题做真正的 control point 细化
+  优先做这些：
+
+  - 数据治理与监管报送
+  - 事件响应与报告
+  - 访问控制
+  - 个人信息保护
+  如果你要，我下一步可以直接给你画一张更清楚的对照图：
+
+          ↓ 细化
+  ControlFamily
+          ↓ 执行化
+  ControlPoint
+
+  并且我可以直接拿 IT04 这一类，给你做一个“从分类到控制点”的完整样例。
+
+
+问题： 好，拿IT04这一个看看
+
+
+• 我就拿 IT04 这一个做一版“从分类到控制点”的完整样例，重点说明：哪些是问题分类、哪些是主题、哪些应该是 control family、
+  哪些才是最终 control point。先把 IT04 的 12 个二级分类和当前 KG 里最接近的 family 摘出来，再给你画映射链路。
+
+• Running @'
+  │ import ast, json
+  │ from pathlib import Path
+  │ … +18 lines
+
+• Running Get-Content docs/it-taxonomy-to-kg-semantic-mapping-2026-04-07.csv | Select-String '^IT04,'
+
+• Ran Get-Content docs/it-taxonomy-to-kg-semantic-mapping-2026-04-07.csv | Select-String '^IT04,'
+  └ PowerShell UTF-8 encoding configured successfully!
+
+    … +44 lines
+    | 监管信息 | 失真 | 迟报,REG_REPORTING,
+
+
+• Ran @'
+  │ import ast, json
+  │ from pathlib import Path
+  │ … +18 lines
+  └ PowerShell UTF-8 encoding configured successfully!
+    ---
+    … +57 lines
+    案件信息、投诉数据等监管信息未按规定报送、迟报或失真
+    RULES=投诉数据.*报告 | 案件信息.*未按规定报送 | 监管信息.*未按规定报送 | 投诉数据.*失真 | 案件信息.*迟报
+
+• Ran @'
+  │ const { Client } = require('pg');
+  │ require('dotenv').config({ path: '.env.development' });
+  │ … +21 lines
+  └ PowerShell UTF-8 encoding configured successfully!
+    [
+    … +35 lines
+      }
+    ]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• 可以，IT04 这个例子最能看出“分类体系”和“控制体系”的区别。
+
+  先给你一句话版本：
+
+  - Python 里的 IT04：是在说“这类处罚问题属于数据治理与监管报送”
+  - KG 里的 Theme / ControlFamily / ControlPoint：应该是在说“针对这类问题，分别该用哪些控制域、哪些具体控制点去覆盖”
+
+  1. 先看 Python 里的 IT04 是什么
+  来源是 D:/dataj/it校验/regulatory_it_mapping_singlefile.py。
+
+  IT04 一级分类名是：
+
+  - 数据治理与监管数据报送
+
+  下面有 12 个二级分类：
+
+  1. IT04-01 数据治理不审慎/不完善/存在缺陷
+  2. IT04-02 数据治理机制/体系不健全
+  3. IT04-03 EAST数据错报/漏报/报送不实
+  4. IT04-04 EAST数据质量不符合规范要求
+  5. IT04-05 监管报表/监管系统报送数据不准确
+  6. IT04-06 账表核对不一致/基础数据不一致
+  7. IT04-07 信息科技非现场监管报表未报/迟报
+  8. IT04-08 历史数据问题整改不到位
+  9. IT04-09 业务数据真实性/准确性/完整性问题
+  10. IT04-10 信息登记/录入/更新不及时不规范
+  11. IT04-11 监管报告/报表/文件/资料虚假或失真
+  12. IT04-12 监管信息/案件信息/投诉数据报送不合规
+
+  这 12 个东西，本质上都是“问题类型”。
+
+  2. 再看当前 KG 里跟 IT04 最接近的 family
+  我从你本地数据库里查到，目前跟 IT04 最相关的 family 主要是这几个：
+
+  - REG_REPORTING
+  - DATA_GOVERNANCE_REPORTING
+  - DATA_TRACEABILITY
+  - DATA_LIFECYCLE
+  - DATA_CLASSIFICATION
+  - BANK_ACCOUNTING
+
+  对应当前库里的 control point 只有这些：
+
+  - CTRL-DG-004 -> REG_REPORTING
+  - CTRL-GEN-025 -> DATA_GOVERNANCE_REPORTING
+  - CTRL-GEN-027 -> DATA_TRACEABILITY
+  - CTRL-GEN-026 -> DATA_LIFECYCLE
+  - CTRL-DATA-BASE-001 -> DATA_CLASSIFICATION
+  - CTRL-GEN-005 -> BANK_ACCOUNTING
+
+  你立刻就能看出问题：
+  IT04 下面有 12 个“问题子类”，但当前 KG 只压成了 6 个 family，而且每个 family 还只有 1 个 point。
+
+  这就是为什么你会觉得现在系统里“分类”和“control”几乎重叠了。
+
+  3. 用 IT04 画一版更合理的三层结构
+  我建议 IT04 不要直接映射成一个个 control point，而是先拆成 Theme，再挂 family，再落 point。
+
+  IT04 数据治理与监管数据报送
+  ├─ Theme A: 数据治理基础
+  │  ├─ DATA_CLASSIFICATION
+  │  ├─ DATA_GOVERNANCE_REPORTING
+  │  └─ DATA_LIFECYCLE
+  ├─ Theme B: 监管报送准确性与真实性
+  │  ├─ REG_REPORTING
+  │  ├─ DATA_TRACEABILITY
+  │  └─ BANK_ACCOUNTING
+  ├─ Theme C: 账表一致性与数据质量
+  │  ├─ DATA_TRACEABILITY
+  │  ├─ REG_REPORTING
+  │  └─ BANK_ACCOUNTING
+  └─ Theme D: 历史整改与报送闭环
+     ├─ RECTIFICATION_TRACKING
+     ├─ GOV_RECTIFICATION
+     └─ REG_REPORTING
+
+  这时候，Python 的 IT04-xx 就不再直接等于 control point，而是先落在更合理的主题和控制域里。
+
+  4. 拿几个具体子类看，会更清楚
+
+  ### 例子 A：IT04-03 EAST数据错报/漏报/报送不实
+
+  这是问题分类，不是控制点。
+
+  更合理的落法：
+
+  - Theme：监管报送准确性管理
+  - ControlFamily：
+      - REG_REPORTING
+      - DATA_TRACEABILITY
+  - ControlPoint 可以细化成：
+      - 报送口径配置与审批控制
+      - 报送前双人复核控制
+      - 报送数据源到报送结果血缘追踪控制
+      - 报送异常自动校验与拦截控制
+
+  你看，这里一个分类问题，天然就可能对应多个控制点。
+
+  ### 例子 B：IT04-06 账表核对不一致/基础数据不一致
+
+  这类问题如果只放一个 REG_REPORTING control point，不够。
+
+  更合理的落法：
+
+  - Theme：账表一致性管理
+  - ControlFamily：
+      - BANK_ACCOUNTING
+      - DATA_TRACEABILITY
+      - REG_REPORTING
+  - ControlPoint 可以细化成：
+      - 总账-分账自动勾稽控制
+      - 源系统与监管报表字段映射校验控制
+      - 报送前账表一致性复核控制
+
+  ### 例子 C：IT04-10 信息登记/录入/更新不及时不规范
+
+  这就明显不是“报送准确性”问题，而更偏主数据/生命周期问题。
+
+  更合理的落法：
+
+  - Theme：信息登记与生命周期管理
+  - ControlFamily：
+      - DATA_LIFECYCLE
+      - DATA_GOVERNANCE_REPORTING
+  - ControlPoint 可以细化成：
+      - 关键业务信息录入时效控制
+      - 主数据更新审批与留痕控制
+      - 登记信息缺失/超期自动提醒控制
+
+  5. 所以 IT04 这个例子说明了什么
+  它正好说明：
+
+  - Python 的 IT04-01 ~ IT04-12 是“问题分类粒度”
+  - Theme 是“问题归一后的语义主题”
+  - ControlFamily 是“控制域”
+  - ControlPoint 是“可执行控制动作”
+
+  它们不是同一层，只是你当前库里还没有把后两层拉开。
+
+  6. 如果继续按现在数据库结构走，会发生什么
+  如果继续保持：
+
+  - 1 family = 1 point
+
+  那 IT04 最终会退化成这样：
+
+  - REG_REPORTING 扛太多东西
+  - DATA_TRACEABILITY 扛太多东西
+  - DATA_GOVERNANCE_REPORTING 扛太多东西
+
+  结果就是：
+
+  - 语义很宽
+  - 问卷不好挂
+  - 证据不好挂
+  - 整改动作没法细化
+  - 人工审核时“推荐控制点”解释力弱
+
+  也就是说，系统只能做到“分类”，做不到真正的“控制知识图谱”。
+
+  7. 针对 IT04，我建议的目标状态
+  如果只拿 IT04 先做试点，我建议把它收敛成这 4 个 Theme：
+
+  1. 数据治理管理
+     覆盖：
+
+  - IT04-01
+  - IT04-02
+
+  2. 监管报送管理
+     覆盖：
+
+  - IT04-03
+  - IT04-05
+  - IT04-07
+  - IT04-11
+  - IT04-12
+
+  3. 数据质量与一致性管理
+     覆盖：
+
+  - IT04-04
+  - IT04-06
+  - IT04-09
+  - IT04-10
+
+  4. 历史问题整改管理
+     覆盖：
+
+  - IT04-08
+
+  然后每个 Theme 下再挂 2 到 4 个 family，最后每个 family 下再拆 2 到 5 个 control point。
+  这样 IT04 这一条线就会从“文本分类”变成“可执行控制体系”。
+
+  8. 我已经给你整理过一版可迁移表
+  你可以直接看这两个文件：
+  - /D:/csaas/docs/it-taxonomy-to-kg-semantic-mapping-2026-04-07.csv
+
+  里面 IT04 这 12 条我已经给了：
+
+  - 建议 canonicalTheme
+  - 建议 controlFamilies
+  - 差距说明
+
+  一句话收口
+  IT04 这个例子恰好证明：
+  你现在的 KG 还停留在“分类近似控制”的阶段；
+  而成熟形态应该是：
+  一个分类问题 -> 一个语义主题 -> 多个控制域 -> 多个具体控制点。
+
+  如果你要，我下一步可以继续直接把 IT04 细化成：
+
+  - 一版正式的 Theme/Family/Point 目标表
+  - 并且把每个 family 下建议新增的 control point 名称直接写出来
+
+
+问题： 我们继续分析，但这个分析下来，control point这种有点无序延申的感觉，纯靠个人感觉，是否应该使用行业的标准和法规去生产硬
+  control point
+
+
+• 是，应该，而且我认为这不是“可选优化”，而是你这个 KG 想做成真正可用的控制知识库时的基础前提。
+
+  你现在会觉得 control point 有点“无序延申”，本质原因就是：
+
+  - 当前很多 point 不是从权威义务推出来的
+  - 而是从“问题表述”“主题感觉”“已有 family 名字”往下顺
+  - 这样做早期能快速铺量，但到一定规模就会开始失控
+
+  结果就是你现在看到的状态：
+
+  - 有些 point 像分类标签
+  - 有些 point 像控制主题
+  - 有些 point 像具体动作
+  - 粒度不一致
+  - 命名风格不一致
+  - 证据和问卷也很难稳定挂接
+
+  所以答案是：
+
+  硬 control point 应该尽量从行业标准、监管法规、监管口径、审计准则中“生产”出来，而不是主要靠个人感觉长出来。
+
+  但这里有一个关键 nuance：
+
+  不是直接把法规条文原文变成 control point。
+  而是要经过一个规范的转换链路。
+
+  ———
+
+  # 我建议的正确链路
+
+  不要：
+
+  处罚文本 / 感觉 / 主题
+  -> control point
+
+  而要：
+
+  法规 / 标准 / 监管要求
+  -> 规范义务（obligation）
+  -> 控制目标（control objective）
+  -> 控制族（control family）
+  -> 控制点（control point）
+  -> 证据 / 问卷 / 整改动作
+
+  这是区别“分类系统”和“控制知识库”的关键。
+
+  ———
+
+  # 为什么必须这么做
+
+  ## 1. 否则 control point 会越来越像“命名随意的标签”
+
+  如果没有权威来源约束，control point 很容易变成这种东西：
+
+  - DATA_TRACEABILITY
+  - REG_REPORTING
+  - BANK_ACCOUNTING
+  - OPS_MONITOR
+
+  这些名字本身不能说错，但问题是：
+
+  - 它们到底是“控制主题”？
+  - “控制域”？
+  - 还是“单个控制点”？
+
+  说不清。
+
+  一旦说不清，后面所有东西都会乱：
+
+  - 问卷挂不准
+  - 证据挂不准
+  - 整改建议太泛
+  - 案例映射解释不清
+  - 人工审核只能靠感觉
+
+  ## 2. 法规/标准能天然提供“硬边界”
+
+  标准和法规最大的价值不是“更权威”这么简单，而是它们能提供控制点必须具备的边界：
+
+  - 控什么
+  - 对谁控
+  - 在什么场景下控
+  - 要达到什么要求
+  - 留什么证据
+
+  比如法规里说：
+
+  - 报送数据应真实、准确、完整、及时
+  - 应开展风险评估
+  - 应落实最小权限
+  - 应建立灾备和演练机制
+
+  这些义务天然能拆成结构化控制要求。
+
+  这就比“我感觉这个主题下面应该有几个点”稳得多。
+
+  ## 3. 你要的是“可审计的知识图谱”，不是“可分类的词库”
+
+  如果只是做文本分类，那靠规则、关键词、主题就够了。
+
+  但你现在显然想做的是：
+
+  - 案例 -> 控制点
+  - 控制点 -> 问卷
+  - 控制点 -> 证据
+  - 控制点 -> 整改动作
+  - 控制点 -> explain / provenance
+
+  这时候每个 control point 必须能回答一句话：
+
+  > “这条控制点的依据是什么？”
+
+  如果回答不了，它就不够硬。
+
+  ———
+
+  # 但为什么不能直接用法规原文当 control point
+
+  因为法规条文通常不是天然适合作为 control point 的。
+
+  它有几个问题：
+
+  ## 1. 过于抽象
+
+  例如：
+
+  - 应建立健全信息科技风险管理体系
+
+  这是一条义务，但不是一个可直接执行的 control point。
+
+  它更像：
+
+  - 控制目标
+    或者
+  - 控制域
+
+  你还需要把它继续拆成：
+
+  - 风险识别机制
+  - 风险评估机制
+  - 风险指标监测
+  - 风险报告与升级
+  - 风险整改闭环
+
+  ## 2. 过于宽泛
+
+  很多条文一句话覆盖好几个控制要求。
+
+  例如你刚才分析的 IT04 相关义务，经常同时包含：
+
+  - 数据真实性
+  - 报送准确性
+  - 核对一致性
+  - 时效要求
+  - 整改要求
+
+  这些不能硬压成一个 point。
+
+  ## 3. 法规语言不是控制语言
+
+  法规是监管语言，control point 应该是治理语言。
+
+  法规说：
+
+  - “未按规定报送”
+  - “不符合监管要求”
+  - “存在失真”
+
+  control point 应该写成：
+
+  - 报送数据口径配置审批控制
+  - 报送前双人复核控制
+  - 报送数据与源系统勾稽校验控制
+
+  两者不是一层语言。
+
+  ———
+
+  # 所以“硬 control point”应该怎么生产
+
+  我建议你把控制资产分成 3 层：
+
+  ## 第一层：Authoritative Source
+
+  来源层
+
+  包括：
+
+  - 法规
+  - 监管规则
+  - 行业标准
+  - 审计准则
+  - 官方监管问答/检查口径
+
+  这一层只存：
+
+  - 原始义务
+  - 原始出处
+  - 生效版本
+  - 适用机构
+  - 适用范围
+
+  这层不直接给前台用户看作 control point。
+
+  ## 第二层：Control Objective / Control Family
+
+  归一层
+
+  把来源义务归一成稳定的控制域，例如：
+
+  - 监管报送管理
+  - 数据质量管理
+  - 数据分类分级管理
+  - 访问控制管理
+  - 业务连续性管理
+  - 外包与第三方管理
+
+  这一层是你现在 theme / family 应该承载的东西。
+
+  ## 第三层：Hard Control Point
+
+  执行层
+
+  每个 point 必须是“可执行、可验证、可挂证据”的。
+
+  一个合格 control point 我建议至少包含这些字段：
+
+  - control_code
+  - control_name_zh
+  - control_name_en 可选
+  - control_objective
+  - control_activity
+  - trigger_condition
+  - expected_evidence
+  - source_refs
+  - applicable_entities
+  - control_frequency
+  - owner_role
+  - canonical_theme
+  - control_family
+
+  如果没有这些东西，往往还只是“主题”不是“硬 point”。
+
+  ———
+
+  # 用 IT04 举个具体例子
+
+  比如来源义务：
+
+  > 监管报送数据应真实、准确、完整、及时。
+
+  这不是 control point，本身太宽。
+
+  可以这么拆：
+
+  ## Control Objective
+
+  - 确保监管报送数据真实、准确、完整、及时、可追溯
+
+  ## Control Families
+
+  - 报送口径管理
+  - 数据质量校验
+  - 账表一致性校验
+  - 报送时效管理
+  - 异常整改闭环
+
+  ## Hard Control Points
+
+  例如：
+
+  1. 报送口径配置变更审批控制
+  2. 报送数据生成后双人复核控制
+  3. 源系统与监管报表字段映射校验控制
+  4. 总账/分账/报表自动勾稽校验控制
+  5. 报送截止前异常监控与升级控制
+  6. 历史报送差错整改跟踪控制
+
+  你看，这样出来的 point 就不是“感觉延申”，而是从义务推导出来的。
+
+  ———
+
+  # 标准和法规各自适合干什么
+
+  这两类来源最好一起用，但用途不同。
+
+  ## 法规 / 监管要求
+
+  适合定义：
+
+  - 必须做什么
+  - 哪些是硬性义务
+  - 哪些问题会被处罚
+  - 哪些是高风险红线
+
+  它决定“必须有什么 control”。
+
+  ## 行业标准 / 框架
+
+  适合定义：
+
+  - 怎么把义务拆得更完整
+  - 常见控制设计模式
+  - 控制粒度怎么标准化
+  - 不同行业如何复用
+
+  它决定“control 长什么样”。
+
+  所以更合理的是：
+
+  - 法规定义 mandatory obligation
+  - 标准帮助你把 obligation 工程化成可执行 control point
+
+  ———
+
+  # 我建议你采用“双轨控制点模型”
+
+  这个对你现在系统最合适。
+
+  ## A. Hard Control Points
+
+  从法规/标准生产出来
+
+  特点：
+
+  - 有明确来源
+  - 可审计
+  - 可追溯
+  - 稳定
+  - 可挂问卷/证据/整改
+
+  这应该成为 KG 主干。
+
+  ## B. Soft / Heuristic Control Candidates
+
+  从案例、聚类、LLM、运营分析中冒出来
+
+  特点：
+
+  - 用来发现缺口
+  - 用来辅助扩展
+  - 但不能直接成为正式控制点
+
+  这些东西先进入：
+
+  - candidate pool
+  - 待治理池
+  - 人审池
+
+  只有经过：
+
+  - 来源对照
+  - 去重合并
+  - 粒度校准
+  - 命名规范化
+
+  之后，才升级成 Hard Control Point。
+
+  这能解决你现在“无序延申”的问题。
+
+  ———
+
+  # 如果不这么做，会发生什么
+
+  如果继续主要靠感觉长 point，后面基本一定会出现：
+
+  1. 同义重复
+      - 监管报送管理
+      - 报送准确性管理
+      - EAST报送管理
+      - 监管数据填报控制
+  2. 粒度混乱
+      - 有的是主题
+      - 有的是控制域
+      - 有的是动作
+      - 有的是结果要求
+  3. 无法稳定映射
+      - 同一个案例，今天映到 A，明天映到 B
+  4. 无法做 explain
+      - 问“为什么是这个 control point”时，只能回答“语义像”
+  5. 无法做版本治理
+      - 法规变化后，不知道哪些点该删、该改、该废弃
+
+  ———
+
+  # 我给你的明确建议
+
+  不是“要不要用行业标准和法规”，而是：
+
+  必须让标准和法规成为 hard control point 的唯一正式来源。
+
+  具体落地建议：
+
+  ## 1. 把当前数据库里的 point 分成两类
+
+  - hard
+  - candidate
+
+  你现在那 93 条里，大概率大量 CTRL-GEN-* 都应该先归 candidate。
+
+  ## 2. 建一个 source_ref 机制
+
+  每个 hard point 必须能挂：
+
+  - 法规来源
+  - 条文编号
+  - 标准章节
+  - 监管口径
+  - 版本号
+
+  ## 3. 先选 1 个主题试点
+
+  不要全库一起改。
+  最适合的就是你刚刚说的：
+
+  - IT04 数据治理与监管报送
+
+  因为它最容易从“问题分类”过渡到“控制体系”。
+
+  ## 4. 用“义务 -> 控制目标 -> 控制点”模板生产
+
+  不要直接人工拍脑袋起名。
+
+  # 一句话收口
+
+  > 现在这种 control point 确实有点像凭感觉往外长。
+
+  如果你想把它变成真正可用的 KG，下一步必须把：
+
+  - 法规
+  - 行业标准
+  - 监管处罚口径
+
+  变成 硬 control point 的生产原料，
+  而不是继续让案例主题或个人感觉直接长成 control point。
+
+  如果你要，我下一步可以直接继续帮你做最有价值的一步：
+
+  把 IT04 按“法规/标准 -> 控制目标 -> hard control point”真正写出第一版目录。
+
+
+问题： 如果按这种改，现在KG的设计要大改吗
+
+
+• 我先快速核一下你现有 KG 里已经有哪些层，判断是“推倒重来”还是“增量演进”。重点看有没有现成的法规源、条文、映射表和控制证
+  据这些承载位。
+
+• Running Get-Content backend/src/database/entities/regulation-source.entity.ts
+
+• Running Get-Content backend/src/database/entities/clause-control-map.entity.ts
+
+• Running Get-Content backend/src/database/entities/regulation-clause.entity.ts
+
+• Running Get-Content backend/src/database/entities/control-pack.entity.ts
+
+• Running Get-Content backend/src/database/entities/control-point.entity.ts
+
+• Ran Get-Content backend/src/database/entities/regulation-source.entity.ts
+  └ PowerShell UTF-8 encoding configured successfully!
+    import {
+    … +65 lines
+      clauses: RegulationClause[]
+    }
+
+• Ran Get-Content backend/src/database/entities/control-evidence-map.entity.ts
+  └ PowerShell UTF-8 encoding configured successfully!
+    import {
+    … +45 lines
+      evidenceType: EvidenceType
+    }
+
+• Ran Get-Content backend/src/database/entities/control-point.entity.ts
+  └ PowerShell UTF-8 encoding configured successfully!
+    import {
+    … +85 lines
+      taxonomyL2: TaxonomyL2
+    }
+
+• Ran Get-Content backend/src/database/entities/clause-control-map.entity.ts
+  └ PowerShell UTF-8 encoding configured successfully!
+    import {
+    … +56 lines
+      controlPoint: ControlPoint
+    }
+
+• Ran Get-Content backend/src/database/entities/regulation-clause.entity.ts
+  └ PowerShell UTF-8 encoding configured successfully!
+    import {
+    … +76 lines
+      clauseControlMaps: ClauseControlMap[]
+    }
+
+• Ran Get-Content backend/src/database/entities/control-pack.entity.ts
+  └ PowerShell UTF-8 encoding configured successfully!
+    import {
+    … +45 lines
+      updatedAt: Date
+    }
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• 不用“推倒重来”，但也不能只改命名就完事。
+
+  更准确地说：
+
+  不是大改，是“中等强度的增量重构”。
+
+  你现在的 KG 其实已经有了 70% 以上可复用的骨架，问题主要不在“表没有”，而在“语义层次没有拉开”。
+
+  ———
+
+  ## 先说结论
+
+  ### 不需要大改的部分
+
+  你现在这几层其实已经在了：
+
+  - 法规源层
+      - /D:/csaas/backend/src/database/entities/regulation-source.entity.ts
+      - /D:/csaas/backend/src/database/entities/regulation-clause.entity.ts
+  - 法规到控制的映射层
+      - /D:/csaas/backend/src/database/entities/clause-control-map.entity.ts
+  - 控制层
+      - /D:/csaas/backend/src/database/entities/control-point.entity.ts
+  - 证据层
+      - /D:/csaas/backend/src/database/entities/control-evidence-map.entity.ts
+
+  也就是说，最关键的主干已经存在：
+
+  Source -> Clause -> Control -> Evidence
+
+  这个骨架是对的，没必要重做。
+
+  ———
+
+  ## 真正要改的地方
+
+  ### 1. 现在缺的是“主题层/目标层”
+
+  当前系统最大的问题是：
+
+  - control_family 承担了太多语义
+  - control_point 又没有真正细化
+  - 导致两层粘在一起
+
+  所以你缺的不是更多表，而是中间层。
+
+  我建议至少补一个：
+
+  Theme -> ControlFamily -> ControlPoint
+
+  如果以后更完整，可以再加：
+
+  Clause -> Obligation -> ControlObjective -> ControlFamily -> ControlPoint
+
+  但这个可以分阶段做，不必一步到位。
+
+  ———
+
+  ### 2. 现在 control_points 里混了两种东西
+
+  从你库里的 93 条来看，当前 control_points 其实混着：
+
+  - hard point：相对明确、像正式控制点
+  - candidate / generated point：CTRL-GEN-* 这种从主题/家族半自动长出来的点
+
+  这两个不分开，会一直混乱。
+
+  所以你至少需要给 control_points 增加一种来源/成熟度标记，比如：
+
+  - origin_type
+      - authoritative
+      - derived
+      - candidate
+      - manual
+
+  或者：
+
+  - maturity_level
+      - hard
+      - draft
+      - candidate
+
+  这个改动不大，但意义很大。
+
+  ———
+
+  ### 3. 现在“法规依据”是有的，但还没成为 point 的硬约束
+
+  你已经有：
+
+  - regulation_clauses
+  - clause_control_maps
+
+  这非常好，说明你并不是从零开始。
+
+  但现在的问题是，这条链路更像“有映射关系”，还不像“硬控制点的唯一正式来源”。
+
+  换句话说，现在是：
+
+  Clause <-> ControlPoint
+
+  更理想的是：
+
+  Clause -> Obligation -> ControlObjective -> ControlPoint
+
+  但这个不一定要马上建 2 张新表。
+
+  ———
+
+  ## 最实用的判断：要不要新增很多表？
+
+  ### 我的建议：分两步走
+
+  ## 第一步：小改 schema，先把语义层次拉开
+
+  这是我认为最合适的方案。
+
+  ### 建议新增 2 张表就够了
+
+  #### A. control_themes
+
+  表示大主题，例如：
+
+  - 数据治理管理
+  - 监管报送管理
+  - 事件响应管理
+  - 外包与第三方管理
+
+  建议字段：
+
+  - theme_id
+  - theme_code
+  - theme_name
+  - theme_desc
+  - parent_theme_id 可选
+  - status
+
+  #### B. control_family_theme_maps
+
+  表示 family 和 theme 的关系。
+
+  因为一个 family 未来可能挂多个 theme，所以最好不要把 theme_id 直接塞进 control_points。
+
+  建议字段：
+
+  - id
+  - theme_id
+  - control_family
+  - is_primary
+  - notes
+
+  这样你立刻就能把：
+
+  - 问题分类
+  - 主题
+  - 控制域
+    分开。
+
+  这已经能解决 60% 的混乱。
+
+  ———
+
+  ## 第二步：等你真的要做硬控制点生产，再补“义务层”
+
+  等你准备把标准和法规真正变成 hard point 生产线时，再考虑加：
+
+  - regulation_obligations
+  - control_objectives
+
+  ### 这两层的作用
+
+  #### regulation_obligations
+
+  把法规条文拆成“结构化义务”。
+
+  例如一条 clause 里抽出：
+
+  - 报送应真实准确完整及时
+  - 应建立双人复核机制
+  - 应保留可追溯记录
+
+  #### control_objectives
+
+  把义务归成更稳定的控制目标。
+
+  例如：
+
+  - 监管报送准确性控制目标
+  - 数据一致性控制目标
+  - 报送时效控制目标
+
+  然后再挂到 family / point。
+
+  但我强调一下：
+
+  这一步现在不是必须做的。
+
+  你现在先把 theme 补上，已经足够让体系清晰很多。
+
+  ———
+
+  ## 所以现在到底算不算“大改”？
+
+  如果按我这个路线：
+
+  ### 不算大改
+
+  因为：
+
+  - 现有核心表都能保留
+  - 现有 API 绝大部分不用重写
+  - 现有 regulation_sources / clauses / clause_control_maps / control_points / evidence / question 都还能继续用
+  - 你只是：
+      - 补一个主题层
+      - 给 point 补成熟度/来源字段
+      - 逐步把 family 和 point 的语义拉开
+
+  这更像：
+
+  在现有 KG 上做本体升级，不是数据库重建。
+
+  ———
+
+  ## 什么才叫大改？
+
+  如果你打算直接：
+
+  - 删除现有 control_points
+  - 重建所有 code / id / family
+  - 改所有映射逻辑
+  - 改所有 evidence/question/remediation 挂接
+  - 让老 case map 全部重算
+
+  这才叫大改。
+
+  我不建议这么做。
+
+  ———
+
+  ## 我建议的最小改造方案
+
+  ### Phase 1
+
+  不破坏现有接口，只做增强：
+
+  1. 新增 control_themes
+  2. 新增 control_family_theme_maps
+  3. 给 control_points 增加：
+      - origin_type
+      - maturity_level
+      - authoritative_score 或类似字段
+  4. 补 canonical_theme / aliases / keywords
+
+  ### Phase 2
+
+  治理现有数据：
+
+  1. 把 CTRL-GEN-* 全部标成 candidate
+  2. 把相对明确的点标成 authoritative 或 draft
+  3. 按 IT04 先试点建立：
+      - Theme
+      - Family
+      - Hard points
+
+  ### Phase 3
+
+  再做法规生产线：
+
+  1. 从 regulation_clauses 中抽 obligation
+  2. obligation 归到 control_objective
+  3. objective 再落到 family / point
+
+  ———
+
+  ## 为什么我说你现在很适合“增量重构”
+
+  因为你已经有这些很值钱的东西了：
+
+  - 法规源和条文表已经有
+  - 条文到控制点映射表已经有
+  - 控制点到证据映射已经有
+  - 控制点到问卷/整改动作这类挂载位也基本在
+
+  这意味着你不是“没有 KG”，你是“KG 语义层不够清楚”。
+
+  这种情况最忌讳推翻重来，最适合做结构补层。
+
+  ———
+
+  ## 一句话结论
+
+  按这种方向改，不需要大改数据库主干。
+  - 保留现有 KG 主干
+  - 补 Theme 层
+  - 给 ControlPoint 增加来源/成熟度语义
+  - 逐步把 hard point 和 candidate point 分开
+
+  这是“进化式重构”，不是“重建式改造”。
+
+  如果你要，我下一步可以直接给你出一份非常具体的东西：
+
+  ### V1 KG 增量改造方案
+
+  包括：
+
+  1. 建议新增哪些表
+  2. 现有哪些表加哪些字段
+  3. migration 应该怎么拆
+  4. IT04 先怎么落地成试点
+
+  这个会比抽象讨论更有执行价值。
+
+
+问题： 给我一份
+
+
+• 下面是一份可直接执行的 V1 KG 增量改造方案。目标不是推倒重来，而是在你现有 KG 主干上补齐“主题层”和“硬控制点治理层”，先
+  拿 IT04 做试点。
+
+  目标
+  把当前“分类近似控制”的结构，升级成更稳定的四层：
+
+  法规条文 / 监管口径
+  -> Theme
+  -> ControlFamily
+  -> ControlPoint
+  -> Evidence / Question / Remediation
+
+  保留你现有的核心主干：
+
+  - /D:/csaas/backend/src/database/entities/regulation-source.entity.ts
+  - /D:/csaas/backend/src/database/entities/regulation-clause.entity.ts
+  - /D:/csaas/backend/src/database/entities/clause-control-map.entity.ts
+  - /D:/csaas/backend/src/database/entities/control-point.entity.ts
+  - /D:/csaas/backend/src/database/entities/control-evidence-map.entity.ts
+
+  不做的事：
+
+  - 不删现有 control_points
+  - 不重置现有 case map
+  - 不一次性把 93 条全部重命名重建
+
+  核心思路
+  现状问题不是“没有 KG”，而是“中间语义层不清楚”。
+
+  所以 V1 只做三件事：
+
+  1. 新增 Theme 层
+  2. 给 ControlPoint 增加“来源/成熟度/依据”字段
+  3. 先把 IT04 这条线从“分类”改造成“可执行控制链路”
+
+  一、数据模型改造
+  建议新增 2 张表，修改 1 张表。
+
+  1. 新增 control_themes
+     建议字段：
+
+  theme_id uuid pk
+  theme_code varchar(100) unique not null
+  theme_name varchar(200) not null
+  theme_desc text null
+  parent_theme_id uuid null
+  theme_level varchar(20) not null default 'domain'
+  source_taxonomy_code varchar(50) null
+  source_taxonomy_name varchar(200) null
+  status varchar(20) not null default 'ACTIVE'
+  created_at timestamp not null
+  updated_at timestamp not null
+
+  说明：
+
+  - theme_code 例如：TH-IT04-REPORTING
+  - source_taxonomy_code 可以直接挂 IT04-05
+  - parent_theme_id 给以后做树状主题留口子
+
+  2. 新增 control_family_theme_maps
+     建议字段：
+
+  id uuid pk
+  theme_id uuid not null
+  control_family varchar(100) not null
+  is_primary boolean not null default true
+  confidence_score numeric(5,4) null
+  notes text null
+  created_at timestamp not null
+  updated_at timestamp not null
+  unique(theme_id, control_family)
+
+  说明：
+
+  - 允许一个 control_family 挂多个 theme
+  - is_primary 区分主挂载和辅助挂载
+
+  3. 扩展 control_points
+     在 /D:/csaas/backend/src/database/entities/control-point.entity.ts 上新增字段：
+
+  origin_type varchar(30) not null default 'candidate'
+  maturity_level varchar(20) not null default 'draft'
+  objective_summary text null
+  source_basis jsonb null
+  authoritative_score numeric(5,4) null
+  superseded_by uuid null
+  retired_reason text null
+
+  建议枚举：
+
+  - origin_type
+      - authoritative
+      - derived
+      - candidate
+      - manual
+  - maturity_level
+      - hard
+      - draft
+      - candidate
+      - retired
+
+  字段解释：
+
+  - origin_type：这条 point 是从法规/标准生产出来，还是从案例/聚类推出来
+  - maturity_level：是不是已经晋级成正式 hard control point
+  - objective_summary：一句话说明控制目标
+  - source_basis：挂条文、标准章节、监管口径编号
+  - authoritative_score：便于排序和治理
+  - superseded_by：后续合并/替代用
+
+  二、为什么这样改足够
+  你已经有：
+
+  - 法规源
+  - 条文
+  - 条文到控制点映射
+  - 控制点到证据映射
+
+  所以 V1 不需要新增 obligation 表也能先跑起来。
+
+  V1 的关键是先解决：
+
+  - Theme 不存在
+  - Point 没有来源层次
+  - Candidate 和 hard point 混在一起
+
+  这三件事解决后，系统解释性和治理性都会立刻提升。
+
+  三、IT04 试点设计
+  IT04 数据治理与监管数据报送 建议先落 4 个 Theme。
+
+  1. TH-IT04-DG
+
+  - theme_name: 数据治理管理
+  - 覆盖分类：
+      - IT04-01
+      - IT04-02
+
+  建议 family：
+
+  - DATA_CLASSIFICATION
+  - DATA_GOVERNANCE_REPORTING
+  - DATA_LIFECYCLE
+
+  2. TH-IT04-REPORTING
+
+  - theme_name: 监管报送管理
+  - 覆盖分类：
+      - IT04-03
+      - IT04-05
+      - IT04-07
+      - IT04-11
+      - IT04-12
+
+  建议 family：
+
+  - REG_REPORTING
+
+  3. TH-IT04-QUALITY
+
+  - theme_name: 数据质量与一致性管理
+  - 覆盖分类：
+      - IT04-04
+      - IT04-06
+      - IT04-09
+      - IT04-10
+
+  建议 family：
+
+  - DATA_TRACEABILITY
+  - BANK_ACCOUNTING
+  - DATA_GOVERNANCE_REPORTING
+  - DATA_LIFECYCLE
+
+  4. TH-IT04-RECTIFICATION
+
+  - theme_name: 历史问题整改管理
+  - 覆盖分类：
+      - IT04-08
+
+  建议 family：
+
+  - RECTIFICATION_TRACKING
+  - GOV_RECTIFICATION
+  - REG_REPORTING
+
+  四、IT04 试点下的 hard control point 示例
+  重点：不是把 IT04-xx 直接变成 point，而是从主题和控制域往下拆。
+
+  TH-IT04-REPORTING 下建议首批 hard points：
+
+  - CP-IT04-REP-001
+      - 监管报送口径配置审批控制
+  - CP-IT04-REP-002
+      - 监管报送数据生成后双人复核控制
+  - CP-IT04-REP-003
+      - 监管报送异常自动校验与拦截控制
+  - CP-IT04-REP-004
+      - 监管报送时效预警与升级控制
+
+  TH-IT04-QUALITY 下建议首批 hard points：
+
+  - CP-IT04-QLT-001
+      - 源系统与监管报表字段映射校验控制
+  - CP-IT04-QLT-002
+      - 总账/分账/报表自动勾稽校验控制
+  - CP-IT04-QLT-003
+      - 业务数据完整性校验控制
+  - CP-IT04-QLT-004
+      - 信息登记更新时效控制
+
+  TH-IT04-RECTIFICATION 下建议首批 hard points：
+
+  - CP-IT04-REC-001
+      - 历史报送差错整改跟踪控制
+  - CP-IT04-REC-002
+      - 监管发现问题闭环验证控制
+
+  这些 point 才是未来应该挂：
+
+  - Evidence
+  - QuestionItem
+  - RemediationAction
+    的对象。
+
+  五、现有 93 条 point 的治理策略
+  不要直接删，先分层治理。
+
+  1. 明确标成 authoritative 的
+     建议先保留并优先治理这 12 条命名明确的：
+
+  - CTRL-ACC-002
+  - CTRL-AI-001
+  - CTRL-AI-002
+  - CTRL-BCP-003
+  - CTRL-CIIO-001
+  - CTRL-CLOUD-001
+  - CTRL-DATA-011
+  - CTRL-DATA-BASE-001
+  - CTRL-DG-004
+  - CTRL-ONLINE-001
+  - CTRL-OUT-001
+  - CTRL-PUBLIC-001
+
+  2. 明确标成 candidate 的
+     CTRL-GEN-* 这 81 条先统一打上：
+
+  - origin_type = 'candidate'
+  - maturity_level = 'candidate'
+
+  不删，但不当作 hard point 使用。
+
+  3. 对 candidate 的使用策略
+     候选点只用于：
+
+  - 辅助匹配
+  - 候选推荐
+  - 人工审核参考
+
+  不要直接用于：
+
+  - 正式问卷
+  - 正式证据模板
+  - 正式整改建议模板
+
+  六、服务层改造
+
+  1. ControlPointService
+     在 /D:/csaas/backend/src/modules/knowledge-graph/services/control-point.service.ts 增加查询条件：
+
+  - themeCode
+  - originType
+  - maturityLevel
+
+  搜索排序建议改为：
+
+  - authoritative + hard 优先
+  - candidate 放后
+
+  2. 案例聚类链路
+     在 /D:/csaas/backend/src/modules/case-import-orchestrator/services/case-theme.utils.ts 的现有规则基础上，改成：
+
+  处罚文本
+  -> 主题归一
+  -> 候选 Theme
+  -> 候选 ControlFamily
+  -> 候选 ControlPoint
+  -> hard point 优先
+  -> candidate 次选
+
+  也就是不再直接“theme 撞 point”，中间加一层 theme-family map。
+
+  3. 条文映射链路
+     在 /D:/csaas/backend/src/database/entities/clause-control-map.entity.ts 保持不变，但后续 mapping 时优先映射到 hard
+     point。
+
+  七、迁移脚本拆分
+  建议按 4 个 migration 来做。
+
+  1. CreateControlThemes
+
+  - 建 control_themes
+
+  2. CreateControlFamilyThemeMaps
+
+  - 建 control_family_theme_maps
+
+  3. AddControlPointGovernanceFields
+
+  - 给 control_points 加 origin_type / maturity_level / objective_summary / source_basis / authoritative_score
+
+  4. SeedIT04ThemesAndMappings
+
+  - 先塞 IT04 四个 theme
+  - 先塞 IT04 family 映射
+  - 把 CTRL-DG-004、CTRL-DATA-BASE-001 等现有点初步标层级
+
+  八、回填策略
+  一次性规则：
+
+  1. 所有 CTRL-GEN-*
+
+  - origin_type = candidate
+  - maturity_level = candidate
+  - authoritative_score = 0.2
+
+  2. 命名较明确的 12 条
+
+  - origin_type = manual
+  - maturity_level = draft
+  - authoritative_score = 0.6
+
+  3. 试点 hard point
+     新建后：
+
+  - origin_type = authoritative
+  - maturity_level = hard
+  - authoritative_score = 0.9
+
+  九、前后端影响
+  前端影响不大，重点是管理端查询与详情展示。
+
+  建议新增展示字段：
+
+  - theme
+  - originType
+  - maturityLevel
+  - sourceBasis
+
+  这样人工审核时能解释：
+
+  - 这条是 hard point 还是 candidate
+  - 它属于哪个主题
+  - 它依据什么来源
+
+  十、验收标准
+  V1 完成后，至少满足：
+
+  - IT04 的 12 个二级分类都能归到 4 个 Theme 之一
+  - REG_REPORTING、DATA_TRACEABILITY 等 family 能被明确挂到 Theme
+  - 新增 hard point 可以与 candidate point 并存
+  - 检索能区分 hard / candidate
+  - 案例映射时能解释成：
+      - 文本命中 IT04
+      - 归一到 TH-IT04-REPORTING
+      - 推荐 REG_REPORTING
+      - 最终落到某个 hard point
+
+  十一、实施顺序
+  建议你按这个顺序做：
+
+  1. migration + entity
+  2. theme seed + family-theme map seed
+  3. point 治理字段回填
+  4. IT04 试点 hard point 建模
+  5. clustering/service 接 Theme 层
+
+  十二、最小可交付版本
+  如果你想压缩范围，最小可交付就是：
+
+  - 新增 control_themes
+  - 新增 control_family_theme_maps
+  - 给 control_points 增加：
+      - origin_type
+      - maturity_level
+  - 只做 IT04
+  - 不做 obligation 表
+
+  这样就能先跑起来，而且不会伤现有系统。
+
+  如果你要，我下一步可以继续直接给你：
+
+  1. 这套 V1 的数据库 schema 草案 SQL
+  2. 对应的 Nest entity / DTO 草案
+  3. IT04 试点 seed 数据样例
+
+
+问题： 原来KG里面的canonical_theme字段和准备新增的control_themes是什么关系
+
+
+• 它们不应该是两个平行概念，而应该是：
+
+  - control_themes：标准主题主数据表
+  - canonical_theme：单条 control point 上的主语义锚点/主主题标签
+
+  一句话说：
+
+  > control_themes 是“字典”
+  > canonical_theme 是“某条 point 在这个字典里最主要归属的那个主题名”
+
+  ———
+
+  ## 最直观的类比
+
+  可以类比成这样：
+
+  - control_themes
+    像一张正式的“主题目录表”
+    例如里面有：
+      - 数据治理管理
+      - 监管报送管理
+      - 数据质量与一致性管理
+      - 事件响应管理
+  - canonical_theme
+    是写在某条 control_point 身上的“主标签”
+    例如某条 point 写的是：
+      - 监管报送管理
+
+  所以：
+
+  - control_themes 是全局主数据
+  - canonical_theme 是某条记录上的局部字段
+
+  ———
+
+  ## 两者的关系，不是 1:1 表重复
+
+  ### control_themes 的职责
+
+  它负责解决这些问题：
+
+  - 哪些主题是系统承认的正式主题
+  - 每个主题的标准名称、描述、层级、来源是什么
+  - 主题之间有没有上下级关系
+  - 一个 controlFamily 属于哪些主题
+
+  它是治理对象。
+
+  ### canonical_theme 的职责
+
+  它负责解决这些问题：
+
+  - 这条 point 当前最主要属于哪个主题
+  - 搜索和语义匹配时，这条 point 的主归一主题是什么
+  - 在不 join 一堆表的情况下，快速拿到一个主语义标签
+
+  它更像一个使用字段。
+
+  ———
+
+  ## 关系应该怎么理解
+
+  ### 1. 一个 control_theme 可以覆盖很多 control_point
+
+  这是最重要的关系。
+
+  例如：
+
+  - 监管报送管理
+    下面可能有很多 point：
+      - 报送口径配置审批控制
+      - 报送前双人复核控制
+      - 报送时效监控控制
+      - 报送异常拦截控制
+
+  这些 point 的 canonical_theme 都可能是：
+
+  - 监管报送管理
+
+  所以：
+
+  - control_theme : control_point
+  - 是 1 对多
+
+  ———
+
+  ### 2. 一条 control_point 通常只有一个主 canonical_theme
+
+  虽然一条 point 可能和多个主题相关，但通常应该有一个主主题。
+
+  例如：
+
+  - 总账/分账/报表自动勾稽校验控制
+
+  它可能同时相关：
+
+  - 监管报送管理
+  - 数据质量与一致性管理
+
+  但主归属最好只有一个，比如：
+
+  - 数据质量与一致性管理
+
+  这就是 canonical_theme 的作用：
+
+  - 它不负责表达“所有关联主题”
+  - 它只表达“主语义归属”
+
+  ———
+
+  ### 3. 多主题关系应由映射表表达，不该靠 canonical_theme 硬撑
+
+  也就是说：
+
+  - canonical_theme 只存主主题
+  - 其他关联主题应该走关系表，比如你准备新增的：
+      - control_family_theme_maps
+        或以后可能的
+      - control_point_theme_maps
+
+  否则 canonical_theme 会被滥用成：
+
+  - 一个 point 写很多主题
+  - 或者写成模糊复合词
+
+  那就失去归一意义了。
+
+  ———
+
+  ## 最合理的设计方式
+
+  我建议你这样定义：
+
+  ### control_themes
+
+  是权威主题表，字段类似：
+
+  - theme_code
+  - theme_name
+  - theme_desc
+  - parent_theme_id
+  - status
+
+  ### canonical_theme
+
+  保留在 control_points 上，但规则是：
+
+  - 它应该等于该 point 的主主题名称
+  - 这个名称必须来自 control_themes.theme_name
+  - 原则上不允许自由发挥写别的字符串
+
+  也就是说，它应该是一个受控冗余字段
+
+  ———
+
+  ## 为什么还要保留 canonical_theme，不直接只用 theme_id
+
+  这是个很关键的问题。
+
+  理论上，纯范式设计里你可以说：
+
+  - 那就别要 canonical_theme 了，直接挂 theme_id
+
+  但在你现在系统里，我反而建议 V1 先保留，原因有 4 个。
+
+  ### 1. 兼容现有代码
+
+  你现在很多逻辑已经在直接用 canonical_theme 字符串：
+
+  - 搜索
+  - case clustering 语义匹配
+  - family hint fallback
+  - tokens/haystack 构建
+
+  如果直接砍掉，会把改动面拉大。
+
+  ### 2. 语义匹配更直接
+
+  当前打分逻辑里，字符串主题匹配是最直接的。
+  canonical_theme 留在 point 上，做语义匹配很方便。
+
+  ### 3. 查询性能和开发成本更低
+
+  列表页、搜索、聚类候选，不一定每次都值得 join theme 表。
+
+  ### 4. 适合作为“主主题缓存”
+
+  它可以看成：
+
+  - 从标准主题表投影下来的主标签缓存
+
+  ———
+
+  ## 所以两者最终应该是什么关系
+
+  我建议定成下面这个关系：
+
+  ### 标准关系
+
+  - control_themes 是 authoritative source
+  - canonical_theme 是 derived / cached primary label
+
+  ### 数据规则
+
+  - 每个 point 的 canonical_theme
+    应该对应一个 control_themes.theme_name
+  - 如果对应不上，说明数据治理有问题
+
+  ### 写入规则
+
+  - 正常不直接手填 canonical_theme
+  - 而是先确定主 theme
+  - 再自动回填 canonical_theme
+
+  ———
+
+  ## 推荐的落地方式
+
+  ### 方案 A：V1 最稳妥
+
+  先保留 canonical_theme 为字符串字段，同时新增 control_themes。
+
+  关系是：
+
+  control_themes (主数据)
+      ↓
+  control_family_theme_maps (多对多)
+      ↓
+  control_points.canonical_theme (主主题缓存)
+
+  这版最适合你现在的系统。
+
+  ### 方案 B：V2 更规范
+
+  后面再给 control_points 增加：
+
+  - primary_theme_id
+
+  然后：
+
+  - primary_theme_id 是真正外键
+  - canonical_theme 变成冗余字段，甚至可由程序自动同步
+
+  这样就更标准了。
+
+  ———
+
+  ## 一个具体例子
+
+  比如未来 IT04 试点里有一个 point：
+
+  - CP-IT04-REP-002
+  - 名称：监管报送数据生成后双人复核控制
+
+  那么它可能是：
+
+  ### control_themes
+
+  - TH-IT04-REPORTING
+  - theme_name = 监管报送管理
+
+  ### canonical_theme
+
+  - 监管报送管理
+
+  ### 其他关联主题
+
+  如果它还和 数据质量与一致性管理 有关，
+  那应该记录在关系表里，而不是把 canonical_theme 改成：
+
+  - 监管报送管理 / 数据质量与一致性管理
+
+  后者是错误用法。
+
+  ———
+
+  ## 所以一句话最准确的定义
+
+  ———
+
+  ## 我给你的建议
+
+  ### 现在就可以这么定规则
+
+  1. canonical_theme 不再允许自由发挥
+  2. 它必须来自 control_themes.theme_name
+  3. 一个 point 只允许 1 个 canonical_theme
+  4. 多主题关系走映射表，不走 canonical_theme
+
+  这样你就不会把这两个概念做重复了。
+
+  如果你要，我下一步可以直接继续给你出：
+
+  - control_themes 表的实体草案
+  - control_family_theme_maps 表的实体草案
+  - 以及 control_points 如何和它们协同的字段设计草案
+
+
+问题： 我还是没理解，一个point为什么会对应多个theme，举个例子向我解释
+
+
+• 你这个疑问很关键。先把最容易误解的一点说清楚：
+
+  不是每个 point 都应该对应多个 theme。
+  大多数 point 最终都应该有：
+
+  - 1 个主 theme
+  - 0 到少数几个关联 theme
+
+  所以“一个 point 对应多个 theme”不是常态扩张，而是为了处理那些横跨多个问题域的控制点。
+
+  ———
+
+  # 先用一句最容易懂的话解释
+
+  因为有些控制点，做的是一件事，但同时在解决两类问题。
+
+  所以从不同角度看，它都成立。
+
+  ———
+
+  # 先举一个你这个场景里最典型的例子
+
+  ## 例子 1：报送前双人复核控制
+
+  假设有一个 control point：
+
+  - 监管报送数据生成后双人复核控制
+
+  你看它到底是在管什么？
+
+  ### 从角度 A 看
+
+  它在管：
+
+  - 监管报送
+  - 报送准确性
+  - 错报漏报
+
+  所以它属于 theme：
+
+  - 监管报送管理
+
+  ### 从角度 B 看
+
+  它其实也在管：
+
+  - 数据一致性
+  - 源数据和报送数据是否一致
+  - 复核机制能不能发现错误
+
+  所以它也属于 theme：
+
+  - 数据质量与一致性管理
+
+  所以同一个 point，可以同时回答两种问题：
+
+  - “这条控制点是不是为了避免监管报送出错？”
+      - 是
+  - “这条控制点是不是为了提升数据一致性和质量？”
+      - 也是
+
+  这就是“一个 point 对应多个 theme”的真正含义。
+
+  不是它模糊，而是它确实有双重作用。
+
+  ———
+
+  # 再举一个更直观的例子
+
+  ## 例子 2：第三方数据出境审批控制
+
+  假设有个 point：
+
+  - 第三方数据出境审批与接收方约束控制
+
+  它为什么可能对应多个 theme？
+
+  ### Theme 1：外包与第三方管理
+
+  因为这个控制点要管：
+
+  - 第三方
+  - 接收方
+  - 合作机构
+  - 外部服务商
+
+  ### Theme 2：数据安全 / 数据跨境管理
+
+  因为它同时在管：
+
+  - 数据出境
+  - 敏感数据
+  - 合法性评估
+  - 接收方安全约束
+
+  所以它既是：
+
+  - 外包治理问题
+
+  也是：
+
+  - 数据安全问题
+
+  如果你强行只允许它挂一个 theme，就会损失一半语义。
+
+  ———
+
+  # 再举一个“技术控制横切多个主题”的例子
+
+  ## 例子 3：生产变更审批与回滚控制
+
+  point：
+
+  - 生产变更审批与回滚控制
+
+  它可能同时属于：
+
+  ### Theme 1：变更管理
+
+  因为它直接是变更流程控制。
+
+  ### Theme 2：业务连续性管理
+
+  因为变更失败会直接影响：
+
+  - 系统稳定性
+  - 服务可用性
+  - 灾备切换
+  - 业务中断风险
+
+  也就是说：
+
+  - 它的“控制动作”是变更审批
+  - 但它的“风险后果”又连接到业务连续性
+
+  所以从知识图谱角度，给它两个 theme 是合理的。
+
+  ———
+
+  # 为什么这不是乱挂标签
+
+  这里要分清楚两种东西：
+
+  ## 1. 主 theme
+
+  表示：
+
+  - 这条 point 最核心的归属是什么
+
+  例如：
+
+  - 监管报送数据生成后双人复核控制
+    主 theme 可以定成：
+  - 监管报送管理
+
+  ## 2. 关联 theme
+
+  表示：
+
+  - 它还同时服务于哪些相邻语义域
+
+  例如它还可以关联：
+
+  - 数据质量与一致性管理
+
+  所以不是说：
+  一个 point 没中心、到处挂。
+
+  而是说：
+
+  - 它有主归属
+  - 但现实上还和别的主题相关
+
+  ———
+
+  # 如果不允许一个 point 对应多个 theme，会有什么问题
+
+  ## 问题 1：检索会变笨
+
+  还是那个例子：
+
+  point：
+
+  - 监管报送数据生成后双人复核控制
+
+  如果你只把它挂在：
+
+  - 监管报送管理
+
+  那当用户从“数据质量”角度来找控制点时，这条点就不容易被找到。
+
+  但实际上它明明也在解决数据质量问题。
+
+  ———
+
+  ## 问题 2：案例映射会变硬
+
+  处罚案例有时会写：
+
+  - “EAST报送错误”
+    有时会写：
+  - “账表不一致”
+    有时会写：
+  - “基础数据不真实”
+
+  这些文本可能都应该最终指向一部分重叠控制点。
+
+  如果 point 只能属于一个 theme，系统就会变成：
+
+  - 一旦主题分叉，候选点就被切断
+
+  这会让映射很僵硬。
+
+  ———
+
+  ## 问题 3：问卷、证据、整改动作会被切裂
+
+  一个好控制点往往不只是服务一个视角。
+
+  例如：
+
+  - “日志留痕和审计复核控制”
+
+  它既能挂：
+
+  - 审计留痕类证据
+
+  也能挂：
+
+  - 运行维护类证据
+
+  如果它只能挂一个 theme，你后面组织知识的时候会越来越别扭。
+
+  ———
+
+  # 一个生活化类比
+
+  把 theme 想成“书架分类”，把 point 想成“一本书”。
+
+  有些书只适合放一个书架：
+
+  - 比如纯会计教材
+
+  但有些书天然跨领域：
+
+  - “数据治理与监管合规实务”
+
+  你可以把它主放在：
+
+  - 数据治理
+
+  但它显然也和：
+
+  - 监管报送
+  - 合规管理
+
+  有关。
+
+  书还是那本书，没变。
+  只是它可以从多个主题入口被找到。
+
+  这就是多 theme 的意义。
+
+  ———
+
+  # 你现在最该怎么理解
+
+  所以正确理解不是：
+
+  > 一个 point 有多个 theme，是不是说明这个 point 不够清晰？
+
+  而是：
+
+  > 一个 point 如果同时服务多个问题域，那允许它有多个 theme，能让知识图谱更符合真实世界。
+
+  ———
+
+  # 但边界一定要有
+
+  为了防止乱挂，我建议你用这个规则：
+
+  ## 一个 point 可以有多个 theme，但必须满足：
+
+  - 有 1 个主 theme
+  - 关联 theme 一般不要超过 2~3 个
+  - 每个关联 theme 都要能说出明确理由
+
+  例如：
+
+  ### 可以这样挂
+
+  监管报送数据生成后双人复核控制
+
+  - 主 theme：监管报送管理
+  - 关联 theme：数据质量与一致性管理
+
+  理由很清楚。
+
+  ### 不可以这样乱挂
+
+  - 监管报送管理
+  - 数据管理
+  - 审计管理
+  - 事件响应管理
+  - 外包管理
+  - 风险管理
+
+  如果一个 point 什么都能挂，那说明：
+
+  - theme 设计太乱
+  - 或 point 太泛，不够具体
+
+  ———
+
+  # 回到你最关心的一点
+
+  如果你现在还没完全接受“一个 point 多个 theme”，其实可以先用一个更保守的方案：
+
+  ## V1 先这样做
+
+  - 每个 point 只存 1 个 canonical_theme
+  - 先不做 point-to-theme 多对多
+  - 只让 controlFamily 对 theme 多对多
+
+  这样你先能把体系跑顺。
+
+  等你后面发现确实有一些 point 跨主题特别明显，再加：
+
+  - control_point_theme_maps
+
+  这比一开始就把 everything 多对多化更稳。
+
+  ———
+
+  # 一句话收口
+
+  一个 point 会对应多个 theme，不是因为它不清晰，
+  而是因为它做的那件控制动作，本来就在同时解决多个问题域。
+
+  最典型的就是这类：
+
+  - 报送复核控制
+    同时属于 监管报送管理 和 数据质量管理
+  - 第三方数据出境控制
+    同时属于 外包与第三方管理 和 数据安全管理
+  - 变更审批与回滚控制
+    同时属于 变更管理 和 业务连续性管理
+
+

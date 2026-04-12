@@ -43,6 +43,10 @@ export {
   CONTROL_POINT_RISK_LEVELS,
   CONTROL_POINT_STATUSES,
   CONTROL_POINT_TYPES,
+  CONTROL_POINT_ORIGIN_TYPES,
+  CONTROL_POINT_MATURITY_LEVELS,
+  APPLICABLE_SECTORS,
+  SECTOR_REQUIREMENT_KEYS,
 } from './control-point.entity'
 export {
   RegulationSource,
@@ -122,3 +126,15 @@ export { PeerCrawlerTask } from './peer-crawler-task.entity'
 // 保留旧的实体（向后兼容，待迁移后删除）
 export { WatchedTopic } from './watched-topic.entity'
 export { WatchedPeer } from './watched-peer.entity'
+
+// KG V2: 失效模式体系
+export {
+  FailureMode,
+  FAILURE_MODE_CATEGORIES,
+  FAILURE_MODE_STATUSES,
+} from './failure-mode.entity'
+export { TaxonomyFailureModeMap } from './taxonomy-failure-mode-map.entity'
+export {
+  FailureModeControlMap,
+  FAILURE_MODE_CONTROL_RELEVANCES,
+} from './failure-mode-control-map.entity'

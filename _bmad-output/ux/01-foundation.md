@@ -28,7 +28,7 @@ date: '2025-12-24'
 - **Step 3**: 核心用户体验定义
 - **Step 4**: 期望情感反馈（5阶段情感旅程）
 - **Step 5**: UX模式分析与灵感来源
-- **Step 6**: 设计系统选择（Ant Design）
+- **Step 6**: 设计系统选择（~~Ant Design~~ → **shadcn/ui + Tailwind CSS**，已迁移）
 - **Step 7**: 核心体验定义（已整合专家反馈）
 - **Step 8**: 视觉设计基础（已整合专家反馈）
 
@@ -293,7 +293,9 @@ Csaas的核心情感目标是创造**"专业自信的赋能感"（Professionally
 
 ### 设计系统选型决策
 
-**选择：Ant Design 5.x + AntV数据可视化**
+**选择：shadcn/ui + Tailwind CSS（Advisory Authority 风格）**
+
+> **⚠️ 迁移说明（2026-04）**：原文档选择 Ant Design 5.x，实际开发中经历了 Ant Design → MUI → shadcn/ui 两次迁移。当前技术栈为 **shadcn/ui（Radix UI 基础）+ Tailwind CSS**，统一为 Advisory Authority 设计风格（BCG/Gartner 智库机构调性）。下方保留原文档的选型逻辑作为决策记录，实际组件策略请参见更新后的组件映射表。
 
 ### 选型理由
 
@@ -321,10 +323,10 @@ Csaas的核心情感目标是创造**"专业自信的赋能感"（Professionally
 
 | 设计系统 | 优势 | 劣势 | 决策 |
 |---------|------|------|------|
-| Ant Design | 企业级组件完备 | 体积较大 | ✅ 选择 |
-| Material-UI | Google生态成熟 | 偏消费级风格 | ❌ 不适合 |
+| Ant Design | 企业级组件完备 | 体积较大 | ❌ 已迁移 |
+| Material-UI | Google生态成熟 | 偏消费级风格 | ❌ 已迁移 |
 | Chakra UI | 轻量、灵活 | 组件数量少 | ❌ 需自建太多 |
-| Shadcn/ui | 现代、可定制 | 无数据可视化 | ❌ 缺少关键能力 |
+| **Shadcn/ui + Tailwind** | **现代、可定制、零运行时** | **无数据可视化** | **✅ 当前选择** |
 | 自建系统 | 完全可控 | 开发周期长 | ❌ MVP不可行 |
 
 ### 核心组件清单
@@ -601,68 +603,49 @@ Csaas的核心情感目标是创造**"专业自信的赋能感"（Professionally
 - 24列栅格系统，响应式992px断点
 - 平衡密度，适合长时间文档审查
 
-**技术栈**：
-- Next.js 14 + Ant Design 5.x + Tailwind CSS
-- 字体通过next/font优化加载
-- Tailwind配置：preflight: false（避免与Ant Design冲突）
+**技术栈**（2026-04 更新）：
+- Next.js 14 + **shadcn/ui** + **Tailwind CSS**（Advisory Authority 风格）
+- 字体通过 next/font 优化加载（Plus Jakarta Sans 标题 + Inter 正文）
+- 图标统一使用 **Lucide Icons**
 
-**Ant Design主题配置（核心代码）**：
+**Tailwind CSS 设计 Token（globals.css）**：
 
-```typescript
-// config/theme.ts
-import type { ThemeConfig } from 'antd';
-
-export const csaasTheme: ThemeConfig = {
-  token: {
-    colorPrimary: '#1E3A8A',
-    colorSuccess: '#10B981',
-    colorSuccessText: '#059669',  // 专家反馈：文字用更深绿色
-    colorSuccessTextHover: '#047857',
-    colorWarning: '#F59E0B',
-    colorError: '#EF4444',
-    fontSize: 14,
-    fontFamily: 'var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
-    borderRadius: 4,
-  },
-  components: {
-    Card: {
-      padding: 20,       // 专家反馈：拆分默认和大卡片
-      paddingLG: 24,
-    },
-    Typography: {
-      lineHeight: 1.71,  // 专家反馈：优化中文行高
-    },
-  },
-};
+```css
+:root {
+  --background: 214 20% 97%;        /* #FEFDFB 暖白背景 */
+  --foreground: 213 39% 24%;         /* #1E3A5F 深蓝主色 */
+  --primary: 213 39% 24%;            /* #1E3A5F 深蓝 */
+  --primary-foreground: 210 40% 98%;
+  --accent: 160 84% 39%;             /* #059669 信任绿 */
+  --accent-foreground: 210 40% 98%;
+  --muted: 214 32% 91%;              /* #E2E8F0 边框 */
+  --border: 214 32% 91%;
+  --radius: 4px;
+}
 ```
 
-**Next.js集成配置**：
+**Next.js 集成配置**（实际代码）：
 
 ```typescript
 // app/layout.tsx
-import { Inter } from 'next/font/google';
-import { ConfigProvider } from 'antd';
-import { csaasTheme } from '@/config/theme';
+import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
+import './globals.css';
 
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-  variable: '--font-inter',
-});
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const jakarta = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-jakarta' });
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="zh-CN" className={inter.variable}>
-      <body>
-        <ConfigProvider theme={csaasTheme}>
-          {children}
-        </ConfigProvider>
+    <html lang="zh-CN" className={`${inter.variable} ${jakarta.variable}`}>
+      <body className="min-h-screen bg-[#FEFDFB] font-sans antialiased">
+        {children}
       </body>
     </html>
   );
 }
 ```
+
+> **⚠️ 原始 Ant Design 配置已弃用**：原文档包含 `ThemeConfig from 'antd'` 和 `ConfigProvider` 配置，已完整迁移到 Tailwind CSS 变量系统。
 
 **专家反馈整合（Party Mode评审结果）**：
 

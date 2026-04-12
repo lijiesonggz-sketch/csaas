@@ -9,6 +9,8 @@ date: '2025-12-25'
 
 # UX Implementation Guide - Csaas
 
+> **⚠️ 技术栈迁移说明（2026-04）**：本文档基于 Ant Design + Tailwind CSS 编写。实际技术栈已迁移至 **shadcn/ui + Tailwind CSS**（Advisory Authority 风格）。响应式策略、无障碍策略、性能优化策略的业务逻辑仍然有效，但所有 `from 'antd'` 的导入和 Ant Design 特定 API 已弃用。
+
 **文档类型**: 实现指南（Steps 13-14）
 **父文档**: [UX Design Specification](../ux-design-specification.md)
 **项目**: Csaas AI咨询平台
@@ -614,7 +616,7 @@ export default async function ProjectsPage() {
 
 ### 响应式系统统一（Tailwind Only - Amelia建议）
 
-**决策：只用Tailwind CSS做布局，Ant Design只用组件**
+**决策：只用 Tailwind CSS 做布局，~~Ant Design 只用组件~~ → 已迁移至 shadcn/ui + Tailwind CSS 全栈统一**
 
 避免混用两个响应式系统，降低维护复杂度。
 
@@ -634,8 +636,11 @@ export default async function ProjectsPage() {
   <ModelOutput model="domestic" />
 </div>
 
-// ✅ Ant Design只用组件
-import { Button, Form, Table, Modal } from 'antd';
+// ✅ 当前：shadcn/ui 组件（实际代码）
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Dialog } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 <Button type="primary" size="large">
   采纳推荐
@@ -666,7 +671,7 @@ import { Row, Col } from 'antd';
 ```
 
 **原因**：
-- 两个响应式系统断点不一致（Ant Design: xs/sm/md/lg/xl/xxl vs Tailwind: sm/md/lg/xl/2xl）
+- ~~两个响应式系统断点不一致（Ant Design: xs/sm/md/lg/xl/xxl vs Tailwind: sm/md/lg/xl/2xl）~~ 已解决：完全使用 Tailwind 响应式
 - 混用导致维护困惑，团队需要记住两套规则
 - Tailwind更灵活，Ant Design Grid较重
 
@@ -1133,7 +1138,7 @@ test('Tab键正确移动焦点', async ({ page }) => {
 |---------|------|------|--------|
 | 设计理念 | Desktop-First | 咨询师主要在办公桌面工作（80%用户≥1920×1080）| Sally, John |
 | 关键断点 | 1440px | 三列对比 vs 主视图切换的平衡点 | Winston |
-| 响应式系统 | Tailwind Only | 避免与Ant Design Grid混用，降低维护复杂度 | Amelia |
+| 响应式系统 | Tailwind Only | ~~避免与Ant Design Grid混用~~ 已统一为 Tailwind | Amelia |
 | 虚拟滚动 | react-window | 大文档性能优化，DOM节点从9000降至150 | Amelia |
 | SSR/CSR边界 | 列表SSR，对比CSR | 优化首屏性能和交互体验 | Winston |
 | 键盘快捷键 | Ctrl+Shift+组合 | 避免与浏览器默认快捷键冲突 | Amelia |

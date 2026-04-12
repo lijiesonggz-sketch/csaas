@@ -18,7 +18,7 @@ date: '2025-12-24'
 
 ### 9.1 设计方向探索
 
-基于Step 8的视觉基础（深蓝色主色调、Ant Design组件库），我生成了6个设计方向变体，探索不同的视觉语言和交互模式。
+基于Step 8的视觉基础（深蓝色主色调、~~Ant Design组件库~~→已迁移至 shadcn/ui + Tailwind CSS），我生成了6个设计方向变体，探索不同的视觉语言和交互模式。
 
 核心界面聚焦：**差异点审查界面**（最核心体验）
 
@@ -647,7 +647,7 @@ async function fetchDiffReview(diffId: string) {
 
 ---
 
-### 11.1 Ant Design 5.x组件覆盖分析
+### 11.1 组件覆盖分析（已迁移：~~Ant Design 5.x~~ → shadcn/ui + Tailwind CSS）
 
 **已有组件可直接使用（无需自定义）：**
 
