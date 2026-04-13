@@ -83,11 +83,27 @@
       "status": "ACTIVE"
     },
     {
+      "l2Code": "IT05-01",
+      "l1Code": "IT05",
+      "l2Name": "外包供应商管理与安全控制",
+      "l2Desc": "覆盖外包供应商准入、合同安全条款、服务级别监控和外包风险评估控制",
+      "sortOrder": 51,
+      "status": "ACTIVE"
+    },
+    {
       "l2Code": "IT06-07",
       "l1Code": "IT06",
       "l2Name": "变更审批与回退管理",
       "l2Desc": "覆盖变更审批、测试、发布和回退控制",
       "sortOrder": 67,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT07-01",
+      "l1Code": "IT07",
+      "l2Name": "运维安全管理与监控",
+      "l2Desc": "覆盖运维操作规范、权限分离、作业调度、监控告警和容量管理控制",
+      "sortOrder": 71,
       "status": "ACTIVE"
     },
     {

@@ -120,7 +120,7 @@ development_status:
         2-3:
           key: "STORY-KG2-2.3"
           name: "8 域 failure mode 种子数据"
-          status: "backlog"
+          status: "done"
           priority: "P0"
           description: "8 域 AI 辅助拆解 + 质量门禁 + taxonomy 映射 + seed runner 导入"
           depends_on: ["2-2"]

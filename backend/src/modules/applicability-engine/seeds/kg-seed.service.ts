@@ -1,9 +1,13 @@
+import * as fs from 'fs'
+import * as path from 'path'
 import { DataSource, QueryRunner } from 'typeorm'
 import { ApplicabilityRule } from '../../../database/entities/applicability-rule.entity'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
 import { ControlPack } from '../../../database/entities/control-pack.entity'
+import { FailureMode, FailureModeCategory } from '../../../database/entities/failure-mode.entity'
 import { TaxonomyL1 } from '../../../database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../../../database/entities/taxonomy-l2.entity'
+import { TaxonomyFailureModeMap } from '../../../database/entities/taxonomy-failure-mode-map.entity'
 import { ApplicabilityRuleSeedRecord, KgSeedData, loadKgSeedData } from './kg-seed-data'
 
 export interface RetireSummary {
@@ -13,6 +17,11 @@ export interface RetireSummary {
   cleanedCaseControlMaps: number
   cleanedQuestionItems: number
   cleanedRemediationActions: number
+}
+
+export interface FmSeedSummary {
+  failureModes: number
+  taxonomyFmMaps: number
 }
 
 export interface KgSeedSummary {
@@ -25,6 +34,7 @@ export interface KgSeedSummary {
   taxonomyL2: number
   controlPoints: number
   retireSummary?: RetireSummary
+  fmSummary?: FmSeedSummary
 }
 
 const RETIRE_REASON = 'KG V2 重构全量替换'
@@ -106,6 +116,99 @@ export async function retireLegacyControlPoints(
     cleanedCaseControlMaps,
     cleanedQuestionItems,
     cleanedRemediationActions,
+  }
+}
+
+/**
+ * 种子数据类型（failure mode 相关）
+ */
+interface FailureModeSeedRecord {
+  failureModeCode: string
+  name: string
+  description: string
+  category: string
+  domain: string
+}
+
+interface TaxonomyFmMapSeedRecord {
+  failureModeCode: string
+  l2Code: string
+}
+
+const SEED_DATA_DIR = path.resolve(__dirname, 'data')
+
+/**
+ * 插入 8 域 failure mode 种子数据及 taxonomy 映射。
+ * 必须在 QueryRunner 事务内调用，由调用方管理事务生命周期。
+ *
+ * 执行顺序：
+ * 1. Upsert failure_modes 记录（ON CONFLICT DO UPDATE on failure_mode_code）
+ * 2. 查询已持久化的 failure_mode_id（用于 FK 映射）
+ * 3. 使用原生 SQL upsert taxonomy_failure_mode_maps（ON CONFLICT on l2_code + failure_mode_id）
+ *
+ * 幂等性：基于 ON CONFLICT DO UPDATE，重复运行不报错、不重复数据。
+ */
+export async function seedFailureModes(
+  queryRunner: QueryRunner,
+  fmRecords?: FailureModeSeedRecord[],
+  mapRecords?: TaxonomyFmMapSeedRecord[],
+): Promise<FmSeedSummary> {
+  // Load seed data from JSON files if not provided
+  const fmData =
+    fmRecords ??
+    (JSON.parse(
+      fs.readFileSync(path.join(SEED_DATA_DIR, 'failure-mode.seed.json'), 'utf8'),
+    ) as FailureModeSeedRecord[])
+
+  const mapData =
+    mapRecords ??
+    (JSON.parse(
+      fs.readFileSync(path.join(SEED_DATA_DIR, 'taxonomy-fm-map.seed.json'), 'utf8'),
+    ) as TaxonomyFmMapSeedRecord[])
+
+  // Step 1: Upsert failure_modes records
+  const fmRepository = queryRunner.manager.getRepository(FailureMode)
+
+  await fmRepository.upsert(
+    fmData.map((fm) => ({
+      failureModeCode: fm.failureModeCode,
+      name: fm.name,
+      description: fm.description,
+      category: fm.category as FailureModeCategory,
+      status: 'ACTIVE' as const,
+    })),
+    ['failureModeCode'],
+  )
+
+  // Step 2: Query persisted failure_mode_ids for mapping
+  const persistedFms: Array<{ failure_mode_id: string; failure_mode_code: string }> =
+    await queryRunner.query(
+      `SELECT failure_mode_id, failure_mode_code FROM failure_modes WHERE failure_mode_code = ANY($1)`,
+      [fmData.map((fm) => fm.failureModeCode)],
+    )
+
+  const fmIdByCode = new Map(persistedFms.map((fm) => [fm.failure_mode_code, fm.failure_mode_id]))
+
+  // Step 3: Batch upsert taxonomy_failure_mode_maps using UNNEST (composite conflict target)
+  const batchMaps = mapData
+    .map((map) => ({
+      l2Code: map.l2Code,
+      failureModeId: fmIdByCode.get(map.failureModeCode),
+    }))
+    .filter((m): m is { l2Code: string; failureModeId: string } => !!m.failureModeId)
+
+  if (batchMaps.length > 0) {
+    await queryRunner.query(
+      `INSERT INTO taxonomy_failure_mode_maps (id, l2_code, failure_mode_id, created_at, updated_at)
+       SELECT gen_random_uuid(), unnest($1::varchar[]), unnest($2::uuid[]), now(), now()
+       ON CONFLICT (l2_code, failure_mode_id) DO UPDATE SET updated_at = now()`,
+      [batchMaps.map((m) => m.l2Code), batchMaps.map((m) => m.failureModeId)],
+    )
+  }
+
+  return {
+    failureModes: fmData.length,
+    taxonomyFmMaps: batchMaps.length,
   }
 }
 
@@ -252,6 +355,9 @@ export async function seedKgBaselineWithQueryRunner(
     )
   }
 
+  // ── Failure Mode seed step: upsert failure modes + taxonomy maps (after retire) ──
+  const fmSummary = await seedFailureModes(queryRunner)
+
   return {
     controlPacks: seedData.controlPacks.length,
     packFamilyMappings: seedData.packFamilyMappings.length,
@@ -262,6 +368,7 @@ export async function seedKgBaselineWithQueryRunner(
     taxonomyL2: seedData.taxonomyL2.length,
     controlPoints: seedData.controlPoints.length,
     retireSummary,
+    fmSummary,
   }
 }
 

@@ -1,0 +1,716 @@
+[
+  {
+    "failureModeCode": "FM-GOV-001",
+    "name": "IT治理架构缺失",
+    "description": "未建立有效的IT治理组织架构，缺少IT治理委员会或决策机构",
+    "category": "MISSING_CONTROL",
+    "domain": "IT01"
+  },
+  {
+    "failureModeCode": "FM-GOV-002",
+    "name": "IT战略规划缺失",
+    "description": "未制定与业务战略对齐的IT战略规划或规划未定期更新",
+    "category": "MISSING_CONTROL",
+    "domain": "IT01"
+  },
+  {
+    "failureModeCode": "FM-GOV-003",
+    "name": "IT风险评估不完整",
+    "description": "IT风险评估覆盖范围不足，未涵盖关键业务系统和重要资产",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT01"
+  },
+  {
+    "failureModeCode": "FM-GOV-004",
+    "name": "IT风险管理框架缺失",
+    "description": "未建立系统化的IT风险管理框架，风险识别、评估、处置流程不完整",
+    "category": "MISSING_CONTROL",
+    "domain": "IT01"
+  },
+  {
+    "failureModeCode": "FM-GOV-005",
+    "name": "IT绩效指标定义错误",
+    "description": "IT绩效考核指标定义不当，无法有效衡量IT治理效果",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT01"
+  },
+  {
+    "failureModeCode": "FM-GOV-006",
+    "name": "IT审计整改跟踪缺失",
+    "description": "内外部审计发现的问题缺乏跟踪整改机制，问题反复出现",
+    "category": "MISSING_CONTROL",
+    "domain": "IT01"
+  },
+  {
+    "failureModeCode": "FM-GOV-007",
+    "name": "IT合规监控时效不足",
+    "description": "IT合规检查未按监管要求频次执行，合规状态更新滞后",
+    "category": "TIMELINESS_FAILURE",
+    "domain": "IT01"
+  },
+  {
+    "failureModeCode": "FM-GOV-008",
+    "name": "越权审批IT项目",
+    "description": "IT项目审批流程中存在越权审批、绕过审批机制的行为",
+    "category": "UNAUTHORIZED_ACTION",
+    "domain": "IT01"
+  },
+  {
+    "failureModeCode": "FM-GOV-009",
+    "name": "IT治理报告数据失真",
+    "description": "向上级报送的IT治理报告存在数据不实或隐瞒问题的情况",
+    "category": "FALSIFICATION",
+    "domain": "IT01"
+  },
+  {
+    "failureModeCode": "FM-GOV-010",
+    "name": "IT制度执行不一致",
+    "description": "IT管理制度在各部门间执行标准不统一，导致治理效果参差不齐",
+    "category": "INTEGRITY_FAILURE",
+    "domain": "IT01"
+  },
+  {
+    "failureModeCode": "FM-SEC-001",
+    "name": "网络边界防护缺失",
+    "description": "未部署有效的网络边界防护措施，防火墙策略配置不当",
+    "category": "MISSING_CONTROL",
+    "domain": "IT02"
+  },
+  {
+    "failureModeCode": "FM-SEC-002",
+    "name": "未授权访问漏洞",
+    "description": "系统存在未授权访问漏洞，访问控制机制不完善",
+    "category": "UNAUTHORIZED_ACTION",
+    "domain": "IT02"
+  },
+  {
+    "failureModeCode": "FM-SEC-003",
+    "name": "安全事件响应机制缺失",
+    "description": "未建立安全事件分级响应和处置机制",
+    "category": "MISSING_CONTROL",
+    "domain": "IT02"
+  },
+  {
+    "failureModeCode": "FM-SEC-004",
+    "name": "漏洞管理流程不闭环",
+    "description": "安全漏洞发现后未及时修复或修复验证缺失",
+    "category": "MISSING_CONTROL",
+    "domain": "IT02"
+  },
+  {
+    "failureModeCode": "FM-SEC-005",
+    "name": "安全策略配置错误",
+    "description": "安全设备或系统安全策略配置与安全标准不一致",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT02"
+  },
+  {
+    "failureModeCode": "FM-SEC-006",
+    "name": "安全日志不完整",
+    "description": "安全审计日志采集不完整或日志被篡改，无法追溯安全事件",
+    "category": "INTEGRITY_FAILURE",
+    "domain": "IT02"
+  },
+  {
+    "failureModeCode": "FM-SEC-007",
+    "name": "安全补丁更新不及时",
+    "description": "高危漏洞补丁未在规定时限内完成部署",
+    "category": "TIMELINESS_FAILURE",
+    "domain": "IT02"
+  },
+  {
+    "failureModeCode": "FM-SEC-008",
+    "name": "特权账号管理缺失",
+    "description": "特权账号未纳入统一管理，存在共享账号和僵尸账号",
+    "category": "UNAUTHORIZED_ACTION",
+    "domain": "IT02"
+  },
+  {
+    "failureModeCode": "FM-SEC-009",
+    "name": "安全等级保护定级不准",
+    "description": "信息系统安全等级保护定级不准确或未按规定定级",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT02"
+  },
+  {
+    "failureModeCode": "FM-SEC-010",
+    "name": "入侵检测能力缺失",
+    "description": "未部署入侵检测/防御系统或入侵检测规则未及时更新",
+    "category": "MISSING_CONTROL",
+    "domain": "IT02"
+  },
+  {
+    "failureModeCode": "FM-PRI-001",
+    "name": "个人信息过度收集",
+    "description": "收集个人信息超出业务必要范围，违反最小必要原则",
+    "category": "UNAUTHORIZED_ACTION",
+    "domain": "IT03"
+  },
+  {
+    "failureModeCode": "FM-PRI-002",
+    "name": "个人信息使用范围超限",
+    "description": "个人信息使用超出收集时声明的目的和范围",
+    "category": "UNAUTHORIZED_ACTION",
+    "domain": "IT03"
+  },
+  {
+    "failureModeCode": "FM-PRI-003",
+    "name": "个人信息公开披露违规",
+    "description": "个人信息未经授权被公开披露或共享给第三方",
+    "category": "UNAUTHORIZED_ACTION",
+    "domain": "IT03"
+  },
+  {
+    "failureModeCode": "FM-PRI-004",
+    "name": "个人信息保护影响评估缺失",
+    "description": "处理敏感个人信息前未进行个人信息保护影响评估",
+    "category": "MISSING_CONTROL",
+    "domain": "IT03"
+  },
+  {
+    "failureModeCode": "FM-PRI-005",
+    "name": "个人信息分类分级标准缺失",
+    "description": "未建立个人信息的分类分级标准和管理规范",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT03"
+  },
+  {
+    "failureModeCode": "FM-PRI-006",
+    "name": "数据脱敏规则配置不当",
+    "description": "数据脱敏策略配置不符合隐私保护要求",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT03"
+  },
+  {
+    "failureModeCode": "FM-PRI-007",
+    "name": "个人信息删除不及时",
+    "description": "用户请求删除个人信息后未在法定时限内完成删除",
+    "category": "TIMELINESS_FAILURE",
+    "domain": "IT03"
+  },
+  {
+    "failureModeCode": "FM-PRI-008",
+    "name": "个人信息泄露事件隐瞒不报",
+    "description": "发生个人信息泄露事件后未按规定及时上报监管部门",
+    "category": "FALSIFICATION",
+    "domain": "IT03"
+  },
+  {
+    "failureModeCode": "FM-PRI-009",
+    "name": "隐私数据完整性保护不足",
+    "description": "存储的个人信息数据完整性校验机制缺失",
+    "category": "INTEGRITY_FAILURE",
+    "domain": "IT03"
+  },
+  {
+    "failureModeCode": "FM-PRI-010",
+    "name": "同意授权管理机制缺失",
+    "description": "未建立有效的个人信息收集和使用同意管理机制",
+    "category": "MISSING_CONTROL",
+    "domain": "IT03"
+  },
+  {
+    "failureModeCode": "FM-DG-001",
+    "name": "数据治理制度缺失",
+    "description": "没有建立数据治理制度或制度不完善",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-DG-002",
+    "name": "数据治理执行不到位",
+    "description": "有制度但未有效执行",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-DG-003",
+    "name": "数据治理组织架构缺失",
+    "description": "未设立数据治理委员会或数据管理岗位",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-DG-004",
+    "name": "数据职责分工不明确",
+    "description": "数据所有权、管理权、使用权未明确划分",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-DG-005",
+    "name": "数据标准/校验规则缺失",
+    "description": "未建立数据标准或校验规则不完善",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-DG-006",
+    "name": "数据治理流程不闭环",
+    "description": "有标准但缺少执行、检查、反馈的闭环流程",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-REP-001",
+    "name": "报送口径定义错误",
+    "description": "EAST填报口径理解错误或配置错误",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-REP-002",
+    "name": "源数据到报送字段映射错误",
+    "description": "业务系统字段到EAST字段的映射规则有误",
+    "category": "MAPPING_ERROR",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-REP-003",
+    "name": "报送前复核缺失",
+    "description": "数据生成后未经双人复核直接报送",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-REP-004",
+    "name": "报送数据漏项",
+    "description": "应报字段未填报或应报记录遗漏",
+    "category": "INTEGRITY_FAILURE",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-REP-005",
+    "name": "报送数据与源系统勾稽不通",
+    "description": "报表数据与源系统数据无法勾稽校验",
+    "category": "INTEGRITY_FAILURE",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-REP-006",
+    "name": "报送时效监控缺失",
+    "description": "未建立报送截止日提醒和监控机制",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-REP-007",
+    "name": "报送流程未启动",
+    "description": "知道要报但流程未触发（责任人缺位、交接遗漏等）",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-REP-008",
+    "name": "报送范围识别遗漏",
+    "description": "应报事项未识别（不知道要报）",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-DQ-001",
+    "name": "数据质量校验规则缺失",
+    "description": "未建立自动化数据质量校验机制",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-DQ-002",
+    "name": "源系统间数据不一致",
+    "description": "多个源系统同一数据口径不一致",
+    "category": "INTEGRITY_FAILURE",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-DQ-003",
+    "name": "账表自动勾稽校验缺失",
+    "description": "未建立总账/分账/报表间自动勾稽机制",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-DQ-004",
+    "name": "数据同步延迟或失败",
+    "description": "系统间数据同步不及时导致时点不一致",
+    "category": "TIMELINESS_FAILURE",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-DQ-005",
+    "name": "数据录入校验缺失",
+    "description": "录入环节无格式/范围/逻辑校验",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-DQ-006",
+    "name": "数据完整性约束缺失",
+    "description": "必填字段未强制、关联数据未校验",
+    "category": "INTEGRITY_FAILURE",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-DQ-007",
+    "name": "计算逻辑错误",
+    "description": "风控指标、统计口径等计算公式有误",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-TL-001",
+    "name": "信息录入时效控制缺失",
+    "description": "无录入时限要求或无超期提醒",
+    "category": "TIMELINESS_FAILURE",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-TL-002",
+    "name": "信息更新触发机制缺失",
+    "description": "业务变更后未触发信息更新流程",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-FAL-001",
+    "name": "虚假填报/人为数据造假",
+    "description": "故意编造或篡改报送数据",
+    "category": "FALSIFICATION",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-FAL-002",
+    "name": "报送数据与实际严重偏离",
+    "description": "报送数据与真实业务数据严重不符",
+    "category": "FALSIFICATION",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-REC-001",
+    "name": "整改方案未落地执行",
+    "description": "有整改方案但未实际执行",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-REC-002",
+    "name": "整改闭环验证缺失",
+    "description": "整改后未验证效果，问题反复出现",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-REC-003",
+    "name": "整改跟踪机制缺失",
+    "description": "无人跟踪整改进度，超期无预警",
+    "category": "MISSING_CONTROL",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-OUT-001",
+    "name": "外包合同缺乏安全条款",
+    "description": "外包合同未包含数据安全和保密条款",
+    "category": "MISSING_CONTROL",
+    "domain": "IT05"
+  },
+  {
+    "failureModeCode": "FM-OUT-002",
+    "name": "外包供应商准入评估缺失",
+    "description": "对外包服务商未进行资质审查和安全评估",
+    "category": "MISSING_CONTROL",
+    "domain": "IT05"
+  },
+  {
+    "failureModeCode": "FM-OUT-003",
+    "name": "外包服务级别协议定义不当",
+    "description": "SLA指标定义模糊或缺乏可量化的考核标准",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT05"
+  },
+  {
+    "failureModeCode": "FM-OUT-004",
+    "name": "外包人员权限管控不严",
+    "description": "外包人员获得的系统权限超出工作需要",
+    "category": "UNAUTHORIZED_ACTION",
+    "domain": "IT05"
+  },
+  {
+    "failureModeCode": "FM-OUT-005",
+    "name": "外包服务质量监控缺失",
+    "description": "未建立外包服务质量的持续监控和评估机制",
+    "category": "MISSING_CONTROL",
+    "domain": "IT05"
+  },
+  {
+    "failureModeCode": "FM-OUT-006",
+    "name": "外包服务交付不完整",
+    "description": "外包服务交付成果存在缺失或不完整",
+    "category": "INTEGRITY_FAILURE",
+    "domain": "IT05"
+  },
+  {
+    "failureModeCode": "FM-OUT-007",
+    "name": "外包合同续签评估不及时",
+    "description": "外包合同到期前未及时进行续签评估或服务审查",
+    "category": "TIMELINESS_FAILURE",
+    "domain": "IT05"
+  },
+  {
+    "failureModeCode": "FM-OUT-008",
+    "name": "外包商提供虚假资质材料",
+    "description": "外包服务商在准入评估中提供虚假资质或隐瞒不良记录",
+    "category": "FALSIFICATION",
+    "domain": "IT05"
+  },
+  {
+    "failureModeCode": "FM-OUT-009",
+    "name": "外包数据移交校验缺失",
+    "description": "外包项目结束时未进行数据完整移交和安全清理",
+    "category": "MISSING_CONTROL",
+    "domain": "IT05"
+  },
+  {
+    "failureModeCode": "FM-DEV-001",
+    "name": "代码审查机制缺失",
+    "description": "未建立代码审查机制或审查流程形同虚设",
+    "category": "MISSING_CONTROL",
+    "domain": "IT06"
+  },
+  {
+    "failureModeCode": "FM-DEV-002",
+    "name": "需求规格定义模糊",
+    "description": "软件开发需求规格说明书定义不清或存在歧义",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT06"
+  },
+  {
+    "failureModeCode": "FM-DEV-003",
+    "name": "测试覆盖不充分",
+    "description": "软件测试用例覆盖率不足，关键场景未测试",
+    "category": "MISSING_CONTROL",
+    "domain": "IT06"
+  },
+  {
+    "failureModeCode": "FM-DEV-004",
+    "name": "未授权代码变更",
+    "description": "开发人员未经授权直接修改生产环境代码",
+    "category": "UNAUTHORIZED_ACTION",
+    "domain": "IT06"
+  },
+  {
+    "failureModeCode": "FM-DEV-005",
+    "name": "开发环境与生产环境配置不一致",
+    "description": "开发、测试、生产环境配置存在差异导致部署问题",
+    "category": "INTEGRITY_FAILURE",
+    "domain": "IT06"
+  },
+  {
+    "failureModeCode": "FM-DEV-006",
+    "name": "上线窗口管理缺失",
+    "description": "未建立发布窗口管理机制，随意上线变更",
+    "category": "MISSING_CONTROL",
+    "domain": "IT06"
+  },
+  {
+    "failureModeCode": "FM-DEV-007",
+    "name": "安全测试缺失",
+    "description": "软件上线前未进行安全漏洞扫描和安全测试",
+    "category": "MISSING_CONTROL",
+    "domain": "IT06"
+  },
+  {
+    "failureModeCode": "FM-DEV-008",
+    "name": "变更回退方案缺失",
+    "description": "变更实施前未制定回退方案或回退方案不可行",
+    "category": "MISSING_CONTROL",
+    "domain": "IT06"
+  },
+  {
+    "failureModeCode": "FM-DEV-009",
+    "name": "版本发布延误",
+    "description": "计划内的版本发布未按时完成",
+    "category": "TIMELINESS_FAILURE",
+    "domain": "IT06"
+  },
+  {
+    "failureModeCode": "FM-DEV-010",
+    "name": "测试数据造假",
+    "description": "测试过程中编造测试数据或测试结果",
+    "category": "FALSIFICATION",
+    "domain": "IT06"
+  },
+  {
+    "failureModeCode": "FM-OPS-001",
+    "name": "变更管理流程缺失",
+    "description": "未建立变更审批和回退流程",
+    "category": "MISSING_CONTROL",
+    "domain": "IT07"
+  },
+  {
+    "failureModeCode": "FM-OPS-002",
+    "name": "运维操作规程缺失",
+    "description": "未建立标准化的运维操作规程或SOP文档不完整",
+    "category": "MISSING_CONTROL",
+    "domain": "IT07"
+  },
+  {
+    "failureModeCode": "FM-OPS-003",
+    "name": "监控告警规则配置不当",
+    "description": "系统监控告警阈值设置不合理，导致漏报或误报",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT07"
+  },
+  {
+    "failureModeCode": "FM-OPS-004",
+    "name": "未授权运维操作",
+    "description": "运维人员执行了未经审批的高风险操作",
+    "category": "UNAUTHORIZED_ACTION",
+    "domain": "IT07"
+  },
+  {
+    "failureModeCode": "FM-OPS-005",
+    "name": "数据中心基础设施监控缺失",
+    "description": "未对机房电力、温湿度等基础设施实施有效监控",
+    "category": "MISSING_CONTROL",
+    "domain": "IT07"
+  },
+  {
+    "failureModeCode": "FM-OPS-006",
+    "name": "运维操作日志不完整",
+    "description": "运维操作日志记录不完整或缺失关键操作步骤",
+    "category": "INTEGRITY_FAILURE",
+    "domain": "IT07"
+  },
+  {
+    "failureModeCode": "FM-OPS-007",
+    "name": "故障响应不及时",
+    "description": "系统故障发生后未在规定时限内启动响应和处置",
+    "category": "TIMELINESS_FAILURE",
+    "domain": "IT07"
+  },
+  {
+    "failureModeCode": "FM-OPS-008",
+    "name": "容量规划缺失",
+    "description": "未进行系统容量规划和性能基线管理",
+    "category": "MISSING_CONTROL",
+    "domain": "IT07"
+  },
+  {
+    "failureModeCode": "FM-OPS-009",
+    "name": "运维数据造假",
+    "description": "运维报告或巡检记录存在编造数据的情况",
+    "category": "FALSIFICATION",
+    "domain": "IT07"
+  },
+  {
+    "failureModeCode": "FM-OPS-010",
+    "name": "备份完整性校验缺失",
+    "description": "数据备份后未进行完整性验证，备份可能无效",
+    "category": "INTEGRITY_FAILURE",
+    "domain": "IT07"
+  },
+  {
+    "failureModeCode": "FM-BCP-001",
+    "name": "灾备演练缺失",
+    "description": "未定期开展灾备演练",
+    "category": "MISSING_CONTROL",
+    "domain": "IT08"
+  },
+  {
+    "failureModeCode": "FM-BCP-002",
+    "name": "业务连续性计划不完整",
+    "description": "业务连续性计划覆盖范围不全或未涵盖关键业务",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT08"
+  },
+  {
+    "failureModeCode": "FM-BCP-003",
+    "name": "RTO/RPO目标设定不合理",
+    "description": "恢复时间目标和恢复点目标设定与业务需求不匹配",
+    "category": "DEFINITION_ERROR",
+    "domain": "IT08"
+  },
+  {
+    "failureModeCode": "FM-BCP-004",
+    "name": "灾备切换越权操作",
+    "description": "灾备切换操作未经授权或未按预定流程执行",
+    "category": "UNAUTHORIZED_ACTION",
+    "domain": "IT08"
+  },
+  {
+    "failureModeCode": "FM-BCP-005",
+    "name": "灾备数据不完整",
+    "description": "灾备系统中的数据与生产系统不一致或缺失",
+    "category": "INTEGRITY_FAILURE",
+    "domain": "IT08"
+  },
+  {
+    "failureModeCode": "FM-BCP-006",
+    "name": "应急预案更新不及时",
+    "description": "业务连续性预案未根据系统变更定期更新",
+    "category": "TIMELINESS_FAILURE",
+    "domain": "IT08"
+  },
+  {
+    "failureModeCode": "FM-BCP-007",
+    "name": "应急通信机制缺失",
+    "description": "未建立有效的应急通信和人员联络机制",
+    "category": "MISSING_CONTROL",
+    "domain": "IT08"
+  },
+  {
+    "failureModeCode": "FM-BCP-008",
+    "name": "事件报告延误",
+    "description": "重大安全事件或系统故障未按规定时限上报",
+    "category": "TIMELINESS_FAILURE",
+    "domain": "IT08"
+  },
+  {
+    "failureModeCode": "FM-BCP-009",
+    "name": "灾备演练报告造假",
+    "description": "灾备演练报告编造数据或隐瞒演练失败情况",
+    "category": "FALSIFICATION",
+    "domain": "IT08"
+  },
+  {
+    "failureModeCode": "FM-BCP-010",
+    "name": "事件分级标准缺失",
+    "description": "未建立安全事件和系统故障的分级分类标准",
+    "category": "MISSING_CONTROL",
+    "domain": "IT08"
+  },
+  {
+    "failureModeCode": "FM-GOV-011",
+    "name": "AI模型风险治理缺失",
+    "description": "未建立AI模型风险治理框架或模型风险评估机制不完善",
+    "category": "MISSING_CONTROL",
+    "domain": "IT01"
+  },
+  {
+    "failureModeCode": "FM-SEC-011",
+    "name": "网络安全架构映射不准",
+    "description": "网络分区与安全域映射关系错误或未及时更新",
+    "category": "MAPPING_ERROR",
+    "domain": "IT02"
+  },
+  {
+    "failureModeCode": "FM-PRI-011",
+    "name": "跨境数据传输映射遗漏",
+    "description": "数据出境场景识别不完整，部分跨境数据传输未纳入管控",
+    "category": "MAPPING_ERROR",
+    "domain": "IT03"
+  },
+  {
+    "failureModeCode": "FM-DG-007",
+    "name": "数据资产映射关系缺失",
+    "description": "数据资产目录未建立或数据血缘关系映射不完整",
+    "category": "MAPPING_ERROR",
+    "domain": "IT04"
+  },
+  {
+    "failureModeCode": "FM-OUT-010",
+    "name": "外包风险映射评估遗漏",
+    "description": "外包服务商风险映射评估范围不全，遗漏高风险供应商",
+    "category": "MAPPING_ERROR",
+    "domain": "IT05"
+  }
+]

@@ -3,6 +3,17 @@ import { ControlPack } from '../../../database/entities/control-pack.entity'
 import { loadKgSeedData } from './kg-seed-data'
 import { runKgSeed, seedKgBaselineWithQueryRunner } from './kg-seed.service'
 
+// Helper: create a generic mock repository for seed runner tests
+function createGenericMockRepository() {
+  return {
+    upsert: jest.fn().mockResolvedValue(undefined),
+    find: jest.fn().mockResolvedValue([]),
+    findOne: jest.fn().mockResolvedValue(null),
+    create: jest.fn().mockImplementation((v) => v),
+    save: jest.fn().mockResolvedValue(undefined),
+  }
+}
+
 describe('seedKgBaselineWithQueryRunner', () => {
   const seedData = loadKgSeedData()
 
@@ -50,6 +61,14 @@ describe('seedKgBaselineWithQueryRunner', () => {
 
         if (entity.name === 'ControlPoint') {
           return controlPointRepository
+        }
+
+        if (entity.name === 'FailureMode') {
+          return createGenericMockRepository()
+        }
+
+        if (entity.name === 'TaxonomyFailureModeMap') {
+          return createGenericMockRepository()
         }
 
         throw new Error('Unexpected repository request')

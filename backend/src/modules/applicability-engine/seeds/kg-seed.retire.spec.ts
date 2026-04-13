@@ -197,6 +197,16 @@ function createEmptyMockQueryRunner() {
         return []
       }
 
+      // SELECT for FM IDs (seedFailureModes)
+      if (sql.includes('SELECT') && sql.includes('failure_modes') && sql.includes('failure_mode_code')) {
+        return []
+      }
+
+      // INSERT for taxonomy_failure_mode_maps (seedFailureModes)
+      if (sql.includes('INSERT') && sql.includes('taxonomy_failure_mode_maps')) {
+        return []
+      }
+
       return undefined
     }),
 
@@ -454,6 +464,14 @@ describe('Story 2-2 — retireLegacyControlPoints()', () => {
         // UPDATE for retire
         if (sql.includes('UPDATE') && sql.includes('retired')) {
           return [{ controlId: 'old-cp-1', maturityLevel: 'retired' }]
+        }
+        // SELECT for FM IDs (seedFailureModes)
+        if (sql.includes('SELECT') && sql.includes('failure_modes') && sql.includes('failure_mode_code')) {
+          return []
+        }
+        // INSERT for taxonomy_failure_mode_maps (seedFailureModes)
+        if (sql.includes('INSERT') && sql.includes('taxonomy_failure_mode_maps')) {
+          return []
         }
         return undefined
       }),
