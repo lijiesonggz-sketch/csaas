@@ -9,8 +9,11 @@ import { ControlEvidenceMap } from '../../database/entities/control-evidence-map
 import { ControlPackItem } from '../../database/entities/control-pack-item.entity'
 import { ControlPoint } from '../../database/entities/control-point.entity'
 import { EvidenceType } from '../../database/entities/evidence-type.entity'
+import { FailureMode } from '../../database/entities/failure-mode.entity'
+import { FailureModeControlMap } from '../../database/entities/failure-mode-control-map.entity'
 import { QuestionItem } from '../../database/entities/question-item.entity'
 import { RemediationAction } from '../../database/entities/remediation-action.entity'
+import { TaxonomyFailureModeMap } from '../../database/entities/taxonomy-failure-mode-map.entity'
 import { RegulationClause } from '../../database/entities/regulation-clause.entity'
 import { RegulationSource } from '../../database/entities/regulation-source.entity'
 import { TaxonomyL1 } from '../../database/entities/taxonomy-l1.entity'
@@ -21,6 +24,7 @@ import { ComplianceCaseController } from './controllers/compliance-case.controll
 import { ControlPackLinkController } from './controllers/control-pack-link.controller'
 import { ControlPointController } from './controllers/control-point.controller'
 import { EvidenceController } from './controllers/evidence.controller'
+import { FailureModeController } from './controllers/failure-mode.controller'
 import { QuestionItemController } from './controllers/question-item.controller'
 import { RemediationActionController } from './controllers/remediation-action.controller'
 import { RegulationController } from './controllers/regulation.controller'
@@ -29,6 +33,7 @@ import { ComplianceCaseService } from './services/compliance-case.service'
 import { ControlPackLinkService } from './services/control-pack-link.service'
 import { ControlPointService } from './services/control-point.service'
 import { EvidenceService } from './services/evidence.service'
+import { FailureModeService } from './services/failure-mode.service'
 import { QuestionItemService } from './services/question-item.service'
 import { RemediationActionService } from './services/remediation-action.service'
 import { RegulationService } from './services/regulation.service'
@@ -49,6 +54,9 @@ import { TaxonomyService } from './services/taxonomy.service'
       CaseControlMap,
       EvidenceType,
       ControlEvidenceMap,
+      FailureMode,
+      FailureModeControlMap,
+      TaxonomyFailureModeMap,
       QuestionItem,
       RemediationAction,
     ]),
@@ -61,6 +69,7 @@ import { TaxonomyService } from './services/taxonomy.service'
     ControlPointController,
     ControlPackLinkController,
     EvidenceController,
+    FailureModeController,
     QuestionItemController,
     RemediationActionController,
     RegulationController,
@@ -71,6 +80,7 @@ import { TaxonomyService } from './services/taxonomy.service'
     ControlPointService,
     ControlPackLinkService,
     EvidenceService,
+    FailureModeService,
     QuestionItemService,
     RemediationActionService,
     RegulationService,
@@ -81,6 +91,7 @@ import { TaxonomyService } from './services/taxonomy.service'
     ControlPointService,
     ControlPackLinkService,
     EvidenceService,
+    FailureModeService,
     QuestionItemService,
     RemediationActionService,
     RegulationService,

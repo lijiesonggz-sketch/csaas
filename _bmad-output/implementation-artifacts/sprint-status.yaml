@@ -35,7 +35,8 @@
 # - Dev moves story to 'review', then runs code-review
 
 generated: '2026-03-24'
-last_updated: '2026-04-02'
+last_updated: '2026-04-13'
+
 project: 'Csaas'
 project_key: 'NOKEY'
 tracking_system: 'file-system'
@@ -147,3 +148,13 @@ development_status:
   epic-12: done
   12-1-case-import-and-human-review-admin-page: done
   epic-12-retrospective: optional
+
+  # ===== KG V2 重构（失效模式体系建立与案例驱动线）=====
+  # Epic KG1: 失效模式体系建立与案例驱动线
+  epic-kg1: in-progress
+  kg1-1-failure-mode-core-schema: done
+  kg1-2-control-points-governance-extension: done
+  kg1-3-evidence-model-extension: done
+  kg1-4-failure-mode-service-and-api: done
+  kg1-5-control-point-service-refactor: backlog
+  kg1-6-case-clustering-pipeline-refactor: backlog
