@@ -24,6 +24,8 @@
     "migration:revert": "npm run typeorm -- migration:revert -d src/config/typeorm.config.ts",
     "migration:check:fresh": "node scripts/validate-fresh-db-migrations.js",
     "seed:kg": "ts-node -r tsconfig-paths/register scripts/kg-seed-runner.ts",
+    "benchmark:it04": "ts-node -r tsconfig-paths/register scripts/run-it04-benchmark.ts",
+    "benchmark:it04:fresh": "node scripts/validate-it04-benchmark.js --build",
     "case:backfill": "ts-node -r tsconfig-paths/register scripts/backfill-compliance-cases.ts",
     "health:check": "node test-api-health.js",
     "health:history": "node test-api-health.js --history"

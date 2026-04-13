@@ -74,6 +74,8 @@ describe('seedKgBaselineWithQueryRunner', () => {
         if (
           entity.name === 'RegulationSource' ||
           entity.name === 'RegulationClause' ||
+          entity.name === 'EvidenceType' ||
+          entity.name === 'ControlEvidenceMap' ||
           entity.name === 'QuestionItem' ||
           entity.name === 'RemediationAction'
         ) {
@@ -195,6 +197,8 @@ describe('seedKgBaselineWithQueryRunner', () => {
     const summary = (await seedKgBaselineWithQueryRunner(queryRunner as never, seedData)) as {
       controlPackItems?: number
       failureModeControlMaps?: number
+      evidenceTypes?: number
+      controlEvidenceMaps?: number
       clauseControlMaps?: number
       questionItems?: number
       remediationActions?: number
@@ -204,6 +208,8 @@ describe('seedKgBaselineWithQueryRunner', () => {
       expect.objectContaining({
         controlPackItems: expect.any(Number),
         failureModeControlMaps: expect.any(Number),
+        evidenceTypes: expect.any(Number),
+        controlEvidenceMaps: expect.any(Number),
         clauseControlMaps: expect.any(Number),
         questionItems: expect.any(Number),
         remediationActions: expect.any(Number),

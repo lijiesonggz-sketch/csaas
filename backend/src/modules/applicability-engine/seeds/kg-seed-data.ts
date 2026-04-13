@@ -37,6 +37,20 @@ import {
   FailureModeControlRelevance,
 } from '../../../database/entities/failure-mode-control-map.entity'
 import {
+  CONTROL_EVIDENCE_REQUIRED_LEVELS,
+  ControlEvidenceRequiredLevel,
+  EVIDENCE_FREQUENCIES,
+  EVIDENCE_SAMPLING_REQUIREMENTS,
+  EvidenceFrequency,
+  EvidenceSamplingRequirement,
+} from '../../../database/entities/control-evidence-map.entity'
+import {
+  EVIDENCE_CATEGORIES,
+  EVIDENCE_TYPE_STATUSES,
+  EvidenceCategory,
+  EvidenceTypeStatus,
+} from '../../../database/entities/evidence-type.entity'
+import {
   QUESTION_ITEM_STATUSES,
   QUESTION_ITEM_TYPES,
   QuestionItemStatus,
@@ -199,6 +213,25 @@ export interface FailureModeControlMapSeedRecord {
   notes?: string | null
 }
 
+export interface EvidenceTypeSeedRecord {
+  evidenceCode: string
+  evidenceName: string
+  evidenceDesc?: string | null
+  evidenceCategory?: EvidenceCategory | null
+  autoCollectable?: boolean
+  status?: EvidenceTypeStatus
+}
+
+export interface ControlEvidenceMapSeedRecord {
+  controlCode: string
+  evidenceCode: string
+  requiredLevel?: ControlEvidenceRequiredLevel
+  frequency?: EvidenceFrequency | null
+  ownerRole?: string | null
+  samplingRequirement?: EvidenceSamplingRequirement | null
+  notes?: string | null
+}
+
 export interface ClauseControlMapSeedRecord {
   clauseCode: string
   controlCode: string
@@ -246,6 +279,8 @@ export interface KgSeedData {
   regulationSources: RegulationSourceSeedRecord[]
   regulationClauses: RegulationClauseSeedRecord[]
   failureModeControlMaps: FailureModeControlMapSeedRecord[]
+  evidenceTypes: EvidenceTypeSeedRecord[]
+  controlEvidenceMaps: ControlEvidenceMapSeedRecord[]
   clauseControlMaps: ClauseControlMapSeedRecord[]
   questionItems: QuestionItemSeedRecord[]
   remediationActions: RemediationActionSeedRecord[]
@@ -416,6 +451,10 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
     'regulation clause code',
   )
   assertUnique(
+    seedData.evidenceTypes.map((evidence) => evidence.evidenceCode),
+    'evidence type code',
+  )
+  assertUnique(
     seedData.questionItems.map((question) => question.questionCode),
     'question item code',
   )
@@ -442,6 +481,11 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
   const remediationEffortSet = new Set(REMEDIATION_ACTION_EFFORT_LEVELS)
   const remediationBenefitSet = new Set(REMEDIATION_ACTION_BENEFIT_LEVELS)
   const remediationStatusSet = new Set(REMEDIATION_ACTION_STATUSES)
+  const evidenceCategorySet = new Set(EVIDENCE_CATEGORIES)
+  const evidenceStatusSet = new Set(EVIDENCE_TYPE_STATUSES)
+  const evidenceRequiredLevelSet = new Set(CONTROL_EVIDENCE_REQUIRED_LEVELS)
+  const evidenceFrequencySet = new Set(EVIDENCE_FREQUENCIES)
+  const evidenceSamplingSet = new Set(EVIDENCE_SAMPLING_REQUIREMENTS)
   const clauseControlMappingTypeSet = new Set(CLAUSE_CONTROL_MAPPING_TYPES)
   const mapReviewStatusSet = new Set(MAP_REVIEW_STATUSES)
   const failureModeControlRelevanceSet = new Set(FAILURE_MODE_CONTROL_RELEVANCES)
@@ -462,6 +506,7 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
   const mappedPackCodeSet = new Set(seedData.packFamilyMappings.map((mapping) => mapping.packCode))
   const taxonomyL1CodeSet = new Set(seedData.taxonomyL1.map((taxonomy) => taxonomy.l1Code))
   const taxonomyL2CodeSet = new Set(seedData.taxonomyL2.map((taxonomy) => taxonomy.l2Code))
+  const evidenceCodeSet = new Set(seedData.evidenceTypes.map((evidence) => evidence.evidenceCode))
   const taxonomyL2ByCode = new Map(
     seedData.taxonomyL2.map((taxonomy) => [taxonomy.l2Code, taxonomy] as const),
   )
@@ -698,6 +743,57 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
     }
   }
 
+  for (const evidence of seedData.evidenceTypes) {
+    if (!evidence.evidenceCode || !evidence.evidenceName) {
+      throw new Error(`Evidence type ${evidence.evidenceCode || '<missing>'} has incomplete metadata`)
+    }
+
+    if (evidence.evidenceCategory && !evidenceCategorySet.has(evidence.evidenceCategory)) {
+      throw new Error(
+        `Evidence type ${evidence.evidenceCode} has invalid evidenceCategory ${evidence.evidenceCategory}`,
+      )
+    }
+
+    const status = evidence.status ?? 'ACTIVE'
+    if (!evidenceStatusSet.has(status)) {
+      throw new Error(`Evidence type ${evidence.evidenceCode} has invalid status ${status}`)
+    }
+  }
+
+  const seenControlEvidencePairs = new Set<string>()
+  for (const mapping of seedData.controlEvidenceMaps) {
+    if (!controlCodeSet.has(mapping.controlCode)) {
+      throw new Error(`Control evidence map references unknown control ${mapping.controlCode}`)
+    }
+    if (!evidenceCodeSet.has(mapping.evidenceCode)) {
+      throw new Error(`Control evidence map references unknown evidence ${mapping.evidenceCode}`)
+    }
+
+    const pairKey = `${mapping.controlCode}::${mapping.evidenceCode}`
+    if (seenControlEvidencePairs.has(pairKey)) {
+      throw new Error(`Duplicate control evidence map ${pairKey}`)
+    }
+    seenControlEvidencePairs.add(pairKey)
+
+    const requiredLevel = mapping.requiredLevel ?? 'RECOMMENDED'
+    if (!evidenceRequiredLevelSet.has(requiredLevel)) {
+      throw new Error(`Control evidence map ${pairKey} has invalid requiredLevel ${requiredLevel}`)
+    }
+
+    if (mapping.frequency && !evidenceFrequencySet.has(mapping.frequency)) {
+      throw new Error(`Control evidence map ${pairKey} has invalid frequency ${mapping.frequency}`)
+    }
+
+    if (
+      mapping.samplingRequirement &&
+      !evidenceSamplingSet.has(mapping.samplingRequirement)
+    ) {
+      throw new Error(
+        `Control evidence map ${pairKey} has invalid samplingRequirement ${mapping.samplingRequirement}`,
+      )
+    }
+  }
+
   for (const mapping of seedData.clauseControlMaps) {
     if (!clauseCodeSet.has(mapping.clauseCode)) {
       throw new Error(`Clause control map references unknown clause ${mapping.clauseCode}`)
@@ -763,6 +859,9 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
 
   const questionControlCodes = new Set(seedData.questionItems.map((question) => question.controlCode))
   const remediationControlCodes = new Set(seedData.remediationActions.map((action) => action.controlCode))
+  const controlEvidenceControlCodes = new Set(
+    seedData.controlEvidenceMaps.map((mapping) => mapping.controlCode),
+  )
 
   for (const control of seedData.controlPoints) {
     if (control.maturityLevel === 'hard' && control.originType === 'case_derived') {
@@ -771,6 +870,9 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
       }
       if (!remediationControlCodes.has(control.controlCode)) {
         throw new Error(`Hard control point ${control.controlCode} is missing a remediation action`)
+      }
+      if (!controlEvidenceControlCodes.has(control.controlCode)) {
+        throw new Error(`Hard control point ${control.controlCode} is missing a control evidence map`)
       }
     }
   }
@@ -799,6 +901,10 @@ export function loadKgSeedData(): KgSeedData {
     regulationClauses: readSeedFile<RegulationClauseSeedRecord[]>('regulation-clause.seed.json'),
     failureModeControlMaps: readSeedFile<FailureModeControlMapSeedRecord[]>(
       'failure-mode-control-map.seed.json',
+    ),
+    evidenceTypes: readSeedFile<EvidenceTypeSeedRecord[]>('evidence-type.seed.json'),
+    controlEvidenceMaps: readSeedFile<ControlEvidenceMapSeedRecord[]>(
+      'control-evidence-map.seed.json',
     ),
     clauseControlMaps: readSeedFile<ClauseControlMapSeedRecord[]>('clause-control-map.seed.json'),
     questionItems: readSeedFile<QuestionItemSeedRecord[]>('question-item.seed.json'),

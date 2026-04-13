@@ -1,0 +1,82 @@
+[
+  {
+    "evidenceCode": "EVD-REP-CONFIG-001",
+    "evidenceName": "监管报送口径变更审批记录",
+    "evidenceDesc": "记录报送口径、参数和配置变更审批及版本发布的审批留痕。",
+    "evidenceCategory": "APPROVAL_RECORD",
+    "autoCollectable": false,
+    "status": "ACTIVE"
+  },
+  {
+    "evidenceCode": "EVD-REP-MAP-001",
+    "evidenceName": "监管字段映射校验报告",
+    "evidenceDesc": "展示源系统字段到监管报表字段的映射校验和差异复核结果。",
+    "evidenceCategory": "REPORT",
+    "autoCollectable": true,
+    "status": "ACTIVE"
+  },
+  {
+    "evidenceCode": "EVD-REP-REVIEW-001",
+    "evidenceName": "报送双人复核留痕",
+    "evidenceDesc": "报送生成后双人复核、异常确认和签批记录。",
+    "evidenceCategory": "APPROVAL_RECORD",
+    "autoCollectable": false,
+    "status": "ACTIVE"
+  },
+  {
+    "evidenceCode": "EVD-REP-TIMELY-001",
+    "evidenceName": "报送时效预警台账",
+    "evidenceDesc": "监管报送截止时间、提醒、升级处置和闭环记录。",
+    "evidenceCategory": "REPORT",
+    "autoCollectable": true,
+    "status": "ACTIVE"
+  },
+  {
+    "evidenceCode": "EVD-DQ-RULE-001",
+    "evidenceName": "数据质量校验日志",
+    "evidenceDesc": "监管数据完整性、准确性和格式校验的自动化日志。",
+    "evidenceCategory": "LOG",
+    "autoCollectable": true,
+    "status": "ACTIVE"
+  },
+  {
+    "evidenceCode": "EVD-DQ-TRACE-001",
+    "evidenceName": "源系统一致性对账报告",
+    "evidenceDesc": "源业务系统、加工层和报送层的一致性对账结果。",
+    "evidenceCategory": "REPORT",
+    "autoCollectable": true,
+    "status": "ACTIVE"
+  },
+  {
+    "evidenceCode": "EVD-DQ-RECON-001",
+    "evidenceName": "总分账勾稽差异报告",
+    "evidenceDesc": "总账、分账、监管报表之间的勾稽差异清单及复核结果。",
+    "evidenceCategory": "REPORT",
+    "autoCollectable": true,
+    "status": "ACTIVE"
+  },
+  {
+    "evidenceCode": "EVD-TL-MONITOR-001",
+    "evidenceName": "信息录入时效监控报表",
+    "evidenceDesc": "关键监管字段录入、补录、更新时效监控与催办报表。",
+    "evidenceCategory": "REPORT",
+    "autoCollectable": true,
+    "status": "ACTIVE"
+  },
+  {
+    "evidenceCode": "EVD-REC-CLOSE-001",
+    "evidenceName": "历史差错整改闭环验证记录",
+    "evidenceDesc": "历史监管差错整改计划、执行、验证和关闭证明材料。",
+    "evidenceCategory": "REPORT",
+    "autoCollectable": false,
+    "status": "ACTIVE"
+  },
+  {
+    "evidenceCode": "EVD-FAL-AUDIT-001",
+    "evidenceName": "监管报送真实性抽查记录",
+    "evidenceDesc": "监管报送人工调整、真实性审核和抽样复核留痕。",
+    "evidenceCategory": "SAMPLE_RECORD",
+    "autoCollectable": false,
+    "status": "ACTIVE"
+  }
+]

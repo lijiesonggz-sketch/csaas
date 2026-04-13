@@ -75,6 +75,22 @@
       "status": "ACTIVE"
     },
     {
+      "l2Code": "IT04-01",
+      "l1Code": "IT04",
+      "l2Name": "数据治理不审慎/不完善/存在缺陷",
+      "l2Desc": "覆盖数据治理不审慎、不到位、不完善、存在缺陷等场景。",
+      "sortOrder": 41,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT04-02",
+      "l1Code": "IT04",
+      "l2Name": "数据治理机制/体系不健全",
+      "l2Desc": "覆盖数据治理组织、职责、标准、校验和流程体系不健全等场景。",
+      "sortOrder": 42,
+      "status": "ACTIVE"
+    },
+    {
       "l2Code": "IT04-03",
       "l1Code": "IT04",
       "l2Name": "EAST数据错报/漏报/报送不实",
@@ -101,8 +117,8 @@
     {
       "l2Code": "IT04-06",
       "l1Code": "IT04",
-      "l2Name": "监管报送准确性控制",
-      "l2Desc": "覆盖监管报送口径、校验、对账和复核控制",
+      "l2Name": "账表核对不一致/基础数据不一致",
+      "l2Desc": "覆盖总分账不一致、账实不符、系统间数据不一致等场景。",
       "sortOrder": 46,
       "status": "ACTIVE"
     },
@@ -123,11 +139,35 @@
       "status": "ACTIVE"
     },
     {
+      "l2Code": "IT04-09",
+      "l1Code": "IT04",
+      "l2Name": "业务数据真实性/准确性/完整性问题",
+      "l2Desc": "覆盖业务数据、财务数据、投保数据存在失真、错误、不准确或不完整等场景。",
+      "sortOrder": 49,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT04-10",
+      "l1Code": "IT04",
+      "l2Name": "信息登记/录入/更新不及时不规范",
+      "l2Desc": "覆盖投保信息、业务信息、登记信息录入、更新、维护不及时不规范等场景。",
+      "sortOrder": 50,
+      "status": "ACTIVE"
+    },
+    {
       "l2Code": "IT04-11",
       "l1Code": "IT04",
       "l2Name": "监管报告/报表/文件/资料虚假或失真",
       "l2Desc": "覆盖向监管部门提供虚假报告、报表、文件、资料等场景。",
       "sortOrder": 51,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT04-12",
+      "l1Code": "IT04",
+      "l2Name": "监管信息/案件信息/投诉数据报送不合规",
+      "l2Desc": "覆盖案件信息、投诉数据等监管信息未按规定报送、迟报或失真等场景。",
+      "sortOrder": 52,
       "status": "ACTIVE"
     },
     {

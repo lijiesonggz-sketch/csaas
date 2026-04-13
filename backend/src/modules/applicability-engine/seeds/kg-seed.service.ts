@@ -2,8 +2,10 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { DataSource, QueryRunner } from 'typeorm'
 import { ApplicabilityRule } from '../../../database/entities/applicability-rule.entity'
+import { ControlEvidenceMap } from '../../../database/entities/control-evidence-map.entity'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
 import { ControlPack } from '../../../database/entities/control-pack.entity'
+import { EvidenceType } from '../../../database/entities/evidence-type.entity'
 import { FailureMode, FailureModeCategory } from '../../../database/entities/failure-mode.entity'
 import { QuestionItem } from '../../../database/entities/question-item.entity'
 import { RegulationClause } from '../../../database/entities/regulation-clause.entity'
@@ -15,6 +17,8 @@ import { TaxonomyFailureModeMap } from '../../../database/entities/taxonomy-fail
 import {
   ApplicabilityRuleSeedRecord,
   ClauseControlMapSeedRecord,
+  ControlEvidenceMapSeedRecord,
+  EvidenceTypeSeedRecord,
   FailureModeControlMapSeedRecord,
   KgSeedData,
   loadKgSeedData,
@@ -53,6 +57,8 @@ export interface KgSeedSummary {
   regulationClauses?: number
   controlPackItems?: number
   failureModeControlMaps?: number
+  evidenceTypes?: number
+  controlEvidenceMaps?: number
   clauseControlMaps?: number
   questionItems?: number
   remediationActions?: number
@@ -312,6 +318,8 @@ async function seedHardControlArtifacts(
 ): Promise<{
   controlPackItems: number
   failureModeControlMaps: number
+  evidenceTypes: number
+  controlEvidenceMaps: number
   clauseControlMaps: number
   questionItems: number
   remediationActions: number
@@ -346,6 +354,28 @@ async function seedHardControlArtifacts(
   )
   const clauseIdByCode = new Map(
     persistedClauses.map((clause) => [clause.clause_code, clause.clause_id] as const),
+  )
+
+  const evidenceRepository = queryRunner.manager.getRepository(EvidenceType)
+  await evidenceRepository.upsert(
+    seedData.evidenceTypes.map((evidence) => ({
+      evidenceCode: evidence.evidenceCode,
+      evidenceName: evidence.evidenceName,
+      evidenceDesc: evidence.evidenceDesc ?? null,
+      evidenceCategory: evidence.evidenceCategory ?? null,
+      autoCollectable: evidence.autoCollectable ?? false,
+      status: evidence.status ?? 'ACTIVE',
+    })),
+    ['evidenceCode'],
+  )
+
+  const persistedEvidenceTypes: Array<{ evidence_id: string; evidence_code: string }> =
+    await queryRunner.query(
+      `SELECT evidence_id, evidence_code FROM evidence_types WHERE evidence_code = ANY($1)`,
+      [seedData.evidenceTypes.map((evidence) => evidence.evidenceCode)],
+    )
+  const evidenceIdByCode = new Map(
+    persistedEvidenceTypes.map((evidence) => [evidence.evidence_code, evidence.evidence_id] as const),
   )
 
   const packItemsToInsert = seedData.controlPoints
@@ -428,6 +458,31 @@ async function seedHardControlArtifacts(
     )
   }
 
+  const controlEvidenceRepository = queryRunner.manager.getRepository(ControlEvidenceMap)
+  const controlEvidenceMapsToUpsert = seedData.controlEvidenceMaps
+    .map((mapping) => ({
+      controlId: controlIdByCode.get(mapping.controlCode),
+      evidenceId: evidenceIdByCode.get(mapping.evidenceCode),
+      requiredLevel: mapping.requiredLevel ?? 'RECOMMENDED',
+      frequency: mapping.frequency ?? null,
+      ownerRole: mapping.ownerRole ?? null,
+      samplingRequirement: mapping.samplingRequirement ?? null,
+      notes: mapping.notes ?? null,
+    }))
+    .filter((mapping) => Boolean(mapping.controlId && mapping.evidenceId)) as Array<{
+      controlId: string
+      evidenceId: string
+      requiredLevel: NonNullable<ControlEvidenceMapSeedRecord['requiredLevel']>
+      frequency: ControlEvidenceMapSeedRecord['frequency']
+      ownerRole: string | null
+      samplingRequirement: ControlEvidenceMapSeedRecord['samplingRequirement']
+      notes: string | null
+    }>
+
+  if (controlEvidenceMapsToUpsert.length > 0) {
+    await controlEvidenceRepository.upsert(controlEvidenceMapsToUpsert, ['controlId', 'evidenceId'])
+  }
+
   const questionRepository = queryRunner.manager.getRepository(QuestionItem)
   const questionsToUpsert = seedData.questionItems
     .map((question) => ({
@@ -491,6 +546,8 @@ async function seedHardControlArtifacts(
   return {
     controlPackItems: packItemsToInsert.length,
     failureModeControlMaps: fmControlMapsToInsert.length,
+    evidenceTypes: seedData.evidenceTypes.length,
+    controlEvidenceMaps: controlEvidenceMapsToUpsert.length,
     clauseControlMaps: clauseControlMapsToInsert.length,
     questionItems: questionsToUpsert.length,
     remediationActions: remediationsToUpsert.length,
@@ -543,6 +600,8 @@ export async function seedKgBaselineWithQueryRunner(
     'regulation_clauses',
     'control_pack_items',
     'failure_mode_control_maps',
+    'evidence_types',
+    'control_evidence_maps',
     'clause_control_maps',
     'question_items',
     'remediation_actions',
@@ -685,6 +744,8 @@ export async function seedKgBaselineWithQueryRunner(
     regulationClauses: regulationSummary.regulationClauses,
     controlPackItems: hardControlArtifactSummary.controlPackItems,
     failureModeControlMaps: hardControlArtifactSummary.failureModeControlMaps,
+    evidenceTypes: hardControlArtifactSummary.evidenceTypes,
+    controlEvidenceMaps: hardControlArtifactSummary.controlEvidenceMaps,
     clauseControlMaps: hardControlArtifactSummary.clauseControlMaps,
     questionItems: hardControlArtifactSummary.questionItems,
     remediationActions: hardControlArtifactSummary.remediationActions,

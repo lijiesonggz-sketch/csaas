@@ -182,7 +182,7 @@ export class FailureModeService {
       .where('tfm.l2_code = :l2Code', { l2Code })
       .andWhere('fm.status = :status', { status: query.status ?? 'ACTIVE' })
 
-    qb.orderBy('fm.failure_mode_code', 'ASC')
+    qb.orderBy('fm.failureModeCode', 'ASC')
       .skip(((query.page ?? 1) - 1) * (query.limit ?? 20))
       .take(query.limit ?? 20)
 
@@ -203,8 +203,8 @@ export class FailureModeService {
       .where('fcm.failure_mode_id = :failureModeId', { failureModeId })
       .andWhere('cp.maturity_level != :retired', { retired: 'retired' })
       .orderBy('fcm.relevance', 'ASC')
-      .addOrderBy('cp.authoritative_score', 'DESC')
-      .addOrderBy('cp.control_code', 'ASC')
+      .addOrderBy('cp.authoritativeScore', 'DESC')
+      .addOrderBy('cp.controlCode', 'ASC')
       .skip(((query.page ?? 1) - 1) * (query.limit ?? 20))
       .take(query.limit ?? 20)
 

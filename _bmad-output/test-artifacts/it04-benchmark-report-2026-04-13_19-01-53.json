@@ -1,0 +1,1592 @@
+{
+  "generatedAt": "2026-04-13T19:01:53.294Z",
+  "datasetPath": "D:\\Csaas\\backend\\src\\modules\\case-import-orchestrator\\testing\\it04-benchmark-cases.fixture.json",
+  "taxonomyMappingPath": "D:\\Csaas\\docs\\it-taxonomy-to-kg-semantic-mapping-2026-04-07.csv",
+  "classificationSource": "semantic mapping CSV heuristic",
+  "summary": {
+    "totalCases": 30,
+    "taxonomyHitCount": 25,
+    "failureModeHitCount": 25,
+    "controlHitCount": 25,
+    "evidenceHitCount": 25,
+    "fullChainHitCount": 25,
+    "minFullChainHits": 10,
+    "meetsGate": true,
+    "missCategoryCounts": {
+      "taxonomy": 5,
+      "failure_mode": 0,
+      "control": 0,
+      "evidence": 0
+    }
+  },
+  "caseResults": [
+    {
+      "caseId": "IT04-BM-001",
+      "caseTitle": "EAST 报送口径审批缺失导致错报",
+      "expectedL2Code": "IT04-03",
+      "actualL2Code": "IT04-03",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "EAST报送",
+        "EAST",
+        "错报",
+        "报送"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REP-001"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REP-001",
+        "FM-REP-002",
+        "FM-REP-003",
+        "FM-REP-004"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REP-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-REP-001",
+        "CTRL-REP-002",
+        "CTRL-REP-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REP-CONFIG-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-REP-CONFIG-001"
+      ],
+      "expectedEvidenceCategories": [
+        "APPROVAL_RECORD"
+      ],
+      "actualEvidenceCategories": [
+        "APPROVAL_RECORD"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-002",
+      "caseTitle": "报送参数未经审批直接生效",
+      "expectedL2Code": "IT04-03",
+      "actualL2Code": "IT04-03",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "错报漏报",
+        "EAST",
+        "错报",
+        "漏报",
+        "监管标准",
+        "监管",
+        "管标",
+        "标准",
+        "准化",
+        "化数",
+        "数据",
+        "据报",
+        "报送",
+        "监管标"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REP-001"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REP-001",
+        "FM-REP-002",
+        "FM-REP-003",
+        "FM-REP-004"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REP-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-REP-001",
+        "CTRL-REP-002",
+        "CTRL-REP-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REP-CONFIG-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-REP-CONFIG-001"
+      ],
+      "expectedEvidenceCategories": [
+        "APPROVAL_RECORD"
+      ],
+      "actualEvidenceCategories": [
+        "APPROVAL_RECORD"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-003",
+      "caseTitle": "监管报送配置变更无留痕",
+      "expectedL2Code": "IT04-03",
+      "actualL2Code": "IT04-03",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "EAST报送",
+        "报送不实",
+        "EAST",
+        "监管",
+        "报送"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REP-001"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REP-001",
+        "FM-REP-002",
+        "FM-REP-003",
+        "FM-REP-004"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REP-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-REP-001",
+        "CTRL-REP-002",
+        "CTRL-REP-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REP-CONFIG-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-REP-CONFIG-001"
+      ],
+      "expectedEvidenceCategories": [
+        "APPROVAL_RECORD"
+      ],
+      "actualEvidenceCategories": [
+        "APPROVAL_RECORD"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-004",
+      "caseTitle": "EAST 字段映射关系错误",
+      "expectedL2Code": "IT04-04",
+      "actualL2Code": "IT04-04",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "EAST",
+        "质量",
+        "偏差",
+        "不符合规范",
+        "数据质量",
+        "字段",
+        "数据",
+        "据质",
+        "量不",
+        "不符",
+        "符合",
+        "合规",
+        "规范"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REP-002"
+      ],
+      "actualFailureModeCodes": [
+        "FM-DQ-001",
+        "FM-DQ-002",
+        "FM-REP-001",
+        "FM-REP-002"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REP-002"
+      ],
+      "actualControlCodes": [
+        "CTRL-DQ-001",
+        "CTRL-DQ-002",
+        "CTRL-REP-001",
+        "CTRL-REP-002"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REP-MAP-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-REP-MAP-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-005",
+      "caseTitle": "监管字段映射长期未维护",
+      "expectedL2Code": "IT04-04",
+      "actualL2Code": "IT04-04",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "字段偏差",
+        "EAST",
+        "偏差",
+        "数据",
+        "监管",
+        "字段",
+        "错误",
+        "段偏",
+        "字段偏",
+        "段偏差"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REP-002"
+      ],
+      "actualFailureModeCodes": [
+        "FM-DQ-001",
+        "FM-DQ-002",
+        "FM-REP-001",
+        "FM-REP-002"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REP-002"
+      ],
+      "actualControlCodes": [
+        "CTRL-DQ-001",
+        "CTRL-DQ-002",
+        "CTRL-REP-001",
+        "CTRL-REP-002"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REP-MAP-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-REP-MAP-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-006",
+      "caseTitle": "报送字段映射校验缺位",
+      "expectedL2Code": "IT04-04",
+      "actualL2Code": "IT04-04",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "EAST数据质量",
+        "字段偏差",
+        "EAST",
+        "质量",
+        "偏差",
+        "数据质量",
+        "监管数据",
+        "监管",
+        "管数",
+        "数据",
+        "监管数",
+        "管数据",
+        "字段",
+        "段偏",
+        "字段偏"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REP-002"
+      ],
+      "actualFailureModeCodes": [
+        "FM-DQ-001",
+        "FM-DQ-002",
+        "FM-REP-001",
+        "FM-REP-002"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REP-002"
+      ],
+      "actualControlCodes": [
+        "CTRL-DQ-001",
+        "CTRL-DQ-002",
+        "CTRL-REP-001",
+        "CTRL-REP-002"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REP-MAP-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-REP-MAP-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-007",
+      "caseTitle": "监管报表未双人复核直接报送",
+      "expectedL2Code": "IT04-05",
+      "actualL2Code": "IT04-05",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "监管报表",
+        "报送",
+        "监管",
+        "管报",
+        "报表",
+        "监管报",
+        "管报表",
+        "表数",
+        "数据",
+        "据不"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REP-003"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REP-001",
+        "FM-REP-002",
+        "FM-REP-003",
+        "FM-REP-005"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REP-003"
+      ],
+      "actualControlCodes": [
+        "CTRL-REP-001",
+        "CTRL-REP-002",
+        "CTRL-REP-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REP-REVIEW-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-REP-REVIEW-001"
+      ],
+      "expectedEvidenceCategories": [
+        "APPROVAL_RECORD"
+      ],
+      "actualEvidenceCategories": [
+        "APPROVAL_RECORD"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-008",
+      "caseTitle": "报表生成后复核缺失",
+      "expectedL2Code": "IT04-05",
+      "actualL2Code": "IT04-05",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "监管报表",
+        "报送数据不准确",
+        "报送",
+        "非现场监",
+        "非现",
+        "现场",
+        "场监",
+        "监管",
+        "管报",
+        "报表",
+        "非现场",
+        "现场监",
+        "场监管"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REP-003"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REP-001",
+        "FM-REP-002",
+        "FM-REP-003",
+        "FM-REP-005"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REP-003"
+      ],
+      "actualControlCodes": [
+        "CTRL-REP-001",
+        "CTRL-REP-002",
+        "CTRL-REP-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REP-REVIEW-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-REP-REVIEW-001"
+      ],
+      "expectedEvidenceCategories": [
+        "APPROVAL_RECORD"
+      ],
+      "actualEvidenceCategories": [
+        "APPROVAL_RECORD"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-009",
+      "caseTitle": "监管系统报送前无人复核",
+      "expectedL2Code": "IT04-05",
+      "actualL2Code": "IT04-05",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "监管系统报送",
+        "报送",
+        "与事实不符",
+        "统计数据与事实不符",
+        "监管系统",
+        "监管",
+        "管系",
+        "系统",
+        "统报",
+        "监管系",
+        "管系统",
+        "系统报",
+        "统报送"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REP-003"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REP-001",
+        "FM-REP-002",
+        "FM-REP-003",
+        "FM-REP-005"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REP-003"
+      ],
+      "actualControlCodes": [
+        "CTRL-REP-001",
+        "CTRL-REP-002",
+        "CTRL-REP-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REP-REVIEW-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-REP-REVIEW-001"
+      ],
+      "expectedEvidenceCategories": [
+        "APPROVAL_RECORD"
+      ],
+      "actualEvidenceCategories": [
+        "APPROVAL_RECORD"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-010",
+      "caseTitle": "非现场监管报表迟报",
+      "expectedL2Code": "IT04-07",
+      "actualL2Code": "IT04-07",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "非现场监管报表",
+        "信息科技非现场监管报表",
+        "未按时报送",
+        "信息科技非现场监管报表未",
+        "信息科技",
+        "信息",
+        "息科",
+        "科技",
+        "技非",
+        "非现",
+        "现场",
+        "场监",
+        "监管"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REP-006"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REP-006",
+        "FM-REP-007"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REP-004"
+      ],
+      "actualControlCodes": [
+        "CTRL-REP-004"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REP-TIMELY-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-REP-TIMELY-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-011",
+      "caseTitle": "监管台账报送无时效预警",
+      "expectedL2Code": "IT04-07",
+      "actualL2Code": "IT04-07",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "台账报送",
+        "迟报未报",
+        "台账",
+        "科技监管",
+        "科技",
+        "技监",
+        "监管",
+        "账报",
+        "报送",
+        "科技监",
+        "技监管",
+        "台账报"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REP-006"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REP-006",
+        "FM-REP-007"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REP-004"
+      ],
+      "actualControlCodes": [
+        "CTRL-REP-004"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REP-TIMELY-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-REP-TIMELY-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-012",
+      "caseTitle": "科技监管报送流程超期",
+      "expectedL2Code": "IT04-07",
+      "actualL2Code": "IT04-05",
+      "taxonomyHit": false,
+      "failureModeHit": false,
+      "controlHit": false,
+      "evidenceHit": false,
+      "fullChainHit": false,
+      "missCategory": "taxonomy",
+      "matchedClassifierSignals": [
+        "报送",
+        "监管",
+        "管报",
+        "监管报",
+        "报表报送",
+        "报表",
+        "表报",
+        "报表报",
+        "表报送"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REP-006"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REP-001",
+        "FM-REP-002",
+        "FM-REP-003",
+        "FM-REP-005"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REP-004"
+      ],
+      "actualControlCodes": [
+        "CTRL-REP-001",
+        "CTRL-REP-002",
+        "CTRL-REP-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REP-TIMELY-001"
+      ],
+      "actualEvidenceCodes": [],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": []
+    },
+    {
+      "caseId": "IT04-BM-013",
+      "caseTitle": "EAST 数据质量自动校验缺失",
+      "expectedL2Code": "IT04-04",
+      "actualL2Code": "IT04-04",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "EAST数据质量不符合规范要求",
+        "EAST数据质量",
+        "EAST",
+        "质量",
+        "不符合规范",
+        "数据质量",
+        "EAST数据质量不符合规",
+        "范要求",
+        "数据",
+        "据质",
+        "数据质",
+        "字段"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-DQ-001"
+      ],
+      "actualFailureModeCodes": [
+        "FM-DQ-001",
+        "FM-DQ-002",
+        "FM-REP-001",
+        "FM-REP-002"
+      ],
+      "expectedControlCodes": [
+        "CTRL-DQ-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-DQ-001",
+        "CTRL-DQ-002",
+        "CTRL-REP-001",
+        "CTRL-REP-002"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-DQ-RULE-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-DQ-RULE-001"
+      ],
+      "expectedEvidenceCategories": [
+        "LOG"
+      ],
+      "actualEvidenceCategories": [
+        "LOG"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-014",
+      "caseTitle": "关键字段缺少规则校验",
+      "expectedL2Code": "IT04-04",
+      "actualL2Code": "IT04-04",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "EAST数据质量",
+        "EAST",
+        "质量",
+        "数据质量",
+        "监管",
+        "字段"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-DQ-001"
+      ],
+      "actualFailureModeCodes": [
+        "FM-DQ-001",
+        "FM-DQ-002",
+        "FM-REP-001",
+        "FM-REP-002"
+      ],
+      "expectedControlCodes": [
+        "CTRL-DQ-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-DQ-001",
+        "CTRL-DQ-002",
+        "CTRL-REP-001",
+        "CTRL-REP-002"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-DQ-RULE-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-DQ-RULE-001"
+      ],
+      "expectedEvidenceCategories": [
+        "LOG"
+      ],
+      "actualEvidenceCategories": [
+        "LOG"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-015",
+      "caseTitle": "报送前无自动质检阻断",
+      "expectedL2Code": "IT04-04",
+      "actualL2Code": "IT04-03",
+      "taxonomyHit": false,
+      "failureModeHit": false,
+      "controlHit": false,
+      "evidenceHit": false,
+      "fullChainHit": false,
+      "missCategory": "taxonomy",
+      "matchedClassifierSignals": [
+        "EAST报送",
+        "EAST",
+        "监管",
+        "报送"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-DQ-001"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REP-001",
+        "FM-REP-002",
+        "FM-REP-003",
+        "FM-REP-004"
+      ],
+      "expectedControlCodes": [
+        "CTRL-DQ-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-REP-001",
+        "CTRL-REP-002",
+        "CTRL-REP-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-DQ-RULE-001"
+      ],
+      "actualEvidenceCodes": [],
+      "expectedEvidenceCategories": [
+        "LOG"
+      ],
+      "actualEvidenceCategories": []
+    },
+    {
+      "caseId": "IT04-BM-016",
+      "caseTitle": "多系统数据口径不一致",
+      "expectedL2Code": "IT04-06",
+      "actualL2Code": "IT04-06",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "账表核对",
+        "核对不一致",
+        "系统",
+        "间数",
+        "数据",
+        "不一",
+        "一致",
+        "间数据",
+        "不一致",
+        "账表核对不一致",
+        "账表"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-DQ-002"
+      ],
+      "actualFailureModeCodes": [
+        "FM-DQ-002",
+        "FM-DQ-003",
+        "FM-DQ-004"
+      ],
+      "expectedControlCodes": [
+        "CTRL-DQ-002"
+      ],
+      "actualControlCodes": [
+        "CTRL-DQ-002",
+        "CTRL-DQ-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-DQ-TRACE-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-DQ-TRACE-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-017",
+      "caseTitle": "系统间报送数据不一致",
+      "expectedL2Code": "IT04-06",
+      "actualL2Code": "IT04-05",
+      "taxonomyHit": false,
+      "failureModeHit": false,
+      "controlHit": false,
+      "evidenceHit": false,
+      "fullChainHit": false,
+      "missCategory": "taxonomy",
+      "matchedClassifierSignals": [
+        "监管数据报送",
+        "报送",
+        "监管数据",
+        "监管",
+        "管数",
+        "数据",
+        "据报",
+        "监管数",
+        "管数据",
+        "数据报",
+        "据报送"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-DQ-002"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REP-001",
+        "FM-REP-002",
+        "FM-REP-003",
+        "FM-REP-005"
+      ],
+      "expectedControlCodes": [
+        "CTRL-DQ-002"
+      ],
+      "actualControlCodes": [
+        "CTRL-REP-001",
+        "CTRL-REP-002",
+        "CTRL-REP-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-DQ-TRACE-001"
+      ],
+      "actualEvidenceCodes": [],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": []
+    },
+    {
+      "caseId": "IT04-BM-018",
+      "caseTitle": "报送层与源系统无法对齐",
+      "expectedL2Code": "IT04-06",
+      "actualL2Code": "IT04-06",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "账表不一致",
+        "数据",
+        "据与",
+        "系统",
+        "数据与",
+        "不一",
+        "一致",
+        "不一致",
+        "账表",
+        "表不",
+        "账表不"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-DQ-002"
+      ],
+      "actualFailureModeCodes": [
+        "FM-DQ-002",
+        "FM-DQ-003",
+        "FM-DQ-004"
+      ],
+      "expectedControlCodes": [
+        "CTRL-DQ-002"
+      ],
+      "actualControlCodes": [
+        "CTRL-DQ-002",
+        "CTRL-DQ-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-DQ-TRACE-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-DQ-TRACE-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-019",
+      "caseTitle": "总账分账未自动勾稽",
+      "expectedL2Code": "IT04-06",
+      "actualL2Code": "IT04-06",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "账表核对",
+        "核对不一致",
+        "分账",
+        "报表",
+        "账表",
+        "表核",
+        "核对",
+        "对不",
+        "不一",
+        "一致",
+        "账表核"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-DQ-003"
+      ],
+      "actualFailureModeCodes": [
+        "FM-DQ-002",
+        "FM-DQ-003",
+        "FM-DQ-004"
+      ],
+      "expectedControlCodes": [
+        "CTRL-DQ-003"
+      ],
+      "actualControlCodes": [
+        "CTRL-DQ-002",
+        "CTRL-DQ-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-DQ-RECON-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-DQ-RECON-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-020",
+      "caseTitle": "监管报表与账簿差异未复核",
+      "expectedL2Code": "IT04-06",
+      "actualL2Code": "IT04-06",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "账表核对",
+        "核对不一致",
+        "报表数据",
+        "报表",
+        "表数",
+        "数据",
+        "据与",
+        "与账",
+        "账簿",
+        "簿数",
+        "报表数",
+        "表数据"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-DQ-003"
+      ],
+      "actualFailureModeCodes": [
+        "FM-DQ-002",
+        "FM-DQ-003",
+        "FM-DQ-004"
+      ],
+      "expectedControlCodes": [
+        "CTRL-DQ-003"
+      ],
+      "actualControlCodes": [
+        "CTRL-DQ-002",
+        "CTRL-DQ-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-DQ-RECON-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-DQ-RECON-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-021",
+      "caseTitle": "关键业务报表缺少勾稽控制",
+      "expectedL2Code": "IT04-06",
+      "actualL2Code": "IT04-06",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "账实不符",
+        "务报",
+        "报表",
+        "务报表",
+        "分账",
+        "账实",
+        "实不",
+        "不符",
+        "账实不",
+        "实不符"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-DQ-003"
+      ],
+      "actualFailureModeCodes": [
+        "FM-DQ-002",
+        "FM-DQ-003",
+        "FM-DQ-004"
+      ],
+      "expectedControlCodes": [
+        "CTRL-DQ-003"
+      ],
+      "actualControlCodes": [
+        "CTRL-DQ-002",
+        "CTRL-DQ-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-DQ-RECON-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-DQ-RECON-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-022",
+      "caseTitle": "投保信息录入更新迟缓",
+      "expectedL2Code": "IT04-10",
+      "actualL2Code": "IT04-10",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "信息登记",
+        "不及时",
+        "不规范",
+        "更新不及时",
+        "登记信息",
+        "投保信息",
+        "投保",
+        "保信",
+        "信息",
+        "登记",
+        "记信",
+        "息录",
+        "投保信",
+        "保信息",
+        "登记信"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-TL-001"
+      ],
+      "actualFailureModeCodes": [
+        "FM-DQ-005",
+        "FM-TL-001",
+        "FM-TL-002"
+      ],
+      "expectedControlCodes": [
+        "CTRL-TL-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-TL-001"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-TL-MONITOR-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-TL-MONITOR-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-023",
+      "caseTitle": "监管登记信息补录超期",
+      "expectedL2Code": "IT04-10",
+      "actualL2Code": "IT04-10",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "不及时",
+        "不规范",
+        "更新不及时",
+        "登记信息",
+        "登记",
+        "记信",
+        "信息",
+        "更新",
+        "登记信",
+        "记信息",
+        "新不",
+        "不及",
+        "及时"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-TL-001"
+      ],
+      "actualFailureModeCodes": [
+        "FM-DQ-005",
+        "FM-TL-001",
+        "FM-TL-002"
+      ],
+      "expectedControlCodes": [
+        "CTRL-TL-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-TL-001"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-TL-MONITOR-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-TL-MONITOR-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-024",
+      "caseTitle": "业务信息维护不及时",
+      "expectedL2Code": "IT04-10",
+      "actualL2Code": "IT04-10",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "信息登记",
+        "不及时",
+        "更新不及时",
+        "业务信息",
+        "务信",
+        "信息",
+        "维护",
+        "业务信",
+        "务信息",
+        "录入",
+        "更新",
+        "新不",
+        "不及"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-TL-001"
+      ],
+      "actualFailureModeCodes": [
+        "FM-DQ-005",
+        "FM-TL-001",
+        "FM-TL-002"
+      ],
+      "expectedControlCodes": [
+        "CTRL-TL-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-TL-001"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-TL-MONITOR-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-TL-MONITOR-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-025",
+      "caseTitle": "历史报送差错整改未执行",
+      "expectedL2Code": "IT04-08",
+      "actualL2Code": "IT04-08",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "历史数据问题整改不到位",
+        "整改不到位",
+        "既往EA",
+        "整改",
+        "历史数据",
+        "历史",
+        "史数",
+        "数据",
+        "据问",
+        "问题",
+        "题整",
+        "改不"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REC-001"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REC-001",
+        "FM-REC-002",
+        "FM-REC-003"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REC-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-REC-001"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REC-CLOSE-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-REC-CLOSE-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-026",
+      "caseTitle": "整改闭环验证缺失",
+      "expectedL2Code": "IT04-08",
+      "actualL2Code": "IT04-05",
+      "taxonomyHit": false,
+      "failureModeHit": false,
+      "controlHit": false,
+      "evidenceHit": false,
+      "fullChainHit": false,
+      "missCategory": "taxonomy",
+      "matchedClassifierSignals": [
+        "报送",
+        "差错",
+        "监管",
+        "管报",
+        "监管报"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REC-002"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REP-001",
+        "FM-REP-002",
+        "FM-REP-003",
+        "FM-REP-005"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REC-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-REP-001",
+        "CTRL-REP-002",
+        "CTRL-REP-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REC-CLOSE-001"
+      ],
+      "actualEvidenceCodes": [],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": []
+    },
+    {
+      "caseId": "IT04-BM-027",
+      "caseTitle": "历史监管问题屡查屡犯",
+      "expectedL2Code": "IT04-08",
+      "actualL2Code": "IT04-08",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "屡查屡犯",
+        "整改不到位",
+        "历史",
+        "监管",
+        "管标",
+        "标准",
+        "准化",
+        "化数",
+        "数据",
+        "据问",
+        "问题",
+        "监管标"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-REC-001",
+        "FM-REC-002"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REC-001",
+        "FM-REC-002",
+        "FM-REC-003"
+      ],
+      "expectedControlCodes": [
+        "CTRL-REC-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-REC-001"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-REC-CLOSE-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-REC-CLOSE-001"
+      ],
+      "expectedEvidenceCategories": [
+        "REPORT"
+      ],
+      "actualEvidenceCategories": [
+        "REPORT"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-028",
+      "caseTitle": "向监管提供虚假报表",
+      "expectedL2Code": "IT04-11",
+      "actualL2Code": "IT04-11",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "虚假报表",
+        "数据造假",
+        "提供虚假",
+        "报告",
+        "报表",
+        "虚假记载",
+        "严重失真",
+        "编制",
+        "向监",
+        "监管",
+        "管部",
+        "部门",
+        "门提",
+        "提供",
+        "供虚",
+        "虚假",
+        "向监管"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-FAL-001"
+      ],
+      "actualFailureModeCodes": [
+        "FM-FAL-001",
+        "FM-FAL-002",
+        "FM-REP-003"
+      ],
+      "expectedControlCodes": [
+        "CTRL-FAL-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-FAL-001",
+        "CTRL-REP-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-FAL-AUDIT-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-FAL-AUDIT-001"
+      ],
+      "expectedEvidenceCategories": [
+        "SAMPLE_RECORD"
+      ],
+      "actualEvidenceCategories": [
+        "SAMPLE_RECORD"
+      ]
+    },
+    {
+      "caseId": "IT04-BM-029",
+      "caseTitle": "人工调整导致监管数据失真",
+      "expectedL2Code": "IT04-11",
+      "actualL2Code": "IT04-05",
+      "taxonomyHit": false,
+      "failureModeHit": false,
+      "controlHit": false,
+      "evidenceHit": false,
+      "fullChainHit": false,
+      "missCategory": "taxonomy",
+      "matchedClassifierSignals": [
+        "报送",
+        "监管",
+        "管报",
+        "监管报",
+        "报送数据",
+        "送数",
+        "数据",
+        "据与",
+        "报送数",
+        "送数据"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-FAL-002"
+      ],
+      "actualFailureModeCodes": [
+        "FM-REP-001",
+        "FM-REP-002",
+        "FM-REP-003",
+        "FM-REP-005"
+      ],
+      "expectedControlCodes": [
+        "CTRL-FAL-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-REP-001",
+        "CTRL-REP-002",
+        "CTRL-REP-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-FAL-AUDIT-001"
+      ],
+      "actualEvidenceCodes": [],
+      "expectedEvidenceCategories": [
+        "SAMPLE_RECORD"
+      ],
+      "actualEvidenceCategories": []
+    },
+    {
+      "caseId": "IT04-BM-030",
+      "caseTitle": "虚假监管资料未被拦截",
+      "expectedL2Code": "IT04-11",
+      "actualL2Code": "IT04-11",
+      "taxonomyHit": true,
+      "failureModeHit": true,
+      "controlHit": true,
+      "evidenceHit": true,
+      "fullChainHit": true,
+      "missCategory": "none",
+      "matchedClassifierSignals": [
+        "数据造假",
+        "报告",
+        "资料",
+        "虚假记载",
+        "监管报告",
+        "监管",
+        "管报",
+        "存在",
+        "在虚",
+        "监管报",
+        "管报告",
+        "存在虚"
+      ],
+      "expectedFailureModeCodes": [
+        "FM-FAL-001",
+        "FM-FAL-002"
+      ],
+      "actualFailureModeCodes": [
+        "FM-FAL-001",
+        "FM-FAL-002",
+        "FM-REP-003"
+      ],
+      "expectedControlCodes": [
+        "CTRL-FAL-001"
+      ],
+      "actualControlCodes": [
+        "CTRL-FAL-001",
+        "CTRL-REP-003"
+      ],
+      "expectedEvidenceCodes": [
+        "EVD-FAL-AUDIT-001"
+      ],
+      "actualEvidenceCodes": [
+        "EVD-FAL-AUDIT-001"
+      ],
+      "expectedEvidenceCategories": [
+        "SAMPLE_RECORD"
+      ],
+      "actualEvidenceCategories": [
+        "SAMPLE_RECORD"
+      ]
+    }
+  ]
+}

@@ -91,7 +91,7 @@ development_status:
     epic-2:
       key: "EPIC-KG2-002"
       name: "数据重建与 Pack 集成"
-      status: "in_progress"
+      status: "done"
       description: "resolve-controls API 返回高质量新控制点，旧数据干净退役"
       depends_on: ["epic-1"]
       stories:
@@ -142,7 +142,7 @@ development_status:
         2-5:
           key: "STORY-KG2-2.5"
           name: "IT04 Benchmark 验证"
-          status: "backlog"
+          status: "done"
           priority: "P1"
           description: "30 个标注案例端到端验证完整推理链路"
           depends_on: ["2-4"]
@@ -245,17 +245,17 @@ development_status:
 totals:
   epics:
     total: 4
-    backlog: 3
+    backlog: 2
     in_progress: 1
-    done: 0
+    done: 1
   stories:
     total: 18
-    backlog: 12
+    backlog: 7
     story_created: 0
     story_validated: 0
     dev_completed: 0
     test_automated: 0
-    done: 8
+    done: 11
 
 # Sprint Progress Chart
 burndown:

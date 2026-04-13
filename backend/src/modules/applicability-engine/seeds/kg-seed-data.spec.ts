@@ -128,6 +128,8 @@ describe('loadKgSeedData', () => {
       regulationSources?: Array<{ sourceCode: string }>
       regulationClauses?: Array<{ clauseCode: string }>
       failureModeControlMaps?: Array<{ failureModeCode: string; controlCode: string }>
+      evidenceTypes?: Array<{ evidenceCode: string }>
+      controlEvidenceMaps?: Array<{ controlCode: string; evidenceCode: string }>
       clauseControlMaps?: Array<{ clauseCode: string; controlCode: string }>
       questionItems?: Array<{ controlCode: string; questionCode: string }>
       remediationActions?: Array<{ controlCode: string; actionCode: string }>
@@ -181,6 +183,24 @@ describe('loadKgSeedData', () => {
         expect.objectContaining({
           failureModeCode: 'FM-REC-001',
           controlCode: 'CTRL-REC-001',
+        }),
+      ]),
+    )
+    expect(seedData.evidenceTypes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ evidenceCode: 'EVD-REP-CONFIG-001' }),
+        expect.objectContaining({ evidenceCode: 'EVD-FAL-AUDIT-001' }),
+      ]),
+    )
+    expect(seedData.controlEvidenceMaps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          controlCode: 'CTRL-REP-001',
+          evidenceCode: 'EVD-REP-CONFIG-001',
+        }),
+        expect.objectContaining({
+          controlCode: 'CTRL-FAL-001',
+          evidenceCode: 'EVD-FAL-AUDIT-001',
         }),
       ]),
     )

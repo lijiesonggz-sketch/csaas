@@ -1,0 +1,302 @@
+[
+  {
+    "caseId": "IT04-BM-001",
+    "caseTitle": "EAST 报送口径审批缺失导致错报",
+    "caseText": "某银行在 EAST 报送过程中擅自调整统计口径和参数配置，未履行审批流程，导致报送口径定义错误并出现错报。",
+    "expectedL2Code": "IT04-03",
+    "expectedFailureModeCodes": ["FM-REP-001"],
+    "expectedControlCodes": ["CTRL-REP-001"],
+    "expectedEvidenceCodes": ["EVD-REP-CONFIG-001"],
+    "expectedEvidenceCategories": ["APPROVAL_RECORD"]
+  },
+  {
+    "caseId": "IT04-BM-002",
+    "caseTitle": "报送参数未经审批直接生效",
+    "caseText": "监管标准化数据报送参数在未审批情况下直接上线，报送口径定义错误，形成 EAST 错报漏报风险。",
+    "expectedL2Code": "IT04-03",
+    "expectedFailureModeCodes": ["FM-REP-001"],
+    "expectedControlCodes": ["CTRL-REP-001"],
+    "expectedEvidenceCodes": ["EVD-REP-CONFIG-001"],
+    "expectedEvidenceCategories": ["APPROVAL_RECORD"]
+  },
+  {
+    "caseId": "IT04-BM-003",
+    "caseTitle": "监管报送配置变更无留痕",
+    "caseText": "监管报送配置变更未留痕、未复核，导致 EAST 报送不实，属于口径定义错误场景。",
+    "expectedL2Code": "IT04-03",
+    "expectedFailureModeCodes": ["FM-REP-001"],
+    "expectedControlCodes": ["CTRL-REP-001"],
+    "expectedEvidenceCodes": ["EVD-REP-CONFIG-001"],
+    "expectedEvidenceCategories": ["APPROVAL_RECORD"]
+  },
+  {
+    "caseId": "IT04-BM-004",
+    "caseTitle": "EAST 字段映射关系错误",
+    "caseText": "源系统字段到 EAST 监管报表字段的映射关系配置错误，多个字段出现偏差，导致数据质量不符合规范要求。",
+    "expectedL2Code": "IT04-04",
+    "expectedFailureModeCodes": ["FM-REP-002"],
+    "expectedControlCodes": ["CTRL-REP-002"],
+    "expectedEvidenceCodes": ["EVD-REP-MAP-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-005",
+    "caseTitle": "监管字段映射长期未维护",
+    "caseText": "银行 EAST 数据字段映射长期未维护，源数据到监管报表字段对应关系错误，造成字段偏差。",
+    "expectedL2Code": "IT04-04",
+    "expectedFailureModeCodes": ["FM-REP-002"],
+    "expectedControlCodes": ["CTRL-REP-002"],
+    "expectedEvidenceCodes": ["EVD-REP-MAP-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-006",
+    "caseTitle": "报送字段映射校验缺位",
+    "caseText": "监管数据报送映射表未及时更新，字段取数逻辑出错，导致 EAST 数据质量问题和字段偏差。",
+    "expectedL2Code": "IT04-04",
+    "expectedFailureModeCodes": ["FM-REP-002"],
+    "expectedControlCodes": ["CTRL-REP-002"],
+    "expectedEvidenceCodes": ["EVD-REP-MAP-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-007",
+    "caseTitle": "监管报表未双人复核直接报送",
+    "caseText": "监管报表生成后未经双人复核直接报送，关键字段错误未被发现，造成监管报表数据不准确。",
+    "expectedL2Code": "IT04-05",
+    "expectedFailureModeCodes": ["FM-REP-003"],
+    "expectedControlCodes": ["CTRL-REP-003"],
+    "expectedEvidenceCodes": ["EVD-REP-REVIEW-001"],
+    "expectedEvidenceCategories": ["APPROVAL_RECORD"]
+  },
+  {
+    "caseId": "IT04-BM-008",
+    "caseTitle": "报表生成后复核缺失",
+    "caseText": "非现场监管报表生成后直接对外报送，没有执行双人复核和异常确认，导致报送数据不准确。",
+    "expectedL2Code": "IT04-05",
+    "expectedFailureModeCodes": ["FM-REP-003"],
+    "expectedControlCodes": ["CTRL-REP-003"],
+    "expectedEvidenceCodes": ["EVD-REP-REVIEW-001"],
+    "expectedEvidenceCategories": ["APPROVAL_RECORD"]
+  },
+  {
+    "caseId": "IT04-BM-009",
+    "caseTitle": "监管系统报送前无人复核",
+    "caseText": "监管系统报送前缺少复核岗位，报送前复核缺失，造成统计数据与事实不符。",
+    "expectedL2Code": "IT04-05",
+    "expectedFailureModeCodes": ["FM-REP-003"],
+    "expectedControlCodes": ["CTRL-REP-003"],
+    "expectedEvidenceCodes": ["EVD-REP-REVIEW-001"],
+    "expectedEvidenceCategories": ["APPROVAL_RECORD"]
+  },
+  {
+    "caseId": "IT04-BM-010",
+    "caseTitle": "非现场监管报表迟报",
+    "caseText": "信息科技非现场监管报表未按时报送，截止时间前没有提醒和升级处置，出现迟报。",
+    "expectedL2Code": "IT04-07",
+    "expectedFailureModeCodes": ["FM-REP-006"],
+    "expectedControlCodes": ["CTRL-REP-004"],
+    "expectedEvidenceCodes": ["EVD-REP-TIMELY-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-011",
+    "caseTitle": "监管台账报送无时效预警",
+    "caseText": "科技监管台账报送缺少截止日提醒，逾期风险未升级，导致迟报未报。",
+    "expectedL2Code": "IT04-07",
+    "expectedFailureModeCodes": ["FM-REP-006"],
+    "expectedControlCodes": ["CTRL-REP-004"],
+    "expectedEvidenceCodes": ["EVD-REP-TIMELY-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-012",
+    "caseTitle": "科技监管报送流程超期",
+    "caseText": "监管报送流程没有时效监控和升级机制，报表报送出现明显超期。",
+    "expectedL2Code": "IT04-07",
+    "expectedFailureModeCodes": ["FM-REP-006"],
+    "expectedControlCodes": ["CTRL-REP-004"],
+    "expectedEvidenceCodes": ["EVD-REP-TIMELY-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-013",
+    "caseTitle": "EAST 数据质量自动校验缺失",
+    "caseText": "EAST 数据质量不符合规范要求，报送前未建立自动化数据质量校验规则，异常字段未被阻断。",
+    "expectedL2Code": "IT04-04",
+    "expectedFailureModeCodes": ["FM-DQ-001"],
+    "expectedControlCodes": ["CTRL-DQ-001"],
+    "expectedEvidenceCodes": ["EVD-DQ-RULE-001"],
+    "expectedEvidenceCategories": ["LOG"]
+  },
+  {
+    "caseId": "IT04-BM-014",
+    "caseTitle": "关键字段缺少规则校验",
+    "caseText": "监管报送关键字段缺少自动化校验规则，导致 EAST 数据质量问题反复出现。",
+    "expectedL2Code": "IT04-04",
+    "expectedFailureModeCodes": ["FM-DQ-001"],
+    "expectedControlCodes": ["CTRL-DQ-001"],
+    "expectedEvidenceCodes": ["EVD-DQ-RULE-001"],
+    "expectedEvidenceCategories": ["LOG"]
+  },
+  {
+    "caseId": "IT04-BM-015",
+    "caseTitle": "报送前无自动质检阻断",
+    "caseText": "EAST 报送前没有自动化质检和阻断机制，异常格式与缺失字段直接进入监管报送。",
+    "expectedL2Code": "IT04-04",
+    "expectedFailureModeCodes": ["FM-DQ-001"],
+    "expectedControlCodes": ["CTRL-DQ-001"],
+    "expectedEvidenceCodes": ["EVD-DQ-RULE-001"],
+    "expectedEvidenceCategories": ["LOG"]
+  },
+  {
+    "caseId": "IT04-BM-016",
+    "caseTitle": "多系统数据口径不一致",
+    "caseText": "源业务系统、中间加工层和监管报送层之间数据口径不一致，账表核对不一致，基础数据出现偏差。",
+    "expectedL2Code": "IT04-06",
+    "expectedFailureModeCodes": ["FM-DQ-002"],
+    "expectedControlCodes": ["CTRL-DQ-002"],
+    "expectedEvidenceCodes": ["EVD-DQ-TRACE-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-017",
+    "caseTitle": "系统间报送数据不一致",
+    "caseText": "监管数据报送链路中多个源系统数据不一致，导致基础数据不一致和对账差异。",
+    "expectedL2Code": "IT04-06",
+    "expectedFailureModeCodes": ["FM-DQ-002"],
+    "expectedControlCodes": ["CTRL-DQ-002"],
+    "expectedEvidenceCodes": ["EVD-DQ-TRACE-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-018",
+    "caseTitle": "报送层与源系统无法对齐",
+    "caseText": "报送数据与源系统、中间台账之间不一致，无法追溯来源链路，形成账表不一致问题。",
+    "expectedL2Code": "IT04-06",
+    "expectedFailureModeCodes": ["FM-DQ-002"],
+    "expectedControlCodes": ["CTRL-DQ-002"],
+    "expectedEvidenceCodes": ["EVD-DQ-TRACE-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-019",
+    "caseTitle": "总账分账未自动勾稽",
+    "caseText": "总账、分账和监管报表之间没有自动勾稽校验，账表核对不一致问题长期未被发现。",
+    "expectedL2Code": "IT04-06",
+    "expectedFailureModeCodes": ["FM-DQ-003"],
+    "expectedControlCodes": ["CTRL-DQ-003"],
+    "expectedEvidenceCodes": ["EVD-DQ-RECON-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-020",
+    "caseTitle": "监管报表与账簿差异未复核",
+    "caseText": "报表数据与账簿数据存在明显差异，但未建立自动勾稽和差异复核机制，导致账表核对不一致。",
+    "expectedL2Code": "IT04-06",
+    "expectedFailureModeCodes": ["FM-DQ-003"],
+    "expectedControlCodes": ["CTRL-DQ-003"],
+    "expectedEvidenceCodes": ["EVD-DQ-RECON-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-021",
+    "caseTitle": "关键业务报表缺少勾稽控制",
+    "caseText": "关键业务报表与总账、分账之间缺少自动勾稽控制，账实不符问题无法及时发现。",
+    "expectedL2Code": "IT04-06",
+    "expectedFailureModeCodes": ["FM-DQ-003"],
+    "expectedControlCodes": ["CTRL-DQ-003"],
+    "expectedEvidenceCodes": ["EVD-DQ-RECON-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-022",
+    "caseTitle": "投保信息录入更新迟缓",
+    "caseText": "投保信息和监管登记信息录入、更新不及时，关键字段维护长期滞后，形成信息登记不规范。",
+    "expectedL2Code": "IT04-10",
+    "expectedFailureModeCodes": ["FM-TL-001"],
+    "expectedControlCodes": ["CTRL-TL-001"],
+    "expectedEvidenceCodes": ["EVD-TL-MONITOR-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-023",
+    "caseTitle": "监管登记信息补录超期",
+    "caseText": "监管登记信息补录和更新没有时效监控，补录超期且无人催办，导致信息更新不及时不规范。",
+    "expectedL2Code": "IT04-10",
+    "expectedFailureModeCodes": ["FM-TL-001"],
+    "expectedControlCodes": ["CTRL-TL-001"],
+    "expectedEvidenceCodes": ["EVD-TL-MONITOR-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-024",
+    "caseTitle": "业务信息维护不及时",
+    "caseText": "业务信息维护没有超期提醒，录入和更新不及时，导致监管信息登记持续滞后。",
+    "expectedL2Code": "IT04-10",
+    "expectedFailureModeCodes": ["FM-TL-001"],
+    "expectedControlCodes": ["CTRL-TL-001"],
+    "expectedEvidenceCodes": ["EVD-TL-MONITOR-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-025",
+    "caseTitle": "历史报送差错整改未执行",
+    "caseText": "既往 EAST 数据质量问题整改方案长期未落实，历史数据问题整改不到位并重复发生。",
+    "expectedL2Code": "IT04-08",
+    "expectedFailureModeCodes": ["FM-REC-001"],
+    "expectedControlCodes": ["CTRL-REC-001"],
+    "expectedEvidenceCodes": ["EVD-REC-CLOSE-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-026",
+    "caseTitle": "整改闭环验证缺失",
+    "caseText": "监管报送历史差错整改后未做关闭验证，问题反复出现，属于整改闭环验证缺失。",
+    "expectedL2Code": "IT04-08",
+    "expectedFailureModeCodes": ["FM-REC-002"],
+    "expectedControlCodes": ["CTRL-REC-001"],
+    "expectedEvidenceCodes": ["EVD-REC-CLOSE-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-027",
+    "caseTitle": "历史监管问题屡查屡犯",
+    "caseText": "历史监管标准化数据问题屡查屡犯，整改跟踪和关闭证明缺失，整改不到位。",
+    "expectedL2Code": "IT04-08",
+    "expectedFailureModeCodes": ["FM-REC-001", "FM-REC-002"],
+    "expectedControlCodes": ["CTRL-REC-001"],
+    "expectedEvidenceCodes": ["EVD-REC-CLOSE-001"],
+    "expectedEvidenceCategories": ["REPORT"]
+  },
+  {
+    "caseId": "IT04-BM-028",
+    "caseTitle": "向监管提供虚假报表",
+    "caseText": "编制并向监管部门提供虚假报表，存在虚假记载和数据造假，监管报告严重失真。",
+    "expectedL2Code": "IT04-11",
+    "expectedFailureModeCodes": ["FM-FAL-001"],
+    "expectedControlCodes": ["CTRL-FAL-001"],
+    "expectedEvidenceCodes": ["EVD-FAL-AUDIT-001"],
+    "expectedEvidenceCategories": ["SAMPLE_RECORD"]
+  },
+  {
+    "caseId": "IT04-BM-029",
+    "caseTitle": "人工调整导致监管数据失真",
+    "caseText": "监管报送过程中存在人工调整且缺少真实性审核，报送数据与实际严重偏离，形成数据失真。",
+    "expectedL2Code": "IT04-11",
+    "expectedFailureModeCodes": ["FM-FAL-002"],
+    "expectedControlCodes": ["CTRL-FAL-001"],
+    "expectedEvidenceCodes": ["EVD-FAL-AUDIT-001"],
+    "expectedEvidenceCategories": ["SAMPLE_RECORD"]
+  },
+  {
+    "caseId": "IT04-BM-030",
+    "caseTitle": "虚假监管资料未被拦截",
+    "caseText": "监管报告和报送资料存在虚假记载，真实性审核机制缺失，导致向监管报送的数据造假未被拦截。",
+    "expectedL2Code": "IT04-11",
+    "expectedFailureModeCodes": ["FM-FAL-001", "FM-FAL-002"],
+    "expectedControlCodes": ["CTRL-FAL-001"],
+    "expectedEvidenceCodes": ["EVD-FAL-AUDIT-001"],
+    "expectedEvidenceCategories": ["SAMPLE_RECORD"]
+  }
+]
