@@ -1,5 +1,5 @@
 import { BullModule } from '@nestjs/bullmq'
-import { Module } from '@nestjs/common'
+import { forwardRef, Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { CaseControlMap } from '../../database/entities/case-control-map.entity'
 import { ComplianceCase } from '../../database/entities/compliance-case.entity'
@@ -15,6 +15,7 @@ import { CaseImportController } from './controllers/case-import.controller'
 import { CaseHumanReviewController } from './controllers/case-human-review.controller'
 import { CaseImportAuditFilter } from './filters/case-import-audit.filter'
 import { CaseImportProcessor } from './processors/case-import.processor'
+import { CaseClusteringChainService } from './services/case-clustering-chain.service'
 import { CaseClusteringService } from './services/case-clustering.service'
 import { CaseExtractionService } from './services/case-extraction.service'
 import { CaseHumanReviewService } from './services/case-human-review.service'
@@ -52,6 +53,7 @@ import { ComplianceCaseBackfillService } from './services/compliance-case-backfi
   controllers: [CaseImportController, CaseHumanReviewController],
   providers: [
     CaseHumanReviewService,
+    CaseClusteringChainService,
     CaseClusteringService,
     CaseExtractionService,
     CaseImportService,

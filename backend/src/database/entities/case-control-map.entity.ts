@@ -17,6 +17,7 @@ export const CASE_CONTROL_MAP_SOURCES = [
   'LLM_ASSISTED_RULE',
   'LLM_FALLBACK',
   'MANUAL',
+  'FAILURE_MODE_CHAIN',
 ] as const
 export type CaseControlMapSource = (typeof CASE_CONTROL_MAP_SOURCES)[number]
 

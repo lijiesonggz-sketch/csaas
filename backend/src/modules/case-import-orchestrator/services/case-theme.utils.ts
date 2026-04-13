@@ -89,6 +89,9 @@ const STOPWORDS = new Set([
   '我局',
 ])
 
+/**
+ * @deprecated V2 使用 taxonomy→failure_mode→control_point 新链路，本文件待 benchmark 验证通过后删除
+ */
 const CANONICAL_THEME_RULES: Array<{ pattern: RegExp; theme: string }> = [
   { pattern: /(尽职调查|尽调|内核|质控验收|立项意见|第三方意见核查|对外担保核查|核查有效性)/, theme: '尽职调查控制' },
   { pattern: /(信息披露|披露准确|披露督促|监管报送|报送数据|报送口径)/, theme: '信息披露管理' },
@@ -106,6 +109,9 @@ const CANONICAL_THEME_RULES: Array<{ pattern: RegExp; theme: string }> = [
   { pattern: /(应急|事件|事故|响应)/, theme: '事件响应管理' },
 ]
 
+/**
+ * @deprecated V2 使用 taxonomy→failure_mode→control_point 新链路，本文件待 benchmark 验证通过后删除
+ */
 const CONTROL_FAMILY_HINTS: Array<{
   familyPattern: RegExp
   canonicalTheme: string

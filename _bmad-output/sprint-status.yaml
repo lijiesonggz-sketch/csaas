@@ -80,7 +80,7 @@ development_status:
         1-6:
           key: "STORY-KG2-1.6"
           name: "案例聚类链路改造"
-          status: "backlog"
+          status: "done"
           priority: "P0"
           description: "新链路 taxonomy→failure_mode→control_point 替代旧 case-theme.utils.ts"
           depends_on: ["1-4", "1-5"]
@@ -250,18 +250,18 @@ totals:
     done: 0
   stories:
     total: 18
-    backlog: 14
+    backlog: 13
     story_created: 0
     story_validated: 0
     dev_completed: 0
     test_automated: 0
-    done: 5
+    done: 6
 
 # Sprint Progress Chart
 burndown:
   total_story_points: 47
-  remaining_story_points: 37
-  completed_story_points: 10
+  remaining_story_points: 34
+  completed_story_points: 13
 
 # Execution Plan
 notes: |

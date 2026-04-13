@@ -157,4 +157,4 @@ development_status:
   kg1-3-evidence-model-extension: done
   kg1-4-failure-mode-service-and-api: done
   kg1-5-control-point-service-refactor: ready-for-dev
-  kg1-6-case-clustering-pipeline-refactor: backlog
+  kg1-6-case-clustering-pipeline-refactor: review

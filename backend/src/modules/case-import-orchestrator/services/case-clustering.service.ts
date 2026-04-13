@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { CaseControlMap } from '../../../database/entities/case-control-map.entity'
@@ -8,6 +8,7 @@ import {
   ComplianceCaseControlPointDraft,
 } from '../../../database/entities/compliance-case.entity'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
+import { CaseClusteringChainService } from './case-clustering-chain.service'
 import { CaseThemeIntelligenceService } from './case-theme-intelligence.service'
 import {
   normalizeViolationThemes,
@@ -27,11 +28,16 @@ export type CaseClusteringBatchResult = {
   ruleMapCount: number
   llmAssistedRuleMapCount: number
   llmFallbackMapCount: number
+  // New chain statistics
+  chainMappedCaseCount: number
+  chainMapCount: number
+  fallbackToOldChainCount: number
 }
 
 @Injectable()
 export class CaseClusteringService {
   private static readonly AUTO_MAP_THRESHOLD = 0.55
+  private readonly logger = new Logger(CaseClusteringService.name)
 
   constructor(
     @InjectRepository(ComplianceCase)
@@ -41,6 +47,8 @@ export class CaseClusteringService {
     @InjectRepository(CaseControlMap)
     private readonly caseControlMapRepository: Repository<CaseControlMap>,
     private readonly caseThemeIntelligenceService: CaseThemeIntelligenceService,
+    @Inject(forwardRef(() => CaseClusteringChainService))
+    private readonly caseClusteringChainService: CaseClusteringChainService,
   ) {}
 
   async clusterBatch(batchId: string): Promise<CaseClusteringBatchResult> {
@@ -73,77 +81,107 @@ export class CaseClusteringService {
     let ruleMapCount = 0
     let llmAssistedRuleMapCount = 0
     let llmFallbackMapCount = 0
+    // New chain counters
+    let chainMappedCaseCount = 0
+    let chainMapCount = 0
+    let fallbackToOldChainCount = 0
 
     for (const caseRecord of cases) {
-      const sourceText = [caseRecord.caseFacts, caseRecord.penaltyReason]
-        .filter((value): value is string => Boolean(value))
-        .join('；')
-      let normalizedThemes = normalizeViolationThemes(caseRecord.violationThemes ?? [])
-      let ruleMatchResult = await this.applyRuleMatching(
-        caseRecord.caseId,
-        normalizedThemes,
-        controlPoints,
-        'RULE',
-      )
+      // --- New chain: try FAILURE_MODE_CHAIN first ---
+      let usedNewChain = false
 
-      if (ruleMatchResult.autoMappedCount > 0) {
-        ruleMappedCaseCount += 1
-        ruleMapCount += ruleMatchResult.autoMappedCount
+      if (caseRecord.l2Code) {
+        try {
+          const chainResult = await this.caseClusteringChainService.mapCaseToControlPoints(caseRecord)
+
+          if (!chainResult.shouldFallback && chainResult.autoMappedCount > 0) {
+            chainMappedCaseCount += 1
+            chainMapCount += chainResult.autoMappedCount
+            usedNewChain = true
+          }
+        } catch (error) {
+          this.logger.warn(`New chain failed for case ${caseRecord.caseId}, falling back: ${error?.message}`)
+        }
       }
 
-      if (ruleMatchResult.autoMappedCount === 0) {
-        llmTriggeredCaseCount += 1
-        const llmSuggestion = await this.caseThemeIntelligenceService.suggestMappings({
-          sourceText,
-          violationThemes: caseRecord.violationThemes ?? [],
-          normalizedThemes,
-          candidateControls: ruleMatchResult.llmCandidates,
-        })
+      // --- Old chain (fallback) ---
+      if (!usedNewChain) {
+        fallbackToOldChainCount += 1
 
-        if (llmSuggestion?.normalizedThemes?.length) {
-          normalizedThemes = Array.from(new Set(llmSuggestion.normalizedThemes))
-          ruleMatchResult = await this.applyRuleMatching(
-            caseRecord.caseId,
-            normalizedThemes,
-            controlPoints,
-            'LLM_ASSISTED_RULE',
-          )
-        }
+        const sourceText = [caseRecord.caseFacts, caseRecord.penaltyReason]
+          .filter((value): value is string => Boolean(value))
+          .join('；')
+        let normalizedThemes = normalizeViolationThemes(caseRecord.violationThemes ?? [])
+        let ruleMatchResult = await this.applyRuleMatching(
+          caseRecord.caseId,
+          normalizedThemes,
+          controlPoints,
+          'RULE',
+        )
 
         if (ruleMatchResult.autoMappedCount > 0) {
-          llmAssistedRuleCaseCount += 1
-          llmAssistedRuleMapCount += ruleMatchResult.autoMappedCount
-        } else if (llmSuggestion?.recommendedMappings?.length) {
-          for (const mapping of llmSuggestion.recommendedMappings) {
-            await this.upsertCaseControlMap(
+          ruleMappedCaseCount += 1
+          ruleMapCount += ruleMatchResult.autoMappedCount
+        }
+
+        if (ruleMatchResult.autoMappedCount === 0) {
+          llmTriggeredCaseCount += 1
+          const llmSuggestion = await this.caseThemeIntelligenceService.suggestMappings({
+            sourceText,
+            violationThemes: caseRecord.violationThemes ?? [],
+            normalizedThemes,
+            candidateControls: ruleMatchResult.llmCandidates,
+          })
+
+          if (llmSuggestion?.normalizedThemes?.length) {
+            normalizedThemes = Array.from(new Set(llmSuggestion.normalizedThemes))
+            ruleMatchResult = await this.applyRuleMatching(
               caseRecord.caseId,
-              mapping.controlId,
-              mapping.confidenceScore,
-              'LLM_FALLBACK',
+              normalizedThemes,
+              controlPoints,
+              'LLM_ASSISTED_RULE',
             )
           }
 
-          llmFallbackCaseCount += 1
-          llmFallbackMapCount += llmSuggestion.recommendedMappings.length
-          ruleMatchResult = {
-            ...ruleMatchResult,
-            autoMappedCount: llmSuggestion.recommendedMappings.length,
-            candidateControlPoints: [],
+          if (ruleMatchResult.autoMappedCount > 0) {
+            llmAssistedRuleCaseCount += 1
+            llmAssistedRuleMapCount += ruleMatchResult.autoMappedCount
+          } else if (llmSuggestion?.recommendedMappings?.length) {
+            for (const mapping of llmSuggestion.recommendedMappings) {
+              await this.upsertCaseControlMap(
+                caseRecord.caseId,
+                mapping.controlId,
+                mapping.confidenceScore,
+                'LLM_FALLBACK',
+              )
+            }
+
+            llmFallbackCaseCount += 1
+            llmFallbackMapCount += llmSuggestion.recommendedMappings.length
+            ruleMatchResult = {
+              ...ruleMatchResult,
+              autoMappedCount: llmSuggestion.recommendedMappings.length,
+              candidateControlPoints: [],
+            }
+          } else {
+            llmUnmappedCaseCount += 1
+            unmappedCaseCount += 1
           }
-        } else {
-          llmUnmappedCaseCount += 1
-          unmappedCaseCount += 1
         }
+
+        caseRecord.normalizedThemes = normalizedThemes
+        caseRecord.candidateControlPoints = ruleMatchResult.candidateControlPoints
       }
 
-      caseRecord.normalizedThemes = normalizedThemes
-      caseRecord.candidateControlPoints = ruleMatchResult.candidateControlPoints
       caseRecord.clusteredAt = new Date()
       caseRecord.status = 'clustered'
 
       await this.complianceCaseRepository.save(caseRecord)
       processedCount += 1
     }
+
+    // Clear chain cache after batch completes
+    this.caseClusteringChainService.clearCache()
 
     return {
       batchId,
@@ -158,6 +196,9 @@ export class CaseClusteringService {
       ruleMapCount,
       llmAssistedRuleMapCount,
       llmFallbackMapCount,
+      chainMappedCaseCount,
+      chainMapCount,
+      fallbackToOldChainCount,
     }
   }
 
@@ -255,7 +296,7 @@ export class CaseClusteringService {
     }
   }
 
-  private async upsertCaseControlMap(
+  async upsertCaseControlMap(
     caseId: string,
     controlId: string,
     score: number,

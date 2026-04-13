@@ -3,6 +3,8 @@ import { getRepositoryToken } from '@nestjs/typeorm'
 import { CaseControlMap } from '../../../database/entities/case-control-map.entity'
 import { ComplianceCase } from '../../../database/entities/compliance-case.entity'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
+import { FailureModeService } from '../../knowledge-graph/services/failure-mode.service'
+import { CaseClusteringChainService } from './case-clustering-chain.service'
 import { CaseClusteringService } from './case-clustering.service'
 import { CaseThemeIntelligenceService } from './case-theme-intelligence.service'
 
@@ -28,6 +30,11 @@ describe('CaseClusteringService', () => {
     suggestMappings: jest.fn(),
   }
 
+  const caseClusteringChainService = {
+    mapCaseToControlPoints: jest.fn(),
+    clearCache: jest.fn(),
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -48,13 +55,28 @@ describe('CaseClusteringService', () => {
           provide: CaseThemeIntelligenceService,
           useValue: caseThemeIntelligenceService,
         },
+        {
+          provide: CaseClusteringChainService,
+          useValue: caseClusteringChainService,
+        },
       ],
     }).compile()
 
     service = module.get(CaseClusteringService)
     jest.clearAllMocks()
     caseThemeIntelligenceService.suggestMappings.mockResolvedValue(null)
+    // Default: new chain returns fallback (no mapping)
+    caseClusteringChainService.mapCaseToControlPoints.mockResolvedValue({
+      autoMappedCount: 0,
+      shouldFallback: true,
+      source: 'FAILURE_MODE_CHAIN',
+      writtenMappings: [],
+    })
   })
+
+  // ===========================================================================
+  // Existing tests (preserved, adapted for new chain)
+  // ===========================================================================
 
   it('should normalize themes, create mapping drafts, and keep unmatched control point candidates', async () => {
     complianceCaseRepository.find.mockResolvedValue([
@@ -62,6 +84,7 @@ describe('CaseClusteringService', () => {
         caseId: 'case-1',
         importBatchId: 'batch-1',
         status: 'extracted',
+        l2Code: null,
         violationThemes: ['客户身份识别不到位', '交易监测缺失'],
       },
     ])
@@ -98,6 +121,9 @@ describe('CaseClusteringService', () => {
       ruleMapCount: 1,
       llmAssistedRuleMapCount: 0,
       llmFallbackMapCount: 0,
+      chainMappedCaseCount: 0,
+      chainMapCount: 0,
+      fallbackToOldChainCount: 1,
     })
     expect(caseControlMapRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -127,6 +153,7 @@ describe('CaseClusteringService', () => {
         caseId: 'case-2',
         importBatchId: 'batch-2',
         status: 'extracted',
+        l2Code: null,
         caseFacts: '向投资者承诺收益并传播虚假或误导性信息',
         penaltyReason: '未按规定保存微信监控记录',
         violationThemes: ['向投资者承诺收益', '传播虚假或误导性信息', '未按规定保存微信监控记录'],
@@ -175,6 +202,9 @@ describe('CaseClusteringService', () => {
       ruleMapCount: 0,
       llmAssistedRuleMapCount: 0,
       llmFallbackMapCount: 1,
+      chainMappedCaseCount: 0,
+      chainMapCount: 0,
+      fallbackToOldChainCount: 1,
     })
     expect(caseThemeIntelligenceService.suggestMappings).toHaveBeenCalled()
     expect(caseControlMapRepository.create).toHaveBeenCalledWith(
@@ -190,5 +220,223 @@ describe('CaseClusteringService', () => {
         candidateControlPoints: [],
       }),
     )
+  })
+
+  // ===========================================================================
+  // New chain dual-chain tests
+  // ===========================================================================
+
+  describe('dual-chain dispatch', () => {
+    it('should use new chain for cases with l2Code and successful mapping', async () => {
+      complianceCaseRepository.find.mockResolvedValue([
+        {
+          caseId: 'case-chain-001',
+          importBatchId: 'batch-chain',
+          status: 'extracted',
+          l2Code: 'IT04',
+          violationThemes: ['客户身份识别不到位'],
+        },
+      ])
+      controlPointRepository.find.mockResolvedValue([])
+      complianceCaseRepository.save.mockImplementation(async (entity) => entity)
+
+      caseClusteringChainService.mapCaseToControlPoints.mockResolvedValue({
+        autoMappedCount: 2,
+        shouldFallback: false,
+        source: 'FAILURE_MODE_CHAIN',
+        writtenMappings: [
+          { caseId: 'case-chain-001', controlId: 'cp-001', relationType: 'VIOLATES', reviewStatus: 'PENDING', source: 'FAILURE_MODE_CHAIN' },
+          { caseId: 'case-chain-001', controlId: 'cp-003', relationType: 'VIOLATES', reviewStatus: 'PENDING', source: 'FAILURE_MODE_CHAIN' },
+        ],
+      })
+
+      const result = await service.clusterBatch('batch-chain')
+
+      expect(result.chainMappedCaseCount).toBe(1)
+      expect(result.chainMapCount).toBe(2)
+      expect(result.fallbackToOldChainCount).toBe(0)
+      expect(caseClusteringChainService.mapCaseToControlPoints).toHaveBeenCalledWith(
+        expect.objectContaining({ caseId: 'case-chain-001', l2Code: 'IT04' }),
+      )
+      // Old chain should NOT be invoked
+      expect(caseThemeIntelligenceService.suggestMappings).not.toHaveBeenCalled()
+    })
+
+    it('should fallback to old chain when l2Code is null', async () => {
+      complianceCaseRepository.find.mockResolvedValue([
+        {
+          caseId: 'case-fallback-001',
+          importBatchId: 'batch-fallback',
+          status: 'extracted',
+          l2Code: null,
+          violationThemes: ['内部控制不完善'],
+        },
+      ])
+      controlPointRepository.find.mockResolvedValue([
+        {
+          controlId: 'control-1',
+          controlCode: 'CP-001',
+          controlName: '内部控制管理',
+          controlDesc: '内部控制制度管理',
+          controlFamily: 'GOV_ORG',
+          aliases: ['内部控制管理'],
+          keywords: ['内部控制'],
+          canonicalTheme: '内部控制管理',
+          status: 'ACTIVE',
+        },
+      ])
+      caseControlMapRepository.findOne.mockResolvedValue(null)
+      caseControlMapRepository.create.mockImplementation((entity) => entity)
+      caseControlMapRepository.save.mockImplementation(async (entity) => entity)
+      complianceCaseRepository.save.mockImplementation(async (entity) => entity)
+
+      const result = await service.clusterBatch('batch-fallback')
+
+      expect(result.chainMappedCaseCount).toBe(0)
+      expect(result.fallbackToOldChainCount).toBe(1)
+      expect(result.ruleMappedCaseCount).toBe(1)
+    })
+
+    it('should fallback to old chain when new chain returns shouldFallback=true', async () => {
+      complianceCaseRepository.find.mockResolvedValue([
+        {
+          caseId: 'case-empty-chain-001',
+          importBatchId: 'batch-empty',
+          status: 'extracted',
+          l2Code: 'IT99',
+          violationThemes: ['外包管理不到位'],
+        },
+      ])
+      controlPointRepository.find.mockResolvedValue([
+        {
+          controlId: 'control-1',
+          controlCode: 'CP-OUT-001',
+          controlName: '外包管理控制',
+          controlDesc: '外包与第三方管理',
+          controlFamily: 'OUTSOURCING_MGMT',
+          aliases: ['外包管理'],
+          keywords: ['外包'],
+          canonicalTheme: '外包与第三方管理',
+          status: 'ACTIVE',
+        },
+      ])
+      caseControlMapRepository.findOne.mockResolvedValue(null)
+      caseControlMapRepository.create.mockImplementation((entity) => entity)
+      caseControlMapRepository.save.mockImplementation(async (entity) => entity)
+      complianceCaseRepository.save.mockImplementation(async (entity) => entity)
+
+      caseClusteringChainService.mapCaseToControlPoints.mockResolvedValue({
+        autoMappedCount: 0,
+        shouldFallback: true,
+        source: 'FAILURE_MODE_CHAIN',
+        writtenMappings: [],
+      })
+
+      const result = await service.clusterBatch('batch-empty')
+
+      expect(result.chainMappedCaseCount).toBe(0)
+      expect(result.fallbackToOldChainCount).toBe(1)
+      expect(result.ruleMappedCaseCount).toBe(1)
+    })
+
+    it('should handle mixed cases: some new chain, some fallback', async () => {
+      complianceCaseRepository.find.mockResolvedValue([
+        {
+          caseId: 'case-chain-001',
+          importBatchId: 'batch-mixed',
+          status: 'extracted',
+          l2Code: 'IT04',
+          violationThemes: ['客户身份识别不到位'],
+        },
+        {
+          caseId: 'case-fallback-001',
+          importBatchId: 'batch-mixed',
+          status: 'extracted',
+          l2Code: null,
+          violationThemes: ['内部控制不完善'],
+        },
+        {
+          caseId: 'case-empty-chain-001',
+          importBatchId: 'batch-mixed',
+          status: 'extracted',
+          l2Code: 'IT99',
+          violationThemes: ['外包管理不到位'],
+        },
+      ])
+      controlPointRepository.find.mockResolvedValue([
+        {
+          controlId: 'control-1',
+          controlCode: 'CP-001',
+          controlName: '内部控制管理',
+          controlDesc: '内部控制制度管理',
+          controlFamily: 'GOV_ORG',
+          aliases: ['内部控制管理'],
+          keywords: ['内部控制'],
+          canonicalTheme: '内部控制管理',
+          status: 'ACTIVE',
+        },
+        {
+          controlId: 'control-2',
+          controlCode: 'CP-OUT-001',
+          controlName: '外包管理控制',
+          controlDesc: '外包与第三方管理',
+          controlFamily: 'OUTSOURCING_MGMT',
+          aliases: ['外包管理'],
+          keywords: ['外包'],
+          canonicalTheme: '外包与第三方管理',
+          status: 'ACTIVE',
+        },
+      ])
+      caseControlMapRepository.findOne.mockResolvedValue(null)
+      caseControlMapRepository.create.mockImplementation((entity) => entity)
+      caseControlMapRepository.save.mockImplementation(async (entity) => entity)
+      complianceCaseRepository.save.mockImplementation(async (entity) => entity)
+
+      // case-chain-001 gets new chain result
+      caseClusteringChainService.mapCaseToControlPoints
+        .mockResolvedValueOnce({
+          autoMappedCount: 2,
+          shouldFallback: false,
+          source: 'FAILURE_MODE_CHAIN',
+          writtenMappings: [
+            { caseId: 'case-chain-001', controlId: 'cp-001', relationType: 'VIOLATES', reviewStatus: 'PENDING', source: 'FAILURE_MODE_CHAIN' },
+            { caseId: 'case-chain-001', controlId: 'cp-003', relationType: 'VIOLATES', reviewStatus: 'PENDING', source: 'FAILURE_MODE_CHAIN' },
+          ],
+        })
+        // case-empty-chain-001 falls back (IT99 has no failure modes)
+        .mockResolvedValueOnce({
+          autoMappedCount: 0,
+          shouldFallback: true,
+          source: 'FAILURE_MODE_CHAIN',
+          writtenMappings: [],
+        })
+
+      const result = await service.clusterBatch('batch-mixed')
+
+      expect(result.processedCount).toBe(3)
+      expect(result.chainMappedCaseCount).toBe(1)
+      expect(result.chainMapCount).toBe(2)
+      expect(result.fallbackToOldChainCount).toBe(2)
+    })
+
+    it('should include new statistics fields in result', async () => {
+      complianceCaseRepository.find.mockResolvedValue([])
+      controlPointRepository.find.mockResolvedValue([])
+
+      const result = await service.clusterBatch('batch-empty')
+
+      expect(result).toHaveProperty('chainMappedCaseCount')
+      expect(result).toHaveProperty('chainMapCount')
+      expect(result).toHaveProperty('fallbackToOldChainCount')
+    })
+
+    it('should clear chain cache after batch completes', async () => {
+      complianceCaseRepository.find.mockResolvedValue([])
+      controlPointRepository.find.mockResolvedValue([])
+
+      await service.clusterBatch('batch-test')
+
+      expect(caseClusteringChainService.clearCache).toHaveBeenCalled()
+    })
   })
 })
