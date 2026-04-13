@@ -101,7 +101,7 @@ describe('KnowledgeGraph evidence controllers (http)', () => {
       evidenceId: '99999999-9999-4999-8999-999999999999',
       evidenceCode: 'EVD-001',
       evidenceName: '审批记录',
-      evidenceCategory: 'approval',
+      evidenceCategory: 'APPROVAL_RECORD',
       status: 'ACTIVE',
     })
 
@@ -110,7 +110,7 @@ describe('KnowledgeGraph evidence controllers (http)', () => {
       .send({
         evidenceCode: 'EVD-001',
         evidenceName: '审批记录',
-        evidenceCategory: 'approval',
+        evidenceCategory: 'APPROVAL_RECORD',
         status: 'ACTIVE',
       })
       .expect(201)
@@ -148,7 +148,7 @@ describe('KnowledgeGraph evidence controllers (http)', () => {
           evidenceId: 'evd-1',
           evidenceCode: 'EVD-001',
           evidenceName: '审批记录',
-          evidenceCategory: 'approval',
+          evidenceCategory: 'APPROVAL_RECORD',
           requiredLevel: 'REQUIRED',
           evidenceDesc: '关键审批留痕',
         },
@@ -169,7 +169,7 @@ describe('KnowledgeGraph evidence controllers (http)', () => {
             evidenceId: 'evd-1',
             evidenceCode: 'EVD-001',
             evidenceName: '审批记录',
-            evidenceCategory: 'approval',
+            evidenceCategory: 'APPROVAL_RECORD',
             requiredLevel: 'REQUIRED',
             evidenceDesc: '关键审批留痕',
           },

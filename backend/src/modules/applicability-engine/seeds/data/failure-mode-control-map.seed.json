@@ -1,0 +1,14 @@
+[
+  { "failureModeCode": "FM-REP-001", "controlCode": "CTRL-REP-001", "relevance": "PRIMARY" },
+  { "failureModeCode": "FM-REP-002", "controlCode": "CTRL-REP-002", "relevance": "PRIMARY" },
+  { "failureModeCode": "FM-REP-003", "controlCode": "CTRL-REP-003", "relevance": "PRIMARY" },
+  { "failureModeCode": "FM-REP-006", "controlCode": "CTRL-REP-004", "relevance": "PRIMARY" },
+  { "failureModeCode": "FM-DQ-001", "controlCode": "CTRL-DQ-001", "relevance": "PRIMARY" },
+  { "failureModeCode": "FM-DQ-002", "controlCode": "CTRL-DQ-002", "relevance": "PRIMARY" },
+  { "failureModeCode": "FM-DQ-003", "controlCode": "CTRL-DQ-003", "relevance": "PRIMARY" },
+  { "failureModeCode": "FM-TL-001", "controlCode": "CTRL-TL-001", "relevance": "PRIMARY" },
+  { "failureModeCode": "FM-REC-001", "controlCode": "CTRL-REC-001", "relevance": "PRIMARY" },
+  { "failureModeCode": "FM-REC-002", "controlCode": "CTRL-REC-001", "relevance": "SECONDARY" },
+  { "failureModeCode": "FM-FAL-001", "controlCode": "CTRL-FAL-001", "relevance": "PRIMARY" },
+  { "failureModeCode": "FM-FAL-002", "controlCode": "CTRL-FAL-001", "relevance": "SECONDARY" }
+]

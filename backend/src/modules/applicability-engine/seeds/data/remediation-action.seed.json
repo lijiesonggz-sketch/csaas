@@ -1,0 +1,12 @@
+[
+  { "controlCode": "CTRL-REP-001", "actionCode": "RA-CTRL-REP-001-01", "actionTitle": "建立报送口径变更审批台账", "actionDesc": "梳理监管报送口径和参数配置变更流程，补充审批节点、版本号和回溯记录。", "priorityDefault": "HIGH", "effortLevel": "medium", "expectedBenefit": "HIGH", "status": "ACTIVE" },
+  { "controlCode": "CTRL-REP-002", "actionCode": "RA-CTRL-REP-002-01", "actionTitle": "补齐字段映射关系与校验脚本", "actionDesc": "梳理源系统到监管报表的字段映射，建立定期校验脚本和变更复核机制。", "priorityDefault": "HIGH", "effortLevel": "medium", "expectedBenefit": "HIGH", "status": "ACTIVE" },
+  { "controlCode": "CTRL-REP-003", "actionCode": "RA-CTRL-REP-003-01", "actionTitle": "落地报送双人复核流程", "actionDesc": "明确初审/复核角色和签署记录，确保关键字段与异常波动在报送前复核。", "priorityDefault": "HIGH", "effortLevel": "low", "expectedBenefit": "HIGH", "status": "ACTIVE" },
+  { "controlCode": "CTRL-REP-004", "actionCode": "RA-CTRL-REP-004-01", "actionTitle": "建立报送时效预警与升级机制", "actionDesc": "按报送截止时间配置预警、升级和补救动作，避免迟报未报。", "priorityDefault": "HIGH", "effortLevel": "low", "expectedBenefit": "HIGH", "status": "ACTIVE" },
+  { "controlCode": "CTRL-DQ-001", "actionCode": "RA-CTRL-DQ-001-01", "actionTitle": "建设自动化数据质量校验规则", "actionDesc": "为关键监管字段建立完整性、合法性和异常波动校验规则。", "priorityDefault": "HIGH", "effortLevel": "medium", "expectedBenefit": "HIGH", "status": "ACTIVE" },
+  { "controlCode": "CTRL-DQ-002", "actionCode": "RA-CTRL-DQ-002-01", "actionTitle": "补强数据来源一致性核验", "actionDesc": "梳理源系统、加工层和报送层链路，补齐一致性校验与追溯记录。", "priorityDefault": "HIGH", "effortLevel": "medium", "expectedBenefit": "HIGH", "status": "ACTIVE" },
+  { "controlCode": "CTRL-DQ-003", "actionCode": "RA-CTRL-DQ-003-01", "actionTitle": "搭建账表自动勾稽与差异复核机制", "actionDesc": "建立总账、分账和监管报表间的自动勾稽与差异工单闭环。", "priorityDefault": "HIGH", "effortLevel": "medium", "expectedBenefit": "HIGH", "status": "ACTIVE" },
+  { "controlCode": "CTRL-TL-001", "actionCode": "RA-CTRL-TL-001-01", "actionTitle": "补齐信息录入时效监控", "actionDesc": "为关键监管数据录入和补录配置时效监控、提醒和逾期升级。", "priorityDefault": "HIGH", "effortLevel": "low", "expectedBenefit": "MEDIUM", "status": "ACTIVE" },
+  { "controlCode": "CTRL-REC-001", "actionCode": "RA-CTRL-REC-001-01", "actionTitle": "建立监管差错整改闭环台账", "actionDesc": "按问题、责任、时限和验证结果管理整改任务，防止屡查屡犯。", "priorityDefault": "HIGH", "effortLevel": "medium", "expectedBenefit": "HIGH", "status": "ACTIVE" },
+  { "controlCode": "CTRL-FAL-001", "actionCode": "RA-CTRL-FAL-001-01", "actionTitle": "补强报送真实性审核与抽查", "actionDesc": "建立人工调整审核、样本抽查和异常留痕机制，降低虚假报送风险。", "priorityDefault": "HIGH", "effortLevel": "medium", "expectedBenefit": "HIGH", "status": "ACTIVE" }
+]

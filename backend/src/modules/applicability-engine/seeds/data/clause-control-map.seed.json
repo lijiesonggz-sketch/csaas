@@ -1,0 +1,12 @@
+[
+  { "clauseCode": "CLAUSE-IT04-REP-001", "controlCode": "CTRL-REP-001", "mappingType": "direct", "reviewStatus": "APPROVED", "confidenceScore": "0.9200" },
+  { "clauseCode": "CLAUSE-IT04-REP-002", "controlCode": "CTRL-REP-002", "mappingType": "direct", "reviewStatus": "APPROVED", "confidenceScore": "0.9100" },
+  { "clauseCode": "CLAUSE-IT04-REP-003", "controlCode": "CTRL-REP-003", "mappingType": "direct", "reviewStatus": "APPROVED", "confidenceScore": "0.9300" },
+  { "clauseCode": "CLAUSE-IT04-REP-004", "controlCode": "CTRL-REP-004", "mappingType": "direct", "reviewStatus": "APPROVED", "confidenceScore": "0.9000" },
+  { "clauseCode": "CLAUSE-IT04-DQ-001", "controlCode": "CTRL-DQ-001", "mappingType": "direct", "reviewStatus": "APPROVED", "confidenceScore": "0.9400" },
+  { "clauseCode": "CLAUSE-IT04-DQ-002", "controlCode": "CTRL-DQ-002", "mappingType": "direct", "reviewStatus": "APPROVED", "confidenceScore": "0.9300" },
+  { "clauseCode": "CLAUSE-IT04-DQ-003", "controlCode": "CTRL-DQ-003", "mappingType": "direct", "reviewStatus": "APPROVED", "confidenceScore": "0.9500" },
+  { "clauseCode": "CLAUSE-IT04-REP-004", "controlCode": "CTRL-TL-001", "mappingType": "supporting", "reviewStatus": "APPROVED", "confidenceScore": "0.8800" },
+  { "clauseCode": "CLAUSE-IT04-REC-001", "controlCode": "CTRL-REC-001", "mappingType": "direct", "reviewStatus": "APPROVED", "confidenceScore": "0.9300" },
+  { "clauseCode": "CLAUSE-IT04-FAL-001", "controlCode": "CTRL-FAL-001", "mappingType": "direct", "reviewStatus": "APPROVED", "confidenceScore": "0.9400" }
+]

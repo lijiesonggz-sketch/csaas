@@ -36,6 +36,9 @@ import {
   ControlEvidenceMap,
   QuestionItem,
   RemediationAction,
+  FailureMode,
+  TaxonomyFailureModeMap,
+  FailureModeControlMap,
   WatchedTopic,
   WatchedPeer,
   // Epic 2: 技术雷达实体
@@ -111,6 +114,9 @@ export const AppDataSource = new DataSource({
     ControlEvidenceMap,
     QuestionItem,
     RemediationAction,
+    FailureMode,
+    TaxonomyFailureModeMap,
+    FailureModeControlMap,
     WatchedTopic,
     WatchedPeer,
     // Epic 2: 技术雷达实体

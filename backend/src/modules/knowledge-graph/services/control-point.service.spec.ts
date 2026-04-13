@@ -6,6 +6,7 @@ import { TaxonomyL1 } from '../../../database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../../../database/entities/taxonomy-l2.entity'
 import { FailureModeControlMap } from '../../../database/entities/failure-mode-control-map.entity'
 import { TaxonomyFailureModeMap } from '../../../database/entities/taxonomy-failure-mode-map.entity'
+import { ControlPackItem } from '../../../database/entities/control-pack-item.entity'
 import { ControlPointService } from './control-point.service'
 
 describe('ControlPointService', () => {
@@ -32,6 +33,10 @@ describe('ControlPointService', () => {
   }
 
   const taxonomyFailureModeMapRepository = {
+    createQueryBuilder: jest.fn(),
+  }
+
+  const controlPackItemRepository = {
     createQueryBuilder: jest.fn(),
   }
 
@@ -75,6 +80,10 @@ describe('ControlPointService', () => {
           provide: getRepositoryToken(TaxonomyFailureModeMap),
           useValue: taxonomyFailureModeMapRepository,
         },
+        {
+          provide: getRepositoryToken(ControlPackItem),
+          useValue: controlPackItemRepository,
+        },
       ],
     }).compile()
 
@@ -96,6 +105,7 @@ describe('ControlPointService', () => {
     controlPointRepository.createQueryBuilder.mockReturnValue(queryBuilder)
     failureModeControlMapRepository.createQueryBuilder.mockReturnValue(queryBuilder)
     taxonomyFailureModeMapRepository.createQueryBuilder.mockReturnValue(queryBuilder)
+    controlPackItemRepository.createQueryBuilder.mockReturnValue(queryBuilder)
   })
 
   it('should reject invalid l1Code/l2Code hierarchy relations', async () => {

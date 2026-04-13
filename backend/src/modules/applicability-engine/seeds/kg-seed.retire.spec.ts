@@ -150,7 +150,15 @@ function createMockQueryRunnerWithState() {
         return updated // return updated rows; .length = count
       }
 
-      return undefined
+      if (sql.includes('SELECT') && sql.includes('regulation_sources') && sql.includes('source_code')) {
+        return []
+      }
+
+      if (sql.includes('SELECT') && sql.includes('regulation_clauses') && sql.includes('clause_code')) {
+        return []
+      }
+
+      return []
     }),
 
     connect: jest.fn().mockResolvedValue(undefined),
@@ -207,7 +215,15 @@ function createEmptyMockQueryRunner() {
         return []
       }
 
-      return undefined
+      if (sql.includes('SELECT') && sql.includes('regulation_sources') && sql.includes('source_code')) {
+        return []
+      }
+
+      if (sql.includes('SELECT') && sql.includes('regulation_clauses') && sql.includes('clause_code')) {
+        return []
+      }
+
+      return []
     }),
 
     connect: jest.fn().mockResolvedValue(undefined),
@@ -473,7 +489,13 @@ describe('Story 2-2 — retireLegacyControlPoints()', () => {
         if (sql.includes('INSERT') && sql.includes('taxonomy_failure_mode_maps')) {
           return []
         }
-        return undefined
+        if (sql.includes('SELECT') && sql.includes('regulation_sources') && sql.includes('source_code')) {
+          return []
+        }
+        if (sql.includes('SELECT') && sql.includes('regulation_clauses') && sql.includes('clause_code')) {
+          return []
+        }
+        return []
       }),
       manager: {
         getRepository: jest.fn().mockReturnValue({

@@ -1579,5 +1579,185 @@
     "remediationPackCodes": [
       "PACK-BASE-CYBER"
     ]
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000001",
+    "controlCode": "CTRL-REP-001",
+    "controlName": "报送口径配置变更审批控制",
+    "controlFamily": "REG_REPORTING",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "maturityLevel": "hard",
+    "questionPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ]
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000002",
+    "controlCode": "CTRL-REP-002",
+    "controlName": "源系统与监管报表字段映射校验控制",
+    "controlFamily": "REG_REPORTING",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "maturityLevel": "hard",
+    "questionPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ]
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000003",
+    "controlCode": "CTRL-REP-003",
+    "controlName": "报送数据生成后双人复核控制",
+    "controlFamily": "REG_REPORTING",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "maturityLevel": "hard",
+    "questionPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ]
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000004",
+    "controlCode": "CTRL-REP-004",
+    "controlName": "报送时效预警与升级控制",
+    "controlFamily": "REG_REPORTING",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "maturityLevel": "hard",
+    "questionPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ]
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000005",
+    "controlCode": "CTRL-DQ-001",
+    "controlName": "数据质量自动化校验控制",
+    "controlFamily": "DATA_TRACEABILITY",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "maturityLevel": "hard",
+    "questionPackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-DATA"
+    ]
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000006",
+    "controlCode": "CTRL-DQ-002",
+    "controlName": "数据来源一致性校验控制",
+    "controlFamily": "DATA_TRACEABILITY",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "maturityLevel": "hard",
+    "questionPackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-DATA"
+    ]
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000007",
+    "controlCode": "CTRL-DQ-003",
+    "controlName": "总账/分账/报表自动勾稽校验控制",
+    "controlFamily": "DATA_TRACEABILITY",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "maturityLevel": "hard",
+    "questionPackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "evidencePackCodes": [
+      "PACK-BASE-DATA"
+    ],
+    "remediationPackCodes": [
+      "PACK-BASE-DATA"
+    ]
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000008",
+    "controlCode": "CTRL-TL-001",
+    "controlName": "信息录入时效监控控制",
+    "controlFamily": "REG_REPORTING",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "maturityLevel": "hard",
+    "questionPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ]
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000009",
+    "controlCode": "CTRL-REC-001",
+    "controlName": "历史报送差错整改跟踪控制",
+    "controlFamily": "RECTIFICATION_TRACKING",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "maturityLevel": "hard",
+    "questionPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ]
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000010",
+    "controlCode": "CTRL-FAL-001",
+    "controlName": "报送数据真实性审核控制",
+    "controlFamily": "REG_REPORTING",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "maturityLevel": "hard",
+    "questionPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "evidencePackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ],
+    "remediationPackCodes": [
+      "PACK-STRENGTH-HIGH-REGULATORY-ATTENTION"
+    ]
   }
 ]

@@ -9,7 +9,7 @@
   },
   {
     "packCode": "PACK-BASE-DATA",
-    "controlFamilies": ["DATA_CLASSIFICATION", "DATA_ACCESS", "DATA_EXPORT", "DATA_LIFECYCLE", "DATA_TRACEABILITY"]
+    "controlFamilies": ["DATA_CLASSIFICATION", "DATA_ACCESS", "DATA_EXPORT", "DATA_LIFECYCLE", "DATA_TRACEABILITY", "REG_REPORTING"]
   },
   {
     "packCode": "PACK-BASE-PIPL",

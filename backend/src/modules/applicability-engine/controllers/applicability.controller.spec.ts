@@ -49,20 +49,20 @@ const resolverPayload = {
   controls: [
     {
       controlId: '11111111-1111-1111-1111-111111111111',
-      controlCode: 'CTRL-ACC-002',
-      controlName: '特权账号控制',
-      controlFamily: 'ACC_PRIVILEGED',
+      controlCode: 'CTRL-REP-001',
+      controlName: '报送口径配置变更审批控制',
+      controlFamily: 'REG_REPORTING',
       mandatory: true,
       priority: 'HIGH',
-      matchedPacks: ['PACK-BASE-CYBER'],
+      matchedPacks: ['PACK-BASE-DATA'],
       matchedRules: [
-        'RULE-PACK-BASE-CYBER-INCLUDE-001',
+        'RULE-PACK-BASE-DATA-INCLUDE-001',
         'RULE-CTRL-ACC-PRIVILEGED-STRENGTHEN-001',
       ],
-      reasons: ['关键系统等级高或属于关基运营者，需强化特权账号控制'],
-      questionPackCodes: ['QPACK-ACC-BASE'],
-      evidencePackCodes: ['EPACK-ACC-BASE'],
-      remediationPackCodes: ['RPACK-ACC-BASE'],
+      reasons: ['关键系统等级高或属于关基运营者，需强化监管报送口径变更审批控制'],
+      questionPackCodes: ['PACK-STRENGTH-HIGH-REGULATORY-ATTENTION'],
+      evidencePackCodes: ['PACK-STRENGTH-HIGH-REGULATORY-ATTENTION'],
+      remediationPackCodes: ['PACK-STRENGTH-HIGH-REGULATORY-ATTENTION'],
     },
   ],
   summary: {
@@ -74,32 +74,23 @@ const resolverPayload = {
   },
   debugLog: [
     {
-      ruleCode: 'RULE-PACK-BASE-CYBER-INCLUDE-001',
+      ruleCode: 'RULE-PACK-BASE-DATA-INCLUDE-001',
       targetType: 'pack',
-      targetCode: 'PACK-BASE-CYBER',
+      targetCode: 'PACK-BASE-DATA',
       ruleType: 'include',
       matched: true,
       traceEntries: [
         {
           field: 'industry',
-          op: 'eq',
-          expectedValue: 'bank',
+          op: 'exists',
           actualValue: 'bank',
           matched: true,
           logicalPath: ['all'],
         },
-        {
-          field: 'legalPersonType',
-          op: 'eq',
-          expectedValue: 'legal_person',
-          actualValue: 'branch',
-          matched: false,
-          logicalPath: ['all'],
-        },
       ],
       appliedEffect: {
-        addedPackCodes: ['PACK-BASE-CYBER'],
-        addedControlCodes: ['CTRL-ACC-002'],
+        addedPackCodes: ['PACK-BASE-DATA'],
+        addedControlCodes: ['CTRL-REP-001'],
         strengthenedControlCodes: [],
         excludedControlCodes: [],
       },
@@ -107,7 +98,7 @@ const resolverPayload = {
     {
       ruleCode: 'RULE-CTRL-ACC-PRIVILEGED-STRENGTHEN-001',
       targetType: 'control',
-      targetCode: 'CTRL-ACC-002',
+      targetCode: 'CTRL-REP-001',
       ruleType: 'strengthen',
       matched: true,
       traceEntries: [
@@ -123,7 +114,7 @@ const resolverPayload = {
       appliedEffect: {
         addedPackCodes: [],
         addedControlCodes: [],
-        strengthenedControlCodes: ['CTRL-ACC-002'],
+        strengthenedControlCodes: ['CTRL-REP-001'],
         excludedControlCodes: [],
       },
     },
@@ -153,7 +144,7 @@ const resolverPayload = {
     {
       ruleCode: 'RULE-CTRL-DATA-CROSSBORDER-STRENGTHEN-001',
       targetType: 'control',
-      targetCode: 'CTRL-DATA-011',
+      targetCode: 'CTRL-DQ-002',
       ruleType: 'strengthen',
       matched: false,
       traceEntries: [

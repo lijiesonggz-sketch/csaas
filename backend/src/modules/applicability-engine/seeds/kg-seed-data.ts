@@ -11,13 +11,57 @@ import {
   CONTROL_PACK_TYPES,
 } from '../../../database/entities/control-pack.entity'
 import {
+  APPLICABLE_SECTORS,
+  ApplicableSector,
+  AuthorityProfile,
   CONTROL_POINT_RISK_LEVELS,
   CONTROL_POINT_STATUSES,
   CONTROL_POINT_TYPES,
+  CONTROL_POINT_MATURITY_LEVELS,
+  CONTROL_POINT_ORIGIN_TYPES,
+  ControlPointMaturityLevel,
+  ControlPointOriginType,
   ControlPointRiskLevel,
   ControlPointStatus,
   ControlPointType,
+  SectorRequirements,
 } from '../../../database/entities/control-point.entity'
+import {
+  CLAUSE_CONTROL_MAPPING_TYPES,
+  ClauseControlMappingType,
+  MAP_REVIEW_STATUSES,
+  MapReviewStatus,
+} from '../../../database/entities/clause-control-map.entity'
+import {
+  FAILURE_MODE_CONTROL_RELEVANCES,
+  FailureModeControlRelevance,
+} from '../../../database/entities/failure-mode-control-map.entity'
+import {
+  QUESTION_ITEM_STATUSES,
+  QUESTION_ITEM_TYPES,
+  QuestionItemStatus,
+  QuestionItemType,
+} from '../../../database/entities/question-item.entity'
+import {
+  REGULATION_CLAUSE_MANDATORY_LEVELS,
+  RegulationClauseMandatoryLevel,
+} from '../../../database/entities/regulation-clause.entity'
+import {
+  REGULATION_SOURCE_LEVELS,
+  REGULATION_SOURCE_STATUSES,
+  RegulationSourceLevel,
+  RegulationSourceStatus,
+} from '../../../database/entities/regulation-source.entity'
+import {
+  REMEDIATION_ACTION_BENEFIT_LEVELS,
+  REMEDIATION_ACTION_EFFORT_LEVELS,
+  REMEDIATION_ACTION_PRIORITIES,
+  REMEDIATION_ACTION_STATUSES,
+  RemediationActionBenefitLevel,
+  RemediationActionEffortLevel,
+  RemediationActionPriority,
+  RemediationActionStatus,
+} from '../../../database/entities/remediation-action.entity'
 import { TAXONOMY_STATUSES, TaxonomyStatus } from '../../../database/entities/taxonomy-l1.entity'
 import {
   NormalizedResolverRule,
@@ -108,6 +152,86 @@ export interface ControlPointSeedRecord {
   riskLevelDefault: ControlPointRiskLevel
   ownerRoleHint?: string[] | null
   status: ControlPointStatus
+  originType?: ControlPointOriginType
+  maturityLevel?: ControlPointMaturityLevel
+  objectiveSummary?: string | null
+  sourceBasis?: Record<string, unknown> | null
+  authorityProfileJson?: AuthorityProfile | null
+  supersededBy?: string | null
+  retiredReason?: string | null
+  applicableSector?: ApplicableSector[]
+  sectorRequirements?: SectorRequirements | null
+}
+
+export interface RegulationSourceSeedRecord {
+  sourceCode: string
+  sourceName: string
+  sourceLevel: RegulationSourceLevel
+  authorityName?: string | null
+  industryScope?: string[] | null
+  applicableOrgTypes?: string[] | null
+  effectiveFrom?: string | null
+  effectiveTo?: string | null
+  versionNo?: string | null
+  sourceStatus?: RegulationSourceStatus
+  rawTextPath?: string | null
+  metadataJson?: Record<string, unknown> | null
+}
+
+export interface RegulationClauseSeedRecord {
+  sourceCode: string
+  clauseCode: string
+  articleNo?: string | null
+  sectionPath?: string | null
+  clauseText: string
+  clauseSummary?: string | null
+  mandatoryLevel?: RegulationClauseMandatoryLevel | null
+  keywords?: string[] | null
+  versionNo?: string | null
+  effectiveFrom?: string | null
+  effectiveTo?: string | null
+}
+
+export interface FailureModeControlMapSeedRecord {
+  failureModeCode: string
+  controlCode: string
+  relevance: FailureModeControlRelevance
+  notes?: string | null
+}
+
+export interface ClauseControlMapSeedRecord {
+  clauseCode: string
+  controlCode: string
+  mappingType: ClauseControlMappingType
+  confidenceScore?: string | null
+  reviewStatus?: MapReviewStatus
+  notes?: string | null
+}
+
+export interface QuestionItemSeedRecord {
+  controlCode: string
+  questionCode: string
+  questionText: string
+  questionType: QuestionItemType
+  roleHint?: string[] | null
+  answerSchema?: Record<string, unknown> | null
+  scoringRule?: Record<string, unknown> | null
+  applicableTags?: string[] | null
+  required: boolean
+  status?: QuestionItemStatus
+}
+
+export interface RemediationActionSeedRecord {
+  controlCode: string
+  actionCode: string
+  actionTitle: string
+  actionDesc?: string | null
+  priorityDefault: RemediationActionPriority
+  effortLevel?: RemediationActionEffortLevel | null
+  expectedBenefit?: RemediationActionBenefitLevel | null
+  ownerRoleHint?: string[] | null
+  outputTemplate?: Record<string, unknown> | null
+  status?: RemediationActionStatus
 }
 
 export interface KgSeedData {
@@ -119,6 +243,12 @@ export interface KgSeedData {
   taxonomyL1: TaxonomyL1SeedRecord[]
   taxonomyL2: TaxonomyL2SeedRecord[]
   controlPoints: ControlPointSeedRecord[]
+  regulationSources: RegulationSourceSeedRecord[]
+  regulationClauses: RegulationClauseSeedRecord[]
+  failureModeControlMaps: FailureModeControlMapSeedRecord[]
+  clauseControlMaps: ClauseControlMapSeedRecord[]
+  questionItems: QuestionItemSeedRecord[]
+  remediationActions: RemediationActionSeedRecord[]
 }
 
 export interface ResolverRuntimeData {
@@ -277,6 +407,22 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
     seedData.controlPoints.map((control) => control.controlCode),
     'control point code',
   )
+  assertUnique(
+    seedData.regulationSources.map((source) => source.sourceCode),
+    'regulation source code',
+  )
+  assertUnique(
+    seedData.regulationClauses.map((clause) => clause.clauseCode),
+    'regulation clause code',
+  )
+  assertUnique(
+    seedData.questionItems.map((question) => question.questionCode),
+    'question item code',
+  )
+  assertUnique(
+    seedData.remediationActions.map((action) => action.actionCode),
+    'remediation action code',
+  )
 
   const packTypeSet = new Set(seedData.controlPacks.map((pack) => pack.packType))
   const maturityLevelSet = new Set(seedData.controlPacks.map((pack) => pack.maturityLevel))
@@ -284,6 +430,21 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
   const controlPointTypeSet = new Set(CONTROL_POINT_TYPES)
   const controlPointRiskSet = new Set(CONTROL_POINT_RISK_LEVELS)
   const controlPointStatusSet = new Set(CONTROL_POINT_STATUSES)
+  const controlPointOriginSet = new Set(CONTROL_POINT_ORIGIN_TYPES)
+  const controlPointMaturitySet = new Set(CONTROL_POINT_MATURITY_LEVELS)
+  const applicableSectorSet = new Set(APPLICABLE_SECTORS)
+  const regulationSourceLevelSet = new Set(REGULATION_SOURCE_LEVELS)
+  const regulationSourceStatusSet = new Set(REGULATION_SOURCE_STATUSES)
+  const regulationClauseMandatoryLevelSet = new Set(REGULATION_CLAUSE_MANDATORY_LEVELS)
+  const questionTypeSet = new Set(QUESTION_ITEM_TYPES)
+  const questionStatusSet = new Set(QUESTION_ITEM_STATUSES)
+  const remediationPrioritySet = new Set(REMEDIATION_ACTION_PRIORITIES)
+  const remediationEffortSet = new Set(REMEDIATION_ACTION_EFFORT_LEVELS)
+  const remediationBenefitSet = new Set(REMEDIATION_ACTION_BENEFIT_LEVELS)
+  const remediationStatusSet = new Set(REMEDIATION_ACTION_STATUSES)
+  const clauseControlMappingTypeSet = new Set(CLAUSE_CONTROL_MAPPING_TYPES)
+  const mapReviewStatusSet = new Set(MAP_REVIEW_STATUSES)
+  const failureModeControlRelevanceSet = new Set(FAILURE_MODE_CONTROL_RELEVANCES)
 
   for (const packType of CONTROL_PACK_TYPES) {
     if (!packTypeSet.has(packType)) {
@@ -389,6 +550,18 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
     throw new Error('Control point seed requires at least 2 AI family controls')
   }
 
+  const controlCodeSet = new Set(seedData.controlPoints.map((control) => control.controlCode))
+  const sourceCodeSet = new Set(seedData.regulationSources.map((source) => source.sourceCode))
+  const clauseCodeSet = new Set(seedData.regulationClauses.map((clause) => clause.clauseCode))
+  const mappedFamilySet = new Set(
+    seedData.packFamilyMappings.flatMap((mapping) => mapping.controlFamilies),
+  )
+  const knownFailureModeCodes = new Set(
+    readSeedFile<Array<{ failureModeCode: string }>>('failure-mode.seed.json').map(
+      (failureMode) => failureMode.failureModeCode,
+    ),
+  )
+
   for (const control of seedData.controlPoints) {
     if (
       !control.controlId ||
@@ -445,6 +618,161 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
     if (control.keywords && !Array.isArray(control.keywords)) {
       throw new Error(`Control point ${control.controlCode} keywords must be an array`)
     }
+
+    if (control.originType && !controlPointOriginSet.has(control.originType)) {
+      throw new Error(`Control point ${control.controlCode} has invalid originType ${control.originType}`)
+    }
+
+    if (control.maturityLevel && !controlPointMaturitySet.has(control.maturityLevel)) {
+      throw new Error(
+        `Control point ${control.controlCode} has invalid maturityLevel ${control.maturityLevel}`,
+      )
+    }
+
+    if (control.applicableSector) {
+      for (const sector of control.applicableSector) {
+        if (!applicableSectorSet.has(sector)) {
+          throw new Error(`Control point ${control.controlCode} has invalid applicableSector ${sector}`)
+        }
+      }
+    }
+
+    if (
+      control.maturityLevel === 'hard' &&
+      control.originType === 'case_derived' &&
+      !mappedFamilySet.has(control.controlFamily)
+    ) {
+      throw new Error(
+        `Hard control point ${control.controlCode} must map to at least one pack family`,
+      )
+    }
+  }
+
+  for (const source of seedData.regulationSources) {
+    if (!source.sourceCode || !source.sourceName) {
+      throw new Error(`Regulation source ${source.sourceCode || '<missing>'} has incomplete metadata`)
+    }
+
+    if (!regulationSourceLevelSet.has(source.sourceLevel)) {
+      throw new Error(`Regulation source ${source.sourceCode} has invalid sourceLevel ${source.sourceLevel}`)
+    }
+
+    const status = source.sourceStatus ?? 'ACTIVE'
+    if (!regulationSourceStatusSet.has(status)) {
+      throw new Error(`Regulation source ${source.sourceCode} has invalid sourceStatus ${status}`)
+    }
+  }
+
+  for (const clause of seedData.regulationClauses) {
+    if (!sourceCodeSet.has(clause.sourceCode)) {
+      throw new Error(`Regulation clause ${clause.clauseCode} references unknown source ${clause.sourceCode}`)
+    }
+
+    if (!clause.clauseCode || !clause.clauseText) {
+      throw new Error(`Regulation clause ${clause.clauseCode || '<missing>'} has incomplete metadata`)
+    }
+
+    if (
+      clause.mandatoryLevel &&
+      !regulationClauseMandatoryLevelSet.has(clause.mandatoryLevel)
+    ) {
+      throw new Error(
+        `Regulation clause ${clause.clauseCode} has invalid mandatoryLevel ${clause.mandatoryLevel}`,
+      )
+    }
+  }
+
+  for (const mapping of seedData.failureModeControlMaps) {
+    if (!knownFailureModeCodes.has(mapping.failureModeCode)) {
+      throw new Error(
+        `Failure mode control map references unknown failure mode ${mapping.failureModeCode}`,
+      )
+    }
+    if (!controlCodeSet.has(mapping.controlCode)) {
+      throw new Error(`Failure mode control map references unknown control ${mapping.controlCode}`)
+    }
+    if (!failureModeControlRelevanceSet.has(mapping.relevance)) {
+      throw new Error(
+        `Failure mode control map ${mapping.failureModeCode}/${mapping.controlCode} has invalid relevance ${mapping.relevance}`,
+      )
+    }
+  }
+
+  for (const mapping of seedData.clauseControlMaps) {
+    if (!clauseCodeSet.has(mapping.clauseCode)) {
+      throw new Error(`Clause control map references unknown clause ${mapping.clauseCode}`)
+    }
+    if (!controlCodeSet.has(mapping.controlCode)) {
+      throw new Error(`Clause control map references unknown control ${mapping.controlCode}`)
+    }
+    if (!clauseControlMappingTypeSet.has(mapping.mappingType)) {
+      throw new Error(
+        `Clause control map ${mapping.clauseCode}/${mapping.controlCode} has invalid mappingType ${mapping.mappingType}`,
+      )
+    }
+    if (
+      mapping.reviewStatus &&
+      !mapReviewStatusSet.has(mapping.reviewStatus)
+    ) {
+      throw new Error(
+        `Clause control map ${mapping.clauseCode}/${mapping.controlCode} has invalid reviewStatus ${mapping.reviewStatus}`,
+      )
+    }
+  }
+
+  for (const question of seedData.questionItems) {
+    if (!controlCodeSet.has(question.controlCode)) {
+      throw new Error(`Question item ${question.questionCode} references unknown control ${question.controlCode}`)
+    }
+    if (!questionTypeSet.has(question.questionType)) {
+      throw new Error(`Question item ${question.questionCode} has invalid questionType ${question.questionType}`)
+    }
+    const status = question.status ?? 'ACTIVE'
+    if (!questionStatusSet.has(status)) {
+      throw new Error(`Question item ${question.questionCode} has invalid status ${status}`)
+    }
+  }
+
+  for (const action of seedData.remediationActions) {
+    if (!controlCodeSet.has(action.controlCode)) {
+      throw new Error(`Remediation action ${action.actionCode} references unknown control ${action.controlCode}`)
+    }
+    if (!remediationPrioritySet.has(action.priorityDefault)) {
+      throw new Error(
+        `Remediation action ${action.actionCode} has invalid priorityDefault ${action.priorityDefault}`,
+      )
+    }
+    if (action.effortLevel && !remediationEffortSet.has(action.effortLevel)) {
+      throw new Error(
+        `Remediation action ${action.actionCode} has invalid effortLevel ${action.effortLevel}`,
+      )
+    }
+    if (
+      action.expectedBenefit &&
+      !remediationBenefitSet.has(action.expectedBenefit)
+    ) {
+      throw new Error(
+        `Remediation action ${action.actionCode} has invalid expectedBenefit ${action.expectedBenefit}`,
+      )
+    }
+    const status = action.status ?? 'ACTIVE'
+    if (!remediationStatusSet.has(status)) {
+      throw new Error(`Remediation action ${action.actionCode} has invalid status ${status}`)
+    }
+  }
+
+  const questionControlCodes = new Set(seedData.questionItems.map((question) => question.controlCode))
+  const remediationControlCodes = new Set(seedData.remediationActions.map((action) => action.controlCode))
+
+  for (const control of seedData.controlPoints) {
+    if (control.maturityLevel === 'hard' && control.originType === 'case_derived') {
+      if (!questionControlCodes.has(control.controlCode)) {
+        throw new Error(`Hard control point ${control.controlCode} is missing a question item`)
+      }
+      if (!remediationControlCodes.has(control.controlCode)) {
+        throw new Error(`Hard control point ${control.controlCode} is missing a remediation action`)
+      }
+    }
   }
 
   return seedData
@@ -467,6 +795,16 @@ export function loadKgSeedData(): KgSeedData {
     taxonomyL1: taxonomySeed.l1,
     taxonomyL2: taxonomySeed.l2,
     controlPoints: readSeedFile<ControlPointSeedRecord[]>('control-point.seed.json'),
+    regulationSources: readSeedFile<RegulationSourceSeedRecord[]>('regulation-source.seed.json'),
+    regulationClauses: readSeedFile<RegulationClauseSeedRecord[]>('regulation-clause.seed.json'),
+    failureModeControlMaps: readSeedFile<FailureModeControlMapSeedRecord[]>(
+      'failure-mode-control-map.seed.json',
+    ),
+    clauseControlMaps: readSeedFile<ClauseControlMapSeedRecord[]>('clause-control-map.seed.json'),
+    questionItems: readSeedFile<QuestionItemSeedRecord[]>('question-item.seed.json'),
+    remediationActions: readSeedFile<RemediationActionSeedRecord[]>(
+      'remediation-action.seed.json',
+    ),
   }
 
   return validateKgSeedData(seedData)

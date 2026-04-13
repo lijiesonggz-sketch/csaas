@@ -171,7 +171,13 @@ function createMockQueryRunnerForFm() {
         const code = codes as unknown as string
         return [{ failure_mode_id: `uuid-${code}`, failure_mode_code: code }]
       }
-      return undefined
+      if (sql.includes('SELECT') && sql.includes('regulation_sources') && sql.includes('source_code')) {
+        return []
+      }
+      if (sql.includes('SELECT') && sql.includes('regulation_clauses') && sql.includes('clause_code')) {
+        return []
+      }
+      return []
     }),
     connect: jest.fn().mockResolvedValue(undefined),
     startTransaction: jest.fn().mockResolvedValue(undefined),
@@ -350,7 +356,13 @@ describe('Story 2-3 — seedFailureModes()', () => {
         if (sql.includes('INSERT') && sql.includes('taxonomy_failure_mode_maps')) {
           return []
         }
-        return undefined
+        if (sql.includes('SELECT') && sql.includes('regulation_sources') && sql.includes('source_code')) {
+          return []
+        }
+        if (sql.includes('SELECT') && sql.includes('regulation_clauses') && sql.includes('clause_code')) {
+          return []
+        }
+        return []
       }),
       manager: {
         getRepository: jest.fn().mockReturnValue({

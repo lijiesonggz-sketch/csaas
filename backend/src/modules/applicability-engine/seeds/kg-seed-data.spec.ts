@@ -122,4 +122,119 @@ describe('loadKgSeedData', () => {
       'Resolver control assertions for demo-bank-mega-legal-person references unknown control CTRL-NOT-EXIST-001',
     )
   })
+
+  it('should load KG2.4 IT04 hard controls with governance metadata and supporting seed artifacts', () => {
+    const seedData = loadKgSeedData() as ReturnType<typeof loadKgSeedData> & {
+      regulationSources?: Array<{ sourceCode: string }>
+      regulationClauses?: Array<{ clauseCode: string }>
+      failureModeControlMaps?: Array<{ failureModeCode: string; controlCode: string }>
+      clauseControlMaps?: Array<{ clauseCode: string; controlCode: string }>
+      questionItems?: Array<{ controlCode: string; questionCode: string }>
+      remediationActions?: Array<{ controlCode: string; actionCode: string }>
+    }
+
+    expect(seedData.controlPoints).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          controlCode: 'CTRL-REP-001',
+          maturityLevel: 'hard',
+          originType: 'case_derived',
+        }),
+        expect.objectContaining({
+          controlCode: 'CTRL-DQ-001',
+          maturityLevel: 'hard',
+          originType: 'case_derived',
+        }),
+        expect.objectContaining({
+          controlCode: 'CTRL-REC-001',
+          maturityLevel: 'hard',
+          originType: 'case_derived',
+        }),
+        expect.objectContaining({
+          controlCode: 'CTRL-FAL-001',
+          maturityLevel: 'hard',
+          originType: 'case_derived',
+        }),
+      ]),
+    )
+
+    expect(seedData.regulationSources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ sourceCode: expect.any(String) }),
+      ]),
+    )
+    expect(seedData.regulationClauses).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ clauseCode: expect.any(String) }),
+      ]),
+    )
+    expect(seedData.failureModeControlMaps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          failureModeCode: 'FM-REP-001',
+          controlCode: 'CTRL-REP-001',
+        }),
+        expect.objectContaining({
+          failureModeCode: 'FM-DQ-001',
+          controlCode: 'CTRL-DQ-001',
+        }),
+        expect.objectContaining({
+          failureModeCode: 'FM-REC-001',
+          controlCode: 'CTRL-REC-001',
+        }),
+      ]),
+    )
+    expect(seedData.clauseControlMaps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          controlCode: 'CTRL-REP-001',
+          clauseCode: expect.any(String),
+        }),
+      ]),
+    )
+    expect(seedData.questionItems).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          controlCode: 'CTRL-REP-001',
+          questionCode: expect.stringMatching(/^Q-CTRL-REP-001/i),
+        }),
+      ]),
+    )
+    expect(seedData.remediationActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          controlCode: 'CTRL-REP-001',
+          actionCode: expect.stringMatching(/^RA-CTRL-REP-001/i),
+        }),
+      ]),
+    )
+  })
+
+  it('should expose KG2.4 hard controls in resolver runtime catalog without breaking existing fixture validation', () => {
+    const runtimeData = loadResolverRuntimeData() as ReturnType<typeof loadResolverRuntimeData>
+
+    expect(runtimeData.controlCatalog).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          controlCode: 'CTRL-REP-001',
+          controlFamily: 'REG_REPORTING',
+          maturityLevel: 'hard',
+        }),
+        expect.objectContaining({
+          controlCode: 'CTRL-DQ-001',
+          controlFamily: 'DATA_TRACEABILITY',
+          maturityLevel: 'hard',
+        }),
+      ]),
+    )
+
+    expect(runtimeData.controlRules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetType: 'control',
+          targetCode: expect.stringMatching(/^CTRL-(REP|DQ|TL|REC|FAL)-/),
+        }),
+      ]),
+    )
+  })
 })

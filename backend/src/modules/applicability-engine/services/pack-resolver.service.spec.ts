@@ -336,17 +336,17 @@ describe('PackResolverService', () => {
     expect(result.controls).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          controlCode: 'CTRL-ACC-002',
+          controlCode: 'CTRL-REP-001',
           mandatory: true,
           priority: 'HIGH',
         }),
         expect.objectContaining({
-          controlCode: 'CTRL-BCP-003',
+          controlCode: 'CTRL-REP-004',
           mandatory: true,
           priority: 'HIGH',
         }),
         expect.objectContaining({
-          controlCode: 'CTRL-DG-004',
+          controlCode: 'CTRL-DQ-003',
           mandatory: true,
           priority: 'HIGH',
         }),

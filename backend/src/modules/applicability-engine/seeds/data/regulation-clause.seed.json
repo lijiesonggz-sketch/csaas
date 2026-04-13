@@ -1,0 +1,83 @@
+[
+  {
+    "sourceCode": "SRC-IT04-REPORTING-001",
+    "clauseCode": "CLAUSE-IT04-REP-001",
+    "articleNo": "4.1",
+    "sectionPath": "监管报送/口径治理",
+    "clauseText": "监管报送口径、指标定义和参数配置的调整应经过审批、记录版本，并在生效前完成复核。",
+    "clauseSummary": "口径与参数变更必须审批、留痕和复核。",
+    "mandatoryLevel": "MUST"
+  },
+  {
+    "sourceCode": "SRC-IT04-REPORTING-001",
+    "clauseCode": "CLAUSE-IT04-REP-002",
+    "articleNo": "4.2",
+    "sectionPath": "监管报送/字段映射",
+    "clauseText": "源系统字段与监管报表字段的映射关系应建立台账并定期校验，变更后需重新验证。",
+    "clauseSummary": "字段映射关系需建账并定期校验。",
+    "mandatoryLevel": "MUST"
+  },
+  {
+    "sourceCode": "SRC-IT04-REPORTING-001",
+    "clauseCode": "CLAUSE-IT04-REP-003",
+    "articleNo": "4.3",
+    "sectionPath": "监管报送/复核",
+    "clauseText": "监管报表生成后应执行双人复核，对关键字段、异常波动和口径一致性进行确认后方可报送。",
+    "clauseSummary": "报送前必须执行双人复核。",
+    "mandatoryLevel": "MUST"
+  },
+  {
+    "sourceCode": "SRC-IT04-REPORTING-001",
+    "clauseCode": "CLAUSE-IT04-REP-004",
+    "articleNo": "4.4",
+    "sectionPath": "监管报送/时效",
+    "clauseText": "对监管报送截止时点、待办状态和逾期风险应建立预警、升级与处置机制。",
+    "clauseSummary": "报送时效需预警和升级。",
+    "mandatoryLevel": "MUST"
+  },
+  {
+    "sourceCode": "SRC-IT04-REPORTING-001",
+    "clauseCode": "CLAUSE-IT04-DQ-001",
+    "articleNo": "5.1",
+    "sectionPath": "监管报送/数据质量",
+    "clauseText": "监管报送前应执行自动化数据质量校验，发现缺失值、格式错误和异常波动时不得直接报送。",
+    "clauseSummary": "报送前必须执行自动化质量校验。",
+    "mandatoryLevel": "MUST"
+  },
+  {
+    "sourceCode": "SRC-IT04-REPORTING-001",
+    "clauseCode": "CLAUSE-IT04-DQ-002",
+    "articleNo": "5.2",
+    "sectionPath": "监管报送/来源一致性",
+    "clauseText": "监管报送数据应与源系统、加工层和报送层保持一致，并保留来源链路和核验记录。",
+    "clauseSummary": "报送数据需保持多层来源一致。",
+    "mandatoryLevel": "MUST"
+  },
+  {
+    "sourceCode": "SRC-IT04-REPORTING-001",
+    "clauseCode": "CLAUSE-IT04-DQ-003",
+    "articleNo": "5.3",
+    "sectionPath": "监管报送/勾稽核对",
+    "clauseText": "总账、分账、业务报表与监管报表之间应建立自动勾稽和差异复核机制。",
+    "clauseSummary": "账表之间应自动勾稽并复核差异。",
+    "mandatoryLevel": "MUST"
+  },
+  {
+    "sourceCode": "SRC-IT04-REPORTING-001",
+    "clauseCode": "CLAUSE-IT04-REC-001",
+    "articleNo": "6.1",
+    "sectionPath": "监管报送/整改闭环",
+    "clauseText": "对已发现的监管报送差错和整改事项应明确责任、时限、验证方式并跟踪关闭。",
+    "clauseSummary": "监管报送整改事项必须形成闭环。",
+    "mandatoryLevel": "MUST"
+  },
+  {
+    "sourceCode": "SRC-IT04-REPORTING-001",
+    "clauseCode": "CLAUSE-IT04-FAL-001",
+    "articleNo": "6.2",
+    "sectionPath": "监管报送/真实性",
+    "clauseText": "监管报送报表、文件和资料应真实、准确、完整，人工调整行为必须留痕并接受审核。",
+    "clauseSummary": "报送资料必须真实完整，人工调整需留痕审核。",
+    "mandatoryLevel": "MUST"
+  }
+]

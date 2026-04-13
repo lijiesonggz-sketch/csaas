@@ -17,6 +17,7 @@ import { TaxonomyL1 } from '../../../database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../../../database/entities/taxonomy-l2.entity'
 import { FailureModeControlMap } from '../../../database/entities/failure-mode-control-map.entity'
 import { TaxonomyFailureModeMap } from '../../../database/entities/taxonomy-failure-mode-map.entity'
+import { ControlPackItem } from '../../../database/entities/control-pack-item.entity'
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { RolesGuard } from '../../auth/guards/roles.guard'
 import { TenantGuard } from '../../organizations/guards/tenant.guard'
@@ -86,6 +87,10 @@ describe('ControlPointController — Story KG1.5 ATDD (RED PHASE)', () => {
         },
         {
           provide: getRepositoryToken(TaxonomyFailureModeMap),
+          useValue: { createQueryBuilder: jest.fn().mockReturnValue(queryBuilderMock) },
+        },
+        {
+          provide: getRepositoryToken(ControlPackItem),
           useValue: { createQueryBuilder: jest.fn().mockReturnValue(queryBuilderMock) },
         },
         {

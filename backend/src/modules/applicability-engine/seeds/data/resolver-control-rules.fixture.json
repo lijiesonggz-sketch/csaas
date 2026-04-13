@@ -2,7 +2,7 @@
   {
     "ruleCode": "RULE-CTRL-ACC-PRIVILEGED-STRENGTHEN-001",
     "targetType": "control",
-    "targetCode": "CTRL-ACC-002",
+    "targetCode": "CTRL-REP-001",
     "ruleType": "strengthen",
     "priority": 40,
     "predicate": {
@@ -14,13 +14,13 @@
     "result": {
       "priority": "HIGH",
       "mandatory": true,
-      "reasonTemplate": "关键系统等级高或属于关基运营者，需强化特权账号控制"
+      "reasonTemplate": "关键系统等级高或属于关基运营者，需强化监管报送口径变更审批控制"
     }
   },
   {
     "ruleCode": "RULE-CTRL-BCP-RTO-STRENGTHEN-001",
     "targetType": "control",
-    "targetCode": "CTRL-BCP-003",
+    "targetCode": "CTRL-REP-004",
     "ruleType": "strengthen",
     "priority": 40,
     "predicate": {
@@ -33,13 +33,13 @@
     "result": {
       "priority": "HIGH",
       "mandatory": true,
-      "reasonTemplate": "银行业、线上交易或超高关键系统需强化 RTO/RPO 控制"
+      "reasonTemplate": "银行业、线上交易或超高关键系统需强化监管报送时效预警控制"
     }
   },
   {
     "ruleCode": "RULE-CTRL-DG-REPORTING-STRENGTHEN-001",
     "targetType": "control",
-    "targetCode": "CTRL-DG-004",
+    "targetCode": "CTRL-DQ-003",
     "ruleType": "strengthen",
     "priority": 40,
     "predicate": {
@@ -51,13 +51,13 @@
     "result": {
       "priority": "HIGH",
       "mandatory": true,
-      "reasonTemplate": "银行机构或高监管关注机构需强化监管报送控制"
+      "reasonTemplate": "银行机构或高监管关注机构需强化账表自动勾稽校验控制"
     }
   },
   {
     "ruleCode": "RULE-CTRL-DATA-CROSSBORDER-STRENGTHEN-001",
     "targetType": "control",
-    "targetCode": "CTRL-DATA-011",
+    "targetCode": "CTRL-DQ-002",
     "ruleType": "strengthen",
     "priority": 40,
     "predicate": {
@@ -68,7 +68,7 @@
     "result": {
       "priority": "HIGH",
       "mandatory": true,
-      "reasonTemplate": "存在跨境数据场景时需强化数据出境控制"
+      "reasonTemplate": "存在跨境数据场景时需强化监管数据来源一致性控制"
     }
   },
   {

@@ -131,7 +131,7 @@ development_status:
         2-4:
           key: "STORY-KG2-2.4"
           name: "新 hard control points 与配套数据"
-          status: "backlog"
+          status: "done"
           priority: "P0"
           description: "IT04 首批 10 个 hard 控制点 + pack 关联 + clause 映射 + question/remediation"
           depends_on: ["2-2", "2-3"]

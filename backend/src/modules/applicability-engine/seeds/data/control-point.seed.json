@@ -88,5 +88,386 @@
     "riskLevelDefault": "MEDIUM",
     "ownerRoleHint": ["业务负责人", "模型治理负责人"],
     "status": "ACTIVE"
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000001",
+    "controlCode": "CTRL-REP-001",
+    "controlName": "报送口径配置变更审批控制",
+    "controlDesc": "对监管报送口径、参数和配置变更执行审批、留痕和生效前复核控制。",
+    "canonicalTheme": "EAST数据错报/漏报/报送不实",
+    "l1Code": "IT04",
+    "l2Code": "IT04-03",
+    "controlFamily": "REG_REPORTING",
+    "controlType": "preventive",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "riskLevelDefault": "HIGH",
+    "ownerRoleHint": ["数据治理负责人", "报送负责人"],
+    "status": "ACTIVE",
+    "originType": "case_derived",
+    "maturityLevel": "hard",
+    "objectiveSummary": "确保监管报送口径、取值规则和配置变更经过审批与版本管理，防止错报漏报。",
+    "sourceBasis": {
+      "sourceCodes": ["SRC-IT04-REPORTING-001"],
+      "clauseCodes": ["CLAUSE-IT04-REP-001"],
+      "failureModeCodes": ["FM-REP-001"]
+    },
+    "authorityProfileJson": {
+      "has_source_basis": true,
+      "has_applicability_scope": true,
+      "has_control_activity": true,
+      "has_expected_evidence": true,
+      "has_human_review": true,
+      "has_case_validation": true
+    },
+    "applicableSector": ["通用"],
+    "sectorRequirements": {
+      "银行": {
+        "review_frequency": "每日",
+        "approval_level": "分管负责人"
+      }
+    }
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000002",
+    "controlCode": "CTRL-REP-002",
+    "controlName": "源系统与监管报表字段映射校验控制",
+    "controlDesc": "对源系统字段与监管报表字段的映射关系执行维护、校验与发布前检查。",
+    "canonicalTheme": "EAST数据质量不符合规范要求",
+    "l1Code": "IT04",
+    "l2Code": "IT04-04",
+    "controlFamily": "REG_REPORTING",
+    "controlType": "detective",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "riskLevelDefault": "HIGH",
+    "ownerRoleHint": ["数据治理负责人", "系统负责人"],
+    "status": "ACTIVE",
+    "originType": "case_derived",
+    "maturityLevel": "hard",
+    "objectiveSummary": "确保监管报表映射关系和字段取数逻辑始终与源系统保持一致。",
+    "sourceBasis": {
+      "sourceCodes": ["SRC-IT04-REPORTING-001"],
+      "clauseCodes": ["CLAUSE-IT04-REP-002"],
+      "failureModeCodes": ["FM-REP-002"]
+    },
+    "authorityProfileJson": {
+      "has_source_basis": true,
+      "has_applicability_scope": true,
+      "has_control_activity": true,
+      "has_expected_evidence": true,
+      "has_human_review": true,
+      "has_case_validation": true
+    },
+    "applicableSector": ["通用"],
+    "sectorRequirements": {
+      "银行": {
+        "review_frequency": "每日"
+      }
+    }
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000003",
+    "controlCode": "CTRL-REP-003",
+    "controlName": "报送数据生成后双人复核控制",
+    "controlDesc": "监管报表生成后执行双人复核，确认口径、关键字段和异常波动后再对外报送。",
+    "canonicalTheme": "监管报表/监管系统报送数据不准确",
+    "l1Code": "IT04",
+    "l2Code": "IT04-05",
+    "controlFamily": "REG_REPORTING",
+    "controlType": "detective",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "riskLevelDefault": "HIGH",
+    "ownerRoleHint": ["报送负责人", "合规负责人"],
+    "status": "ACTIVE",
+    "originType": "case_derived",
+    "maturityLevel": "hard",
+    "objectiveSummary": "在对外报送前通过双人复核与异常确认减少错报漏报。",
+    "sourceBasis": {
+      "sourceCodes": ["SRC-IT04-REPORTING-001"],
+      "clauseCodes": ["CLAUSE-IT04-REP-003"],
+      "failureModeCodes": ["FM-REP-003"]
+    },
+    "authorityProfileJson": {
+      "has_source_basis": true,
+      "has_applicability_scope": true,
+      "has_control_activity": true,
+      "has_expected_evidence": true,
+      "has_human_review": true,
+      "has_case_validation": true
+    },
+    "applicableSector": ["通用"],
+    "sectorRequirements": {
+      "银行": {
+        "review_frequency": "每次报送"
+      }
+    }
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000004",
+    "controlCode": "CTRL-REP-004",
+    "controlName": "报送时效预警与升级控制",
+    "controlDesc": "对监管报送截止时点、待办状态和逾期风险执行预警、升级与处置闭环。",
+    "canonicalTheme": "信息科技非现场监管报表未报/迟报",
+    "l1Code": "IT04",
+    "l2Code": "IT04-07",
+    "controlFamily": "REG_REPORTING",
+    "controlType": "detective",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "riskLevelDefault": "HIGH",
+    "ownerRoleHint": ["报送负责人", "运维负责人"],
+    "status": "ACTIVE",
+    "originType": "case_derived",
+    "maturityLevel": "hard",
+    "objectiveSummary": "在报送时点前识别延迟风险并触发升级，避免迟报未报。",
+    "sourceBasis": {
+      "sourceCodes": ["SRC-IT04-REPORTING-001"],
+      "clauseCodes": ["CLAUSE-IT04-REP-004"],
+      "failureModeCodes": ["FM-REP-006"]
+    },
+    "authorityProfileJson": {
+      "has_source_basis": true,
+      "has_applicability_scope": true,
+      "has_control_activity": true,
+      "has_expected_evidence": true,
+      "has_human_review": true,
+      "has_case_validation": true
+    },
+    "applicableSector": ["通用"],
+    "sectorRequirements": {
+      "银行": {
+        "review_frequency": "每日"
+      }
+    }
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000005",
+    "controlCode": "CTRL-DQ-001",
+    "controlName": "数据质量自动化校验控制",
+    "controlDesc": "通过自动化规则校验监管报送数据的完整性、准确性和格式合法性。",
+    "canonicalTheme": "EAST数据质量不符合规范要求",
+    "l1Code": "IT04",
+    "l2Code": "IT04-04",
+    "controlFamily": "DATA_TRACEABILITY",
+    "controlType": "detective",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "riskLevelDefault": "HIGH",
+    "ownerRoleHint": ["数据治理负责人", "数据质量负责人"],
+    "status": "ACTIVE",
+    "originType": "case_derived",
+    "maturityLevel": "hard",
+    "objectiveSummary": "通过自动化校验在报送前发现字段缺失、异常值和格式错误。",
+    "sourceBasis": {
+      "sourceCodes": ["SRC-IT04-REPORTING-001"],
+      "clauseCodes": ["CLAUSE-IT04-DQ-001"],
+      "failureModeCodes": ["FM-DQ-001"]
+    },
+    "authorityProfileJson": {
+      "has_source_basis": true,
+      "has_applicability_scope": true,
+      "has_control_activity": true,
+      "has_expected_evidence": true,
+      "has_human_review": true,
+      "has_case_validation": true
+    },
+    "applicableSector": ["通用"],
+    "sectorRequirements": {
+      "银行": {
+        "review_frequency": "每日"
+      }
+    }
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000006",
+    "controlCode": "CTRL-DQ-002",
+    "controlName": "数据来源一致性校验控制",
+    "controlDesc": "校验报送数据、源业务数据和中间加工数据之间的一致性与传递完整性。",
+    "canonicalTheme": "账表核对不一致/基础数据不一致",
+    "l1Code": "IT04",
+    "l2Code": "IT04-06",
+    "controlFamily": "DATA_TRACEABILITY",
+    "controlType": "detective",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "riskLevelDefault": "HIGH",
+    "ownerRoleHint": ["数据治理负责人", "系统负责人"],
+    "status": "ACTIVE",
+    "originType": "case_derived",
+    "maturityLevel": "hard",
+    "objectiveSummary": "确保源系统、加工层和报送层之间的数据来源链路一致可追溯。",
+    "sourceBasis": {
+      "sourceCodes": ["SRC-IT04-REPORTING-001"],
+      "clauseCodes": ["CLAUSE-IT04-DQ-002"],
+      "failureModeCodes": ["FM-DQ-002"]
+    },
+    "authorityProfileJson": {
+      "has_source_basis": true,
+      "has_applicability_scope": true,
+      "has_control_activity": true,
+      "has_expected_evidence": true,
+      "has_human_review": true,
+      "has_case_validation": true
+    },
+    "applicableSector": ["通用"],
+    "sectorRequirements": {
+      "银行": {
+        "review_frequency": "每日"
+      }
+    }
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000007",
+    "controlCode": "CTRL-DQ-003",
+    "controlName": "总账/分账/报表自动勾稽校验控制",
+    "controlDesc": "对总账、分账、监管报表和关键业务报表执行自动勾稽、差异识别与复核。",
+    "canonicalTheme": "账表核对不一致/基础数据不一致",
+    "l1Code": "IT04",
+    "l2Code": "IT04-06",
+    "controlFamily": "DATA_TRACEABILITY",
+    "controlType": "detective",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "riskLevelDefault": "HIGH",
+    "ownerRoleHint": ["财务负责人", "数据治理负责人"],
+    "status": "ACTIVE",
+    "originType": "case_derived",
+    "maturityLevel": "hard",
+    "objectiveSummary": "通过自动勾稽发现账表不一致和监管报表差异，形成复核闭环。",
+    "sourceBasis": {
+      "sourceCodes": ["SRC-IT04-REPORTING-001"],
+      "clauseCodes": ["CLAUSE-IT04-DQ-003"],
+      "failureModeCodes": ["FM-DQ-003"]
+    },
+    "authorityProfileJson": {
+      "has_source_basis": true,
+      "has_applicability_scope": true,
+      "has_control_activity": true,
+      "has_expected_evidence": true,
+      "has_human_review": true,
+      "has_case_validation": true
+    },
+    "applicableSector": ["通用"],
+    "sectorRequirements": {
+      "银行": {
+        "review_frequency": "每日"
+      }
+    }
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000008",
+    "controlCode": "CTRL-TL-001",
+    "controlName": "信息录入时效监控控制",
+    "controlDesc": "对监管报送前置数据采集、录入和补录时效执行监控与提醒。",
+    "canonicalTheme": "信息科技非现场监管报表未报/迟报",
+    "l1Code": "IT04",
+    "l2Code": "IT04-07",
+    "controlFamily": "REG_REPORTING",
+    "controlType": "detective",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "riskLevelDefault": "HIGH",
+    "ownerRoleHint": ["报送负责人", "业务负责人"],
+    "status": "ACTIVE",
+    "originType": "case_derived",
+    "maturityLevel": "hard",
+    "objectiveSummary": "确保关键报送字段录入及时，避免信息滞后导致迟报。",
+    "sourceBasis": {
+      "sourceCodes": ["SRC-IT04-REPORTING-001"],
+      "clauseCodes": ["CLAUSE-IT04-TL-001"],
+      "failureModeCodes": ["FM-TL-001"]
+    },
+    "authorityProfileJson": {
+      "has_source_basis": true,
+      "has_applicability_scope": true,
+      "has_control_activity": true,
+      "has_expected_evidence": true,
+      "has_human_review": true,
+      "has_case_validation": true
+    },
+    "applicableSector": ["通用"],
+    "sectorRequirements": {
+      "银行": {
+        "review_frequency": "每日"
+      }
+    }
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000009",
+    "controlCode": "CTRL-REC-001",
+    "controlName": "历史报送差错整改跟踪控制",
+    "controlDesc": "对历史监管报送差错、整改要求和复发问题执行闭环跟踪、复核和复盘。",
+    "canonicalTheme": "历史数据问题整改不到位",
+    "l1Code": "IT04",
+    "l2Code": "IT04-08",
+    "controlFamily": "RECTIFICATION_TRACKING",
+    "controlType": "corrective",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "riskLevelDefault": "HIGH",
+    "ownerRoleHint": ["合规负责人", "整改负责人"],
+    "status": "ACTIVE",
+    "originType": "case_derived",
+    "maturityLevel": "hard",
+    "objectiveSummary": "确保历史监管报送差错整改计划、责任和验证结果形成闭环，不再屡查屡犯。",
+    "sourceBasis": {
+      "sourceCodes": ["SRC-IT04-REPORTING-001"],
+      "clauseCodes": ["CLAUSE-IT04-REC-001"],
+      "failureModeCodes": ["FM-REC-001", "FM-REC-002"]
+    },
+    "authorityProfileJson": {
+      "has_source_basis": true,
+      "has_applicability_scope": true,
+      "has_control_activity": true,
+      "has_expected_evidence": true,
+      "has_human_review": true,
+      "has_case_validation": true
+    },
+    "applicableSector": ["通用"],
+    "sectorRequirements": {
+      "银行": {
+        "review_frequency": "每月"
+      }
+    }
+  },
+  {
+    "controlId": "77777777-7777-4777-8777-000000000010",
+    "controlCode": "CTRL-FAL-001",
+    "controlName": "报送数据真实性审核控制",
+    "controlDesc": "对监管报送、报表和文件资料的真实性、完整性和人工调整行为执行审核控制。",
+    "canonicalTheme": "监管报告/报表/文件/资料虚假或失真",
+    "l1Code": "IT04",
+    "l2Code": "IT04-11",
+    "controlFamily": "REG_REPORTING",
+    "controlType": "detective",
+    "mandatoryDefault": true,
+    "priorityDefault": "HIGH",
+    "riskLevelDefault": "HIGH",
+    "ownerRoleHint": ["合规负责人", "审计负责人"],
+    "status": "ACTIVE",
+    "originType": "case_derived",
+    "maturityLevel": "hard",
+    "objectiveSummary": "通过真实性审核和人工调整抽查，防止监管报送数据造假或失真。",
+    "sourceBasis": {
+      "sourceCodes": ["SRC-IT04-REPORTING-001"],
+      "clauseCodes": ["CLAUSE-IT04-FAL-001"],
+      "failureModeCodes": ["FM-FAL-001", "FM-FAL-002"]
+    },
+    "authorityProfileJson": {
+      "has_source_basis": true,
+      "has_applicability_scope": true,
+      "has_control_activity": true,
+      "has_expected_evidence": true,
+      "has_human_review": true,
+      "has_case_validation": true
+    },
+    "applicableSector": ["通用"],
+    "sectorRequirements": {
+      "银行": {
+        "review_frequency": "每次报送"
+      }
+    }
   }
 ]

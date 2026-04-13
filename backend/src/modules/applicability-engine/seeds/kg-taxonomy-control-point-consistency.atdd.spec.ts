@@ -106,6 +106,13 @@ function createStatefulQueryRunner() {
       },
     ),
   }
+  const genericRepository = {
+    upsert: jest.fn().mockResolvedValue(undefined),
+    create: jest.fn().mockImplementation((row) => row),
+    save: jest.fn().mockResolvedValue(undefined),
+    find: jest.fn().mockResolvedValue([]),
+    findOne: jest.fn().mockResolvedValue(null),
+  }
 
   const manager = {
     getRepository: jest.fn((entity: { name?: string }) => {
@@ -120,6 +127,13 @@ function createStatefulQueryRunner() {
           return ruleRepository
         case 'ControlPoint':
           return controlPointRepository
+        case 'FailureMode':
+        case 'TaxonomyFailureModeMap':
+        case 'RegulationSource':
+        case 'RegulationClause':
+        case 'QuestionItem':
+        case 'RemediationAction':
+          return genericRepository
         default:
           throw new Error(`Unexpected repository request for ${entity.name}`)
       }
@@ -129,6 +143,7 @@ function createStatefulQueryRunner() {
   return {
     queryRunner: {
       hasTable: jest.fn().mockResolvedValue(true),
+      query: jest.fn().mockResolvedValue([]),
       manager,
     },
     seedData,

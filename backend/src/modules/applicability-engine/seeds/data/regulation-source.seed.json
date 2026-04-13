@@ -1,0 +1,17 @@
+[
+  {
+    "sourceCode": "SRC-IT04-REPORTING-001",
+    "sourceName": "IT04 监管报送控制基线",
+    "sourceLevel": "guideline",
+    "authorityName": "CSAAS KG Seed",
+    "industryScope": ["通用"],
+    "applicableOrgTypes": ["bank", "securities", "insurance", "fund", "futures"],
+    "effectiveFrom": "2026-04-13",
+    "versionNo": "v1",
+    "sourceStatus": "ACTIVE",
+    "metadataJson": {
+      "story": "kg2-4",
+      "domain": "IT04"
+    }
+  }
+]

@@ -1,0 +1,12 @@
+[
+  { "controlCode": "CTRL-REP-001", "questionCode": "Q-CTRL-REP-001-01", "questionText": "是否对监管报送口径和参数配置变更执行审批与版本留痕？", "questionType": "YES_NO", "required": true, "status": "ACTIVE" },
+  { "controlCode": "CTRL-REP-002", "questionCode": "Q-CTRL-REP-002-01", "questionText": "是否建立源系统字段与监管报表字段映射关系台账并定期校验？", "questionType": "YES_NO", "required": true, "status": "ACTIVE" },
+  { "controlCode": "CTRL-REP-003", "questionCode": "Q-CTRL-REP-003-01", "questionText": "监管报表生成后是否执行双人复核并记录复核结果？", "questionType": "YES_NO", "required": true, "status": "ACTIVE" },
+  { "controlCode": "CTRL-REP-004", "questionCode": "Q-CTRL-REP-004-01", "questionText": "是否对监管报送截止时点、待办状态和逾期风险建立预警升级机制？", "questionType": "YES_NO", "required": true, "status": "ACTIVE" },
+  { "controlCode": "CTRL-DQ-001", "questionCode": "Q-CTRL-DQ-001-01", "questionText": "报送前是否执行自动化数据质量校验并阻断异常报送？", "questionType": "YES_NO", "required": true, "status": "ACTIVE" },
+  { "controlCode": "CTRL-DQ-002", "questionCode": "Q-CTRL-DQ-002-01", "questionText": "是否校验源系统、加工层和报送层之间的数据来源一致性？", "questionType": "YES_NO", "required": true, "status": "ACTIVE" },
+  { "controlCode": "CTRL-DQ-003", "questionCode": "Q-CTRL-DQ-003-01", "questionText": "是否对总账、分账与监管报表执行自动勾稽和差异复核？", "questionType": "YES_NO", "required": true, "status": "ACTIVE" },
+  { "controlCode": "CTRL-TL-001", "questionCode": "Q-CTRL-TL-001-01", "questionText": "是否监控关键报送字段录入和补录时效，并及时提醒？", "questionType": "YES_NO", "required": true, "status": "ACTIVE" },
+  { "controlCode": "CTRL-REC-001", "questionCode": "Q-CTRL-REC-001-01", "questionText": "是否对历史监管报送差错整改建立责任、时限和关闭验证机制？", "questionType": "YES_NO", "required": true, "status": "ACTIVE" },
+  { "controlCode": "CTRL-FAL-001", "questionCode": "Q-CTRL-FAL-001-01", "questionText": "是否对监管报送数据人工调整和真实性执行审核留痕？", "questionType": "YES_NO", "required": true, "status": "ACTIVE" }
+]

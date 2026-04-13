@@ -71,6 +71,15 @@ describe('seedKgBaselineWithQueryRunner', () => {
           return createGenericMockRepository()
         }
 
+        if (
+          entity.name === 'RegulationSource' ||
+          entity.name === 'RegulationClause' ||
+          entity.name === 'QuestionItem' ||
+          entity.name === 'RemediationAction'
+        ) {
+          return createGenericMockRepository()
+        }
+
         throw new Error('Unexpected repository request')
       }),
     }
@@ -140,6 +149,65 @@ describe('seedKgBaselineWithQueryRunner', () => {
 
     await expect(seedKgBaselineWithQueryRunner(queryRunner as never, seedData)).rejects.toThrow(
       'KG seed runner requires table control_packs',
+    )
+  })
+
+  it('should include KG2.4 hard-control artifact statistics in summary after baseline seeding', async () => {
+    const packRepository = {
+      upsert: jest.fn().mockResolvedValue(undefined),
+      find: jest.fn().mockResolvedValue(
+        seedData.controlPacks.map((pack, index) => ({
+          packId: `00000000-0000-0000-0000-${String(index + 1).padStart(12, '0')}`,
+          packCode: pack.packCode,
+        })),
+      ),
+    }
+    const genericRepository = createGenericMockRepository()
+    const controlPointRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockImplementation((value) => value),
+      save: jest.fn().mockResolvedValue(undefined),
+      find: jest.fn().mockResolvedValue([]),
+    }
+    const manager = {
+      getRepository: jest.fn((entity) => {
+        if (entity.name === 'TaxonomyL1' || entity.name === 'TaxonomyL2') {
+          return genericRepository
+        }
+        if (entity === ControlPack) {
+          return packRepository
+        }
+        if (entity === ApplicabilityRule) {
+          return genericRepository
+        }
+        if (entity.name === 'ControlPoint') {
+          return controlPointRepository
+        }
+        return genericRepository
+      }),
+    }
+    const queryRunner = {
+      hasTable: jest.fn().mockResolvedValue(true),
+      query: jest.fn().mockResolvedValue([]),
+      manager,
+    }
+
+    const summary = (await seedKgBaselineWithQueryRunner(queryRunner as never, seedData)) as {
+      controlPackItems?: number
+      failureModeControlMaps?: number
+      clauseControlMaps?: number
+      questionItems?: number
+      remediationActions?: number
+    }
+
+    expect(summary).toEqual(
+      expect.objectContaining({
+        controlPackItems: expect.any(Number),
+        failureModeControlMaps: expect.any(Number),
+        clauseControlMaps: expect.any(Number),
+        questionItems: expect.any(Number),
+        remediationActions: expect.any(Number),
+      }),
     )
   })
 })

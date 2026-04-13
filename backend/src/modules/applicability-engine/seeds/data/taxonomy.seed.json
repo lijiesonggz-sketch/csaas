@@ -75,11 +75,59 @@
       "status": "ACTIVE"
     },
     {
+      "l2Code": "IT04-03",
+      "l1Code": "IT04",
+      "l2Name": "EAST数据错报/漏报/报送不实",
+      "l2Desc": "覆盖监管标准化数据EAST错报、漏报、报送不实等场景。",
+      "sortOrder": 43,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT04-04",
+      "l1Code": "IT04",
+      "l2Name": "EAST数据质量不符合规范要求",
+      "l2Desc": "覆盖字段偏差、口径错误、数据不一致等EAST数据质量问题。",
+      "sortOrder": 44,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT04-05",
+      "l1Code": "IT04",
+      "l2Name": "监管报表/监管系统报送数据不准确",
+      "l2Desc": "覆盖监管报表、监管系统报送数据错报漏报等场景。",
+      "sortOrder": 45,
+      "status": "ACTIVE"
+    },
+    {
       "l2Code": "IT04-06",
       "l1Code": "IT04",
       "l2Name": "监管报送准确性控制",
       "l2Desc": "覆盖监管报送口径、校验、对账和复核控制",
       "sortOrder": 46,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT04-07",
+      "l1Code": "IT04",
+      "l2Name": "信息科技非现场监管报表未报/迟报",
+      "l2Desc": "覆盖科技监管类报表、台账、信息报送未按时报送场景。",
+      "sortOrder": 47,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT04-08",
+      "l1Code": "IT04",
+      "l2Name": "历史数据问题整改不到位",
+      "l2Desc": "覆盖历史EAST或监管数据问题整改不到位、反复发生场景。",
+      "sortOrder": 48,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT04-11",
+      "l1Code": "IT04",
+      "l2Name": "监管报告/报表/文件/资料虚假或失真",
+      "l2Desc": "覆盖向监管部门提供虚假报告、报表、文件、资料等场景。",
+      "sortOrder": 51,
       "status": "ACTIVE"
     },
     {

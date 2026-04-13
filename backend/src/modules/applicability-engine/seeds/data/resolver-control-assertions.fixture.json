@@ -1,9 +1,9 @@
 [
   {
     "profileCode": "demo-bank-mega-legal-person",
-    "mustContainControlCodes": ["CTRL-ACC-002", "CTRL-BCP-003", "CTRL-DG-004"],
-    "mustHaveMandatoryControlCodes": ["CTRL-ACC-002", "CTRL-BCP-003", "CTRL-DG-004"],
-    "mustHaveHighPriorityControlCodes": ["CTRL-ACC-002", "CTRL-BCP-003", "CTRL-DG-004"],
+    "mustContainControlCodes": ["CTRL-REP-001", "CTRL-REP-004", "CTRL-DQ-003"],
+    "mustHaveMandatoryControlCodes": ["CTRL-REP-001", "CTRL-REP-004", "CTRL-DQ-003"],
+    "mustHaveHighPriorityControlCodes": ["CTRL-REP-001", "CTRL-REP-004", "CTRL-DQ-003"],
     "mustExcludeControlCodes": ["CTRL-AI-001", "CTRL-AI-002"]
   },
   {
@@ -16,29 +16,29 @@
   {
     "profileCode": "demo-securities-national",
     "mustContainControlCodes": ["CTRL-ONLINE-001"],
-    "mustHaveMandatoryControlCodes": ["CTRL-ACC-002"],
-    "mustHaveHighPriorityControlCodes": ["CTRL-ACC-002"],
+    "mustHaveMandatoryControlCodes": ["CTRL-REP-001", "CTRL-REP-004"],
+    "mustHaveHighPriorityControlCodes": ["CTRL-REP-001", "CTRL-REP-004"],
     "mustExcludeControlCodes": ["CTRL-AI-001", "CTRL-AI-002"]
   },
   {
     "profileCode": "demo-fund-cross-border",
-    "mustContainControlCodes": ["CTRL-DATA-011"],
-    "mustHaveMandatoryControlCodes": ["CTRL-DATA-011"],
-    "mustHaveHighPriorityControlCodes": ["CTRL-DATA-011"],
+    "mustContainControlCodes": ["CTRL-DQ-002"],
+    "mustHaveMandatoryControlCodes": ["CTRL-DQ-002"],
+    "mustHaveHighPriorityControlCodes": ["CTRL-DQ-002"],
     "mustExcludeControlCodes": ["CTRL-AI-001", "CTRL-AI-002"]
   },
   {
     "profileCode": "demo-insurance-outsourcing-heavy",
     "mustContainControlCodes": ["CTRL-OUT-001"],
-    "mustHaveMandatoryControlCodes": ["CTRL-ACC-002"],
-    "mustHaveHighPriorityControlCodes": ["CTRL-ACC-002"],
+    "mustHaveMandatoryControlCodes": ["CTRL-REP-001"],
+    "mustHaveHighPriorityControlCodes": ["CTRL-REP-001"],
     "mustExcludeControlCodes": ["CTRL-AI-001", "CTRL-AI-002"]
   },
   {
     "profileCode": "demo-ciio-ai-service",
-    "mustContainControlCodes": ["CTRL-AI-001", "CTRL-AI-002", "CTRL-ACC-002"],
-    "mustHaveMandatoryControlCodes": ["CTRL-AI-001", "CTRL-AI-002", "CTRL-ACC-002"],
-    "mustHaveHighPriorityControlCodes": ["CTRL-ACC-002"],
+    "mustContainControlCodes": ["CTRL-AI-001", "CTRL-AI-002", "CTRL-REP-001", "CTRL-REP-004", "CTRL-DQ-003"],
+    "mustHaveMandatoryControlCodes": ["CTRL-AI-001", "CTRL-AI-002", "CTRL-REP-001", "CTRL-REP-004", "CTRL-DQ-003"],
+    "mustHaveHighPriorityControlCodes": ["CTRL-REP-001", "CTRL-REP-004", "CTRL-DQ-003"],
     "mustExcludeControlCodes": []
   }
 ]
