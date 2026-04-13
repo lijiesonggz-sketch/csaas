@@ -57,6 +57,7 @@ describe('seedKgBaselineWithQueryRunner', () => {
     }
     const queryRunner = {
       hasTable: jest.fn().mockResolvedValue(true),
+      query: jest.fn().mockResolvedValue([]),
       manager,
     }
 
@@ -130,6 +131,7 @@ describe('runKgSeed', () => {
       connect: jest.fn().mockResolvedValue(undefined),
       startTransaction: jest.fn().mockResolvedValue(undefined),
       hasTable: jest.fn().mockResolvedValue(true),
+      query: jest.fn().mockResolvedValue([]),
       commitTransaction: jest.fn().mockResolvedValue(undefined),
       rollbackTransaction: jest.fn().mockResolvedValue(undefined),
       release: jest.fn().mockResolvedValue(undefined),

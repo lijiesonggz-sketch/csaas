@@ -109,7 +109,7 @@ development_status:
         2-2:
           key: "STORY-KG2-2.2"
           name: "Seed Runner 扩展与旧数据退役"
-          status: "backlog"
+          status: "done"
           priority: "P0"
           description: "93 条旧控制点退役 + 关联映射清理 + 幂等执行"
           depends_on: []
@@ -250,18 +250,18 @@ totals:
     done: 0
   stories:
     total: 18
-    backlog: 13
+    backlog: 12
     story_created: 0
     story_validated: 0
     dev_completed: 0
     test_automated: 0
-    done: 7
+    done: 8
 
 # Sprint Progress Chart
 burndown:
   total_story_points: 47
-  remaining_story_points: 33
-  completed_story_points: 14
+  remaining_story_points: 31
+  completed_story_points: 16
 
 # Execution Plan
 notes: |

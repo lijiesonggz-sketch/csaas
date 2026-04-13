@@ -6,6 +6,15 @@ import { TaxonomyL1 } from '../../../database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../../../database/entities/taxonomy-l2.entity'
 import { ApplicabilityRuleSeedRecord, KgSeedData, loadKgSeedData } from './kg-seed-data'
 
+export interface RetireSummary {
+  retiredCount: number
+  cleanedControlPackItems: number
+  cleanedClauseControlMaps: number
+  cleanedCaseControlMaps: number
+  cleanedQuestionItems: number
+  cleanedRemediationActions: number
+}
+
 export interface KgSeedSummary {
   controlPacks: number
   packFamilyMappings: number
@@ -15,6 +24,89 @@ export interface KgSeedSummary {
   taxonomyL1: number
   taxonomyL2: number
   controlPoints: number
+  retireSummary?: RetireSummary
+}
+
+const RETIRE_REASON = 'KG V2 重构全量替换'
+
+/**
+ * 退役所有非 retired 的控制点，并清理关联子表。
+ * 必须在 QueryRunner 事务内调用，由调用方管理事务生命周期。
+ *
+ * 执行顺序（FK RESTRICT 安全）：
+ * 1. 查询所有非 retired 控制点 ID
+ * 2. 清理 5 张子表（先删子表再更新主表）
+ * 3. 更新主表 control_points 设置 maturity_level = 'retired'
+ *
+ * 幂等性：只处理 maturity_level != 'retired' 的控制点，
+ * 重复运行时若全部已退役，返回全零统计。
+ */
+export async function retireLegacyControlPoints(
+  queryRunner: QueryRunner,
+): Promise<RetireSummary> {
+  // Step 1: 查询所有非 retired 的控制点 ID
+  const oldControlRows: Array<{ control_id: string }> = await queryRunner.query(
+    `SELECT control_id FROM control_points WHERE maturity_level != 'retired'`,
+  )
+
+  const ids = oldControlRows.map((row) => row.control_id)
+
+  // 幂等：如果没有任何非 retired 控制点，直接返回全零
+  if (ids.length === 0) {
+    return {
+      retiredCount: 0,
+      cleanedControlPackItems: 0,
+      cleanedClauseControlMaps: 0,
+      cleanedCaseControlMaps: 0,
+      cleanedQuestionItems: 0,
+      cleanedRemediationActions: 0,
+    }
+  }
+
+  // Step 2: 清理子表（按 FK 约束安全顺序）— RETURNING 确保统计准确
+  const cleanedControlPackItems = (await queryRunner.query(
+    `DELETE FROM control_pack_items WHERE control_id = ANY($1) RETURNING 1`,
+    [ids],
+  )).length
+
+  const cleanedClauseControlMaps = (await queryRunner.query(
+    `DELETE FROM clause_control_maps WHERE control_id = ANY($1) RETURNING 1`,
+    [ids],
+  )).length
+
+  const cleanedCaseControlMaps = (await queryRunner.query(
+    `DELETE FROM case_control_maps WHERE control_id = ANY($1) RETURNING 1`,
+    [ids],
+  )).length
+
+  const cleanedQuestionItems = (await queryRunner.query(
+    `DELETE FROM question_items WHERE control_id = ANY($1) RETURNING 1`,
+    [ids],
+  )).length
+
+  const cleanedRemediationActions = (await queryRunner.query(
+    `DELETE FROM remediation_actions WHERE control_id = ANY($1) RETURNING 1`,
+    [ids],
+  )).length
+
+  // Step 3: 更新主表（子表已清理完毕，FK RESTRICT 不再阻止）
+  const retiredCount = (await queryRunner.query(
+    `UPDATE control_points
+     SET maturity_level = 'retired',
+         retired_reason = $1
+     WHERE control_id = ANY($2)
+     RETURNING 1`,
+    [RETIRE_REASON, ids],
+  )).length
+
+  return {
+    retiredCount,
+    cleanedControlPackItems,
+    cleanedClauseControlMaps,
+    cleanedCaseControlMaps,
+    cleanedQuestionItems,
+    cleanedRemediationActions,
+  }
 }
 
 function mapRules(
@@ -74,6 +166,9 @@ export async function seedKgBaselineWithQueryRunner(
   const taxonomyL1Repository = queryRunner.manager.getRepository(TaxonomyL1)
   const taxonomyL2Repository = queryRunner.manager.getRepository(TaxonomyL2)
   const controlPointRepository = queryRunner.manager.getRepository(ControlPoint)
+
+  // ── Retire step: retire legacy control points BEFORE upserting new seed data ──
+  const retireSummary = await retireLegacyControlPoints(queryRunner)
 
   await taxonomyL1Repository.upsert(
     seedData.taxonomyL1.map((taxonomy) => ({
@@ -166,6 +261,7 @@ export async function seedKgBaselineWithQueryRunner(
     taxonomyL1: seedData.taxonomyL1.length,
     taxonomyL2: seedData.taxonomyL2.length,
     controlPoints: seedData.controlPoints.length,
+    retireSummary,
   }
 }
 

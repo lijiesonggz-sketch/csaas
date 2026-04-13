@@ -35,7 +35,8 @@
 # - Dev moves story to 'review', then runs code-review
 
 generated: '2026-03-24'
-last_updated: '2026-04-13'
+last_updated: '2026-04-13T10:00:00Z'
+
 
 project: 'Csaas'
 project_key: 'NOKEY'
@@ -158,3 +159,12 @@ development_status:
   kg1-4-failure-mode-service-and-api: done
   kg1-5-control-point-service-refactor: ready-for-dev
   kg1-6-case-clustering-pipeline-refactor: review
+
+  # Epic KG2: 数据重建与 Pack 集成
+  # 依赖: Epic KG1
+  epic-kg2: in-progress
+  kg2-1-pack-resolver-maturity-filter: done
+  kg2-2-seed-runner-retire-controls: review
+  kg2-3-eight-domain-failure-mode-seeds: backlog
+  kg2-4-new-hard-control-points-and-data: backlog
+  kg2-5-it04-benchmark-validation: backlog
