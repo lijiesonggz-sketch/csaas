@@ -17,6 +17,12 @@ import {
   RulePredicate,
   RuleResult,
 } from '../types/applicability.types'
+
+/** Only these maturity levels pass through the resolver */
+const RESOLVER_ALLOWED_ML: ReadonlySet<string> = new Set(['hard', 'draft-hard'])
+
+/** Default maturity when not specified — treated as non-production and filtered out */
+const RESOLVER_DEFAULT_ML = 'candidate'
 import {
   loadResolverRuntimeData,
   normalizeFixtureResolverRules,
@@ -320,6 +326,12 @@ export class PackResolverService {
         }
 
         familyControls.forEach((catalogControl) => {
+          // Story 2.1: only allow hard / draft-hard through
+          const ml = catalogControl.maturityLevel ?? RESOLVER_DEFAULT_ML
+          if (!RESOLVER_ALLOWED_ML.has(ml)) {
+            return
+          }
+
           const existing =
             controlsByCode.get(catalogControl.controlCode) ??
             this.createResolvedControl(catalogControl)
@@ -407,6 +419,7 @@ export class PackResolverService {
       questionPackCodes: [...control.questionPackCodes],
       evidencePackCodes: [...control.evidencePackCodes],
       remediationPackCodes: [...control.remediationPackCodes],
+      maturityLevel: control.maturityLevel ?? RESOLVER_DEFAULT_ML,
     }
   }
 
@@ -475,15 +488,17 @@ export class PackResolverService {
   private getControlCodesForPack(packCode: string, runtimeData: ResolverRuntimeData): string[] {
     const families = this.getFamiliesForPack(packCode, runtimeData)
     const controlCodes = families.flatMap((family) => {
-      const controls = runtimeData.controlCatalog.filter(
+      const allControls = runtimeData.controlCatalog.filter(
         (control) => control.controlFamily === family,
       )
 
-      if (controls.length === 0) {
+      if (allControls.length === 0) {
         throw new Error(CONFIGURATION_ERROR_MESSAGE)
       }
 
-      return controls.map((control) => control.controlCode)
+      return allControls
+        .filter((c) => RESOLVER_ALLOWED_ML.has(c.maturityLevel ?? RESOLVER_DEFAULT_ML))
+        .map((c) => c.controlCode)
     })
 
     return this.uniqueSorted(controlCodes)

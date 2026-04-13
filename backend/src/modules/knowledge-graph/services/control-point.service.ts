@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Brackets, Repository } from 'typeorm'
 import { ControlEvidenceMap } from '../../../database/entities/control-evidence-map.entity'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
+import { ControlPackItem } from '../../../database/entities/control-pack-item.entity'
 import { EvidenceType } from '../../../database/entities/evidence-type.entity'
 import { FailureModeControlMap } from '../../../database/entities/failure-mode-control-map.entity'
 import { FailureMode } from '../../../database/entities/failure-mode.entity'
@@ -71,6 +72,8 @@ export class ControlPointService {
     private readonly failureModeControlMapRepository: Repository<FailureModeControlMap>,
     @InjectRepository(TaxonomyFailureModeMap)
     private readonly taxonomyFailureModeMapRepository: Repository<TaxonomyFailureModeMap>,
+    @InjectRepository(ControlPackItem)
+    private readonly controlPackItemRepository: Repository<ControlPackItem>,
   ) {}
 
   async findAll(query: QueryControlPointDto): Promise<{
@@ -340,6 +343,9 @@ export class ControlPointService {
     await this.assertTaxonomyRelation(dto.l1Code, dto.l2Code)
     await this.assertUniqueConstraints(dto.controlCode, dto.controlName)
 
+    // CreateControlPointDto 没有 maturityLevel 字段，entity DB 默认 'candidate'，
+    // 因此新建控制点不可能直接是 hard — 无需 pack 校验
+
     return this.controlPointRepository.save(this.controlPointRepository.create(dto))
   }
 
@@ -361,6 +367,11 @@ export class ControlPointService {
       controlCode: nextControlCode,
       controlName: nextControlName,
     })
+
+    // Story 2.1: if updating to hard, validate pack association
+    if (existing.maturityLevel === 'hard') {
+      await this.assertHardControlHasPackAssociation(controlId)
+    }
 
     return this.controlPointRepository.save(existing)
   }
@@ -387,6 +398,17 @@ export class ControlPointService {
 
     if (l2.l1Code !== l1Code) {
       throw new BadRequestException('Invalid l1Code/l2Code hierarchy relation')
+    }
+  }
+
+  /** Story 2.1: hard control point 必须至少关联一个 control_pack */
+  private async assertHardControlHasPackAssociation(controlId: string): Promise<void> {
+    const packCount = await this.controlPackItemRepository.count({
+      where: { controlId },
+    })
+
+    if (packCount === 0) {
+      throw new BadRequestException('hard control point 必须关联至少一个 control_pack')
     }
   }
 

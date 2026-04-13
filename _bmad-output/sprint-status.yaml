@@ -91,14 +91,14 @@ development_status:
     epic-2:
       key: "EPIC-KG2-002"
       name: "数据重建与 Pack 集成"
-      status: "backlog"
+      status: "in_progress"
       description: "resolve-controls API 返回高质量新控制点，旧数据干净退役"
       depends_on: ["epic-1"]
       stories:
         2-1:
           key: "STORY-KG2-2.1"
           name: "PackResolver maturity_level 过滤集成"
-          status: "backlog"
+          status: "done"
           priority: "P0"
           description: "resolve-controls 只返回 hard/draft-hard，新 hard 控制点强制校验 pack 关联"
           depends_on: []
@@ -255,13 +255,13 @@ totals:
     story_validated: 0
     dev_completed: 0
     test_automated: 0
-    done: 6
+    done: 7
 
 # Sprint Progress Chart
 burndown:
   total_story_points: 47
-  remaining_story_points: 34
-  completed_story_points: 13
+  remaining_story_points: 33
+  completed_story_points: 14
 
 # Execution Plan
 notes: |

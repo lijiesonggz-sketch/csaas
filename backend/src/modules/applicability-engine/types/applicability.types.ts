@@ -106,6 +106,7 @@ export interface ResolvedControl {
   questionPackCodes: string[]
   evidencePackCodes: string[]
   remediationPackCodes: string[]
+  maturityLevel?: string
 }
 
 export interface ResolvedControlSummary {
@@ -143,6 +144,7 @@ export interface ResolverControlCatalogRecord {
   questionPackCodes: string[]
   evidencePackCodes: string[]
   remediationPackCodes: string[]
+  maturityLevel?: string
 }
 
 export interface ResolverControlRuleRecord {

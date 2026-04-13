@@ -664,11 +664,19 @@ export function validateResolverRuntimeData(
 export function loadResolverRuntimeData(
   seedData: KgSeedData = loadKgSeedData(),
 ): ResolverRuntimeData {
+  const rawCatalog = readSeedFile<ResolverControlCatalogRecord[]>(
+    'resolver-control-catalog.fixture.json',
+  )
+
+  // Story 2.1: seed fixture controls without maturityLevel default to 'hard'
+  const controlCatalog = rawCatalog.map((entry) => ({
+    ...entry,
+    maturityLevel: entry.maturityLevel ?? 'hard',
+  }))
+
   const runtimeData: ResolverRuntimeData = {
     packFamilyMappings: seedData.packFamilyMappings,
-    controlCatalog: readSeedFile<ResolverControlCatalogRecord[]>(
-      'resolver-control-catalog.fixture.json',
-    ),
+    controlCatalog,
     controlRules: readSeedFile<ResolverControlRuleRecord[]>('resolver-control-rules.fixture.json'),
     controlAssertions: readSeedFile<ResolverControlAssertionRecord[]>(
       'resolver-control-assertions.fixture.json',
