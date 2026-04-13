@@ -6,7 +6,12 @@ import {
 } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Brackets, Repository } from 'typeorm'
+import { ControlEvidenceMap } from '../../../database/entities/control-evidence-map.entity'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
+import { EvidenceType } from '../../../database/entities/evidence-type.entity'
+import { FailureModeControlMap } from '../../../database/entities/failure-mode-control-map.entity'
+import { FailureMode } from '../../../database/entities/failure-mode.entity'
+import { TaxonomyFailureModeMap } from '../../../database/entities/taxonomy-failure-mode-map.entity'
 import { TaxonomyL1 } from '../../../database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../../../database/entities/taxonomy-l2.entity'
 import {
@@ -15,6 +20,43 @@ import {
   UpdateControlPointDto,
   UpdateControlPointStatusDto,
 } from '../dto/control-point.dto'
+
+/** findByL2CodeWithFullChain 返回的完整链路结构 */
+export interface FullChainResult {
+  l2Code: string
+  l2Name: string
+  failureModes: {
+    failureModeId: string
+    failureModeCode: string
+    name: string
+    category: string
+    controlPoints: {
+      controlId: string
+      controlCode: string
+      controlName: string
+      maturityLevel: string
+      authoritativeScore: number | null
+      relevance: 'PRIMARY' | 'SECONDARY'
+      evidenceTypes: {
+        evidenceId: string
+        evidenceCode: string
+        evidenceName: string
+        evidenceCategory: string | null
+        autoCollectable: boolean
+        requiredLevel: string
+        frequency: string | null
+      }[]
+    }[]
+  }[]
+}
+
+/** maturity_level 排序优先级映射 */
+const MATURITY_ORDER: Record<string, number> = {
+  hard: 0,
+  'draft-hard': 1,
+  candidate: 2,
+  retired: 3,
+}
 
 @Injectable()
 export class ControlPointService {
@@ -25,6 +67,10 @@ export class ControlPointService {
     private readonly taxonomyL1Repository: Repository<TaxonomyL1>,
     @InjectRepository(TaxonomyL2)
     private readonly taxonomyL2Repository: Repository<TaxonomyL2>,
+    @InjectRepository(FailureModeControlMap)
+    private readonly failureModeControlMapRepository: Repository<FailureModeControlMap>,
+    @InjectRepository(TaxonomyFailureModeMap)
+    private readonly taxonomyFailureModeMapRepository: Repository<TaxonomyFailureModeMap>,
   ) {}
 
   async findAll(query: QueryControlPointDto): Promise<{
@@ -84,8 +130,44 @@ export class ControlPointService {
       )
     }
 
+    // --- KG V2 新增过滤条件 (Story 1-5) ---
+
+    if (query.originType) {
+      builder.andWhere('control.originType = :originType', { originType: query.originType })
+    }
+
+    if (query.maturityLevel) {
+      builder.andWhere('control.maturityLevel = :maturityLevel', { maturityLevel: query.maturityLevel })
+    }
+
+    if (query.applicableSector) {
+      builder.andWhere(
+        `(control.applicableSector @> ARRAY[:sector]::varchar[] OR control.applicableSector @> ARRAY['通用']::varchar[] OR control.applicableSector = '{}')`,
+        { sector: query.applicableSector },
+      )
+    }
+
+    if (query.failureModeId) {
+      builder.andWhere(
+        `EXISTS (SELECT 1 FROM failure_mode_control_maps fcm WHERE fcm.control_id = control.controlId AND fcm.failure_mode_id = :failureModeId)`,
+        { failureModeId: query.failureModeId },
+      )
+    }
+
+    // --- KG V2 排序: maturity_level 优先级 + authoritative_score 降序 + control_code 升序 ---
+
     const [items, total] = await builder
-      .orderBy('control.controlCode', 'ASC')
+      .orderBy(
+        `CASE control.maturityLevel
+          WHEN 'hard' THEN 0
+          WHEN 'draft-hard' THEN 1
+          WHEN 'candidate' THEN 2
+          WHEN 'retired' THEN 3
+          ELSE 4 END`,
+        'ASC',
+      )
+      .addOrderBy('control.authoritativeScore', 'DESC')
+      .addOrderBy('control.controlCode', 'ASC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount()
@@ -108,6 +190,150 @@ export class ControlPointService {
     }
 
     return controlPoint
+  }
+
+  /**
+   * KG V2 全链路查询 (Story 1-5)
+   * 一次性 JOIN: taxonomy_l2 → taxonomy_failure_mode_maps → failure_modes → failure_mode_control_maps → control_points → control_evidence_maps → evidence_types
+   * 返回按 failure_mode 分组的完整推理链路
+   */
+  async findByL2CodeWithFullChain(l2Code: string): Promise<FullChainResult> {
+    // 验证 l2Code 存在
+    const taxonomyL2 = await this.taxonomyL2Repository.findOne({ where: { l2Code } })
+    if (!taxonomyL2) {
+      throw new NotFoundException(`taxonomy_l2 ${l2Code} not found`)
+    }
+
+    // 构建多表 JOIN 查询
+    const rawRows = await this.controlPointRepository
+      .createQueryBuilder('cp')
+      .select('tl2.l2_code', 'l2_code')
+      .addSelect('tl2.l2_name', 'l2_name')
+      .addSelect('fm.failure_mode_id', 'failure_mode_id')
+      .addSelect('fm.failure_mode_code', 'failure_mode_code')
+      .addSelect('fm.name', 'fm_name')
+      .addSelect('fm.category', 'fm_category')
+      .addSelect('cp.control_id', 'control_id')
+      .addSelect('cp.control_code', 'control_code')
+      .addSelect('cp.control_name', 'control_name')
+      .addSelect('cp.maturity_level', 'maturity_level')
+      .addSelect('cp.authoritative_score', 'authoritative_score')
+      .addSelect('fcm.relevance', 'relevance')
+      .addSelect('cem.evidence_id', 'evidence_id')
+      .addSelect('et.evidence_code', 'evidence_code')
+      .addSelect('et.evidence_name', 'evidence_name')
+      .addSelect('et.evidence_category', 'evidence_category')
+      .addSelect('et.auto_collectable', 'auto_collectable')
+      .addSelect('cem.required_level', 'required_level')
+      .addSelect('cem.frequency', 'frequency')
+      .innerJoin('taxonomy_failure_mode_maps', 'tfm', 'tfm.l2_code = :l2Code', { l2Code })
+      .innerJoin('failure_modes', 'fm', 'fm.failure_mode_id = tfm.failure_mode_id')
+      .innerJoin('failure_mode_control_maps', 'fcm', 'fcm.failure_mode_id = fm.failure_mode_id')
+      .innerJoin('control_points', 'cp', 'cp.control_id = fcm.control_id')
+      .leftJoin('control_evidence_maps', 'cem', 'cem.control_id = cp.control_id')
+      .leftJoin('evidence_types', 'et', 'et.evidence_id = cem.evidence_id')
+      .leftJoin('taxonomy_l2', 'tl2', 'tl2.l2_code = :l2Code')
+      .where('fm.status = :fmStatus', { fmStatus: 'ACTIVE' })
+      .andWhere('cp.status = :cpStatus', { cpStatus: 'ACTIVE' })
+      .andWhere('cp.maturity_level != :retiredLevel', { retiredLevel: 'retired' })
+      .orderBy(
+        `CASE cp.maturity_level
+          WHEN 'hard' THEN 0
+          WHEN 'draft-hard' THEN 1
+          WHEN 'candidate' THEN 2
+          ELSE 3 END`,
+        'ASC',
+      )
+      .addOrderBy('cp.authoritative_score', 'DESC')
+      .getRawMany()
+
+    // 按 failure_mode 分组
+    const failureModeMap = new Map<string, {
+      failureModeId: string
+      failureModeCode: string
+      name: string
+      category: string
+      controlPoints: Map<string, {
+        controlId: string
+        controlCode: string
+        controlName: string
+        maturityLevel: string
+        authoritativeScore: number | null
+        relevance: 'PRIMARY' | 'SECONDARY'
+        evidenceTypes: {
+          evidenceId: string
+          evidenceCode: string
+          evidenceName: string
+          evidenceCategory: string | null
+          autoCollectable: boolean
+          requiredLevel: string
+          frequency: string | null
+        }[]
+      }>
+    }>()
+
+    for (const row of rawRows) {
+      const fmKey = row.failure_mode_id
+
+      if (!failureModeMap.has(fmKey)) {
+        failureModeMap.set(fmKey, {
+          failureModeId: row.failure_mode_id,
+          failureModeCode: row.failure_mode_code,
+          name: row.fm_name,
+          category: row.fm_category,
+          controlPoints: new Map(),
+        })
+      }
+
+      const fmEntry = failureModeMap.get(fmKey)!
+      const cpKey = row.control_id
+
+      if (!fmEntry.controlPoints.has(cpKey)) {
+        fmEntry.controlPoints.set(cpKey, {
+          controlId: row.control_id,
+          controlCode: row.control_code,
+          controlName: row.control_name,
+          maturityLevel: row.maturity_level,
+          authoritativeScore: row.authoritative_score != null ? Number(row.authoritative_score) : null,
+          relevance: row.relevance,
+          evidenceTypes: [],
+        })
+      }
+
+      // 如果有 evidence 数据，添加到 evidenceTypes
+      if (row.evidence_id) {
+        const cpEntry = fmEntry.controlPoints.get(cpKey)!
+        cpEntry.evidenceTypes.push({
+          evidenceId: row.evidence_id,
+          evidenceCode: row.evidence_code,
+          evidenceName: row.evidence_name,
+          evidenceCategory: row.evidence_category,
+          autoCollectable: row.auto_collectable,
+          requiredLevel: row.required_level,
+          frequency: row.frequency,
+        })
+      }
+    }
+
+    // 转换为数组并按 maturity_level 排序 controlPoints
+    const failureModes = Array.from(failureModeMap.values()).map((fm) => ({
+      failureModeId: fm.failureModeId,
+      failureModeCode: fm.failureModeCode,
+      name: fm.name,
+      category: fm.category,
+      controlPoints: Array.from(fm.controlPoints.values()).sort((a, b) => {
+        const orderA = MATURITY_ORDER[a.maturityLevel] ?? 99
+        const orderB = MATURITY_ORDER[b.maturityLevel] ?? 99
+        if (orderA !== orderB) return orderA - orderB
+        return (b.authoritativeScore ?? 0) - (a.authoritativeScore ?? 0)
+      }),
+    }))
+
+    return {
+      l2Code,
+      l2Name: taxonomyL2.l2Name,
+      failureModes,
+    }
   }
 
   async create(dto: CreateControlPointDto): Promise<ControlPoint> {

@@ -69,7 +69,7 @@ development_status:
         1-5:
           key: "STORY-KG2-1.5"
           name: "ControlPointService 改造与全链路查询"
-          status: "backlog"
+          status: "done"
           priority: "P0"
           description: "新查询条件 + maturity_level 排序 + findByL2CodeWithFullChain 全链路 JOIN"
           depends_on: ["1-2"]
@@ -250,18 +250,18 @@ totals:
     done: 0
   stories:
     total: 18
-    backlog: 15
+    backlog: 14
     story_created: 0
     story_validated: 0
     dev_completed: 0
     test_automated: 0
-    done: 4
+    done: 5
 
 # Sprint Progress Chart
 burndown:
   total_story_points: 47
-  remaining_story_points: 39
-  completed_story_points: 8
+  remaining_story_points: 37
+  completed_story_points: 10
 
 # Execution Plan
 notes: |

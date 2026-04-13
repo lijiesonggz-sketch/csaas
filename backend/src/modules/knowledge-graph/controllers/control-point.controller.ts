@@ -27,7 +27,7 @@ import {
   UpdateControlPointDto,
   UpdateControlPointStatusDto,
 } from '../dto/control-point.dto'
-import { ControlPointService } from '../services/control-point.service'
+import { ControlPointService, FullChainResult } from '../services/control-point.service'
 
 @ApiTags('Knowledge Graph - Control Points')
 @ApiBearerAuth()
@@ -45,6 +45,14 @@ export class ControlPointController {
   @ApiResponse({ status: 200, description: '成功返回 control points 列表' })
   async findAll(@Query() query: QueryControlPointDto) {
     return this.controlPointService.findAll(query)
+  }
+
+  @Get('full-chain/:l2Code')
+  @ApiOperation({ summary: '获取 l2Code 对应的完整推理链路（失效模式→控制点→证据类型）' })
+  @ApiResponse({ status: 200, description: '成功返回完整链路数据' })
+  @ApiResponse({ status: 404, description: 'l2Code 不存在' })
+  async getFullChain(@Param('l2Code') l2Code: string): Promise<FullChainResult> {
+    return this.controlPointService.findByL2CodeWithFullChain(l2Code)
   }
 
   @Get(':controlId')

@@ -4,6 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -15,9 +16,14 @@ import {
   ValidateIf,
 } from 'class-validator'
 import {
+  APPLICABLE_SECTORS,
+  CONTROL_POINT_MATURITY_LEVELS,
+  CONTROL_POINT_ORIGIN_TYPES,
   CONTROL_POINT_RISK_LEVELS,
   CONTROL_POINT_STATUSES,
   CONTROL_POINT_TYPES,
+  ControlPointMaturityLevel,
+  ControlPointOriginType,
   ControlPointRiskLevel,
   ControlPointStatus,
   ControlPointType,
@@ -49,6 +55,25 @@ export class QueryControlPointDto {
   @IsString()
   @Length(1, 200)
   keyword?: string
+
+  // --- KG V2 查询扩展字段 (Story 1-5) ---
+
+  @IsOptional()
+  @IsEnum(CONTROL_POINT_ORIGIN_TYPES)
+  originType?: ControlPointOriginType
+
+  @IsOptional()
+  @IsEnum(CONTROL_POINT_MATURITY_LEVELS)
+  maturityLevel?: ControlPointMaturityLevel
+
+  @IsOptional()
+  @IsString()
+  @IsIn(APPLICABLE_SECTORS)
+  applicableSector?: string
+
+  @IsOptional()
+  @IsUUID()
+  failureModeId?: string
 
   @IsOptional()
   @Type(() => Number)
