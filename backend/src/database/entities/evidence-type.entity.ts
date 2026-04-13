@@ -9,7 +9,16 @@ import {
 } from 'typeorm'
 import { ControlEvidenceMap } from './control-evidence-map.entity'
 
-export const EVIDENCE_CATEGORIES = ['document', 'log', 'approval', 'report', 'record'] as const
+export const EVIDENCE_CATEGORIES = [
+  'POLICY',
+  'PROCESS',
+  'SYSTEM',
+  'LOG',
+  'APPROVAL_RECORD',
+  'REPORT',
+  'CONFIG',
+  'SAMPLE_RECORD',
+] as const
 export type EvidenceCategory = (typeof EVIDENCE_CATEGORIES)[number]
 
 export const EVIDENCE_TYPE_STATUSES = ['ACTIVE', 'INACTIVE'] as const
@@ -32,6 +41,9 @@ export class EvidenceType {
 
   @Column({ name: 'evidence_category', type: 'varchar', length: 50, nullable: true })
   evidenceCategory: EvidenceCategory | null
+
+  @Column({ name: 'auto_collectable', type: 'boolean', default: false })
+  autoCollectable: boolean
 
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: EvidenceTypeStatus

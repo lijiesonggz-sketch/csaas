@@ -78,7 +78,10 @@ export {
 export {
   ControlEvidenceMap,
   CONTROL_EVIDENCE_REQUIRED_LEVELS,
+  EVIDENCE_FREQUENCIES,
+  EVIDENCE_SAMPLING_REQUIREMENTS,
 } from './control-evidence-map.entity'
+export type { EvidenceFrequency, EvidenceSamplingRequirement } from './control-evidence-map.entity'
 export {
   QuestionItem,
   QUESTION_ITEM_STATUSES,

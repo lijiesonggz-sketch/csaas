@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer'
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -14,6 +15,10 @@ import {
 import {
   CONTROL_EVIDENCE_REQUIRED_LEVELS,
   ControlEvidenceRequiredLevel,
+  EVIDENCE_FREQUENCIES,
+  EVIDENCE_SAMPLING_REQUIREMENTS,
+  EvidenceFrequency,
+  EvidenceSamplingRequirement,
 } from '../../../database/entities/control-evidence-map.entity'
 import {
   EVIDENCE_CATEGORIES,
@@ -79,6 +84,10 @@ export class CreateEvidenceTypeDto {
   @IsOptional()
   @IsEnum(EVIDENCE_TYPE_STATUSES)
   status?: EvidenceTypeStatus = 'ACTIVE'
+
+  @IsOptional()
+  @IsBoolean()
+  autoCollectable?: boolean = false
 }
 
 export class UpdateEvidenceTypeDto {
@@ -105,6 +114,10 @@ export class UpdateEvidenceTypeDto {
   @ValidateIf((_object, value) => value !== undefined)
   @IsEnum(EVIDENCE_TYPE_STATUSES)
   status?: EvidenceTypeStatus
+
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsBoolean()
+  autoCollectable?: boolean
 }
 
 export class QueryControlEvidenceMapDto extends PaginationDto {
@@ -133,6 +146,19 @@ export class CreateControlEvidenceMapDto {
   requiredLevel?: ControlEvidenceRequiredLevel = 'RECOMMENDED'
 
   @IsOptional()
+  @IsEnum(EVIDENCE_FREQUENCIES)
+  frequency?: EvidenceFrequency | null
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  ownerRole?: string | null
+
+  @IsOptional()
+  @IsEnum(EVIDENCE_SAMPLING_REQUIREMENTS)
+  samplingRequirement?: EvidenceSamplingRequirement | null
+
+  @IsOptional()
   @IsString()
   @Length(1, 4000)
   notes?: string | null
@@ -150,6 +176,19 @@ export class UpdateControlEvidenceMapDto {
   @ValidateIf((_object, value) => value !== undefined)
   @IsEnum(CONTROL_EVIDENCE_REQUIRED_LEVELS)
   requiredLevel?: ControlEvidenceRequiredLevel
+
+  @IsOptional()
+  @IsEnum(EVIDENCE_FREQUENCIES)
+  frequency?: EvidenceFrequency | null
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  ownerRole?: string | null
+
+  @IsOptional()
+  @IsEnum(EVIDENCE_SAMPLING_REQUIREMENTS)
+  samplingRequirement?: EvidenceSamplingRequirement | null
 
   @IsOptional()
   @IsString()
