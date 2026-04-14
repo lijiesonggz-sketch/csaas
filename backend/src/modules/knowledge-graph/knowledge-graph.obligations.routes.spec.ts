@@ -1,0 +1,271 @@
+/**
+ * ATDD Acceptance Tests — Story 3-2: ObligationController 路由测试
+ */
+
+import { INestApplication, UnauthorizedException, ValidationPipe } from '@nestjs/common'
+import { Test, TestingModule } from '@nestjs/testing'
+import * as request from 'supertest'
+import { TransformInterceptor } from '../../common/interceptors/transform.interceptor'
+import { AuditAction } from '../../database/entities/audit-log.entity'
+import { AuditLogService } from '../audit/audit-log.service'
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { RolesGuard } from '../auth/guards/roles.guard'
+import { TenantGuard } from '../organizations/guards/tenant.guard'
+
+const loadController = async () => {
+  const mod = await import('./controllers/obligation.controller')
+  return mod.ObligationController
+}
+
+const loadService = async () => {
+  const mod = await import('./services/obligation.service')
+  return mod.ObligationService
+}
+
+const mockObligationService = {
+  findAll: jest.fn().mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
+  findById: jest.fn().mockResolvedValue(null),
+  create: jest.fn().mockResolvedValue(null),
+  update: jest.fn().mockResolvedValue(null),
+  findByClauseId: jest.fn().mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
+  findControlPointsByObligation: jest.fn().mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
+  getCoverageAnalysis: jest.fn().mockResolvedValue({}),
+}
+
+const mockAuditLogService = {
+  log: jest.fn().mockResolvedValue(undefined),
+}
+
+async function createApp(options?: { authenticated?: boolean; roleAllowed?: boolean }) {
+  const authenticated = options?.authenticated ?? true
+  const roleAllowed = options?.roleAllowed ?? true
+  const ObligationControllerClass = await loadController()
+  const ObligationServiceClass = await loadService()
+
+  const moduleFixture: TestingModule = await Test.createTestingModule({
+    controllers: [ObligationControllerClass],
+    providers: [
+      { provide: ObligationServiceClass, useValue: mockObligationService },
+      { provide: AuditLogService, useValue: mockAuditLogService },
+    ],
+  })
+    .overrideGuard(JwtAuthGuard)
+    .useValue({
+      canActivate: (context: { switchToHttp(): { getRequest(): Record<string, unknown> } }) => {
+        if (!authenticated) {
+          throw new UnauthorizedException('User not authenticated')
+        }
+        const req = context.switchToHttp().getRequest()
+        req.user = {
+          id: '770e8400-e29b-41d4-a716-446655440000',
+          role: roleAllowed ? 'admin' : 'respondent',
+        }
+        return true
+      },
+    })
+    .overrideGuard(TenantGuard)
+    .useValue({
+      canActivate: (context: { switchToHttp(): { getRequest(): Record<string, unknown> } }) => {
+        const req = context.switchToHttp().getRequest()
+        req.tenantId = '660e8400-e29b-41d4-a716-446655440000'
+        return true
+      },
+    })
+    .overrideGuard(RolesGuard)
+    .useValue({
+      canActivate: () => roleAllowed,
+    })
+    .compile()
+
+  const testApp = moduleFixture.createNestApplication()
+  testApp.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  )
+  testApp.useGlobalInterceptors(new TransformInterceptor())
+  await testApp.init()
+  return testApp
+}
+
+describe('KnowledgeGraph obligations controllers (http)', () => {
+  let app: INestApplication
+
+  beforeEach(async () => {
+    jest.clearAllMocks()
+    app = await createApp()
+  })
+
+  afterEach(async () => {
+    await app.close()
+  })
+
+  it('should return obligation list with filters', async () => {
+    mockObligationService.findAll.mockResolvedValue({
+      items: [{ obligationId: 'obl-1', obligationCode: 'OBL-001' }],
+      total: 1,
+      page: 1,
+      limit: 20,
+    })
+
+    const response = await request(app.getHttpServer())
+      .get('/api/admin/knowledge-graph/obligations')
+      .query({ obligationType: 'MANDATORY', status: 'ACTIVE', applicableSector: '银行' })
+      .expect(200)
+
+    expect(response.body.success).toBe(true)
+    expect(mockObligationService.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        obligationType: 'MANDATORY',
+        status: 'ACTIVE',
+        applicableSector: '银行',
+      }),
+    )
+  })
+
+  it('should resolve coverage-analysis route before :id route', async () => {
+    mockObligationService.getCoverageAnalysis.mockResolvedValue({
+      totals: { obligations: 1, covered: 1, uncovered: 0, coverageRate: 1 },
+    })
+
+    const response = await request(app.getHttpServer())
+      .get('/api/admin/knowledge-graph/obligations/coverage-analysis')
+      .expect(200)
+
+    expect(response.body.success).toBe(true)
+    expect(mockObligationService.getCoverageAnalysis).toHaveBeenCalled()
+    expect(mockObligationService.findById).not.toHaveBeenCalled()
+  })
+
+  it('should resolve by-clause route before :id route', async () => {
+    mockObligationService.findByClauseId.mockResolvedValue({
+      items: [{ obligationId: 'obl-1', obligationCode: 'OBL-001' }],
+      total: 1,
+      page: 1,
+      limit: 20,
+    })
+
+    const response = await request(app.getHttpServer())
+      .get('/api/admin/knowledge-graph/obligations/by-clause/550e8400-e29b-41d4-a716-446655440000')
+      .expect(200)
+
+    expect(response.body.success).toBe(true)
+    expect(mockObligationService.findByClauseId).toHaveBeenCalled()
+    expect(mockObligationService.findById).not.toHaveBeenCalled()
+  })
+
+  it('should return obligation detail', async () => {
+    mockObligationService.findById.mockResolvedValue({
+      obligationId: 'obl-1',
+      obligationCode: 'OBL-001',
+      clause: { clauseId: 'clause-1', clauseCode: 'CLAUSE-001' },
+      controlMaps: [],
+    })
+
+    const response = await request(app.getHttpServer())
+      .get('/api/admin/knowledge-graph/obligations/550e8400-e29b-41d4-a716-446655440000')
+      .expect(200)
+
+    expect(response.body.success).toBe(true)
+  })
+
+  it('should create obligation and write audit log', async () => {
+    mockObligationService.create.mockResolvedValue({
+      obligationId: 'obl-1',
+      obligationCode: 'OBL-001',
+      status: 'ACTIVE',
+      clauseId: 'clause-1',
+    })
+
+    const response = await request(app.getHttpServer())
+      .post('/api/admin/knowledge-graph/obligations')
+      .send({
+        clauseId: '550e8400-e29b-41d4-a716-446655440000',
+        obligationCode: 'OBL-001',
+        obligationText: '应当建立复核机制',
+        obligationType: 'MANDATORY',
+      })
+      .expect(201)
+
+    expect(response.body.success).toBe(true)
+    expect(mockAuditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.CREATE,
+        entityType: 'RegulationObligation',
+      }),
+    )
+  })
+
+  it('should update obligation and write audit log', async () => {
+    mockObligationService.update.mockResolvedValue({
+      obligationId: 'obl-1',
+      obligationCode: 'OBL-001',
+      status: 'ACTIVE',
+      clauseId: 'clause-1',
+    })
+
+    const response = await request(app.getHttpServer())
+      .patch('/api/admin/knowledge-graph/obligations/550e8400-e29b-41d4-a716-446655440000')
+      .send({ obligationText: '更新后的义务描述' })
+      .expect(200)
+
+    expect(response.body.success).toBe(true)
+    expect(mockAuditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.UPDATE,
+        entityType: 'RegulationObligation',
+      }),
+    )
+  })
+
+  it('should return mapped control points for an obligation', async () => {
+    mockObligationService.findControlPointsByObligation.mockResolvedValue({
+      items: [{ controlId: 'control-1', coverage: 'FULL' }],
+      total: 1,
+      page: 1,
+      limit: 20,
+    })
+
+    const response = await request(app.getHttpServer())
+      .get('/api/admin/knowledge-graph/obligations/550e8400-e29b-41d4-a716-446655440000/control-points')
+      .expect(200)
+
+    expect(response.body.success).toBe(true)
+    expect(response.body.data.items[0].coverage).toBe('FULL')
+  })
+
+  it('should reject invalid create payload with 400 before service execution', async () => {
+    await request(app.getHttpServer())
+      .post('/api/admin/knowledge-graph/obligations')
+      .send({ obligationType: 'INVALID' })
+      .expect(400)
+
+    expect(mockObligationService.create).not.toHaveBeenCalled()
+  })
+
+  it('should return 401 for unauthenticated requests', async () => {
+    await app.close()
+    app = await createApp({ authenticated: false })
+
+    await request(app.getHttpServer())
+      .get('/api/admin/knowledge-graph/obligations')
+      .expect(401)
+  })
+
+  it('should return 403 for POST without required role', async () => {
+    await app.close()
+    app = await createApp({ authenticated: true, roleAllowed: false })
+
+    await request(app.getHttpServer())
+      .post('/api/admin/knowledge-graph/obligations')
+      .send({
+        clauseId: '550e8400-e29b-41d4-a716-446655440000',
+        obligationCode: 'OBL-001',
+        obligationText: '应当建立复核机制',
+        obligationType: 'MANDATORY',
+      })
+      .expect(403)
+  })
+})

@@ -11,6 +11,7 @@ import { ComplianceCaseController } from './controllers/compliance-case.controll
 import { RegulationController } from './controllers/regulation.controller'
 import { ComplianceCaseService } from './services/compliance-case.service'
 import { ControlPointService } from './services/control-point.service'
+import { ObligationService } from './services/obligation.service'
 import { RegulationService } from './services/regulation.service'
 
 describe('KnowledgeGraph regulation controllers (http)', () => {
@@ -27,6 +28,10 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
     createClauseControlMap: jest.fn(),
     updateClauseControlMap: jest.fn(),
     findClausesByControlId: jest.fn(),
+  }
+
+  const mockObligationService = {
+    findRegulatoryLinksByControlId: jest.fn(),
   }
 
   const mockComplianceCaseService = {
@@ -59,6 +64,10 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
         {
           provide: RegulationService,
           useValue: mockRegulationService,
+        },
+        {
+          provide: ObligationService,
+          useValue: mockObligationService,
         },
         {
           provide: ComplianceCaseService,
@@ -234,12 +243,22 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
     mockControlPointService.findOne.mockResolvedValue({
       controlId: '77777777-7777-4777-8777-777777777777',
     })
-    mockRegulationService.findClausesByControlId.mockResolvedValue([
-      {
-        clauseId: 'clause-id',
-        clauseCode: 'CLAUSE-001',
-      },
-    ])
+    mockObligationService.findRegulatoryLinksByControlId.mockResolvedValue({
+      obligations: [
+        {
+          obligationId: 'obl-id',
+          obligationCode: 'OBL-001',
+          linkSource: 'obligation',
+        },
+      ],
+      clauses: [
+        {
+          clauseId: 'clause-id',
+          clauseCode: 'CLAUSE-001',
+          linkSource: 'clause',
+        },
+      ],
+    })
     mockComplianceCaseService.findCasesByControlId.mockResolvedValue([])
 
     const response = await request(app.getHttpServer())
@@ -252,10 +271,18 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
       success: true,
       data: {
         controlId: '77777777-7777-4777-8777-777777777777',
+        obligations: [
+          {
+            obligationId: 'obl-id',
+            obligationCode: 'OBL-001',
+            linkSource: 'obligation',
+          },
+        ],
         clauses: [
           {
             clauseId: 'clause-id',
             clauseCode: 'CLAUSE-001',
+            linkSource: 'clause',
           },
         ],
         cases: [],

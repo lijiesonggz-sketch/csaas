@@ -33,6 +33,7 @@ import {
 } from '../dto/regulation.dto'
 import { ComplianceCaseService } from '../services/compliance-case.service'
 import { ControlPointService } from '../services/control-point.service'
+import { ObligationService } from '../services/obligation.service'
 import { RegulationService } from '../services/regulation.service'
 
 @ApiTags('Knowledge Graph - Regulation')
@@ -43,6 +44,7 @@ import { RegulationService } from '../services/regulation.service'
 export class RegulationController {
   constructor(
     private readonly regulationService: RegulationService,
+    private readonly obligationService: ObligationService,
     private readonly complianceCaseService: ComplianceCaseService,
     private readonly controlPointService: ControlPointService,
     private readonly auditLogService: AuditLogService,
@@ -234,14 +236,15 @@ export class RegulationController {
   async getControlRegulatoryLinks(@Param('controlId') controlId: string) {
     await this.controlPointService.findOne(controlId)
 
-    const [clauses, cases] = await Promise.all([
-      this.regulationService.findClausesByControlId(controlId),
+    const [regulatoryLinks, cases] = await Promise.all([
+      this.obligationService.findRegulatoryLinksByControlId(controlId),
       this.complianceCaseService.findCasesByControlId(controlId),
     ])
 
     return {
       controlId,
-      clauses,
+      obligations: regulatoryLinks.obligations,
+      clauses: regulatoryLinks.clauses,
       cases,
     }
   }
