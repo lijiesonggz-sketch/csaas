@@ -896,6 +896,7 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
   const obligationCodeSet = new Set(
     seedData.regulationObligations.map((obligation) => obligation.obligationCode),
   )
+  const seenObligationControlPairs = new Set<string>()
   for (const mapping of seedData.obligationControlMaps) {
     if (!obligationCodeSet.has(mapping.obligationCode)) {
       throw new Error(
@@ -907,24 +908,16 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
         `Obligation control map references unknown control ${mapping.controlCode}`,
       )
     }
+    const pairKey = `${mapping.obligationCode}::${mapping.controlCode}`
+    if (seenObligationControlPairs.has(pairKey)) {
+      throw new Error(`Duplicate obligation control map ${pairKey}`)
+    }
+    seenObligationControlPairs.add(pairKey)
     if (!obligationCoverageSet.has(mapping.coverage)) {
       throw new Error(
         `Obligation control map ${mapping.obligationCode}/${mapping.controlCode} has invalid coverage ${mapping.coverage}`,
       )
     }
-  }
-
-  const mappedObligationCodes = new Set(
-    seedData.obligationControlMaps.map((mapping) => mapping.obligationCode),
-  )
-  if (
-    !seedData.regulationObligations.some(
-      (obligation) => !mappedObligationCodes.has(obligation.obligationCode),
-    )
-  ) {
-    throw new Error(
-      'Regulation obligation seed must preserve at least one unmapped blind-spot obligation',
-    )
   }
 
   for (const question of seedData.questionItems) {

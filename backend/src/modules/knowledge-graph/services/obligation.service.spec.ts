@@ -17,6 +17,7 @@ import { ControlPoint } from '../../../database/entities/control-point.entity'
 import { ObligationControlMap } from '../../../database/entities/obligation-control-map.entity'
 import { RegulationClause } from '../../../database/entities/regulation-clause.entity'
 import { RegulationObligation } from '../../../database/entities/regulation-obligation.entity'
+import { loadKgSeedData } from '../../applicability-engine/seeds/kg-seed-data'
 
 const loadService = async () => {
   const mod = await import('./obligation.service')
@@ -358,6 +359,41 @@ describe('ObligationService', () => {
           expect.objectContaining({ sector: '银行', obligations: 1, covered: 1 }),
         ]),
       )
+    })
+
+    it('should surface uncovered obligations from Story 3.3 seed data', async () => {
+      const seedData = loadKgSeedData()
+      const controlByCode = new Map(
+        seedData.controlPoints.map((control) => [control.controlCode, control] as const),
+      )
+
+      const obligations = seedData.regulationObligations
+        .filter((obligation) => obligation.sourceCode === 'SRC-IT04-REPORTING-001')
+        .map((obligation) => {
+          const maps = seedData.obligationControlMaps
+            .filter((mapping) => mapping.obligationCode === obligation.obligationCode)
+            .map((mapping) => ({
+              controlId: controlByCode.get(mapping.controlCode)?.controlId ?? mapping.controlCode,
+              controlPoint: controlByCode.get(mapping.controlCode) ?? null,
+            }))
+
+          return {
+            obligationId: obligation.obligationCode,
+            applicableSector: obligation.applicableSector ?? [],
+            obligationControlMaps: maps,
+          }
+        })
+
+      const expectedUncovered = obligations.filter(
+        (obligation) => obligation.obligationControlMaps.length === 0,
+      )
+
+      expect(expectedUncovered.length).toBeGreaterThan(0)
+
+      mocks.obligationRepo.find.mockResolvedValue(obligations as never)
+
+      const result = await service.getCoverageAnalysis()
+      expect(result.totals.uncovered).toBe(expectedUncovered.length)
     })
   })
 

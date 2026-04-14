@@ -48,8 +48,17 @@
     "sourceCode": "SRC-IT04-REPORTING-001",
     "clauseCode": "CLAUSE-IT04-DQ-001",
     "obligationCode": "OBL-IT04-5.1-01",
-    "obligationText": "监管报送前应执行自动化数据质量校验，发现缺失值、格式错误和异常波动时不得直接报送。",
+    "obligationText": "监管报送前应执行自动化数据质量校验。",
     "obligationType": "MANDATORY",
+    "applicableSector": ["通用"],
+    "status": "ACTIVE"
+  },
+  {
+    "sourceCode": "SRC-IT04-REPORTING-001",
+    "clauseCode": "CLAUSE-IT04-DQ-001",
+    "obligationCode": "OBL-IT04-5.1-02",
+    "obligationText": "发现缺失值、格式错误和异常波动时不得直接报送。",
+    "obligationType": "PROHIBITIVE",
     "applicableSector": ["通用"],
     "status": "ACTIVE"
   },

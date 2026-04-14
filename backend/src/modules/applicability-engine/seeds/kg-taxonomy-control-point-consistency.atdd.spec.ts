@@ -44,6 +44,58 @@ function buildSummaryProjection(summary: {
   }
 }
 
+function createSeedQueryMock(seedData: ReturnType<typeof loadKgSeedData>) {
+  return jest.fn().mockImplementation((sql: string, params?: unknown[]) => {
+    const codes = Array.isArray(params?.[0]) ? (params?.[0] as string[]) : undefined
+
+    if (sql.includes('FROM regulation_sources')) {
+      return Promise.resolve(
+        seedData.regulationSources
+          .filter((source) => !codes || codes.includes(source.sourceCode))
+          .map((source, index) => ({
+            source_id: `source-${index + 1}`,
+            source_code: source.sourceCode,
+          })),
+      )
+    }
+
+    if (sql.includes('FROM regulation_clauses') && sql.includes('clause_code')) {
+      return Promise.resolve(
+        seedData.regulationClauses
+          .filter((clause) => !codes || codes.includes(clause.clauseCode))
+          .map((clause, index) => ({
+            clause_id: `clause-${index + 1}`,
+            clause_code: clause.clauseCode,
+          })),
+      )
+    }
+
+    if (sql.includes('FROM regulation_obligations')) {
+      return Promise.resolve(
+        seedData.regulationObligations
+          .filter((obligation) => !codes || codes.includes(obligation.obligationCode))
+          .map((obligation, index) => ({
+            obligation_id: `obl-${index + 1}`,
+            obligation_code: obligation.obligationCode,
+          })),
+      )
+    }
+
+    if (sql.includes('FROM control_points') && sql.includes('control_code')) {
+      return Promise.resolve(
+        seedData.controlPoints
+          .filter((control) => !codes || codes.includes(control.controlCode))
+          .map((control, index) => ({
+            control_id: control.controlId ?? `control-${index + 1}`,
+            control_code: control.controlCode,
+          })),
+      )
+    }
+
+    return Promise.resolve([])
+  })
+}
+
 function createStatefulQueryRunner() {
   const seedData = loadKgSeedData()
   const controlPackState = new Map<string, { packId: string; packCode: string }>()
@@ -146,7 +198,7 @@ function createStatefulQueryRunner() {
   return {
     queryRunner: {
       hasTable: jest.fn().mockResolvedValue(true),
-      query: jest.fn().mockResolvedValue([]),
+      query: createSeedQueryMock(seedData),
       manager,
     },
     seedData,

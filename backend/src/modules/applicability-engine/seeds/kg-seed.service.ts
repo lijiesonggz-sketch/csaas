@@ -332,23 +332,23 @@ export async function seedRegulationObligationsAndMaps(
     persistedClauses.map((clause) => [clause.clause_code, clause.clause_id] as const),
   )
 
+  for (const obligation of obligationRecords) {
+    if (!clauseIdByCode.has(obligation.clauseCode)) {
+      throw new Error(
+        `Missing regulation clause ${obligation.clauseCode} for obligation ${obligation.obligationCode}`,
+      )
+    }
+  }
+
   const obligationsToUpsert = obligationRecords
     .map((obligation) => ({
-      clauseId: clauseIdByCode.get(obligation.clauseCode),
+      clauseId: clauseIdByCode.get(obligation.clauseCode) as string,
       obligationCode: obligation.obligationCode,
       obligationText: obligation.obligationText,
       obligationType: obligation.obligationType,
       applicableSector: obligation.applicableSector ?? [],
       status: obligation.status ?? 'ACTIVE',
     }))
-    .filter((obligation): obligation is {
-      clauseId: string
-      obligationCode: string
-      obligationText: string
-      obligationType: RegulationObligationSeedRecord['obligationType']
-      applicableSector: RegulationObligationSeedRecord['applicableSector']
-      status: NonNullable<RegulationObligationSeedRecord['status']>
-    } => Boolean(obligation.clauseId))
 
   if (obligationsToUpsert.length > 0) {
     await obligationRepository.upsert(obligationsToUpsert, ['obligationCode'])
@@ -366,6 +366,12 @@ export async function seedRegulationObligationsAndMaps(
     ] as const),
   )
 
+  for (const obligation of obligationRecords) {
+    if (!obligationIdByCode.has(obligation.obligationCode)) {
+      throw new Error(`Missing regulation obligation ${obligation.obligationCode} after upsert`)
+    }
+  }
+
   const persistedControls: Array<{ control_id: string; control_code: string }> =
     await queryRunner.query(
       `SELECT control_id, control_code FROM control_points WHERE control_code = ANY($1)`,
@@ -376,18 +382,26 @@ export async function seedRegulationObligationsAndMaps(
   )
 
   const mapsToInsert = mapRecords
-    .map((mapping) => ({
-      obligationId: obligationIdByCode.get(mapping.obligationCode),
-      controlId: controlIdByCode.get(mapping.controlCode),
-      coverage: mapping.coverage,
-      notes: mapping.notes ?? null,
-    }))
-    .filter((mapping): mapping is {
-      obligationId: string
-      controlId: string
-      coverage: ObligationControlMapSeedRecord['coverage']
-      notes: string | null
-    } => Boolean(mapping.obligationId && mapping.controlId))
+    .map((mapping) => {
+      const obligationId = obligationIdByCode.get(mapping.obligationCode)
+      if (!obligationId) {
+        throw new Error(
+          `Missing regulation obligation ${mapping.obligationCode} for obligation-control map`,
+        )
+      }
+      const controlId = controlIdByCode.get(mapping.controlCode)
+      if (!controlId) {
+        throw new Error(
+          `Missing control point ${mapping.controlCode} for obligation-control map`,
+        )
+      }
+      return {
+        obligationId,
+        controlId,
+        coverage: mapping.coverage,
+        notes: mapping.notes ?? null,
+      }
+    })
 
   for (const mapping of mapsToInsert) {
     await queryRunner.query(

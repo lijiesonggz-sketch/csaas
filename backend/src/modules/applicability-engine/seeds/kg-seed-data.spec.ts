@@ -290,11 +290,6 @@ describe('loadKgSeedData', () => {
         }),
       ]),
     )
-
-    const mappedCodes = new Set(seedData.obligationControlMaps?.map((mapping) => mapping.obligationCode))
-    expect(
-      seedData.regulationObligations?.some((obligation) => !mappedCodes.has(obligation.obligationCode)),
-    ).toBe(true)
   })
 
   it('should reject obligation seed entries that reference unknown clauses', () => {
@@ -306,6 +301,21 @@ describe('loadKgSeedData', () => {
 
     expect(() => validateKgSeedData(seedData)).toThrow(
       'Regulation obligation',
+    )
+  })
+
+  it('should reject duplicated obligation-control map pairs', () => {
+    const seedData = JSON.parse(JSON.stringify(loadKgSeedData())) as ReturnType<
+      typeof loadKgSeedData
+    >
+
+    seedData.obligationControlMaps.push({
+      ...seedData.obligationControlMaps[0],
+    })
+
+    const pairKey = `${seedData.obligationControlMaps[0].obligationCode}::${seedData.obligationControlMaps[0].controlCode}`
+    expect(() => validateKgSeedData(seedData)).toThrow(
+      `Duplicate obligation control map ${pairKey}`,
     )
   })
 })
