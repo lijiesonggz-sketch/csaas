@@ -1,0 +1,53 @@
+[
+  {
+    "obligationCode": "OBL-IT04-4.1-01",
+    "controlCode": "CTRL-REP-001",
+    "coverage": "FULL"
+  },
+  {
+    "obligationCode": "OBL-IT04-4.2-01",
+    "controlCode": "CTRL-REP-002",
+    "coverage": "FULL"
+  },
+  {
+    "obligationCode": "OBL-IT04-4.3-01",
+    "controlCode": "CTRL-REP-003",
+    "coverage": "FULL"
+  },
+  {
+    "obligationCode": "OBL-IT04-4.4-01",
+    "controlCode": "CTRL-REP-004",
+    "coverage": "FULL"
+  },
+  {
+    "obligationCode": "OBL-IT04-4.4-01",
+    "controlCode": "CTRL-TL-001",
+    "coverage": "PARTIAL",
+    "notes": "时效监控作为升级处置的补充支持控制。"
+  },
+  {
+    "obligationCode": "OBL-IT04-5.1-01",
+    "controlCode": "CTRL-DQ-001",
+    "coverage": "FULL"
+  },
+  {
+    "obligationCode": "OBL-IT04-5.2-01",
+    "controlCode": "CTRL-DQ-002",
+    "coverage": "FULL"
+  },
+  {
+    "obligationCode": "OBL-IT04-5.3-01",
+    "controlCode": "CTRL-DQ-003",
+    "coverage": "FULL"
+  },
+  {
+    "obligationCode": "OBL-IT04-6.1-01",
+    "controlCode": "CTRL-REC-001",
+    "coverage": "FULL"
+  },
+  {
+    "obligationCode": "OBL-IT04-6.2-01",
+    "controlCode": "CTRL-FAL-001",
+    "coverage": "FULL"
+  }
+]

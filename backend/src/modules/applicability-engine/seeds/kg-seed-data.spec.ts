@@ -257,4 +257,55 @@ describe('loadKgSeedData', () => {
       ]),
     )
   })
+
+  it('should load regulation obligations and obligation-control maps for IT04 source', () => {
+    const seedData = loadKgSeedData() as ReturnType<typeof loadKgSeedData> & {
+      regulationObligations?: Array<{
+        sourceCode: string
+        clauseCode: string
+        obligationCode: string
+      }>
+      obligationControlMaps?: Array<{
+        obligationCode: string
+        controlCode: string
+        coverage: string
+      }>
+    }
+
+    expect(seedData.regulationObligations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceCode: 'SRC-IT04-REPORTING-001',
+          clauseCode: expect.stringMatching(/^CLAUSE-IT04-/),
+          obligationCode: expect.stringMatching(/^OBL-IT04-/),
+        }),
+      ]),
+    )
+    expect(seedData.obligationControlMaps).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          obligationCode: expect.stringMatching(/^OBL-IT04-/),
+          controlCode: expect.stringMatching(/^CTRL-/),
+          coverage: expect.stringMatching(/^(FULL|PARTIAL)$/),
+        }),
+      ]),
+    )
+
+    const mappedCodes = new Set(seedData.obligationControlMaps?.map((mapping) => mapping.obligationCode))
+    expect(
+      seedData.regulationObligations?.some((obligation) => !mappedCodes.has(obligation.obligationCode)),
+    ).toBe(true)
+  })
+
+  it('should reject obligation seed entries that reference unknown clauses', () => {
+    const seedData = JSON.parse(JSON.stringify(loadKgSeedData())) as ReturnType<typeof loadKgSeedData> & {
+      regulationObligations: Array<{ clauseCode: string }>
+    }
+
+    seedData.regulationObligations[0].clauseCode = 'CLAUSE-NOT-EXIST-001'
+
+    expect(() => validateKgSeedData(seedData)).toThrow(
+      'Regulation obligation',
+    )
+  })
 })

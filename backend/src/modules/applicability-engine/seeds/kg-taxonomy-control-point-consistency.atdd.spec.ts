@@ -131,6 +131,9 @@ function createStatefulQueryRunner() {
         case 'TaxonomyFailureModeMap':
         case 'RegulationSource':
         case 'RegulationClause':
+        case 'RegulationObligation':
+        case 'EvidenceType':
+        case 'ControlEvidenceMap':
         case 'QuestionItem':
         case 'RemediationAction':
           return genericRepository

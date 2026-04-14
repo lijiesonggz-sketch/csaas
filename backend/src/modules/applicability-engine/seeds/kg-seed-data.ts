@@ -33,6 +33,10 @@ import {
   MapReviewStatus,
 } from '../../../database/entities/clause-control-map.entity'
 import {
+  OBLIGATION_COVERAGES,
+  ObligationCoverage,
+} from '../../../database/entities/obligation-control-map.entity'
+import {
   FAILURE_MODE_CONTROL_RELEVANCES,
   FailureModeControlRelevance,
 } from '../../../database/entities/failure-mode-control-map.entity'
@@ -60,6 +64,12 @@ import {
   REGULATION_CLAUSE_MANDATORY_LEVELS,
   RegulationClauseMandatoryLevel,
 } from '../../../database/entities/regulation-clause.entity'
+import {
+  OBLIGATION_STATUSES,
+  OBLIGATION_TYPES,
+  ObligationStatus,
+  ObligationType,
+} from '../../../database/entities/regulation-obligation.entity'
 import {
   REGULATION_SOURCE_LEVELS,
   REGULATION_SOURCE_STATUSES,
@@ -206,6 +216,23 @@ export interface RegulationClauseSeedRecord {
   effectiveTo?: string | null
 }
 
+export interface RegulationObligationSeedRecord {
+  sourceCode: string
+  clauseCode: string
+  obligationCode: string
+  obligationText: string
+  obligationType: ObligationType
+  applicableSector?: ApplicableSector[]
+  status?: ObligationStatus
+}
+
+export interface ObligationControlMapSeedRecord {
+  obligationCode: string
+  controlCode: string
+  coverage: ObligationCoverage
+  notes?: string | null
+}
+
 export interface FailureModeControlMapSeedRecord {
   failureModeCode: string
   controlCode: string
@@ -278,6 +305,8 @@ export interface KgSeedData {
   controlPoints: ControlPointSeedRecord[]
   regulationSources: RegulationSourceSeedRecord[]
   regulationClauses: RegulationClauseSeedRecord[]
+  regulationObligations: RegulationObligationSeedRecord[]
+  obligationControlMaps: ObligationControlMapSeedRecord[]
   failureModeControlMaps: FailureModeControlMapSeedRecord[]
   evidenceTypes: EvidenceTypeSeedRecord[]
   controlEvidenceMaps: ControlEvidenceMapSeedRecord[]
@@ -451,6 +480,10 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
     'regulation clause code',
   )
   assertUnique(
+    seedData.regulationObligations.map((obligation) => obligation.obligationCode),
+    'regulation obligation code',
+  )
+  assertUnique(
     seedData.evidenceTypes.map((evidence) => evidence.evidenceCode),
     'evidence type code',
   )
@@ -475,6 +508,9 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
   const regulationSourceLevelSet = new Set(REGULATION_SOURCE_LEVELS)
   const regulationSourceStatusSet = new Set(REGULATION_SOURCE_STATUSES)
   const regulationClauseMandatoryLevelSet = new Set(REGULATION_CLAUSE_MANDATORY_LEVELS)
+  const obligationTypeSet = new Set(OBLIGATION_TYPES)
+  const obligationStatusSet = new Set(OBLIGATION_STATUSES)
+  const obligationCoverageSet = new Set(OBLIGATION_COVERAGES)
   const questionTypeSet = new Set(QUESTION_ITEM_TYPES)
   const questionStatusSet = new Set(QUESTION_ITEM_STATUSES)
   const remediationPrioritySet = new Set(REMEDIATION_ACTION_PRIORITIES)
@@ -727,6 +763,47 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
     }
   }
 
+  for (const obligation of seedData.regulationObligations) {
+    if (!sourceCodeSet.has(obligation.sourceCode)) {
+      throw new Error(
+        `Regulation obligation ${obligation.obligationCode} references unknown source ${obligation.sourceCode}`,
+      )
+    }
+
+    if (!clauseCodeSet.has(obligation.clauseCode)) {
+      throw new Error(
+        `Regulation obligation ${obligation.obligationCode} references unknown clause ${obligation.clauseCode}`,
+      )
+    }
+
+    if (!obligation.obligationCode || !obligation.obligationText) {
+      throw new Error(
+        `Regulation obligation ${obligation.obligationCode || '<missing>'} has incomplete metadata`,
+      )
+    }
+
+    if (!obligationTypeSet.has(obligation.obligationType)) {
+      throw new Error(
+        `Regulation obligation ${obligation.obligationCode} has invalid obligationType ${obligation.obligationType}`,
+      )
+    }
+
+    const status = obligation.status ?? 'ACTIVE'
+    if (!obligationStatusSet.has(status)) {
+      throw new Error(
+        `Regulation obligation ${obligation.obligationCode} has invalid status ${status}`,
+      )
+    }
+
+    for (const sector of obligation.applicableSector ?? []) {
+      if (!applicableSectorSet.has(sector)) {
+        throw new Error(
+          `Regulation obligation ${obligation.obligationCode} has invalid applicableSector ${sector}`,
+        )
+      }
+    }
+  }
+
   for (const mapping of seedData.failureModeControlMaps) {
     if (!knownFailureModeCodes.has(mapping.failureModeCode)) {
       throw new Error(
@@ -816,6 +893,40 @@ export function validateKgSeedData(seedData: KgSeedData): KgSeedData {
     }
   }
 
+  const obligationCodeSet = new Set(
+    seedData.regulationObligations.map((obligation) => obligation.obligationCode),
+  )
+  for (const mapping of seedData.obligationControlMaps) {
+    if (!obligationCodeSet.has(mapping.obligationCode)) {
+      throw new Error(
+        `Obligation control map references unknown obligation ${mapping.obligationCode}`,
+      )
+    }
+    if (!controlCodeSet.has(mapping.controlCode)) {
+      throw new Error(
+        `Obligation control map references unknown control ${mapping.controlCode}`,
+      )
+    }
+    if (!obligationCoverageSet.has(mapping.coverage)) {
+      throw new Error(
+        `Obligation control map ${mapping.obligationCode}/${mapping.controlCode} has invalid coverage ${mapping.coverage}`,
+      )
+    }
+  }
+
+  const mappedObligationCodes = new Set(
+    seedData.obligationControlMaps.map((mapping) => mapping.obligationCode),
+  )
+  if (
+    !seedData.regulationObligations.some(
+      (obligation) => !mappedObligationCodes.has(obligation.obligationCode),
+    )
+  ) {
+    throw new Error(
+      'Regulation obligation seed must preserve at least one unmapped blind-spot obligation',
+    )
+  }
+
   for (const question of seedData.questionItems) {
     if (!controlCodeSet.has(question.controlCode)) {
       throw new Error(`Question item ${question.questionCode} references unknown control ${question.controlCode}`)
@@ -899,6 +1010,12 @@ export function loadKgSeedData(): KgSeedData {
     controlPoints: readSeedFile<ControlPointSeedRecord[]>('control-point.seed.json'),
     regulationSources: readSeedFile<RegulationSourceSeedRecord[]>('regulation-source.seed.json'),
     regulationClauses: readSeedFile<RegulationClauseSeedRecord[]>('regulation-clause.seed.json'),
+    regulationObligations: readSeedFile<RegulationObligationSeedRecord[]>(
+      'regulation-obligation.seed.json',
+    ),
+    obligationControlMaps: readSeedFile<ObligationControlMapSeedRecord[]>(
+      'obligation-control-map.seed.json',
+    ),
     failureModeControlMaps: readSeedFile<FailureModeControlMapSeedRecord[]>(
       'failure-mode-control-map.seed.json',
     ),

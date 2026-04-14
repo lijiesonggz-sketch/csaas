@@ -9,6 +9,7 @@ import { EvidenceType } from '../../../database/entities/evidence-type.entity'
 import { FailureMode, FailureModeCategory } from '../../../database/entities/failure-mode.entity'
 import { QuestionItem } from '../../../database/entities/question-item.entity'
 import { RegulationClause } from '../../../database/entities/regulation-clause.entity'
+import { RegulationObligation } from '../../../database/entities/regulation-obligation.entity'
 import { RegulationSource } from '../../../database/entities/regulation-source.entity'
 import { RemediationAction } from '../../../database/entities/remediation-action.entity'
 import { TaxonomyL1 } from '../../../database/entities/taxonomy-l1.entity'
@@ -22,7 +23,9 @@ import {
   FailureModeControlMapSeedRecord,
   KgSeedData,
   loadKgSeedData,
+  ObligationControlMapSeedRecord,
   QuestionItemSeedRecord,
+  RegulationObligationSeedRecord,
   RegulationClauseSeedRecord,
   RegulationSourceSeedRecord,
   RemediationActionSeedRecord,
@@ -55,6 +58,8 @@ export interface KgSeedSummary {
   fmSummary?: FmSeedSummary
   regulationSources?: number
   regulationClauses?: number
+  regulationObligations?: number
+  obligationControlMaps?: number
   controlPackItems?: number
   failureModeControlMaps?: number
   evidenceTypes?: number
@@ -308,6 +313,94 @@ async function seedRegulationSourcesAndClauses(
   return {
     regulationSources: sourceRecords.length,
     regulationClauses: clausesToUpsert.length,
+  }
+}
+
+export async function seedRegulationObligationsAndMaps(
+  queryRunner: QueryRunner,
+  obligationRecords: RegulationObligationSeedRecord[],
+  mapRecords: ObligationControlMapSeedRecord[],
+): Promise<{ regulationObligations: number; obligationControlMaps: number }> {
+  const obligationRepository = queryRunner.manager.getRepository(RegulationObligation)
+
+  const persistedClauses: Array<{ clause_id: string; clause_code: string }> =
+    await queryRunner.query(
+      `SELECT clause_id, clause_code FROM regulation_clauses WHERE clause_code = ANY($1)`,
+      [obligationRecords.map((obligation) => obligation.clauseCode)],
+    )
+  const clauseIdByCode = new Map(
+    persistedClauses.map((clause) => [clause.clause_code, clause.clause_id] as const),
+  )
+
+  const obligationsToUpsert = obligationRecords
+    .map((obligation) => ({
+      clauseId: clauseIdByCode.get(obligation.clauseCode),
+      obligationCode: obligation.obligationCode,
+      obligationText: obligation.obligationText,
+      obligationType: obligation.obligationType,
+      applicableSector: obligation.applicableSector ?? [],
+      status: obligation.status ?? 'ACTIVE',
+    }))
+    .filter((obligation): obligation is {
+      clauseId: string
+      obligationCode: string
+      obligationText: string
+      obligationType: RegulationObligationSeedRecord['obligationType']
+      applicableSector: RegulationObligationSeedRecord['applicableSector']
+      status: NonNullable<RegulationObligationSeedRecord['status']>
+    } => Boolean(obligation.clauseId))
+
+  if (obligationsToUpsert.length > 0) {
+    await obligationRepository.upsert(obligationsToUpsert, ['obligationCode'])
+  }
+
+  const persistedObligations: Array<{ obligation_id: string; obligation_code: string }> =
+    await queryRunner.query(
+      `SELECT obligation_id, obligation_code FROM regulation_obligations WHERE obligation_code = ANY($1)`,
+      [obligationRecords.map((obligation) => obligation.obligationCode)],
+    )
+  const obligationIdByCode = new Map(
+    persistedObligations.map((obligation) => [
+      obligation.obligation_code,
+      obligation.obligation_id,
+    ] as const),
+  )
+
+  const persistedControls: Array<{ control_id: string; control_code: string }> =
+    await queryRunner.query(
+      `SELECT control_id, control_code FROM control_points WHERE control_code = ANY($1)`,
+      [mapRecords.map((mapping) => mapping.controlCode)],
+    )
+  const controlIdByCode = new Map(
+    persistedControls.map((control) => [control.control_code, control.control_id] as const),
+  )
+
+  const mapsToInsert = mapRecords
+    .map((mapping) => ({
+      obligationId: obligationIdByCode.get(mapping.obligationCode),
+      controlId: controlIdByCode.get(mapping.controlCode),
+      coverage: mapping.coverage,
+      notes: mapping.notes ?? null,
+    }))
+    .filter((mapping): mapping is {
+      obligationId: string
+      controlId: string
+      coverage: ObligationControlMapSeedRecord['coverage']
+      notes: string | null
+    } => Boolean(mapping.obligationId && mapping.controlId))
+
+  for (const mapping of mapsToInsert) {
+    await queryRunner.query(
+      `INSERT INTO obligation_control_maps (id, obligation_id, control_id, coverage, notes, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, now(), now())
+       ON CONFLICT (obligation_id, control_id) DO UPDATE SET coverage = EXCLUDED.coverage, notes = EXCLUDED.notes, updated_at = now()`,
+      [mapping.obligationId, mapping.controlId, mapping.coverage, mapping.notes],
+    )
+  }
+
+  return {
+    regulationObligations: obligationsToUpsert.length,
+    obligationControlMaps: mapsToInsert.length,
   }
 }
 
@@ -598,6 +691,8 @@ export async function seedKgBaselineWithQueryRunner(
     'control_points',
     'regulation_sources',
     'regulation_clauses',
+    'regulation_obligations',
+    'obligation_control_maps',
     'control_pack_items',
     'failure_mode_control_maps',
     'evidence_types',
@@ -722,6 +817,11 @@ export async function seedKgBaselineWithQueryRunner(
     seedData.regulationSources,
     seedData.regulationClauses,
   )
+  const obligationSummary = await seedRegulationObligationsAndMaps(
+    queryRunner,
+    seedData.regulationObligations,
+    seedData.obligationControlMaps,
+  )
   const hardControlArtifactSummary = await seedHardControlArtifacts(
     queryRunner,
     seedData,
@@ -742,6 +842,8 @@ export async function seedKgBaselineWithQueryRunner(
     fmSummary,
     regulationSources: regulationSummary.regulationSources,
     regulationClauses: regulationSummary.regulationClauses,
+    regulationObligations: obligationSummary.regulationObligations,
+    obligationControlMaps: obligationSummary.obligationControlMaps,
     controlPackItems: hardControlArtifactSummary.controlPackItems,
     failureModeControlMaps: hardControlArtifactSummary.failureModeControlMaps,
     evidenceTypes: hardControlArtifactSummary.evidenceTypes,

@@ -74,6 +74,7 @@ describe('seedKgBaselineWithQueryRunner', () => {
         if (
           entity.name === 'RegulationSource' ||
           entity.name === 'RegulationClause' ||
+          entity.name === 'RegulationObligation' ||
           entity.name === 'EvidenceType' ||
           entity.name === 'ControlEvidenceMap' ||
           entity.name === 'QuestionItem' ||
