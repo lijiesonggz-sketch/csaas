@@ -3,6 +3,7 @@ import { BullModule } from '@nestjs/bullmq'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { ApplicabilityEngineModule } from '../applicability-engine/applicability-engine.module'
 import { ControlPoint } from '../../database/entities/control-point.entity'
+import { FailureModeControlMap } from '../../database/entities/failure-mode-control-map.entity'
 import { Project } from '../../database/entities/project.entity'
 import { ReportPdfJob } from '../../database/entities/report-pdf-job.entity'
 import { SurveyResponse } from '../../database/entities/survey-response.entity'
@@ -33,6 +34,7 @@ import { ReportCenterService } from './services/report-center.service'
       ReportPdfJob,
       SurveyResponse,
       ControlPoint,
+      FailureModeControlMap,
       TaxonomyL1,
       TaxonomyL2,
       AnalyzedContent,

@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
+import { FailureModeControlMap } from '../../../database/entities/failure-mode-control-map.entity'
 import { TaxonomyL1 } from '../../../database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../../../database/entities/taxonomy-l2.entity'
 import { ComplianceCaseService } from '../../knowledge-graph/services/compliance-case.service'
@@ -18,6 +19,8 @@ export class ControlExplainService {
   constructor(
     @InjectRepository(ControlPoint)
     private readonly controlPointRepository: Repository<ControlPoint>,
+    @InjectRepository(FailureModeControlMap)
+    private readonly failureModeControlMapRepository: Repository<FailureModeControlMap>,
     @InjectRepository(TaxonomyL1)
     private readonly taxonomyL1Repository: Repository<TaxonomyL1>,
     @InjectRepository(TaxonomyL2)
@@ -59,7 +62,16 @@ export class ControlExplainService {
         this.obligationService.findRegulatoryLinksByControlId(controlId),
       ])
 
-    const failureModes = this.buildFailureModes(fullChain, controlId)
+    const failureModeMaps = await this.failureModeControlMapRepository
+      .createQueryBuilder('fmcm')
+      .leftJoinAndSelect('fmcm.failureMode', 'fm')
+      .where('fmcm.control_id = :controlId', { controlId })
+      .andWhere('fm.status = :status', { status: 'ACTIVE' })
+      .orderBy(`CASE WHEN fmcm.relevance = 'PRIMARY' THEN 0 ELSE 1 END`, 'ASC')
+      .addOrderBy('fm.failure_mode_code', 'ASC')
+      .getMany()
+
+    const failureModes = this.buildFailureModes(failureModeMaps)
     const reasoningChain = this.buildReasoningChain({
       control,
       l2Name: l2?.l2Name ?? fullChain?.l2Name ?? null,
@@ -125,29 +137,19 @@ export class ControlExplainService {
   }
 
   private buildFailureModes(
-    fullChain: Awaited<ReturnType<ControlPointService['findByL2CodeWithFullChain']>> | null,
-    controlId: string,
+    failureModeMaps: FailureModeControlMap[],
   ) {
-    if (!fullChain) {
+    if (failureModeMaps.length === 0) {
       return []
     }
 
-    return fullChain.failureModes
-      .map((failureMode) => {
-        const currentControl = failureMode.controlPoints.find((item) => item.controlId === controlId)
-        if (!currentControl) {
-          return null
-        }
-
-        return {
-          failureModeId: failureMode.failureModeId,
-          failureModeCode: failureMode.failureModeCode,
-          name: failureMode.name,
-          category: failureMode.category,
-          relevance: currentControl.relevance,
-        }
-      })
-      .filter((item): item is NonNullable<typeof item> => item !== null)
+    return failureModeMaps.map((item) => ({
+      failureModeId: item.failureMode?.failureModeId ?? item.failureModeId,
+      failureModeCode: item.failureMode?.failureModeCode ?? '',
+      name: item.failureMode?.name ?? '',
+      category: item.failureMode?.category ?? '',
+      relevance: item.relevance,
+    }))
   }
 
   private buildReasoningChain(input: {
