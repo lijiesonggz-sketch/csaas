@@ -48,9 +48,13 @@ const mockFailureModeService = {
   create: jest.fn().mockResolvedValue(null),
   update: jest.fn().mockResolvedValue(null),
   findByL2Code: jest.fn().mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
-  findControlPointsByFailureMode: jest.fn().mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
+  findControlPointsByFailureMode: jest
+    .fn()
+    .mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
   createTaxonomyMap: jest.fn().mockResolvedValue(null),
   createControlMap: jest.fn().mockResolvedValue(null),
+  deleteTaxonomyMap: jest.fn().mockResolvedValue({ success: true, id: 'map-uuid-1' }),
+  deleteControlMap: jest.fn().mockResolvedValue({ success: true, id: 'cmap-uuid-1' }),
 }
 
 const mockAuditLogService = {
@@ -66,7 +70,7 @@ async function createApp(options?: { authenticated?: boolean; roleAllowed?: bool
   const moduleFixture: TestingModule = await Test.createTestingModule({
     controllers: [FailureModeControllerClass],
     providers: [
-      { provide: (await loadService()), useValue: mockFailureModeService },
+      { provide: await loadService(), useValue: mockFailureModeService },
       { provide: AuditLogService, useValue: mockAuditLogService },
     ],
   })
@@ -193,9 +197,7 @@ describe('KnowledgeGraph failure-modes controllers (http)', () => {
         status: 'ACTIVE',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        taxonomyMaps: [
-          { id: 'map-1', l2Code: 'IT04.01', l2Name: '监管数据报送', notes: null },
-        ],
+        taxonomyMaps: [{ id: 'map-1', l2Code: 'IT04.01', l2Name: '监管数据报送', notes: null }],
         controlMaps: [
           {
             id: 'cmap-1',
@@ -326,10 +328,7 @@ describe('KnowledgeGraph failure-modes controllers (http)', () => {
 
       expect(response.body.success).toBe(true)
       expect(response.body.data.items).toHaveLength(1)
-      expect(mockFailureModeService.findByL2Code).toHaveBeenCalledWith(
-        'IT04.01',
-        expect.anything(),
-      )
+      expect(mockFailureModeService.findByL2Code).toHaveBeenCalledWith('IT04.01', expect.anything())
     })
   })
 
@@ -358,7 +357,9 @@ describe('KnowledgeGraph failure-modes controllers (http)', () => {
       mockFailureModeService.findControlPointsByFailureMode.mockResolvedValue(mockData)
 
       const response = await request(app.getHttpServer())
-        .get('/api/admin/knowledge-graph/failure-modes/a1b2c3d4-e5f6-7890-abcd-ef1234567890/control-points')
+        .get(
+          '/api/admin/knowledge-graph/failure-modes/a1b2c3d4-e5f6-7890-abcd-ef1234567890/control-points',
+        )
         .expect(200)
 
       expect(response.body.success).toBe(true)
@@ -381,9 +382,7 @@ describe('KnowledgeGraph failure-modes controllers (http)', () => {
       await app.close()
       app = await createApp({ authenticated: false })
 
-      await request(app.getHttpServer())
-        .get('/api/admin/knowledge-graph/failure-modes')
-        .expect(401)
+      await request(app.getHttpServer()).get('/api/admin/knowledge-graph/failure-modes').expect(401)
     })
 
     it('should return 403 for POST endpoint without required role', async () => {
@@ -426,7 +425,9 @@ describe('KnowledgeGraph failure-modes controllers (http)', () => {
       mockFailureModeService.createTaxonomyMap.mockResolvedValue(created)
 
       const response = await request(app.getHttpServer())
-        .post('/api/admin/knowledge-graph/failure-modes/a1b2c3d4-e5f6-7890-abcd-ef1234567890/taxonomy-maps')
+        .post(
+          '/api/admin/knowledge-graph/failure-modes/a1b2c3d4-e5f6-7890-abcd-ef1234567890/taxonomy-maps',
+        )
         .send({ l2Code: 'IT04.01', notes: '测试映射' })
         .expect(201)
 
@@ -456,7 +457,9 @@ describe('KnowledgeGraph failure-modes controllers (http)', () => {
       mockFailureModeService.createControlMap.mockResolvedValue(created)
 
       const response = await request(app.getHttpServer())
-        .post('/api/admin/knowledge-graph/failure-modes/a1b2c3d4-e5f6-7890-abcd-ef1234567890/control-maps')
+        .post(
+          '/api/admin/knowledge-graph/failure-modes/a1b2c3d4-e5f6-7890-abcd-ef1234567890/control-maps',
+        )
         .send({
           controlId: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
           relevance: 'PRIMARY',
@@ -467,6 +470,50 @@ describe('KnowledgeGraph failure-modes controllers (http)', () => {
       expect(mockAuditLogService.log).toHaveBeenCalledWith(
         expect.objectContaining({
           action: AuditAction.CREATE,
+          entityType: 'FailureModeControlMap',
+        }),
+      )
+    })
+  })
+
+  describe('[P1] DELETE /failure-modes/:id/taxonomy-maps/:mapId', () => {
+    it('should delete taxonomy map and write audit log', async () => {
+      const response = await request(app.getHttpServer())
+        .delete(
+          '/api/admin/knowledge-graph/failure-modes/a1b2c3d4-e5f6-7890-abcd-ef1234567890/taxonomy-maps/b1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        )
+        .expect(200)
+
+      expect(response.body.success).toBe(true)
+      expect(mockFailureModeService.deleteTaxonomyMap).toHaveBeenCalledWith(
+        'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        'b1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      )
+      expect(mockAuditLogService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.DELETE,
+          entityType: 'TaxonomyFailureModeMap',
+        }),
+      )
+    })
+  })
+
+  describe('[P1] DELETE /failure-modes/:id/control-maps/:mapId', () => {
+    it('should delete control map and write audit log', async () => {
+      const response = await request(app.getHttpServer())
+        .delete(
+          '/api/admin/knowledge-graph/failure-modes/a1b2c3d4-e5f6-7890-abcd-ef1234567890/control-maps/c1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        )
+        .expect(200)
+
+      expect(response.body.success).toBe(true)
+      expect(mockFailureModeService.deleteControlMap).toHaveBeenCalledWith(
+        'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        'c1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      )
+      expect(mockAuditLogService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: AuditAction.DELETE,
           entityType: 'FailureModeControlMap',
         }),
       )

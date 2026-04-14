@@ -12,6 +12,7 @@ import {
   Radar,
   Building2,
   ClipboardCheck,
+  GitBranch,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
@@ -71,16 +72,41 @@ const allMenuItems: MenuItem[] = [
     label: '系统管理',
     adminOnly: true,
     children: [
-      { key: '/admin/dashboard', icon: <LayoutDashboard className="w-4 h-4" />, label: '运营仪表板' },
-      { key: '/admin/content-quality', icon: <FileText className="w-4 h-4" />, label: '内容质量管理' },
+      {
+        key: '/admin/dashboard',
+        icon: <LayoutDashboard className="w-4 h-4" />,
+        label: '运营仪表板',
+      },
+      {
+        key: '/admin/content-quality',
+        icon: <FileText className="w-4 h-4" />,
+        label: '内容质量管理',
+      },
       { key: '/admin/clients', icon: <Users className="w-4 h-4" />, label: '客户管理' },
-      { key: '/admin/cost-optimization', icon: <Settings className="w-4 h-4" />, label: '成本优化' },
+      {
+        key: '/admin/cost-optimization',
+        icon: <Settings className="w-4 h-4" />,
+        label: '成本优化',
+      },
       { key: '/admin/branding', icon: <Settings className="w-4 h-4" />, label: '品牌配置' },
       { key: '/admin/radar-sources', icon: <Radar className="w-4 h-4" />, label: '信息源配置' },
       { key: '/admin/raw-contents', icon: <FileText className="w-4 h-4" />, label: '文件导入管理' },
-      { key: '/admin/compliance-cases', icon: <ClipboardCheck className="w-4 h-4" />, label: '案例运营' },
+      {
+        key: '/admin/compliance-cases',
+        icon: <ClipboardCheck className="w-4 h-4" />,
+        label: '案例运营',
+      },
+      {
+        key: '/admin/failure-modes',
+        icon: <GitBranch className="w-4 h-4" />,
+        label: 'Failure Mode 管理',
+      },
       { key: '/admin/peer-crawler', icon: <Settings className="w-4 h-4" />, label: '同业爬虫管理' },
-      { key: '/admin/peer-crawler/health', icon: <Settings className="w-4 h-4" />, label: '爬虫健康监控' },
+      {
+        key: '/admin/peer-crawler/health',
+        icon: <Settings className="w-4 h-4" />,
+        label: '爬虫健康监控',
+      },
     ],
   },
 ]
@@ -119,9 +145,7 @@ export default function Sidebar({
   }
 
   const handleExpandToggle = (key: string) => {
-    setExpandedKeys((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-    )
+    setExpandedKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]))
   }
 
   const handleNavigation = async (key: string) => {
@@ -196,11 +220,17 @@ export default function Sidebar({
                     } ${collapsed ? 'justify-center px-0' : ''}`}
                     title={collapsed ? item.label : undefined}
                   >
-                    <span className={selected ? 'text-emerald-400' : 'text-white/60'}>{item.icon}</span>
+                    <span className={selected ? 'text-emerald-400' : 'text-white/60'}>
+                      {item.icon}
+                    </span>
                     {!collapsed && (
                       <>
                         <span className="flex-1 text-left">{item.label}</span>
-                        {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        {expanded ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
                       </>
                     )}
                   </button>

@@ -16,18 +16,10 @@
 
 import { Test, TestingModule } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common'
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common'
 import { FailureMode } from '../../../database/entities/failure-mode.entity'
-import {
-  TaxonomyFailureModeMap,
-} from '../../../database/entities/taxonomy-failure-mode-map.entity'
-import {
-  FailureModeControlMap,
-} from '../../../database/entities/failure-mode-control-map.entity'
+import { TaxonomyFailureModeMap } from '../../../database/entities/taxonomy-failure-mode-map.entity'
+import { FailureModeControlMap } from '../../../database/entities/failure-mode-control-map.entity'
 import { TaxonomyL2 } from '../../../database/entities/taxonomy-l2.entity'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
 
@@ -37,7 +29,9 @@ import { ControlPoint } from '../../../database/entities/control-point.entity'
 
 const loadService = async () => {
   const mod = await import('./failure-mode.service')
-  return mod.FailureModeService as new (...args: unknown[]) => InstanceType<typeof mod.FailureModeService>
+  return mod.FailureModeService as new (
+    ...args: unknown[]
+  ) => InstanceType<typeof mod.FailureModeService>
 }
 
 // ---------------------------------------------------------------------------
@@ -71,6 +65,7 @@ function createMockRepos() {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockReturnValue({}),
       save: jest.fn().mockResolvedValue({}),
+      delete: jest.fn().mockResolvedValue({ affected: 1 }),
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilderMock),
     },
     failureModeControlMapRepo: {
@@ -78,6 +73,7 @@ function createMockRepos() {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockReturnValue({}),
       save: jest.fn().mockResolvedValue({}),
+      delete: jest.fn().mockResolvedValue({ affected: 1 }),
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilderMock),
     },
     taxonomyL2Repo: {
@@ -107,8 +103,14 @@ describe('FailureModeService', () => {
       providers: [
         FailureModeServiceClass,
         { provide: getRepositoryToken(FailureMode), useValue: mocks.failureModeRepo },
-        { provide: getRepositoryToken(TaxonomyFailureModeMap), useValue: mocks.taxonomyFailureModeMapRepo },
-        { provide: getRepositoryToken(FailureModeControlMap), useValue: mocks.failureModeControlMapRepo },
+        {
+          provide: getRepositoryToken(TaxonomyFailureModeMap),
+          useValue: mocks.taxonomyFailureModeMapRepo,
+        },
+        {
+          provide: getRepositoryToken(FailureModeControlMap),
+          useValue: mocks.failureModeControlMapRepo,
+        },
         { provide: getRepositoryToken(TaxonomyL2), useValue: mocks.taxonomyL2Repo },
         { provide: getRepositoryToken(ControlPoint), useValue: mocks.controlPointRepo },
       ],
@@ -125,7 +127,13 @@ describe('FailureModeService', () => {
   describe('[P0][AC-1] findAll', () => {
     it('should return paginated results with default pagination', async () => {
       const mockItems = [
-        { failureModeId: 'fm-1', failureModeCode: 'FM-DEF-001', name: '定义错误', category: 'DEFINITION_ERROR', status: 'ACTIVE' },
+        {
+          failureModeId: 'fm-1',
+          failureModeCode: 'FM-DEF-001',
+          name: '定义错误',
+          category: 'DEFINITION_ERROR',
+          status: 'ACTIVE',
+        },
       ]
       mocks.failureModeRepo.findAndCount.mockResolvedValue([mockItems, 1])
 
@@ -263,9 +271,7 @@ describe('FailureModeService', () => {
     it('should throw NotFoundException when failure mode does not exist', async () => {
       mocks.failureModeRepo.findOne.mockResolvedValue(null)
 
-      await expect(service.findById('nonexistent-uuid')).rejects.toBeInstanceOf(
-        NotFoundException,
-      )
+      await expect(service.findById('nonexistent-uuid')).rejects.toBeInstanceOf(NotFoundException)
     })
   })
 
@@ -388,9 +394,9 @@ describe('FailureModeService', () => {
     it('should throw NotFoundException when failure mode does not exist', async () => {
       mocks.failureModeRepo.findOne.mockResolvedValue(null)
 
-      await expect(
-        service.update('nonexistent-uuid', { name: '不存在' }),
-      ).rejects.toBeInstanceOf(NotFoundException)
+      await expect(service.update('nonexistent-uuid', { name: '不存在' })).rejects.toBeInstanceOf(
+        NotFoundException,
+      )
     })
   })
 
@@ -406,9 +412,14 @@ describe('FailureModeService', () => {
       })
 
       const mockFMs = [
-        { failureModeId: 'fm-1', failureModeCode: 'FM-REP-001', name: '报送错误', category: 'DEFINITION_ERROR', status: 'ACTIVE' },
+        {
+          failureModeId: 'fm-1',
+          failureModeCode: 'FM-REP-001',
+          name: '报送错误',
+          category: 'DEFINITION_ERROR',
+          status: 'ACTIVE',
+        },
       ]
-      mocks.failureModeControlMapRepo.createQueryBuilder().getManyAndCount
       // We need the queryBuilder from failureModeRepo for findByL2Code
       const qb = mocks.queryBuilderMock
       mocks.failureModeRepo.createQueryBuilder.mockReturnValue(qb)
@@ -647,6 +658,134 @@ describe('FailureModeService', () => {
           relevance: 'PRIMARY',
         }),
       ).rejects.toBeInstanceOf(ConflictException)
+    })
+  })
+
+  describe('[P1] deleteTaxonomyMap', () => {
+    it('should delete an existing taxonomy map', async () => {
+      mocks.failureModeRepo.findOne.mockResolvedValue({
+        failureModeId: 'fm-uuid-1',
+        failureModeCode: 'FM-DEF-001',
+      })
+      mocks.taxonomyFailureModeMapRepo.findOne.mockResolvedValue({
+        id: 'map-uuid-1',
+        failureModeId: 'fm-uuid-1',
+        l2Code: 'IT04.01',
+      })
+
+      const result = await service.deleteTaxonomyMap('fm-uuid-1', 'map-uuid-1')
+
+      expect(result).toEqual({ success: true, id: 'map-uuid-1' })
+      expect(mocks.taxonomyFailureModeMapRepo.delete).toHaveBeenCalledWith({ id: 'map-uuid-1' })
+    })
+
+    it('should throw NotFoundException when taxonomy map does not exist', async () => {
+      mocks.failureModeRepo.findOne.mockResolvedValue({
+        failureModeId: 'fm-uuid-1',
+        failureModeCode: 'FM-DEF-001',
+      })
+      mocks.taxonomyFailureModeMapRepo.findOne.mockResolvedValue(null)
+
+      await expect(service.deleteTaxonomyMap('fm-uuid-1', 'missing-map')).rejects.toBeInstanceOf(
+        NotFoundException,
+      )
+    })
+
+    it('should throw NotFoundException when taxonomy map disappears before delete executes', async () => {
+      mocks.failureModeRepo.findOne.mockResolvedValue({
+        failureModeId: 'fm-uuid-1',
+        failureModeCode: 'FM-DEF-001',
+      })
+      mocks.taxonomyFailureModeMapRepo.findOne.mockResolvedValue({
+        id: 'map-uuid-1',
+        failureModeId: 'fm-uuid-1',
+        l2Code: 'IT04.01',
+      })
+      mocks.taxonomyFailureModeMapRepo.delete.mockResolvedValue({ affected: 0 })
+
+      await expect(service.deleteTaxonomyMap('fm-uuid-1', 'map-uuid-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      )
+    })
+
+    it('should throw BadRequestException when taxonomy map belongs to another failure mode', async () => {
+      mocks.failureModeRepo.findOne.mockResolvedValue({
+        failureModeId: 'fm-uuid-1',
+        failureModeCode: 'FM-DEF-001',
+      })
+      mocks.taxonomyFailureModeMapRepo.findOne.mockResolvedValue({
+        id: 'map-uuid-1',
+        failureModeId: 'fm-other',
+        l2Code: 'IT04.01',
+      })
+
+      await expect(service.deleteTaxonomyMap('fm-uuid-1', 'map-uuid-1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      )
+    })
+  })
+
+  describe('[P1] deleteControlMap', () => {
+    it('should delete an existing control map', async () => {
+      mocks.failureModeRepo.findOne.mockResolvedValue({
+        failureModeId: 'fm-uuid-1',
+        failureModeCode: 'FM-DEF-001',
+      })
+      mocks.failureModeControlMapRepo.findOne.mockResolvedValue({
+        id: 'cmap-uuid-1',
+        failureModeId: 'fm-uuid-1',
+        controlId: 'ctrl-uuid-1',
+      })
+
+      const result = await service.deleteControlMap('fm-uuid-1', 'cmap-uuid-1')
+
+      expect(result).toEqual({ success: true, id: 'cmap-uuid-1' })
+      expect(mocks.failureModeControlMapRepo.delete).toHaveBeenCalledWith({ id: 'cmap-uuid-1' })
+    })
+
+    it('should throw NotFoundException when control map does not exist', async () => {
+      mocks.failureModeRepo.findOne.mockResolvedValue({
+        failureModeId: 'fm-uuid-1',
+        failureModeCode: 'FM-DEF-001',
+      })
+      mocks.failureModeControlMapRepo.findOne.mockResolvedValue(null)
+
+      await expect(service.deleteControlMap('fm-uuid-1', 'missing-cmap')).rejects.toBeInstanceOf(
+        NotFoundException,
+      )
+    })
+
+    it('should throw NotFoundException when control map disappears before delete executes', async () => {
+      mocks.failureModeRepo.findOne.mockResolvedValue({
+        failureModeId: 'fm-uuid-1',
+        failureModeCode: 'FM-DEF-001',
+      })
+      mocks.failureModeControlMapRepo.findOne.mockResolvedValue({
+        id: 'cmap-uuid-1',
+        failureModeId: 'fm-uuid-1',
+        controlId: 'ctrl-uuid-1',
+      })
+      mocks.failureModeControlMapRepo.delete.mockResolvedValue({ affected: 0 })
+
+      await expect(service.deleteControlMap('fm-uuid-1', 'cmap-uuid-1')).rejects.toBeInstanceOf(
+        NotFoundException,
+      )
+    })
+
+    it('should throw BadRequestException when control map belongs to another failure mode', async () => {
+      mocks.failureModeRepo.findOne.mockResolvedValue({
+        failureModeId: 'fm-uuid-1',
+        failureModeCode: 'FM-DEF-001',
+      })
+      mocks.failureModeControlMapRepo.findOne.mockResolvedValue({
+        id: 'cmap-uuid-1',
+        failureModeId: 'fm-other',
+        controlId: 'ctrl-uuid-1',
+      })
+
+      await expect(service.deleteControlMap('fm-uuid-1', 'cmap-uuid-1')).rejects.toBeInstanceOf(
+        BadRequestException,
+      )
     })
   })
 })

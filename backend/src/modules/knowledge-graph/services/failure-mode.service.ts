@@ -177,7 +177,8 @@ export class FailureModeService {
       throw new NotFoundException(`taxonomy_l2 ${l2Code} not found`)
     }
 
-    const qb = this.failureModeRepo.createQueryBuilder('fm')
+    const qb = this.failureModeRepo
+      .createQueryBuilder('fm')
       .innerJoin('fm.taxonomyFailureModeMaps', 'tfm')
       .where('tfm.l2_code = :l2Code', { l2Code })
       .andWhere('fm.status = :status', { status: query.status ?? 'ACTIVE' })
@@ -198,7 +199,8 @@ export class FailureModeService {
   async findControlPointsByFailureMode(failureModeId: string, query: QueryFailureModeDto) {
     await this.findFailureMode(failureModeId)
 
-    const qb = this.failureModeControlMapRepo.createQueryBuilder('fcm')
+    const qb = this.failureModeControlMapRepo
+      .createQueryBuilder('fcm')
       .leftJoinAndSelect('fcm.controlPoint', 'cp')
       .where('fcm.failure_mode_id = :failureModeId', { failureModeId })
       .andWhere('cp.maturity_level != :retired', { retired: 'retired' })
@@ -284,6 +286,46 @@ export class FailureModeService {
     )
   }
 
+  async deleteTaxonomyMap(failureModeId: string, mapId: string) {
+    await this.findFailureMode(failureModeId)
+
+    const existing = await this.taxonomyFailureModeMapRepo.findOne({
+      where: { id: mapId },
+    })
+    if (!existing) {
+      throw new NotFoundException(`taxonomy_failure_mode_map ${mapId} not found`)
+    }
+    if (existing.failureModeId !== failureModeId) {
+      throw new BadRequestException('taxonomy map does not belong to the current failure mode')
+    }
+
+    const result = await this.taxonomyFailureModeMapRepo.delete({ id: mapId })
+    if (result.affected !== 1) {
+      throw new NotFoundException(`taxonomy_failure_mode_map ${mapId} not found`)
+    }
+    return { success: true, id: mapId }
+  }
+
+  async deleteControlMap(failureModeId: string, mapId: string) {
+    await this.findFailureMode(failureModeId)
+
+    const existing = await this.failureModeControlMapRepo.findOne({
+      where: { id: mapId },
+    })
+    if (!existing) {
+      throw new NotFoundException(`failure_mode_control_map ${mapId} not found`)
+    }
+    if (existing.failureModeId !== failureModeId) {
+      throw new BadRequestException('control map does not belong to the current failure mode')
+    }
+
+    const result = await this.failureModeControlMapRepo.delete({ id: mapId })
+    if (result.affected !== 1) {
+      throw new NotFoundException(`failure_mode_control_map ${mapId} not found`)
+    }
+    return { success: true, id: mapId }
+  }
+
   // ===========================================================================
   // Private helpers
   // ===========================================================================
@@ -298,16 +340,11 @@ export class FailureModeService {
     return entity
   }
 
-  private async assertUniqueFailureModeCode(
-    failureModeCode: string,
-    currentId?: string,
-  ) {
+  private async assertUniqueFailureModeCode(failureModeCode: string, currentId?: string) {
     const existing = await this.failureModeRepo.findOne({ where: { failureModeCode } })
 
     if (existing && existing.failureModeId !== currentId) {
-      throw new ConflictException(
-        `failure_mode_code ${failureModeCode} already exists`,
-      )
+      throw new ConflictException(`failure_mode_code ${failureModeCode} already exists`)
     }
   }
 

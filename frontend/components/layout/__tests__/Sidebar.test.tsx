@@ -2,10 +2,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { useSession } from 'next-auth/react'
 import Sidebar from '../Sidebar'
 
+const mockPush = jest.fn()
+
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
-    push: jest.fn(),
+    push: mockPush,
   }),
   usePathname: () => '/dashboard',
 }))
@@ -19,6 +21,7 @@ describe('Sidebar', () => {
   const mockUseSession = useSession as jest.Mock
 
   beforeEach(() => {
+    mockPush.mockReset()
     mockUseSession.mockReturnValue({
       data: {
         user: {
@@ -90,6 +93,7 @@ describe('Sidebar', () => {
       expect(screen.getByText('品牌配置')).toBeInTheDocument()
       expect(screen.getByText('信息源配置')).toBeInTheDocument()
       expect(screen.getByText('案例运营')).toBeInTheDocument()
+      expect(screen.getByText('Failure Mode 管理')).toBeInTheDocument()
       expect(screen.getByText('同业爬虫管理')).toBeInTheDocument()
       expect(screen.getByText('爬虫健康监控')).toBeInTheDocument()
     })
@@ -136,11 +140,6 @@ describe('Sidebar', () => {
   })
 
   it('navigates to route when menu item is clicked', () => {
-    const mockPush = jest.fn()
-    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue({
-      push: mockPush,
-    })
-
     render(<Sidebar />)
 
     const projectsText = screen.getByText('项目管理')
@@ -151,11 +150,6 @@ describe('Sidebar', () => {
   })
 
   it('navigates to organization profile using the current organization id', () => {
-    const mockPush = jest.fn()
-    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue({
-      push: mockPush,
-    })
-
     render(<Sidebar />)
 
     const profileText = screen.getByText('机构画像')
@@ -166,11 +160,6 @@ describe('Sidebar', () => {
   })
 
   it('navigates to applicable controls using the current organization id', () => {
-    const mockPush = jest.fn()
-    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue({
-      push: mockPush,
-    })
-
     render(<Sidebar />)
 
     const controlsText = screen.getByText('适用控制点')
@@ -181,11 +170,6 @@ describe('Sidebar', () => {
   })
 
   it('handles special radar navigation with org ID', async () => {
-    const mockPush = jest.fn()
-    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue({
-      push: mockPush,
-    })
-
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -207,11 +191,6 @@ describe('Sidebar', () => {
   })
 
   it('falls back to default radar route when org fetch fails', async () => {
-    const mockPush = jest.fn()
-    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue({
-      push: mockPush,
-    })
-
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 500,
@@ -237,11 +216,6 @@ describe('Sidebar', () => {
   })
 
   it('navigates to route when collapsed menu item is clicked', () => {
-    const mockPush = jest.fn()
-    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue({
-      push: mockPush,
-    })
-
     render(<Sidebar collapsed={true} />)
 
     // Get all buttons in collapsed state (icons only)
@@ -256,11 +230,6 @@ describe('Sidebar', () => {
   })
 
   it('handles radar navigation when orgId is missing from response', async () => {
-    const mockPush = jest.fn()
-    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue({
-      push: mockPush,
-    })
-
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -282,11 +251,6 @@ describe('Sidebar', () => {
   })
 
   it('handles radar navigation when fetch throws an error', async () => {
-    const mockPush = jest.fn()
-    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue({
-      push: mockPush,
-    })
-
     global.fetch = jest.fn().mockRejectedValue(new Error('Network error'))
 
     render(<Sidebar />)
@@ -318,11 +282,6 @@ describe('Sidebar', () => {
   })
 
   it('navigates to child route when admin submenu item is clicked', async () => {
-    const mockPush = jest.fn()
-    jest.spyOn(require('next/navigation'), 'useRouter').mockReturnValue({
-      push: mockPush,
-    })
-
     render(<Sidebar />)
 
     // The admin menu is expanded by default, so child items should be visible
