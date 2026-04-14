@@ -284,44 +284,6 @@ export class FailureModeService {
     )
   }
 
-  async deleteTaxonomyMap(failureModeId: string, mapId: string) {
-    await this.findFailureMode(failureModeId)
-
-    const existing = await this.taxonomyFailureModeMapRepo.findOne({
-      where: { id: mapId },
-    })
-    if (!existing) {
-      throw new NotFoundException(`taxonomy_failure_mode_map ${mapId} not found`)
-    }
-    if (existing.failureModeId !== failureModeId) {
-      throw new BadRequestException(
-        `taxonomy_failure_mode_map ${mapId} does not belong to failure_mode ${failureModeId}`,
-      )
-    }
-
-    await this.taxonomyFailureModeMapRepo.delete({ id: mapId })
-    return { success: true, id: mapId }
-  }
-
-  async deleteControlMap(failureModeId: string, mapId: string) {
-    await this.findFailureMode(failureModeId)
-
-    const existing = await this.failureModeControlMapRepo.findOne({
-      where: { id: mapId },
-    })
-    if (!existing) {
-      throw new NotFoundException(`failure_mode_control_map ${mapId} not found`)
-    }
-    if (existing.failureModeId !== failureModeId) {
-      throw new BadRequestException(
-        `failure_mode_control_map ${mapId} does not belong to failure_mode ${failureModeId}`,
-      )
-    }
-
-    await this.failureModeControlMapRepo.delete({ id: mapId })
-    return { success: true, id: mapId }
-  }
-
   // ===========================================================================
   // Private helpers
   // ===========================================================================

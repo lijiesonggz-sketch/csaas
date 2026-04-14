@@ -71,7 +71,6 @@ function createMockRepos() {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockReturnValue({}),
       save: jest.fn().mockResolvedValue({}),
-      delete: jest.fn().mockResolvedValue({ affected: 1 }),
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilderMock),
     },
     failureModeControlMapRepo: {
@@ -79,7 +78,6 @@ function createMockRepos() {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockReturnValue({}),
       save: jest.fn().mockResolvedValue({}),
-      delete: jest.fn().mockResolvedValue({ affected: 1 }),
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilderMock),
     },
     taxonomyL2Repo: {
@@ -649,100 +647,6 @@ describe('FailureModeService', () => {
           relevance: 'PRIMARY',
         }),
       ).rejects.toBeInstanceOf(ConflictException)
-    })
-  })
-
-  describe('[P1] deleteTaxonomyMap', () => {
-    it('should delete an existing taxonomy map', async () => {
-      mocks.failureModeRepo.findOne.mockResolvedValue({
-        failureModeId: 'fm-uuid-1',
-        failureModeCode: 'FM-DEF-001',
-      })
-      mocks.taxonomyFailureModeMapRepo.findOne.mockResolvedValue({
-        id: 'map-uuid-1',
-        failureModeId: 'fm-uuid-1',
-        l2Code: 'IT04.01',
-      })
-
-      const result = await service.deleteTaxonomyMap('fm-uuid-1', 'map-uuid-1')
-
-      expect(result).toEqual({ success: true, id: 'map-uuid-1' })
-      expect(mocks.taxonomyFailureModeMapRepo.delete).toHaveBeenCalledWith({ id: 'map-uuid-1' })
-    })
-
-    it('should throw NotFoundException when taxonomy map does not exist', async () => {
-      mocks.failureModeRepo.findOne.mockResolvedValue({
-        failureModeId: 'fm-uuid-1',
-        failureModeCode: 'FM-DEF-001',
-      })
-      mocks.taxonomyFailureModeMapRepo.findOne.mockResolvedValue(null)
-
-      await expect(service.deleteTaxonomyMap('fm-uuid-1', 'missing-map')).rejects.toBeInstanceOf(
-        NotFoundException,
-      )
-    })
-
-    it('should throw BadRequestException when taxonomy map belongs to another failure mode', async () => {
-      mocks.failureModeRepo.findOne.mockResolvedValue({
-        failureModeId: 'fm-uuid-1',
-        failureModeCode: 'FM-DEF-001',
-      })
-      mocks.taxonomyFailureModeMapRepo.findOne.mockResolvedValue({
-        id: 'map-uuid-1',
-        failureModeId: 'fm-other',
-        l2Code: 'IT04.01',
-      })
-
-      await expect(service.deleteTaxonomyMap('fm-uuid-1', 'map-uuid-1')).rejects.toBeInstanceOf(
-        BadRequestException,
-      )
-    })
-  })
-
-  describe('[P1] deleteControlMap', () => {
-    it('should delete an existing control map', async () => {
-      mocks.failureModeRepo.findOne.mockResolvedValue({
-        failureModeId: 'fm-uuid-1',
-        failureModeCode: 'FM-DEF-001',
-      })
-      mocks.failureModeControlMapRepo.findOne.mockResolvedValue({
-        id: 'cmap-uuid-1',
-        failureModeId: 'fm-uuid-1',
-        controlId: 'ctrl-uuid-1',
-      })
-
-      const result = await service.deleteControlMap('fm-uuid-1', 'cmap-uuid-1')
-
-      expect(result).toEqual({ success: true, id: 'cmap-uuid-1' })
-      expect(mocks.failureModeControlMapRepo.delete).toHaveBeenCalledWith({ id: 'cmap-uuid-1' })
-    })
-
-    it('should throw NotFoundException when control map does not exist', async () => {
-      mocks.failureModeRepo.findOne.mockResolvedValue({
-        failureModeId: 'fm-uuid-1',
-        failureModeCode: 'FM-DEF-001',
-      })
-      mocks.failureModeControlMapRepo.findOne.mockResolvedValue(null)
-
-      await expect(service.deleteControlMap('fm-uuid-1', 'missing-cmap')).rejects.toBeInstanceOf(
-        NotFoundException,
-      )
-    })
-
-    it('should throw BadRequestException when control map belongs to another failure mode', async () => {
-      mocks.failureModeRepo.findOne.mockResolvedValue({
-        failureModeId: 'fm-uuid-1',
-        failureModeCode: 'FM-DEF-001',
-      })
-      mocks.failureModeControlMapRepo.findOne.mockResolvedValue({
-        id: 'cmap-uuid-1',
-        failureModeId: 'fm-other',
-        controlId: 'ctrl-uuid-1',
-      })
-
-      await expect(service.deleteControlMap('fm-uuid-1', 'cmap-uuid-1')).rejects.toBeInstanceOf(
-        BadRequestException,
-      )
     })
   })
 })

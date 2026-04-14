@@ -51,8 +51,6 @@ const mockFailureModeService = {
   findControlPointsByFailureMode: jest.fn().mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
   createTaxonomyMap: jest.fn().mockResolvedValue(null),
   createControlMap: jest.fn().mockResolvedValue(null),
-  deleteTaxonomyMap: jest.fn().mockResolvedValue({ success: true, id: 'map-uuid-1' }),
-  deleteControlMap: jest.fn().mockResolvedValue({ success: true, id: 'cmap-uuid-1' }),
 }
 
 const mockAuditLogService = {
@@ -469,46 +467,6 @@ describe('KnowledgeGraph failure-modes controllers (http)', () => {
       expect(mockAuditLogService.log).toHaveBeenCalledWith(
         expect.objectContaining({
           action: AuditAction.CREATE,
-          entityType: 'FailureModeControlMap',
-        }),
-      )
-    })
-  })
-
-  describe('[P1] DELETE /failure-modes/:id/taxonomy-maps/:mapId', () => {
-    it('should delete taxonomy map and write audit log', async () => {
-      const response = await request(app.getHttpServer())
-        .delete('/api/admin/knowledge-graph/failure-modes/a1b2c3d4-e5f6-7890-abcd-ef1234567890/taxonomy-maps/b1b2c3d4-e5f6-7890-abcd-ef1234567890')
-        .expect(200)
-
-      expect(response.body.success).toBe(true)
-      expect(mockFailureModeService.deleteTaxonomyMap).toHaveBeenCalledWith(
-        'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-        'b1b2c3d4-e5f6-7890-abcd-ef1234567890',
-      )
-      expect(mockAuditLogService.log).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: AuditAction.DELETE,
-          entityType: 'TaxonomyFailureModeMap',
-        }),
-      )
-    })
-  })
-
-  describe('[P1] DELETE /failure-modes/:id/control-maps/:mapId', () => {
-    it('should delete control map and write audit log', async () => {
-      const response = await request(app.getHttpServer())
-        .delete('/api/admin/knowledge-graph/failure-modes/a1b2c3d4-e5f6-7890-abcd-ef1234567890/control-maps/c1b2c3d4-e5f6-7890-abcd-ef1234567890')
-        .expect(200)
-
-      expect(response.body.success).toBe(true)
-      expect(mockFailureModeService.deleteControlMap).toHaveBeenCalledWith(
-        'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-        'c1b2c3d4-e5f6-7890-abcd-ef1234567890',
-      )
-      expect(mockAuditLogService.log).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: AuditAction.DELETE,
           entityType: 'FailureModeControlMap',
         }),
       )
