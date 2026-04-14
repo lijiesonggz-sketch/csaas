@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Brackets, Repository } from 'typeorm'
+import { Brackets, QueryFailedError, Repository } from 'typeorm'
 import {
   APPLICABLE_SECTORS,
   ApplicableSector,
@@ -149,16 +149,20 @@ export class ObligationService {
     await this.assertClauseExists(dto.clauseId)
     await this.assertUniqueObligationCode(dto.obligationCode)
 
-    return this.obligationRepo.save(
-      this.obligationRepo.create({
-        clauseId: dto.clauseId,
-        obligationCode: dto.obligationCode,
-        obligationText: dto.obligationText,
-        obligationType: dto.obligationType,
-        applicableSector: dto.applicableSector ?? [],
-        status: dto.status ?? 'ACTIVE',
-      }),
-    )
+    try {
+      return await this.obligationRepo.save(
+        this.obligationRepo.create({
+          clauseId: dto.clauseId,
+          obligationCode: dto.obligationCode,
+          obligationText: dto.obligationText,
+          obligationType: dto.obligationType,
+          applicableSector: dto.applicableSector ?? [],
+          status: dto.status ?? 'ACTIVE',
+        }),
+      )
+    } catch (error) {
+      this.rethrowKnownPersistenceError(error, dto.obligationCode)
+    }
   }
 
   async update(
@@ -189,7 +193,11 @@ export class ObligationService {
       status: dto.status ?? existing.status,
     })
 
-    return this.obligationRepo.save(existing)
+    try {
+      return await this.obligationRepo.save(existing)
+    } catch (error) {
+      this.rethrowKnownPersistenceError(error, nextCode)
+    }
   }
 
   async findByClauseId(clauseId: string, query: QueryObligationDto) {
@@ -333,13 +341,15 @@ export class ObligationService {
         reviewStatus: item.reviewStatus,
         confidenceScore: item.confidenceScore,
         linkSource: 'clause' as const,
-        source: {
-          sourceId: item.clause.source.sourceId,
-          sourceCode: item.clause.source.sourceCode,
-          sourceName: item.clause.source.sourceName,
-          sourceLevel: item.clause.source.sourceLevel,
-          authorityName: item.clause.source.authorityName,
-        },
+        source: item.clause.source
+          ? {
+              sourceId: item.clause.source.sourceId,
+              sourceCode: item.clause.source.sourceCode,
+              sourceName: item.clause.source.sourceName,
+              sourceLevel: item.clause.source.sourceLevel,
+              authorityName: item.clause.source.authorityName,
+            }
+          : null,
       })),
     }
   }
@@ -373,6 +383,18 @@ export class ObligationService {
         throw new BadRequestException(`${field} cannot be null`)
       }
     }
+  }
+
+  private rethrowKnownPersistenceError(error: unknown, obligationCode: string): never {
+    if (
+      error instanceof QueryFailedError &&
+      (error as QueryFailedError & { driverError?: { code?: string } }).driverError?.code ===
+        '23505'
+    ) {
+      throw new ConflictException(`obligation_code ${obligationCode} already exists`)
+    }
+
+    throw error
   }
 
   private matchesSector(

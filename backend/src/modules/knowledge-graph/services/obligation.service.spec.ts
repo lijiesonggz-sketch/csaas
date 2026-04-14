@@ -11,6 +11,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common'
+import { QueryFailedError } from 'typeorm'
 import { ClauseControlMap } from '../../../database/entities/clause-control-map.entity'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
 import { ObligationControlMap } from '../../../database/entities/obligation-control-map.entity'
@@ -211,6 +212,29 @@ describe('ObligationService', () => {
         }),
       ).rejects.toBeInstanceOf(ConflictException)
     })
+
+    it('should convert database unique constraint violation into ConflictException', async () => {
+      mocks.clauseRepo.findOne.mockResolvedValue({ clauseId: 'clause-1' })
+      mocks.obligationRepo.findOne.mockResolvedValue(null)
+      mocks.obligationRepo.create.mockReturnValue({
+        obligationCode: 'OBL-001',
+      })
+      const dbError = new QueryFailedError(
+        'INSERT INTO regulation_obligations',
+        [],
+        Object.assign(new Error('duplicate key'), { code: '23505' }),
+      )
+      mocks.obligationRepo.save.mockRejectedValue(dbError)
+
+      await expect(
+        service.create({
+          clauseId: '550e8400-e29b-41d4-a716-446655440000',
+          obligationCode: 'OBL-001',
+          obligationText: '应当建立复核机制',
+          obligationType: 'MANDATORY',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException)
+    })
   })
 
   describe('[P0][AC-1] update', () => {
@@ -218,6 +242,34 @@ describe('ObligationService', () => {
       await expect(
         service.update('obl-1', { obligationCode: null as unknown as string }),
       ).rejects.toBeInstanceOf(BadRequestException)
+    })
+
+    it('should convert database unique constraint violation on update into ConflictException', async () => {
+      const existing = {
+        obligationId: 'obl-1',
+        clauseId: 'clause-1',
+        obligationCode: 'OBL-001',
+        obligationText: '原始义务',
+        obligationType: 'MANDATORY',
+        applicableSector: ['银行'],
+        status: 'ACTIVE',
+      }
+      mocks.obligationRepo.findOne
+        .mockResolvedValueOnce(existing)
+        .mockResolvedValueOnce(null)
+      mocks.clauseRepo.findOne.mockResolvedValue({ clauseId: 'clause-1' })
+      const dbError = new QueryFailedError(
+        'UPDATE regulation_obligations',
+        [],
+        Object.assign(new Error('duplicate key'), { code: '23505' }),
+      )
+      mocks.obligationRepo.save.mockRejectedValue(dbError)
+
+      await expect(
+        service.update('obl-1', {
+          obligationCode: 'OBL-001-UPDATED',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException)
     })
   })
 
@@ -373,6 +425,45 @@ describe('ObligationService', () => {
         expect.objectContaining({
           clauseId: 'clause-1',
           linkSource: 'clause',
+        }),
+      )
+    })
+
+    it('should return null source when clause source relation is missing', async () => {
+      const obligationQb = mocks.queryBuilderMock
+      const clauseQb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([
+          {
+            id: 'clause-map-1',
+            clauseId: 'clause-1',
+            mappingType: 'direct',
+            reviewStatus: 'APPROVED',
+            confidenceScore: '0.8',
+            clause: {
+              clauseId: 'clause-1',
+              clauseCode: 'CLAUSE-001',
+              articleNo: '第1条',
+              sectionPath: '第一章',
+              clauseText: '条文全文',
+              clauseSummary: '摘要',
+              mandatoryLevel: 'MUST',
+              source: null,
+            },
+          },
+        ]),
+      }
+      mocks.obligationControlMapRepo.createQueryBuilder.mockReturnValue(obligationQb)
+      obligationQb.getMany.mockResolvedValue([])
+      mocks.clauseControlMapRepo.createQueryBuilder.mockReturnValue(clauseQb as never)
+
+      const result = await service.findRegulatoryLinksByControlId('control-1')
+      expect(result.clauses[0]).toEqual(
+        expect.objectContaining({
+          clauseId: 'clause-1',
+          source: null,
         }),
       )
     })
