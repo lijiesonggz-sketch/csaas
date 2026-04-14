@@ -6,7 +6,9 @@ import { TaxonomyL1 } from '../../../database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../../../database/entities/taxonomy-l2.entity'
 import { ComplianceCaseService } from '../../knowledge-graph/services/compliance-case.service'
 import { ControlPackLinkService } from '../../knowledge-graph/services/control-pack-link.service'
+import { ControlPointService } from '../../knowledge-graph/services/control-point.service'
 import { EvidenceService } from '../../knowledge-graph/services/evidence.service'
+import { ObligationService } from '../../knowledge-graph/services/obligation.service'
 import { QuestionItemService } from '../../knowledge-graph/services/question-item.service'
 import { RegulationService } from '../../knowledge-graph/services/regulation.service'
 import { RemediationActionService } from '../../knowledge-graph/services/remediation-action.service'
@@ -21,6 +23,8 @@ export class ControlExplainService {
     @InjectRepository(TaxonomyL2)
     private readonly taxonomyL2Repository: Repository<TaxonomyL2>,
     private readonly controlPackLinkService: ControlPackLinkService,
+    private readonly controlPointService: ControlPointService,
+    private readonly obligationService: ObligationService,
     private readonly regulationService: RegulationService,
     private readonly complianceCaseService: ComplianceCaseService,
     private readonly evidenceService: EvidenceService,
@@ -35,7 +39,7 @@ export class ControlExplainService {
       throw new NotFoundException(`control_point ${controlId} not found`)
     }
 
-    const [l1, l2, applicabilityContext, clauses, cases, evidences, questions, remediations] =
+    const [l1, l2, applicabilityContext, clauses, cases, evidences, questions, remediations, fullChain, regulatoryLinks] =
       await Promise.all([
         this.taxonomyL1Repository.findOne({ where: { l1Code: control.l1Code } }),
         this.taxonomyL2Repository.findOne({ where: { l2Code: control.l2Code } }),
@@ -45,7 +49,24 @@ export class ControlExplainService {
         this.evidenceService.findEvidencesByControlId(controlId),
         this.questionItemService.findByControlId(controlId),
         this.remediationActionService.findByControlId(controlId),
+        this.controlPointService.findByL2CodeWithFullChain(control.l2Code).catch((error) => {
+          if (error instanceof NotFoundException) {
+            return null
+          }
+
+          throw error
+        }),
+        this.obligationService.findRegulatoryLinksByControlId(controlId),
       ])
+
+    const failureModes = this.buildFailureModes(fullChain, controlId)
+    const reasoningChain = this.buildReasoningChain({
+      control,
+      l2Name: l2?.l2Name ?? fullChain?.l2Name ?? null,
+      cases,
+      fullChain,
+      controlId,
+    })
 
     return {
       control: {
@@ -62,7 +83,18 @@ export class ControlExplainService {
           name: l2?.l2Name ?? null,
         },
       },
+      governance: {
+        originType: control.originType,
+        maturityLevel: control.maturityLevel,
+        authoritativeScore: this.normalizeScore(control.authoritativeScore),
+        authorityProfile: control.authorityProfileJson,
+        applicableSector: control.applicableSector ?? [],
+        sectorRequirements: control.sectorRequirements ?? {},
+      },
       applicabilityReason: this.buildApplicabilityReason(applicabilityContext),
+      failureModes,
+      obligations: regulatoryLinks.obligations,
+      reasoningChain,
       clauses,
       cases,
       evidences: evidences.evidences,
@@ -90,5 +122,110 @@ export class ControlExplainService {
     }
 
     return '当前机构画像下未命中该控制点'
+  }
+
+  private buildFailureModes(
+    fullChain: Awaited<ReturnType<ControlPointService['findByL2CodeWithFullChain']>> | null,
+    controlId: string,
+  ) {
+    if (!fullChain) {
+      return []
+    }
+
+    return fullChain.failureModes
+      .map((failureMode) => {
+        const currentControl = failureMode.controlPoints.find((item) => item.controlId === controlId)
+        if (!currentControl) {
+          return null
+        }
+
+        return {
+          failureModeId: failureMode.failureModeId,
+          failureModeCode: failureMode.failureModeCode,
+          name: failureMode.name,
+          category: failureMode.category,
+          relevance: currentControl.relevance,
+        }
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+  }
+
+  private buildReasoningChain(input: {
+    control: ControlPoint
+    l2Name: string | null
+    cases: Array<{ caseCode?: string; caseTitle?: string }>
+    fullChain: Awaited<ReturnType<ControlPointService['findByL2CodeWithFullChain']>> | null
+    controlId: string
+  }) {
+    const relatedFailureModes = input.fullChain
+      ? input.fullChain.failureModes
+          .map((failureMode) => {
+            const currentControl = failureMode.controlPoints.find((item) => item.controlId === input.controlId)
+            if (!currentControl) {
+              return null
+            }
+
+            return {
+              failureModeId: failureMode.failureModeId,
+              failureModeCode: failureMode.failureModeCode,
+              name: failureMode.name,
+              relevance: currentControl.relevance,
+              evidenceTypes: currentControl.evidenceTypes,
+            }
+          })
+          .filter((item): item is NonNullable<typeof item> => item !== null)
+      : []
+
+    const evidenceTypeMap = new Map<string, {
+      evidenceId: string
+      evidenceCode: string
+      evidenceName: string
+      evidenceCategory: string | null
+      autoCollectable: boolean
+      requiredLevel: string
+      frequency: string | null
+    }>()
+
+    for (const failureMode of relatedFailureModes) {
+      for (const evidenceType of failureMode.evidenceTypes) {
+        const key = evidenceType.evidenceId || evidenceType.evidenceCode
+        if (!evidenceTypeMap.has(key)) {
+          evidenceTypeMap.set(key, evidenceType)
+        }
+      }
+    }
+
+    return {
+      l2: {
+        code: input.control.l2Code,
+        name: input.l2Name,
+      },
+      cases: input.cases.map((item) => ({
+        caseCode: item.caseCode ?? null,
+        caseTitle: item.caseTitle ?? null,
+      })),
+      failureModes: relatedFailureModes.map((failureMode) => ({
+        failureModeId: failureMode.failureModeId,
+        failureModeCode: failureMode.failureModeCode,
+        name: failureMode.name,
+        relevance: failureMode.relevance,
+      })),
+      selectedControl: {
+        controlId: input.control.controlId,
+        controlCode: input.control.controlCode,
+        controlName: input.control.controlName,
+        maturityLevel: input.control.maturityLevel,
+        authoritativeScore: this.normalizeScore(input.control.authoritativeScore),
+      },
+      evidenceTypes: Array.from(evidenceTypeMap.values()),
+    }
+  }
+
+  private normalizeScore(value: number | null | undefined) {
+    if (value == null) {
+      return null
+    }
+
+    return Number(value)
   }
 }

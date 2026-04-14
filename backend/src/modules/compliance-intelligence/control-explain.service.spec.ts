@@ -7,6 +7,7 @@ import { ComplianceCaseService } from '../knowledge-graph/services/compliance-ca
 import { ControlPackLinkService } from '../knowledge-graph/services/control-pack-link.service'
 import { ControlPointService } from '../knowledge-graph/services/control-point.service'
 import { EvidenceService } from '../knowledge-graph/services/evidence.service'
+import { ObligationService } from '../knowledge-graph/services/obligation.service'
 import { QuestionItemService } from '../knowledge-graph/services/question-item.service'
 import { RegulationService } from '../knowledge-graph/services/regulation.service'
 import { RemediationActionService } from '../knowledge-graph/services/remediation-action.service'
@@ -29,6 +30,11 @@ describe('ControlExplainService', () => {
 
   const mockControlPointService = {
     findOne: jest.fn(),
+    findByL2CodeWithFullChain: jest.fn(),
+  }
+
+  const mockObligationService = {
+    findRegulatoryLinksByControlId: jest.fn(),
   }
 
   const mockControlPackLinkService = {
@@ -76,6 +82,10 @@ describe('ControlExplainService', () => {
           useValue: mockControlPointService,
         },
         {
+          provide: ObligationService,
+          useValue: mockObligationService,
+        },
+        {
           provide: ControlPackLinkService,
           useValue: mockControlPackLinkService,
         },
@@ -114,6 +124,21 @@ describe('ControlExplainService', () => {
       controlDesc: '确保监管报送准确完整',
       l1Code: 'IT04',
       l2Code: 'IT04-06',
+      originType: 'both',
+      maturityLevel: 'hard',
+      authoritativeScore: 0.8333,
+      authorityProfileJson: {
+        has_source_basis: true,
+        has_applicability_scope: true,
+        has_control_activity: true,
+        has_expected_evidence: true,
+        has_human_review: true,
+        has_case_validation: false,
+      },
+      applicableSector: ['银行', '证券'],
+      sectorRequirements: {
+        银行: { review_frequency: '季度' },
+      },
     })
     taxonomyL1Repository.findOne.mockResolvedValue({
       l1Code: 'IT04',
@@ -143,6 +168,56 @@ describe('ControlExplainService', () => {
       controlId: 'control-id',
       remediations: [{ actionCode: 'RA-CTRL-001' }],
     })
+    mockControlPointService.findByL2CodeWithFullChain.mockResolvedValue({
+      l2Code: 'IT04-06',
+      l2Name: '监管报送准确性控制',
+      failureModes: [
+        {
+          failureModeId: 'fm-001',
+          failureModeCode: 'FM-REP-001',
+          name: '报送口径定义错误',
+          category: 'DEFINITION_ERROR',
+          controlPoints: [
+            {
+              controlId: 'control-id',
+              controlCode: 'CTRL-DG-004',
+              controlName: '监管报送准确性控制',
+              maturityLevel: 'hard',
+              authoritativeScore: 0.8333,
+              relevance: 'PRIMARY',
+              evidenceTypes: [
+                {
+                  evidenceId: 'evidence-001',
+                  evidenceCode: 'EVD-001',
+                  evidenceName: '报送口径版本记录',
+                  evidenceCategory: 'DOCUMENT',
+                  autoCollectable: false,
+                  requiredLevel: 'HIGH',
+                  frequency: 'monthly',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+    mockObligationService.findRegulatoryLinksByControlId.mockResolvedValue({
+      obligations: [
+        {
+          obligationId: 'obl-001',
+          obligationCode: 'OBL-001',
+          obligationText: '应当建立复核机制',
+          obligationType: 'MANDATORY',
+          coverage: 'FULL',
+          clause: {
+            clauseId: 'clause-001',
+            clauseCode: 'CLAUSE-001',
+            articleNo: '第1条',
+          },
+        },
+      ],
+      clauses: [],
+    })
 
     const result = await service.getControlExplain('control-id', {
       organizationId: 'org-id',
@@ -163,7 +238,82 @@ describe('ControlExplainService', () => {
           name: '监管报送准确性控制',
         },
       },
+      governance: {
+        originType: 'both',
+        maturityLevel: 'hard',
+        authoritativeScore: 0.8333,
+        authorityProfile: {
+          has_source_basis: true,
+          has_applicability_scope: true,
+          has_control_activity: true,
+          has_expected_evidence: true,
+          has_human_review: true,
+          has_case_validation: false,
+        },
+        applicableSector: ['银行', '证券'],
+        sectorRequirements: {
+          银行: {
+            review_frequency: '季度',
+          },
+        },
+      },
       applicabilityReason: '机构属于银行业；监管关注度较高',
+      failureModes: [
+        {
+          failureModeId: 'fm-001',
+          failureModeCode: 'FM-REP-001',
+          name: '报送口径定义错误',
+          category: 'DEFINITION_ERROR',
+          relevance: 'PRIMARY',
+        },
+      ],
+      obligations: [
+        {
+          obligationId: 'obl-001',
+          obligationCode: 'OBL-001',
+          obligationText: '应当建立复核机制',
+          obligationType: 'MANDATORY',
+          coverage: 'FULL',
+          clause: {
+            clauseId: 'clause-001',
+            clauseCode: 'CLAUSE-001',
+            articleNo: '第1条',
+          },
+        },
+      ],
+      reasoningChain: {
+        l2: {
+          code: 'IT04-06',
+          name: '监管报送准确性控制',
+        },
+        cases: [{ caseCode: 'CASE-001', caseTitle: null }],
+        failureModes: [
+          {
+            failureModeId: 'fm-001',
+            failureModeCode: 'FM-REP-001',
+            name: '报送口径定义错误',
+            relevance: 'PRIMARY',
+          },
+        ],
+        selectedControl: {
+          controlId: 'control-id',
+          controlCode: 'CTRL-DG-004',
+          controlName: '监管报送准确性控制',
+          maturityLevel: 'hard',
+          authoritativeScore: 0.8333,
+        },
+        evidenceTypes: [
+          {
+            evidenceId: 'evidence-001',
+            evidenceCode: 'EVD-001',
+            evidenceName: '报送口径版本记录',
+            evidenceCategory: 'DOCUMENT',
+            autoCollectable: false,
+            requiredLevel: 'HIGH',
+            frequency: 'monthly',
+          },
+        ],
+      },
       clauses: [{ clauseCode: 'CLAUSE-001' }],
       cases: [{ caseCode: 'CASE-001' }],
       evidences: [{ evidenceCode: 'EVD-001' }],
@@ -180,6 +330,12 @@ describe('ControlExplainService', () => {
       controlDesc: null,
       l1Code: 'IT02',
       l2Code: 'IT02-03',
+      originType: 'candidate',
+      maturityLevel: 'candidate',
+      authoritativeScore: null,
+      authorityProfileJson: null,
+      applicableSector: [],
+      sectorRequirements: null,
     })
     taxonomyL1Repository.findOne.mockResolvedValue({
       l1Code: 'IT02',
@@ -209,6 +365,15 @@ describe('ControlExplainService', () => {
       controlId: 'control-id',
       remediations: [],
     })
+    mockControlPointService.findByL2CodeWithFullChain.mockResolvedValue({
+      l2Code: 'IT02-03',
+      l2Name: '访问控制与授权管理',
+      failureModes: [],
+    })
+    mockObligationService.findRegulatoryLinksByControlId.mockResolvedValue({
+      obligations: [],
+      clauses: [],
+    })
 
     const result = await service.getControlExplain('control-id', {
       organizationId: 'org-id',
@@ -220,5 +385,23 @@ describe('ControlExplainService', () => {
     expect(result.evidences).toEqual([])
     expect(result.questions).toEqual([])
     expect(result.remediations).toEqual([])
+    expect(result.failureModes).toEqual([])
+    expect(result.obligations).toEqual([])
+    expect(result.reasoningChain).toEqual({
+      l2: {
+        code: 'IT02-03',
+        name: '访问控制与授权管理',
+      },
+      cases: [],
+      failureModes: [],
+      selectedControl: {
+        controlId: 'control-id',
+        controlCode: 'CTRL-ACC-002',
+        controlName: '访问控制管理',
+        maturityLevel: 'candidate',
+        authoritativeScore: null,
+      },
+      evidenceTypes: [],
+    })
   })
 })

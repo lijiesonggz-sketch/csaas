@@ -24,7 +24,88 @@ describe('ControlDetailDrawer', () => {
         name: '监管报送准确性控制',
       },
     },
+    governance: {
+      originType: 'both',
+      maturityLevel: 'hard',
+      authoritativeScore: 0.8333,
+      authorityProfile: {
+        has_source_basis: true,
+        has_applicability_scope: true,
+        has_control_activity: true,
+        has_expected_evidence: true,
+        has_human_review: true,
+        has_case_validation: false,
+      },
+      applicableSector: ['银行', '证券'],
+      sectorRequirements: {
+        银行: {
+          review_frequency: '季度',
+          log_retention: '6个月',
+        },
+      },
+    },
     applicabilityReason: '机构属于银行业且监管关注度高，需强化报送控制',
+    failureModes: [
+      {
+        failureModeId: 'fm-001',
+        failureModeCode: 'FM-REP-001',
+        name: '报送口径定义错误',
+        category: 'DEFINITION_ERROR',
+        relevance: 'PRIMARY',
+      },
+    ],
+    obligations: [
+      {
+        obligationId: 'obl-001',
+        obligationCode: 'OBL-001',
+        obligationText: '应当建立复核机制',
+        obligationType: 'MANDATORY',
+        coverage: 'FULL',
+        clause: {
+          clauseId: 'clause-001',
+          clauseCode: 'REG-BANK-IT-042',
+          articleNo: '第42条',
+        },
+      },
+    ],
+    reasoningChain: {
+      l2: {
+        code: 'IT04-06',
+        name: '监管报送准确性控制',
+      },
+      cases: [
+        {
+          caseCode: 'CASE-PBOC-2024-001',
+          caseTitle: '某银行因报送不准被罚 50 万',
+        },
+      ],
+      failureModes: [
+        {
+          failureModeId: 'fm-001',
+          failureModeCode: 'FM-REP-001',
+          name: '报送口径定义错误',
+          relevance: 'PRIMARY',
+        },
+      ],
+      selectedControl: {
+        controlId: 'control-001',
+        controlCode: 'CTRL-DG-004',
+        controlName: '监管报送准确性控制',
+        maturityLevel: 'hard',
+        authoritativeScore: 0.8333,
+      },
+      evidenceTypes: [
+        {
+          evidenceId: 'evidence-001',
+          evidenceCode: 'EVD-REPORT-001',
+          evidenceName: '报送对账记录',
+          evidenceCategory: 'DOCUMENT',
+          autoCollectable: false,
+          requiredLevel: 'HIGH',
+          frequency: 'monthly',
+        },
+      ],
+    },
     clauses: [
       {
         clauseCode: 'REG-BANK-IT-042',
@@ -88,11 +169,24 @@ describe('ControlDetailDrawer', () => {
     expect(screen.getByTestId('control-detail-source-badge')).toHaveTextContent('来自雷达')
   })
 
+  it('should render governance summary badges, score and authority checklist', async () => {
+    render(<ControlDetailDrawer {...defaultProps} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('control-detail-origin-badge')).toHaveTextContent('双轨覆盖')
+    })
+
+    expect(screen.getByTestId('control-detail-maturity-badge')).toHaveTextContent('正式硬控制点')
+    expect(screen.getByText('83%')).toBeInTheDocument()
+    expect(screen.getByText('有来源依据')).toBeInTheDocument()
+    expect(screen.getByText('有案例验证')).toBeInTheDocument()
+  })
+
   it('should render sections in the fixed shared order', async () => {
     render(<ControlDetailDrawer {...defaultProps} />)
 
     await waitFor(() => {
-      expect(screen.getByTestId('control-detail-section-applicabilityReason')).toBeInTheDocument()
+      expect(screen.getByTestId('control-detail-section-governance-summary')).toBeInTheDocument()
     })
 
     const sectionOrder = Array.from(document.body.querySelectorAll('[data-section-key]')).map((node) =>
@@ -100,6 +194,11 @@ describe('ControlDetailDrawer', () => {
     )
 
     expect(sectionOrder).toEqual([
+      'governance-summary',
+      'sector-requirements',
+      'failure-modes',
+      'obligations',
+      'reasoning-chain',
       'applicabilityReason',
       'clauses',
       'cases',
@@ -109,9 +208,32 @@ describe('ControlDetailDrawer', () => {
     ])
   })
 
+  it('should render sector requirements, failure mode cards, obligation cards and the reasoning chain', async () => {
+    render(<ControlDetailDrawer {...defaultProps} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('control-detail-section-sector-requirements')).toBeInTheDocument()
+    })
+
+    expect(screen.getByTestId('control-detail-sector-requirements')).toHaveTextContent('银行')
+    fireEvent.click(screen.getByRole('button', { name: /银行.*项差异化参数/ }))
+    expect(screen.getByText('季度')).toBeInTheDocument()
+    expect(screen.getByTestId('control-detail-failure-mode-cards')).toHaveTextContent('FM-REP-001')
+    expect(screen.getByTestId('control-detail-obligation-cards')).toHaveTextContent('应当建立复核机制')
+    expect(screen.getByTestId('control-detail-reasoning-chain')).toBeInTheDocument()
+    expect(screen.getByText('CTRL-DG-004')).toBeInTheDocument()
+  })
+
   it('should show explicit empty states while keeping populated sections visible', async () => {
     ;(getControlExplain as jest.Mock).mockResolvedValue({
       ...baseResponse,
+      failureModes: [],
+      obligations: [],
+      reasoningChain: {
+        ...baseResponse.reasoningChain,
+        cases: [],
+        evidenceTypes: [],
+      },
       clauses: [],
       cases: [],
       questions: [],
@@ -125,6 +247,8 @@ describe('ControlDetailDrawer', () => {
 
     expect(screen.getByText('暂无处罚案例')).toBeInTheDocument()
     expect(screen.getByText('暂无问卷题目')).toBeInTheDocument()
+    expect(screen.getByText('当前控制点暂无失效模式映射')).toBeInTheDocument()
+    expect(screen.getByText('当前控制点暂无法规义务映射')).toBeInTheDocument()
     expect(screen.getByText('监管报送前后的自动校验与人工复核记录')).toBeInTheDocument()
   })
 

@@ -43,6 +43,78 @@ export interface ControlExplainRemediation {
   priority?: string
 }
 
+export interface ControlExplainGovernance {
+  originType?: string | null
+  maturityLevel?: string | null
+  authoritativeScore?: number | null
+  authorityProfile?: {
+    has_source_basis?: boolean
+    has_applicability_scope?: boolean
+    has_control_activity?: boolean
+    has_expected_evidence?: boolean
+    has_human_review?: boolean
+    has_case_validation?: boolean
+  } | null
+  applicableSector?: string[]
+  sectorRequirements?: Record<string, Record<string, unknown>> | null
+}
+
+export interface ControlExplainFailureMode {
+  failureModeId?: string
+  failureModeCode?: string
+  name?: string
+  category?: string
+  relevance?: string
+}
+
+export interface ControlExplainObligationClause {
+  clauseId?: string
+  clauseCode?: string
+  articleNo?: string | null
+}
+
+export interface ControlExplainObligation {
+  obligationId?: string
+  obligationCode?: string
+  obligationText?: string
+  obligationType?: string | null
+  coverage?: string | null
+  clause?: ControlExplainObligationClause | null
+}
+
+export interface ControlExplainReasoningChain {
+  l2?: {
+    code?: string | null
+    name?: string | null
+  } | null
+  cases?: Array<{
+    caseCode?: string | null
+    caseTitle?: string | null
+  }>
+  failureModes?: Array<{
+    failureModeId?: string
+    failureModeCode?: string
+    name?: string
+    relevance?: string
+  }>
+  selectedControl?: {
+    controlId?: string
+    controlCode?: string
+    controlName?: string
+    maturityLevel?: string | null
+    authoritativeScore?: number | null
+  } | null
+  evidenceTypes?: Array<{
+    evidenceId?: string
+    evidenceCode?: string
+    evidenceName?: string
+    evidenceCategory?: string | null
+    autoCollectable?: boolean
+    requiredLevel?: string
+    frequency?: string | null
+  }>
+}
+
 export interface ControlExplainResponse {
   control: {
     controlId?: string
@@ -58,7 +130,11 @@ export interface ControlExplainResponse {
       name?: string | null
     }
   }
+  governance?: ControlExplainGovernance | null
   applicabilityReason: string
+  failureModes?: ControlExplainFailureMode[]
+  obligations?: ControlExplainObligation[]
+  reasoningChain?: ControlExplainReasoningChain | null
   clauses: ControlExplainClause[]
   cases: ControlExplainCase[]
   evidences: ControlExplainEvidence[]

@@ -29,7 +29,52 @@ describe('compliance-intelligence API client', () => {
         controlCode: 'CTRL-001',
         controlName: '测试控制点',
       },
+      governance: {
+        originType: 'both',
+        maturityLevel: 'hard',
+        authoritativeScore: 0.8333,
+        authorityProfile: {
+          has_source_basis: true,
+        },
+        applicableSector: ['银行'],
+        sectorRequirements: {
+          银行: {
+            review_frequency: '季度',
+          },
+        },
+      },
       applicabilityReason: '测试原因',
+      failureModes: [
+        {
+          failureModeId: 'fm-001',
+          failureModeCode: 'FM-001',
+          name: '测试失效模式',
+          category: 'DEFINITION_ERROR',
+          relevance: 'PRIMARY',
+        },
+      ],
+      obligations: [
+        {
+          obligationId: 'obl-001',
+          obligationCode: 'OBL-001',
+          obligationText: '应当建立复核机制',
+          obligationType: 'MANDATORY',
+          coverage: 'FULL',
+        },
+      ],
+      reasoningChain: {
+        l2: {
+          code: 'IT04-04',
+          name: 'EAST数据质量不符合规范要求',
+        },
+        cases: [],
+        failureModes: [],
+        selectedControl: {
+          controlCode: 'CTRL-001',
+          controlName: '测试控制点',
+        },
+        evidenceTypes: [],
+      },
       clauses: [],
       cases: [],
       evidences: [],
@@ -37,7 +82,7 @@ describe('compliance-intelligence API client', () => {
       remediations: [],
     })
 
-    await getControlExplain({
+    const result = await getControlExplain({
       controlId: 'control-123',
       organizationId: 'org-456',
     })
@@ -45,6 +90,28 @@ describe('compliance-intelligence API client', () => {
     expect(apiFetch).toHaveBeenCalledWith(
       '/compliance-intelligence/control-explain/control-123?organizationId=org-456',
     )
+    expect(result).toMatchObject({
+      governance: {
+        originType: 'both',
+        maturityLevel: 'hard',
+        authoritativeScore: 0.8333,
+      },
+      failureModes: [
+        expect.objectContaining({
+          failureModeCode: 'FM-001',
+        }),
+      ],
+      obligations: [
+        expect.objectContaining({
+          obligationCode: 'OBL-001',
+        }),
+      ],
+      reasoningChain: {
+        l2: {
+          code: 'IT04-04',
+        },
+      },
+    })
   })
 
   it('should normalize 403 into a permission error state', () => {
