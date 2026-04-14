@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm'
 import { ClauseControlMap } from './clause-control-map.entity'
+import { RegulationObligation } from './regulation-obligation.entity'
 import { RegulationSource } from './regulation-source.entity'
 
 export const REGULATION_CLAUSE_MANDATORY_LEVELS = [
@@ -76,4 +77,7 @@ export class RegulationClause {
 
   @OneToMany(() => ClauseControlMap, (mapping) => mapping.clause)
   clauseControlMaps: ClauseControlMap[]
+
+  @OneToMany(() => RegulationObligation, (obligation) => obligation.clause)
+  obligations: RegulationObligation[]
 }

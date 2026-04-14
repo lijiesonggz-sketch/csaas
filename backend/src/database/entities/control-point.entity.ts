@@ -6,11 +6,13 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   QueryRunner,
   Unique,
   UpdateDateColumn,
 } from 'typeorm'
+import { ObligationControlMap } from './obligation-control-map.entity'
 import { TaxonomyL1 } from './taxonomy-l1.entity'
 import { TaxonomyL2 } from './taxonomy-l2.entity'
 
@@ -149,6 +151,9 @@ export class ControlPoint {
   })
   @JoinColumn({ name: 'l2_code', referencedColumnName: 'l2Code' })
   taxonomyL2: TaxonomyL2
+
+  @OneToMany(() => ObligationControlMap, (map) => map.controlPoint)
+  obligationControlMaps: ObligationControlMap[]
 
   // ---------------------------------------------------------------------------
   // KG V2 Governance fields (Story 1-2)

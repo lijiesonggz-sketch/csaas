@@ -58,10 +58,19 @@ export {
   REGULATION_CLAUSE_MANDATORY_LEVELS,
 } from './regulation-clause.entity'
 export {
+  RegulationObligation,
+  OBLIGATION_TYPES,
+  OBLIGATION_STATUSES,
+} from './regulation-obligation.entity'
+export {
   ClauseControlMap,
   CLAUSE_CONTROL_MAPPING_TYPES,
   MAP_REVIEW_STATUSES,
 } from './clause-control-map.entity'
+export {
+  ObligationControlMap,
+  OBLIGATION_COVERAGES,
+} from './obligation-control-map.entity'
 export {
   ComplianceCase,
   COMPLIANCE_CASE_STATUSES,
