@@ -17,6 +17,94 @@ const DEFAULT_TAXONOMY_MAPPING_PATH = path.resolve(
 )
 const DEFAULT_REPORT_DIR = path.resolve(REPO_ROOT, '_bmad-output/test-artifacts')
 const DEFAULT_MIN_FULL_CHAIN_HITS = 10
+const IT04_FALLBACK_BUCKET_CODE = 'IT04-05'
+
+type It04RuleSignal = {
+  label: string
+  pattern: RegExp
+  weight: number
+}
+
+type It04RulebookEntry = {
+  l2Code: string
+  signals: It04RuleSignal[]
+}
+
+const IT04_RULEBOOK: It04RulebookEntry[] = [
+  {
+    l2Code: 'IT04-07',
+    signals: [
+      { label: '未按时报送', pattern: /未按时报送|未按期报送/, weight: 5 },
+      { label: '迟报未报', pattern: /迟报|未报|漏报/, weight: 4 },
+      { label: '超期逾期', pattern: /超期|逾期/, weight: 4 },
+      { label: '截止时点', pattern: /截止时间|截止日|截止时点/, weight: 4 },
+      { label: '时效预警', pattern: /时效监控|时效预警|催办|升级机制|提醒机制/, weight: 4 },
+      { label: '科技监管台账', pattern: /台账报送|科技监管类报表|非现场监管报表/, weight: 3 },
+    ],
+  },
+  {
+    l2Code: 'IT04-04',
+    signals: [
+      { label: '数据质量不符合规范', pattern: /数据质量不符合规范|数据质量问题/, weight: 5 },
+      { label: '自动化校验', pattern: /自动化数据质量校验|数据质量校验规则|自动化校验|质检/, weight: 5 },
+      { label: '阻断异常', pattern: /阻断异常报送|异常字段|关键字段缺失|字段偏差/, weight: 4 },
+      { label: '口径错误', pattern: /口径错误|格式错误/, weight: 4 },
+    ],
+  },
+  {
+    l2Code: 'IT04-06',
+    signals: [
+      { label: '账表核对', pattern: /账表核对|账表不一致|账实不符/, weight: 5 },
+      { label: '总分账勾稽', pattern: /总账|分账|勾稽|账簿/, weight: 4 },
+      { label: '系统间不一致', pattern: /系统间数据不一致|源系统.*不一致|基础数据不一致|对账差异/, weight: 5 },
+      { label: '一致性追溯', pattern: /一致性校验|来源一致性|无法追溯/, weight: 4 },
+    ],
+  },
+  {
+    l2Code: 'IT04-08',
+    signals: [
+      { label: '整改不到位', pattern: /整改不到位|整改未执行|整改方案未落实/, weight: 5 },
+      { label: '整改闭环', pattern: /整改闭环|关闭验证|闭环验证缺失/, weight: 5 },
+      { label: '历史问题', pattern: /历史问题|历史数据问题|既往.*问题/, weight: 4 },
+      { label: '屡查屡犯', pattern: /屡查屡犯|反复发生/, weight: 5 },
+      { label: '整改跟踪', pattern: /整改跟踪|整改台账|关闭证明/, weight: 4 },
+    ],
+  },
+  {
+    l2Code: 'IT04-10',
+    signals: [
+      { label: '登记录入更新', pattern: /信息登记|登记信息|录入|补录|更新|维护/, weight: 4 },
+      { label: '更新不及时', pattern: /不及时不规范|更新不及时|录入不及时|维护不及时|补录超期/, weight: 5 },
+      { label: '业务信息', pattern: /业务信息|投保信息/, weight: 4 },
+    ],
+  },
+  {
+    l2Code: 'IT04-11',
+    signals: [
+      { label: '虚假报送', pattern: /虚假报表|虚假报告|虚假资料|虚假记载/, weight: 5 },
+      { label: '数据造假', pattern: /数据造假|人为数据造假|虚假填报/, weight: 5 },
+      { label: '真实性审核', pattern: /真实性审核|真实性抽查|真实性/, weight: 4 },
+      { label: '人工调整', pattern: /人工调整/, weight: 4 },
+      { label: '严重失真', pattern: /严重失真|严重偏离|与实际严重偏离/, weight: 5 },
+    ],
+  },
+  {
+    l2Code: 'IT04-03',
+    signals: [
+      { label: 'EAST错报漏报', pattern: /EAST.*错报|EAST.*漏报|EAST.*报送不实/, weight: 5 },
+      { label: '口径配置变更', pattern: /口径定义错误|参数配置|配置变更/, weight: 4 },
+      { label: 'EAST报送', pattern: /EAST报送|监管标准化数据EAST/, weight: 3 },
+    ],
+  },
+  {
+    l2Code: IT04_FALLBACK_BUCKET_CODE,
+    signals: [
+      { label: '监管报表', pattern: /监管报表|监管系统报送/, weight: 3 },
+      { label: '统计差错', pattern: /统计数据错报|与事实不符|报送数据不准确/, weight: 3 },
+      { label: '双人复核', pattern: /双人复核|复核缺失/, weight: 2 },
+    ],
+  },
+]
 
 export type It04BenchmarkCase = {
   caseId: string
@@ -44,6 +132,8 @@ export type It04ClassificationResult = {
   l2Code: string
   l2Name: string
   score: number
+  scoreGap: number
+  decisionSource: 'rule' | 'semantic'
   matchedPhrases: string[]
   matchedTokens: string[]
 }
@@ -53,6 +143,8 @@ export type It04BenchmarkCaseResult = {
   caseTitle: string
   expectedL2Code: string
   actualL2Code: string
+  classificationDecisionSource: 'rule' | 'semantic'
+  classificationScoreGap: number
   taxonomyHit: boolean
   failureModeHit: boolean
   controlHit: boolean
@@ -141,12 +233,48 @@ export function loadIt04TaxonomyMappings(
     }))
 }
 
+function scoreIt04RuleSignals(caseText: string): Array<{
+  l2Code: string
+  score: number
+  matchedSignals: string[]
+}> {
+  return IT04_RULEBOOK.map((entry) => {
+    const matchedSignals = entry.signals
+      .filter((signal) => signal.pattern.test(caseText))
+      .map((signal) => signal.label)
+    const score = entry.signals
+      .filter((signal) => signal.pattern.test(caseText))
+      .reduce((sum, signal) => sum + signal.weight, 0)
+
+    return {
+      l2Code: entry.l2Code,
+      score,
+      matchedSignals,
+    }
+  }).filter((entry) => entry.score > 0)
+}
+
 export function classifyIt04CaseText(
   caseText: string,
   mappings: It04TaxonomySemanticMapping[],
 ): It04ClassificationResult {
   const normalizedText = normalizeText(caseText)
   const textTokens = tokenizeText(caseText)
+  const ruleMatches = scoreIt04RuleSignals(caseText)
+    .sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score
+      }
+
+      if (left.l2Code === IT04_FALLBACK_BUCKET_CODE) {
+        return 1
+      }
+      if (right.l2Code === IT04_FALLBACK_BUCKET_CODE) {
+        return -1
+      }
+
+      return left.l2Code.localeCompare(right.l2Code)
+    })
 
   const scoredMappings = mappings.map((mapping) => {
     const phrases = dedupe([
@@ -180,15 +308,17 @@ export function classifyIt04CaseText(
       score += 2
     }
 
+    if (mapping.l2Code === IT04_FALLBACK_BUCKET_CODE) {
+      score -= 1.5
+    }
+
     return {
       mapping,
       score,
       matchedPhrases: matchedPhrases.slice(0, 8),
       matchedTokens: matchedTokens.slice(0, 10),
     }
-  })
-
-  const best = scoredMappings.sort((left, right) => {
+  }).sort((left, right) => {
     if (right.score !== left.score) {
       return right.score - left.score
     }
@@ -197,15 +327,42 @@ export function classifyIt04CaseText(
       return right.matchedPhrases.length - left.matchedPhrases.length
     }
 
+    if (left.mapping.l2Code === IT04_FALLBACK_BUCKET_CODE) {
+      return 1
+    }
+    if (right.mapping.l2Code === IT04_FALLBACK_BUCKET_CODE) {
+      return -1
+    }
+
     return left.mapping.l2Code.localeCompare(right.mapping.l2Code)
-  })[0]
+  })
+
+  const bestSemantic = scoredMappings[0]
+  const secondSemantic = scoredMappings[1]
+  const bestRule = ruleMatches[0]
+  const secondRule = ruleMatches[1]
+
+  if (bestRule && bestRule.score >= 4) {
+    const mapped = mappings.find((mapping) => mapping.l2Code === bestRule.l2Code)
+    return {
+      l2Code: bestRule.l2Code,
+      l2Name: mapped?.l2Name ?? bestRule.l2Code,
+      score: Number(bestRule.score.toFixed(2)),
+      scoreGap: Number((bestRule.score - (secondRule?.score ?? 0)).toFixed(2)),
+      decisionSource: 'rule',
+      matchedPhrases: bestRule.matchedSignals,
+      matchedTokens: [],
+    }
+  }
 
   return {
-    l2Code: best.mapping.l2Code,
-    l2Name: best.mapping.l2Name,
-    score: Number(best.score.toFixed(2)),
-    matchedPhrases: best.matchedPhrases,
-    matchedTokens: best.matchedTokens,
+    l2Code: bestSemantic.mapping.l2Code,
+    l2Name: bestSemantic.mapping.l2Name,
+    score: Number(bestSemantic.score.toFixed(2)),
+    scoreGap: Number((bestSemantic.score - (secondSemantic?.score ?? 0)).toFixed(2)),
+    decisionSource: 'semantic',
+    matchedPhrases: bestSemantic.matchedPhrases,
+    matchedTokens: bestSemantic.matchedTokens,
   }
 }
 
@@ -307,11 +464,11 @@ export function buildIt04BenchmarkMarkdown(report: It04BenchmarkReport): string 
     '',
     '## Gaps',
     '',
-    '| Case ID | Expected L2 | Actual L2 | Miss Category | Expected Controls | Actual Controls |',
-    '| --- | --- | --- | --- | --- | --- |',
+    '| Case ID | Expected L2 | Actual L2 | Decision | Miss Category | Expected Controls | Actual Controls |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
     ...failingCases.map(
       (result) =>
-        `| ${result.caseId} | ${result.expectedL2Code} | ${result.actualL2Code} | ${result.missCategory} | ${result.expectedControlCodes.join(', ')} | ${result.actualControlCodes.join(', ')} |`,
+        `| ${result.caseId} | ${result.expectedL2Code} | ${result.actualL2Code} | ${result.classificationDecisionSource} (${result.classificationScoreGap}) | ${result.missCategory} | ${result.expectedControlCodes.join(', ')} | ${result.actualControlCodes.join(', ')} |`,
     ),
   ]
 
@@ -386,6 +543,8 @@ export class It04BenchmarkRunner {
         caseTitle: benchmarkCase.caseTitle,
         expectedL2Code: benchmarkCase.expectedL2Code,
         actualL2Code: classification.l2Code,
+        classificationDecisionSource: classification.decisionSource,
+        classificationScoreGap: classification.scoreGap,
         taxonomyHit,
         failureModeHit,
         controlHit,
@@ -430,7 +589,7 @@ export class It04BenchmarkRunner {
       generatedAt: new Date().toISOString(),
       datasetPath,
       taxonomyMappingPath,
-      classificationSource: 'semantic mapping CSV heuristic',
+      classificationSource: 'hybrid IT04 rulebook + semantic mapping CSV heuristic',
       summary,
       caseResults,
     }

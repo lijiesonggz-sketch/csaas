@@ -21,6 +21,7 @@ import { CaseExtractionService } from './services/case-extraction.service'
 import { CaseHumanReviewService } from './services/case-human-review.service'
 import { CaseImportService } from './services/case-import.service'
 import { CaseImportQueueService } from './services/case-import-queue.service'
+import { It04TaxonomyClassifierService } from './services/it04-taxonomy-classifier.service'
 import { CaseThemeIntelligenceService } from './services/case-theme-intelligence.service'
 import { ComplianceCaseBackfillService } from './services/compliance-case-backfill.service'
 
@@ -58,6 +59,7 @@ import { ComplianceCaseBackfillService } from './services/compliance-case-backfi
     CaseExtractionService,
     CaseImportService,
     CaseImportQueueService,
+    It04TaxonomyClassifierService,
     CaseThemeIntelligenceService,
     ComplianceCaseBackfillService,
     CaseImportProcessor,

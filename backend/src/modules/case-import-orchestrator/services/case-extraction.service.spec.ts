@@ -4,6 +4,7 @@ import { ComplianceCase } from '../../../database/entities/compliance-case.entit
 import { RegulationClause } from '../../../database/entities/regulation-clause.entity'
 import { CaseExtractionService } from './case-extraction.service'
 import { CaseThemeIntelligenceService } from './case-theme-intelligence.service'
+import { It04TaxonomyClassifierService } from './it04-taxonomy-classifier.service'
 
 describe('CaseExtractionService', () => {
   let service: CaseExtractionService
@@ -19,6 +20,10 @@ describe('CaseExtractionService', () => {
 
   const caseThemeIntelligenceService = {
     refineViolationThemes: jest.fn(),
+  }
+
+  const it04TaxonomyClassifierService = {
+    classifyCaseText: jest.fn(),
   }
 
   beforeEach(async () => {
@@ -37,12 +42,17 @@ describe('CaseExtractionService', () => {
           provide: CaseThemeIntelligenceService,
           useValue: caseThemeIntelligenceService,
         },
+        {
+          provide: It04TaxonomyClassifierService,
+          useValue: it04TaxonomyClassifierService,
+        },
       ],
     }).compile()
 
     service = module.get(CaseExtractionService)
     jest.clearAllMocks()
     caseThemeIntelligenceService.refineViolationThemes.mockResolvedValue(null)
+    it04TaxonomyClassifierService.classifyCaseText.mockReturnValue(null)
   })
 
   it('should extract violation themes and clause candidates for pending cases', async () => {
@@ -83,6 +93,9 @@ describe('CaseExtractionService', () => {
     expect(complianceCaseRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'extracted',
+        l1Code: null,
+        l2Code: null,
+        confidenceScore: null,
         violationThemes: expect.arrayContaining([
           '客户身份识别不到位',
           '反洗钱监测缺失',
@@ -129,6 +142,44 @@ describe('CaseExtractionService', () => {
     expect(complianceCaseRepository.save).not.toHaveBeenCalledWith(
       expect.objectContaining({
         violationThemes: expect.arrayContaining(['你公司在尽职调查过程中']),
+      }),
+    )
+  })
+
+  it('should persist IT04 taxonomy classification when classifier returns confident result', async () => {
+    complianceCaseRepository.find.mockResolvedValue([
+      {
+        caseId: 'case-3',
+        importBatchId: 'batch-3',
+        status: 'pending',
+        caseFacts: '监管登记信息补录和更新没有时效监控，补录超期且无人催办。',
+        penaltyReason: '导致信息更新不及时不规范。',
+      },
+    ])
+    regulationClauseRepository.find.mockResolvedValue([])
+    complianceCaseRepository.save.mockImplementation(async (entity) => entity)
+    it04TaxonomyClassifierService.classifyCaseText.mockReturnValue({
+      l1Code: 'IT04',
+      l2Code: 'IT04-10',
+      l2Name: '信息登记/录入/更新不及时不规范',
+      score: 9,
+      scoreGap: 5,
+      decisionSource: 'rule',
+      matchedPhrases: ['登记录入更新', '更新不及时'],
+      matchedTokens: [],
+    })
+
+    await service.extractBatch('batch-3')
+
+    expect(it04TaxonomyClassifierService.classifyCaseText).toHaveBeenCalledWith(
+      expect.stringContaining('监管登记信息补录和更新没有时效监控'),
+    )
+    expect(complianceCaseRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        l1Code: 'IT04',
+        l2Code: 'IT04-10',
+        confidenceScore: '9.0000',
+        status: 'extracted',
       }),
     )
   })

@@ -38,8 +38,117 @@ describe('It04BenchmarkRunner', () => {
     )
 
     expect(result.l2Code).toBe('IT04-07')
+    expect(result.decisionSource).toBe('rule')
     expect(result.matchedPhrases).toEqual(
-      expect.arrayContaining(['非现场监管报表', '未按时报送', '迟报']),
+      expect.arrayContaining(['未按时报送', '迟报未报']),
+    )
+  })
+
+  it('should classify rectification-closure cases to IT04-08 via strong signals', () => {
+    const mappings: It04TaxonomySemanticMapping[] = [
+      {
+        l1Code: 'IT04',
+        l1Name: '数据治理与监管数据报送',
+        l2Code: 'IT04-08',
+        l2Name: '历史数据问题整改不到位',
+        definition: '既往EAST或监管数据问题整改不到位、反复发生',
+        canonicalTheme: '历史数据问题整改管理',
+        aliases: ['历史数据整改', '屡查屡犯', '整改不到位'],
+        keywords: ['整改', '闭环', '关闭验证'],
+      },
+      {
+        l1Code: 'IT04',
+        l1Name: '数据治理与监管数据报送',
+        l2Code: 'IT04-05',
+        l2Name: '监管报表/监管系统报送数据不准确',
+        definition: '除EAST外的各类监管报表、监管系统报送错报漏报',
+        canonicalTheme: '监管报表报送准确性管理',
+        aliases: ['监管报表', '监管系统报送'],
+        keywords: ['报送', '报表'],
+      },
+    ]
+
+    const result = classifyIt04CaseText(
+      '监管报送历史差错整改后未做关闭验证，问题反复出现，属于整改闭环验证缺失。',
+      mappings,
+    )
+
+    expect(result.l2Code).toBe('IT04-08')
+    expect(result.decisionSource).toBe('rule')
+    expect(result.matchedPhrases).toEqual(
+      expect.arrayContaining(['整改闭环']),
+    )
+  })
+
+  it('should prefer falsification signals over generic reporting bucket', () => {
+    const mappings: It04TaxonomySemanticMapping[] = [
+      {
+        l1Code: 'IT04',
+        l1Name: '数据治理与监管数据报送',
+        l2Code: 'IT04-11',
+        l2Name: '监管报告/报表/文件/资料虚假或失真',
+        definition: '编制或提供虚假报告、报表、文件、资料',
+        canonicalTheme: '监管报告真实性控制',
+        aliases: ['虚假报告', '数据造假'],
+        keywords: ['人工调整', '真实性审核', '严重失真'],
+      },
+      {
+        l1Code: 'IT04',
+        l1Name: '数据治理与监管数据报送',
+        l2Code: 'IT04-05',
+        l2Name: '监管报表/监管系统报送数据不准确',
+        definition: '除EAST外的各类监管报表、监管系统报送错报漏报',
+        canonicalTheme: '监管报表报送准确性管理',
+        aliases: ['监管报表', '监管系统报送'],
+        keywords: ['报送', '数据不准确'],
+      },
+    ]
+
+    const result = classifyIt04CaseText(
+      '监管报送过程中存在人工调整且缺少真实性审核，报送数据与实际严重偏离，形成数据失真。',
+      mappings,
+    )
+
+    expect(result.l2Code).toBe('IT04-11')
+    expect(result.decisionSource).toBe('rule')
+    expect(result.matchedPhrases).toEqual(
+      expect.arrayContaining(['真实性审核', '人工调整', '严重失真']),
+    )
+  })
+
+  it('should classify record-maintenance delay cases to IT04-10 before IT04-07', () => {
+    const mappings: It04TaxonomySemanticMapping[] = [
+      {
+        l1Code: 'IT04',
+        l1Name: '数据治理与监管数据报送',
+        l2Code: 'IT04-10',
+        l2Name: '信息登记/录入/更新不及时不规范',
+        definition: '投保信息、业务信息、登记信息录入、更新、维护不及时不规范',
+        canonicalTheme: '信息登记与更新管理',
+        aliases: ['信息登记', '录入更新', '维护及时性'],
+        keywords: ['录入不及时', '更新不及时', '补录'],
+      },
+      {
+        l1Code: 'IT04',
+        l1Name: '数据治理与监管数据报送',
+        l2Code: 'IT04-07',
+        l2Name: '信息科技非现场监管报表未报/迟报',
+        definition: '科技监管类报表、台账、信息报送未按时报送',
+        canonicalTheme: '科技监管报表时效管理',
+        aliases: ['非现场监管报表', '台账报送'],
+        keywords: ['未按时报送', '迟报', '超期'],
+      },
+    ]
+
+    const result = classifyIt04CaseText(
+      '监管登记信息补录和更新没有时效监控，补录超期且无人催办，导致信息更新不及时不规范。',
+      mappings,
+    )
+
+    expect(result.l2Code).toBe('IT04-10')
+    expect(result.decisionSource).toBe('rule')
+    expect(result.matchedPhrases).toEqual(
+      expect.arrayContaining(['登记录入更新', '更新不及时']),
     )
   })
 

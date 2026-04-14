@@ -113,6 +113,17 @@ describe('ComplianceCaseBackfillService', () => {
       caseId: expect.any(Object),
       reviewStatus: 'PENDING',
     })
+    expect(complianceCaseRepository.save).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          caseId: 'case-1',
+          l1Code: null,
+          l2Code: null,
+          confidenceScore: null,
+          status: 'pending',
+        }),
+      ]),
+    )
     expect(caseExtractionService.extractBatch).toHaveBeenCalledWith('batch-1')
     expect(caseClusteringService.clusterBatch).toHaveBeenCalledWith('batch-1')
     expect(report).toEqual({
