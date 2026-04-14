@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -154,6 +155,32 @@ export class FailureModeController {
     return result
   }
 
+  @Delete('failure-modes/:id/taxonomy-maps/:mapId')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: '删除失效模式的分类映射' })
+  async deleteTaxonomyMap(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: { id?: string; userId?: string },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('mapId', ParseUUIDPipe) mapId: string,
+    @Req() req: Request,
+  ) {
+    const result = await this.failureModeService.deleteTaxonomyMap(id, mapId)
+
+    await this.auditLogService.log({
+      userId: user.id || user.userId,
+      tenantId,
+      action: AuditAction.DELETE,
+      entityType: 'TaxonomyFailureModeMap',
+      entityId: mapId,
+      details: { failureModeId: id },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] as string | undefined,
+    })
+
+    return result
+  }
+
   @Post('failure-modes/:id/control-maps')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: '为失效模式添加控制点映射' })
@@ -173,6 +200,32 @@ export class FailureModeController {
       entityType: 'FailureModeControlMap',
       entityId: result.id,
       details: { failureModeId: id, controlId: dto.controlId, relevance: dto.relevance },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] as string | undefined,
+    })
+
+    return result
+  }
+
+  @Delete('failure-modes/:id/control-maps/:mapId')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: '删除失效模式的控制点映射' })
+  async deleteControlMap(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: { id?: string; userId?: string },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('mapId', ParseUUIDPipe) mapId: string,
+    @Req() req: Request,
+  ) {
+    const result = await this.failureModeService.deleteControlMap(id, mapId)
+
+    await this.auditLogService.log({
+      userId: user.id || user.userId,
+      tenantId,
+      action: AuditAction.DELETE,
+      entityType: 'FailureModeControlMap',
+      entityId: mapId,
+      details: { failureModeId: id },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] as string | undefined,
     })
