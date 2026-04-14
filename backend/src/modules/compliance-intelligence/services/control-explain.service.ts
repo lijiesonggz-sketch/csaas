@@ -42,7 +42,7 @@ export class ControlExplainService {
       throw new NotFoundException(`control_point ${controlId} not found`)
     }
 
-    const [l1, l2, applicabilityContext, clauses, cases, evidences, questions, remediations, fullChain, regulatoryLinks] =
+    const [l1, l2, applicabilityContext, clauses, cases, evidences, questions, remediations, fullChain, regulatoryLinks, failureModeMaps] =
       await Promise.all([
         this.taxonomyL1Repository.findOne({ where: { l1Code: control.l1Code } }),
         this.taxonomyL2Repository.findOne({ where: { l2Code: control.l2Code } }),
@@ -60,16 +60,16 @@ export class ControlExplainService {
           throw error
         }),
         this.obligationService.findRegulatoryLinksByControlId(controlId),
+        this.failureModeControlMapRepository
+          .createQueryBuilder('fmcm')
+          .leftJoinAndSelect('fmcm.failureMode', 'fm')
+          .where('fmcm.control_id = :controlId', { controlId })
+          .andWhere('fm.status = :status', { status: 'ACTIVE' })
+          .orderBy(`CASE WHEN fmcm.relevance = 'PRIMARY' THEN 0 ELSE 1 END`, 'ASC')
+          .addOrderBy('fm.failure_mode_code', 'ASC')
+          .getMany()
+          .catch(() => []),
       ])
-
-    const failureModeMaps = await this.failureModeControlMapRepository
-      .createQueryBuilder('fmcm')
-      .leftJoinAndSelect('fmcm.failureMode', 'fm')
-      .where('fmcm.control_id = :controlId', { controlId })
-      .andWhere('fm.status = :status', { status: 'ACTIVE' })
-      .orderBy(`CASE WHEN fmcm.relevance = 'PRIMARY' THEN 0 ELSE 1 END`, 'ASC')
-      .addOrderBy('fm.failure_mode_code', 'ASC')
-      .getMany()
 
     const failureModes = this.buildFailureModes(failureModeMaps)
     const reasoningChain = this.buildReasoningChain({
@@ -105,7 +105,7 @@ export class ControlExplainService {
       },
       applicabilityReason: this.buildApplicabilityReason(applicabilityContext),
       failureModes,
-      obligations: regulatoryLinks.obligations,
+      obligations: this.trimObligations(regulatoryLinks.obligations),
       reasoningChain,
       clauses,
       cases,
@@ -188,9 +188,10 @@ export class ControlExplainService {
       frequency: string | null
     }>()
 
+    let dedupIndex = 0
     for (const failureMode of relatedFailureModes) {
       for (const evidenceType of failureMode.evidenceTypes) {
-        const key = evidenceType.evidenceId || evidenceType.evidenceCode
+        const key = evidenceType.evidenceId || evidenceType.evidenceCode || `__dedup_${dedupIndex++}`
         if (!evidenceTypeMap.has(key)) {
           evidenceTypeMap.set(key, evidenceType)
         }
@@ -229,5 +230,16 @@ export class ControlExplainService {
     }
 
     return Number(value)
+  }
+
+  private trimObligations(obligations: Array<Record<string, unknown>>) {
+    return obligations.map((item) => ({
+      obligationId: item.obligationId ?? '',
+      obligationCode: item.obligationCode ?? '',
+      obligationText: item.obligationText ?? '',
+      obligationType: item.obligationType ?? null,
+      coverage: item.coverage ?? null,
+      clause: item.clause ?? null,
+    }))
   }
 }

@@ -519,4 +519,66 @@ describe('ControlExplainService', () => {
     ])
     expect(result.reasoningChain?.failureModes).toEqual([])
   })
+
+  it('should degrade failure modes to empty array when query fails', async () => {
+    controlPointRepository.findOne.mockResolvedValue({
+      controlId: 'control-id',
+      controlCode: 'CTRL-DG-004',
+      controlName: '监管报送准确性控制',
+      controlDesc: '确保监管报送准确完整',
+      l1Code: 'IT04',
+      l2Code: 'IT04-06',
+      originType: 'both',
+      maturityLevel: 'hard',
+      authoritativeScore: 0.8333,
+      authorityProfileJson: null,
+      applicableSector: [],
+      sectorRequirements: null,
+    })
+    taxonomyL1Repository.findOne.mockResolvedValue({
+      l1Code: 'IT04',
+      l1Name: '数据治理与监管数据报送',
+    })
+    taxonomyL2Repository.findOne.mockResolvedValue({
+      l2Code: 'IT04-06',
+      l2Name: '监管报送准确性控制',
+    })
+    mockControlPackLinkService.buildApplicabilityContext.mockResolvedValue({
+      matched: true,
+      reasons: ['命中机构画像'],
+      matchedPacks: [],
+      matchedRules: [],
+    })
+    mockRegulationService.findClausesByControlId.mockResolvedValue([])
+    mockComplianceCaseService.findCasesByControlId.mockResolvedValue([])
+    mockEvidenceService.findEvidencesByControlId.mockResolvedValue({
+      controlId: 'control-id',
+      evidences: [],
+    })
+    mockQuestionItemService.findByControlId.mockResolvedValue({
+      controlId: 'control-id',
+      questions: [],
+    })
+    mockRemediationActionService.findByControlId.mockResolvedValue({
+      controlId: 'control-id',
+      remediations: [],
+    })
+    failureModeControlMapQueryBuilder.getMany.mockRejectedValue(new Error('DB connection lost'))
+    mockControlPointService.findByL2CodeWithFullChain.mockResolvedValue({
+      l2Code: 'IT04-06',
+      l2Name: '监管报送准确性控制',
+      failureModes: [],
+    })
+    mockObligationService.findRegulatoryLinksByControlId.mockResolvedValue({
+      obligations: [],
+      clauses: [],
+    })
+
+    const result = await service.getControlExplain('control-id', {
+      organizationId: 'org-id',
+    })
+
+    expect(result.failureModes).toEqual([])
+    expect(result.obligations).toEqual([])
+  })
 })

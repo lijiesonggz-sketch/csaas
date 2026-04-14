@@ -247,7 +247,7 @@ function GovernanceSummarySection({ detail }: { detail: ControlExplainResponse }
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={scorePercent ?? 0}
+            {...(scorePercent != null ? { 'aria-valuenow': scorePercent } : {})}
           >
             <div
               className="h-full rounded-full bg-gradient-to-r from-sky-500 to-emerald-500 transition-all"
