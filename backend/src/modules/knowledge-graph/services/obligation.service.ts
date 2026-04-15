@@ -19,7 +19,7 @@ import { RegulationClause } from '../../../database/entities/regulation-clause.e
 import { RegulationObligation } from '../../../database/entities/regulation-obligation.entity'
 import {
   CreateObligationDto,
-  CreateObligationControlMapDto,
+  CreateObligationControlMapBodyDto,
   QueryObligationDto,
   UpdateObligationDto,
 } from '../dto/obligation.dto'
@@ -235,7 +235,7 @@ export class ObligationService {
 
   async createControlMap(
     obligationId: string,
-    dto: CreateObligationControlMapDto,
+    dto: CreateObligationControlMapBodyDto,
   ): Promise<ObligationControlMap> {
     await this.findObligationEntity(obligationId)
 
@@ -419,24 +419,21 @@ export class ObligationService {
   async deleteControlMap(obligationId: string, mapId: string) {
     await this.findObligationEntity(obligationId)
 
+    const result = await this.obligationControlMapRepo.delete({ id: mapId, obligationId })
+    if (result.affected === 1) {
+      return { success: true, id: mapId }
+    }
+
     const existing = await this.obligationControlMapRepo.findOne({
       where: { id: mapId },
     })
-    if (!existing) {
-      throw new NotFoundException(`obligation_control_map ${mapId} not found`)
-    }
-    if (existing.obligationId !== obligationId) {
+    if (existing) {
       throw new BadRequestException(
         'obligation control map does not belong to the current obligation',
       )
     }
 
-    const result = await this.obligationControlMapRepo.delete({ id: mapId })
-    if (result.affected !== 1) {
-      throw new NotFoundException(`obligation_control_map ${mapId} not found`)
-    }
-
-    return { success: true, id: mapId }
+    throw new NotFoundException(`obligation_control_map ${mapId} not found`)
   }
 
   private rethrowKnownPersistenceError(error: unknown, obligationCode: string): never {

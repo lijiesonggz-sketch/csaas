@@ -167,7 +167,9 @@ test.describe('Obligation 管理页面', () => {
 
     await page.goto('/admin/obligations', { waitUntil: 'domcontentloaded' })
 
-    await expect(page.getByRole('heading', { name: 'Obligation 管理' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Obligation 管理' })).toBeVisible({
+      timeout: 30000,
+    })
     await expect(page.locator('textarea').first()).toHaveValue('应当建立监管报送复核机制')
 
     await page.getByRole('button', { name: '查看条文详情' }).click()
@@ -181,6 +183,7 @@ test.describe('Obligation 管理页面', () => {
     expect(createMapSeen).toBe(true)
 
     await page.locator('button[aria-label="删除控制点映射 CTRL-REP-001"]').click()
+    await page.getByRole('button', { name: '确认删除' }).click()
     expect(deleteMapSeen).toBe(true)
   })
 

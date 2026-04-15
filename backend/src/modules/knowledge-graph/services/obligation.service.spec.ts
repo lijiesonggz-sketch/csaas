@@ -404,6 +404,18 @@ describe('ObligationService', () => {
         }),
       ).rejects.toBeInstanceOf(NotFoundException)
     })
+
+    it('should reject createControlMap when obligation does not exist', async () => {
+      mocks.obligationRepo.findOne.mockResolvedValue(null)
+
+      await expect(
+        service.createControlMap('missing-obligation', {
+          controlId: 'control-1',
+          coverage: 'FULL',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException)
+      expect(mocks.controlPointRepo.findOne).not.toHaveBeenCalled()
+    })
   })
 
   describe('[P0][AC-3] getCoverageAnalysis', () => {
@@ -596,15 +608,14 @@ describe('ObligationService', () => {
         obligationId: 'obl-1',
         obligationCode: 'OBL-001',
       })
-      mocks.obligationControlMapRepo.findOne.mockResolvedValue({
-        id: 'map-1',
-        obligationId: 'obl-1',
-        controlId: 'control-1',
-      })
 
       const result = await service.deleteControlMap('obl-1', 'map-1')
 
-      expect(mocks.obligationControlMapRepo.delete).toHaveBeenCalledWith({ id: 'map-1' })
+      expect(mocks.obligationControlMapRepo.delete).toHaveBeenCalledWith({
+        id: 'map-1',
+        obligationId: 'obl-1',
+      })
+      expect(mocks.obligationControlMapRepo.findOne).not.toHaveBeenCalled()
       expect(result).toEqual({ success: true, id: 'map-1' })
     })
 
@@ -618,9 +629,23 @@ describe('ObligationService', () => {
         obligationId: 'obl-2',
         controlId: 'control-1',
       })
+      mocks.obligationControlMapRepo.delete.mockResolvedValue({ affected: 0 })
 
       await expect(service.deleteControlMap('obl-1', 'map-1')).rejects.toBeInstanceOf(
         BadRequestException,
+      )
+    })
+
+    it('should reject deleteControlMap when the map does not exist', async () => {
+      mocks.obligationRepo.findOne.mockResolvedValue({
+        obligationId: 'obl-1',
+        obligationCode: 'OBL-001',
+      })
+      mocks.obligationControlMapRepo.delete.mockResolvedValue({ affected: 0 })
+      mocks.obligationControlMapRepo.findOne.mockResolvedValue(null)
+
+      await expect(service.deleteControlMap('obl-1', 'missing-map')).rejects.toBeInstanceOf(
+        NotFoundException,
       )
     })
   })

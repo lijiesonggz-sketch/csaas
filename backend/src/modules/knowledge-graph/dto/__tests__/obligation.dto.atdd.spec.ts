@@ -114,4 +114,13 @@ describe('[AC-3] CreateObligationControlMapDto validation', () => {
     })
     expect(errors.map((error) => error.property)).toContain('coverage')
   })
+
+  it('should reject missing obligationId', async () => {
+    const Dto = await loadDto()
+    const errors = await validateDto(Dto, {
+      controlId: 'b1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      coverage: 'FULL',
+    })
+    expect(errors.map((error) => error.property)).toContain('obligationId')
+  })
 })

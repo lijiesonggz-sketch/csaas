@@ -137,9 +137,22 @@ export class QueryObligationControlMapDto extends PaginationDto {
 }
 
 export class CreateObligationControlMapDto {
-  @IsOptional()
   @IsUUID()
-  obligationId?: string
+  obligationId: string
+
+  @IsUUID()
+  controlId: string
+
+  @IsIn([...OBLIGATION_COVERAGES])
+  coverage: ObligationCoverage
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 4000)
+  notes?: string | null
+}
+
+export class CreateObligationControlMapBodyDto {
 
   @IsUUID()
   controlId: string

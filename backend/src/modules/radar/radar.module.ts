@@ -372,34 +372,6 @@ export class RadarModule implements OnModuleInit, OnModuleDestroy {
     private readonly radarSourceService: RadarSourceService,
   ) {}
 
-  private shouldBootstrapRadar(): boolean {
-    const explicitDisabled = process.env.RADAR_BOOTSTRAP_DISABLED?.toLowerCase()
-    if (explicitDisabled === 'true') {
-      return false
-    }
-
-    const explicitEnabled = process.env.RADAR_BOOTSTRAP_ENABLED?.toLowerCase()
-    if (explicitEnabled === 'true') {
-      return true
-    }
-
-    return process.env.NODE_ENV === 'production'
-  }
-
-  private async suspendRadarQueues() {
-    const repeatableCrawlerJobs = await this.crawlerQueue.getRepeatableJobs()
-    for (const job of repeatableCrawlerJobs) {
-      await this.crawlerQueue.removeRepeatableByKey(job.key)
-    }
-    await this.crawlerQueue.pause()
-
-    const repeatablePushJobs = await this.pushQueue.getRepeatableJobs()
-    for (const job of repeatablePushJobs) {
-      await this.pushQueue.removeRepeatableByKey(job.key)
-    }
-    await this.pushQueue.pause()
-  }
-
   /**
    * 模块初始化
    * - 启动文件监控
@@ -407,11 +379,8 @@ export class RadarModule implements OnModuleInit, OnModuleDestroy {
    * - 配置定时推送任务
    */
   async onModuleInit() {
-    if (!this.shouldBootstrapRadar()) {
-      await this.suspendRadarQueues()
-      this.logger.warn(
-        'Radar bootstrap skipped in current environment. Existing radar repeat jobs were removed and queues paused. Set RADAR_BOOTSTRAP_ENABLED=true to enable scheduled crawler/file-watcher startup.',
-      )
+    if (process.env.RADAR_BOOTSTRAP_DISABLED === 'true') {
+      this.logger.warn('Radar bootstrap disabled via RADAR_BOOTSTRAP_DISABLED=true')
       return
     }
 

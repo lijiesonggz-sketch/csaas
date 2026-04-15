@@ -24,7 +24,7 @@ import { CurrentTenant } from '../../organizations/decorators/current-tenant.dec
 import { TenantGuard } from '../../organizations/guards/tenant.guard'
 import {
   CreateObligationDto,
-  CreateObligationControlMapDto,
+  CreateObligationControlMapBodyDto,
   QueryObligationDto,
   UpdateObligationDto,
 } from '../dto/obligation.dto'
@@ -139,7 +139,7 @@ export class ObligationController {
     @CurrentTenant() tenantId: string,
     @CurrentUser() user: { id?: string; userId?: string },
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: CreateObligationControlMapDto,
+    @Body() dto: CreateObligationControlMapBodyDto,
     @Req() req: Request,
   ) {
     const result = await this.obligationService.createControlMap(id, dto)

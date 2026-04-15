@@ -282,6 +282,9 @@ describe('ObligationAdminPage', () => {
       expect(deleteButton).toBeTruthy()
     })
     fireEvent.click(deleteButton!)
+    expect(mockDeleteControlMap).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.getByText('确认删除控制点映射')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '确认删除' }))
     await waitFor(() =>
       expect(mockDeleteControlMap).toHaveBeenCalledWith('obl-1', 'map-1'),
     )
@@ -311,5 +314,61 @@ describe('ObligationAdminPage', () => {
         expect.objectContaining({ controlId: 'cp-2' }),
       ),
     )
+  })
+
+  it('caps known obligation code scanning to a bounded number of pages', async () => {
+    mockListObligations.mockReset()
+    mockListObligations.mockImplementation(() => {
+      throw new Error('unexpected extra code scan call')
+    })
+    mockListObligations.mockResolvedValueOnce({
+      items: [
+        {
+          obligationId: detail.obligationId,
+          obligationCode: detail.obligationCode,
+          obligationText: detail.obligationText,
+          obligationType: detail.obligationType,
+          applicableSector: detail.applicableSector,
+          status: detail.status,
+          createdAt: '',
+          updatedAt: '',
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    })
+
+    for (let page = 1; page <= 10; page += 1) {
+      mockListObligations.mockResolvedValueOnce({
+        items: Array.from({ length: 100 }, (_, index) => ({
+          obligationId: `obl-scan-${page}-${index}`,
+          obligationCode: `OBL-SCAN-${page}-${String(index).padStart(2, '0')}`,
+          obligationText: `scan obligation ${page}-${index}`,
+          obligationType: 'MANDATORY' as const,
+          applicableSector: ['银行'] as obligationsApi.ApplicableSector[],
+          status: 'ACTIVE' as const,
+          createdAt: '',
+          updatedAt: '',
+        })),
+        total: 5000,
+        page,
+        limit: 100,
+      })
+    }
+
+    render(<ObligationAdminPage />)
+    await waitFor(() => expect(screen.getByText('新建 Obligation')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('新建 Obligation'))
+
+    await waitFor(() => expect(mockListObligations).toHaveBeenCalledTimes(11))
+    expect(mockListObligations.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ page: 1, limit: 20 }),
+    )
+    expect(
+      mockListObligations.mock.calls
+        .slice(1)
+        .every(([params]) => params?.limit === 100),
+    ).toBe(true)
   })
 })

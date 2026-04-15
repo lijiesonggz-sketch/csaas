@@ -62,6 +62,9 @@ const OBLIGATION_TYPE_OPTIONS: ObligationType[] = ['MANDATORY', 'PROHIBITIVE', '
 const STATUS_OPTIONS: Array<ObligationStatus | 'all'> = ['all', 'ACTIVE', 'INACTIVE']
 const COVERAGE_OPTIONS: ObligationCoverage[] = ['FULL', 'PARTIAL']
 const APPLICABLE_SECTOR_OPTIONS: ApplicableSector[] = ['银行', '证券', '保险', '基金', '期货', '通用']
+const OBLIGATION_LIST_PAGE_SIZE = 20
+const OBLIGATION_CODE_SCAN_PAGE_SIZE = 100
+const MAX_OBLIGATION_CODE_SCAN = 1000
 
 function errorMessage(error: unknown, fallback = '操作失败') {
   return error instanceof Error && error.message ? error.message : fallback
@@ -78,6 +81,8 @@ function buildCreateForm() {
     status: 'ACTIVE' as ObligationStatus,
   }
 }
+
+type ObligationControlMapSummary = ObligationDetail['controlMaps'][number]
 
 export default function ObligationAdminPage() {
   const router = useRouter()
@@ -119,6 +124,9 @@ export default function ObligationAdminPage() {
   const [clauseResults, setClauseResults] = useState<RegulationClauseSummary[]>([])
   const [clauseLoading, setClauseLoading] = useState(false)
   const [selectedClause, setSelectedClause] = useState<RegulationClauseSummary | null>(null)
+  const [pendingDeleteMap, setPendingDeleteMap] = useState<ObligationControlMapSummary | null>(
+    null,
+  )
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -136,7 +144,7 @@ export default function ObligationAdminPage() {
         setError(null)
         const listResult = await listObligations({
           page,
-          limit: 20,
+          limit: OBLIGATION_LIST_PAGE_SIZE,
           obligationType:
             appliedFilters.obligationType === 'all' ? undefined : appliedFilters.obligationType,
           status: appliedFilters.status === 'all' ? undefined : appliedFilters.status,
@@ -221,14 +229,17 @@ export default function ObligationAdminPage() {
   async function collectKnownObligationCodes() {
     const codes: string[] = []
     let currentPage = 1
-    let knownTotal = 0
+    let scanTarget = MAX_OBLIGATION_CODE_SCAN
 
     do {
-      const result = await listObligations({ page: currentPage, limit: 100 })
+      const result = await listObligations({
+        page: currentPage,
+        limit: OBLIGATION_CODE_SCAN_PAGE_SIZE,
+      })
       codes.push(...result.items.map((item) => item.obligationCode))
-      knownTotal = result.total
+      scanTarget = Math.min(result.total, MAX_OBLIGATION_CODE_SCAN)
       currentPage += 1
-    } while (codes.length < knownTotal)
+    } while (codes.length < scanTarget)
 
     return Array.from(new Set(codes))
   }
@@ -379,12 +390,13 @@ export default function ObligationAdminPage() {
     }
   }
 
-  async function handleDeleteControlMap(mapId: string) {
-    if (!detail) return
+  async function handleDeleteControlMap() {
+    if (!detail || !pendingDeleteMap) return
     try {
       setSaving(true)
-      await deleteObligationControlMap(detail.obligationId, mapId)
+      await deleteObligationControlMap(detail.obligationId, pendingDeleteMap.id)
       toast.success('控制点映射已删除')
+      setPendingDeleteMap(null)
       setReloadToken((current) => current + 1)
     } catch (submitError) {
       toast.error(errorMessage(submitError, '删除控制点映射失败'))
@@ -644,7 +656,7 @@ export default function ObligationAdminPage() {
                       variant="outline"
                       size="sm"
                       className="rounded-sm"
-                      disabled={page * 20 >= total}
+                      disabled={page * OBLIGATION_LIST_PAGE_SIZE >= total}
                       onClick={() => setPage((current) => current + 1)}
                     >
                       下一页
@@ -888,7 +900,7 @@ export default function ObligationAdminPage() {
                                 variant="ghost"
                                 size="icon"
                                 aria-label={`删除控制点映射 ${map.controlCode}`}
-                                onClick={() => handleDeleteControlMap(map.id)}
+                                onClick={() => setPendingDeleteMap(map)}
                               >
                                 <Trash2 className="h-4 w-4 text-rose-600" />
                               </Button>
@@ -1058,6 +1070,46 @@ export default function ObligationAdminPage() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(pendingDeleteMap)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteMap(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-md rounded-sm">
+          <DialogHeader>
+            <DialogTitle>确认删除控制点映射</DialogTitle>
+            <DialogDescription>
+              {pendingDeleteMap
+                ? `将从当前义务中删除 ${pendingDeleteMap.controlCode} 映射。此操作不可撤销。`
+                : '将从当前义务中删除所选控制点映射。'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-sm"
+              onClick={() => setPendingDeleteMap(null)}
+              disabled={saving}
+            >
+              取消
+            </Button>
+            <Button
+              type="button"
+              className="rounded-sm"
+              variant="destructive"
+              onClick={handleDeleteControlMap}
+              disabled={saving}
+            >
+              确认删除
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
