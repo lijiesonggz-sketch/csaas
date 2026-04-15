@@ -28,7 +28,11 @@ const mockObligationService = {
   create: jest.fn().mockResolvedValue(null),
   update: jest.fn().mockResolvedValue(null),
   findByClauseId: jest.fn().mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
-  findControlPointsByObligation: jest.fn().mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
+  findControlPointsByObligation: jest
+    .fn()
+    .mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
+  createControlMap: jest.fn().mockResolvedValue(null),
+  deleteControlMap: jest.fn().mockResolvedValue({ success: true, id: 'map-1' }),
   getCoverageAnalysis: jest.fn().mockResolvedValue({}),
 }
 
@@ -229,11 +233,67 @@ describe('KnowledgeGraph obligations controllers (http)', () => {
     })
 
     const response = await request(app.getHttpServer())
-      .get('/api/admin/knowledge-graph/obligations/550e8400-e29b-41d4-a716-446655440000/control-points')
+      .get(
+        '/api/admin/knowledge-graph/obligations/550e8400-e29b-41d4-a716-446655440000/control-points',
+      )
       .expect(200)
 
     expect(response.body.success).toBe(true)
     expect(response.body.data.items[0].coverage).toBe('FULL')
+  })
+
+  it('should create an obligation control map and write audit log', async () => {
+    mockObligationService.createControlMap.mockResolvedValue({
+      id: 'map-1',
+      obligationId: 'obl-1',
+      controlId: 'control-1',
+      coverage: 'FULL',
+    })
+
+    const response = await request(app.getHttpServer())
+      .post(
+        '/api/admin/knowledge-graph/obligations/550e8400-e29b-41d4-a716-446655440000/control-maps',
+      )
+      .send({
+        controlId: '660e8400-e29b-41d4-a716-446655440000',
+        coverage: 'FULL',
+      })
+      .expect(201)
+
+    expect(response.body.success).toBe(true)
+    expect(mockObligationService.createControlMap).toHaveBeenCalledWith(
+      '550e8400-e29b-41d4-a716-446655440000',
+      expect.objectContaining({
+        controlId: '660e8400-e29b-41d4-a716-446655440000',
+        coverage: 'FULL',
+      }),
+    )
+    expect(mockAuditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.CREATE,
+        entityType: 'ObligationControlMap',
+      }),
+    )
+  })
+
+  it('should delete an obligation control map and write audit log', async () => {
+    const response = await request(app.getHttpServer())
+      .delete(
+        '/api/admin/knowledge-graph/obligations/550e8400-e29b-41d4-a716-446655440000/control-maps/660e8400-e29b-41d4-a716-446655440000',
+      )
+      .expect(200)
+
+    expect(response.body.success).toBe(true)
+    expect(mockObligationService.deleteControlMap).toHaveBeenCalledWith(
+      '550e8400-e29b-41d4-a716-446655440000',
+      '660e8400-e29b-41d4-a716-446655440000',
+    )
+    expect(mockAuditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.DELETE,
+        entityType: 'ObligationControlMap',
+      }),
+    )
   })
 
   it('should reject invalid create payload with 400 before service execution', async () => {
@@ -249,9 +309,7 @@ describe('KnowledgeGraph obligations controllers (http)', () => {
     await app.close()
     app = await createApp({ authenticated: false })
 
-    await request(app.getHttpServer())
-      .get('/api/admin/knowledge-graph/obligations')
-      .expect(401)
+    await request(app.getHttpServer()).get('/api/admin/knowledge-graph/obligations').expect(401)
   })
 
   it('should return 403 for POST without required role', async () => {
@@ -266,6 +324,27 @@ describe('KnowledgeGraph obligations controllers (http)', () => {
         obligationText: '应当建立复核机制',
         obligationType: 'MANDATORY',
       })
+      .expect(403)
+  })
+
+  it('should return 403 for control-map mutation endpoints without required role', async () => {
+    await app.close()
+    app = await createApp({ authenticated: true, roleAllowed: false })
+
+    await request(app.getHttpServer())
+      .post(
+        '/api/admin/knowledge-graph/obligations/550e8400-e29b-41d4-a716-446655440000/control-maps',
+      )
+      .send({
+        controlId: '660e8400-e29b-41d4-a716-446655440000',
+        coverage: 'FULL',
+      })
+      .expect(403)
+
+    await request(app.getHttpServer())
+      .delete(
+        '/api/admin/knowledge-graph/obligations/550e8400-e29b-41d4-a716-446655440000/control-maps/660e8400-e29b-41d4-a716-446655440000',
+      )
       .expect(403)
   })
 })

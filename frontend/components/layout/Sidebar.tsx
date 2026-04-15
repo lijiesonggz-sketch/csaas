@@ -13,6 +13,7 @@ import {
   Building2,
   ClipboardCheck,
   GitBranch,
+  Scale,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
@@ -100,6 +101,11 @@ const allMenuItems: MenuItem[] = [
         key: '/admin/failure-modes',
         icon: <GitBranch className="w-4 h-4" />,
         label: 'Failure Mode 管理',
+      },
+      {
+        key: '/admin/obligations',
+        icon: <Scale className="w-4 h-4" />,
+        label: 'Obligation 管理',
       },
       { key: '/admin/peer-crawler', icon: <Settings className="w-4 h-4" />, label: '同业爬虫管理' },
       {

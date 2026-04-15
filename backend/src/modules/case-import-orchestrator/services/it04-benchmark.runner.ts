@@ -6,16 +6,52 @@ import { FailureModeService } from '../../knowledge-graph/services/failure-mode.
 import { tokenizeText } from './case-theme.utils'
 import { CaseClusteringChainService, ChainResult } from './case-clustering-chain.service'
 
-const REPO_ROOT = path.resolve(__dirname, '../../../../../')
-const DEFAULT_DATASET_PATH = path.resolve(
-  __dirname,
-  '../testing/it04-benchmark-cases.fixture.json',
+function resolveExistingPath(candidates: string[]): string {
+  const found = candidates.find((candidate) => fs.existsSync(candidate))
+  return found ?? candidates[0]
+}
+
+function readRequiredFile(filePath: string, label: string, candidates: string[]): string {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(
+      `Required ${label} file not found. Resolved path: ${filePath}. Tried candidates: ${candidates.join(
+        ', ',
+      )}`,
+    )
+  }
+
+  return fs.readFileSync(filePath, 'utf8')
+}
+
+function resolveWorkspaceArtifactPath(relativePath: string): {
+  resolvedPath: string
+  candidates: string[]
+} {
+  const normalizedRelativePath = relativePath.replace(/\//g, path.sep)
+  const candidates = [
+    path.resolve(process.cwd(), normalizedRelativePath),
+    path.resolve(process.cwd(), '..', normalizedRelativePath),
+    path.resolve(__dirname, '../../../../../', normalizedRelativePath),
+    path.resolve(__dirname, '../../../../../../', normalizedRelativePath),
+  ]
+
+  return {
+    resolvedPath: resolveExistingPath(candidates),
+    candidates,
+  }
+}
+
+const DEFAULT_DATASET_RESOLUTION = resolveWorkspaceArtifactPath(
+  'backend/src/modules/case-import-orchestrator/testing/it04-benchmark-cases.fixture.json',
 )
-const DEFAULT_TAXONOMY_MAPPING_PATH = path.resolve(
-  REPO_ROOT,
+const DEFAULT_TAXONOMY_MAPPING_RESOLUTION = resolveWorkspaceArtifactPath(
   'docs/it-taxonomy-to-kg-semantic-mapping-2026-04-07.csv',
 )
-const DEFAULT_REPORT_DIR = path.resolve(REPO_ROOT, '_bmad-output/test-artifacts')
+const DEFAULT_REPORT_DIR_RESOLUTION = resolveWorkspaceArtifactPath('_bmad-output/test-artifacts')
+
+const DEFAULT_DATASET_PATH = DEFAULT_DATASET_RESOLUTION.resolvedPath
+const DEFAULT_TAXONOMY_MAPPING_PATH = DEFAULT_TAXONOMY_MAPPING_RESOLUTION.resolvedPath
+const DEFAULT_REPORT_DIR = DEFAULT_REPORT_DIR_RESOLUTION.resolvedPath
 const DEFAULT_MIN_FULL_CHAIN_HITS = 10
 const IT04_FALLBACK_BUCKET_CODE = 'IT04-05'
 
@@ -207,13 +243,25 @@ function splitPipeList(value?: string): string[] {
 }
 
 export function loadIt04BenchmarkCases(datasetPath = DEFAULT_DATASET_PATH): It04BenchmarkCase[] {
-  return JSON.parse(fs.readFileSync(datasetPath, 'utf8')) as It04BenchmarkCase[]
+  const datasetCandidates =
+    datasetPath === DEFAULT_DATASET_PATH ? DEFAULT_DATASET_RESOLUTION.candidates : [datasetPath]
+  return JSON.parse(
+    readRequiredFile(datasetPath, 'IT04 benchmark dataset', datasetCandidates),
+  ) as It04BenchmarkCase[]
 }
 
 export function loadIt04TaxonomyMappings(
   taxonomyMappingPath = DEFAULT_TAXONOMY_MAPPING_PATH,
 ): It04TaxonomySemanticMapping[] {
-  const csv = fs.readFileSync(taxonomyMappingPath, 'utf8')
+  const taxonomyCandidates =
+    taxonomyMappingPath === DEFAULT_TAXONOMY_MAPPING_PATH
+      ? DEFAULT_TAXONOMY_MAPPING_RESOLUTION.candidates
+      : [taxonomyMappingPath]
+  const csv = readRequiredFile(
+    taxonomyMappingPath,
+    'IT04 taxonomy semantic mapping',
+    taxonomyCandidates,
+  )
   const parsed = Papa.parse<Record<string, string>>(csv, {
     header: true,
     skipEmptyLines: true,

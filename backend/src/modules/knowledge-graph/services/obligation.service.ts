@@ -19,6 +19,7 @@ import { RegulationClause } from '../../../database/entities/regulation-clause.e
 import { RegulationObligation } from '../../../database/entities/regulation-obligation.entity'
 import {
   CreateObligationDto,
+  CreateObligationControlMapDto,
   QueryObligationDto,
   UpdateObligationDto,
 } from '../dto/obligation.dto'
@@ -165,10 +166,7 @@ export class ObligationService {
     }
   }
 
-  async update(
-    obligationId: string,
-    dto: UpdateObligationDto,
-  ): Promise<RegulationObligation> {
+  async update(obligationId: string, dto: UpdateObligationDto): Promise<RegulationObligation> {
     this.assertNoNullUpdates(dto, [
       'clauseId',
       'obligationCode',
@@ -235,13 +233,46 @@ export class ObligationService {
     return { items, total, page, limit }
   }
 
+  async createControlMap(
+    obligationId: string,
+    dto: CreateObligationControlMapDto,
+  ): Promise<ObligationControlMap> {
+    await this.findObligationEntity(obligationId)
+
+    const controlPoint = await this.controlPointRepo.findOne({
+      where: { controlId: dto.controlId },
+    })
+    if (!controlPoint) {
+      throw new NotFoundException(`control_point ${dto.controlId} not found`)
+    }
+
+    const existing = await this.obligationControlMapRepo.findOne({
+      where: { obligationId, controlId: dto.controlId },
+    })
+    if (existing) {
+      throw new ConflictException(
+        `obligation-control mapping already exists for obligation ${obligationId} + control ${dto.controlId}`,
+      )
+    }
+
+    return this.obligationControlMapRepo.save(
+      this.obligationControlMapRepo.create({
+        obligationId,
+        controlId: dto.controlId,
+        coverage: dto.coverage,
+        notes: dto.notes ?? null,
+      }),
+    )
+  }
+
   async getCoverageAnalysis() {
     const obligations = await this.obligationRepo.find({
       relations: ['obligationControlMaps', 'obligationControlMaps.controlPoint'],
     })
 
-    const covered = obligations.filter((obligation) => (obligation.obligationControlMaps ?? []).length > 0)
-      .length
+    const covered = obligations.filter(
+      (obligation) => (obligation.obligationControlMaps ?? []).length > 0,
+    ).length
     const uncovered = obligations.length - covered
     const coverageRate =
       obligations.length === 0 ? 0 : Number((covered / obligations.length).toFixed(4))
@@ -385,6 +416,29 @@ export class ObligationService {
     }
   }
 
+  async deleteControlMap(obligationId: string, mapId: string) {
+    await this.findObligationEntity(obligationId)
+
+    const existing = await this.obligationControlMapRepo.findOne({
+      where: { id: mapId },
+    })
+    if (!existing) {
+      throw new NotFoundException(`obligation_control_map ${mapId} not found`)
+    }
+    if (existing.obligationId !== obligationId) {
+      throw new BadRequestException(
+        'obligation control map does not belong to the current obligation',
+      )
+    }
+
+    const result = await this.obligationControlMapRepo.delete({ id: mapId })
+    if (result.affected !== 1) {
+      throw new NotFoundException(`obligation_control_map ${mapId} not found`)
+    }
+
+    return { success: true, id: mapId }
+  }
+
   private rethrowKnownPersistenceError(error: unknown, obligationCode: string): never {
     if (
       error instanceof QueryFailedError &&
@@ -405,10 +459,7 @@ export class ObligationService {
     return sectors.length === 0 || sectors.includes(sector) || sectors.includes('通用')
   }
 
-  private hasCoveredControlForSector(
-    maps: ObligationControlMap[],
-    sector: ApplicableSector,
-  ) {
+  private hasCoveredControlForSector(maps: ObligationControlMap[], sector: ApplicableSector) {
     return maps.some((map) => this.matchesSector(map.controlPoint?.applicableSector, sector))
   }
 }

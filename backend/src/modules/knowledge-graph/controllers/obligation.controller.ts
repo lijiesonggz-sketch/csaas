@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -23,6 +24,7 @@ import { CurrentTenant } from '../../organizations/decorators/current-tenant.dec
 import { TenantGuard } from '../../organizations/guards/tenant.guard'
 import {
   CreateObligationDto,
+  CreateObligationControlMapDto,
   QueryObligationDto,
   UpdateObligationDto,
 } from '../dto/obligation.dto'
@@ -128,5 +130,59 @@ export class ObligationController {
     @Query() query: QueryObligationDto,
   ) {
     return this.obligationService.findControlPointsByObligation(id, query)
+  }
+
+  @Post('obligations/:id/control-maps')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: '为法规义务添加控制点映射' })
+  async createControlMap(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: { id?: string; userId?: string },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateObligationControlMapDto,
+    @Req() req: Request,
+  ) {
+    const result = await this.obligationService.createControlMap(id, dto)
+    await this.auditLogService.log({
+      userId: user.id || user.userId,
+      tenantId,
+      action: AuditAction.CREATE,
+      entityType: 'ObligationControlMap',
+      entityId: result.id,
+      details: {
+        obligationId: id,
+        controlId: result.controlId,
+        coverage: result.coverage,
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] as string | undefined,
+    })
+    return result
+  }
+
+  @Delete('obligations/:id/control-maps/:mapId')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: '删除法规义务的控制点映射' })
+  async deleteControlMap(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: { id?: string; userId?: string },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('mapId', ParseUUIDPipe) mapId: string,
+    @Req() req: Request,
+  ) {
+    const result = await this.obligationService.deleteControlMap(id, mapId)
+    await this.auditLogService.log({
+      userId: user.id || user.userId,
+      tenantId,
+      action: AuditAction.DELETE,
+      entityType: 'ObligationControlMap',
+      entityId: mapId,
+      details: {
+        obligationId: id,
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] as string | undefined,
+    })
+    return result
   }
 }

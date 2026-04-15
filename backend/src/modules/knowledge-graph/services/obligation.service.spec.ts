@@ -6,11 +6,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common'
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common'
 import { QueryFailedError } from 'typeorm'
 import { ClauseControlMap } from '../../../database/entities/clause-control-map.entity'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
@@ -21,7 +17,9 @@ import { loadKgSeedData } from '../../applicability-engine/seeds/kg-seed-data'
 
 const loadService = async () => {
   const mod = await import('./obligation.service')
-  return mod.ObligationService as new (...args: unknown[]) => InstanceType<typeof mod.ObligationService>
+  return mod.ObligationService as new (
+    ...args: unknown[]
+  ) => InstanceType<typeof mod.ObligationService>
 }
 
 function createMockRepos() {
@@ -48,6 +46,9 @@ function createMockRepos() {
     },
     obligationControlMapRepo: {
       findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockReturnValue({}),
+      save: jest.fn().mockResolvedValue({}),
+      delete: jest.fn().mockResolvedValue({ affected: 1 }),
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilderMock),
     },
     clauseRepo: {
@@ -75,7 +76,10 @@ describe('ObligationService', () => {
       providers: [
         ObligationServiceClass,
         { provide: getRepositoryToken(RegulationObligation), useValue: mocks.obligationRepo },
-        { provide: getRepositoryToken(ObligationControlMap), useValue: mocks.obligationControlMapRepo },
+        {
+          provide: getRepositoryToken(ObligationControlMap),
+          useValue: mocks.obligationControlMapRepo,
+        },
         { provide: getRepositoryToken(RegulationClause), useValue: mocks.clauseRepo },
         { provide: getRepositoryToken(ControlPoint), useValue: mocks.controlPointRepo },
         { provide: getRepositoryToken(ClauseControlMap), useValue: mocks.clauseControlMapRepo },
@@ -255,9 +259,7 @@ describe('ObligationService', () => {
         applicableSector: ['银行'],
         status: 'ACTIVE',
       }
-      mocks.obligationRepo.findOne
-        .mockResolvedValueOnce(existing)
-        .mockResolvedValueOnce(null)
+      mocks.obligationRepo.findOne.mockResolvedValueOnce(existing).mockResolvedValueOnce(null)
       mocks.clauseRepo.findOne.mockResolvedValue({ clauseId: 'clause-1' })
       const dbError = new QueryFailedError(
         'UPDATE regulation_obligations',
@@ -318,6 +320,89 @@ describe('ObligationService', () => {
           originType: 'regulation_derived',
         }),
       )
+    })
+  })
+
+  describe('[P0][AC-4] createControlMap', () => {
+    it('should create a control map after validating obligation, control point, and uniqueness', async () => {
+      mocks.obligationRepo.findOne.mockResolvedValue({
+        obligationId: 'obl-1',
+        obligationCode: 'OBL-001',
+      })
+      mocks.controlPointRepo.findOne.mockResolvedValue({
+        controlId: 'control-1',
+        controlCode: 'CTRL-001',
+      })
+      mocks.obligationControlMapRepo.findOne.mockResolvedValue(null)
+      mocks.obligationControlMapRepo.create.mockReturnValue({
+        id: 'map-1',
+        obligationId: 'obl-1',
+        controlId: 'control-1',
+        coverage: 'FULL',
+      })
+      mocks.obligationControlMapRepo.save.mockResolvedValue({
+        id: 'map-1',
+        obligationId: 'obl-1',
+        controlId: 'control-1',
+        coverage: 'FULL',
+      })
+
+      const result = await service.createControlMap('obl-1', {
+        controlId: 'control-1',
+        coverage: 'FULL',
+      })
+
+      expect(mocks.obligationControlMapRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          obligationId: 'obl-1',
+          controlId: 'control-1',
+          coverage: 'FULL',
+        }),
+      )
+      expect(result).toEqual(
+        expect.objectContaining({
+          controlId: 'control-1',
+          coverage: 'FULL',
+        }),
+      )
+    })
+
+    it('should reject duplicate obligation control maps', async () => {
+      mocks.obligationRepo.findOne.mockResolvedValue({
+        obligationId: 'obl-1',
+        obligationCode: 'OBL-001',
+      })
+      mocks.controlPointRepo.findOne.mockResolvedValue({
+        controlId: 'control-1',
+        controlCode: 'CTRL-001',
+      })
+      mocks.obligationControlMapRepo.findOne.mockResolvedValue({
+        id: 'map-1',
+        obligationId: 'obl-1',
+        controlId: 'control-1',
+      })
+
+      await expect(
+        service.createControlMap('obl-1', {
+          controlId: 'control-1',
+          coverage: 'FULL',
+        }),
+      ).rejects.toBeInstanceOf(ConflictException)
+    })
+
+    it('should reject createControlMap when control point does not exist', async () => {
+      mocks.obligationRepo.findOne.mockResolvedValue({
+        obligationId: 'obl-1',
+        obligationCode: 'OBL-001',
+      })
+      mocks.controlPointRepo.findOne.mockResolvedValue(null)
+
+      await expect(
+        service.createControlMap('obl-1', {
+          controlId: 'missing-control',
+          coverage: 'FULL',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException)
     })
   })
 
@@ -501,6 +586,41 @@ describe('ObligationService', () => {
           clauseId: 'clause-1',
           source: null,
         }),
+      )
+    })
+  })
+
+  describe('[P0][AC-4] deleteControlMap', () => {
+    it('should delete a control map when it belongs to the given obligation', async () => {
+      mocks.obligationRepo.findOne.mockResolvedValue({
+        obligationId: 'obl-1',
+        obligationCode: 'OBL-001',
+      })
+      mocks.obligationControlMapRepo.findOne.mockResolvedValue({
+        id: 'map-1',
+        obligationId: 'obl-1',
+        controlId: 'control-1',
+      })
+
+      const result = await service.deleteControlMap('obl-1', 'map-1')
+
+      expect(mocks.obligationControlMapRepo.delete).toHaveBeenCalledWith({ id: 'map-1' })
+      expect(result).toEqual({ success: true, id: 'map-1' })
+    })
+
+    it('should reject deleteControlMap when the map belongs to another obligation', async () => {
+      mocks.obligationRepo.findOne.mockResolvedValue({
+        obligationId: 'obl-1',
+        obligationCode: 'OBL-001',
+      })
+      mocks.obligationControlMapRepo.findOne.mockResolvedValue({
+        id: 'map-1',
+        obligationId: 'obl-2',
+        controlId: 'control-1',
+      })
+
+      await expect(service.deleteControlMap('obl-1', 'map-1')).rejects.toBeInstanceOf(
+        BadRequestException,
       )
     })
   })

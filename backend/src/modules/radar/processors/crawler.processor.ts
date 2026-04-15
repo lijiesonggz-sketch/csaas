@@ -57,6 +57,20 @@ export class CrawlerProcessor extends WorkerHost {
     super()
   }
 
+  private isRadarBootstrapEnabled(): boolean {
+    const explicitDisabled = process.env.RADAR_BOOTSTRAP_DISABLED?.toLowerCase()
+    if (explicitDisabled === 'true') {
+      return false
+    }
+
+    const explicitEnabled = process.env.RADAR_BOOTSTRAP_ENABLED?.toLowerCase()
+    if (explicitEnabled === 'true') {
+      return true
+    }
+
+    return process.env.NODE_ENV === 'production'
+  }
+
   /**
    * 处理爬虫任务
    * 支持两种类型的任务：
@@ -64,6 +78,17 @@ export class CrawlerProcessor extends WorkerHost {
    * 2. 同业采集任务（PeerCrawlerJobData）
    */
   async process(job: Job<RadarCrawlJobData>): Promise<any> {
+    if (!this.isRadarBootstrapEnabled()) {
+      this.logger.warn(
+        `Skipping radar crawl job ${job?.id ?? 'unknown'} because radar bootstrap is disabled in the current environment`,
+      )
+      return {
+        success: false,
+        skipped: true,
+        reason: 'radar bootstrap disabled',
+      }
+    }
+
     // 验证 job.data 是否存在
     if (!job || !job.data) {
       this.logger.error('Invalid job: job or job.data is null/undefined')

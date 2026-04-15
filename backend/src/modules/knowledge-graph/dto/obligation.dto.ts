@@ -137,8 +137,9 @@ export class QueryObligationControlMapDto extends PaginationDto {
 }
 
 export class CreateObligationControlMapDto {
+  @IsOptional()
   @IsUUID()
-  obligationId: string
+  obligationId?: string
 
   @IsUUID()
   controlId: string
