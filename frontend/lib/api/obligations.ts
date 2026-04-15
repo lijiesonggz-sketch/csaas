@@ -4,6 +4,13 @@ export type ObligationType = 'MANDATORY' | 'PROHIBITIVE' | 'RECOMMENDED'
 export type ObligationStatus = 'ACTIVE' | 'INACTIVE'
 export type ObligationCoverage = 'FULL' | 'PARTIAL'
 export type ApplicableSector = '银行' | '证券' | '保险' | '基金' | '期货' | '通用'
+export type ControlPointOriginType =
+  | 'case_derived'
+  | 'regulation_derived'
+  | 'both'
+  | 'candidate'
+  | 'manual'
+  | (string & {})
 
 export interface ObligationSummary {
   obligationId: string
@@ -54,6 +61,42 @@ export interface ObligationDetail extends ObligationSummary {
     maturityLevel?: string | null
     authoritativeScore?: number | null
   }>
+}
+
+export interface ObligationCoverageBlindSpot {
+  obligationId: string
+  obligationCode: string
+  obligationText: string
+  obligationType: ObligationType
+  applicableSector: ApplicableSector[]
+  clause: {
+    clauseId: string
+    clauseCode: string
+    articleNo?: string | null
+    clauseSummary?: string | null
+  } | null
+  source: {
+    sourceId: string
+    sourceCode: string
+    sourceName: string
+  } | null
+}
+
+export interface ObligationCoverageAnalysis {
+  totals: {
+    obligations: number
+    covered: number
+    uncovered: number
+    coverageRate: number
+  }
+  originDistribution: Record<ControlPointOriginType, number>
+  sectorCoverage: Array<{
+    sector: ApplicableSector
+    obligations: number
+    covered: number
+    coverageRate: number
+  }>
+  blindSpots: ObligationCoverageBlindSpot[]
 }
 
 export interface ObligationsPage {
@@ -180,6 +223,13 @@ export function getObligation(obligationId: string) {
     `/api/admin/knowledge-graph/obligations/${obligationId}`,
     NO_STORE,
   ) as Promise<ObligationDetail>
+}
+
+export function getObligationCoverageAnalysis() {
+  return apiFetch(
+    '/api/admin/knowledge-graph/obligations/coverage-analysis',
+    NO_STORE,
+  ) as Promise<ObligationCoverageAnalysis>
 }
 
 export function searchRegulationClauses(params: RegulationClauseSearchParams = {}) {

@@ -131,7 +131,37 @@ describe('KnowledgeGraph obligations controllers (http)', () => {
 
   it('should resolve coverage-analysis route before :id route', async () => {
     mockObligationService.getCoverageAnalysis.mockResolvedValue({
-      totals: { obligations: 1, covered: 1, uncovered: 0, coverageRate: 1 },
+      totals: { obligations: 2, covered: 1, uncovered: 1, coverageRate: 0.5 },
+      originDistribution: {
+        case_derived: 0,
+        regulation_derived: 1,
+        both: 0,
+        candidate: 0,
+        manual: 1,
+      },
+      sectorCoverage: [
+        { sector: '银行', obligations: 2, covered: 1, coverageRate: 0.5 },
+      ],
+      blindSpots: [
+        {
+          obligationId: 'obl-2',
+          obligationCode: 'OBL-002',
+          obligationText: '不得绕过质量校验',
+          obligationType: 'PROHIBITIVE',
+          applicableSector: ['证券'],
+          clause: {
+            clauseId: 'clause-2',
+            clauseCode: 'CLAUSE-002',
+            articleNo: '第2条',
+            clauseSummary: '禁止绕过质量校验',
+          },
+          source: {
+            sourceId: 'source-2',
+            sourceCode: 'SRC-002',
+            sourceName: '补充规定',
+          },
+        },
+      ],
     })
 
     const response = await request(app.getHttpServer())
@@ -141,6 +171,23 @@ describe('KnowledgeGraph obligations controllers (http)', () => {
     expect(response.body.success).toBe(true)
     expect(mockObligationService.getCoverageAnalysis).toHaveBeenCalled()
     expect(mockObligationService.findById).not.toHaveBeenCalled()
+    expect(response.body.data.blindSpots[0]).toEqual(
+      expect.objectContaining({
+        obligationCode: 'OBL-002',
+        source: expect.objectContaining({
+          sourceCode: 'SRC-002',
+        }),
+      }),
+    )
+  })
+
+  it('should return error when getCoverageAnalysis service throws', async () => {
+    mockObligationService.getCoverageAnalysis.mockRejectedValue(new Error('DB connection lost'))
+
+    const response = await request(app.getHttpServer())
+      .get('/api/admin/knowledge-graph/obligations/coverage-analysis')
+
+    expect([500, 400]).toContain(response.status)
   })
 
   it('should resolve by-clause route before :id route', async () => {

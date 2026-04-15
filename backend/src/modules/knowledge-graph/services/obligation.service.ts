@@ -267,7 +267,12 @@ export class ObligationService {
 
   async getCoverageAnalysis() {
     const obligations = await this.obligationRepo.find({
-      relations: ['obligationControlMaps', 'obligationControlMaps.controlPoint'],
+      relations: [
+        'clause',
+        'clause.source',
+        'obligationControlMaps',
+        'obligationControlMaps.controlPoint',
+      ],
     })
 
     const covered = obligations.filter(
@@ -290,7 +295,10 @@ export class ObligationService {
           continue
         }
         seenControls.add(controlPoint.controlId)
-        originDistribution[controlPoint.originType] += 1
+        const originType = controlPoint.originType
+        if (originType && originType in originDistribution) {
+          originDistribution[originType] += 1
+        }
       }
     }
 
@@ -312,6 +320,31 @@ export class ObligationService {
       }
     })
 
+    const blindSpots = obligations
+      .filter((obligation) => (obligation.obligationControlMaps ?? []).length === 0)
+      .map((obligation) => ({
+        obligationId: obligation.obligationId,
+        obligationCode: obligation.obligationCode,
+        obligationText: obligation.obligationText,
+        obligationType: obligation.obligationType,
+        applicableSector: obligation.applicableSector ?? [],
+        clause: obligation.clause
+          ? {
+              clauseId: obligation.clause.clauseId,
+              clauseCode: obligation.clause.clauseCode,
+              articleNo: obligation.clause.articleNo,
+              clauseSummary: obligation.clause.clauseSummary,
+            }
+          : null,
+        source: obligation.clause?.source
+          ? {
+              sourceId: obligation.clause.source.sourceId,
+              sourceCode: obligation.clause.source.sourceCode,
+              sourceName: obligation.clause.source.sourceName,
+            }
+          : null,
+      }))
+
     return {
       totals: {
         obligations: obligations.length,
@@ -321,6 +354,7 @@ export class ObligationService {
       },
       originDistribution,
       sectorCoverage,
+      blindSpots,
     }
   }
 

@@ -95,6 +95,7 @@ describe('Sidebar', () => {
       expect(screen.getByText('案例运营')).toBeInTheDocument()
       expect(screen.getByText('Failure Mode 管理')).toBeInTheDocument()
       expect(screen.getByText('Obligation 管理')).toBeInTheDocument()
+      expect(screen.getByText('覆盖率分析')).toBeInTheDocument()
       expect(screen.getByText('同业爬虫管理')).toBeInTheDocument()
       expect(screen.getByText('爬虫健康监控')).toBeInTheDocument()
     })
@@ -292,5 +293,15 @@ describe('Sidebar', () => {
     fireEvent.click(childButton!)
 
     expect(mockPush).toHaveBeenCalledWith('/admin/dashboard')
+  })
+
+  it('navigates to obligation coverage analysis from the admin submenu', async () => {
+    render(<Sidebar />)
+
+    const childItem = screen.getByText('覆盖率分析')
+    const childButton = childItem.closest('button')
+    fireEvent.click(childButton!)
+
+    expect(mockPush).toHaveBeenCalledWith('/admin/obligations/coverage-analysis')
   })
 })

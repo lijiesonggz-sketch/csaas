@@ -14,6 +14,7 @@ import {
   ClipboardCheck,
   GitBranch,
   Scale,
+  BarChart3,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
@@ -106,6 +107,11 @@ const allMenuItems: MenuItem[] = [
         key: '/admin/obligations',
         icon: <Scale className="w-4 h-4" />,
         label: 'Obligation 管理',
+      },
+      {
+        key: '/admin/obligations/coverage-analysis',
+        icon: <BarChart3 className="w-4 h-4" />,
+        label: '覆盖率分析',
       },
       { key: '/admin/peer-crawler', icon: <Settings className="w-4 h-4" />, label: '同业爬虫管理' },
       {

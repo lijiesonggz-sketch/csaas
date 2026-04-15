@@ -5,7 +5,15 @@ import ObligationAdminPage from './page'
 import * as obligationsApi from '@/lib/api/obligations'
 import * as complianceCasesApi from '@/lib/api/compliance-cases'
 
-jest.mock('next/navigation', () => ({ useRouter: () => ({ push: jest.fn() }) }))
+const mockPush = jest.fn()
+let mockObligationIdParam: string | null = null
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+  useSearchParams: () => ({
+    get: (key: string) => (key === 'obligationId' ? mockObligationIdParam : null),
+  }),
+}))
 jest.mock('next-auth/react', () => ({
   useSession: jest.fn(() => ({
     data: { user: { id: 'user-1', role: 'admin' } },
@@ -135,6 +143,7 @@ const detail = {
 describe('ObligationAdminPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockObligationIdParam = null
     mockSuggestObligationCode.mockReturnValue('OBL-IT04-4.1-02')
     mockListObligations.mockResolvedValue({
       items: [
@@ -370,5 +379,69 @@ describe('ObligationAdminPage', () => {
         .slice(1)
         .every(([params]) => params?.limit === 100),
     ).toBe(true)
+  })
+
+  it('loads the deep-linked obligation detail even when it is not present on the current list page', async () => {
+    mockObligationIdParam = 'obl-deep-link'
+    mockListObligations.mockResolvedValue({
+      items: [
+        {
+          obligationId: 'obl-list-only',
+          obligationCode: 'OBL-LIST-001',
+          obligationText: '列表页默认第一项',
+          obligationType: 'MANDATORY',
+          applicableSector: ['银行'],
+          status: 'ACTIVE',
+          createdAt: '',
+          updatedAt: '',
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    })
+    mockGetObligation.mockImplementation(async (obligationId: string) => ({
+      ...detail,
+      obligationId,
+      obligationCode: 'OBL-DEEP-001',
+      obligationText: '深链预选的义务详情',
+    }))
+
+    render(<ObligationAdminPage />)
+
+    await waitFor(() =>
+      expect(mockGetObligation).toHaveBeenCalledWith('obl-deep-link'),
+    )
+    expect(screen.getByDisplayValue('深链预选的义务详情')).toBeInTheDocument()
+    expect(screen.getByText('OBL-LIST-001')).toBeInTheDocument()
+  })
+
+  it('handles deep-link with obligationId that returns 404 gracefully', async () => {
+    mockObligationIdParam = 'obl-nonexistent'
+    mockListObligations.mockResolvedValue({
+      items: [
+        {
+          obligationId: 'obl-list-1',
+          obligationCode: 'OBL-LIST-001',
+          obligationText: '列表默认第一项',
+          obligationType: 'MANDATORY',
+          applicableSector: ['银行'],
+          status: 'ACTIVE',
+          createdAt: '',
+          updatedAt: '',
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    })
+    mockGetObligation.mockRejectedValue(new Error('Not found'))
+
+    render(<ObligationAdminPage />)
+
+    await waitFor(() =>
+      expect(mockGetObligation).toHaveBeenCalledWith('obl-nonexistent'),
+    )
+    expect(screen.getByText('OBL-LIST-001')).toBeInTheDocument()
   })
 })

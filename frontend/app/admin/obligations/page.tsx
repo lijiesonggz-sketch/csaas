@@ -1,7 +1,7 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { FormEvent, useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
   ArrowLeft,
@@ -86,8 +86,11 @@ type ObligationControlMapSummary = ObligationDetail['controlMaps'][number]
 
 export default function ObligationAdminPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: session, status } = useSession()
   const canAccess = Boolean(session?.user && ALLOWED_ROLES.includes(session.user.role))
+  const deepLinkedObligationId = searchParams.get('obligationId')
+  const appliedDeepLinkId = useRef<string | null>(null)
 
   const [filters, setFilters] = useState({
     keyword: '',
@@ -135,6 +138,13 @@ export default function ObligationAdminPage() {
   }, [router, status])
 
   useEffect(() => {
+    if (deepLinkedObligationId && appliedDeepLinkId.current !== deepLinkedObligationId) {
+      appliedDeepLinkId.current = deepLinkedObligationId
+      setSelectedId(deepLinkedObligationId)
+    }
+  }, [deepLinkedObligationId])
+
+  useEffect(() => {
     if (status !== 'authenticated' || !canAccess) return
     let cancelled = false
 
@@ -158,9 +168,11 @@ export default function ObligationAdminPage() {
         setItems(listResult.items)
         setTotal(listResult.total)
         setSelectedId((current) =>
-          current && listResult.items.some((item) => item.obligationId === current)
-            ? current
-            : (listResult.items[0]?.obligationId ?? null),
+          appliedDeepLinkId.current
+            ? appliedDeepLinkId.current
+            : current && listResult.items.some((item) => item.obligationId === current)
+              ? current
+              : (listResult.items[0]?.obligationId ?? null),
         )
       } catch (loadError) {
         if (!cancelled) {
@@ -177,7 +189,7 @@ export default function ObligationAdminPage() {
     return () => {
       cancelled = true
     }
-  }, [appliedFilters, canAccess, page, reloadToken, status])
+  }, [appliedFilters, canAccess, deepLinkedObligationId, page, reloadToken, status])
 
   useEffect(() => {
     if (!selectedId || status !== 'authenticated' || !canAccess) {

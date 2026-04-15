@@ -419,11 +419,25 @@ describe('ObligationService', () => {
   })
 
   describe('[P0][AC-3] getCoverageAnalysis', () => {
-    it('should aggregate totals, origin distribution, and sector coverage', async () => {
+    it('should aggregate totals, origin distribution, sector coverage, and blind spots', async () => {
       mocks.obligationRepo.find.mockResolvedValue([
         {
           obligationId: 'obl-1',
+          obligationCode: 'OBL-001',
+          obligationText: '应当建立报送复核控制',
+          obligationType: 'MANDATORY',
           applicableSector: ['银行'],
+          clause: {
+            clauseId: 'clause-1',
+            clauseCode: 'CLAUSE-001',
+            articleNo: '第1条',
+            clauseSummary: '条文摘要',
+            source: {
+              sourceId: 'source-1',
+              sourceCode: 'SRC-001',
+              sourceName: '监管指引',
+            },
+          },
           obligationControlMaps: [
             {
               controlId: 'control-1',
@@ -437,7 +451,21 @@ describe('ObligationService', () => {
         },
         {
           obligationId: 'obl-2',
+          obligationCode: 'OBL-002',
+          obligationText: '不得绕过质量校验',
+          obligationType: 'PROHIBITIVE',
           applicableSector: ['证券'],
+          clause: {
+            clauseId: 'clause-2',
+            clauseCode: 'CLAUSE-002',
+            articleNo: '第2条',
+            clauseSummary: '禁止绕过质量校验',
+            source: {
+              sourceId: 'source-2',
+              sourceCode: 'SRC-002',
+              sourceName: '补充规定',
+            },
+          },
           obligationControlMaps: [],
         },
       ])
@@ -454,6 +482,18 @@ describe('ObligationService', () => {
       expect(result.sectorCoverage).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ sector: '银行', obligations: 1, covered: 1 }),
+        ]),
+      )
+      expect(result.blindSpots).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            obligationId: 'obl-2',
+            obligationCode: 'OBL-002',
+            obligationType: 'PROHIBITIVE',
+            source: expect.objectContaining({
+              sourceCode: 'SRC-002',
+            }),
+          }),
         ]),
       )
     })
@@ -491,6 +531,241 @@ describe('ObligationService', () => {
 
       const result = await service.getCoverageAnalysis()
       expect(result.totals.uncovered).toBe(expectedUncovered.length)
+      expect(result.blindSpots).toHaveLength(expectedUncovered.length)
+    })
+
+    it('should keep manual origin visible and de-duplicate origin counts by unique controlId', async () => {
+      mocks.obligationRepo.find.mockResolvedValue([
+        {
+          obligationId: 'obl-1',
+          obligationCode: 'OBL-001',
+          obligationText: '应当建立复核机制',
+          obligationType: 'MANDATORY',
+          applicableSector: ['银行'],
+          clause: null,
+          obligationControlMaps: [
+            {
+              controlId: 'control-1',
+              controlPoint: {
+                controlId: 'control-1',
+                originType: 'manual',
+                applicableSector: ['银行'],
+              },
+            },
+            {
+              controlId: 'control-1',
+              controlPoint: {
+                controlId: 'control-1',
+                originType: 'manual',
+                applicableSector: ['银行'],
+              },
+            },
+          ],
+        },
+        {
+          obligationId: 'obl-2',
+          obligationCode: 'OBL-002',
+          obligationText: '应当建立补充校验',
+          obligationType: 'MANDATORY',
+          applicableSector: ['银行'],
+          clause: null,
+          obligationControlMaps: [
+            {
+              controlId: 'control-2',
+              controlPoint: {
+                controlId: 'control-2',
+                originType: 'candidate',
+                applicableSector: ['银行'],
+              },
+            },
+          ],
+        },
+      ])
+
+      const result = await service.getCoverageAnalysis()
+
+      expect(result.originDistribution.manual).toBe(1)
+      expect(result.originDistribution.candidate).toBe(1)
+    })
+
+    it('should apply 通用 and empty-sector semantics to sector coverage and blind spots', async () => {
+      mocks.obligationRepo.find.mockResolvedValue([
+        {
+          obligationId: 'obl-1',
+          obligationCode: 'OBL-001',
+          obligationText: '应当建立复核机制',
+          obligationType: 'MANDATORY',
+          applicableSector: ['通用'],
+          clause: null,
+          obligationControlMaps: [],
+        },
+        {
+          obligationId: 'obl-2',
+          obligationCode: 'OBL-002',
+          obligationText: '应当建立基金行业专项检查',
+          obligationType: 'MANDATORY',
+          applicableSector: [],
+          clause: null,
+          obligationControlMaps: [
+            {
+              controlId: 'control-2',
+              controlPoint: {
+                controlId: 'control-2',
+                originType: 'regulation_derived',
+                applicableSector: [],
+              },
+            },
+          ],
+        },
+      ])
+
+      const result = await service.getCoverageAnalysis()
+      const bankingCoverage = result.sectorCoverage.find((item: any) => item.sector === '银行')
+      const fundCoverage = result.sectorCoverage.find((item: any) => item.sector === '基金')
+
+      expect(bankingCoverage).toEqual(
+        expect.objectContaining({
+          obligations: 2,
+          covered: 1,
+          coverageRate: 0.5,
+        }),
+      )
+      expect(fundCoverage).toEqual(
+        expect.objectContaining({
+          obligations: 2,
+          covered: 1,
+          coverageRate: 0.5,
+        }),
+      )
+      expect(result.blindSpots).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            obligationId: 'obl-1',
+            applicableSector: ['通用'],
+          }),
+        ]),
+      )
+    })
+
+    it('should return zero totals, empty blindSpots, and all-zero originDistribution when no obligations exist', async () => {
+      mocks.obligationRepo.find.mockResolvedValue([])
+
+      const result = await service.getCoverageAnalysis()
+
+      expect(result.totals).toEqual({
+        obligations: 0,
+        covered: 0,
+        uncovered: 0,
+        coverageRate: 0,
+      })
+      expect(result.blindSpots).toEqual([])
+      Object.values(result.originDistribution).forEach((count) => {
+        expect(count).toBe(0)
+      })
+      expect(result.sectorCoverage.every((s) => s.obligations === 0 && s.covered === 0)).toBe(true)
+    })
+
+    it('should return empty blindSpots when all obligations have at least one control map', async () => {
+      mocks.obligationRepo.find.mockResolvedValue([
+        {
+          obligationId: 'obl-1',
+          obligationCode: 'OBL-001',
+          obligationText: '已覆盖的义务',
+          obligationType: 'MANDATORY',
+          applicableSector: ['银行'],
+          clause: null,
+          obligationControlMaps: [
+            {
+              controlId: 'control-1',
+              controlPoint: {
+                controlId: 'control-1',
+                originType: 'case_derived',
+                applicableSector: ['银行'],
+              },
+            },
+          ],
+        },
+        {
+          obligationId: 'obl-2',
+          obligationCode: 'OBL-002',
+          obligationText: '另一个已覆盖的义务',
+          obligationType: 'PROHIBITIVE',
+          applicableSector: ['证券'],
+          clause: null,
+          obligationControlMaps: [
+            {
+              controlId: 'control-2',
+              controlPoint: {
+                controlId: 'control-2',
+                originType: 'regulation_derived',
+                applicableSector: ['证券'],
+              },
+            },
+          ],
+        },
+      ])
+
+      const result = await service.getCoverageAnalysis()
+
+      expect(result.totals.covered).toBe(2)
+      expect(result.totals.uncovered).toBe(0)
+      expect(result.blindSpots).toEqual([])
+    })
+
+    it('should map blind spot with null clause to null clause and null source', async () => {
+      mocks.obligationRepo.find.mockResolvedValue([
+        {
+          obligationId: 'obl-1',
+          obligationCode: 'OBL-001',
+          obligationText: '没有关联条款的义务',
+          obligationType: 'RECOMMENDED',
+          applicableSector: ['基金'],
+          clause: null,
+          obligationControlMaps: [],
+        },
+      ])
+
+      const result = await service.getCoverageAnalysis()
+
+      expect(result.blindSpots).toHaveLength(1)
+      expect(result.blindSpots[0]).toEqual(
+        expect.objectContaining({
+          obligationId: 'obl-1',
+          obligationCode: 'OBL-001',
+          clause: null,
+          source: null,
+        }),
+      )
+    })
+
+    it('should map blind spot with clause but no source gracefully', async () => {
+      mocks.obligationRepo.find.mockResolvedValue([
+        {
+          obligationId: 'obl-1',
+          obligationCode: 'OBL-001',
+          obligationText: '有条款无来源的义务',
+          obligationType: 'MANDATORY',
+          applicableSector: ['银行'],
+          clause: {
+            clauseId: 'clause-1',
+            clauseCode: 'CLAUSE-001',
+            articleNo: '第1条',
+            clauseSummary: '条款摘要',
+            source: null,
+          },
+          obligationControlMaps: [],
+        },
+      ])
+
+      const result = await service.getCoverageAnalysis()
+
+      expect(result.blindSpots[0].clause).toEqual({
+        clauseId: 'clause-1',
+        clauseCode: 'CLAUSE-001',
+        articleNo: '第1条',
+        clauseSummary: '条款摘要',
+      })
+      expect(result.blindSpots[0].source).toBeNull()
     })
   })
 

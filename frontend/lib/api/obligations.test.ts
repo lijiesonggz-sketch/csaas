@@ -3,6 +3,7 @@ import {
   createObligationControlMap,
   deleteObligationControlMap,
   getObligation,
+  getObligationCoverageAnalysis,
   listObligations,
   searchRegulationClauses,
   suggestObligationCode,
@@ -41,6 +42,7 @@ describe('obligations API client', () => {
     ;(apiFetch as jest.Mock).mockResolvedValue({})
 
     await getObligation('obl-1')
+    await getObligationCoverageAnalysis()
     await searchRegulationClauses({ page: 1, limit: 10, keyword: '复核' })
 
     expect(apiFetch).toHaveBeenNthCalledWith(
@@ -50,6 +52,11 @@ describe('obligations API client', () => {
     )
     expect(apiFetch).toHaveBeenNthCalledWith(
       2,
+      '/api/admin/knowledge-graph/obligations/coverage-analysis',
+      { cache: 'no-store' },
+    )
+    expect(apiFetch).toHaveBeenNthCalledWith(
+      3,
       '/api/admin/knowledge-graph/regulation-clauses?page=1&limit=10&keyword=%E5%A4%8D%E6%A0%B8',
       { cache: 'no-store' },
     )
