@@ -42,49 +42,23 @@ export class ObligationService {
   async findAll(query: QueryObligationDto) {
     const page = query.page ?? 1
     const limit = query.limit ?? 20
-    const qb = this.obligationRepo
-      .createQueryBuilder('obl')
-      .leftJoinAndSelect('obl.clause', 'clause')
-      .leftJoinAndSelect('clause.source', 'source')
-      .orderBy('obl.obligation_code', 'ASC')
-      .skip((page - 1) * limit)
-      .take(limit)
 
-    if (query.clauseId) {
-      qb.andWhere('obl.clause_id = :clauseId', { clauseId: query.clauseId })
-    }
+    const where = {}
+    if (query.clauseId) where['clauseId'] = query.clauseId
+    if (query.obligationType) where['obligationType'] = query.obligationType
+    if (query.status) where['status'] = query.status
 
-    if (query.obligationType) {
-      qb.andWhere('obl.obligation_type = :obligationType', {
-        obligationType: query.obligationType,
-      })
-    }
+    const [items, total] = await Promise.all([
+      this.obligationRepo.find({
+        where,
+        relations: ['clause', 'clause.source'],
+        order: { obligationCode: 'ASC' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.obligationRepo.count(),
+    ])
 
-    if (query.status) {
-      qb.andWhere('obl.status = :status', { status: query.status })
-    }
-
-    if (query.applicableSector) {
-      qb.andWhere(
-        `(obl.applicable_sector @> ARRAY[:sector]::varchar[] OR obl.applicable_sector @> ARRAY['通用']::varchar[] OR obl.applicable_sector = '{}'::varchar[])`,
-        { sector: query.applicableSector },
-      )
-    }
-
-    if (query.keyword) {
-      const keyword = `%${query.keyword}%`
-      qb.andWhere(
-        new Brackets((subQb) => {
-          subQb
-            .where('obl.obligation_code ILIKE :keyword', { keyword })
-            .orWhere('obl.obligation_text ILIKE :keyword', { keyword })
-            .orWhere('clause.clause_code ILIKE :keyword', { keyword })
-            .orWhere('clause.clause_text ILIKE :keyword', { keyword })
-        }),
-      )
-    }
-
-    const [items, total] = await qb.getManyAndCount()
     return { items, total, page, limit }
   }
 
@@ -365,7 +339,7 @@ export class ObligationService {
       .leftJoinAndSelect('obl.clause', 'clause')
       .leftJoinAndSelect('clause.source', 'source')
       .where('ocm.control_id = :controlId', { controlId })
-      .orderBy('obl.obligation_code', 'ASC')
+      .orderBy('obl.obligationCode', 'ASC')
       .getMany()
 
     const clauseMaps = await this.clauseControlMapRepo
@@ -373,7 +347,7 @@ export class ObligationService {
       .leftJoinAndSelect('mapping.clause', 'clause')
       .leftJoinAndSelect('clause.source', 'source')
       .where('mapping.control_id = :controlId', { controlId })
-      .orderBy('clause.clause_code', 'ASC')
+      .orderBy('clause.clauseCode', 'ASC')
       .getMany()
 
     return {

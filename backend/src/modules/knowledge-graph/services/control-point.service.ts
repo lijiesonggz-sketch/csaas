@@ -91,15 +91,15 @@ export class ControlPointService {
     }
 
     if (query.l1Code) {
-      builder.andWhere('control.l1Code = :l1Code', { l1Code: query.l1Code })
+      builder.andWhere('control.l1_code = :l1Code', { l1Code: query.l1Code })
     }
 
     if (query.l2Code) {
-      builder.andWhere('control.l2Code = :l2Code', { l2Code: query.l2Code })
+      builder.andWhere('control.l2_code = :l2Code', { l2Code: query.l2Code })
     }
 
     if (query.controlFamily) {
-      builder.andWhere('control.controlFamily = :controlFamily', {
+      builder.andWhere('control.control_family = :controlFamily', {
         controlFamily: query.controlFamily,
       })
     }
@@ -109,10 +109,10 @@ export class ControlPointService {
       builder.andWhere(
         new Brackets((subQuery) => {
           subQuery
-            .where('control.controlName ILIKE :keyword', { keyword })
-            .orWhere('control.controlCode ILIKE :keyword', { keyword })
-            .orWhere('control.controlDesc ILIKE :keyword', { keyword })
-            .orWhere('control.canonicalTheme ILIKE :keyword', { keyword })
+            .where('control.control_name ILIKE :keyword', { keyword })
+            .orWhere('control.control_code ILIKE :keyword', { keyword })
+            .orWhere('control.control_desc ILIKE :keyword', { keyword })
+            .orWhere('control.canonical_theme ILIKE :keyword', { keyword })
             .orWhere(
               `EXISTS (
                 SELECT 1
@@ -136,23 +136,23 @@ export class ControlPointService {
     // --- KG V2 新增过滤条件 (Story 1-5) ---
 
     if (query.originType) {
-      builder.andWhere('control.originType = :originType', { originType: query.originType })
+      builder.andWhere('control.origin_type = :originType', { originType: query.originType })
     }
 
     if (query.maturityLevel) {
-      builder.andWhere('control.maturityLevel = :maturityLevel', { maturityLevel: query.maturityLevel })
+      builder.andWhere('control.maturity_level = :maturityLevel', { maturityLevel: query.maturityLevel })
     }
 
     if (query.applicableSector) {
       builder.andWhere(
-        `(control.applicableSector @> ARRAY[:sector]::varchar[] OR control.applicableSector @> ARRAY['通用']::varchar[] OR control.applicableSector = '{}')`,
+        `(control.applicable_sector @> ARRAY[:sector]::varchar[] OR control.applicable_sector @> ARRAY['通用']::varchar[] OR control.applicable_sector = '{}')`,
         { sector: query.applicableSector },
       )
     }
 
     if (query.failureModeId) {
       builder.andWhere(
-        `EXISTS (SELECT 1 FROM failure_mode_control_maps fcm WHERE fcm.control_id = control.controlId AND fcm.failure_mode_id = :failureModeId)`,
+        `EXISTS (SELECT 1 FROM failure_mode_control_maps fcm WHERE fcm.control_id = control.control_id AND fcm.failure_mode_id = :failureModeId)`,
         { failureModeId: query.failureModeId },
       )
     }
@@ -161,7 +161,7 @@ export class ControlPointService {
 
     const [items, total] = await builder
       .orderBy(
-        `CASE control.maturityLevel
+        `CASE "control"."maturity_level"
           WHEN 'hard' THEN 0
           WHEN 'draft-hard' THEN 1
           WHEN 'candidate' THEN 2
