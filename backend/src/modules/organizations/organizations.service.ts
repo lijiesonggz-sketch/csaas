@@ -275,8 +275,15 @@ export class OrganizationsService {
       return null
     }
 
+    // 转换为简单 DTO，避免循环引用
     return {
-      organization: member.organization,
+      organization: {
+        id: member.organization.id,
+        name: member.organization.name,
+        tenantId: member.organization.tenantId,
+        createdAt: member.organization.createdAt,
+        updatedAt: member.organization.updatedAt,
+      },
       role: member.role,
     }
   }

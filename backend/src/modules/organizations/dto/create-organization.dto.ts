@@ -44,10 +44,21 @@ export interface OrganizationStatsDto {
 }
 
 /**
+ * Simple organization DTO without circular references
+ */
+export interface OrganizationDto {
+  id: string
+  name: string
+  tenantId: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+/**
  * User organization response with role
  */
 export interface UserOrganizationResponse {
-  organization: Organization
+  organization: OrganizationDto
   role: 'admin' | 'member'
 }
 
