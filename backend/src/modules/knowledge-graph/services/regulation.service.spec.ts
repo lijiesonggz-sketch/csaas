@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm'
 import { ClauseControlMap } from '../../../database/entities/clause-control-map.entity'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
 import { RegulationClause } from '../../../database/entities/regulation-clause.entity'
+import { RegulationObligation } from '../../../database/entities/regulation-obligation.entity'
 import { RegulationSource } from '../../../database/entities/regulation-source.entity'
 import { RegulationService } from './regulation.service'
 
@@ -19,6 +20,7 @@ describe('RegulationService', () => {
   const regulationClauseRepository = {
     findAndCount: jest.fn(),
     findOne: jest.fn(),
+    find: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
   }
@@ -46,6 +48,10 @@ describe('RegulationService', () => {
         {
           provide: getRepositoryToken(RegulationClause),
           useValue: regulationClauseRepository,
+        },
+        {
+          provide: getRepositoryToken(RegulationObligation),
+          useValue: {},
         },
         {
           provide: getRepositoryToken(ClauseControlMap),
@@ -155,5 +161,99 @@ describe('RegulationService', () => {
         },
       },
     ])
+  })
+
+  it('should build regulation graph with clauses, obligations and control points', async () => {
+    regulationSourceRepository.findOne.mockResolvedValue({
+      sourceId: 'source-1',
+      sourceCode: 'SRC-001',
+      sourceName: '监管指引',
+      sourceLevel: 'guideline',
+      authorityName: '监管机构',
+    })
+    regulationClauseRepository.find.mockResolvedValue([
+      {
+        clauseId: 'clause-1',
+        clauseCode: 'CLAUSE-001',
+        articleNo: '4.1',
+        sectionPath: '第四条/第一款',
+        clauseText: '应当建立复核机制',
+        clauseSummary: '建立复核机制',
+        mandatoryLevel: 'MUST',
+        obligations: [
+          {
+            obligationId: 'obl-1',
+            obligationCode: 'OBL-001',
+            obligationText: '应当建立监管报送复核机制',
+            obligationType: 'MANDATORY',
+            applicableSector: ['银行'],
+            obligationControlMaps: [
+              {
+                coverage: 'FULL',
+                controlPoint: {
+                  controlId: 'cp-1',
+                  controlCode: 'CP-001',
+                  controlName: '监管报送复核控制',
+                  maturityLevel: 'hard',
+                  authoritativeScore: 0.92,
+                  originType: 'regulation_derived',
+                  applicableSector: ['银行'],
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ])
+
+    const result = await service.getRegulationGraph('source-1')
+
+    expect(result.source).toEqual({
+      sourceId: 'source-1',
+      sourceCode: 'SRC-001',
+      sourceName: '监管指引',
+      sourceLevel: 'guideline',
+      authorityName: '监管机构',
+      clauseCount: 1,
+      obligationCount: 1,
+      controlPointCount: 1,
+    })
+    expect(result.clauses[0]).toEqual({
+      clauseId: 'clause-1',
+      clauseCode: 'CLAUSE-001',
+      articleNo: '4.1',
+      sectionPath: '第四条/第一款',
+      clauseText: '应当建立复核机制',
+      clauseSummary: '建立复核机制',
+      mandatoryLevel: 'MUST',
+      obligationCount: 1,
+      controlPointCount: 1,
+    })
+    expect(result.obligations[0]).toEqual({
+      obligationId: 'obl-1',
+      obligationCode: 'OBL-001',
+      obligationText: '应当建立监管报送复核机制',
+      obligationType: 'MANDATORY',
+      applicableSector: ['银行'],
+      clauseId: 'clause-1',
+      clauseCode: 'CLAUSE-001',
+      clauseSummary: '建立复核机制',
+      controlPointCount: 1,
+    })
+    expect(result.controlPoints[0]).toEqual({
+      edgeId: 'clause-1:obl-1:cp-1',
+      controlId: 'cp-1',
+      controlCode: 'CP-001',
+      controlName: '监管报送复核控制',
+      maturityLevel: 'hard',
+      authoritativeScore: 0.92,
+      originType: 'regulation_derived',
+      applicableSector: ['银行'],
+      coverage: 'FULL',
+      obligationId: 'obl-1',
+      obligationCode: 'OBL-001',
+      clauseId: 'clause-1',
+      clauseCode: 'CLAUSE-001',
+    })
   })
 })

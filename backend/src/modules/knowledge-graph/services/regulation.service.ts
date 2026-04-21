@@ -10,6 +10,7 @@ import { ClauseControlMap } from '../../../database/entities/clause-control-map.
 import { ControlPoint } from '../../../database/entities/control-point.entity'
 import { RegulationClause } from '../../../database/entities/regulation-clause.entity'
 import { RegulationSource } from '../../../database/entities/regulation-source.entity'
+import { RegulationGraphResponseDto } from '../dto/regulation-graph.dto'
 import {
   CreateClauseControlMapDto,
   CreateRegulationClauseDto,
@@ -253,6 +254,105 @@ export class RegulationService {
         authorityName: item.clause.source.authorityName,
       },
     }))
+  }
+
+  async getRegulationGraph(sourceId: string): Promise<RegulationGraphResponseDto> {
+    const source = await this.findSource(sourceId)
+    const clauses = await this.regulationClauseRepository.find({
+      where: { sourceId },
+      relations: [
+        'obligations',
+        'obligations.obligationControlMaps',
+        'obligations.obligationControlMaps.controlPoint',
+      ],
+      order: { clauseCode: 'ASC' },
+    })
+
+    const clauseItems: RegulationGraphResponseDto['clauses'] = []
+    const obligationItems: RegulationGraphResponseDto['obligations'] = []
+    const controlPointItems: RegulationGraphResponseDto['controlPoints'] = []
+    const uniqueControlIds = new Set<string>()
+
+    for (const clause of clauses.sort((left, right) => left.clauseCode.localeCompare(right.clauseCode))) {
+      const obligations = [...(clause.obligations ?? [])].sort((left, right) =>
+        left.obligationCode.localeCompare(right.obligationCode),
+      )
+      const clauseControlIds = new Set<string>()
+
+      for (const obligation of obligations) {
+        const controlMaps = [...(obligation.obligationControlMaps ?? [])].sort((left, right) =>
+          (left.controlPoint?.controlCode ?? '').localeCompare(right.controlPoint?.controlCode ?? ''),
+        )
+        const obligationControlIds = new Set<string>()
+
+        for (const map of controlMaps) {
+          const controlPoint = map.controlPoint
+          if (!controlPoint) {
+            continue
+          }
+
+          obligationControlIds.add(controlPoint.controlId)
+          clauseControlIds.add(controlPoint.controlId)
+          uniqueControlIds.add(controlPoint.controlId)
+
+          controlPointItems.push({
+            edgeId: `${clause.clauseId}:${obligation.obligationId}:${controlPoint.controlId}`,
+            controlId: controlPoint.controlId,
+            controlCode: controlPoint.controlCode,
+            controlName: controlPoint.controlName,
+            maturityLevel: controlPoint.maturityLevel ?? null,
+            authoritativeScore: controlPoint.authoritativeScore ?? 0,
+            originType: controlPoint.originType ?? null,
+            applicableSector: controlPoint.applicableSector ?? [],
+            coverage: map.coverage,
+            obligationId: obligation.obligationId,
+            obligationCode: obligation.obligationCode,
+            clauseId: clause.clauseId,
+            clauseCode: clause.clauseCode,
+          })
+        }
+
+        obligationItems.push({
+          obligationId: obligation.obligationId,
+          obligationCode: obligation.obligationCode,
+          obligationText: obligation.obligationText,
+          obligationType: obligation.obligationType,
+          applicableSector: obligation.applicableSector ?? [],
+          clauseId: clause.clauseId,
+          clauseCode: clause.clauseCode,
+          clauseSummary: clause.clauseSummary ?? null,
+          controlPointCount: obligationControlIds.size,
+        })
+      }
+
+      clauseItems.push({
+        clauseId: clause.clauseId,
+        clauseCode: clause.clauseCode,
+        articleNo: clause.articleNo ?? null,
+        sectionPath: clause.sectionPath ?? null,
+        clauseText: clause.clauseText,
+        clauseSummary: clause.clauseSummary ?? null,
+        mandatoryLevel: clause.mandatoryLevel ?? null,
+        obligationCount: obligations.length,
+        controlPointCount: clauseControlIds.size,
+      })
+    }
+
+    return {
+      source: {
+        sourceId: source.sourceId,
+        sourceCode: source.sourceCode,
+        sourceName: source.sourceName,
+        sourceLevel: source.sourceLevel ?? null,
+        authorityName: source.authorityName ?? null,
+        clauseCount: clauseItems.length,
+        obligationCount: obligationItems.length,
+        controlPointCount: uniqueControlIds.size,
+      },
+      clauses: clauseItems,
+      obligations: obligationItems,
+      controlPoints: controlPointItems,
+    }
   }
 
   private toClauseControlMapPersistence(

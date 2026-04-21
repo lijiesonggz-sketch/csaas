@@ -3,6 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { FindOptionsWhere, Repository } from 'typeorm'
 import { TaxonomyL1 } from '../../../database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../../../database/entities/taxonomy-l2.entity'
+import { TaxonomyFailureModeMap } from '../../../database/entities/taxonomy-failure-mode-map.entity'
+import { FailureModeControlMap } from '../../../database/entities/failure-mode-control-map.entity'
+import { ObligationControlMap } from '../../../database/entities/obligation-control-map.entity'
 import {
   CreateTaxonomyL1Dto,
   CreateTaxonomyL2Dto,
@@ -10,6 +13,7 @@ import {
   UpdateTaxonomyL1Dto,
   UpdateTaxonomyL2Dto,
 } from '../dto/taxonomy.dto'
+import { ReasoningChainResponseDto } from '../dto/reasoning-chain.dto'
 
 @Injectable()
 export class TaxonomyService {
@@ -18,6 +22,12 @@ export class TaxonomyService {
     private readonly taxonomyL1Repository: Repository<TaxonomyL1>,
     @InjectRepository(TaxonomyL2)
     private readonly taxonomyL2Repository: Repository<TaxonomyL2>,
+    @InjectRepository(TaxonomyFailureModeMap)
+    private readonly taxonomyFailureModeMapRepository: Repository<TaxonomyFailureModeMap>,
+    @InjectRepository(FailureModeControlMap)
+    private readonly failureModeControlMapRepository: Repository<FailureModeControlMap>,
+    @InjectRepository(ObligationControlMap)
+    private readonly obligationControlMapRepository: Repository<ObligationControlMap>,
   ) {}
 
   async getTree(query: QueryTaxonomyTreeDto): Promise<
@@ -25,7 +35,7 @@ export class TaxonomyService {
       l1Code: string
       l1Name: string
       sortOrder: number
-      children: TaxonomyL2[]
+      children: Array<TaxonomyL2 & { failureModeCount?: number }>
     }>
   > {
     const [l1Items, l2Items] = await Promise.all([
@@ -67,11 +77,32 @@ export class TaxonomyService {
       filteredL1Items = l1Items.filter((item) => includedL1Codes.has(item.l1Code))
     }
 
-    const childrenByL1Code = new Map<string, TaxonomyL2[]>()
+    // Fetch failure mode counts for all L2 items
+    const l2Codes = filteredL2Items.map((item) => item.l2Code)
+    let failureModeCounts = new Map<string, number>()
+
+    if (l2Codes.length > 0) {
+      const counts = await this.taxonomyFailureModeMapRepository
+        .createQueryBuilder('tfm')
+        .select('tfm.l2_code', 'l2Code')
+        .addSelect('COALESCE(COUNT(DISTINCT tfm.failure_mode_id), 0)', 'count')
+        .where('tfm.l2_code IN (:...l2Codes)', { l2Codes })
+        .groupBy('tfm.l2_code')
+        .getRawMany()
+
+      failureModeCounts = new Map(
+        counts.map((row) => [row.l2Code, parseInt(row.count, 10) || 0])
+      )
+    }
+
+    const childrenByL1Code = new Map<string, Array<TaxonomyL2 & { failureModeCount?: number }>>()
 
     for (const item of filteredL2Items) {
       const current = childrenByL1Code.get(item.l1Code) ?? []
-      current.push(item)
+      current.push({
+        ...item,
+        failureModeCount: failureModeCounts.get(item.l2Code) ?? 0,
+      })
       childrenByL1Code.set(item.l1Code, current)
     }
 
@@ -139,6 +170,124 @@ export class TaxonomyService {
       l1Code: nextL1Code,
     })
     return this.taxonomyL2Repository.save(existing)
+  }
+
+  /**
+   * 获取完整推理链路数据。
+   * 注意：此方法仅包含只读查询（SELECT），无需事务包裹。
+   * 多个查询之间的数据一致性由底层数据的不可变性保证（知识图谱数据仅通过管理流程变更）。
+   */
+  async getReasoningChain(l2Code: string): Promise<ReasoningChainResponseDto> {
+    // 1. Fetch taxonomy L2 with its parent L1
+    const l2 = await this.taxonomyL2Repository.findOne({
+      where: { l2Code },
+      relations: ['parent'],
+    })
+
+    if (!l2) {
+      throw new NotFoundException(`taxonomy_l2 ${l2Code} not found`)
+    }
+
+    if (!l2.parent) {
+      throw new NotFoundException(`taxonomy_l2 ${l2Code} has no parent L1`)
+    }
+
+    // 2. Fetch failure modes linked to this L2
+    const tfmMaps = await this.taxonomyFailureModeMapRepository.find({
+      where: { l2Code },
+      relations: ['failureMode'],
+    })
+
+    const failureModeIds = [...new Set(tfmMaps.map((m) => m.failureModeId))]
+
+    // 2.5. Count control points per failure mode using database aggregation (batched to avoid parameter limit)
+    let controlCountByFm = new Map<string, number>()
+    if (failureModeIds.length > 0) {
+      const BATCH_SIZE = 1000
+      const allControlCounts: Array<{ failureModeId?: string; failuremodeid?: string; count: string }> = []
+      for (let i = 0; i < failureModeIds.length; i += BATCH_SIZE) {
+        const batch = failureModeIds.slice(i, i + BATCH_SIZE)
+        const batchCounts = await this.failureModeControlMapRepository
+          .createQueryBuilder('fmc')
+          .select('fmc.failure_mode_id', 'failureModeId')
+          .addSelect('COUNT(fmc.control_id)', 'count')
+          .where('fmc.failure_mode_id IN (:...batch)', { batch })
+          .groupBy('fmc.failure_mode_id')
+          .getRawMany()
+        allControlCounts.push(...batchCounts)
+      }
+
+      controlCountByFm = new Map(
+        allControlCounts.map((row: { failureModeId?: string; failuremodeid?: string; count: string }) => [
+          row.failureModeId || row.failuremodeid || '',
+          parseInt(row.count, 10) || 0
+        ])
+      )
+    }
+
+    // 3. Fetch control points linked to these failure modes (batched)
+    let fmcMaps: FailureModeControlMap[] = []
+    if (failureModeIds.length > 0) {
+      const BATCH_SIZE = 1000
+      for (let i = 0; i < failureModeIds.length; i += BATCH_SIZE) {
+        const batch = failureModeIds.slice(i, i + BATCH_SIZE)
+        const batchMaps = await this.failureModeControlMapRepository
+          .createQueryBuilder('fmc')
+          .leftJoinAndSelect('fmc.controlPoint', 'cp')
+          .where('fmc.failure_mode_id IN (:...batch)', { batch })
+          .getMany()
+        fmcMaps.push(...batchMaps)
+      }
+    }
+
+    const controlIds = [...new Set(fmcMaps.map((m) => m.controlId))]
+
+    // 4. Fetch obligations linked to these control points
+    let ocMaps: ObligationControlMap[] = []
+    if (controlIds.length > 0) {
+      ocMaps = await this.obligationControlMapRepository
+        .createQueryBuilder('ocm')
+        .leftJoinAndSelect('ocm.obligation', 'obl')
+        .where('ocm.control_id IN (:...controlIds)', { controlIds })
+        .getMany()
+    }
+
+    // 5. Assemble response
+    return {
+      taxonomy: {
+        l1Code: l2.parent.l1Code,
+        l1Name: l2.parent.l1Name,
+        l2Code: l2.l2Code,
+        l2Name: l2.l2Name,
+      },
+      failureModes: tfmMaps.map((m) => ({
+        failureModeId: m.failureMode.failureModeId,
+        failureModeCode: m.failureMode.failureModeCode,
+        name: m.failureMode.name,
+        category: m.failureMode.category,
+        controlPointCount: controlCountByFm.get(m.failureModeId) ?? 0,
+      })),
+      controlPoints: fmcMaps
+        .filter((m) => m.controlPoint)
+        .map((m) => ({
+          controlId: m.controlPoint.controlId,
+          controlCode: m.controlPoint.controlCode,
+          controlName: m.controlPoint.controlName,
+          maturityLevel: m.controlPoint.maturityLevel,
+          authoritativeScore: m.controlPoint.authoritativeScore ?? 0,
+          originType: m.controlPoint.originType,
+          failureModeRelevance: m.relevance,
+          failureModeId: m.failureModeId,
+        })),
+      obligations: ocMaps.map((m) => ({
+        obligationId: m.obligation.obligationId,
+        obligationCode: m.obligation.obligationCode,
+        obligationText: m.obligation.obligationText,
+        obligationType: m.obligation.obligationType,
+        controlId: m.controlId,
+        coverage: m.coverage,
+      })),
+    }
   }
 
   private buildL1Where(query: QueryTaxonomyTreeDto): FindOptionsWhere<TaxonomyL1> {

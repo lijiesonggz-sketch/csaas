@@ -32,6 +32,7 @@ import { QuestionItemController } from './controllers/question-item.controller'
 import { RemediationActionController } from './controllers/remediation-action.controller'
 import { RegulationController } from './controllers/regulation.controller'
 import { TaxonomyController } from './controllers/taxonomy.controller'
+import { KnowledgeGraphController } from './controllers/knowledge-graph.controller'
 import { ComplianceCaseService } from './services/compliance-case.service'
 import { ControlPackLinkService } from './services/control-pack-link.service'
 import { ControlPointService } from './services/control-point.service'
@@ -72,6 +73,7 @@ import { TaxonomyService } from './services/taxonomy.service'
   ],
   controllers: [
     TaxonomyController,
+    KnowledgeGraphController,
     ControlPointController,
     ControlPackLinkController,
     EvidenceController,

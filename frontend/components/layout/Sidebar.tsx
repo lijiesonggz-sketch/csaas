@@ -113,6 +113,11 @@ const allMenuItems: MenuItem[] = [
         icon: <BarChart3 className="w-4 h-4" />,
         label: '覆盖率分析',
       },
+      {
+        key: '/admin/knowledge-graph',
+        icon: <GitBranch className="w-4 h-4" />,
+        label: '知识图谱总览',
+      },
       { key: '/admin/peer-crawler', icon: <Settings className="w-4 h-4" />, label: '同业爬虫管理' },
       {
         key: '/admin/peer-crawler/health',
@@ -131,6 +136,9 @@ interface SidebarProps {
   onCollapseChange?: (collapsed: boolean) => void
   width?: number
   collapsedWidth?: number
+  isMobile?: boolean
+  mobileOpen?: boolean
+  onNavigateComplete?: () => void
 }
 
 export default function Sidebar({
@@ -138,6 +146,9 @@ export default function Sidebar({
   onCollapseChange,
   width = SIDEBAR_WIDTH,
   collapsedWidth = SIDEBAR_COLLAPSED_WIDTH,
+  isMobile = false,
+  mobileOpen = false,
+  onNavigateComplete,
 }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -164,6 +175,7 @@ export default function Sidebar({
     if (key === '/organizations/profile') {
       if (organizationId) {
         router.push(`/organizations/${organizationId}/profile`)
+        onNavigateComplete?.()
       }
       return
     }
@@ -171,6 +183,7 @@ export default function Sidebar({
     if (key === '/organizations/applicable-controls') {
       if (organizationId) {
         router.push(`/organizations/${organizationId}/applicable-controls`)
+        onNavigateComplete?.()
       }
       return
     }
@@ -183,6 +196,7 @@ export default function Sidebar({
           const orgId = data.data?.organization?.id
           if (orgId) {
             router.push(`/radar?orgId=${orgId}`)
+            onNavigateComplete?.()
             return
           }
         }
@@ -190,8 +204,10 @@ export default function Sidebar({
         console.error('[Sidebar] Failed to get organization:', error)
       }
       router.push('/radar')
+      onNavigateComplete?.()
     } else {
       router.push(key)
+      onNavigateComplete?.()
     }
   }
 
@@ -205,11 +221,13 @@ export default function Sidebar({
     return pathname === key || pathname.startsWith(`${key}/`)
   }
 
-  const currentWidth = collapsed ? collapsedWidth : width
+  const currentWidth = isMobile ? width : collapsed ? collapsedWidth : width
 
   return (
     <nav
-      className="fixed left-0 top-16 bottom-0 bg-[#1E3A5F] text-white transition-all duration-200 overflow-x-hidden overflow-y-auto z-40"
+      className={`fixed left-0 top-16 bottom-0 bg-[#1E3A5F] text-white transition-all duration-200 overflow-x-hidden overflow-y-auto z-40 ${
+        isMobile ? (mobileOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'
+      }`}
       style={{ width: `${currentWidth}px` }}
     >
       <div className="flex flex-col h-full">
@@ -287,14 +305,16 @@ export default function Sidebar({
         </div>
 
         {/* Collapse toggle */}
-        <div className="p-2 border-t border-white/10">
-          <button
-            onClick={handleToggleCollapse}
-            className="w-full flex items-center justify-center py-2 text-white/60 hover:text-white transition-colors"
-          >
-            {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-          </button>
-        </div>
+        {!isMobile && (
+          <div className="p-2 border-t border-white/10">
+            <button
+              onClick={handleToggleCollapse}
+              className="w-full flex items-center justify-center py-2 text-white/60 hover:text-white transition-colors"
+            >
+              {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+            </button>
+          </div>
+        )}
       </div>
     </nav>
   )

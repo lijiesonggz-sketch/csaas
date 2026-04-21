@@ -3,6 +3,9 @@ import { getRepositoryToken } from '@nestjs/typeorm'
 import { BadRequestException } from '@nestjs/common'
 import { TaxonomyL1 } from '../../../database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../../../database/entities/taxonomy-l2.entity'
+import { TaxonomyFailureModeMap } from '../../../database/entities/taxonomy-failure-mode-map.entity'
+import { FailureModeControlMap } from '../../../database/entities/failure-mode-control-map.entity'
+import { ObligationControlMap } from '../../../database/entities/obligation-control-map.entity'
 import { TaxonomyService } from './taxonomy.service'
 
 describe('TaxonomyService', () => {
@@ -22,6 +25,26 @@ describe('TaxonomyService', () => {
     save: jest.fn(),
   }
 
+  const taxonomyFailureModeMapRepository = {
+    find: jest.fn(),
+  }
+
+  const failureModeControlMapRepository = {
+    createQueryBuilder: jest.fn().mockReturnValue({
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    }),
+  }
+
+  const obligationControlMapRepository = {
+    createQueryBuilder: jest.fn().mockReturnValue({
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([]),
+    }),
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -33,6 +56,18 @@ describe('TaxonomyService', () => {
         {
           provide: getRepositoryToken(TaxonomyL2),
           useValue: taxonomyL2Repository,
+        },
+        {
+          provide: getRepositoryToken(TaxonomyFailureModeMap),
+          useValue: taxonomyFailureModeMapRepository,
+        },
+        {
+          provide: getRepositoryToken(FailureModeControlMap),
+          useValue: failureModeControlMapRepository,
+        },
+        {
+          provide: getRepositoryToken(ObligationControlMap),
+          useValue: obligationControlMapRepository,
         },
       ],
     }).compile()
