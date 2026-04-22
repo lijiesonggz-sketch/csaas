@@ -15,6 +15,11 @@ import { RegulationService } from '../../knowledge-graph/services/regulation.ser
 import { RemediationActionService } from '../../knowledge-graph/services/remediation-action.service'
 import { QueryControlExplainDto } from '../dto/control-explain.dto'
 
+const ADMIN_APPLICABILITY_REASON =
+  '管理端详情不计算机构适用性，请在组织上下文中查看适用性说明'
+const ORGANIZATION_APPLICABILITY_CONTEXT_MISSING_REASON =
+  '机构适用性上下文缺失，请刷新后重试'
+
 export class ControlExplainService {
   constructor(
     @InjectRepository(ControlPoint)
@@ -36,17 +41,47 @@ export class ControlExplainService {
   ) {}
 
   async getControlExplain(controlId: string, query: QueryControlExplainDto) {
+    return this.buildControlExplain(controlId, {
+      organizationId: query.organizationId,
+      mode: 'organization',
+    })
+  }
+
+  async getAdminControlExplain(controlId: string) {
+    return this.buildControlExplain(controlId, {
+      mode: 'admin',
+    })
+  }
+
+  private async buildControlExplain(
+    controlId: string,
+    options:
+      | {
+          mode: 'organization'
+          organizationId: string
+        }
+      | {
+          mode: 'admin'
+        },
+  ) {
     const control = await this.controlPointRepository.findOne({ where: { controlId } })
 
     if (!control) {
       throw new NotFoundException(`control_point ${controlId} not found`)
     }
 
+    const applicabilityContextPromise =
+      options.mode === 'organization'
+        ? this.controlPackLinkService.buildApplicabilityContext(controlId, {
+            organizationId: options.organizationId,
+          })
+        : Promise.resolve(null)
+
     const [l1, l2, applicabilityContext, clauses, cases, evidences, questions, remediations, fullChain, regulatoryLinks, failureModeMaps] =
       await Promise.all([
         this.taxonomyL1Repository.findOne({ where: { l1Code: control.l1Code } }),
         this.taxonomyL2Repository.findOne({ where: { l2Code: control.l2Code } }),
-        this.controlPackLinkService.buildApplicabilityContext(controlId, query),
+        applicabilityContextPromise,
         this.regulationService.findClausesByControlId(controlId),
         this.complianceCaseService.findCasesByControlId(controlId),
         this.evidenceService.findEvidencesByControlId(controlId),
@@ -103,7 +138,7 @@ export class ControlExplainService {
         applicableSector: control.applicableSector ?? [],
         sectorRequirements: control.sectorRequirements ?? {},
       },
-      applicabilityReason: this.buildApplicabilityReason(applicabilityContext),
+      applicabilityReason: this.buildApplicabilityReason(applicabilityContext, options.mode),
       failureModes,
       obligations: this.trimObligations(regulatoryLinks.obligations),
       reasoningChain,
@@ -115,12 +150,23 @@ export class ControlExplainService {
     }
   }
 
-  private buildApplicabilityReason(context: {
-    matched?: boolean
-    reasons?: string[]
-    matchedPacks?: Array<{ packCode: string }>
-    matchedRules?: string[]
-  }): string {
+  private buildApplicabilityReason(
+    context:
+      | {
+          matched?: boolean
+          reasons?: string[]
+          matchedPacks?: Array<{ packCode: string }>
+          matchedRules?: string[]
+        }
+      | null,
+    mode: 'organization' | 'admin',
+  ): string {
+    if (!context) {
+      return mode === 'admin'
+        ? ADMIN_APPLICABILITY_REASON
+        : ORGANIZATION_APPLICABILITY_CONTEXT_MISSING_REASON
+    }
+
     if (context.matched && context.reasons && context.reasons.length > 0) {
       return context.reasons.join('；')
     }

@@ -3,9 +3,29 @@ import '@testing-library/jest-dom'
 import ComplianceCasesAdminPage from './page'
 import * as complianceCasesApi from '@/lib/api/compliance-cases'
 
+let mockCaseIdParam: string | null = null
+const mockDrawer = jest.fn((props: {
+  open: boolean
+  controlId: string
+  sourceModule: string
+  sourceTrace?: { label: string; detail: string } | null
+}) =>
+  props.open ? (
+    <div
+      data-testid="control-detail-drawer-probe"
+      data-control-id={props.controlId}
+      data-source-module={props.sourceModule}
+      data-source-trace-detail={props.sourceTrace?.detail ?? ''}
+    />
+  ) : null,
+)
+
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: jest.fn(),
+  }),
+  useSearchParams: () => ({
+    get: (key: string) => (key === 'caseId' ? mockCaseIdParam : null),
   }),
 }))
 
@@ -36,6 +56,15 @@ jest.mock('@/components/ui/dialog', () => ({
   DialogHeader: ({ children }: any) => <div>{children}</div>,
   DialogTitle: ({ children }: any) => <h2>{children}</h2>,
   DialogDescription: ({ children }: any) => <p>{children}</p>,
+}))
+jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
+  ControlDetailDrawer: (props: {
+    open: boolean
+    controlId: string
+    sourceModule: string
+    sourceTrace?: { label: string; detail: string } | null
+  }) =>
+    mockDrawer(props),
 }))
 
 jest.mock('@/components/ui/select', () => {
@@ -165,7 +194,12 @@ const clusteringResult = {
       relationType: 'VIOLATES',
       reviewStatus: 'PENDING',
       confidenceScore: '0.9000',
-      source: 'RULE',
+      source: 'FAILURE_MODE_CHAIN',
+      derivedFailureMode: {
+        failureModeId: 'fm-1',
+        failureModeCode: 'FM-REP-001',
+        failureModeName: '报送口径定义错误',
+      },
     },
   ],
 } as const
@@ -173,6 +207,7 @@ const clusteringResult = {
 describe('ComplianceCasesAdminPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockCaseIdParam = null
     mockGetComplianceCases.mockResolvedValue({
       items: [clusteredCase],
       total: 1,
@@ -384,5 +419,77 @@ describe('ComplianceCasesAdminPage', () => {
         manualMappings: undefined,
       })
     })
+  })
+
+  it('opens the deep-linked case detail dialog automatically', async () => {
+    mockCaseIdParam = 'case-1'
+
+    render(<ComplianceCasesAdminPage />)
+
+    await waitFor(() => expect(screen.getByText('基础信息')).toBeInTheDocument())
+    expect(mockGetExtraction).toHaveBeenCalledWith('case-1')
+    expect(mockGetClustering).toHaveBeenCalledWith('case-1')
+  })
+
+  it('resolves a deep-linked case even when it is not on the current list page', async () => {
+    mockCaseIdParam = 'case-off-page'
+    mockGetComplianceCases
+      .mockResolvedValueOnce({
+        items: [clusteredCase],
+        total: 1,
+        page: 1,
+        limit: 10,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            ...clusteredCase,
+            caseId: 'case-off-page',
+            caseCode: 'PBOC-CASE-999',
+            caseTitle: '深链命中的跨页案例',
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 1,
+      })
+
+    render(<ComplianceCasesAdminPage />)
+
+    await waitFor(() =>
+      expect(mockGetComplianceCases).toHaveBeenNthCalledWith(2, {
+        caseId: 'case-off-page',
+        page: 1,
+        limit: 1,
+      }),
+    )
+    await waitFor(() => expect(screen.getByText('基础信息')).toBeInTheDocument())
+    expect(mockGetExtraction).toHaveBeenCalledWith('case-off-page')
+    expect(mockGetClustering).toHaveBeenCalledWith('case-off-page')
+  })
+
+  it('opens the shared control detail drawer from a draft control mapping row with derived failure mode trace', async () => {
+    render(<ComplianceCasesAdminPage />)
+
+    await waitFor(() => expect(screen.getByText('查看详情')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('查看详情'))
+
+    await waitFor(() => expect(screen.getByText('草稿映射')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'CTRL-001 · 客户身份识别' }))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
+        'data-control-id',
+        'control-1',
+      ),
+    )
+    expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
+      'data-source-module',
+      'admin',
+    )
+    expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
+      'data-source-trace-detail',
+      'PBOC-CASE-001 → FM-REP-001 · 报送口径定义错误 → CTRL-001',
+    )
   })
 })

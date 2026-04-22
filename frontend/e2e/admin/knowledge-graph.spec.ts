@@ -191,8 +191,8 @@ test.describe('知识图谱总览页面 (Story 5.1 ATDD)', () => {
             { failureModeId: 'fm-2', failureModeCode: 'FM-IT01-002', name: 'IT投资回报率低', category: 'MAPPING_ERROR', controlPointCount: 2 },
           ],
           controlPoints: [
-            { controlId: 'cp-1', controlCode: 'CP-IT01-001', controlName: 'IT战略规划流程', maturityLevel: 'hard', authoritativeScore: 95, originType: 'standard', failureModeRelevance: 'HIGH', failureModeId: 'fm-1' },
-            { controlId: 'cp-2', controlCode: 'CP-IT01-002', controlName: 'IT投资评估机制', maturityLevel: 'draft-hard', authoritativeScore: 85, originType: 'standard', failureModeRelevance: 'MEDIUM', failureModeId: 'fm-2' },
+            { controlId: 'cp-1', controlCode: 'CP-IT01-001', controlName: 'IT战略规划流程', maturityLevel: 'hard', authoritativeScore: 0.95, originType: 'standard', failureModeRelevance: 'HIGH', failureModeId: 'fm-1' },
+            { controlId: 'cp-2', controlCode: 'CP-IT01-002', controlName: 'IT投资评估机制', maturityLevel: 'draft-hard', authoritativeScore: 0.85, originType: 'standard', failureModeRelevance: 'MEDIUM', failureModeId: 'fm-2' },
           ],
           obligations: [
             { obligationId: 'ob-1', obligationCode: 'OBL-IT01-001', obligationText: '应当建立IT战略规划流程', obligationType: 'MANDATORY', controlId: 'cp-1', coverage: 'FULL' },
@@ -254,7 +254,7 @@ test.describe('知识图谱总览页面 (Story 5.1 ATDD)', () => {
             { failureModeId: 'fm-1', failureModeCode: 'FM-IT01-001', name: 'IT战略与业务战略不一致', category: 'DEFINITION_ERROR', controlPointCount: 2 },
           ],
           controlPoints: [
-            { controlId: 'cp-1', controlCode: 'CP-IT01-001', controlName: 'IT战略规划流程', maturityLevel: 'hard', authoritativeScore: 95, originType: 'standard', failureModeRelevance: 'PRIMARY', failureModeId: 'fm-1' },
+            { controlId: 'cp-1', controlCode: 'CP-IT01-001', controlName: 'IT战略规划流程', maturityLevel: 'hard', authoritativeScore: 0.95, originType: 'standard', failureModeRelevance: 'PRIMARY', failureModeId: 'fm-1' },
           ],
           obligations: [
             { obligationId: 'ob-1', obligationCode: 'OBL-IT01-001', obligationText: '应当建立IT战略规划流程', obligationType: 'MANDATORY', controlId: 'cp-1', coverage: 'FULL' },
@@ -325,7 +325,7 @@ test.describe('知识图谱总览页面 (Story 5.1 ATDD)', () => {
             { failureModeId: 'fm-1', failureModeCode: 'FM-IT01-001', name: 'IT战略与业务战略不一致', category: 'DEFINITION_ERROR', controlPointCount: 1 },
           ],
           controlPoints: [
-            { controlId: 'cp-1', controlCode: 'CP-IT01-001', controlName: 'IT战略规划流程', maturityLevel: 'hard', authoritativeScore: 95, originType: 'standard', failureModeRelevance: 'PRIMARY', failureModeId: 'fm-1' },
+            { controlId: 'cp-1', controlCode: 'CP-IT01-001', controlName: 'IT战略规划流程', maturityLevel: 'hard', authoritativeScore: 0.95, originType: 'standard', failureModeRelevance: 'PRIMARY', failureModeId: 'fm-1' },
           ],
           obligations: [
             { obligationId: 'ob-1', obligationCode: 'OBL-IT01-001', obligationText: '应当建立 IT 战略规划流程', obligationType: 'MANDATORY', controlId: 'cp-1', coverage: 'FULL' },
@@ -384,7 +384,7 @@ test.describe('知识图谱总览页面 (Story 5.1 ATDD)', () => {
             { failureModeId: 'fm-1', failureModeCode: 'FM-IT01-001', name: 'IT战略与业务战略不一致', category: 'DEFINITION_ERROR', controlPointCount: 1 },
           ],
           controlPoints: [
-            { controlId: 'cp-1', controlCode: 'CP-IT01-001', controlName: 'IT战略规划流程', maturityLevel: 'hard', authoritativeScore: 95, originType: 'standard', failureModeRelevance: 'PRIMARY', failureModeId: 'fm-1' },
+            { controlId: 'cp-1', controlCode: 'CP-IT01-001', controlName: 'IT战略规划流程', maturityLevel: 'hard', authoritativeScore: 0.95, originType: 'standard', failureModeRelevance: 'PRIMARY', failureModeId: 'fm-1' },
           ],
           obligations: [],
         }),
@@ -500,7 +500,7 @@ test.describe('知识图谱总览页面 (Story 5.1 ATDD)', () => {
               controlCode: 'CP-001',
               controlName: '监管报送复核控制',
               maturityLevel: 'hard',
-              authoritativeScore: 92,
+              authoritativeScore: 0.92,
               originType: 'regulation_derived',
               applicableSector: ['银行'],
               coverage: 'FULL',

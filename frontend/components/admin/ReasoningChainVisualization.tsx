@@ -6,6 +6,10 @@ import { ArrowRight, GitBranch, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import type { ReasoningChainData } from '@/lib/api/knowledge-graph'
+import {
+  formatAuthoritativeScorePercent,
+  toAuthoritativeScorePercent,
+} from '@/lib/utils/authoritative-score'
 
 interface ReasoningChainVisualizationProps {
   data: ReasoningChainData | null
@@ -161,7 +165,7 @@ export function ReasoningChainVisualization({
                 <button
                   key={cp.controlId}
                   type="button"
-                  aria-label={`控制点 ${cp.controlCode} ${cp.controlName}，成熟度 ${cp.maturityLevel}，权威性评分 ${cp.authoritativeScore}`}
+                  aria-label={`控制点 ${cp.controlCode} ${cp.controlName}，成熟度 ${cp.maturityLevel}，权威性评分 ${formatAuthoritativeScorePercent(cp.authoritativeScore)}`}
                   aria-pressed={selectedEntityId === cp.controlId}
                   className={`w-full rounded-sm border p-3 text-left transition ${
                     selectedEntityId === cp.controlId
@@ -189,9 +193,15 @@ export function ReasoningChainVisualization({
                   <div className="mt-2">
                     <div className="flex items-center justify-between text-xs text-[#64748B]">
                       <span>权威分数</span>
-                      <span className="font-medium">{cp.authoritativeScore}%</span>
+                      <span className="font-medium">
+                        {formatAuthoritativeScorePercent(cp.authoritativeScore)}
+                      </span>
                     </div>
-                    <Progress value={cp.authoritativeScore} max={100} className="mt-1 h-1.5" />
+                    <Progress
+                      value={toAuthoritativeScorePercent(cp.authoritativeScore) ?? 0}
+                      max={100}
+                      className="mt-1 h-1.5"
+                    />
                   </div>
                 </button>
               ))
@@ -234,4 +244,3 @@ export function ReasoningChainVisualization({
     </div>
   )
 }
-

@@ -9,6 +9,8 @@ import { ILike, Repository } from 'typeorm'
 import { CaseControlMap } from '../../../database/entities/case-control-map.entity'
 import { ComplianceCase } from '../../../database/entities/compliance-case.entity'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
+import { FailureModeControlMap } from '../../../database/entities/failure-mode-control-map.entity'
+import { TaxonomyFailureModeMap } from '../../../database/entities/taxonomy-failure-mode-map.entity'
 import { TaxonomyL1 } from '../../../database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../../../database/entities/taxonomy-l2.entity'
 import {
@@ -221,6 +223,10 @@ export class ComplianceCaseService {
       relations: ['controlPoint'],
       order: { id: 'ASC' },
     })
+    const derivedFailureModeByControlId = await this.findDerivedFailureModesByControlId(
+      caseRecord.l2Code,
+      drafts,
+    )
 
     return {
       caseId: caseRecord.caseId,
@@ -241,8 +247,64 @@ export class ComplianceCaseService {
         reviewStatus: draft.reviewStatus,
         confidenceScore: draft.confidenceScore,
         source: draft.source,
+        ...(derivedFailureModeByControlId.has(draft.controlId)
+          ? { derivedFailureMode: derivedFailureModeByControlId.get(draft.controlId) }
+          : {}),
       })),
     }
+  }
+
+  private async findDerivedFailureModesByControlId(
+    l2Code: string | null,
+    drafts: CaseControlMap[],
+  ) {
+    const controlIds = [
+      ...new Set(
+        drafts
+          .filter((draft) => draft.source === 'FAILURE_MODE_CHAIN')
+          .map((draft) => draft.controlId),
+      ),
+    ]
+
+    if (!l2Code || controlIds.length === 0) {
+      return new Map<
+        string,
+        { failureModeId: string; failureModeCode: string; failureModeName: string }
+      >()
+    }
+
+    const mappings = await this.caseControlMapRepository.manager
+      .createQueryBuilder(FailureModeControlMap, 'fcm')
+      .leftJoinAndSelect('fcm.failureMode', 'fm')
+      .innerJoin(
+        TaxonomyFailureModeMap,
+        'tfm',
+        'tfm.failure_mode_id = fcm.failure_mode_id AND tfm.l2_code = :l2Code',
+        { l2Code },
+      )
+      .where('fcm.control_id IN (:...controlIds)', { controlIds })
+      .andWhere('fm.status = :status', { status: 'ACTIVE' })
+      .orderBy('fm.failureModeCode', 'ASC')
+      .getMany()
+
+    const result = new Map<
+      string,
+      { failureModeId: string; failureModeCode: string; failureModeName: string }
+    >()
+
+    for (const mapping of mappings) {
+      if (!mapping.failureMode || result.has(mapping.controlId)) {
+        continue
+      }
+
+      result.set(mapping.controlId, {
+        failureModeId: mapping.failureMode.failureModeId,
+        failureModeCode: mapping.failureMode.failureModeCode,
+        failureModeName: mapping.failureMode.name,
+      })
+    }
+
+    return result
   }
 
   private toComplianceCasePersistence(

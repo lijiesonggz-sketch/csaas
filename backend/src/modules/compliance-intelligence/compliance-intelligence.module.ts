@@ -14,6 +14,7 @@ import { AuditModule } from '../audit/audit.module'
 import { KnowledgeGraphModule } from '../knowledge-graph/knowledge-graph.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
 import { SurveyModule } from '../survey/survey.module'
+import { AdminControlFullContextController } from './controllers/admin-control-full-context.controller'
 import { ControlReportController } from './controllers/control-report.controller'
 import { ControlExplainController } from './controllers/control-explain.controller'
 import { RadarRelevanceController } from './controllers/radar-relevance.controller'
@@ -58,6 +59,7 @@ import { ReportCenterService } from './services/report-center.service'
     SurveyModule,
   ],
   controllers: [
+    AdminControlFullContextController,
     ControlExplainController,
     RadarRelevanceController,
     ControlReportController,

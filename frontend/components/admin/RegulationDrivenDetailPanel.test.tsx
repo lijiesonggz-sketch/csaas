@@ -53,7 +53,7 @@ const mockData: RegulationGraphData = {
       controlCode: 'CP-001',
       controlName: '监管报送复核控制',
       maturityLevel: 'hard',
-      authoritativeScore: 92,
+      authoritativeScore: 0.92,
       originType: 'regulation_derived',
       applicableSector: ['银行'],
       coverage: 'FULL',

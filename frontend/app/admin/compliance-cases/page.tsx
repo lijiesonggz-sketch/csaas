@@ -1,7 +1,7 @@
 'use client'
 
-import React, { FormEvent, KeyboardEvent, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
   AlertCircle,
@@ -17,7 +17,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
+  CaseControlMapSource,
   CaseControlRelationType,
+  ComplianceCaseControlMapDraft,
   ComplianceCaseClusteringResult,
   ComplianceCaseExtractionResult,
   ComplianceCaseImportJobResult,
@@ -59,6 +61,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
 
 type CaseStatusFilter = ComplianceCaseStatus | 'all'
 type ReviewDecision = 'approve' | 'reject' | 'pending'
@@ -113,13 +116,33 @@ function relationLabel(type: CaseControlRelationType) {
   return { VIOLATES: '违反', RELATED: '相关', SUPPORTS: '支持' }[type]
 }
 
-function sourceLabel(source: 'RULE' | 'LLM_ASSISTED_RULE' | 'LLM_FALLBACK' | 'MANUAL') {
+function sourceLabel(source: CaseControlMapSource) {
   return {
     RULE: '规则命中',
     LLM_ASSISTED_RULE: 'LLM辅助规则命中',
     LLM_FALLBACK: 'LLM兜底命中',
     MANUAL: '人工映射',
+    FAILURE_MODE_CHAIN: '失效模式链路',
   }[source]
+}
+
+function buildDerivedFailureModeTrace(
+  caseRecord: ComplianceCaseSummary | null,
+  draft: ComplianceCaseControlMapDraft,
+) {
+  const failureMode = draft.derivedFailureMode
+  if (!failureMode) {
+    return null
+  }
+
+  const caseLabel = caseRecord?.caseCode ?? '当前案例'
+  const failureModeLabel = `${failureMode.failureModeCode} · ${failureMode.failureModeName}`
+  const controlLabel = draft.controlCode || draft.controlName || '当前控制点'
+
+  return {
+    label: '案例推导路径',
+    detail: `${caseLabel} → ${failureModeLabel} → ${controlLabel}`,
+  }
 }
 
 function themesEqual(left: string[] = [], right: string[] = []) {
@@ -141,8 +164,11 @@ function initialDecisions(clustering: ComplianceCaseClusteringResult | null) {
 
 export default function ComplianceCasesAdminPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: session, status } = useSession()
   const canAccess = Boolean(session?.user && ALLOWED_ROLES.includes(session.user.role))
+  const deepLinkedCaseId = searchParams.get('caseId')
+  const pendingDeepLinkCaseId = useRef<string | null>(null)
 
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [appliedFilters, setAppliedFilters] = useState<Filters>(DEFAULT_FILTERS)
@@ -168,6 +194,11 @@ export default function ComplianceCasesAdminPage() {
   const [importFileInputKey, setImportFileInputKey] = useState(0)
 
   const [selectedCase, setSelectedCase] = useState<ComplianceCaseSummary | null>(null)
+  const [selectedControlId, setSelectedControlId] = useState<string | null>(null)
+  const [selectedControlTrace, setSelectedControlTrace] = useState<{
+    label: string
+    detail: string
+  } | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState<string | null>(null)
@@ -192,6 +223,12 @@ export default function ComplianceCasesAdminPage() {
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login')
   }, [router, status])
+
+  useEffect(() => {
+    if (deepLinkedCaseId) {
+      pendingDeepLinkCaseId.current = deepLinkedCaseId
+    }
+  }, [deepLinkedCaseId])
 
   useEffect(() => {
     if (status !== 'authenticated' || !canAccess) return
@@ -245,6 +282,50 @@ export default function ComplianceCasesAdminPage() {
     reloadToken,
     status,
   ])
+
+  useEffect(() => {
+    if (loading || !deepLinkedCaseId || pendingDeepLinkCaseId.current !== deepLinkedCaseId) {
+      return
+    }
+
+    const targetCase = items.find((item) => item.caseId === deepLinkedCaseId)
+    if (targetCase) {
+      pendingDeepLinkCaseId.current = null
+      openDetail(targetCase)
+      return
+    }
+
+    let cancelled = false
+
+    async function loadDeepLinkedCase(caseId: string) {
+      try {
+        const result = await getComplianceCases({
+          caseId,
+          page: 1,
+          limit: 1,
+        })
+
+        if (cancelled) {
+          return
+        }
+
+        const deepLinkedCase = result.items.find((item) => item.caseId === caseId)
+        if (deepLinkedCase) {
+          openDetail(deepLinkedCase)
+        }
+      } finally {
+        if (!cancelled) {
+          pendingDeepLinkCaseId.current = null
+        }
+      }
+    }
+
+    void loadDeepLinkedCase(deepLinkedCaseId)
+
+    return () => {
+      cancelled = true
+    }
+  }, [deepLinkedCaseId, items, loading])
 
   useEffect(() => {
     if (!detailOpen || !selectedCase) return
@@ -341,6 +422,8 @@ export default function ComplianceCasesAdminPage() {
 
   const openDetail = (item: ComplianceCaseSummary) => {
     setSelectedCase(item)
+    setSelectedControlId(null)
+    setSelectedControlTrace(null)
     setDetailOpen(true)
     setDetailLoading(true)
     setDetailError(null)
@@ -354,6 +437,10 @@ export default function ComplianceCasesAdminPage() {
   }
 
   const closeDetail = (open: boolean) => {
+    if (!open && selectedControlId) {
+      return
+    }
+
     setDetailOpen(open)
     if (!open) {
       setDetailLoading(false)
@@ -365,6 +452,8 @@ export default function ComplianceCasesAdminPage() {
       setReviewError(null)
       setControlKeyword('')
       setControlResults([])
+      setSelectedControlId(null)
+      setSelectedControlTrace(null)
     }
   }
 
@@ -897,8 +986,23 @@ export default function ComplianceCasesAdminPage() {
                           <div key={draft.id} className="rounded-sm border border-[#E2E8F0] p-3">
                             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                               <div className="text-sm">
-                                <div className="font-medium text-[#1E3A5F]">{draft.controlCode || '未编码'} · {draft.controlName || '未命名控制点'}</div>
+                                <button
+                                  type="button"
+                                  className="font-medium text-[#1E3A5F] hover:underline"
+                                  onClick={() => {
+                                    setSelectedControlId(draft.controlId)
+                                    setSelectedControlTrace(buildDerivedFailureModeTrace(selectedCase, draft))
+                                  }}
+                                >
+                                  {draft.controlCode || '未编码'} · {draft.controlName || '未命名控制点'}
+                                </button>
                                 <div className="text-[#64748B]">关系：{relationLabel(draft.relationType)} · 置信度：{draft.confidenceScore || '-'} · 来源：{sourceLabel(draft.source)}</div>
+                                {draft.derivedFailureMode && (
+                                  <div className="mt-1 text-xs text-[#1E3A5F]">
+                                    推导来源：{draft.derivedFailureMode.failureModeCode} ·{' '}
+                                    {draft.derivedFailureMode.failureModeName}
+                                  </div>
+                                )}
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 <Badge variant="outline">{reviewStatusLabel(displayStatus)}</Badge>
@@ -960,7 +1064,16 @@ export default function ComplianceCasesAdminPage() {
                         {manualMappings.map((mapping) => (
                           <div key={mapping.controlId} className="grid grid-cols-1 gap-3 rounded-sm border border-[#E2E8F0] p-3 md:grid-cols-12">
                             <div className="md:col-span-5">
-                              <div className="font-medium text-[#1E3A5F]">{mapping.controlCode} · {mapping.controlName}</div>
+                              <button
+                                type="button"
+                                className="font-medium text-[#1E3A5F] hover:underline"
+                                onClick={() => {
+                                  setSelectedControlId(mapping.controlId)
+                                  setSelectedControlTrace(null)
+                                }}
+                              >
+                                {mapping.controlCode} · {mapping.controlName}
+                              </button>
                             </div>
                             <div className="space-y-2 md:col-span-3">
                               <Label>关系</Label>
@@ -1015,6 +1128,22 @@ export default function ComplianceCasesAdminPage() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {selectedControlId && (
+        <ControlDetailDrawer
+          open={Boolean(selectedControlId)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedControlId(null)
+              setSelectedControlTrace(null)
+            }
+          }}
+          controlId={selectedControlId}
+          sourceModule="admin"
+          sourceRecordId={selectedCase?.caseId}
+          sourceTrace={selectedControlTrace}
+        />
+      )}
     </>
   )
 }

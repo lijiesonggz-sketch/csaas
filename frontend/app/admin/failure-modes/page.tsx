@@ -1,7 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
   ArrowLeft,
@@ -54,6 +54,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
+import { formatAuthoritativeScorePercent } from '@/lib/utils/authoritative-score'
+import { useRef } from 'react'
 
 const ALLOWED_ROLES = ['admin']
 const DEFAULT_CATEGORY: FailureModeCategory = 'DEFINITION_ERROR'
@@ -80,8 +83,11 @@ function buildCreateForm(existingCodes: string[], category: FailureModeCategory)
 
 export default function FailureModeAdminPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: session, status } = useSession()
   const canAccess = Boolean(session?.user && ALLOWED_ROLES.includes(session.user.role))
+  const deepLinkedFailureModeId = searchParams.get('failureModeId')
+  const appliedDeepLinkId = useRef<string | null>(null)
 
   const [filters, setFilters] = useState({
     keyword: '',
@@ -91,6 +97,7 @@ export default function FailureModeAdminPage() {
   const [appliedFilters, setAppliedFilters] = useState(filters)
   const [items, setItems] = useState<FailureModeSummary[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedControlId, setSelectedControlId] = useState<string | null>(null)
   const [detail, setDetail] = useState<FailureModeDetail | null>(null)
   const [draft, setDraft] = useState({
     name: '',
@@ -139,6 +146,13 @@ export default function FailureModeAdminPage() {
   }, [router, status])
 
   useEffect(() => {
+    if (deepLinkedFailureModeId && appliedDeepLinkId.current !== deepLinkedFailureModeId) {
+      appliedDeepLinkId.current = deepLinkedFailureModeId
+      setSelectedId(deepLinkedFailureModeId)
+    }
+  }, [deepLinkedFailureModeId])
+
+  useEffect(() => {
     if (status !== 'authenticated' || !canAccess) return
     let cancelled = false
     async function loadData() {
@@ -170,9 +184,13 @@ export default function FailureModeAdminPage() {
           }))
         )
         setSelectedId((current) =>
-          current && listResult.items.some((item) => item.failureModeId === current)
-            ? current
-            : (listResult.items[0]?.failureModeId ?? null)
+          appliedDeepLinkId.current
+            ? appliedDeepLinkId.current
+            : deepLinkedFailureModeId && current === deepLinkedFailureModeId
+              ? current
+            : current && listResult.items.some((item) => item.failureModeId === current)
+              ? current
+              : (listResult.items[0]?.failureModeId ?? null)
         )
       } catch (loadError) {
         if (!cancelled) setError(errorMessage(loadError, '加载 Failure Mode 列表失败'))
@@ -184,7 +202,7 @@ export default function FailureModeAdminPage() {
     return () => {
       cancelled = true
     }
-  }, [appliedFilters, canAccess, page, reloadToken, status])
+  }, [appliedFilters, canAccess, deepLinkedFailureModeId, page, reloadToken, status])
 
   useEffect(() => {
     if (!selectedId || status !== 'authenticated' || !canAccess) {
@@ -203,9 +221,13 @@ export default function FailureModeAdminPage() {
         setSelectedL2Code('')
         setControlKeyword('')
         setControlResults([])
+        setSelectedControlId(null)
         const result = await getFailureMode(failureModeId)
         if (cancelled) return
         setDetail(result)
+        if (appliedDeepLinkId.current === failureModeId) {
+          appliedDeepLinkId.current = null
+        }
         setDraft({
           name: result.name,
           description: result.description ?? '',
@@ -855,12 +877,16 @@ export default function FailureModeAdminPage() {
                               className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2"
                             >
                               <div>
-                                <div className="font-medium text-[#1E3A5F]">
+                                <button
+                                  type="button"
+                                  className="font-medium text-[#1E3A5F] hover:underline"
+                                  onClick={() => setSelectedControlId(map.controlId)}
+                                >
                                   {map.controlCode} · {map.controlName}
-                                </div>
+                                </button>
                                 <div className="text-xs text-[#64748B]">
                                   {map.relevance} · {map.maturityLevel || 'unknown'} · score{' '}
-                                  {map.authoritativeScore ?? '--'}
+                                  {formatAuthoritativeScorePercent(map.authoritativeScore)}
                                 </div>
                               </div>
                               <Button
@@ -964,6 +990,20 @@ export default function FailureModeAdminPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {selectedControlId && (
+        <ControlDetailDrawer
+          open={Boolean(selectedControlId)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedControlId(null)
+            }
+          }}
+          controlId={selectedControlId}
+          sourceModule="admin"
+          sourceRecordId={selectedId ?? undefined}
+        />
+      )}
     </>
   )
 }

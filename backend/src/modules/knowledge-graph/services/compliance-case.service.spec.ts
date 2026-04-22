@@ -24,6 +24,9 @@ describe('ComplianceCaseService', () => {
     create: jest.fn(),
     save: jest.fn(),
     createQueryBuilder: jest.fn(),
+    manager: {
+      createQueryBuilder: jest.fn(),
+    },
   }
 
   const controlPointRepository = {
@@ -232,6 +235,69 @@ describe('ComplianceCaseService', () => {
           source: 'RULE',
         },
       ],
+    })
+  })
+
+  it('should include derived failure mode metadata for failure-mode-chain drafts', async () => {
+    complianceCaseRepository.findOne.mockResolvedValue({
+      caseId: 'case-id',
+      caseCode: 'PBOC-CASE-001',
+      status: 'clustered',
+      l2Code: 'IT04-06',
+      normalizedThemes: ['监管报送准确性控制'],
+      candidateControlPoints: [],
+      clusteredAt: new Date('2026-03-26T01:00:00.000Z'),
+      humanReviewed: false,
+      reviewedBy: null,
+      reviewedAt: null,
+    })
+    caseControlMapRepository.find.mockResolvedValue([
+      {
+        id: 'draft-id',
+        controlId: 'control-id',
+        relationType: 'VIOLATES',
+        reviewStatus: 'PENDING',
+        confidenceScore: '0.9000',
+        source: 'FAILURE_MODE_CHAIN',
+        controlPoint: {
+          controlCode: 'CP-001',
+          controlName: '监管报送复核控制',
+        },
+      },
+    ])
+    const queryBuilder = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([
+        {
+          controlId: 'control-id',
+          failureMode: {
+            failureModeId: 'fm-1',
+            failureModeCode: 'FM-REP-001',
+            name: '报送口径定义错误',
+          },
+        },
+      ]),
+    }
+    caseControlMapRepository.manager.createQueryBuilder.mockReturnValue(queryBuilder)
+
+    const result = await service.getCaseClusteringResult('case-id')
+
+    expect(queryBuilder.where).toHaveBeenCalledWith('fcm.control_id IN (:...controlIds)', {
+      controlIds: ['control-id'],
+    })
+    expect(result.caseControlMapDrafts[0]).toMatchObject({
+      id: 'draft-id',
+      controlId: 'control-id',
+      source: 'FAILURE_MODE_CHAIN',
+      derivedFailureMode: {
+        failureModeId: 'fm-1',
+        failureModeCode: 'FM-REP-001',
+        failureModeName: '报送口径定义错误',
+      },
     })
   })
 })

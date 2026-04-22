@@ -581,4 +581,134 @@ describe('ControlExplainService', () => {
     expect(result.failureModes).toEqual([])
     expect(result.obligations).toEqual([])
   })
+
+  it('should return an organization-scoped fallback when applicability context is unexpectedly missing', async () => {
+    controlPointRepository.findOne.mockResolvedValue({
+      controlId: 'control-id',
+      controlCode: 'CTRL-DG-004',
+      controlName: '监管报送准确性控制',
+      controlDesc: '确保监管报送准确完整',
+      l1Code: 'IT04',
+      l2Code: 'IT04-06',
+      originType: 'both',
+      maturityLevel: 'hard',
+      authoritativeScore: 0.8333,
+      authorityProfileJson: null,
+      applicableSector: [],
+      sectorRequirements: null,
+    })
+    taxonomyL1Repository.findOne.mockResolvedValue({
+      l1Code: 'IT04',
+      l1Name: '数据治理与监管数据报送',
+    })
+    taxonomyL2Repository.findOne.mockResolvedValue({
+      l2Code: 'IT04-06',
+      l2Name: '监管报送准确性控制',
+    })
+    mockControlPackLinkService.buildApplicabilityContext.mockResolvedValue(null)
+    mockRegulationService.findClausesByControlId.mockResolvedValue([])
+    mockComplianceCaseService.findCasesByControlId.mockResolvedValue([])
+    mockEvidenceService.findEvidencesByControlId.mockResolvedValue({
+      controlId: 'control-id',
+      evidences: [],
+    })
+    mockQuestionItemService.findByControlId.mockResolvedValue({
+      controlId: 'control-id',
+      questions: [],
+    })
+    mockRemediationActionService.findByControlId.mockResolvedValue({
+      controlId: 'control-id',
+      remediations: [],
+    })
+    failureModeControlMapQueryBuilder.getMany.mockResolvedValue([])
+    mockControlPointService.findByL2CodeWithFullChain.mockResolvedValue({
+      l2Code: 'IT04-06',
+      l2Name: '监管报送准确性控制',
+      failureModes: [],
+    })
+    mockObligationService.findRegulatoryLinksByControlId.mockResolvedValue({
+      obligations: [],
+      clauses: [],
+    })
+
+    const result = await service.getControlExplain('control-id', {
+      organizationId: 'org-id',
+    })
+
+    expect(result.applicabilityReason).toBe('机构适用性上下文缺失，请刷新后重试')
+  })
+
+  it('should return admin full-context without requiring organization applicability context', async () => {
+    controlPointRepository.findOne.mockResolvedValue({
+      controlId: 'control-id',
+      controlCode: 'CTRL-DG-004',
+      controlName: '监管报送准确性控制',
+      controlDesc: '确保监管报送准确完整',
+      l1Code: 'IT04',
+      l2Code: 'IT04-06',
+      originType: 'both',
+      maturityLevel: 'hard',
+      authoritativeScore: 0.8333,
+      authorityProfileJson: null,
+      applicableSector: ['银行', '通用'],
+      sectorRequirements: null,
+    })
+    taxonomyL1Repository.findOne.mockResolvedValue({
+      l1Code: 'IT04',
+      l1Name: '数据治理与监管数据报送',
+    })
+    taxonomyL2Repository.findOne.mockResolvedValue({
+      l2Code: 'IT04-06',
+      l2Name: '监管报送准确性控制',
+    })
+    mockRegulationService.findClausesByControlId.mockResolvedValue([])
+    mockComplianceCaseService.findCasesByControlId.mockResolvedValue([
+      {
+        caseId: 'case-001',
+        caseCode: 'CASE-001',
+        caseTitle: '某银行因报送不准被罚',
+        relationType: 'VIOLATES',
+        confidenceScore: '0.9100',
+      },
+    ])
+    mockEvidenceService.findEvidencesByControlId.mockResolvedValue({
+      controlId: 'control-id',
+      evidences: [],
+    })
+    mockQuestionItemService.findByControlId.mockResolvedValue({
+      controlId: 'control-id',
+      questions: [],
+    })
+    mockRemediationActionService.findByControlId.mockResolvedValue({
+      controlId: 'control-id',
+      remediations: [],
+    })
+    failureModeControlMapQueryBuilder.getMany.mockResolvedValue([])
+    mockControlPointService.findByL2CodeWithFullChain.mockResolvedValue({
+      l2Code: 'IT04-06',
+      l2Name: '监管报送准确性控制',
+      failureModes: [],
+    })
+    mockObligationService.findRegulatoryLinksByControlId.mockResolvedValue({
+      obligations: [],
+      clauses: [],
+    })
+
+    const result = await service.getAdminControlExplain('control-id')
+
+    expect(mockControlPackLinkService.buildApplicabilityContext).not.toHaveBeenCalled()
+    expect(result.applicabilityReason).toBe(
+      '管理端详情不计算机构适用性，请在组织上下文中查看适用性说明',
+    )
+    expect(result.governance?.authoritativeScore).toBe(0.8333)
+    expect(result.cases).toEqual([
+      expect.objectContaining({
+        caseId: 'case-001',
+        caseCode: 'CASE-001',
+        caseTitle: '某银行因报送不准被罚',
+        relationType: 'VIOLATES',
+        confidenceScore: '0.9100',
+      }),
+    ])
+  })
 })

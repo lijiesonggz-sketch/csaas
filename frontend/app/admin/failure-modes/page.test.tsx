@@ -5,7 +5,23 @@ import FailureModeAdminPage from './page'
 import * as failureModeApi from '@/lib/api/failure-modes'
 import * as complianceCasesApi from '@/lib/api/compliance-cases'
 
-jest.mock('next/navigation', () => ({ useRouter: () => ({ push: jest.fn() }) }))
+let mockFailureModeIdParam: string | null = null
+const mockDrawer = jest.fn((props: { open: boolean; controlId: string; sourceModule: string }) =>
+  props.open ? (
+    <div
+      data-testid="control-detail-drawer-probe"
+      data-control-id={props.controlId}
+      data-source-module={props.sourceModule}
+    />
+  ) : null,
+)
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+  useSearchParams: () => ({
+    get: (key: string) => (key === 'failureModeId' ? mockFailureModeIdParam : null),
+  }),
+}))
 jest.mock('next-auth/react', () => ({
   useSession: jest.fn(() => ({
     data: { user: { id: 'user-1', role: 'admin' } },
@@ -20,6 +36,10 @@ jest.mock('@/components/ui/dialog', () => ({
   DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
   DialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
+}))
+jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
+  ControlDetailDrawer: (props: { open: boolean; controlId: string; sourceModule: string }) =>
+    mockDrawer(props),
 }))
 
 jest.mock('@/components/ui/select', () => {
@@ -125,6 +145,7 @@ const detail = {
 describe('FailureModeAdminPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockFailureModeIdParam = null
     mockSuggestFailureModeCode.mockReturnValue('FM-DEF-001')
     mockListFailureModes.mockResolvedValue({ items: [detail], total: 1, page: 1, limit: 20 })
     mockGetFailureMode.mockResolvedValue(detail)
@@ -184,6 +205,7 @@ describe('FailureModeAdminPage', () => {
       expect(screen.getAllByText('FM-REP-001').length).toBeGreaterThan(0)
       expect(screen.getByDisplayValue('报送口径定义错误')).toBeInTheDocument()
     })
+    expect(screen.getByText(/score 83%/)).toBeInTheDocument()
   })
 
   it('opens create dialog with suggested code and creates a failure mode', async () => {
@@ -272,7 +294,14 @@ describe('FailureModeAdminPage', () => {
     await waitFor(() =>
       expect(mockCreateTaxonomyMap).toHaveBeenCalledWith('fm-1', { l2Code: 'IT04-01' })
     )
-    fireEvent.click(screen.getByRole('button', { name: '删除 IT 分类映射 IT04-01' }))
+    let deleteTaxonomyButton: HTMLButtonElement | null = null
+    await waitFor(() => {
+      deleteTaxonomyButton = document.querySelector(
+        'button[aria-label="删除 IT 分类映射 IT04-01"]',
+      ) as HTMLButtonElement | null
+      expect(deleteTaxonomyButton).toBeTruthy()
+    })
+    fireEvent.click(deleteTaxonomyButton!)
     await waitFor(() => expect(mockDeleteTaxonomyMap).toHaveBeenCalledWith('fm-1', 'map-1'))
   })
 
@@ -294,7 +323,14 @@ describe('FailureModeAdminPage', () => {
         expect.objectContaining({ controlId: 'cp-2' })
       )
     )
-    fireEvent.click(screen.getByRole('button', { name: '删除控制点映射 CTRL-001' }))
+    let controlDeleteButton: HTMLButtonElement | null = null
+    await waitFor(() => {
+      controlDeleteButton = document.querySelector(
+        'button[aria-label="删除控制点映射 CTRL-001"]',
+      ) as HTMLButtonElement | null
+      expect(controlDeleteButton).toBeTruthy()
+    })
+    fireEvent.click(controlDeleteButton!)
     await waitFor(() => expect(mockDeleteControlMap).toHaveBeenCalledWith('fm-1', 'cmap-1'))
   })
 
@@ -314,6 +350,99 @@ describe('FailureModeAdminPage', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: '下一页' })).toBeDisabled(),
+    )
+  })
+
+  it('loads the deep-linked failure mode detail even when it is not present on the current list page', async () => {
+    mockFailureModeIdParam = 'fm-deep-link'
+    mockListFailureModes.mockResolvedValue({
+      items: [
+        {
+          failureModeId: 'fm-list-only',
+          failureModeCode: 'FM-LIST-001',
+          name: '列表页默认项',
+          description: '',
+          category: 'DEFINITION_ERROR',
+          status: 'ACTIVE',
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    })
+    mockGetFailureMode.mockImplementation(async (failureModeId: string) => ({
+      ...detail,
+      failureModeId,
+      failureModeCode: 'FM-DEEP-001',
+      name: '深链预选的失效模式详情',
+    }))
+
+    render(<FailureModeAdminPage />)
+
+    await waitFor(() => expect(mockGetFailureMode).toHaveBeenCalledWith('fm-deep-link'))
+    expect(screen.getByDisplayValue('深链预选的失效模式详情')).toBeInTheDocument()
+    expect(screen.getByText('FM-LIST-001')).toBeInTheDocument()
+  })
+
+  it('consumes the deep link only once and does not snap back after the user selects another failure mode', async () => {
+    mockFailureModeIdParam = 'fm-deep-link'
+    mockListFailureModes.mockResolvedValue({
+      items: [
+        {
+          failureModeId: 'fm-list-only',
+          failureModeCode: 'FM-LIST-001',
+          name: '列表页默认项',
+          description: '',
+          category: 'DEFINITION_ERROR',
+          status: 'ACTIVE',
+        },
+        {
+          failureModeId: 'fm-deep-link',
+          failureModeCode: 'FM-DEEP-001',
+          name: '深链命中项',
+          description: '',
+          category: 'DEFINITION_ERROR',
+          status: 'ACTIVE',
+        },
+      ],
+      total: 2,
+      page: 1,
+      limit: 20,
+    })
+    mockGetFailureMode.mockImplementation(async (failureModeId: string) => ({
+      ...detail,
+      failureModeId,
+      failureModeCode: failureModeId === 'fm-deep-link' ? 'FM-DEEP-001' : 'FM-LIST-001',
+      name: failureModeId === 'fm-deep-link' ? '深链命中项' : '列表页默认项',
+    }))
+
+    render(<FailureModeAdminPage />)
+
+    await waitFor(() => expect(screen.getByDisplayValue('深链命中项')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /FM-LIST-001.*列表页默认项/ }))
+    await waitFor(() => expect(screen.getByDisplayValue('列表页默认项')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: '刷新' }))
+
+    await waitFor(() => expect(screen.getByDisplayValue('列表页默认项')).toBeInTheDocument())
+    expect(mockGetFailureMode).toHaveBeenLastCalledWith('fm-list-only')
+  })
+
+  it('opens the shared control detail drawer from a mapped control row', async () => {
+    render(<FailureModeAdminPage />)
+
+    await waitFor(() => expect(screen.getByText('控制点映射')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'CTRL-001 · 报送前校验' }))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
+        'data-control-id',
+        'cp-1',
+      ),
+    )
+    expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
+      'data-source-module',
+      'admin',
     )
   })
 })

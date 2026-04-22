@@ -56,6 +56,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
+import { formatAuthoritativeScorePercent } from '@/lib/utils/authoritative-score'
 
 const ALLOWED_ROLES = ['admin']
 const OBLIGATION_TYPE_OPTIONS: ObligationType[] = ['MANDATORY', 'PROHIBITIVE', 'RECOMMENDED']
@@ -101,6 +103,7 @@ export default function ObligationAdminPage() {
   const [appliedFilters, setAppliedFilters] = useState(filters)
   const [items, setItems] = useState<ObligationSummary[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedControlId, setSelectedControlId] = useState<string | null>(null)
   const [detail, setDetail] = useState<ObligationDetail | null>(null)
   const [draft, setDraft] = useState({
     obligationText: '',
@@ -170,6 +173,8 @@ export default function ObligationAdminPage() {
         setSelectedId((current) =>
           appliedDeepLinkId.current
             ? appliedDeepLinkId.current
+            : deepLinkedObligationId && current === deepLinkedObligationId
+              ? current
             : current && listResult.items.some((item) => item.obligationId === current)
               ? current
               : (listResult.items[0]?.obligationId ?? null),
@@ -196,6 +201,7 @@ export default function ObligationAdminPage() {
       setDetail(null)
       setControlKeyword('')
       setControlResults([])
+      setSelectedControlId(null)
       return
     }
 
@@ -211,6 +217,9 @@ export default function ObligationAdminPage() {
         const result = await getObligation(obligationId)
         if (cancelled) return
         setDetail(result)
+        if (appliedDeepLinkId.current === obligationId) {
+          appliedDeepLinkId.current = null
+        }
         setDraft({
           obligationText: result.obligationText,
           obligationType: result.obligationType,
@@ -872,7 +881,13 @@ export default function ObligationAdminPage() {
                             >
                               <div>
                                 <div className="font-medium text-[#1E3A5F]">
-                                  {item.controlCode} · {item.controlName}
+                                  <button
+                                    type="button"
+                                    className="hover:underline"
+                                    onClick={() => setSelectedControlId(item.controlId)}
+                                  >
+                                    {item.controlCode} · {item.controlName}
+                                  </button>
                                 </div>
                                 <div className="text-xs text-[#64748B]">
                                   {item.controlFamily} · {item.l1Code} / {item.l2Code}
@@ -901,11 +916,17 @@ export default function ObligationAdminPage() {
                             >
                               <div>
                                 <div className="font-medium text-[#1E3A5F]">
-                                  {map.controlCode} · {map.controlName}
+                                  <button
+                                    type="button"
+                                    className="hover:underline"
+                                    onClick={() => setSelectedControlId(map.controlId)}
+                                  >
+                                    {map.controlCode} · {map.controlName}
+                                  </button>
                                 </div>
                                 <div className="text-xs text-[#64748B]">
                                   {map.coverage} · {map.maturityLevel || 'unknown'} · score{' '}
-                                  {map.authoritativeScore ?? '--'}
+                                  {formatAuthoritativeScorePercent(map.authoritativeScore)}
                                 </div>
                               </div>
                               <Button
@@ -1164,6 +1185,20 @@ export default function ObligationAdminPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {selectedControlId && (
+        <ControlDetailDrawer
+          open={Boolean(selectedControlId)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedControlId(null)
+            }
+          }}
+          controlId={selectedControlId}
+          sourceModule="admin"
+          sourceRecordId={selectedId ?? undefined}
+        />
+      )}
     </>
   )
 }

@@ -6,6 +6,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import type { ReasoningChainData } from '@/lib/api/knowledge-graph'
+import {
+  formatAuthoritativeScorePercent,
+  toAuthoritativeScorePercent,
+} from '@/lib/utils/authoritative-score'
 
 interface KnowledgeGraphDetailPanelProps {
   entityType: 'failure-mode' | 'control-point' | 'obligation' | null
@@ -184,9 +188,13 @@ export function KnowledgeGraphDetailPanel({
           <div>
             <span className="text-xs text-[#64748B]">权威分数</span>
             <div className="mt-1 flex items-center gap-2">
-              <Progress value={cp.authoritativeScore} max={100} className="h-2 flex-1" />
+              <Progress
+                value={toAuthoritativeScorePercent(cp.authoritativeScore) ?? 0}
+                max={100}
+                className="h-2 flex-1"
+              />
               <span className="text-sm font-medium text-[#1E3A5F]">
-                {cp.authoritativeScore}%
+                {formatAuthoritativeScorePercent(cp.authoritativeScore)}
               </span>
             </div>
           </div>

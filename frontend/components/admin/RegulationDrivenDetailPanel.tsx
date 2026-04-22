@@ -6,6 +6,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import type { RegulationGraphData } from '@/lib/api/knowledge-graph'
+import {
+  formatAuthoritativeScorePercent,
+  toAuthoritativeScorePercent,
+} from '@/lib/utils/authoritative-score'
 
 type RegulationEntityType =
   | 'regulation-source'
@@ -169,19 +173,19 @@ export function RegulationDrivenDetailPanel({
         <DetailRow label="控制点名称" value={controlPoint.controlName} />
         <DetailRow label="来源类型" value={controlPoint.originType || '未标注'} />
         <DetailRow label="覆盖程度" value={controlPoint.coverage} />
-        <div>
-          <span className="text-xs text-[#64748B]">权威分数</span>
-          <div className="mt-1 flex items-center gap-2">
-            <Progress
-              value={controlPoint.authoritativeScore ?? 0}
-              max={100}
-              className="h-2 flex-1"
-            />
-            <span className="text-sm font-medium text-[#1E3A5F]">
-              {controlPoint.authoritativeScore ?? 0}%
-            </span>
+          <div>
+            <span className="text-xs text-[#64748B]">权威分数</span>
+            <div className="mt-1 flex items-center gap-2">
+              <Progress
+                value={toAuthoritativeScorePercent(controlPoint.authoritativeScore) ?? 0}
+                max={100}
+                className="h-2 flex-1"
+              />
+              <span className="text-sm font-medium text-[#1E3A5F]">
+                {formatAuthoritativeScorePercent(controlPoint.authoritativeScore)}
+              </span>
+            </div>
           </div>
-        </div>
         <div className="rounded-sm border border-[#E2E8F0] bg-slate-50 px-3 py-2 text-sm">
           <div className="font-medium text-[#1E3A5F]">{controlPoint.clauseCode}</div>
           <div className="text-[#64748B]">{controlPoint.obligationCode}</div>

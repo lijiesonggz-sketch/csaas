@@ -10,7 +10,12 @@ export type ComplianceCaseStatus =
 
 export type MapReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 export type CaseControlRelationType = 'VIOLATES' | 'RELATED' | 'SUPPORTS'
-export type CaseControlMapSource = 'RULE' | 'LLM_ASSISTED_RULE' | 'LLM_FALLBACK' | 'MANUAL'
+export type CaseControlMapSource =
+  | 'RULE'
+  | 'LLM_ASSISTED_RULE'
+  | 'LLM_FALLBACK'
+  | 'MANUAL'
+  | 'FAILURE_MODE_CHAIN'
 
 export interface ComplianceCaseSummary {
   caseId: string
@@ -66,6 +71,11 @@ export interface ComplianceCaseControlMapDraft {
   reviewStatus: MapReviewStatus
   confidenceScore: string | null
   source: CaseControlMapSource
+  derivedFailureMode?: {
+    failureModeId: string
+    failureModeCode: string
+    failureModeName: string
+  } | null
 }
 
 export interface ComplianceCaseExtractionResult {
@@ -98,6 +108,7 @@ export interface ComplianceCasesPage {
 }
 
 export interface ComplianceCaseListParams {
+  caseId?: string
   page?: number
   limit?: number
   batchId?: string
@@ -199,6 +210,7 @@ export async function getComplianceCases(
   params: ComplianceCaseListParams = {},
 ): Promise<ComplianceCasesPage> {
   const queryString = buildQueryString({
+    caseId: params.caseId,
     page: params.page,
     limit: params.limit,
     batchId: params.batchId,

@@ -1,13 +1,22 @@
 import { apiFetch } from '@/lib/utils/api'
 
-export type ControlDetailSourceModule = 'audit' | 'radar' | 'report'
+export type ControlDetailSourceModule = 'audit' | 'radar' | 'report' | 'admin'
 
-export interface ControlDetailContext {
-  organizationId: string
+type AdminControlDetailContext = {
   controlId: string
-  sourceModule: ControlDetailSourceModule
+  sourceModule: 'admin'
+  organizationId?: never
   sourceRecordId?: string
 }
+
+type NonAdminControlDetailContext = {
+  controlId: string
+  sourceModule: Exclude<ControlDetailSourceModule, 'admin'>
+  organizationId: string
+  sourceRecordId?: string
+}
+
+export type ControlDetailContext = AdminControlDetailContext | NonAdminControlDetailContext
 
 export interface ControlExplainClause {
   clauseCode?: string
@@ -16,8 +25,11 @@ export interface ControlExplainClause {
 }
 
 export interface ControlExplainCase {
+  caseId?: string
   caseCode?: string
   caseTitle?: string
+  relationType?: string | null
+  confidenceScore?: string | null
 }
 
 export interface ControlExplainEvidence {
@@ -152,14 +164,19 @@ export interface ControlExplainErrorState {
 const REQUIRED_CONTEXT_ERROR = 'controlId and organizationId are required for control detail drawer'
 const UNAVAILABLE_CONTROL_ERROR_PATTERN = /(control[_ -]?point|control).*(not found|removed|disabled)|\b(gone|removed|disabled)\b/i
 
-export function buildControlExplainPath(input: {
-  controlId: string
-  organizationId: string
-}): string {
+export function buildControlExplainPath(input: ControlDetailContext): string {
   const controlId = input.controlId?.trim()
   const organizationId = input.organizationId?.trim()
 
-  if (!controlId || !organizationId) {
+  if (!controlId) {
+    throw new Error(REQUIRED_CONTEXT_ERROR)
+  }
+
+  if (input.sourceModule === 'admin') {
+    return `/api/admin/knowledge-graph/control-points/${encodeURIComponent(controlId)}/full-context`
+  }
+
+  if (!organizationId) {
     throw new Error(REQUIRED_CONTEXT_ERROR)
   }
 
@@ -168,10 +185,7 @@ export function buildControlExplainPath(input: {
   )}`
 }
 
-export async function getControlExplain(input: {
-  controlId: string
-  organizationId: string
-}): Promise<ControlExplainResponse> {
+export async function getControlExplain(input: ControlDetailContext): Promise<ControlExplainResponse> {
   const path = buildControlExplainPath(input)
   return apiFetch(path)
 }

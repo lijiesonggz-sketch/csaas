@@ -25,6 +25,7 @@ import { KnowledgeGraphTree } from '@/components/admin/KnowledgeGraphTree'
 import { ReasoningChainVisualization } from '@/components/admin/ReasoningChainVisualization'
 import { RegulationDrivenDetailPanel } from '@/components/admin/RegulationDrivenDetailPanel'
 import { RegulationDrivenVisualization } from '@/components/admin/RegulationDrivenVisualization'
+import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
 
 const ALLOWED_ROLES = ['admin']
 const REGULATION_SOURCE_GROUP_LABELS: Record<string, string> = {
@@ -144,6 +145,7 @@ export default function KnowledgeGraphPage() {
   const [taxonomyError, setTaxonomyError] = useState<string | null>(null)
   const [selectedL2Code, setSelectedL2Code] = useState<string | null>(null)
   const [selectedCaseEntity, setSelectedCaseEntity] = useState<SelectedCaseEntity | null>(null)
+  const [selectedControlId, setSelectedControlId] = useState<string | null>(null)
   const [reasoningChain, setReasoningChain] = useState<ReasoningChainData | null>(null)
   const [chainLoading, setChainLoading] = useState(false)
   const [chainError, setChainError] = useState<string | null>(null)
@@ -269,6 +271,7 @@ export default function KnowledgeGraphPage() {
         setChainLoading(true)
         setChainError(null)
         setSelectedCaseEntity(null)
+        setSelectedControlId(null)
         const data = await getReasoningChain(l2Code)
         if (cancelled) return
         setReasoningChain(data)
@@ -426,8 +429,15 @@ export default function KnowledgeGraphPage() {
                     <ReasoningChainVisualization
                       data={reasoningChain}
                       loading={chainLoading}
-                      onSelectEntity={(entity) => setSelectedCaseEntity(entity)}
-                      selectedEntityId={selectedCaseEntity?.id ?? null}
+                      onSelectEntity={(entity) => {
+                        if (entity.type === 'control-point') {
+                          setSelectedControlId(entity.id)
+                          return
+                        }
+                        setSelectedControlId(null)
+                        setSelectedCaseEntity(entity)
+                      }}
+                      selectedEntityId={selectedControlId ?? selectedCaseEntity?.id ?? null}
                       searchQuery={debouncedSearch}
                     />
                   </ErrorBoundary>
@@ -438,8 +448,16 @@ export default function KnowledgeGraphPage() {
                 <CardContent className="p-4">
                   <ErrorBoundary>
                     <KnowledgeGraphDetailPanel
-                      entityType={selectedCaseEntity?.type ?? null}
-                      entityId={selectedCaseEntity?.id ?? null}
+                      entityType={
+                        selectedCaseEntity?.type === 'control-point'
+                          ? null
+                          : selectedCaseEntity?.type ?? null
+                      }
+                      entityId={
+                        selectedCaseEntity?.type === 'control-point'
+                          ? null
+                          : selectedCaseEntity?.id ?? null
+                      }
                       reasoningChain={reasoningChain}
                       loading={chainLoading}
                     />
@@ -536,6 +554,19 @@ export default function KnowledgeGraphPage() {
           )}
         </div>
       </div>
+      {selectedControlId && (
+        <ControlDetailDrawer
+          open={Boolean(selectedControlId)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedControlId(null)
+            }
+          }}
+          controlId={selectedControlId}
+          sourceModule="admin"
+          sourceRecordId={selectedL2Code ?? undefined}
+        />
+      )}
     </div>
   )
 }

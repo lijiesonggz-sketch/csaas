@@ -13,6 +13,17 @@ import {
 } from '@/lib/api/knowledge-graph'
 
 const mockPush = jest.fn()
+const mockDrawer = jest.fn(
+  (props: { open: boolean; controlId: string; sourceModule: string; sourceRecordId?: string }) =>
+    props.open ? (
+      <div
+        data-testid="control-detail-drawer-probe"
+        data-control-id={props.controlId}
+        data-source-module={props.sourceModule}
+        data-source-record-id={props.sourceRecordId}
+      />
+    ) : null,
+)
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -79,6 +90,14 @@ jest.mock('@/lib/api/knowledge-graph', () => ({
   listRegulationSources: jest.fn(),
   getRegulationGraph: jest.fn(),
 }))
+jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
+  ControlDetailDrawer: (props: {
+    open: boolean
+    controlId: string
+    sourceModule: string
+    sourceRecordId?: string
+  }) => mockDrawer(props),
+}))
 
 const mockUseSession = useSession as jest.Mock
 const mockGetTaxonomyTree = getTaxonomyTree as jest.MockedFunction<typeof getTaxonomyTree>
@@ -124,7 +143,7 @@ const mockChain: ReasoningChainData = {
       controlCode: 'CP-001',
       controlName: '战略规划流程',
       maturityLevel: 'hard',
-      authoritativeScore: 95,
+      authoritativeScore: 0.95,
       originType: 'standard',
       failureModeRelevance: 'PRIMARY',
       failureModeId: 'fm-1',
@@ -201,7 +220,7 @@ const mockRegulationGraph: RegulationGraphData = {
       controlCode: 'CP-001',
       controlName: '监管报送复核控制',
       maturityLevel: 'hard',
-      authoritativeScore: 92,
+      authoritativeScore: 0.92,
       originType: 'regulation_derived',
       applicableSector: ['银行'],
       coverage: 'FULL',
@@ -217,6 +236,7 @@ describe('KnowledgeGraphPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     jest.useRealTimers()
+    mockDrawer.mockClear()
     mockUseSession.mockReturnValue({
       data: { user: { id: 'admin-1', role: 'admin' } },
       status: 'authenticated',
@@ -302,6 +322,34 @@ describe('KnowledgeGraphPage', () => {
     expect(screen.getAllByText('战略与业务不一致').length).toBeGreaterThan(1)
     expect(screen.getByText('关联合规义务')).toBeInTheDocument()
     expect(screen.getAllByText('OBL-001').length).toBeGreaterThan(0)
+  })
+
+  it('[P0] 点击控制点卡片时打开共享控制点详情 drawer', async () => {
+    render(<KnowledgeGraphPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /IT01.*战略与治理/ })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /IT01.*战略与治理/ }))
+    fireEvent.click(screen.getByRole('button', { name: /IT战略规划/ }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /控制点 CP-001/ })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /控制点 CP-001/ }))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
+        'data-control-id',
+        'cp-1',
+      ),
+    )
+    expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
+      'data-source-module',
+      'admin',
+    )
   })
 
   it('[P1] 搜索输入经过 300ms debounce 后过滤分类树', async () => {

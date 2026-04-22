@@ -3,9 +3,17 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ControlDetailDrawer } from './ControlDetailDrawer'
 import { getControlExplain } from '@/lib/api/compliance-intelligence'
 
+const mockPush = jest.fn()
+
 jest.mock('@/lib/api/compliance-intelligence', () => ({
   getControlExplain: jest.fn(),
   normalizeControlExplainError: jest.requireActual('@/lib/api/compliance-intelligence').normalizeControlExplainError,
+}))
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: mockPush,
+  }),
 }))
 
 describe('ControlDetailDrawer', () => {
@@ -115,8 +123,11 @@ describe('ControlDetailDrawer', () => {
     ],
     cases: [
       {
+        caseId: 'case-001',
         caseCode: 'CASE-PBOC-2024-001',
         caseTitle: '某银行因报送不准被罚 50 万',
+        relationType: 'VIOLATES',
+        confidenceScore: '0.9100',
       },
     ],
     evidences: [
@@ -156,6 +167,7 @@ describe('ControlDetailDrawer', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    mockPush.mockReset()
     ;(getControlExplain as jest.Mock).mockResolvedValue(baseResponse)
   })
 
@@ -169,7 +181,7 @@ describe('ControlDetailDrawer', () => {
     expect(screen.getByTestId('control-detail-source-badge')).toHaveTextContent('来自雷达')
   })
 
-  it('should render governance summary badges, score and authority checklist', async () => {
+  it('should render governance summary badges, score and authority checklist in an expandable panel', async () => {
     render(<ControlDetailDrawer {...defaultProps} />)
 
     await waitFor(() => {
@@ -178,6 +190,7 @@ describe('ControlDetailDrawer', () => {
 
     expect(screen.getByTestId('control-detail-maturity-badge')).toHaveTextContent('正式硬控制点')
     expect(screen.getByText('83%')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /6 项.*权威度构成维度/ }))
     expect(screen.getByText('有来源依据')).toBeInTheDocument()
     expect(screen.getByText('有案例验证')).toBeInTheDocument()
   })
@@ -199,9 +212,9 @@ describe('ControlDetailDrawer', () => {
       'failure-modes',
       'obligations',
       'reasoning-chain',
+      'cases',
       'applicabilityReason',
       'clauses',
-      'cases',
       'evidences',
       'questions',
       'remediations',
@@ -222,6 +235,10 @@ describe('ControlDetailDrawer', () => {
     expect(screen.getByTestId('control-detail-obligation-cards')).toHaveTextContent('应当建立复核机制')
     expect(screen.getByTestId('control-detail-reasoning-chain')).toBeInTheDocument()
     expect(screen.getByText('CTRL-DG-004')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('control-detail-reasoning-step-cases'))
+    expect(screen.getByTestId('control-detail-reasoning-step-panel-cases')).toHaveTextContent(
+      'CASE-PBOC-2024-001',
+    )
   })
 
   it('should show explicit empty states while keeping populated sections visible', async () => {
@@ -250,6 +267,27 @@ describe('ControlDetailDrawer', () => {
     expect(screen.getByText('当前控制点暂无失效模式映射')).toBeInTheDocument()
     expect(screen.getByText('当前控制点暂无法规义务映射')).toBeInTheDocument()
     expect(screen.getByText('监管报送前后的自动校验与人工复核记录')).toBeInTheDocument()
+  })
+
+  it('should truncate obligation card text to a 100-character summary', async () => {
+    const longObligationText = 'A'.repeat(120)
+    ;(getControlExplain as jest.Mock).mockResolvedValueOnce({
+      ...baseResponse,
+      obligations: [
+        {
+          ...baseResponse.obligations[0],
+          obligationText: longObligationText,
+        },
+      ],
+    })
+
+    render(<ControlDetailDrawer {...defaultProps} />)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('control-detail-obligation-cards')).toBeInTheDocument(),
+    )
+    expect(screen.getByText(`${'A'.repeat(100)}...`)).toBeInTheDocument()
+    expect(screen.queryByText(longObligationText)).not.toBeInTheDocument()
   })
 
   it('should show a loading-only content state while request is pending', () => {
@@ -371,10 +409,199 @@ describe('ControlDetailDrawer', () => {
       expect(screen.getByTestId('control-detail-source-badge')).toHaveTextContent('来自报告')
     })
 
+    rerender(
+      <ControlDetailDrawer
+        {...defaultProps}
+        sourceModule="admin"
+        sourceRecordId="fm-001"
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('control-detail-source-badge')).toHaveTextContent('来自管理端')
+    })
+
     const finalOrder = Array.from(document.body.querySelectorAll('[data-section-key]')).map((node) =>
       node.getAttribute('data-section-key'),
     )
 
     expect(firstOrder).toEqual(finalOrder)
+  })
+
+  it('should call the admin full-context endpoint path when sourceModule is admin', async () => {
+    render(
+      <ControlDetailDrawer
+        {...defaultProps}
+        sourceModule="admin"
+        sourceRecordId="fm-001"
+      />,
+    )
+
+    await waitFor(() => {
+      expect(getControlExplain).toHaveBeenCalledWith({
+        controlId: 'control-001',
+        sourceModule: 'admin',
+      })
+    })
+  })
+
+  it('should render source trace details when opened from a derived compliance case mapping', async () => {
+    render(
+      <ControlDetailDrawer
+        {...defaultProps}
+        sourceModule="admin"
+        sourceRecordId="case-001"
+        sourceTrace={{
+          label: '案例推导路径',
+          detail: 'CASE-001 → FM-REP-001 · 报送口径定义错误 → CTRL-DG-004',
+        }}
+      />,
+    )
+
+    await waitFor(() =>
+      expect(screen.getByTestId('control-detail-source-trace')).toHaveTextContent(
+        'CASE-001 → FM-REP-001 · 报送口径定义错误 → CTRL-DG-004',
+      ),
+    )
+  })
+
+  it('should keep related cards non-interactive outside admin source contexts', async () => {
+    render(<ControlDetailDrawer {...defaultProps} sourceModule="radar" />)
+
+    await waitFor(() =>
+      expect(screen.getByTestId('control-detail-failure-mode-cards')).toBeInTheDocument(),
+    )
+
+    expect(
+      screen
+        .getByTestId('control-detail-failure-mode-cards')
+        .querySelector('button'),
+    ).toBeNull()
+    expect(
+      screen
+        .getByTestId('control-detail-obligation-cards')
+        .querySelector('button'),
+    ).toBeNull()
+    expect(
+      screen
+        .getByTestId('control-detail-section-cases')
+        .querySelector('button'),
+    ).toBeNull()
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('should render related cards as non-interactive when ids are missing even in admin mode', async () => {
+    ;(getControlExplain as jest.Mock).mockResolvedValueOnce({
+      ...baseResponse,
+      failureModes: [
+        {
+          failureModeCode: 'FM-NO-ID-001',
+          name: '缺少 failureModeId',
+          category: 'DEFINITION_ERROR',
+          relevance: 'PRIMARY',
+        },
+      ],
+      obligations: [
+        {
+          obligationCode: 'OBL-NO-ID-001',
+          obligationText: '缺少 obligationId 的义务映射',
+          obligationType: 'MANDATORY',
+          coverage: 'FULL',
+        },
+      ],
+      cases: [
+        {
+          caseCode: 'CASE-NO-ID-001',
+          caseTitle: '缺少 caseId 的案例映射',
+          relationType: 'VIOLATES',
+          confidenceScore: '0.9100',
+        },
+      ],
+    })
+
+    render(
+      <ControlDetailDrawer
+        {...defaultProps}
+        sourceModule="admin"
+        sourceRecordId="fm-001"
+      />,
+    )
+
+    await waitFor(() =>
+      expect(screen.getByTestId('control-detail-failure-mode-cards')).toHaveTextContent(
+        'FM-NO-ID-001',
+      ),
+    )
+
+    expect(
+      screen.getByTestId('control-detail-failure-mode-cards').querySelector('button'),
+    ).toBeNull()
+    expect(
+      screen.getByTestId('control-detail-obligation-cards').querySelector('button'),
+    ).toBeNull()
+    expect(
+      screen.getByTestId('control-detail-section-cases').querySelector('button'),
+    ).toBeNull()
+  })
+
+  it('should encode admin cross-navigation query parameters before routing', async () => {
+    ;(getControlExplain as jest.Mock).mockResolvedValueOnce({
+      ...baseResponse,
+      failureModes: [
+        {
+          failureModeId: 'fm/with?weird=value',
+          failureModeCode: 'FM-ENC-001',
+          name: '异常失效模式',
+          category: 'DEFINITION_ERROR',
+          relevance: 'PRIMARY',
+        },
+      ],
+      obligations: [
+        {
+          ...baseResponse.obligations[0],
+          obligationId: 'obl/with?weird=value',
+        },
+      ],
+      cases: [
+        {
+          caseId: 'case/with?weird=value',
+          caseCode: 'CASE-ENC-001',
+          caseTitle: '特殊案例',
+          relationType: 'VIOLATES',
+          confidenceScore: '0.9100',
+        },
+      ],
+    })
+
+    render(
+      <ControlDetailDrawer
+        {...defaultProps}
+        sourceModule="admin"
+        sourceRecordId="fm-001"
+      />,
+    )
+
+    await waitFor(() =>
+      expect(screen.getByTestId('control-detail-failure-mode-cards')).toHaveTextContent(
+        'FM-ENC-001',
+      ),
+    )
+
+    fireEvent.click(screen.getByText('FM-ENC-001'))
+    fireEvent.click(screen.getByText('OBL-001'))
+    fireEvent.click(screen.getByText('CASE-ENC-001'))
+
+    expect(mockPush).toHaveBeenNthCalledWith(
+      1,
+      '/admin/failure-modes?failureModeId=fm%2Fwith%3Fweird%3Dvalue',
+    )
+    expect(mockPush).toHaveBeenNthCalledWith(
+      2,
+      '/admin/obligations?obligationId=obl%2Fwith%3Fweird%3Dvalue',
+    )
+    expect(mockPush).toHaveBeenNthCalledWith(
+      3,
+      '/admin/compliance-cases?caseId=case%2Fwith%3Fweird%3Dvalue',
+    )
   })
 })

@@ -1,6 +1,7 @@
 'use client'
 
 import { Fragment, type ReactNode, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import {
   AlertCircle,
@@ -41,16 +42,24 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import {
+  formatAuthoritativeScorePercent,
+  toAuthoritativeScorePercent,
+} from '@/lib/utils/authoritative-score'
 
 type ControlDetailDrawerProps = ControlDetailContext & {
   open: boolean
   onOpenChange: (open: boolean) => void
+  sourceTrace?: {
+    label: string
+    detail: string
+  } | null
 }
 
 type RequestState = 'idle' | 'loading' | 'success' | 'error'
 
 type DetailSectionConfig = {
-  key: 'applicabilityReason' | 'clauses' | 'cases' | 'evidences' | 'questions' | 'remediations'
+  key: 'applicabilityReason' | 'clauses' | 'evidences' | 'questions' | 'remediations'
   title: string
   emptyMessage: string
   icon: typeof HelpCircle
@@ -62,6 +71,7 @@ type OverviewSectionKey =
   | 'failure-modes'
   | 'obligations'
   | 'reasoning-chain'
+  | 'cases'
 
 type AuthorityChecklistItem = {
   key:
@@ -72,6 +82,16 @@ type AuthorityChecklistItem = {
     | 'has_human_review'
     | 'has_case_validation'
   label: string
+}
+
+type ReasoningStep = {
+  key: string
+  label: string
+  summary: string
+  caption: string
+  count: number
+  details: string[]
+  highlighted?: boolean
 }
 
 const SECTION_CONFIG: DetailSectionConfig[] = [
@@ -86,12 +106,6 @@ const SECTION_CONFIG: DetailSectionConfig[] = [
     title: '法规条款',
     emptyMessage: '暂无法规条款',
     icon: FileText,
-  },
-  {
-    key: 'cases',
-    title: '处罚案例',
-    emptyMessage: '暂无处罚案例',
-    icon: Gavel,
   },
   {
     key: 'evidences',
@@ -114,6 +128,7 @@ const SECTION_CONFIG: DetailSectionConfig[] = [
 ]
 
 const SOURCE_BADGE_LABEL: Record<ControlDetailContext['sourceModule'], string> = {
+  admin: '来自管理端',
   audit: '来自审核台',
   radar: '来自雷达',
   report: '来自报告',
@@ -125,6 +140,14 @@ const ORIGIN_TYPE_LABEL: Record<string, string> = {
   both: '双轨覆盖',
   candidate: '待治理',
   manual: '人工创建',
+}
+
+const ORIGIN_TYPE_META: Record<string, string> = {
+  case_derived: 'border-none bg-sky-100 text-sky-700 hover:bg-sky-100',
+  regulation_derived: 'border-none bg-violet-100 text-violet-700 hover:bg-violet-100',
+  both: 'border-none bg-emerald-100 text-emerald-700 hover:bg-emerald-100',
+  candidate: 'border-none bg-slate-100 text-slate-600 hover:bg-slate-100',
+  manual: 'border-none bg-orange-100 text-orange-700 hover:bg-orange-100',
 }
 
 const MATURITY_META: Record<string, { label: string; className: string }> = {
@@ -154,6 +177,22 @@ const AUTHORITY_ITEMS: AuthorityChecklistItem[] = [
   { key: 'has_human_review', label: '有人审确认' },
   { key: 'has_case_validation', label: '有案例验证' },
 ]
+
+function truncateText(text: string | null | undefined, maxLength: number) {
+  if (!text) {
+    return ''
+  }
+
+  if (text.length <= maxLength) {
+    return text
+  }
+
+  return `${text.slice(0, maxLength)}...`
+}
+
+function buildAdminTarget(pathname: string, entityKey: string, entityId: string) {
+  return `${pathname}?${entityKey}=${encodeURIComponent(entityId)}`
+}
 
 function SectionShell({
   sectionKey,
@@ -194,7 +233,7 @@ function EmptySection({ message }: { message: string }) {
 function GovernanceSummarySection({ detail }: { detail: ControlExplainResponse }) {
   const governance = detail.governance
   const score = governance?.authoritativeScore ?? null
-  const scorePercent = score == null ? null : Math.round(score * 100)
+  const scorePercent = toAuthoritativeScorePercent(score)
   const authorityProfile = governance?.authorityProfile
 
   return (
@@ -202,7 +241,10 @@ function GovernanceSummarySection({ detail }: { detail: ControlExplainResponse }
       <div className="space-y-4" data-testid="control-detail-governance-summary">
         <div className="flex flex-wrap items-center gap-2">
           {governance?.originType && (
-            <Badge variant="info" className="border-none">
+            <Badge
+              variant="outline"
+              className={ORIGIN_TYPE_META[governance.originType] ?? 'border-none bg-slate-100 text-slate-600'}
+            >
               {ORIGIN_TYPE_LABEL[governance.originType] ?? governance.originType}
             </Badge>
           )}
@@ -238,7 +280,7 @@ function GovernanceSummarySection({ detail }: { detail: ControlExplainResponse }
             </div>
             <div className="text-right">
               <p className="text-2xl font-semibold text-slate-950">
-                {scorePercent == null ? '--' : `${scorePercent}%`}
+                {formatAuthoritativeScorePercent(score)}
               </p>
             </div>
           </div>
@@ -256,32 +298,48 @@ function GovernanceSummarySection({ detail }: { detail: ControlExplainResponse }
           </div>
         </div>
 
-        <div
-          className="grid gap-2 sm:grid-cols-2"
+        <Accordion
+          type="single"
+          collapsible
+          className="rounded-2xl border border-slate-200 bg-slate-50 px-4"
           data-testid="control-detail-authority-profile"
         >
-          {AUTHORITY_ITEMS.map((item) => {
-            const checked = authorityProfile?.[item.key] === true
-            return (
-              <div
-                key={item.key}
-                className={cn(
-                  'flex items-center gap-2 rounded-xl border px-3 py-2 text-sm',
-                  checked
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                    : 'border-slate-200 bg-slate-50 text-slate-500',
-                )}
-              >
-                {checked ? (
-                  <CheckCircle2 className="h-4 w-4" />
-                ) : (
-                  <Circle className="h-4 w-4" />
-                )}
-                <span>{item.label}</span>
+          <AccordionItem value="authority-profile">
+            <AccordionTrigger className="text-sm text-slate-900">
+              <span className="flex items-center gap-2">
+                <Badge variant="outline" className="border-slate-200 bg-white text-slate-600">
+                  6 项
+                </Badge>
+                <span>权威度构成维度</span>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {AUTHORITY_ITEMS.map((item) => {
+                  const checked = authorityProfile?.[item.key] === true
+                  return (
+                    <div
+                      key={item.key}
+                      className={cn(
+                        'flex items-center gap-2 rounded-xl border px-3 py-2 text-sm',
+                        checked
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-500',
+                      )}
+                    >
+                      {checked ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : (
+                        <Circle className="h-4 w-4" />
+                      )}
+                      <span>{item.label}</span>
+                    </div>
+                  )
+                })}
               </div>
-            )
-          })}
-        </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </div>
     </SectionShell>
   )
@@ -339,7 +397,13 @@ function SectorRequirementsSection({ detail }: { detail: ControlExplainResponse 
   )
 }
 
-function FailureModeSection({ detail }: { detail: ControlExplainResponse }) {
+function FailureModeSection({
+  detail,
+  onOpenFailureMode,
+}: {
+  detail: ControlExplainResponse
+  onOpenFailureMode?: (failureModeId: string) => void
+}) {
   const failureModes = detail.failureModes ?? []
 
   return (
@@ -352,6 +416,7 @@ function FailureModeSection({ detail }: { detail: ControlExplainResponse }) {
             <FailureModeCard
               key={item.failureModeId ?? `${item.failureModeCode ?? 'failure-mode'}-${index}`}
               item={item}
+              onOpenFailureMode={onOpenFailureMode}
             />
           ))}
         </ul>
@@ -360,31 +425,69 @@ function FailureModeSection({ detail }: { detail: ControlExplainResponse }) {
   )
 }
 
-function FailureModeCard({ item }: { item: ControlExplainFailureMode }) {
+function FailureModeCard({
+  item,
+  onOpenFailureMode,
+}: {
+  item: ControlExplainFailureMode
+  onOpenFailureMode?: (failureModeId: string) => void
+}) {
+  const isInteractive = Boolean(item.failureModeId && onOpenFailureMode)
+  const cardClassName =
+    'w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-left transition'
+
   return (
-    <li className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        {item.failureModeCode && <Badge variant="outline">{item.failureModeCode}</Badge>}
-        {item.category && (
-          <Badge className="border-none bg-amber-100 text-amber-800 hover:bg-amber-100">
-            {item.category}
-          </Badge>
-        )}
-        {item.relevance && (
-          <Badge className="border-none bg-sky-100 text-sky-700 hover:bg-sky-100">
-            {item.relevance}
-          </Badge>
-        )}
-      </div>
-      <p className="text-sm font-medium text-slate-900">{item.name || '未命名失效模式'}</p>
-      <p className="mt-2 text-xs text-slate-500">
-        详情页将在 Failure Mode 管理面中提供，当前仅展示映射摘要。
-      </p>
+    <li>
+      {isInteractive ? (
+        <button
+          type="button"
+          className={`${cardClassName} hover:border-slate-300`}
+          onClick={() => onOpenFailureMode?.(item.failureModeId!)}
+        >
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            {item.failureModeCode && <Badge variant="outline">{item.failureModeCode}</Badge>}
+            {item.category && (
+              <Badge className="border-none bg-amber-100 text-amber-800 hover:bg-amber-100">
+                {item.category}
+              </Badge>
+            )}
+            {item.relevance && (
+              <Badge className="border-none bg-sky-100 text-sky-700 hover:bg-sky-100">
+                {item.relevance}
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm font-medium text-slate-900">{item.name || '未命名失效模式'}</p>
+        </button>
+      ) : (
+        <div className={cardClassName}>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            {item.failureModeCode && <Badge variant="outline">{item.failureModeCode}</Badge>}
+            {item.category && (
+              <Badge className="border-none bg-amber-100 text-amber-800 hover:bg-amber-100">
+                {item.category}
+              </Badge>
+            )}
+            {item.relevance && (
+              <Badge className="border-none bg-sky-100 text-sky-700 hover:bg-sky-100">
+                {item.relevance}
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm font-medium text-slate-900">{item.name || '未命名失效模式'}</p>
+        </div>
+      )}
     </li>
   )
 }
 
-function ObligationSection({ detail }: { detail: ControlExplainResponse }) {
+function ObligationSection({
+  detail,
+  onOpenObligation,
+}: {
+  detail: ControlExplainResponse
+  onOpenObligation?: (obligationId: string) => void
+}) {
   const obligations = detail.obligations ?? []
 
   return (
@@ -397,6 +500,7 @@ function ObligationSection({ detail }: { detail: ControlExplainResponse }) {
             <ObligationCard
               key={item.obligationId ?? `${item.obligationCode ?? 'obligation'}-${index}`}
               item={item}
+              onOpenObligation={onOpenObligation}
             />
           ))}
         </ul>
@@ -405,41 +509,150 @@ function ObligationSection({ detail }: { detail: ControlExplainResponse }) {
   )
 }
 
-function ObligationCard({ item }: { item: ControlExplainObligation }) {
+function ObligationCard({
+  item,
+  onOpenObligation,
+}: {
+  item: ControlExplainObligation
+  onOpenObligation?: (obligationId: string) => void
+}) {
+  const isInteractive = Boolean(item.obligationId && onOpenObligation)
+  const cardClassName =
+    'w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-left transition'
+
   return (
-    <li className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-      <div className="mb-2 flex flex-wrap items-center gap-2">
-        {item.obligationCode && <Badge variant="outline">{item.obligationCode}</Badge>}
-        {item.obligationType && (
-          <Badge className="border-none bg-violet-100 text-violet-700 hover:bg-violet-100">
-            {item.obligationType}
-          </Badge>
-        )}
-        {item.coverage && (
-          <Badge className="border-none bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-            {item.coverage}
-          </Badge>
-        )}
-      </div>
-      <p className="text-sm font-medium leading-6 text-slate-900">
-        {item.obligationText || '未提供义务文本'}
-      </p>
-      {item.clause?.clauseCode && (
-        <p className="mt-2 text-xs text-slate-500">
-          条文：{item.clause.clauseCode}
-          {item.clause.articleNo ? ` · ${item.clause.articleNo}` : ''}
-        </p>
+    <li>
+      {isInteractive ? (
+        <button
+          type="button"
+          className={`${cardClassName} hover:border-slate-300`}
+          onClick={() => onOpenObligation?.(item.obligationId!)}
+        >
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            {item.obligationCode && <Badge variant="outline">{item.obligationCode}</Badge>}
+            {item.obligationType && (
+              <Badge className="border-none bg-violet-100 text-violet-700 hover:bg-violet-100">
+                {item.obligationType}
+              </Badge>
+            )}
+            {item.coverage && (
+              <Badge className="border-none bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                {item.coverage}
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm font-medium leading-6 text-slate-900">
+            {truncateText(item.obligationText, 100) || '未提供义务文本'}
+          </p>
+          {item.clause?.clauseCode && (
+            <p className="mt-2 text-xs text-slate-500">
+              条文：{item.clause.clauseCode}
+              {item.clause.articleNo ? ` · ${item.clause.articleNo}` : ''}
+            </p>
+          )}
+        </button>
+      ) : (
+        <div className={cardClassName}>
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            {item.obligationCode && <Badge variant="outline">{item.obligationCode}</Badge>}
+            {item.obligationType && (
+              <Badge className="border-none bg-violet-100 text-violet-700 hover:bg-violet-100">
+                {item.obligationType}
+              </Badge>
+            )}
+            {item.coverage && (
+              <Badge className="border-none bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+                {item.coverage}
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm font-medium leading-6 text-slate-900">
+            {truncateText(item.obligationText, 100) || '未提供义务文本'}
+          </p>
+          {item.clause?.clauseCode && (
+            <p className="mt-2 text-xs text-slate-500">
+              条文：{item.clause.clauseCode}
+              {item.clause.articleNo ? ` · ${item.clause.articleNo}` : ''}
+            </p>
+          )}
+        </div>
       )}
-      <p className="mt-2 text-xs text-slate-500">
-        详情页将在 Obligation 管理面中提供，当前仅展示映射摘要。
-      </p>
     </li>
+  )
+}
+
+function CasesSection({
+  detail,
+  onOpenCase,
+}: {
+  detail: ControlExplainResponse
+  onOpenCase?: (caseId: string) => void
+}) {
+  const cases = detail.cases ?? []
+
+  return (
+    <SectionShell sectionKey="cases" title="处罚案例" icon={Gavel}>
+      {cases.length === 0 ? (
+        <EmptySection message="暂无处罚案例" />
+      ) : (
+        <ul className="space-y-3">
+          {cases.map((item, index) => (
+            <li key={`${item.caseId ?? item.caseCode ?? 'case'}-${index}`}>
+              {item.caseId && onOpenCase ? (
+                <button
+                  type="button"
+                  className="w-full rounded-xl bg-slate-50 p-3 text-left transition hover:bg-slate-100"
+                  onClick={() => onOpenCase(item.caseId!)}
+                >
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    {item.caseCode && <Badge variant="outline">{item.caseCode}</Badge>}
+                    {item.relationType && (
+                      <Badge className="border-none bg-rose-100 text-rose-700 hover:bg-rose-100">
+                        {item.relationType}
+                      </Badge>
+                    )}
+                    {item.confidenceScore && (
+                      <Badge className="border-none bg-sky-100 text-sky-700 hover:bg-sky-100">
+                        confidence {item.confidenceScore}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm leading-6 text-slate-700">
+                    {item.caseTitle || '未提供案例标题'}
+                  </p>
+                </button>
+              ) : (
+                <div className="w-full rounded-xl bg-slate-50 p-3 text-left">
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    {item.caseCode && <Badge variant="outline">{item.caseCode}</Badge>}
+                    {item.relationType && (
+                      <Badge className="border-none bg-rose-100 text-rose-700 hover:bg-rose-100">
+                        {item.relationType}
+                      </Badge>
+                    )}
+                    {item.confidenceScore && (
+                      <Badge className="border-none bg-sky-100 text-sky-700 hover:bg-sky-100">
+                        confidence {item.confidenceScore}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm leading-6 text-slate-700">
+                    {item.caseTitle || '未提供案例标题'}
+                  </p>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </SectionShell>
   )
 }
 
 function ReasoningChainSection({ detail }: { detail: ControlExplainResponse }) {
   const chain = detail.reasoningChain
   const steps = buildReasoningSteps(chain)
+  const [expandedStepKey, setExpandedStepKey] = useState<string | null>(null)
 
   return (
     <SectionShell sectionKey="reasoning-chain" title="推理链路" icon={GitBranch}>
@@ -452,19 +665,53 @@ function ReasoningChainSection({ detail }: { detail: ControlExplainResponse }) {
         >
           {steps.map((step, index) => (
             <Fragment key={step.key}>
-              <div
-                className={cn(
-                  'rounded-xl border p-3',
-                  step.highlighted
-                    ? 'border-sky-300 bg-sky-50'
-                    : 'border-slate-200 bg-slate-50',
-                )}
-                data-testid={`control-detail-reasoning-step-${step.key}`}
-              >
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{step.label}</p>
-                <p className="mt-2 text-sm font-medium text-slate-900">{step.summary}</p>
-                {step.caption && (
-                  <p className="mt-1 text-xs leading-5 text-slate-500">{step.caption}</p>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  className={cn(
+                    'w-full rounded-xl border p-3 text-left transition hover:border-slate-300',
+                    step.highlighted
+                      ? 'border-sky-300 bg-sky-50'
+                      : 'border-slate-200 bg-slate-50',
+                  )}
+                  data-testid={`control-detail-reasoning-step-${step.key}`}
+                  onClick={() =>
+                    setExpandedStepKey((current) => (current === step.key ? null : step.key))
+                  }
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+                      {step.label}
+                    </p>
+                    <Badge
+                      variant="outline"
+                      className="border-slate-200 bg-white text-slate-600"
+                    >
+                      {step.count}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-sm font-medium text-slate-900">{step.summary}</p>
+                  {step.caption && (
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{step.caption}</p>
+                  )}
+                </button>
+                {expandedStepKey === step.key && (
+                  <div
+                    className="rounded-xl border border-slate-200 bg-white p-3"
+                    data-testid={`control-detail-reasoning-step-panel-${step.key}`}
+                  >
+                    {step.details.length > 0 ? (
+                      <ul className="space-y-2 text-sm text-slate-700">
+                        {step.details.map((item) => (
+                          <li key={`${step.key}-${item}`} className="rounded-lg bg-slate-50 px-3 py-2">
+                            {item}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-slate-500">暂无可展开的详情</p>
+                    )}
+                  </div>
                 )}
               </div>
               {index < steps.length - 1 && (
@@ -480,10 +727,37 @@ function ReasoningChainSection({ detail }: { detail: ControlExplainResponse }) {
   )
 }
 
-function buildReasoningSteps(chain?: ControlExplainReasoningChain | null) {
+function buildReasoningSteps(chain?: ControlExplainReasoningChain | null): ReasoningStep[] {
   if (!chain?.selectedControl) {
     return []
   }
+
+  const caseDetails =
+    chain.cases?.map(
+      (item) => `${item.caseCode ?? '未编码案例'} · ${item.caseTitle ?? '未提供案例标题'}`,
+    ) ?? []
+  const taxonomyDetails = [
+    `${chain.l2?.code ?? '未提供 IT 分类'} · ${chain.l2?.name ?? '暂无分类名称'}`,
+  ]
+  const failureModeDetails =
+    chain.failureModes?.map(
+      (item) =>
+        `${item.failureModeCode ?? '未编码失效模式'} · ${item.name ?? '未提供失效模式名称'}${
+          item.relevance ? ` · ${item.relevance}` : ''
+        }`,
+    ) ?? []
+  const controlDetails = [
+    `${chain.selectedControl.controlCode ?? '当前控制点'} · ${
+      chain.selectedControl.controlName ?? '未提供控制点名称'
+    }`,
+  ]
+  const evidenceDetails =
+    chain.evidenceTypes?.map(
+      (item) =>
+        `${item.evidenceCode ?? '未编码证据'} · ${item.evidenceName ?? '未提供证据名称'}${
+          item.requiredLevel ? ` · ${item.requiredLevel}` : ''
+        }`,
+    ) ?? []
 
   return [
     {
@@ -491,12 +765,16 @@ function buildReasoningSteps(chain?: ControlExplainReasoningChain | null) {
       label: '案例',
       summary: chain.cases?.length ? `${chain.cases.length} 个关联案例` : '暂无关联案例',
       caption: chain.cases?.[0]?.caseTitle ?? chain.cases?.[0]?.caseCode ?? '可继续补齐案例链路',
+      count: chain.cases?.length ?? 0,
+      details: caseDetails,
     },
     {
       key: 'taxonomy',
       label: 'IT分类',
       summary: chain.l2?.code ?? '未提供 IT 分类',
       caption: chain.l2?.name ?? '暂无分类名称',
+      count: chain.l2?.code || chain.l2?.name ? 1 : 0,
+      details: taxonomyDetails,
     },
     {
       key: 'failure-modes',
@@ -507,12 +785,16 @@ function buildReasoningSteps(chain?: ControlExplainReasoningChain | null) {
       caption:
         chain.failureModes?.map((item) => item.failureModeCode).filter(Boolean).join('、') ||
         '可继续补齐 failure mode 链路',
+      count: chain.failureModes?.length ?? 0,
+      details: failureModeDetails,
     },
     {
       key: 'control',
       label: '控制点',
       summary: chain.selectedControl.controlCode ?? '当前控制点',
       caption: chain.selectedControl.controlName ?? '未提供控制点名称',
+      count: 1,
+      details: controlDetails,
       highlighted: true,
     },
     {
@@ -524,6 +806,8 @@ function buildReasoningSteps(chain?: ControlExplainReasoningChain | null) {
       caption:
         chain.evidenceTypes?.map((item) => item.evidenceCode).filter(Boolean).join('、') ||
         '可继续补齐证据链路',
+      count: chain.evidenceTypes?.length ?? 0,
+      details: evidenceDetails,
     },
   ]
 }
@@ -564,21 +848,6 @@ function renderSectionBody(section: DetailSectionConfig, data?: ControlExplainRe
                 {clause.articleNo && <span className="text-xs text-slate-500">{clause.articleNo}</span>}
               </div>
               <p className="text-sm leading-6 text-slate-700">{clause.clauseText || '未提供条款正文'}</p>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <EmptySection message={section.emptyMessage} />
-      )
-    case 'cases':
-      return data.cases.length > 0 ? (
-        <ul className="space-y-3">
-          {data.cases.map((item, index) => (
-            <li key={`${item.caseCode || 'case'}-${index}`} className="rounded-xl bg-slate-50 p-3">
-              <div className="mb-1 flex flex-wrap items-center gap-2">
-                {item.caseCode && <Badge variant="outline">{item.caseCode}</Badge>}
-              </div>
-              <p className="text-sm leading-6 text-slate-700">{item.caseTitle || '未提供案例标题'}</p>
             </li>
           ))}
         </ul>
@@ -706,11 +975,14 @@ export function ControlDetailDrawer({
   controlId,
   sourceModule,
   sourceRecordId,
+  sourceTrace,
 }: ControlDetailDrawerProps) {
+  const router = useRouter()
   const [requestState, setRequestState] = useState<RequestState>('idle')
   const [detail, setDetail] = useState<ControlExplainResponse | null>(null)
   const [error, setError] = useState<ControlExplainErrorState | null>(null)
   const [retryToken, setRetryToken] = useState(0)
+  const allowAdminNavigation = sourceModule === 'admin'
 
   useEffect(() => {
     if (!open) {
@@ -723,7 +995,12 @@ export function ControlDetailDrawer({
     setDetail(null)
     setError(null)
 
-    getControlExplain({ organizationId, controlId })
+    const request =
+      sourceModule === 'admin'
+        ? getControlExplain({ controlId, sourceModule })
+        : getControlExplain({ organizationId: organizationId!, controlId, sourceModule })
+
+    request
       .then((response) => {
         if (cancelled) {
           return
@@ -745,7 +1022,7 @@ export function ControlDetailDrawer({
     return () => {
       cancelled = true
     }
-  }, [open, organizationId, controlId, retryToken])
+  }, [open, organizationId, controlId, retryToken, sourceModule])
 
   const sourceBadge = SOURCE_BADGE_LABEL[sourceModule]
   const secondaryMeta = detail
@@ -770,11 +1047,15 @@ export function ControlDetailDrawer({
           )}
         >
           <div className="border-b border-slate-200 bg-slate-50 px-6 py-5 text-left">
-            <DialogPrimitive.Close
-              className="absolute right-4 top-4 rounded-full p-2 text-slate-500 transition hover:bg-white hover:text-slate-900"
-              aria-label="关闭控制点详情"
-            >
-              <X className="h-4 w-4" />
+            <DialogPrimitive.Close asChild>
+              <button
+                type="button"
+                className="absolute right-4 top-4 rounded-full p-2 text-slate-500 transition hover:bg-white hover:text-slate-900"
+                aria-label="关闭控制点详情"
+                onClick={() => onOpenChange(false)}
+              >
+                <X className="h-4 w-4" />
+              </button>
             </DialogPrimitive.Close>
 
             <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -787,7 +1068,10 @@ export function ControlDetailDrawer({
               </Badge>
               {detail?.governance?.originType && (
                 <Badge
-                  className="border-none bg-indigo-100 text-indigo-700 hover:bg-indigo-100"
+                  className={
+                    ORIGIN_TYPE_META[detail.governance.originType] ??
+                    'border-none bg-slate-100 text-slate-600 hover:bg-slate-100'
+                  }
                   data-testid="control-detail-origin-badge"
                 >
                   {ORIGIN_TYPE_LABEL[detail.governance.originType] ?? detail.governance.originType}
@@ -820,6 +1104,15 @@ export function ControlDetailDrawer({
             <DialogDescription className="mt-1 text-sm text-slate-500">
               {secondaryMeta}
             </DialogDescription>
+            {sourceTrace?.detail && (
+              <div
+                data-testid="control-detail-source-trace"
+                className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm"
+              >
+                <p className="text-xs font-medium text-sky-700">{sourceTrace.label}</p>
+                <p className="mt-1 leading-6 text-slate-700">{sourceTrace.detail}</p>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto bg-slate-100 px-6 py-5">
@@ -836,9 +1129,48 @@ export function ControlDetailDrawer({
               <div className="space-y-4">
                 <GovernanceSummarySection detail={detail} />
                 <SectorRequirementsSection detail={detail} />
-                <FailureModeSection detail={detail} />
-                <ObligationSection detail={detail} />
+                <FailureModeSection
+                  detail={detail}
+                  onOpenFailureMode={
+                    allowAdminNavigation
+                      ? (failureModeId) =>
+                          router.push(
+                            buildAdminTarget(
+                              '/admin/failure-modes',
+                              'failureModeId',
+                              failureModeId,
+                            ),
+                          )
+                      : undefined
+                  }
+                />
+                <ObligationSection
+                  detail={detail}
+                  onOpenObligation={
+                    allowAdminNavigation
+                      ? (obligationId) =>
+                          router.push(
+                            buildAdminTarget(
+                              '/admin/obligations',
+                              'obligationId',
+                              obligationId,
+                            ),
+                          )
+                      : undefined
+                  }
+                />
                 <ReasoningChainSection detail={detail} />
+                <CasesSection
+                  detail={detail}
+                  onOpenCase={
+                    allowAdminNavigation
+                      ? (caseId) =>
+                          router.push(
+                            buildAdminTarget('/admin/compliance-cases', 'caseId', caseId),
+                          )
+                      : undefined
+                  }
+                />
                 {SECTION_CONFIG.map((section) => (
                   <SectionCard key={section.key} section={section} data={detail} />
                 ))}

@@ -19,8 +19,18 @@ describe('compliance-intelligence API client', () => {
       buildControlExplainPath({
         controlId: 'control-123',
         organizationId: 'org-456',
+        sourceModule: 'radar',
       }),
     ).toBe('/compliance-intelligence/control-explain/control-123?organizationId=org-456')
+  })
+
+  it('should build the admin full-context path without organizationId', () => {
+    expect(
+      buildControlExplainPath({
+        controlId: 'control-123',
+        sourceModule: 'admin',
+      }),
+    ).toBe('/api/admin/knowledge-graph/control-points/control-123/full-context')
   })
 
   it('should call apiFetch with the control-explain path', async () => {
@@ -85,6 +95,7 @@ describe('compliance-intelligence API client', () => {
     const result = await getControlExplain({
       controlId: 'control-123',
       organizationId: 'org-456',
+      sourceModule: 'radar',
     })
 
     expect(apiFetch).toHaveBeenCalledWith(
@@ -185,6 +196,7 @@ describe('compliance-intelligence API client', () => {
       getControlExplain({
         controlId: '',
         organizationId: 'org-456',
+        sourceModule: 'radar',
       }),
     ).rejects.toThrow('controlId and organizationId are required for control detail drawer')
 

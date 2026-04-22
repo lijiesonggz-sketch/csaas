@@ -81,7 +81,7 @@ describe('knowledge-graph API client', () => {
             controlCode: 'CP-IT01-001',
             controlName: 'IT战略规划流程',
             maturityLevel: 'hard',
-            authoritativeScore: 95,
+            authoritativeScore: 0.95,
             originType: 'standard',
             failureModeRelevance: 'PRIMARY' as const,
             failureModeId: 'fm-1',

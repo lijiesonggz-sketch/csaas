@@ -20,7 +20,7 @@ const mockTaxonomyService = {
       { failureModeId: 'fm-1', failureModeCode: 'FM-IT01-001', name: 'IT战略与业务战略不一致', category: 'DEFINITION_ERROR', controlPointCount: 3 },
     ],
     controlPoints: [
-      { controlId: 'cp-1', controlCode: 'CP-IT01-001', controlName: 'IT战略规划流程', maturityLevel: 'hard', authoritativeScore: 95, originType: 'both', failureModeRelevance: 'PRIMARY', failureModeId: 'fm-1' },
+      { controlId: 'cp-1', controlCode: 'CP-IT01-001', controlName: 'IT战略规划流程', maturityLevel: 'hard', authoritativeScore: 0.95, originType: 'both', failureModeRelevance: 'PRIMARY', failureModeId: 'fm-1' },
     ],
     obligations: [
       { obligationId: 'ob-1', obligationCode: 'OBL-IT01-001', obligationText: '应当建立IT战略规划流程', obligationType: 'MANDATORY', controlId: 'cp-1', coverage: 'FULL' },
@@ -73,7 +73,7 @@ const mockRegulationService = {
         controlCode: 'CP-001',
         controlName: '监管报送复核控制',
         maturityLevel: 'hard',
-        authoritativeScore: 92,
+        authoritativeScore: 0.92,
         originType: 'regulation_derived',
         applicableSector: ['银行'],
         coverage: 'FULL',

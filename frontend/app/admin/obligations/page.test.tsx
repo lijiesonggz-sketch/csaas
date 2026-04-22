@@ -7,12 +7,25 @@ import * as complianceCasesApi from '@/lib/api/compliance-cases'
 
 const mockPush = jest.fn()
 let mockObligationIdParam: string | null = null
+const mockDrawer = jest.fn((props: { open: boolean; controlId: string; sourceModule: string }) =>
+  props.open ? (
+    <div
+      data-testid="control-detail-drawer-probe"
+      data-control-id={props.controlId}
+      data-source-module={props.sourceModule}
+    />
+  ) : null,
+)
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
   useSearchParams: () => ({
     get: (key: string) => (key === 'obligationId' ? mockObligationIdParam : null),
   }),
+}))
+jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
+  ControlDetailDrawer: (props: { open: boolean; controlId: string; sourceModule: string }) =>
+    mockDrawer(props),
 }))
 jest.mock('next-auth/react', () => ({
   useSession: jest.fn(() => ({
@@ -229,6 +242,7 @@ describe('ObligationAdminPage', () => {
       expect(screen.getAllByText('OBL-IT04-4.1-01').length).toBeGreaterThan(0)
       expect(screen.getByDisplayValue('应当建立监管报送复核机制')).toBeInTheDocument()
     })
+    expect(screen.getByText(/score 92%/)).toBeInTheDocument()
   })
 
   it('opens create dialog, searches clauses, and creates an obligation with suggested code', async () => {
@@ -416,6 +430,54 @@ describe('ObligationAdminPage', () => {
     expect(screen.getByText('OBL-LIST-001')).toBeInTheDocument()
   })
 
+  it('consumes the deep link only once and does not snap back after switching obligations', async () => {
+    mockObligationIdParam = 'obl-deep-link'
+    mockListObligations.mockResolvedValue({
+      items: [
+        {
+          obligationId: 'obl-list-only',
+          obligationCode: 'OBL-LIST-001',
+          obligationText: '列表页默认第一项',
+          obligationType: 'MANDATORY',
+          applicableSector: ['银行'],
+          status: 'ACTIVE',
+          createdAt: '',
+          updatedAt: '',
+        },
+        {
+          obligationId: 'obl-deep-link',
+          obligationCode: 'OBL-DEEP-001',
+          obligationText: '深链命中项',
+          obligationType: 'MANDATORY',
+          applicableSector: ['银行'],
+          status: 'ACTIVE',
+          createdAt: '',
+          updatedAt: '',
+        },
+      ],
+      total: 2,
+      page: 1,
+      limit: 20,
+    })
+    mockGetObligation.mockImplementation(async (obligationId: string) => ({
+      ...detail,
+      obligationId,
+      obligationCode: obligationId === 'obl-deep-link' ? 'OBL-DEEP-001' : 'OBL-LIST-001',
+      obligationText: obligationId === 'obl-deep-link' ? '深链命中项' : '列表页默认第一项',
+    }))
+
+    render(<ObligationAdminPage />)
+
+    await waitFor(() => expect(screen.getByDisplayValue('深链命中项')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: /OBL-LIST-001.*列表页默认第一项/ }))
+    await waitFor(() => expect(screen.getByDisplayValue('列表页默认第一项')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: '刷新' }))
+
+    await waitFor(() => expect(screen.getByDisplayValue('列表页默认第一项')).toBeInTheDocument())
+    expect(mockGetObligation).toHaveBeenLastCalledWith('obl-list-only')
+  })
+
   it('handles deep-link with obligationId that returns 404 gracefully', async () => {
     mockObligationIdParam = 'obl-nonexistent'
     mockListObligations.mockResolvedValue({
@@ -443,5 +505,23 @@ describe('ObligationAdminPage', () => {
       expect(mockGetObligation).toHaveBeenCalledWith('obl-nonexistent'),
     )
     expect(screen.getByText('OBL-LIST-001')).toBeInTheDocument()
+  })
+
+  it('opens the shared control detail drawer from an obligation control map row', async () => {
+    render(<ObligationAdminPage />)
+
+    await waitFor(() => expect(screen.getByText('控制点映射')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'CTRL-REP-001 · 监管报送复核控制' }))
+
+    await waitFor(() =>
+      expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
+        'data-control-id',
+        'cp-1',
+      ),
+    )
+    expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
+      'data-source-module',
+      'admin',
+    )
   })
 })
