@@ -3,6 +3,16 @@ import '@testing-library/jest-dom'
 import ComplianceCasesAdminPage from './page'
 import * as complianceCasesApi from '@/lib/api/compliance-cases'
 
+const mockPush = jest.fn()
+const mockUseSession = jest.fn(() => ({
+  data: {
+    user: {
+      id: 'user-1',
+      role: 'admin',
+    },
+  },
+  status: 'authenticated',
+}))
 let mockCaseIdParam: string | null = null
 const mockDrawer = jest.fn((props: {
   open: boolean
@@ -22,7 +32,7 @@ const mockDrawer = jest.fn((props: {
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
-    push: jest.fn(),
+    push: mockPush,
   }),
   useSearchParams: () => ({
     get: (key: string) => (key === 'caseId' ? mockCaseIdParam : null),
@@ -30,15 +40,7 @@ jest.mock('next/navigation', () => ({
 }))
 
 jest.mock('next-auth/react', () => ({
-  useSession: jest.fn(() => ({
-    data: {
-      user: {
-        id: 'user-1',
-        role: 'admin',
-      },
-    },
-    status: 'authenticated',
-  })),
+  useSession: () => mockUseSession(),
 }))
 
 jest.mock('sonner', () => ({
@@ -208,6 +210,16 @@ describe('ComplianceCasesAdminPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockCaseIdParam = null
+    mockPush.mockReset()
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          id: 'user-1',
+          role: 'admin',
+        },
+      },
+      status: 'authenticated',
+    })
     mockGetComplianceCases.mockResolvedValue({
       items: [clusteredCase],
       total: 1,
@@ -306,6 +318,34 @@ describe('ComplianceCasesAdminPage', () => {
       expect(screen.getByLabelText('上传文件')).toBeInTheDocument()
       expect(screen.getByText('PBOC-CASE-001')).toBeInTheDocument()
     })
+  })
+
+  it('navigates back to /dashboard from the page header back button', async () => {
+    render(<ComplianceCasesAdminPage />)
+
+    await waitFor(() => expect(screen.getByText('案例运营')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '返回' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/dashboard')
+  })
+
+  it('navigates back to /dashboard from the forbidden state action', () => {
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          id: 'user-2',
+          role: 'auditor',
+        },
+      },
+      status: 'authenticated',
+    })
+
+    render(<ComplianceCasesAdminPage />)
+
+    expect(screen.getByText('无权访问案例运营后台')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '返回工作台' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/dashboard')
   })
 
   it('applies filters and refetches case list', async () => {

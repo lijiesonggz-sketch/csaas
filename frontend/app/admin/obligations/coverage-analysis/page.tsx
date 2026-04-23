@@ -228,7 +228,7 @@ export default function ObligationCoverageAnalysisPage() {
               <Button
                 variant="outline"
                 className="rounded-sm"
-                onClick={() => router.push('/admin/dashboard')}
+                onClick={() => router.push('/dashboard')}
               >
                 返回管理后台
               </Button>

@@ -57,7 +57,7 @@ export default function PeerCrawlerPage() {
 
   // 返回上一页
   const handleBack = () => {
-    router.push('/admin/dashboard')
+    router.push('/dashboard')
   }
 
   // 加载同业采集源列表

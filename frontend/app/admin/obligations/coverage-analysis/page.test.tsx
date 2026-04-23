@@ -223,6 +223,8 @@ describe('ObligationCoverageAnalysisPage', () => {
     render(<ObligationCoverageAnalysisPage />)
 
     expect(screen.getByText('无权访问覆盖率分析')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '返回管理后台' }))
+    expect(mockPush).toHaveBeenCalledWith('/dashboard')
   })
 
   it('shows a stable all-covered state when there are no blind spots', async () => {

@@ -6,6 +6,10 @@ import * as obligationsApi from '@/lib/api/obligations'
 import * as complianceCasesApi from '@/lib/api/compliance-cases'
 
 const mockPush = jest.fn()
+const mockUseSession = jest.fn(() => ({
+  data: { user: { id: 'user-1', role: 'admin' } },
+  status: 'authenticated',
+}))
 let mockObligationIdParam: string | null = null
 const mockDrawer = jest.fn((props: { open: boolean; controlId: string; sourceModule: string }) =>
   props.open ? (
@@ -28,10 +32,7 @@ jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
     mockDrawer(props),
 }))
 jest.mock('next-auth/react', () => ({
-  useSession: jest.fn(() => ({
-    data: { user: { id: 'user-1', role: 'admin' } },
-    status: 'authenticated',
-  })),
+  useSession: () => mockUseSession(),
 }))
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }))
 jest.mock('@/components/ui/dialog', () => ({
@@ -156,6 +157,11 @@ const detail = {
 describe('ObligationAdminPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockPush.mockReset()
+    mockUseSession.mockReturnValue({
+      data: { user: { id: 'user-1', role: 'admin' } },
+      status: 'authenticated',
+    })
     mockObligationIdParam = null
     mockSuggestObligationCode.mockReturnValue('OBL-IT04-4.1-02')
     mockListObligations.mockResolvedValue({
@@ -243,6 +249,29 @@ describe('ObligationAdminPage', () => {
       expect(screen.getByDisplayValue('应当建立监管报送复核机制')).toBeInTheDocument()
     })
     expect(screen.getByText(/score 92%/)).toBeInTheDocument()
+  })
+
+  it('navigates back to /dashboard from the page header back button', async () => {
+    render(<ObligationAdminPage />)
+
+    await waitFor(() => expect(screen.getByText('Obligation 管理')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '返回' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/dashboard')
+  })
+
+  it('navigates back to /dashboard from the forbidden state action', () => {
+    mockUseSession.mockReturnValue({
+      data: { user: { id: 'user-2', role: 'consultant' } },
+      status: 'authenticated',
+    })
+
+    render(<ObligationAdminPage />)
+
+    expect(screen.getByText('无权访问 Obligation 管理')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '返回管理后台' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/dashboard')
   })
 
   it('opens create dialog, searches clauses, and creates an obligation with suggested code', async () => {

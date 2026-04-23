@@ -448,7 +448,7 @@ export default function ObligationAdminPage() {
               <Button
                 variant="outline"
                 className="rounded-sm"
-                onClick={() => router.push('/admin/dashboard')}
+                onClick={() => router.push('/dashboard')}
               >
                 返回管理后台
               </Button>
@@ -468,7 +468,7 @@ export default function ObligationAdminPage() {
               <Button
                 variant="outline"
                 className="rounded-sm"
-                onClick={() => router.push('/admin/dashboard')}
+                onClick={() => router.push('/dashboard')}
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 返回

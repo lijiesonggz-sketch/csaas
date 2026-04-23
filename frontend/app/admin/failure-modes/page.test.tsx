@@ -5,6 +5,11 @@ import FailureModeAdminPage from './page'
 import * as failureModeApi from '@/lib/api/failure-modes'
 import * as complianceCasesApi from '@/lib/api/compliance-cases'
 
+const mockPush = jest.fn()
+const mockUseSession = jest.fn(() => ({
+  data: { user: { id: 'user-1', role: 'admin' } },
+  status: 'authenticated',
+}))
 let mockFailureModeIdParam: string | null = null
 const mockDrawer = jest.fn((props: { open: boolean; controlId: string; sourceModule: string }) =>
   props.open ? (
@@ -17,16 +22,13 @@ const mockDrawer = jest.fn((props: { open: boolean; controlId: string; sourceMod
 )
 
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockPush }),
   useSearchParams: () => ({
     get: (key: string) => (key === 'failureModeId' ? mockFailureModeIdParam : null),
   }),
 }))
 jest.mock('next-auth/react', () => ({
-  useSession: jest.fn(() => ({
-    data: { user: { id: 'user-1', role: 'admin' } },
-    status: 'authenticated',
-  })),
+  useSession: () => mockUseSession(),
 }))
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }))
 jest.mock('@/components/ui/dialog', () => ({
@@ -146,6 +148,11 @@ describe('FailureModeAdminPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockFailureModeIdParam = null
+    mockPush.mockReset()
+    mockUseSession.mockReturnValue({
+      data: { user: { id: 'user-1', role: 'admin' } },
+      status: 'authenticated',
+    })
     mockSuggestFailureModeCode.mockReturnValue('FM-DEF-001')
     mockListFailureModes.mockResolvedValue({ items: [detail], total: 1, page: 1, limit: 20 })
     mockGetFailureMode.mockResolvedValue(detail)
@@ -206,6 +213,29 @@ describe('FailureModeAdminPage', () => {
       expect(screen.getByDisplayValue('报送口径定义错误')).toBeInTheDocument()
     })
     expect(screen.getByText(/score 83%/)).toBeInTheDocument()
+  })
+
+  it('navigates back to /dashboard from the page header back button', async () => {
+    render(<FailureModeAdminPage />)
+
+    await waitFor(() => expect(screen.getByText('Failure Mode 管理')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: '返回' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/dashboard')
+  })
+
+  it('navigates back to /dashboard from the forbidden state action', () => {
+    mockUseSession.mockReturnValue({
+      data: { user: { id: 'user-2', role: 'consultant' } },
+      status: 'authenticated',
+    })
+
+    render(<FailureModeAdminPage />)
+
+    expect(screen.getByText('无权访问 Failure Mode 管理')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '返回管理后台' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/dashboard')
   })
 
   it('opens create dialog with suggested code and creates a failure mode', async () => {

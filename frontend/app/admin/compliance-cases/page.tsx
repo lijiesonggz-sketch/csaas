@@ -571,7 +571,7 @@ export default function ComplianceCasesAdminPage() {
         <div className="mx-auto max-w-7xl space-y-6">
           <div className="flex items-center justify-between">
             <div className="space-y-2">
-              <Button variant="outline" className="rounded-sm" onClick={() => router.push('/admin/dashboard')}>
+              <Button variant="outline" className="rounded-sm" onClick={() => router.push('/dashboard')}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 返回
               </Button>

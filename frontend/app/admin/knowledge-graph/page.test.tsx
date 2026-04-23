@@ -284,7 +284,7 @@ describe('KnowledgeGraphPage', () => {
     expect(mockListRegulationSources).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: '返回管理后台' }))
-    expect(mockPush).toHaveBeenCalledWith('/admin/dashboard')
+    expect(mockPush).toHaveBeenCalledWith('/dashboard')
   })
 
   it('[P0] 管理员进入页面时加载并显示 IT 分类树', async () => {
