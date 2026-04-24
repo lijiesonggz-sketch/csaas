@@ -34,7 +34,6 @@ import {
   suggestObligationCode,
   updateObligation,
 } from '@/lib/api/obligations'
-import { searchControlPoints, type ControlPointSummary } from '@/lib/api/compliance-cases'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -56,6 +55,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { ControlPointDirectorySelector } from '@/components/admin/ControlPointDirectorySelector'
 import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
 import { formatAuthoritativeScorePercent } from '@/lib/utils/authoritative-score'
 
@@ -85,6 +85,10 @@ function buildCreateForm() {
 }
 
 type ObligationControlMapSummary = ObligationDetail['controlMaps'][number]
+type PendingDeleteControlMap = {
+  obligationId: string
+  map: ObligationControlMapSummary
+}
 
 export default function ObligationAdminPage() {
   const router = useRouter()
@@ -93,6 +97,7 @@ export default function ObligationAdminPage() {
   const canAccess = Boolean(session?.user && ALLOWED_ROLES.includes(session.user.role))
   const deepLinkedObligationId = searchParams.get('obligationId')
   const appliedDeepLinkId = useRef<string | null>(null)
+  const itemsRef = useRef<ObligationSummary[]>([])
 
   const [filters, setFilters] = useState({
     keyword: '',
@@ -118,9 +123,6 @@ export default function ObligationAdminPage() {
   const [total, setTotal] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [controlKeyword, setControlKeyword] = useState('')
-  const [controlResults, setControlResults] = useState<ControlPointSummary[]>([])
-  const [controlLoading, setControlLoading] = useState(false)
   const [selectedCoverage, setSelectedCoverage] = useState<ObligationCoverage>('FULL')
   const [createOpen, setCreateOpen] = useState(false)
   const [clauseDetailOpen, setClauseDetailOpen] = useState(false)
@@ -130,9 +132,7 @@ export default function ObligationAdminPage() {
   const [clauseResults, setClauseResults] = useState<RegulationClauseSummary[]>([])
   const [clauseLoading, setClauseLoading] = useState(false)
   const [selectedClause, setSelectedClause] = useState<RegulationClauseSummary | null>(null)
-  const [pendingDeleteMap, setPendingDeleteMap] = useState<ObligationControlMapSummary | null>(
-    null,
-  )
+  const [pendingDeleteMap, setPendingDeleteMap] = useState<PendingDeleteControlMap | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -146,6 +146,10 @@ export default function ObligationAdminPage() {
       setSelectedId(deepLinkedObligationId)
     }
   }, [deepLinkedObligationId])
+
+  useEffect(() => {
+    itemsRef.current = items
+  }, [items])
 
   useEffect(() => {
     if (status !== 'authenticated' || !canAccess) return
@@ -199,9 +203,8 @@ export default function ObligationAdminPage() {
   useEffect(() => {
     if (!selectedId || status !== 'authenticated' || !canAccess) {
       setDetail(null)
-      setControlKeyword('')
-      setControlResults([])
       setSelectedControlId(null)
+      setPendingDeleteMap(null)
       return
     }
 
@@ -212,8 +215,7 @@ export default function ObligationAdminPage() {
       try {
         setDetailLoading(true)
         setDetail(null)
-        setControlKeyword('')
-        setControlResults([])
+        setSelectedControlId(null)
         const result = await getObligation(obligationId)
         if (cancelled) return
         setDetail(result)
@@ -228,6 +230,10 @@ export default function ObligationAdminPage() {
         })
       } catch (loadError) {
         if (!cancelled) {
+          if (appliedDeepLinkId.current === obligationId) {
+            appliedDeepLinkId.current = null
+            setSelectedId(itemsRef.current[0]?.obligationId ?? null)
+          }
           toast.error(errorMessage(loadError, '加载 Obligation 详情失败'))
         }
       } finally {
@@ -242,6 +248,19 @@ export default function ObligationAdminPage() {
       cancelled = true
     }
   }, [canAccess, reloadToken, selectedId, status])
+
+  useEffect(() => {
+    if (pendingDeleteMap && selectedId !== pendingDeleteMap.obligationId) {
+      setPendingDeleteMap(null)
+    }
+  }, [pendingDeleteMap, selectedId])
+
+  useEffect(() => {
+    if (status !== 'authenticated' || !canAccess) return
+    if (!selectedId && items.length > 0) {
+      setSelectedId(items[0].obligationId)
+    }
+  }, [canAccess, items, selectedId, status])
 
   function toggleSector(list: ApplicableSector[], sector: ApplicableSector) {
     return list.includes(sector) ? list.filter((item) => item !== sector) : [...list, sector]
@@ -370,28 +389,6 @@ export default function ObligationAdminPage() {
     }
   }
 
-  async function handleSearchControls() {
-    if (!controlKeyword.trim()) {
-      setControlResults([])
-      return
-    }
-    try {
-      setControlLoading(true)
-      const result = await searchControlPoints({
-        page: 1,
-        limit: 10,
-        status: 'ACTIVE',
-        keyword: controlKeyword.trim(),
-      })
-      const mappedIds = new Set(detail?.controlMaps.map((item) => item.controlId) ?? [])
-      setControlResults(result.items.filter((item) => !mappedIds.has(item.controlId)))
-    } catch (searchError) {
-      toast.error(errorMessage(searchError, '搜索控制点失败'))
-    } finally {
-      setControlLoading(false)
-    }
-  }
-
   async function handleAddControlMap(controlId: string) {
     if (!detail) return
     try {
@@ -401,8 +398,6 @@ export default function ObligationAdminPage() {
         coverage: selectedCoverage,
       })
       toast.success('控制点映射已添加')
-      setControlKeyword('')
-      setControlResults([])
       setReloadToken((current) => current + 1)
     } catch (submitError) {
       toast.error(errorMessage(submitError, '添加控制点映射失败'))
@@ -412,10 +407,10 @@ export default function ObligationAdminPage() {
   }
 
   async function handleDeleteControlMap() {
-    if (!detail || !pendingDeleteMap) return
+    if (!pendingDeleteMap) return
     try {
       setSaving(true)
-      await deleteObligationControlMap(detail.obligationId, pendingDeleteMap.id)
+      await deleteObligationControlMap(pendingDeleteMap.obligationId, pendingDeleteMap.map.id)
       toast.success('控制点映射已删除')
       setPendingDeleteMap(null)
       setReloadToken((current) => current + 1)
@@ -831,28 +826,6 @@ export default function ObligationAdminPage() {
                         <Link2 className="h-4 w-4 text-[#1E3A5F]" />
                         <h2 className="font-semibold text-[#1E3A5F]">控制点映射</h2>
                       </div>
-                      <div className="grid gap-3 lg:grid-cols-[1fr_180px]">
-                        <Input
-                          value={controlKeyword}
-                          onChange={(event) => setControlKeyword(event.target.value)}
-                          placeholder="搜索 control code / control name"
-                        />
-                        <Button
-                          variant="outline"
-                          className="rounded-sm"
-                          onClick={handleSearchControls}
-                          disabled={controlLoading}
-                        >
-                          {controlLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Search className="mr-2 h-4 w-4" />
-                              搜索控制点
-                            </>
-                          )}
-                        </Button>
-                      </div>
                       <div className="mt-3 max-w-[220px]">
                         <Label>覆盖程度</Label>
                         <Select
@@ -871,39 +844,15 @@ export default function ObligationAdminPage() {
                           </SelectContent>
                         </Select>
                       </div>
-
-                      {controlResults.length > 0 && (
-                        <div className="mt-3 space-y-2 rounded-sm border border-dashed border-[#CBD5E1] p-3">
-                          {controlResults.map((item) => (
-                            <div
-                              key={item.controlId}
-                              className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2"
-                            >
-                              <div>
-                                <div className="font-medium text-[#1E3A5F]">
-                                  <button
-                                    type="button"
-                                    className="hover:underline"
-                                    onClick={() => setSelectedControlId(item.controlId)}
-                                  >
-                                    {item.controlCode} · {item.controlName}
-                                  </button>
-                                </div>
-                                <div className="text-xs text-[#64748B]">
-                                  {item.controlFamily} · {item.l1Code} / {item.l2Code}
-                                </div>
-                              </div>
-                              <Button
-                                size="sm"
-                                className="rounded-sm"
-                                onClick={() => handleAddControlMap(item.controlId)}
-                              >
-                                添加为映射
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <div className="mt-3">
+                        <ControlPointDirectorySelector
+                          actionLabel="添加为映射"
+                          disabled={saving}
+                          excludeControlIds={detail.controlMaps.map((map) => map.controlId)}
+                          onPreview={setSelectedControlId}
+                          onSelect={(item) => void handleAddControlMap(item.controlId)}
+                        />
+                      </div>
 
                       <div className="mt-4 space-y-2">
                         {detail.controlMaps.length === 0 ? (
@@ -933,7 +882,12 @@ export default function ObligationAdminPage() {
                                 variant="ghost"
                                 size="icon"
                                 aria-label={`删除控制点映射 ${map.controlCode}`}
-                                onClick={() => setPendingDeleteMap(map)}
+                                onClick={() =>
+                                  setPendingDeleteMap({
+                                    obligationId: detail.obligationId,
+                                    map,
+                                  })
+                                }
                               >
                                 <Trash2 className="h-4 w-4 text-rose-600" />
                               </Button>
@@ -1119,7 +1073,7 @@ export default function ObligationAdminPage() {
             <DialogTitle>确认删除控制点映射</DialogTitle>
             <DialogDescription>
               {pendingDeleteMap
-                ? `将从当前义务中删除 ${pendingDeleteMap.controlCode} 映射。此操作不可撤销。`
+                ? `将从当前义务中删除 ${pendingDeleteMap.map.controlCode} 映射。此操作不可撤销。`
                 : '将从当前义务中删除所选控制点映射。'}
             </DialogDescription>
           </DialogHeader>

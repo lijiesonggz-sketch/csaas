@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { DataSource, EntityManager, Repository } from 'typeorm'
 import { ControlPack } from '../../../database/entities/control-pack.entity'
 import { ControlPackItem } from '../../../database/entities/control-pack-item.entity'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
@@ -23,8 +23,17 @@ type ControlPackLinkView = {
   packCode: string
   packName: string | null
   packType: string | null
+  packVersion: string | null
   itemRole: string
   priority: number
+}
+
+type ControlPackCatalogView = {
+  packId: string
+  packCode: string
+  packName: string | null
+  packType: string | null
+  packVersion: string | null
 }
 
 type ControlApplicabilityContextView = {
@@ -56,6 +65,7 @@ export class ControlPackLinkService {
     @InjectRepository(ControlPoint)
     private readonly controlPointRepository: Repository<ControlPoint>,
     private readonly packResolverService: PackResolverService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async findAll(query: QueryControlPackItemDto) {
@@ -83,8 +93,23 @@ export class ControlPackLinkService {
     return { items, total, page: query.page ?? 1, limit: query.limit ?? 20 }
   }
 
+  async findAllPacks(): Promise<ControlPackCatalogView[]> {
+    const items = await this.controlPackRepository.find({
+      where: { status: 'ACTIVE' },
+      order: { priority: 'ASC', packCode: 'ASC' },
+    })
+
+    return items.map((item) => ({
+      packId: item.packId,
+      packCode: item.packCode,
+      packName: item.packName ?? null,
+      packType: item.packType ?? null,
+      packVersion: item.maturityLevel ?? null,
+    }))
+  }
+
   async create(dto: CreateControlPackItemDto): Promise<ControlPackItem> {
-    await this.assertPackExists(dto.packId)
+    await this.assertPackIsActive(dto.packId)
     await this.assertControlPointExists(dto.controlId)
     await this.assertUniqueControlPackItem(dto.packId, dto.controlId)
 
@@ -100,23 +125,41 @@ export class ControlPackLinkService {
 
   async update(id: string, dto: UpdateControlPackItemDto): Promise<ControlPackItem> {
     this.assertNoNullUpdates(dto)
+    return this.dataSource.transaction(async (manager) => {
+      const packItemRepository = manager.getRepository(ControlPackItem)
+      const existing = await this.findControlPackItemByRepository(packItemRepository, id)
+      const nextPackId = dto.packId ?? existing.packId
+      const nextControlId = dto.controlId ?? existing.controlId
 
-    const existing = await this.findControlPackItem(id)
-    const nextPackId = dto.packId ?? existing.packId
-    const nextControlId = dto.controlId ?? existing.controlId
+      await this.assertPackIsActive(nextPackId)
+      await this.assertControlPointExists(nextControlId)
+      await this.assertUniqueControlPackItem(nextPackId, nextControlId, id)
 
-    await this.assertPackExists(nextPackId)
-    await this.assertControlPointExists(nextControlId)
-    await this.assertUniqueControlPackItem(nextPackId, nextControlId, id)
+      if (existing.controlId !== nextControlId) {
+        await this.assertHardControlRetainsPack(manager, existing.controlId)
+      }
 
-    Object.assign(existing, {
-      packId: nextPackId,
-      controlId: nextControlId,
-      itemRole: dto.itemRole ?? existing.itemRole,
-      priority: dto.priority ?? existing.priority,
+      Object.assign(existing, {
+        packId: nextPackId,
+        controlId: nextControlId,
+        itemRole: dto.itemRole ?? existing.itemRole,
+        priority: dto.priority ?? existing.priority,
+      })
+
+      return packItemRepository.save(existing)
     })
+  }
 
-    return this.controlPackItemRepository.save(existing)
+  async delete(id: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const packItemRepository = manager.getRepository(ControlPackItem)
+      const existing = await this.findControlPackItemByRepository(packItemRepository, id)
+
+      await this.assertHardControlRetainsPack(manager, existing.controlId)
+
+      await packItemRepository.delete({ id })
+      return { success: true as const, id }
+    })
   }
 
   async findPackLinksByControlId(controlId: string): Promise<{
@@ -141,6 +184,7 @@ export class ControlPackLinkService {
         packCode: item.controlPack?.packCode ?? '',
         packName: item.controlPack?.packName ?? null,
         packType: item.controlPack?.packType ?? null,
+        packVersion: item.controlPack?.maturityLevel ?? null,
         itemRole: item.itemRole,
         priority: item.priority,
       })),
@@ -227,11 +271,15 @@ export class ControlPackLinkService {
     return controlPoint
   }
 
-  private async assertPackExists(packId: string): Promise<void> {
+  private async assertPackIsActive(packId: string): Promise<void> {
     const pack = await this.controlPackRepository.findOne({ where: { packId } })
 
     if (!pack) {
       throw new BadRequestException(`control_pack ${packId} does not exist`)
+    }
+
+    if (pack.status !== 'ACTIVE') {
+      throw new BadRequestException(`control_pack ${packId} is not active`)
     }
   }
 
@@ -255,6 +303,48 @@ export class ControlPackLinkService {
     if (existing && existing.id !== currentId) {
       throw new ConflictException(`control_pack_item ${packId}/${controlId} already exists`)
     }
+  }
+
+  private async assertHardControlRetainsPack(
+    manager: EntityManager,
+    controlId: string,
+  ): Promise<void> {
+    const controlPointRepository = manager.getRepository(ControlPoint)
+    const controlPackItemRepository = manager.getRepository(ControlPackItem)
+
+    const controlPoint = await controlPointRepository.findOne({
+      where: { controlId },
+      lock: { mode: 'pessimistic_write' },
+    })
+
+    if (!controlPoint) {
+      throw new NotFoundException(`control_point ${controlId} not found`)
+    }
+
+    if (controlPoint.maturityLevel !== 'hard') {
+      return
+    }
+
+    const packCount = await controlPackItemRepository.count({
+      where: { controlId },
+    })
+
+    if (packCount <= 1) {
+      throw new BadRequestException('hard control point 必须关联至少一个 control_pack')
+    }
+  }
+
+  private async findControlPackItemByRepository(
+    repository: Repository<ControlPackItem>,
+    id: string,
+  ): Promise<ControlPackItem> {
+    const item = await repository.findOne({ where: { id } })
+
+    if (!item) {
+      throw new NotFoundException(`control_pack_item ${id} not found`)
+    }
+
+    return item
   }
 
   private assertNoNullUpdates(dto: UpdateControlPackItemDto): void {

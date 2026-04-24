@@ -27,6 +27,7 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
     findAllClauseControlMaps: jest.fn(),
     createClauseControlMap: jest.fn(),
     updateClauseControlMap: jest.fn(),
+    deleteClauseControlMap: jest.fn(),
     findClausesByControlId: jest.fn(),
   }
 
@@ -288,6 +289,29 @@ describe('KnowledgeGraph regulation controllers (http)', () => {
         cases: [],
       },
     })
+  })
+
+  it('should delete a clause-control-map mapping', async () => {
+    mockRegulationService.deleteClauseControlMap.mockResolvedValue({
+      success: true,
+      id: 'map-1',
+    })
+
+    const response = await request(app.getHttpServer())
+      .delete('/api/admin/knowledge-graph/clause-control-maps/map-1')
+      .expect(200)
+
+    expect(response.body).toEqual({
+      success: true,
+      id: 'map-1',
+    })
+    expect(mockAuditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.DELETE,
+        entityType: 'ClauseControlMap',
+        entityId: 'map-1',
+      }),
+    )
   })
 
   it('should return extracted case themes and clause candidates', async () => {

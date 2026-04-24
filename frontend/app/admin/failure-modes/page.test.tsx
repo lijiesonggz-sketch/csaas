@@ -3,7 +3,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import FailureModeAdminPage from './page'
 import * as failureModeApi from '@/lib/api/failure-modes'
-import * as complianceCasesApi from '@/lib/api/compliance-cases'
 
 const mockPush = jest.fn()
 const mockUseSession = jest.fn(() => ({
@@ -43,6 +42,46 @@ jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
   ControlDetailDrawer: (props: { open: boolean; controlId: string; sourceModule: string }) =>
     mockDrawer(props),
 }))
+jest.mock('@/components/admin/ControlPointDirectorySelector', () => {
+  const React = require('react')
+
+  return {
+    ControlPointDirectorySelector: ({
+      onPreview,
+      onSelect,
+    }: {
+      onPreview?: (controlId: string) => void
+      onSelect: (control: { controlId: string }) => void
+    }) => {
+      const [open, setOpen] = React.useState(false)
+      return (
+        <div data-testid="control-point-directory-selector">
+          <input placeholder="搜索 control code / control name" />
+          <button type="button" onClick={() => setOpen(true)}>
+            搜索控制点
+          </button>
+          {open && (
+            <div>
+              <button type="button" onClick={() => onPreview?.('cp-2')}>
+                CTRL-002 · 映射核验控制
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  onSelect({
+                    controlId: 'cp-2',
+                  })
+                }
+              >
+                添加为映射
+              </button>
+            </div>
+          )}
+        </div>
+      )
+    },
+  }
+})
 
 jest.mock('@/components/ui/select', () => {
   type SelectItemData = { value: string; children: React.ReactNode }
@@ -87,7 +126,6 @@ jest.mock('@/components/ui/select', () => {
 })
 
 jest.mock('@/lib/api/failure-modes')
-jest.mock('@/lib/api/compliance-cases')
 
 const mockListFailureModes = failureModeApi.listFailureModes as jest.MockedFunction<
   typeof failureModeApi.listFailureModes
@@ -118,9 +156,6 @@ const mockGetTaxonomyTree = failureModeApi.getTaxonomyTree as jest.MockedFunctio
 >
 const mockSuggestFailureModeCode = failureModeApi.suggestFailureModeCode as jest.MockedFunction<
   typeof failureModeApi.suggestFailureModeCode
->
-const mockSearchControlPoints = complianceCasesApi.searchControlPoints as jest.MockedFunction<
-  typeof complianceCasesApi.searchControlPoints
 >
 
 const detail = {
@@ -180,29 +215,6 @@ describe('FailureModeAdminPage', () => {
         children: [{ l2Code: 'IT04-01', l2Name: '监管数据报送' }],
       },
     ])
-    mockSearchControlPoints.mockResolvedValue({
-      items: [
-        {
-          controlId: 'cp-2',
-          controlCode: 'CTRL-002',
-          controlName: '映射核验控制',
-          controlDesc: null,
-          l1Code: 'IT04',
-          l2Code: 'IT04-01',
-          controlFamily: '治理',
-          controlType: 'preventive',
-          mandatoryDefault: true,
-          riskLevelDefault: 'HIGH',
-          ownerRoleHint: [],
-          status: 'ACTIVE',
-          createdAt: '',
-          updatedAt: '',
-        },
-      ],
-      total: 1,
-      page: 1,
-      limit: 10,
-    })
   })
 
   it('renders list and detail panel', async () => {
@@ -335,7 +347,7 @@ describe('FailureModeAdminPage', () => {
     await waitFor(() => expect(mockDeleteTaxonomyMap).toHaveBeenCalledWith('fm-1', 'map-1'))
   })
 
-  it('searches controls and adds/removes a control map', async () => {
+  it('searches controls and adds a control map', async () => {
     render(<FailureModeAdminPage />)
     await waitFor(() => expect(screen.getByText('控制点映射')).toBeInTheDocument())
     fireEvent.change(screen.getByPlaceholderText('搜索 control code / control name'), {
@@ -343,7 +355,6 @@ describe('FailureModeAdminPage', () => {
     })
     fireEvent.click(screen.getByText('搜索控制点'))
     await waitFor(() => {
-      expect(mockSearchControlPoints).toHaveBeenCalled()
       expect(screen.getByText('CTRL-002 · 映射核验控制')).toBeInTheDocument()
     })
     fireEvent.click(screen.getByText('添加为映射'))
@@ -353,6 +364,38 @@ describe('FailureModeAdminPage', () => {
         expect.objectContaining({ controlId: 'cp-2' })
       )
     )
+  })
+
+  it('uses the selected relevance when creating a failure mode control map', async () => {
+    render(<FailureModeAdminPage />)
+
+    await waitFor(() => expect(screen.getByText('控制点映射')).toBeInTheDocument())
+    const relevanceSelect = screen.getAllByRole('combobox').find((element) =>
+      (element as HTMLSelectElement).value === 'PRIMARY',
+    ) as HTMLSelectElement
+    fireEvent.change(relevanceSelect, { target: { value: 'SECONDARY' } })
+
+    fireEvent.change(screen.getByPlaceholderText('搜索 control code / control name'), {
+      target: { value: '核验' },
+    })
+    fireEvent.click(screen.getByText('搜索控制点'))
+
+    await waitFor(() => {
+      expect(screen.getByText('CTRL-002 · 映射核验控制')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('添加为映射'))
+
+    await waitFor(() =>
+      expect(mockCreateControlMap).toHaveBeenCalledWith(
+        'fm-1',
+        expect.objectContaining({ controlId: 'cp-2', relevance: 'SECONDARY' }),
+      ),
+    )
+  })
+
+  it('removes an existing control map', async () => {
+    render(<FailureModeAdminPage />)
+
     let controlDeleteButton: HTMLButtonElement | null = null
     await waitFor(() => {
       controlDeleteButton = document.querySelector(
@@ -456,6 +499,17 @@ describe('FailureModeAdminPage', () => {
 
     await waitFor(() => expect(screen.getByDisplayValue('列表页默认项')).toBeInTheDocument())
     expect(mockGetFailureMode).toHaveBeenLastCalledWith('fm-list-only')
+  })
+
+  it('keeps the list available when taxonomy metadata fails to load', async () => {
+    mockGetTaxonomyTree.mockRejectedValue(new Error('taxonomy unavailable'))
+
+    render(<FailureModeAdminPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Failure Mode 管理')).toBeInTheDocument()
+      expect(screen.getAllByText('FM-REP-001').length).toBeGreaterThan(0)
+    })
   })
 
   it('opens the shared control detail drawer from a mapped control row', async () => {

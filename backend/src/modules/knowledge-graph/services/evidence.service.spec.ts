@@ -20,6 +20,7 @@ describe('EvidenceService', () => {
     findOne: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    delete: jest.fn(),
     createQueryBuilder: jest.fn(),
   }
 
@@ -143,6 +144,9 @@ describe('EvidenceService', () => {
           evidenceCategory: 'approval',
           status: 'ACTIVE',
           requiredLevel: 'REQUIRED',
+          frequency: null,
+          ownerRole: null,
+          samplingRequirement: null,
           notes: '核心证据',
         },
         {
@@ -154,9 +158,51 @@ describe('EvidenceService', () => {
           evidenceCategory: 'log',
           status: 'ACTIVE',
           requiredLevel: 'OPTIONAL',
+          frequency: null,
+          ownerRole: null,
+          samplingRequirement: null,
           notes: null,
         },
       ],
+    })
+  })
+
+  it('should allow clearing nullable control-evidence metadata fields to null', async () => {
+    const existing = {
+      id: 'map-1',
+      controlId: 'control-id',
+      evidenceId: 'evidence-id',
+      requiredLevel: 'REQUIRED',
+      frequency: 'MONTHLY',
+      ownerRole: '数据治理岗',
+      samplingRequirement: 'FULL',
+      notes: '需要保留',
+    }
+
+    controlEvidenceMapRepository.findOne
+      .mockResolvedValueOnce(existing)
+      .mockResolvedValueOnce(existing)
+    controlPointRepository.findOne.mockResolvedValue({
+      controlId: 'control-id',
+    })
+    evidenceTypeRepository.findOne.mockResolvedValue({
+      evidenceId: 'evidence-id',
+    })
+    controlEvidenceMapRepository.save.mockImplementation(async (entity) => entity)
+
+    const result = await service.updateControlEvidenceMap('map-1', {
+      frequency: null,
+      ownerRole: null,
+      samplingRequirement: null,
+      notes: null,
+    })
+
+    expect(result).toMatchObject({
+      id: 'map-1',
+      frequency: null,
+      ownerRole: null,
+      samplingRequirement: null,
+      notes: null,
     })
   })
 })

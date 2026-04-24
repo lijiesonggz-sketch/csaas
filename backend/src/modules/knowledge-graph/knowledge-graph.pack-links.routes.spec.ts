@@ -1,4 +1,9 @@
-import { INestApplication, UnauthorizedException, ValidationPipe } from '@nestjs/common'
+import {
+  BadRequestException,
+  INestApplication,
+  UnauthorizedException,
+  ValidationPipe,
+} from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
 import * as request from 'supertest'
 import { TransformInterceptor } from '../../common/interceptors/transform.interceptor'
@@ -15,8 +20,10 @@ describe('KnowledgeGraph pack link controllers (http)', () => {
 
   const mockControlPackLinkService = {
     findAll: jest.fn(),
+    findAllPacks: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
+    delete: jest.fn(),
     findPackLinksByControlId: jest.fn(),
     buildApplicabilityContext: jest.fn(),
   }
@@ -166,6 +173,88 @@ describe('KnowledgeGraph pack link controllers (http)', () => {
         ],
       },
     })
+  })
+
+  it('should return active control-pack catalog entries', async () => {
+    mockControlPackLinkService.findAllPacks.mockResolvedValue([
+      {
+        packId: 'pack-1',
+        packCode: 'PACK-BASE-CYBER',
+        packName: '网络与信息安全基线包',
+        packType: 'base',
+        packVersion: 'stable',
+      },
+    ])
+
+    const response = await request(app.getHttpServer())
+      .get('/api/admin/knowledge-graph/control-packs')
+      .expect(200)
+
+    expect(response.body).toEqual({
+      success: true,
+      data: [
+        {
+          packId: 'pack-1',
+          packCode: 'PACK-BASE-CYBER',
+          packName: '网络与信息安全基线包',
+          packType: 'base',
+          packVersion: 'stable',
+        },
+      ],
+    })
+  })
+
+  it('should delete a control-pack-item mapping', async () => {
+    mockControlPackLinkService.delete.mockResolvedValue({
+      success: true,
+      id: 'map-1',
+    })
+
+    const response = await request(app.getHttpServer())
+      .delete('/api/admin/knowledge-graph/control-pack-items/map-1')
+      .expect(200)
+
+    expect(response.body).toEqual({
+      success: true,
+      id: 'map-1',
+    })
+    expect(mockAuditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.DELETE,
+        entityType: 'ControlPackItem',
+        entityId: 'map-1',
+      }),
+    )
+  })
+
+  it('should surface service validation errors when creating invalid pack links', async () => {
+    mockControlPackLinkService.create.mockRejectedValue(
+      new BadRequestException('control_pack pack-1 is not active'),
+    )
+
+    const response = await request(app.getHttpServer())
+      .post('/api/admin/knowledge-graph/control-pack-items')
+      .send({
+        packId: '11111111-1111-4111-8111-111111111111',
+        controlId: '22222222-2222-4222-8222-222222222222',
+        itemRole: 'INCLUDE',
+        priority: 10,
+      })
+      .expect(400)
+
+    expect(response.body.message).toBe('control_pack pack-1 is not active')
+  })
+
+  it('should surface service validation errors when deleting the last hard-control pack link', async () => {
+    mockControlPackLinkService.delete.mockRejectedValue(
+      new BadRequestException('hard control point 必须关联至少一个 control_pack'),
+    )
+
+    const response = await request(app.getHttpServer())
+      .delete('/api/admin/knowledge-graph/control-pack-items/map-1')
+      .expect(400)
+
+    expect(response.body.message).toBe('hard control point 必须关联至少一个 control_pack')
   })
 
   it('should return explain-ready applicability context for a control point', async () => {

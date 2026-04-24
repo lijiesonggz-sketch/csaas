@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -157,6 +158,32 @@ export class EvidenceController {
         controlId: result.controlId,
         evidenceId: result.evidenceId,
         requiredLevel: result.requiredLevel,
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] as string | undefined,
+    })
+
+    return result
+  }
+
+  @Delete('control-evidence-maps/:id')
+  @ApiOperation({ summary: '删除控制点证据映射' })
+  async deleteControlEvidenceMap(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: { id?: string; userId?: string },
+    @Param('id') id: string,
+    @Req() req: Request,
+  ) {
+    const result = await this.evidenceService.deleteControlEvidenceMap(id)
+
+    await this.auditLogService.log({
+      userId: user.id || user.userId,
+      tenantId,
+      action: AuditAction.DELETE,
+      entityType: 'ControlEvidenceMap',
+      entityId: id,
+      details: {
+        id,
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] as string | undefined,

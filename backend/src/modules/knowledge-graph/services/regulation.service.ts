@@ -225,6 +225,12 @@ export class RegulationService {
     return this.clauseControlMapRepository.save(existing)
   }
 
+  async deleteClauseControlMap(id: string) {
+    await this.findClauseControlMap(id)
+    await this.clauseControlMapRepository.delete({ id })
+    return { success: true as const, id }
+  }
+
   async findClausesByControlId(controlId: string) {
     const items = await this.clauseControlMapRepository
       .createQueryBuilder('mapping')

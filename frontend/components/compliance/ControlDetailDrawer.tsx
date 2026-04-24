@@ -1177,6 +1177,24 @@ export function ControlDetailDrawer({
               </div>
             )}
           </div>
+
+          {allowAdminNavigation && controlId && (
+            <div className="border-t border-slate-200 bg-white px-6 py-4">
+              <Button
+                type="button"
+                data-testid="view-in-management"
+                className="w-full justify-between rounded-xl bg-slate-900 text-white hover:bg-slate-800"
+                onClick={() =>
+                  router.push(
+                    buildAdminTarget('/admin/control-points', 'controlId', controlId),
+                  )
+                }
+              >
+                <span>在 Control Point 管理中查看</span>
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </DialogPrimitive.Content>
       </DialogPortal>
     </Dialog>

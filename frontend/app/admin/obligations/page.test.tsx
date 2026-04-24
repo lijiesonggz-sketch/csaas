@@ -3,7 +3,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import ObligationAdminPage from './page'
 import * as obligationsApi from '@/lib/api/obligations'
-import * as complianceCasesApi from '@/lib/api/compliance-cases'
 
 const mockPush = jest.fn()
 const mockUseSession = jest.fn(() => ({
@@ -31,6 +30,46 @@ jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
   ControlDetailDrawer: (props: { open: boolean; controlId: string; sourceModule: string }) =>
     mockDrawer(props),
 }))
+jest.mock('@/components/admin/ControlPointDirectorySelector', () => {
+  const React = require('react')
+
+  return {
+    ControlPointDirectorySelector: ({
+      onPreview,
+      onSelect,
+    }: {
+      onPreview?: (controlId: string) => void
+      onSelect: (control: { controlId: string }) => void
+    }) => {
+      const [open, setOpen] = React.useState(false)
+      return (
+        <div data-testid="control-point-directory-selector">
+          <input placeholder="搜索 control code / control name" />
+          <button type="button" onClick={() => setOpen(true)}>
+            搜索控制点
+          </button>
+          {open && (
+            <div>
+              <button type="button" onClick={() => onPreview?.('cp-2')}>
+                CTRL-REP-002 · 监管报送差错纠偏控制
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  onSelect({
+                    controlId: 'cp-2',
+                  })
+                }
+              >
+                添加为映射
+              </button>
+            </div>
+          )}
+        </div>
+      )
+    },
+  }
+})
 jest.mock('next-auth/react', () => ({
   useSession: () => mockUseSession(),
 }))
@@ -88,7 +127,6 @@ jest.mock('@/components/ui/select', () => {
 })
 
 jest.mock('@/lib/api/obligations')
-jest.mock('@/lib/api/compliance-cases')
 
 const mockListObligations = obligationsApi.listObligations as jest.MockedFunction<
   typeof obligationsApi.listObligations
@@ -113,9 +151,6 @@ const mockDeleteControlMap = obligationsApi.deleteObligationControlMap as jest.M
 >
 const mockSuggestObligationCode = obligationsApi.suggestObligationCode as jest.MockedFunction<
   typeof obligationsApi.suggestObligationCode
->
-const mockSearchControlPoints = complianceCasesApi.searchControlPoints as jest.MockedFunction<
-  typeof complianceCasesApi.searchControlPoints
 >
 
 const detail = {
@@ -216,29 +251,6 @@ describe('ObligationAdminPage', () => {
       coverage: 'PARTIAL',
     })
     mockDeleteControlMap.mockResolvedValue({ success: true, id: 'map-1' })
-    mockSearchControlPoints.mockResolvedValue({
-      items: [
-        {
-          controlId: 'cp-2',
-          controlCode: 'CTRL-REP-002',
-          controlName: '监管报送差错纠偏控制',
-          controlDesc: null,
-          l1Code: 'IT04',
-          l2Code: 'IT04-06',
-          controlFamily: '治理',
-          controlType: 'preventive',
-          mandatoryDefault: true,
-          riskLevelDefault: 'HIGH',
-          ownerRoleHint: [],
-          status: 'ACTIVE',
-          createdAt: '',
-          updatedAt: '',
-        },
-      ],
-      total: 1,
-      page: 1,
-      limit: 10,
-    })
   })
 
   it('renders list and detail panel', async () => {
@@ -342,6 +354,59 @@ describe('ObligationAdminPage', () => {
     )
   })
 
+  it('closes the delete confirmation instead of deleting against a newly selected obligation', async () => {
+    mockListObligations.mockResolvedValue({
+      items: [
+        {
+          obligationId: 'obl-1',
+          obligationCode: 'OBL-IT04-4.1-01',
+          obligationText: '应当建立监管报送复核机制',
+          obligationType: 'MANDATORY',
+          applicableSector: ['银行'],
+          status: 'ACTIVE',
+          createdAt: '',
+          updatedAt: '',
+        },
+        {
+          obligationId: 'obl-2',
+          obligationCode: 'OBL-IT04-4.1-02',
+          obligationText: '第二条义务',
+          obligationType: 'MANDATORY',
+          applicableSector: ['银行'],
+          status: 'ACTIVE',
+          createdAt: '',
+          updatedAt: '',
+        },
+      ],
+      total: 2,
+      page: 1,
+      limit: 20,
+    })
+    mockGetObligation.mockImplementation(async (obligationId: string) => ({
+      ...detail,
+      obligationId,
+      obligationCode: obligationId === 'obl-2' ? 'OBL-IT04-4.1-02' : detail.obligationCode,
+      obligationText: obligationId === 'obl-2' ? '第二条义务' : detail.obligationText,
+    }))
+
+    render(<ObligationAdminPage />)
+
+    await waitFor(() => expect(screen.getByText('控制点映射')).toBeInTheDocument())
+    fireEvent.click(
+      document.querySelector(
+        'button[aria-label="删除控制点映射 CTRL-REP-001"]',
+      ) as HTMLButtonElement,
+    )
+    await waitFor(() => expect(screen.getByText('确认删除控制点映射')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /OBL-IT04-4.1-02.*第二条义务/ }))
+
+    await waitFor(() =>
+      expect(screen.queryByText('确认删除控制点映射')).not.toBeInTheDocument(),
+    )
+    expect(mockDeleteControlMap).not.toHaveBeenCalled()
+  })
+
   it('searches controls and adds an obligation control map', async () => {
     render(<ObligationAdminPage />)
     await waitFor(() => expect(screen.getByText('控制点映射')).toBeInTheDocument())
@@ -356,7 +421,6 @@ describe('ObligationAdminPage', () => {
     await waitFor(() => expect(screen.getByText('搜索控制点')).toBeInTheDocument())
     fireEvent.click(screen.getByText('搜索控制点'))
     await waitFor(() => {
-      expect(mockSearchControlPoints).toHaveBeenCalled()
       expect(screen.getByText('CTRL-REP-002 · 监管报送差错纠偏控制')).toBeInTheDocument()
     })
     fireEvent.click(screen.getByText('添加为映射'))
@@ -364,6 +428,34 @@ describe('ObligationAdminPage', () => {
       expect(mockCreateControlMap).toHaveBeenCalledWith(
         'obl-1',
         expect.objectContaining({ controlId: 'cp-2' }),
+      ),
+    )
+  })
+
+  it('uses the selected coverage when creating an obligation control map', async () => {
+    render(<ObligationAdminPage />)
+
+    await waitFor(() => expect(screen.getByText('控制点映射')).toBeInTheDocument())
+    const coverageSelect = screen.getAllByRole('combobox').find((element) =>
+      (element as HTMLSelectElement).value === 'FULL',
+    ) as HTMLSelectElement
+    fireEvent.change(coverageSelect, { target: { value: 'PARTIAL' } })
+
+    fireEvent.change(screen.getByPlaceholderText('搜索 control code / control name'), {
+      target: { value: '复核' },
+    })
+    await waitFor(() => expect(screen.getByText('搜索控制点')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('搜索控制点'))
+
+    await waitFor(() => {
+      expect(screen.getByText('CTRL-REP-002 · 监管报送差错纠偏控制')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('添加为映射'))
+
+    await waitFor(() =>
+      expect(mockCreateControlMap).toHaveBeenCalledWith(
+        'obl-1',
+        expect.objectContaining({ controlId: 'cp-2', coverage: 'PARTIAL' }),
       ),
     )
   })
@@ -526,14 +618,22 @@ describe('ObligationAdminPage', () => {
       page: 1,
       limit: 20,
     })
-    mockGetObligation.mockRejectedValue(new Error('Not found'))
+    mockGetObligation
+      .mockRejectedValueOnce(new Error('Not found'))
+      .mockResolvedValueOnce({
+        ...detail,
+        obligationId: 'obl-list-1',
+        obligationCode: 'OBL-LIST-001',
+        obligationText: '列表默认第一项',
+      })
 
     render(<ObligationAdminPage />)
 
     await waitFor(() =>
       expect(mockGetObligation).toHaveBeenCalledWith('obl-nonexistent'),
     )
-    expect(screen.getByText('OBL-LIST-001')).toBeInTheDocument()
+    await waitFor(() => expect(mockGetObligation).toHaveBeenLastCalledWith('obl-list-1'))
+    expect(screen.getByDisplayValue('列表默认第一项')).toBeInTheDocument()
   })
 
   it('opens the shared control detail drawer from an obligation control map row', async () => {

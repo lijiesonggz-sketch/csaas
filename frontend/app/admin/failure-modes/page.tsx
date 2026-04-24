@@ -32,7 +32,6 @@ import {
   suggestFailureModeCode,
   updateFailureMode,
 } from '@/lib/api/failure-modes'
-import { searchControlPoints, type ControlPointSummary } from '@/lib/api/compliance-cases'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -54,6 +53,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { ControlPointDirectorySelector } from '@/components/admin/ControlPointDirectorySelector'
 import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
 import { formatAuthoritativeScorePercent } from '@/lib/utils/authoritative-score'
 import { useRef } from 'react'
@@ -121,9 +121,6 @@ export default function FailureModeAdminPage() {
     }>
   >([])
   const [selectedL2Code, setSelectedL2Code] = useState('')
-  const [controlKeyword, setControlKeyword] = useState('')
-  const [controlResults, setControlResults] = useState<ControlPointSummary[]>([])
-  const [controlLoading, setControlLoading] = useState(false)
   const [selectedRelevance, setSelectedRelevance] =
     useState<(typeof RELEVANCE_OPTIONS)[number]>('PRIMARY')
   const [createOpen, setCreateOpen] = useState(false)
@@ -159,30 +156,36 @@ export default function FailureModeAdminPage() {
       try {
         setListLoading(true)
         setError(null)
-        const [listResult, taxonomyResult] = await Promise.all([
-          listFailureModes({
-            page,
-            limit: 20,
-            category: appliedFilters.category === 'all' ? undefined : appliedFilters.category,
-            status: appliedFilters.status === 'all' ? undefined : appliedFilters.status,
-            keyword: appliedFilters.keyword || undefined,
-          }),
-          getTaxonomyTree(),
-        ])
+        const listResult = await listFailureModes({
+          page,
+          limit: 20,
+          category: appliedFilters.category === 'all' ? undefined : appliedFilters.category,
+          status: appliedFilters.status === 'all' ? undefined : appliedFilters.status,
+          keyword: appliedFilters.keyword || undefined,
+        })
         if (cancelled) return
         setItems(listResult.items)
         setTotal(listResult.total)
-        setTaxonomyTree(
-          taxonomyResult.map((node) => ({
-            l1Code: node.l1Code,
-            l1Name: node.l1Name,
-            sortOrder: node.sortOrder,
-            children: node.children.map((child) => ({
-              l2Code: child.l2Code,
-              l2Name: child.l2Name,
-            })),
-          }))
-        )
+        try {
+          const taxonomyResult = await getTaxonomyTree()
+          if (cancelled) return
+          setTaxonomyTree(
+            taxonomyResult.map((node) => ({
+              l1Code: node.l1Code,
+              l1Name: node.l1Name,
+              sortOrder: node.sortOrder,
+              children: node.children.map((child) => ({
+                l2Code: child.l2Code,
+                l2Name: child.l2Name,
+              })),
+            }))
+          )
+        } catch (taxonomyError) {
+          if (!cancelled) {
+            setTaxonomyTree([])
+            toast.error(errorMessage(taxonomyError, '加载 IT 分类目录失败'))
+          }
+        }
         setSelectedId((current) =>
           appliedDeepLinkId.current
             ? appliedDeepLinkId.current
@@ -208,8 +211,7 @@ export default function FailureModeAdminPage() {
     if (!selectedId || status !== 'authenticated' || !canAccess) {
       setDetail(null)
       setSelectedL2Code('')
-      setControlKeyword('')
-      setControlResults([])
+      setSelectedControlId(null)
       return
     }
     const failureModeId = selectedId
@@ -219,8 +221,6 @@ export default function FailureModeAdminPage() {
         setDetailLoading(true)
         setDetail(null)
         setSelectedL2Code('')
-        setControlKeyword('')
-        setControlResults([])
         setSelectedControlId(null)
         const result = await getFailureMode(failureModeId)
         if (cancelled) return
@@ -377,28 +377,6 @@ export default function FailureModeAdminPage() {
     }
   }
 
-  async function handleSearchControls() {
-    if (!controlKeyword.trim()) {
-      setControlResults([])
-      return
-    }
-    try {
-      setControlLoading(true)
-      const result = await searchControlPoints({
-        page: 1,
-        limit: 10,
-        status: 'ACTIVE',
-        keyword: controlKeyword.trim(),
-      })
-      const mappedIds = new Set(detail?.controlMaps.map((item) => item.controlId) ?? [])
-      setControlResults(result.items.filter((item) => !mappedIds.has(item.controlId)))
-    } catch (searchError) {
-      toast.error(errorMessage(searchError, '搜索控制点失败'))
-    } finally {
-      setControlLoading(false)
-    }
-  }
-
   async function handleAddControlMap(controlId: string) {
     if (!detail) return
     try {
@@ -408,8 +386,6 @@ export default function FailureModeAdminPage() {
         relevance: selectedRelevance,
       })
       toast.success('控制点映射已添加')
-      setControlKeyword('')
-      setControlResults([])
       setReloadToken((current) => current + 1)
     } catch (submitError) {
       toast.error(errorMessage(submitError, '添加控制点映射失败'))
@@ -799,28 +775,6 @@ export default function FailureModeAdminPage() {
                         <Link2 className="h-4 w-4 text-[#1E3A5F]" />
                         <h2 className="font-semibold text-[#1E3A5F]">控制点映射</h2>
                       </div>
-                      <div className="grid gap-3 lg:grid-cols-[1fr_180px]">
-                        <Input
-                          value={controlKeyword}
-                          onChange={(event) => setControlKeyword(event.target.value)}
-                          placeholder="搜索 control code / control name"
-                        />
-                        <Button
-                          variant="outline"
-                          className="rounded-sm"
-                          onClick={handleSearchControls}
-                          disabled={controlLoading}
-                        >
-                          {controlLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <>
-                              <Search className="mr-2 h-4 w-4" />
-                              搜索控制点
-                            </>
-                          )}
-                        </Button>
-                      </div>
                       <div className="mt-3 max-w-[220px]">
                         <Label>关联强度</Label>
                         <Select
@@ -841,32 +795,15 @@ export default function FailureModeAdminPage() {
                           </SelectContent>
                         </Select>
                       </div>
-                      {controlResults.length > 0 && (
-                        <div className="mt-3 space-y-2 rounded-sm border border-dashed border-[#CBD5E1] p-3">
-                          {controlResults.map((item) => (
-                            <div
-                              key={item.controlId}
-                              className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2"
-                            >
-                              <div>
-                                <div className="font-medium text-[#1E3A5F]">
-                                  {item.controlCode} · {item.controlName}
-                                </div>
-                                <div className="text-xs text-[#64748B]">
-                                  {item.controlFamily} · {item.l1Code} / {item.l2Code}
-                                </div>
-                              </div>
-                              <Button
-                                size="sm"
-                                className="rounded-sm"
-                                onClick={() => handleAddControlMap(item.controlId)}
-                              >
-                                添加为映射
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <div className="mt-3">
+                        <ControlPointDirectorySelector
+                          actionLabel="添加为映射"
+                          disabled={saving}
+                          excludeControlIds={detail.controlMaps.map((map) => map.controlId)}
+                          onPreview={setSelectedControlId}
+                          onSelect={(item) => void handleAddControlMap(item.controlId)}
+                        />
+                      </div>
                       <div className="mt-4 space-y-2">
                         {detail.controlMaps.length === 0 ? (
                           <p className="text-sm text-[#64748B]">暂无控制点映射</p>

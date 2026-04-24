@@ -95,6 +95,7 @@ describe('Sidebar', () => {
       expect(screen.getByText('案例运营')).toBeInTheDocument()
       expect(screen.getByText('Failure Mode 管理')).toBeInTheDocument()
       expect(screen.getByText('Obligation 管理')).toBeInTheDocument()
+      expect(screen.getByText('Control Point 管理')).toBeInTheDocument()
       expect(screen.getByText('覆盖率分析')).toBeInTheDocument()
       expect(screen.getByText('同业爬虫管理')).toBeInTheDocument()
       expect(screen.getByText('爬虫健康监控')).toBeInTheDocument()
@@ -303,5 +304,34 @@ describe('Sidebar', () => {
     fireEvent.click(childButton!)
 
     expect(mockPush).toHaveBeenCalledWith('/admin/obligations/coverage-analysis')
+  })
+
+  it('keeps Control Point 管理 between Obligation 管理 and 覆盖率分析 in the admin submenu', async () => {
+    render(<Sidebar />)
+
+    const adminTexts = screen
+      .getAllByRole('button')
+      .map((button) => button.textContent ?? '')
+      .filter((text) =>
+        ['Obligation 管理', 'Control Point 管理', '覆盖率分析'].some((label) =>
+          text.includes(label),
+        ),
+      )
+
+    expect(adminTexts).toEqual([
+      'Obligation 管理',
+      'Control Point 管理',
+      '覆盖率分析',
+    ])
+  })
+
+  it('navigates to Control Point 管理 from the admin submenu', async () => {
+    render(<Sidebar />)
+
+    const childItem = screen.getByText('Control Point 管理')
+    const childButton = childItem.closest('button')
+    fireEvent.click(childButton!)
+
+    expect(mockPush).toHaveBeenCalledWith('/admin/control-points')
   })
 })

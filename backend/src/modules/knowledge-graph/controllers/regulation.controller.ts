@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -223,6 +224,32 @@ export class RegulationController {
       details: {
         clauseId: result.clauseId,
         controlId: result.controlId,
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] as string | undefined,
+    })
+
+    return result
+  }
+
+  @Delete('clause-control-maps/:id')
+  @ApiOperation({ summary: '删除条款到控制点映射' })
+  async deleteClauseControlMap(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: { id?: string; userId?: string },
+    @Param('id') id: string,
+    @Req() req: Request,
+  ) {
+    const result = await this.regulationService.deleteClauseControlMap(id)
+
+    await this.auditLogService.log({
+      userId: user.id || user.userId,
+      tenantId,
+      action: AuditAction.DELETE,
+      entityType: 'ClauseControlMap',
+      entityId: id,
+      details: {
+        id,
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] as string | undefined,

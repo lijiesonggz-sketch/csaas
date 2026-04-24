@@ -20,6 +20,7 @@ describe('KnowledgeGraph evidence controllers (http)', () => {
     findAllControlEvidenceMaps: jest.fn(),
     createControlEvidenceMap: jest.fn(),
     updateControlEvidenceMap: jest.fn(),
+    deleteControlEvidenceMap: jest.fn(),
     findEvidencesByControlId: jest.fn(),
   }
 
@@ -150,6 +151,9 @@ describe('KnowledgeGraph evidence controllers (http)', () => {
           evidenceName: '审批记录',
           evidenceCategory: 'APPROVAL_RECORD',
           requiredLevel: 'REQUIRED',
+          frequency: 'MONTHLY',
+          ownerRole: '数据治理岗',
+          samplingRequirement: 'FULL',
           evidenceDesc: '关键审批留痕',
         },
       ],
@@ -171,11 +175,37 @@ describe('KnowledgeGraph evidence controllers (http)', () => {
             evidenceName: '审批记录',
             evidenceCategory: 'APPROVAL_RECORD',
             requiredLevel: 'REQUIRED',
+            frequency: 'MONTHLY',
+            ownerRole: '数据治理岗',
+            samplingRequirement: 'FULL',
             evidenceDesc: '关键审批留痕',
           },
         ],
       },
     })
+  })
+
+  it('should delete a control evidence map', async () => {
+    mockEvidenceService.deleteControlEvidenceMap.mockResolvedValue({
+      success: true,
+      id: 'map-1',
+    })
+
+    const response = await request(app.getHttpServer())
+      .delete('/api/admin/knowledge-graph/control-evidence-maps/map-1')
+      .expect(200)
+
+    expect(response.body).toEqual({
+      success: true,
+      id: 'map-1',
+    })
+    expect(mockAuditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.DELETE,
+        entityType: 'ControlEvidenceMap',
+        entityId: 'map-1',
+      }),
+    )
   })
 
   it('should return 401 for unauthenticated requests', async () => {

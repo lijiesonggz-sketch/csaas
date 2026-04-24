@@ -14,6 +14,7 @@ import {
   ClipboardCheck,
   GitBranch,
   Scale,
+  Target,
   BarChart3,
   ChevronLeft,
   ChevronRight,
@@ -107,6 +108,11 @@ const allMenuItems: MenuItem[] = [
         key: '/admin/obligations',
         icon: <Scale className="w-4 h-4" />,
         label: 'Obligation 管理',
+      },
+      {
+        key: '/admin/control-points',
+        icon: <Target className="w-4 h-4" />,
+        label: 'Control Point 管理',
       },
       {
         key: '/admin/obligations/coverage-analysis',

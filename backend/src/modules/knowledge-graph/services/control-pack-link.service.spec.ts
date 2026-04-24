@@ -5,6 +5,7 @@ import { ControlPackItem } from '../../../database/entities/control-pack-item.en
 import { ControlPoint } from '../../../database/entities/control-point.entity'
 import { PackResolverService } from '../../applicability-engine/services/pack-resolver.service'
 import { ControlPackLinkService } from './control-pack-link.service'
+import { DataSource } from 'typeorm'
 
 describe('ControlPackLinkService', () => {
   let service: ControlPackLinkService
@@ -12,8 +13,10 @@ describe('ControlPackLinkService', () => {
   const controlPackItemRepository = {
     findAndCount: jest.fn(),
     findOne: jest.fn(),
+    count: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    delete: jest.fn(),
     createQueryBuilder: jest.fn(),
   }
 
@@ -28,6 +31,29 @@ describe('ControlPackLinkService', () => {
 
   const packResolverService = {
     resolveByOrganizationId: jest.fn(),
+  }
+  const managerControlPackItemRepository = {
+    findOne: jest.fn(),
+    count: jest.fn(),
+    save: jest.fn(),
+    delete: jest.fn(),
+  }
+  const managerControlPointRepository = {
+    findOne: jest.fn(),
+  }
+  const mockEntityManager = {
+    getRepository: jest.fn((entity) => {
+      if (entity === ControlPackItem) {
+        return managerControlPackItemRepository
+      }
+      if (entity === ControlPoint) {
+        return managerControlPointRepository
+      }
+      throw new Error('unexpected repository')
+    }),
+  }
+  const dataSource = {
+    transaction: jest.fn(),
   }
 
   beforeEach(async () => {
@@ -50,17 +76,23 @@ describe('ControlPackLinkService', () => {
           provide: PackResolverService,
           useValue: packResolverService,
         },
+        {
+          provide: DataSource,
+          useValue: dataSource,
+        },
       ],
     }).compile()
 
     service = module.get(ControlPackLinkService)
     jest.clearAllMocks()
+    dataSource.transaction.mockImplementation(async (callback) => callback(mockEntityManager))
   })
 
   it('should reject duplicate pack-control map before save', async () => {
     controlPackRepository.findOne.mockResolvedValue({
       packId: 'pack-id',
       packCode: 'PACK-BASE-CYBER',
+      status: 'ACTIVE',
     })
     controlPointRepository.findOne.mockResolvedValue({
       controlId: 'control-id',
@@ -80,6 +112,73 @@ describe('ControlPackLinkService', () => {
         priority: 10,
       }),
     ).rejects.toThrow('control_pack_item pack-id/control-id already exists')
+  })
+
+  it('should reject pack links that point to inactive packs', async () => {
+    controlPackRepository.findOne.mockResolvedValue({
+      packId: 'pack-id',
+      packCode: 'PACK-BASE-CYBER',
+      status: 'INACTIVE',
+    })
+
+    await expect(
+      service.create({
+        packId: 'pack-id',
+        controlId: 'control-id',
+      }),
+    ).rejects.toThrow('control_pack pack-id is not active')
+  })
+
+  it('should reject moving the last pack link away from a hard control point', async () => {
+    managerControlPackItemRepository.findOne.mockResolvedValue({
+      id: 'map-1',
+      packId: 'pack-id',
+      controlId: 'hard-control-id',
+      itemRole: 'INCLUDE',
+      priority: 10,
+    })
+    controlPackRepository.findOne.mockResolvedValue({
+      packId: 'pack-id',
+      packCode: 'PACK-BASE-CYBER',
+      status: 'ACTIVE',
+    })
+    controlPointRepository.findOne.mockResolvedValue({
+      controlId: 'other-control-id',
+      controlCode: 'CTRL-OTHER-001',
+    })
+    managerControlPointRepository.findOne.mockResolvedValue({
+      controlId: 'hard-control-id',
+      controlCode: 'CTRL-HARD-001',
+      maturityLevel: 'hard',
+    })
+    managerControlPackItemRepository.count.mockResolvedValue(1)
+    controlPackItemRepository.findOne.mockResolvedValue(null)
+
+    await expect(
+      service.update('map-1', {
+        controlId: 'other-control-id',
+      }),
+    ).rejects.toThrow('hard control point 必须关联至少一个 control_pack')
+  })
+
+  it('should reject deleting the last pack link from a hard control point', async () => {
+    managerControlPackItemRepository.findOne.mockResolvedValue({
+      id: 'map-1',
+      packId: 'pack-id',
+      controlId: 'hard-control-id',
+      itemRole: 'INCLUDE',
+      priority: 10,
+    })
+    managerControlPointRepository.findOne.mockResolvedValue({
+      controlId: 'hard-control-id',
+      controlCode: 'CTRL-HARD-001',
+      maturityLevel: 'hard',
+    })
+    managerControlPackItemRepository.count.mockResolvedValue(1)
+
+    await expect(service.delete('map-1')).rejects.toThrow(
+      'hard control point 必须关联至少一个 control_pack',
+    )
   })
 
   it('should return static pack links with pack metadata ordered by priority', async () => {
@@ -105,6 +204,7 @@ describe('ControlPackLinkService', () => {
             packCode: 'PACK-BASE-CYBER',
             packName: '网络安全基线包',
             packType: 'base',
+            maturityLevel: null,
           },
         },
       ]),
@@ -122,6 +222,7 @@ describe('ControlPackLinkService', () => {
           packCode: 'PACK-BASE-CYBER',
           packName: '网络安全基线包',
           packType: 'base',
+          packVersion: null,
           itemRole: 'INCLUDE',
           priority: 10,
         },
@@ -200,6 +301,7 @@ describe('ControlPackLinkService', () => {
             packCode: 'PACK-BASE-CYBER',
             packName: '网络安全基线包',
             packType: 'base',
+            maturityLevel: null,
           },
         },
       ]),
@@ -263,6 +365,7 @@ describe('ControlPackLinkService', () => {
           packCode: 'PACK-BASE-CYBER',
           packName: '网络安全基线包',
           packType: 'base',
+          packVersion: null,
           itemRole: 'INCLUDE',
           priority: 10,
         },

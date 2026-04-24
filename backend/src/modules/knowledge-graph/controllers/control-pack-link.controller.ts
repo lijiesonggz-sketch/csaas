@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -43,6 +44,12 @@ export class ControlPackLinkController {
   @ApiOperation({ summary: '获取 control pack items 列表' })
   async findAll(@Query() query: QueryControlPackItemDto) {
     return this.controlPackLinkService.findAll(query)
+  }
+
+  @Get('control-packs')
+  @ApiOperation({ summary: '获取 control packs catalog' })
+  async findAllPacks() {
+    return this.controlPackLinkService.findAllPacks()
   }
 
   @Post('control-pack-items')
@@ -94,6 +101,32 @@ export class ControlPackLinkController {
         packId: result.packId,
         controlId: result.controlId,
         itemRole: result.itemRole,
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] as string | undefined,
+    })
+
+    return result
+  }
+
+  @Delete('control-pack-items/:id')
+  @ApiOperation({ summary: '删除 control pack item' })
+  async delete(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: { id?: string; userId?: string },
+    @Param('id') id: string,
+    @Req() req: Request,
+  ) {
+    const result = await this.controlPackLinkService.delete(id)
+
+    await this.auditLogService.log({
+      userId: user.id || user.userId,
+      tenantId,
+      action: AuditAction.DELETE,
+      entityType: 'ControlPackItem',
+      entityId: id,
+      details: {
+        id,
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] as string | undefined,

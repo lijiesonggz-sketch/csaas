@@ -157,6 +157,9 @@ export class EvidenceService {
         controlId: dto.controlId,
         evidenceId: dto.evidenceId,
         requiredLevel: dto.requiredLevel ?? 'RECOMMENDED',
+        frequency: dto.frequency ?? null,
+        ownerRole: dto.ownerRole ?? null,
+        samplingRequirement: dto.samplingRequirement ?? null,
         notes: dto.notes ?? null,
       }),
     )
@@ -180,10 +183,23 @@ export class EvidenceService {
       controlId: nextControlId,
       evidenceId: nextEvidenceId,
       requiredLevel: dto.requiredLevel ?? existing.requiredLevel,
-      notes: dto.notes ?? existing.notes,
+      frequency: this.resolveNullableField(dto, 'frequency', existing.frequency),
+      ownerRole: this.resolveNullableField(dto, 'ownerRole', existing.ownerRole),
+      samplingRequirement: this.resolveNullableField(
+        dto,
+        'samplingRequirement',
+        existing.samplingRequirement,
+      ),
+      notes: this.resolveNullableField(dto, 'notes', existing.notes),
     })
 
     return this.controlEvidenceMapRepository.save(existing)
+  }
+
+  async deleteControlEvidenceMap(id: string) {
+    await this.findControlEvidenceMap(id)
+    await this.controlEvidenceMapRepository.delete({ id })
+    return { success: true as const, id }
   }
 
   async findEvidencesByControlId(controlId: string): Promise<{
@@ -227,6 +243,9 @@ export class EvidenceService {
         evidenceCategory: item.evidenceType?.evidenceCategory ?? null,
         status: item.evidenceType?.status ?? 'INACTIVE',
         requiredLevel: item.requiredLevel,
+        frequency: item.frequency ?? null,
+        ownerRole: item.ownerRole ?? null,
+        samplingRequirement: item.samplingRequirement ?? null,
         notes: item.notes ?? null,
       }))
 
@@ -312,5 +331,14 @@ export class EvidenceService {
         throw new BadRequestException(`${field} cannot be null`)
       }
     }
+  }
+
+  private resolveNullableField<T>(
+    dto: object,
+    field: string,
+    existingValue: T,
+  ): T {
+    const record = dto as Record<string, unknown>
+    return Object.prototype.hasOwnProperty.call(record, field) ? (record[field] as T) : existingValue
   }
 }

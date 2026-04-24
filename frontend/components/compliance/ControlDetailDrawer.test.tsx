@@ -604,4 +604,48 @@ describe('ControlDetailDrawer', () => {
       '/admin/compliance-cases?caseId=case%2Fwith%3Fweird%3Dvalue',
     )
   })
+
+  it('should render the management navigation button in admin mode and route to the control-point workbench', async () => {
+    render(
+      <ControlDetailDrawer
+        {...defaultProps}
+        controlId="control/with?weird=value"
+        sourceModule="admin"
+        sourceRecordId="fm-001"
+      />,
+    )
+
+    await waitFor(() =>
+      expect(screen.getByTestId('view-in-management')).toBeInTheDocument(),
+    )
+
+    fireEvent.click(screen.getByTestId('view-in-management'))
+
+    expect(mockPush).toHaveBeenCalledWith(
+      '/admin/control-points?controlId=control%2Fwith%3Fweird%3Dvalue',
+    )
+  })
+
+  it('should keep the management navigation button available even when detail loading fails in admin mode', async () => {
+    ;(getControlExplain as jest.Mock).mockRejectedValueOnce({
+      status: 404,
+      message: 'control_point control-404 not found',
+    })
+
+    render(
+      <ControlDetailDrawer
+        {...defaultProps}
+        controlId="control-404"
+        sourceModule="admin"
+        sourceRecordId="fm-404"
+      />,
+    )
+
+    await waitFor(() => expect(screen.getByText('该控制点已移除或停用')).toBeInTheDocument())
+    expect(screen.getByTestId('view-in-management')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('view-in-management'))
+
+    expect(mockPush).toHaveBeenCalledWith('/admin/control-points?controlId=control-404')
+  })
 })
