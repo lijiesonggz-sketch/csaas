@@ -1,0 +1,15 @@
+[
+  {
+    "caseId": "IT04-CUTOVER-001",
+    "caseTitle": "向监管提供虚假报表",
+    "caseText": "编制并向监管部门提供虚假报表，存在虚假记载和数据造假，监管报告严重失真。",
+    "l1Code": "IT04",
+    "tier": "tier-1-cutover",
+    "riskTags": ["HIGH_RISK", "HISTORICAL_FALLBACK"],
+    "expectedL2Code": "IT04-11",
+    "expectedFailureModeCodes": ["FM-FAL-001"],
+    "expectedControlCodes": ["CTRL-FAL-001"],
+    "expectedEvidenceCodes": ["EVD-FAL-AUDIT-001"],
+    "expectedEvidenceCategories": ["SAMPLE_RECORD"]
+  }
+]

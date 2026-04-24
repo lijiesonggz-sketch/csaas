@@ -1,0 +1,15 @@
+[
+  {
+    "caseId": "IT04-SMOKE-001",
+    "caseTitle": "EAST 数据质量自动校验缺失",
+    "caseText": "EAST 数据质量不符合规范要求，报送前未建立自动化数据质量校验规则，异常字段未被阻断。",
+    "l1Code": "IT04",
+    "tier": "tier-0-smoke",
+    "riskTags": ["SMOKE"],
+    "expectedL2Code": "IT04-04",
+    "expectedFailureModeCodes": ["FM-DQ-001"],
+    "expectedControlCodes": ["CTRL-DQ-001"],
+    "expectedEvidenceCodes": ["EVD-DQ-RULE-001"],
+    "expectedEvidenceCategories": ["LOG"]
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "IT06-SMOKE-001",
+    "caseTitle": "重要系统变更管理不规范",
+    "caseText": "重要系统投产上线和版本发布管理不规范，重大变更审批与回退控制缺失。",
+    "l1Code": "IT06",
+    "tier": "tier-0-smoke",
+    "riskTags": ["SMOKE"],
+    "expectedL2Code": "IT06-03",
+    "expectedFailureModeCodes": [],
+    "expectedControlCodes": []
+  }
+]

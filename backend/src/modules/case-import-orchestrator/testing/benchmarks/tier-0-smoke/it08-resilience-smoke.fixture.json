@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "IT08-SMOKE-001",
+    "caseTitle": "重大科技事件迟报",
+    "caseText": "重大科技突发事件迟报瞒报，应报未报且未在规定时限内完成事件上报。",
+    "l1Code": "IT08",
+    "tier": "tier-0-smoke",
+    "riskTags": ["SMOKE"],
+    "expectedL2Code": "IT08-05",
+    "expectedFailureModeCodes": [],
+    "expectedControlCodes": []
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "IT05-SMOKE-001",
+    "caseTitle": "外包准入尽调不足",
+    "caseText": "外包供应商准入尽调不充分，供应商日常监督和考核管理长期不到位。",
+    "l1Code": "IT05",
+    "tier": "tier-0-smoke",
+    "riskTags": ["SMOKE"],
+    "expectedL2Code": "IT05-02",
+    "expectedFailureModeCodes": [],
+    "expectedControlCodes": []
+  }
+]

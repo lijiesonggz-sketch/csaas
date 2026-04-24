@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "IT02-HOLDOUT-001",
+    "caseTitle": "安全漏洞治理不足",
+    "caseText": "安全漏洞管理与安全控制措施整改持续滞后，系统存在明显安全缺陷。",
+    "l1Code": "IT02",
+    "tier": "tier-2-holdout",
+    "riskTags": ["HOLDOUT", "AMBIGUOUS_BOUNDARY"],
+    "expectedL2Code": "IT02-05",
+    "expectedFailureModeCodes": [],
+    "expectedControlCodes": []
+  }
+]

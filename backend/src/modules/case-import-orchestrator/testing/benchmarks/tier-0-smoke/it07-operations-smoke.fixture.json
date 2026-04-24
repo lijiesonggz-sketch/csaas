@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "IT07-SMOKE-001",
+    "caseTitle": "运维后台直接改数",
+    "caseText": "运维人员通过后台直接修改核心业务系统数据，绕过前台控制并缺少有效留痕。",
+    "l1Code": "IT07",
+    "tier": "tier-0-smoke",
+    "riskTags": ["SMOKE"],
+    "expectedL2Code": "IT07-06",
+    "expectedFailureModeCodes": [],
+    "expectedControlCodes": []
+  }
+]

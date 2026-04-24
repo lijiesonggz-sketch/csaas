@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "IT07-CUTOVER-003",
+    "caseTitle": "运维后台改数高风险切片",
+    "caseText": "运维人员通过后台直接修改核心业务系统数据，绕过前台控制并缺少有效留痕。",
+    "l1Code": "IT07",
+    "tier": "tier-1-cutover",
+    "riskTags": ["HIGH_RISK", "HISTORICAL_FALLBACK"],
+    "expectedL2Code": "IT07-06",
+    "expectedFailureModeCodes": [],
+    "expectedControlCodes": []
+  }
+]

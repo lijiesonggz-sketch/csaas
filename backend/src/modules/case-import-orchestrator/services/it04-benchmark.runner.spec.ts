@@ -3,6 +3,7 @@ import * as os from 'os'
 import * as path from 'path'
 import {
   classifyIt04CaseText,
+  It04BenchmarkReport,
   It04BenchmarkRunner,
   It04TaxonomySemanticMapping,
 } from './it04-benchmark.runner'
@@ -449,5 +450,64 @@ describe('It04BenchmarkRunner', () => {
     expect(failureModeService.findByL2Code).not.toHaveBeenCalled()
     expect(caseClusteringChainService.resolveControlPointsByL2Code).not.toHaveBeenCalled()
     expect(controlPointService.findByL2CodeWithFullChain).not.toHaveBeenCalled()
+  })
+
+  it('should overwrite benchmark artifact files with the legacy IT04 schema after delegating to the unified runner', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'it04-benchmark-artifact-shape-'))
+    const datasetPath = path.join(tempDir, 'cases.json')
+    const csvPath = path.join(tempDir, 'taxonomy-2026-05-03.csv')
+
+    fs.writeFileSync(
+      datasetPath,
+      JSON.stringify(
+        [
+          {
+            caseId: 'CASE-005',
+            caseTitle: 'record maintenance',
+            caseText: '监管登记信息补录和更新没有时效监控，补录超期且无人催办，导致信息更新不及时不规范。',
+            expectedL2Code: 'IT04-10',
+            expectedFailureModeCodes: [],
+            expectedControlCodes: [],
+          },
+        ],
+        null,
+        2,
+      ),
+      'utf8',
+    )
+    fs.writeFileSync(
+      csvPath,
+      [
+        '一级编码,一级类型,二级编码,二级子类型,定义口径,建议canonicalTheme,建议aliases,建议keywords,建议controlFamilies,差距说明',
+        'IT04,数据治理与监管数据报送,IT04-10,信息登记/录入/更新不及时不规范,投保信息、业务信息、登记信息录入、更新、维护不及时不规范,信息登记与更新管理,信息登记|录入更新|维护及时性,录入不及时|更新不及时|补录,REG_REPORTING,',
+      ].join('\n'),
+      'utf8',
+    )
+
+    const runner = new It04BenchmarkRunner({
+      datasetPath,
+      taxonomyMappingPath: csvPath,
+      reportDir: tempDir,
+      failureModeService: {
+        findByL2Code: jest.fn().mockResolvedValue({ items: [] }),
+      },
+      caseClusteringChainService: {
+        resolveControlPointsByL2Code: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+      },
+      controlPointService: {
+        findByL2CodeWithFullChain: jest.fn().mockResolvedValue({
+          l2Code: 'IT04-10',
+          l2Name: '信息登记/录入/更新不及时不规范',
+          failureModes: [],
+        }),
+      },
+    })
+
+    const report = await runner.runBenchmark({ writeReport: true })
+    const artifactJson = JSON.parse(fs.readFileSync(report.jsonPath!, 'utf8')) as It04BenchmarkReport
+
+    expect(artifactJson.summary.minFullChainHits).toBeDefined()
+    expect(artifactJson.datasetPath).toBe(datasetPath)
+    expect(artifactJson.summary).not.toHaveProperty('gateStatus')
   })
 })

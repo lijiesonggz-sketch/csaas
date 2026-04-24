@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "IT02-SMOKE-001",
+    "caseTitle": "访问控制不到位",
+    "caseText": "账户权限管理薄弱，最小权限原则未落实，存在越权访问和授权控制不到位问题。",
+    "l1Code": "IT02",
+    "tier": "tier-0-smoke",
+    "riskTags": ["SMOKE"],
+    "expectedL2Code": "IT02-03",
+    "expectedFailureModeCodes": [],
+    "expectedControlCodes": []
+  }
+]

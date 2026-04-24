@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "IT07-HOLDOUT-001",
+    "caseTitle": "信息系统管控有效性不足",
+    "caseText": "信息系统管控有效性和动态监测指标长期不足，控制措施未能形成有效闭环。",
+    "l1Code": "IT07",
+    "tier": "tier-2-holdout",
+    "riskTags": ["HOLDOUT", "HISTORICAL_FALLBACK", "AMBIGUOUS_BOUNDARY"],
+    "expectedL2Code": "IT07-05",
+    "expectedFailureModeCodes": [],
+    "expectedControlCodes": []
+  }
+]

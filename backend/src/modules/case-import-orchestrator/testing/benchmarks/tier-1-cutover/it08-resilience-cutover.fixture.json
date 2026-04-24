@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "IT08-CUTOVER-001",
+    "caseTitle": "事件迟报高风险切片",
+    "caseText": "重大科技突发事件迟报瞒报，应报未报且未在规定时限内完成事件上报。",
+    "l1Code": "IT08",
+    "tier": "tier-1-cutover",
+    "riskTags": ["HIGH_RISK"],
+    "expectedL2Code": "IT08-05",
+    "expectedFailureModeCodes": [],
+    "expectedControlCodes": []
+  }
+]

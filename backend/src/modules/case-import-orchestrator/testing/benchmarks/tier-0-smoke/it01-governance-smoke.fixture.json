@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "IT01-SMOKE-001",
+    "caseTitle": "信息科技治理体系不健全",
+    "caseText": "信息科技治理体系不健全，职责机制不完善，信息科技治理架构和制度机制存在明显缺陷。",
+    "l1Code": "IT01",
+    "tier": "tier-0-smoke",
+    "riskTags": ["SMOKE"],
+    "expectedL2Code": "IT01-02",
+    "expectedFailureModeCodes": [],
+    "expectedControlCodes": []
+  }
+]

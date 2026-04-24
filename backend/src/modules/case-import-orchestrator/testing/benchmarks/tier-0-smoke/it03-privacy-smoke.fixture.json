@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "IT03-SMOKE-001",
+    "caseTitle": "个人信息泄露",
+    "caseText": "客户个人信息被非法查询并对外提供，个人信息泄露与违规共享风险暴露。",
+    "l1Code": "IT03",
+    "tier": "tier-0-smoke",
+    "riskTags": ["SMOKE"],
+    "expectedL2Code": "IT03-02",
+    "expectedFailureModeCodes": [],
+    "expectedControlCodes": []
+  }
+]

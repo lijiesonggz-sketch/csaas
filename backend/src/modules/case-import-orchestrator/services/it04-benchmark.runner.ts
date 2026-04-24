@@ -1,8 +1,8 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { ControlPointService, FullChainResult } from '../../knowledge-graph/services/control-point.service'
+import { ControlPointService } from '../../knowledge-graph/services/control-point.service'
 import { FailureModeService } from '../../knowledge-graph/services/failure-mode.service'
-import { CaseClusteringChainService, ChainResult } from './case-clustering-chain.service'
+import { CaseClusteringChainService } from './case-clustering-chain.service'
 import { CaseNormalizationService } from './taxonomy-classification/case-normalization.service'
 import type {
   TaxonomyClassificationResult,
@@ -12,41 +12,14 @@ import { CsvBackedMappingRepository } from './taxonomy-classification/csv-backed
 import { IT04_DOMAIN_PROFILE } from './taxonomy-classification/profiles/it04.profile'
 import { TaxonomyClassifierEngine } from './taxonomy-classification/taxonomy-classifier.engine'
 import { IT04_RULEBOOK } from './taxonomy-classification/rulebooks/it04.rulebook'
-
-function resolveExistingPath(candidates: string[]): string {
-  const found = candidates.find((candidate) => fs.existsSync(candidate))
-  return found ?? candidates[0]
-}
-
-function readRequiredFile(filePath: string, label: string, candidates: string[]): string {
-  if (!fs.existsSync(filePath)) {
-    throw new Error(
-      `Required ${label} file not found. Resolved path: ${filePath}. Tried candidates: ${candidates.join(
-        ', ',
-      )}`,
-    )
-  }
-
-  return fs.readFileSync(filePath, 'utf8')
-}
-
-function resolveWorkspaceArtifactPath(relativePath: string): {
-  resolvedPath: string
-  candidates: string[]
-} {
-  const normalizedRelativePath = relativePath.replace(/\//g, path.sep)
-  const candidates = [
-    path.resolve(process.cwd(), normalizedRelativePath),
-    path.resolve(process.cwd(), '..', normalizedRelativePath),
-    path.resolve(__dirname, '../../../../../', normalizedRelativePath),
-    path.resolve(__dirname, '../../../../../../', normalizedRelativePath),
-  ]
-
-  return {
-    resolvedPath: resolveExistingPath(candidates),
-    candidates,
-  }
-}
+import {
+  buildTaxonomyBenchmarkMarkdown,
+  DEFAULT_TAXONOMY_BENCHMARK_REPORT_DIR,
+  resolveWorkspaceArtifactPath,
+  TaxonomyBenchmarkCase,
+  TaxonomyBenchmarkCaseResult,
+  TaxonomyBenchmarkRunner,
+} from './taxonomy-benchmark.runner'
 
 const DEFAULT_DATASET_RESOLUTION = resolveWorkspaceArtifactPath(
   'backend/src/modules/case-import-orchestrator/testing/it04-benchmark-cases.fixture.json',
@@ -54,11 +27,10 @@ const DEFAULT_DATASET_RESOLUTION = resolveWorkspaceArtifactPath(
 const DEFAULT_TAXONOMY_MAPPING_RESOLUTION = resolveWorkspaceArtifactPath(
   'docs/it-taxonomy-to-kg-semantic-mapping-2026-04-07.csv',
 )
-const DEFAULT_REPORT_DIR_RESOLUTION = resolveWorkspaceArtifactPath('_bmad-output/test-artifacts')
 
 const DEFAULT_DATASET_PATH = DEFAULT_DATASET_RESOLUTION.resolvedPath
 const DEFAULT_TAXONOMY_MAPPING_PATH = DEFAULT_TAXONOMY_MAPPING_RESOLUTION.resolvedPath
-const DEFAULT_REPORT_DIR = DEFAULT_REPORT_DIR_RESOLUTION.resolvedPath
+const DEFAULT_REPORT_DIR = DEFAULT_TAXONOMY_BENCHMARK_REPORT_DIR
 const DEFAULT_MIN_FULL_CHAIN_HITS = 10
 const DEFAULT_CLASSIFIER_VERSION = 'taxonomy-classifier-6.1'
 const defaultCaseNormalizationService = new CaseNormalizationService()
@@ -138,21 +110,16 @@ type FailureModeServiceLike = Pick<FailureModeService, 'findByL2Code'>
 type ControlPointServiceLike = Pick<ControlPointService, 'findByL2CodeWithFullChain'>
 type CaseClusteringChainServiceLike = Pick<CaseClusteringChainService, 'resolveControlPointsByL2Code'>
 
-function normalizeText(value: string): string {
-  return value.replace(/\s+/g, '').trim()
-}
+function readRequiredFile(filePath: string, label: string, candidates: string[]): string {
+  if (!fs.existsSync(filePath)) {
+    throw new Error(
+      `Required ${label} file not found. Resolved path: ${filePath}. Tried candidates: ${candidates.join(
+        ', ',
+      )}`,
+    )
+  }
 
-function dedupe(values: string[]): string[] {
-  return Array.from(new Set(values.filter((value) => value.length > 0)))
-}
-
-function splitPipeList(value?: string): string[] {
-  return dedupe(
-    (value ?? '')
-      .split('|')
-      .map((entry) => normalizeText(entry))
-      .filter((entry) => entry.length > 0),
-  )
+  return fs.readFileSync(filePath, 'utf8')
 }
 
 export function loadIt04BenchmarkCases(datasetPath = DEFAULT_DATASET_PATH): It04BenchmarkCase[] {
@@ -185,6 +152,30 @@ function toLegacyIt04ClassificationResult(
   }
 }
 
+function toTaxonomyClassificationResult(
+  result: It04ClassificationResult,
+  mappingVersion: string,
+): TaxonomyClassificationResult {
+  return {
+    l1Code: 'IT04',
+    l2Code: result.l2Code,
+    l2Name: result.l2Name,
+    score: result.score,
+    confidenceScore: result.score,
+    scoreGap: result.scoreGap,
+    decisionSource: result.decisionSource,
+    matchedSignals: [...result.matchedPhrases, ...result.matchedTokens],
+    matchedPhrases: result.matchedPhrases,
+    matchedTokens: result.matchedTokens,
+    classifierVersion: DEFAULT_CLASSIFIER_VERSION,
+    mappingVersion,
+    rulebookVersion: IT04_RULEBOOK.version,
+    classifiedAt: new Date().toISOString(),
+    pathDecision: result.l2Code ? 'PRIMARY_CHAIN' : 'UNCLASSIFIED',
+    failureSemantics: result.l2Code ? null : 'NO_MATCH',
+  }
+}
+
 export function classifyIt04CaseText(
   caseText: string,
   mappings: It04TaxonomySemanticMapping[],
@@ -204,64 +195,6 @@ export function classifyIt04CaseText(
   })
 
   return toLegacyIt04ClassificationResult(result)
-}
-
-function collectActualControlCodes(chainResult: ChainResult): string[] {
-  return dedupe(chainResult.items.map((item) => item.controlCode))
-}
-
-function collectActualEvidence(
-  fullChainResult: FullChainResult,
-  expectedControlCodes: string[],
-): { codes: string[]; categories: string[] } {
-  const relevantControls = new Set(expectedControlCodes)
-  const evidenceRows = fullChainResult.failureModes.flatMap((failureMode) =>
-    failureMode.controlPoints
-      .filter((controlPoint) =>
-        relevantControls.size === 0 ? true : relevantControls.has(controlPoint.controlCode),
-      )
-      .flatMap((controlPoint) => controlPoint.evidenceTypes),
-  )
-
-  return {
-    codes: dedupe(evidenceRows.map((evidence) => evidence.evidenceCode)),
-    categories: dedupe(
-      evidenceRows
-        .map((evidence) => evidence.evidenceCategory ?? '')
-        .filter((category) => category.length > 0),
-    ),
-  }
-}
-
-function includesAll(actual: string[], expected: string[]): boolean {
-  if (expected.length === 0) {
-    return true
-  }
-
-  const actualSet = new Set(actual)
-  return expected.every((expectedValue) => actualSet.has(expectedValue))
-}
-
-function determineMissCategory(
-  taxonomyHit: boolean,
-  failureModeHit: boolean,
-  controlHit: boolean,
-  evidenceHit: boolean,
-): It04BenchmarkCaseResult['missCategory'] {
-  if (!taxonomyHit) {
-    return 'taxonomy'
-  }
-  if (!failureModeHit) {
-    return 'failure_mode'
-  }
-  if (!controlHit) {
-    return 'control'
-  }
-  if (!evidenceHit) {
-    return 'evidence'
-  }
-
-  return 'none'
 }
 
 export function buildIt04BenchmarkMarkdown(report: It04BenchmarkReport): string {
@@ -339,139 +272,99 @@ export class It04BenchmarkRunner {
     })
     const mappings = mappingRepository.loadByL1Code('IT04')
     const mappingVersion = mappingRepository.getVersion()
+    const taxonomyRunner = new TaxonomyBenchmarkRunner({
+      failureModeService: this.services.failureModeService,
+      controlPointService: this.services.controlPointService,
+      caseClusteringChainService: this.services.caseClusteringChainService,
+      reportDir: this.services.reportDir ?? DEFAULT_REPORT_DIR,
+      reportId: 'it04-benchmark',
+      reportTitle: 'IT04 Benchmark Report',
+      reportFilePrefix: 'it04-benchmark-report',
+      compatibility: {
+        legacyReportId: 'it04-benchmark',
+        markdownTitle: 'IT04 Benchmark Report',
+      },
+      evaluateNewPathCase: (benchmarkCase: TaxonomyBenchmarkCase) =>
+        toTaxonomyClassificationResult(
+          classifyIt04CaseText(benchmarkCase.caseText, mappings, mappingVersion),
+          mappingVersion,
+        ),
+    })
 
-    const caseResults: It04BenchmarkCaseResult[] = []
+    const report = await taxonomyRunner.runBenchmark({
+      mode: 'new-path',
+      writeReport: options?.writeReport ?? true,
+      benchmarkCases: benchmarkCases.map((benchmarkCase) => ({
+        ...benchmarkCase,
+        l1Code: 'IT04',
+        tier: 'tier-0-smoke',
+        riskTags: ['SMOKE'],
+      })),
+    })
 
-    for (const benchmarkCase of benchmarkCases) {
-      const classification = classifyIt04CaseText(
-        benchmarkCase.caseText,
-        mappings,
-        mappingVersion,
-      )
-      const failureModeResult =
-        classification.l2Code == null
-          ? { items: [] }
-          : await this.services.failureModeService.findByL2Code(classification.l2Code, {
-              status: 'ACTIVE',
-              limit: 50,
-            })
-
-      const chainResult =
-        classification.l2Code == null
-          ? { items: [], total: 0 }
-          : await this.services.caseClusteringChainService.resolveControlPointsByL2Code(
-              classification.l2Code,
-            )
-      const fullChainResult =
-        classification.l2Code == null
-          ? { l2Code: '', l2Name: '', failureModes: [] }
-          : await this.services.controlPointService.findByL2CodeWithFullChain(
-              classification.l2Code,
-            )
-
-      const actualFailureModeCodes = dedupe(
-        failureModeResult.items.map((failureMode) => failureMode.failureModeCode),
-      )
-      const actualControlCodes = collectActualControlCodes(chainResult as ChainResult)
-      const actualEvidence = collectActualEvidence(
-        fullChainResult as FullChainResult,
-        benchmarkCase.expectedControlCodes,
-      )
-
-      const taxonomyHit = classification.l2Code === benchmarkCase.expectedL2Code
-      const failureModeHit = includesAll(
-        actualFailureModeCodes,
-        benchmarkCase.expectedFailureModeCodes,
-      )
-      const controlHit = includesAll(actualControlCodes, benchmarkCase.expectedControlCodes)
-      const expectedEvidenceCodes = benchmarkCase.expectedEvidenceCodes ?? []
-      const expectedEvidenceCategories = benchmarkCase.expectedEvidenceCategories ?? []
-      const evidenceHit =
-        includesAll(actualEvidence.codes, expectedEvidenceCodes) &&
-        includesAll(actualEvidence.categories, expectedEvidenceCategories)
-      const fullChainHit = taxonomyHit && failureModeHit && controlHit && evidenceHit
-
-      caseResults.push({
-        caseId: benchmarkCase.caseId,
-        caseTitle: benchmarkCase.caseTitle,
-        expectedL2Code: benchmarkCase.expectedL2Code,
-        actualL2Code: classification.l2Code ?? 'UNCLASSIFIED',
-        classificationDecisionSource: classification.decisionSource,
-        classificationScoreGap: classification.scoreGap,
-        taxonomyHit,
-        failureModeHit,
-        controlHit,
-        evidenceHit,
-        fullChainHit,
-        missCategory: determineMissCategory(taxonomyHit, failureModeHit, controlHit, evidenceHit),
-        matchedClassifierSignals: dedupe([
-          ...classification.matchedPhrases,
-          ...classification.matchedTokens,
-        ]),
-        expectedFailureModeCodes: benchmarkCase.expectedFailureModeCodes,
-        actualFailureModeCodes,
-        expectedControlCodes: benchmarkCase.expectedControlCodes,
-        actualControlCodes,
-        expectedEvidenceCodes,
-        actualEvidenceCodes: actualEvidence.codes,
-        expectedEvidenceCategories,
-        actualEvidenceCategories: actualEvidence.categories,
-      })
-    }
-
-    const missCategoryCounts = {
-      taxonomy: caseResults.filter((result) => result.missCategory === 'taxonomy').length,
-      failure_mode: caseResults.filter((result) => result.missCategory === 'failure_mode').length,
-      control: caseResults.filter((result) => result.missCategory === 'control').length,
-      evidence: caseResults.filter((result) => result.missCategory === 'evidence').length,
-    }
     const minFullChainHits = options?.minFullChainHits ?? DEFAULT_MIN_FULL_CHAIN_HITS
-    const summary: It04BenchmarkSummary = {
-      totalCases: caseResults.length,
-      taxonomyHitCount: caseResults.filter((result) => result.taxonomyHit).length,
-      failureModeHitCount: caseResults.filter((result) => result.failureModeHit).length,
-      controlHitCount: caseResults.filter((result) => result.controlHit).length,
-      evidenceHitCount: caseResults.filter((result) => result.evidenceHit).length,
-      fullChainHitCount: caseResults.filter((result) => result.fullChainHit).length,
+    const legacySummary: It04BenchmarkSummary = {
+      totalCases: report.summary.totalCases,
+      taxonomyHitCount: report.summary.taxonomyHitCount,
+      failureModeHitCount: report.summary.failureModeHitCount,
+      controlHitCount: report.summary.controlHitCount,
+      evidenceHitCount: report.summary.evidenceHitCount,
+      fullChainHitCount: report.summary.fullChainHitCount,
       minFullChainHits,
-      meetsGate: caseResults.filter((result) => result.fullChainHit).length >= minFullChainHits,
-      missCategoryCounts,
+      meetsGate: report.summary.fullChainHitCount >= minFullChainHits,
+      missCategoryCounts: report.summary.missCategoryCounts,
     }
 
-    const report: It04BenchmarkReport = {
-      generatedAt: new Date().toISOString(),
+    const legacyReport: It04BenchmarkReport = {
+      generatedAt: report.generatedAt,
       datasetPath,
       taxonomyMappingPath,
       classificationSource: 'hybrid IT04 rulebook + semantic mapping CSV heuristic',
-      summary,
-      caseResults,
+      summary: legacySummary,
+      caseResults: report.caseResults.map(
+        (caseResult: TaxonomyBenchmarkCaseResult) => ({
+          caseId: caseResult.caseId,
+          caseTitle: caseResult.caseTitle,
+          expectedL2Code: caseResult.expectedL2Code,
+          actualL2Code: caseResult.actualL2Code,
+          classificationDecisionSource: caseResult.classificationDecisionSource,
+          classificationScoreGap: caseResult.classificationScoreGap,
+          taxonomyHit: caseResult.taxonomyHit,
+          failureModeHit: caseResult.failureModeHit,
+          controlHit: caseResult.controlHit,
+          evidenceHit: caseResult.evidenceHit,
+          fullChainHit: caseResult.fullChainHit,
+          missCategory: caseResult.missCategory,
+          matchedClassifierSignals: caseResult.matchedClassifierSignals,
+          expectedFailureModeCodes: caseResult.expectedFailureModeCodes,
+          actualFailureModeCodes: caseResult.actualFailureModeCodes,
+          expectedControlCodes: caseResult.expectedControlCodes,
+          actualControlCodes: caseResult.actualControlCodes,
+          expectedEvidenceCodes: caseResult.expectedEvidenceCodes,
+          actualEvidenceCodes: caseResult.actualEvidenceCodes,
+          expectedEvidenceCategories: caseResult.expectedEvidenceCategories,
+          actualEvidenceCategories: caseResult.actualEvidenceCategories,
+        }),
+      ),
+      markdownPath: report.markdownPath,
+      jsonPath: report.jsonPath,
     }
 
-    if (options?.writeReport ?? true) {
-      const { jsonPath, markdownPath } = this.writeReport(report)
-      report.jsonPath = jsonPath
-      report.markdownPath = markdownPath
+    if (legacyReport.markdownPath) {
+      fs.writeFileSync(
+        legacyReport.markdownPath,
+        buildIt04BenchmarkMarkdown(legacyReport),
+        'utf8',
+      )
+    }
+    if (legacyReport.jsonPath) {
+      fs.writeFileSync(
+        legacyReport.jsonPath,
+        JSON.stringify(legacyReport, null, 2),
+        'utf8',
+      )
     }
 
-    return report
-  }
-
-  writeReport(report: It04BenchmarkReport): {
-    markdownPath: string
-    jsonPath: string
-  } {
-    const reportDir = this.services.reportDir ?? DEFAULT_REPORT_DIR
-    const timestamp = report.generatedAt
-      .replace(/[:]/g, '-')
-      .replace(/\..+$/, '')
-      .replace('T', '_')
-    const markdownPath = path.resolve(reportDir, `it04-benchmark-report-${timestamp}.md`)
-    const jsonPath = path.resolve(reportDir, `it04-benchmark-report-${timestamp}.json`)
-
-    fs.mkdirSync(reportDir, { recursive: true })
-    fs.writeFileSync(markdownPath, buildIt04BenchmarkMarkdown(report), 'utf8')
-    fs.writeFileSync(jsonPath, JSON.stringify(report, null, 2), 'utf8')
-
-    return { markdownPath, jsonPath }
+    return legacyReport
   }
 }

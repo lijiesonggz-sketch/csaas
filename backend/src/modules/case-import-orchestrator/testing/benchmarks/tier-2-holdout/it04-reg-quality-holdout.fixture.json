@@ -1,0 +1,13 @@
+[
+  {
+    "caseId": "IT04-HOLDOUT-001",
+    "caseTitle": "业务数据真实性不足",
+    "caseText": "业务数据准确性和数据完整性管理持续薄弱，投保数据质量长期不足。",
+    "l1Code": "IT04",
+    "tier": "tier-2-holdout",
+    "riskTags": ["HOLDOUT"],
+    "expectedL2Code": "IT04-09",
+    "expectedFailureModeCodes": [],
+    "expectedControlCodes": []
+  }
+]
