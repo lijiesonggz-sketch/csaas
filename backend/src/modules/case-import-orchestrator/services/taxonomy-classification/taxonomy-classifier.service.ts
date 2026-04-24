@@ -3,34 +3,19 @@ import { CaseNormalizationService } from './case-normalization.service'
 import type {
   TaxonomyClassificationRequest,
   TaxonomyClassificationResult,
-  TaxonomyDomainProfile,
-  TaxonomyRulebook,
+  TaxonomyDomainRegistryEntry,
 } from './contracts/classification-result.contract'
 import {
   TAXONOMY_MAPPING_REPOSITORY,
   type MappingRepository,
 } from './mapping-repository.interface'
 import { TaxonomyClassifierEngine } from './taxonomy-classifier.engine'
-import {
-  IT04_DOMAIN_PROFILE,
-  IT04_RULEBOOK,
-} from './rulebooks/it04.rulebook'
+import { getTaxonomyDomainRegistryEntry } from './profiles/domain-registry'
 
 export const TAXONOMY_CLASSIFIER_VERSION = 'taxonomy-classifier-6.1'
 
-const DEFAULT_DOMAIN_PROFILES: Record<string, TaxonomyDomainProfile> = {
-  IT04: IT04_DOMAIN_PROFILE,
-}
-
-const DEFAULT_RULEBOOKS: Record<string, TaxonomyRulebook> = {
-  IT04: IT04_RULEBOOK,
-}
-
 @Injectable()
 export class TaxonomyClassifierService {
-  private readonly profiles = DEFAULT_DOMAIN_PROFILES
-  private readonly rulebooks = DEFAULT_RULEBOOKS
-
   constructor(
     private readonly caseNormalizationService: CaseNormalizationService,
     @Inject(TAXONOMY_MAPPING_REPOSITORY)
@@ -41,37 +26,37 @@ export class TaxonomyClassifierService {
   classifyCaseText(
     request: TaxonomyClassificationRequest,
   ): TaxonomyClassificationResult {
-    const activeProfile = this.resolveActiveProfile(request.preferredL1Code)
-    if (!activeProfile) {
+    const activeDomain = this.resolveActiveDomain(request.preferredL1Code)
+    if (!activeDomain) {
+      return this.buildUnsupportedDomainResult(request.preferredL1Code ?? null)
+    }
+    if (activeDomain.readiness.stage !== 'runtime-classifier-ready') {
       return this.buildUnsupportedDomainResult(request.preferredL1Code ?? null)
     }
 
     try {
-      const mappings = this.mappingRepository.loadByL1Code(activeProfile.l1Code)
+      const { profile, rulebook } = activeDomain
+      const mappings = this.mappingRepository.loadByL1Code(profile.l1Code)
       const normalizedInput = this.caseNormalizationService.normalize(request)
 
       return this.taxonomyClassifierEngine.classify({
         input: normalizedInput,
         mappings,
-        rulebook: this.rulebooks[activeProfile.l1Code],
-        activeProfile,
+        rulebook,
+        activeProfile: profile,
         classifierVersion: TAXONOMY_CLASSIFIER_VERSION,
         mappingVersion: this.mappingRepository.getVersion(),
         classifiedAt: new Date().toISOString(),
       })
     } catch {
-      return this.buildEngineErrorResult(activeProfile.l1Code)
+      return this.buildEngineErrorResult(activeDomain)
     }
   }
 
-  private resolveActiveProfile(
+  private resolveActiveDomain(
     preferredL1Code?: string | null,
-  ): TaxonomyDomainProfile | null {
-    if (!preferredL1Code) {
-      return null
-    }
-
-    return this.profiles[preferredL1Code] ?? null
+  ): TaxonomyDomainRegistryEntry | null {
+    return getTaxonomyDomainRegistryEntry(preferredL1Code)
   }
 
   private buildUnsupportedDomainResult(
@@ -98,10 +83,10 @@ export class TaxonomyClassifierService {
   }
 
   private buildEngineErrorResult(
-    l1Code: string | null,
+    domain: TaxonomyDomainRegistryEntry,
   ): TaxonomyClassificationResult {
     return {
-      l1Code,
+      l1Code: domain.profile.l1Code,
       l2Code: null,
       l2Name: null,
       score: 0,
@@ -113,7 +98,7 @@ export class TaxonomyClassifierService {
       matchedTokens: [],
       classifierVersion: TAXONOMY_CLASSIFIER_VERSION,
       mappingVersion: this.mappingRepository.getVersion(),
-      rulebookVersion: this.resolveActiveProfile(l1Code)?.rulebookVersion ?? 'unconfigured',
+      rulebookVersion: domain.profile.rulebookVersion,
       classifiedAt: new Date().toISOString(),
       pathDecision: 'UNCLASSIFIED',
       failureSemantics: 'ENGINE_ERROR',

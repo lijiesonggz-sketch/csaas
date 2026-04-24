@@ -85,7 +85,7 @@ export class TaxonomyClassifierEngine {
       input.normalizedText,
       input.normalizedTokens,
       mappings,
-      rulebook?.fallbackBucketCode ?? activeProfile.fallbackBucketCode ?? null,
+      rulebook?.fallbackBucket ?? activeProfile.fallbackBucket ?? null,
     )
 
     const bestRule = ruleMatches[0]

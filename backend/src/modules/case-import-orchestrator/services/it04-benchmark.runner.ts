@@ -9,10 +9,8 @@ import type {
   TaxonomyMappingRecord,
 } from './taxonomy-classification/contracts/classification-result.contract'
 import { CsvBackedMappingRepository } from './taxonomy-classification/csv-backed-mapping.repository'
+import { IT04_DOMAIN_PROFILE } from './taxonomy-classification/profiles/it04.profile'
 import { TaxonomyClassifierEngine } from './taxonomy-classification/taxonomy-classifier.engine'
-import {
-  IT04_DOMAIN_PROFILE,
-} from './taxonomy-classification/rulebooks/it04.rulebook'
 import { IT04_RULEBOOK } from './taxonomy-classification/rulebooks/it04.rulebook'
 
 function resolveExistingPath(candidates: string[]): string {

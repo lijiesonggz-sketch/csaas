@@ -4,7 +4,8 @@ import {
   TAXONOMY_CLASSIFIER_ATDD_NORMALIZED_INPUT,
 } from '../../testing/taxonomy-classification-atdd.fixtures'
 import { TaxonomyClassifierEngine } from './taxonomy-classifier.engine'
-import { IT04_DOMAIN_PROFILE, IT04_RULEBOOK } from './rulebooks/it04.rulebook'
+import { IT04_DOMAIN_PROFILE } from './profiles/it04.profile'
+import { IT04_RULEBOOK } from './rulebooks/it04.rulebook'
 
 describe('TaxonomyClassifierEngine', () => {
   const engine = new TaxonomyClassifierEngine()

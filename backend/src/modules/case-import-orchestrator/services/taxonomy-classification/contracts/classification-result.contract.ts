@@ -57,19 +57,48 @@ export type TaxonomyRulebookEntry = {
 export type TaxonomyRulebook = {
   l1Code: string
   version: string
-  fallbackBucketCode?: string | null
+  fallbackBucket?: string | null
   entries: TaxonomyRulebookEntry[]
+}
+
+export type TaxonomyScoreGapStrategy = 'default'
+
+export type TaxonomyGatePolicy = 'requires-domain-rollout-policy'
+
+export type TaxonomyFallbackPolicy = 'legacy-fallback-when-rollout-enabled'
+
+export const TAXONOMY_DOMAIN_READINESS_STAGES = [
+  'seed-ready',
+  'runtime-classifier-ready',
+  'shadow-ready',
+  'primary-ready',
+] as const
+
+export type TaxonomyDomainReadinessStage =
+  (typeof TAXONOMY_DOMAIN_READINESS_STAGES)[number]
+
+export type TaxonomyDomainReadiness = {
+  stage: TaxonomyDomainReadinessStage
+  verifiableEntryPoint: string
 }
 
 export type TaxonomyDomainProfile = {
   l1Code: string
+  fallbackBucket: string
   primaryThreshold: number
   semanticThreshold: number
   minimumScoreGap: number
   minimumPhraseHits: number
-  scoreGapStrategy: 'default'
-  fallbackBucketCode?: string | null
+  scoreGapStrategy: TaxonomyScoreGapStrategy
+  gatePolicy: TaxonomyGatePolicy
+  fallbackPolicy: TaxonomyFallbackPolicy
   rulebookVersion: string
+}
+
+export type TaxonomyDomainRegistryEntry = {
+  profile: TaxonomyDomainProfile
+  rulebook: TaxonomyRulebook
+  readiness: TaxonomyDomainReadiness
 }
 
 export type TaxonomyClassificationResult = {
