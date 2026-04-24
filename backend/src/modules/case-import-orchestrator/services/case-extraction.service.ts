@@ -12,7 +12,7 @@ import {
   tokenizeText,
 } from './case-theme.utils'
 import { CaseThemeIntelligenceService } from './case-theme-intelligence.service'
-import { It04TaxonomyClassifierService } from './it04-taxonomy-classifier.service'
+import { TaxonomyClassifierService } from './taxonomy-classification/taxonomy-classifier.service'
 
 export type CaseExtractionBatchResult = {
   batchId: string
@@ -28,7 +28,7 @@ export class CaseExtractionService {
     @InjectRepository(RegulationClause)
     private readonly regulationClauseRepository: Repository<RegulationClause>,
     private readonly caseThemeIntelligenceService: CaseThemeIntelligenceService,
-    private readonly it04TaxonomyClassifierService: It04TaxonomyClassifierService,
+    private readonly taxonomyClassifierService: TaxonomyClassifierService,
   ) {}
 
   async extractBatch(batchId: string): Promise<CaseExtractionBatchResult> {
@@ -63,14 +63,25 @@ export class CaseExtractionService {
       }
 
       const clauseCandidates = await this.findClauseCandidates(sourceText, violationThemes)
-      const taxonomyClassification = this.it04TaxonomyClassifierService.classifyCaseText(sourceText)
+      const taxonomyClassification = this.taxonomyClassifierService.classifyCaseText({
+        rawText: sourceText,
+        caseFacts: caseRecord.caseFacts,
+        penaltyReason: caseRecord.penaltyReason,
+        preferredL1Code: 'IT04',
+      })
+      const primaryClassification =
+        taxonomyClassification.pathDecision === 'PRIMARY_CHAIN'
+          ? taxonomyClassification
+          : null
 
       caseRecord.violationThemes = violationThemes
       caseRecord.clauseCandidates = clauseCandidates
-      caseRecord.l1Code = taxonomyClassification?.l1Code ?? null
-      caseRecord.l2Code = taxonomyClassification?.l2Code ?? null
+      caseRecord.l1Code = primaryClassification?.l1Code ?? null
+      caseRecord.l2Code = primaryClassification?.l2Code ?? null
       caseRecord.confidenceScore =
-        taxonomyClassification == null ? null : taxonomyClassification.score.toFixed(4)
+        primaryClassification == null
+          ? null
+          : primaryClassification.confidenceScore.toFixed(4)
       caseRecord.extractedAt = new Date()
       caseRecord.status = 'extracted'
 

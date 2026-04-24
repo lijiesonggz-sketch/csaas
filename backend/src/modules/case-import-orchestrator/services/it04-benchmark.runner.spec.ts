@@ -6,6 +6,7 @@ import {
   It04BenchmarkRunner,
   It04TaxonomySemanticMapping,
 } from './it04-benchmark.runner'
+import { TaxonomyClassifierEngine } from './taxonomy-classification/taxonomy-classifier.engine'
 
 describe('It04BenchmarkRunner', () => {
   it('should classify IT04-07 timeliness cases from semantic mapping signals', () => {
@@ -152,10 +153,35 @@ describe('It04BenchmarkRunner', () => {
     )
   })
 
+  it('should reuse TaxonomyClassifierEngine inside the IT04 benchmark classifier wrapper', () => {
+    const classifySpy = jest.spyOn(TaxonomyClassifierEngine.prototype, 'classify')
+    const mappings: It04TaxonomySemanticMapping[] = [
+      {
+        l1Code: 'IT04',
+        l1Name: '数据治理与监管数据报送',
+        l2Code: 'IT04-10',
+        l2Name: '信息登记/录入/更新不及时不规范',
+        definition: '投保信息、业务信息、登记信息录入、更新、维护不及时不规范',
+        canonicalTheme: '信息登记与更新管理',
+        aliases: ['信息登记', '录入更新', '维护及时性'],
+        keywords: ['录入不及时', '更新不及时', '补录'],
+      },
+    ]
+
+    const result = classifyIt04CaseText(
+      '监管登记信息补录和更新没有时效监控，补录超期且无人催办，导致信息更新不及时不规范。',
+      mappings,
+    )
+
+    expect(classifySpy).toHaveBeenCalled()
+    expect(result.l2Code).toBe('IT04-10')
+    classifySpy.mockRestore()
+  })
+
   it('should aggregate hits, gaps, and emit markdown/json reports', async () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'it04-benchmark-'))
     const datasetPath = path.join(tempDir, 'cases.json')
-    const csvPath = path.join(tempDir, 'taxonomy.csv')
+    const csvPath = path.join(tempDir, 'taxonomy-2026-04-07.csv')
     const reportDir = path.join(tempDir, 'reports')
 
     fs.writeFileSync(
@@ -307,5 +333,121 @@ describe('It04BenchmarkRunner', () => {
     expect(report.jsonPath).toBeDefined()
     expect(fs.existsSync(report.markdownPath!)).toBe(true)
     expect(fs.existsSync(report.jsonPath!)).toBe(true)
+  })
+
+  it('should keep mapping version aligned with the taxonomy mapping file used by the benchmark', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'it04-benchmark-version-'))
+    const datasetPath = path.join(tempDir, 'cases.json')
+    const csvPath = path.join(tempDir, 'taxonomy-2026-05-01.csv')
+
+    fs.writeFileSync(
+      datasetPath,
+      JSON.stringify(
+        [
+          {
+            caseId: 'CASE-003',
+            caseTitle: 'record maintenance',
+            caseText: '监管登记信息补录和更新没有时效监控，补录超期且无人催办，导致信息更新不及时不规范。',
+            expectedL2Code: 'IT04-10',
+            expectedFailureModeCodes: [],
+            expectedControlCodes: [],
+          },
+        ],
+        null,
+        2,
+      ),
+      'utf8',
+    )
+    fs.writeFileSync(
+      csvPath,
+      [
+        '一级编码,一级类型,二级编码,二级子类型,定义口径,建议canonicalTheme,建议aliases,建议keywords,建议controlFamilies,差距说明',
+        'IT04,数据治理与监管数据报送,IT04-10,信息登记/录入/更新不及时不规范,投保信息、业务信息、登记信息录入、更新、维护不及时不规范,信息登记与更新管理,信息登记|录入更新|维护及时性,录入不及时|更新不及时|补录,REG_REPORTING,',
+      ].join('\n'),
+      'utf8',
+    )
+
+    const runner = new It04BenchmarkRunner({
+      datasetPath,
+      taxonomyMappingPath: csvPath,
+      reportDir: tempDir,
+      failureModeService: {
+        findByL2Code: jest.fn().mockResolvedValue({ items: [] }),
+      },
+      caseClusteringChainService: {
+        resolveControlPointsByL2Code: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+      },
+      controlPointService: {
+        findByL2CodeWithFullChain: jest.fn().mockResolvedValue({
+          l2Code: 'IT04-10',
+          l2Name: '信息登记/录入/更新不及时不规范',
+          failureModes: [],
+        }),
+      },
+    })
+
+    const report = await runner.runBenchmark({ writeReport: false })
+    expect(report.taxonomyMappingPath).toBe(csvPath)
+    expect(report.caseResults[0].actualL2Code).toBe('IT04-10')
+  })
+
+  it('should report UNCLASSIFIED taxonomy misses without querying downstream chain services', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'it04-benchmark-unclassified-'))
+    const datasetPath = path.join(tempDir, 'cases.json')
+    const csvPath = path.join(tempDir, 'taxonomy-2026-05-02.csv')
+
+    fs.writeFileSync(
+      datasetPath,
+      JSON.stringify(
+        [
+          {
+            caseId: 'CASE-004',
+            caseTitle: 'unknown case',
+            caseText: '这是一条没有任何 IT04 特征、也没有可用 mapping 的案例文本。',
+            expectedL2Code: 'IT04-10',
+            expectedFailureModeCodes: ['FM-UNUSED'],
+            expectedControlCodes: ['CTRL-UNUSED'],
+          },
+        ],
+        null,
+        2,
+      ),
+      'utf8',
+    )
+    fs.writeFileSync(
+      csvPath,
+      [
+        '一级编码,一级类型,二级编码,二级子类型,定义口径,建议canonicalTheme,建议aliases,建议keywords,建议controlFamilies,差距说明',
+      ].join('\n'),
+      'utf8',
+    )
+
+    const failureModeService = {
+      findByL2Code: jest.fn(),
+    }
+    const caseClusteringChainService = {
+      resolveControlPointsByL2Code: jest.fn(),
+    }
+    const controlPointService = {
+      findByL2CodeWithFullChain: jest.fn(),
+    }
+
+    const runner = new It04BenchmarkRunner({
+      datasetPath,
+      taxonomyMappingPath: csvPath,
+      reportDir: tempDir,
+      failureModeService: failureModeService as never,
+      caseClusteringChainService: caseClusteringChainService as never,
+      controlPointService: controlPointService as never,
+    })
+
+    const report = await runner.runBenchmark({ writeReport: false })
+
+    expect(report.summary.taxonomyHitCount).toBe(0)
+    expect(report.caseResults[0].actualL2Code).toBe('UNCLASSIFIED')
+    expect(report.caseResults[0].missCategory).toBe('taxonomy')
+    expect(failureModeService.findByL2Code).not.toHaveBeenCalled()
+    expect(caseClusteringChainService.resolveControlPointsByL2Code).not.toHaveBeenCalled()
+    expect(controlPointService.findByL2CodeWithFullChain).not.toHaveBeenCalled()
   })
 })

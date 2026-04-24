@@ -4,7 +4,11 @@ import { ComplianceCase } from '../../../database/entities/compliance-case.entit
 import { RegulationClause } from '../../../database/entities/regulation-clause.entity'
 import { CaseExtractionService } from './case-extraction.service'
 import { CaseThemeIntelligenceService } from './case-theme-intelligence.service'
-import { It04TaxonomyClassifierService } from './it04-taxonomy-classifier.service'
+import { TaxonomyClassifierService } from './taxonomy-classification/taxonomy-classifier.service'
+import {
+  TAXONOMY_CLASSIFIER_AUTOMATE_ENGINE_ERROR_RESULT,
+  TAXONOMY_CLASSIFIER_AUTOMATE_UNSUPPORTED_DOMAIN_RESULT,
+} from '../testing/taxonomy-classification-automate.fixtures'
 
 describe('CaseExtractionService', () => {
   let service: CaseExtractionService
@@ -22,7 +26,7 @@ describe('CaseExtractionService', () => {
     refineViolationThemes: jest.fn(),
   }
 
-  const it04TaxonomyClassifierService = {
+  const taxonomyClassifierService = {
     classifyCaseText: jest.fn(),
   }
 
@@ -43,8 +47,8 @@ describe('CaseExtractionService', () => {
           useValue: caseThemeIntelligenceService,
         },
         {
-          provide: It04TaxonomyClassifierService,
-          useValue: it04TaxonomyClassifierService,
+          provide: TaxonomyClassifierService,
+          useValue: taxonomyClassifierService,
         },
       ],
     }).compile()
@@ -52,7 +56,24 @@ describe('CaseExtractionService', () => {
     service = module.get(CaseExtractionService)
     jest.clearAllMocks()
     caseThemeIntelligenceService.refineViolationThemes.mockResolvedValue(null)
-    it04TaxonomyClassifierService.classifyCaseText.mockReturnValue(null)
+    taxonomyClassifierService.classifyCaseText.mockReturnValue({
+      l1Code: 'IT04',
+      l2Code: null,
+      l2Name: null,
+      score: 0,
+      confidenceScore: 0,
+      scoreGap: 0,
+      decisionSource: 'none',
+      matchedSignals: [],
+      matchedPhrases: [],
+      matchedTokens: [],
+      classifierVersion: 'test',
+      mappingVersion: 'test',
+      rulebookVersion: 'test',
+      classifiedAt: new Date().toISOString(),
+      pathDecision: 'UNCLASSIFIED',
+      failureSemantics: 'NO_MATCH',
+    })
   })
 
   it('should extract violation themes and clause candidates for pending cases', async () => {
@@ -158,27 +179,139 @@ describe('CaseExtractionService', () => {
     ])
     regulationClauseRepository.find.mockResolvedValue([])
     complianceCaseRepository.save.mockImplementation(async (entity) => entity)
-    it04TaxonomyClassifierService.classifyCaseText.mockReturnValue({
+    taxonomyClassifierService.classifyCaseText.mockReturnValue({
       l1Code: 'IT04',
       l2Code: 'IT04-10',
       l2Name: '信息登记/录入/更新不及时不规范',
       score: 9,
+      confidenceScore: 9,
       scoreGap: 5,
       decisionSource: 'rule',
+      matchedSignals: ['登记录入更新', '更新不及时'],
       matchedPhrases: ['登记录入更新', '更新不及时'],
       matchedTokens: [],
+      classifierVersion: 'taxonomy-classifier-6.1',
+      mappingVersion: '2026-04-07',
+      rulebookVersion: 'it04-rulebook-v1',
+      classifiedAt: new Date().toISOString(),
+      pathDecision: 'PRIMARY_CHAIN',
+      failureSemantics: null,
     })
 
     await service.extractBatch('batch-3')
 
-    expect(it04TaxonomyClassifierService.classifyCaseText).toHaveBeenCalledWith(
-      expect.stringContaining('监管登记信息补录和更新没有时效监控'),
+    expect(taxonomyClassifierService.classifyCaseText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rawText: expect.stringContaining('监管登记信息补录和更新没有时效监控'),
+        preferredL1Code: 'IT04',
+      }),
     )
     expect(complianceCaseRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         l1Code: 'IT04',
         l2Code: 'IT04-10',
         confidenceScore: '9.0000',
+        status: 'extracted',
+      }),
+    )
+  })
+
+  it('should persist classifier confidenceScore instead of raw score when the two diverge', async () => {
+    complianceCaseRepository.find.mockResolvedValue([
+      {
+        caseId: 'case-4',
+        importBatchId: 'batch-4',
+        status: 'pending',
+        caseFacts: '监管登记信息补录和更新没有时效监控。',
+        penaltyReason: '导致信息更新不及时不规范。',
+      },
+    ])
+    regulationClauseRepository.find.mockResolvedValue([])
+    complianceCaseRepository.save.mockImplementation(async (entity) => entity)
+    taxonomyClassifierService.classifyCaseText.mockReturnValue({
+      l1Code: 'IT04',
+      l2Code: 'IT04-10',
+      l2Name: '信息登记/录入/更新不及时不规范',
+      score: 9,
+      confidenceScore: 0.875,
+      scoreGap: 5,
+      decisionSource: 'rule',
+      matchedSignals: ['登记录入更新', '更新不及时'],
+      matchedPhrases: ['登记录入更新', '更新不及时'],
+      matchedTokens: [],
+      classifierVersion: 'taxonomy-classifier-6.1',
+      mappingVersion: '2026-04-07',
+      rulebookVersion: 'it04-rulebook-v1',
+      classifiedAt: new Date().toISOString(),
+      pathDecision: 'PRIMARY_CHAIN',
+      failureSemantics: null,
+    })
+
+    await service.extractBatch('batch-4')
+
+    expect(complianceCaseRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        confidenceScore: '0.8750',
+      }),
+    )
+  })
+
+  it('should keep extraction batch progressing when classifier returns ENGINE_ERROR terminal result', async () => {
+    complianceCaseRepository.find.mockResolvedValue([
+      {
+        caseId: 'case-5',
+        importBatchId: 'batch-5',
+        status: 'pending',
+        caseFacts: '监管登记信息补录和更新没有时效监控。',
+        penaltyReason: '导致信息更新不及时不规范。',
+      },
+    ])
+    regulationClauseRepository.find.mockResolvedValue([])
+    complianceCaseRepository.save.mockImplementation(async (entity) => entity)
+    taxonomyClassifierService.classifyCaseText.mockReturnValue(
+      TAXONOMY_CLASSIFIER_AUTOMATE_ENGINE_ERROR_RESULT,
+    )
+
+    const result = await service.extractBatch('batch-5')
+
+    expect(result).toEqual({
+      batchId: 'batch-5',
+      processedCount: 1,
+      skippedCount: 0,
+    })
+    expect(complianceCaseRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        l1Code: null,
+        l2Code: null,
+        confidenceScore: null,
+        status: 'extracted',
+      }),
+    )
+  })
+
+  it('should keep extraction batch progressing when classifier reports unsupported domain', async () => {
+    complianceCaseRepository.find.mockResolvedValue([
+      {
+        caseId: 'case-6',
+        importBatchId: 'batch-6',
+        status: 'pending',
+        caseFacts: '某个暂未接入的其他域案例。',
+        penaltyReason: '无明确 IT04 特征。',
+      },
+    ])
+    regulationClauseRepository.find.mockResolvedValue([])
+    complianceCaseRepository.save.mockImplementation(async (entity) => entity)
+    taxonomyClassifierService.classifyCaseText.mockReturnValue(
+      TAXONOMY_CLASSIFIER_AUTOMATE_UNSUPPORTED_DOMAIN_RESULT,
+    )
+
+    await service.extractBatch('batch-6')
+
+    expect(complianceCaseRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        l1Code: null,
+        l2Code: null,
+        confidenceScore: null,
         status: 'extracted',
       }),
     )

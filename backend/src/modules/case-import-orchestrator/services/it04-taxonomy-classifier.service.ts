@@ -1,47 +1,55 @@
 import { Injectable } from '@nestjs/common'
-import {
-  classifyIt04CaseText,
-  It04ClassificationResult,
-  loadIt04TaxonomyMappings,
-  It04TaxonomySemanticMapping,
-} from './it04-benchmark.runner'
+import { TaxonomyClassifierService } from './taxonomy-classification/taxonomy-classifier.service'
+import type { TaxonomyClassificationResult } from './taxonomy-classification/contracts/classification-result.contract'
 
-export type It04TaxonomyClassification = It04ClassificationResult & {
+export type It04TaxonomyClassification = {
   l1Code: 'IT04'
+  l2Code: string
+  l2Name: string
+  score: number
+  scoreGap: number
+  decisionSource: 'rule' | 'semantic'
+  matchedPhrases: string[]
+  matchedTokens: string[]
 }
 
 @Injectable()
 export class It04TaxonomyClassifierService {
-  private readonly mappings: It04TaxonomySemanticMapping[]
-
-  constructor() {
-    this.mappings = loadIt04TaxonomyMappings()
-  }
+  constructor(
+    private readonly taxonomyClassifierService: TaxonomyClassifierService,
+  ) {}
 
   classifyCaseText(caseText: string): It04TaxonomyClassification | null {
-    const trimmed = caseText.trim()
-    if (!trimmed) {
-      return null
-    }
+    const result = this.taxonomyClassifierService.classifyCaseText({
+      rawText: caseText,
+      preferredL1Code: 'IT04',
+    })
 
-    const result = classifyIt04CaseText(trimmed, this.mappings)
+    return this.toIt04Classification(result)
+  }
 
-    if (!this.isConfident(result)) {
+  private toIt04Classification(
+    result: TaxonomyClassificationResult,
+  ): It04TaxonomyClassification | null {
+    if (
+      result.pathDecision !== 'PRIMARY_CHAIN' ||
+      result.l1Code !== 'IT04' ||
+      !result.l2Code ||
+      !result.l2Name ||
+      result.decisionSource === 'none'
+    ) {
       return null
     }
 
     return {
-      ...result,
       l1Code: 'IT04',
+      l2Code: result.l2Code,
+      l2Name: result.l2Name,
+      score: result.score,
+      scoreGap: result.scoreGap,
+      decisionSource: result.decisionSource,
+      matchedPhrases: result.matchedPhrases,
+      matchedTokens: result.matchedTokens,
     }
-  }
-
-  private isConfident(result: It04ClassificationResult): boolean {
-    if (result.decisionSource === 'rule') {
-      return result.score >= 4
-    }
-
-    const phraseCount = result.matchedPhrases.length
-    return result.score >= 6 && phraseCount > 0 && result.scoreGap >= 2
   }
 }

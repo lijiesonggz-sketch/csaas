@@ -24,6 +24,13 @@ import { CaseImportQueueService } from './services/case-import-queue.service'
 import { It04TaxonomyClassifierService } from './services/it04-taxonomy-classifier.service'
 import { CaseThemeIntelligenceService } from './services/case-theme-intelligence.service'
 import { ComplianceCaseBackfillService } from './services/compliance-case-backfill.service'
+import { CaseNormalizationService } from './services/taxonomy-classification/case-normalization.service'
+import { CsvBackedMappingRepository } from './services/taxonomy-classification/csv-backed-mapping.repository'
+import {
+  TAXONOMY_MAPPING_REPOSITORY,
+} from './services/taxonomy-classification/mapping-repository.interface'
+import { TaxonomyClassifierEngine } from './services/taxonomy-classification/taxonomy-classifier.engine'
+import { TaxonomyClassifierService } from './services/taxonomy-classification/taxonomy-classifier.service'
 
 @Module({
   imports: [
@@ -59,11 +66,19 @@ import { ComplianceCaseBackfillService } from './services/compliance-case-backfi
     CaseExtractionService,
     CaseImportService,
     CaseImportQueueService,
+    CaseNormalizationService,
+    CsvBackedMappingRepository,
+    TaxonomyClassifierEngine,
+    TaxonomyClassifierService,
     It04TaxonomyClassifierService,
     CaseThemeIntelligenceService,
     ComplianceCaseBackfillService,
     CaseImportProcessor,
     CaseImportAuditFilter,
+    {
+      provide: TAXONOMY_MAPPING_REPOSITORY,
+      useExisting: CsvBackedMappingRepository,
+    },
   ],
   exports: [CaseImportService, CaseImportQueueService, ComplianceCaseBackfillService],
 })
