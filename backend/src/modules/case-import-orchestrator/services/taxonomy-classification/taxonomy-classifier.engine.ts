@@ -322,6 +322,8 @@ export class TaxonomyClassifierEngine {
       | 'NO_MATCH'
       | 'MAPPING_MISSING'
       | 'ENGINE_ERROR'
+      | 'LEGACY_FALLBACK_TRIGGERED'
+      | 'PENDING_RECLASSIFY'
       | 'UNSUPPORTED_DOMAIN'
   }): TaxonomyClassificationResult {
     return {

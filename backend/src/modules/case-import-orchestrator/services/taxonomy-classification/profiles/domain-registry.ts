@@ -95,3 +95,9 @@ export function getTaxonomyDomainRegistryEntry(
   validateTaxonomyDomainRegistryEntry(l1Code, entry)
   return entry
 }
+
+export function listRuntimeReadyTaxonomyDomainCodes(): string[] {
+  return Object.entries(TAXONOMY_DOMAIN_REGISTRY)
+    .filter(([, entry]) => entry.readiness.stage === 'runtime-classifier-ready')
+    .map(([l1Code]) => l1Code)
+}

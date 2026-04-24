@@ -12,7 +12,7 @@ import {
 import { TaxonomyClassifierEngine } from './taxonomy-classifier.engine'
 import { getTaxonomyDomainRegistryEntry } from './profiles/domain-registry'
 
-export const TAXONOMY_CLASSIFIER_VERSION = 'taxonomy-classifier-6.1'
+export const TAXONOMY_CLASSIFIER_VERSION = 'taxonomy-classifier-6.3'
 
 @Injectable()
 export class TaxonomyClassifierService {

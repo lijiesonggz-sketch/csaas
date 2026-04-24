@@ -23,6 +23,27 @@ export const COMPLIANCE_CASE_STATUSES = [
 ] as const
 export type ComplianceCaseStatus = (typeof COMPLIANCE_CASE_STATUSES)[number]
 
+export const COMPLIANCE_CASE_CLASSIFICATION_SOURCES = [
+  'rule',
+  'semantic',
+  'hybrid',
+  'none',
+  'legacy-fallback',
+] as const
+export type ComplianceCaseClassificationSource =
+  (typeof COMPLIANCE_CASE_CLASSIFICATION_SOURCES)[number]
+
+export const COMPLIANCE_CASE_FALLBACK_REASONS = [
+  'LOW_CONFIDENCE',
+  'NO_MATCH',
+  'MAPPING_MISSING',
+  'ENGINE_ERROR',
+  'LEGACY_FALLBACK_TRIGGERED',
+  'PENDING_RECLASSIFY',
+] as const
+export type ComplianceCaseFallbackReason =
+  (typeof COMPLIANCE_CASE_FALLBACK_REASONS)[number]
+
 export type ComplianceCaseClauseCandidate = {
   clauseId: string
   clauseCode: string
@@ -121,6 +142,15 @@ export class ComplianceCase {
 
   @Column({ name: 'confidence_score', type: 'numeric', precision: 5, scale: 4, nullable: true })
   confidenceScore: string | null
+
+  @Column({ name: 'classification_source', type: 'varchar', length: 30, nullable: true })
+  classificationSource: ComplianceCaseClassificationSource | null
+
+  @Column({ name: 'classification_version', type: 'varchar', length: 50, nullable: true })
+  classificationVersion: string | null
+
+  @Column({ name: 'fallback_reason', type: 'varchar', length: 50, nullable: true })
+  fallbackReason: ComplianceCaseFallbackReason | null
 
   @Column({ name: 'import_batch_id', type: 'varchar', length: 100, nullable: true })
   importBatchId: string | null

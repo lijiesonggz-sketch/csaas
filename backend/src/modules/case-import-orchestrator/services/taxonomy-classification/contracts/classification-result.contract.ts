@@ -12,12 +12,14 @@ export const TAXONOMY_FAILURE_SEMANTICS = [
   'NO_MATCH',
   'MAPPING_MISSING',
   'ENGINE_ERROR',
+  'LEGACY_FALLBACK_TRIGGERED',
+  'PENDING_RECLASSIFY',
   'UNSUPPORTED_DOMAIN',
 ] as const
 
 export type TaxonomyFailureSemantic = (typeof TAXONOMY_FAILURE_SEMANTICS)[number]
 
-export type TaxonomyDecisionSource = 'rule' | 'semantic' | 'none'
+export type TaxonomyDecisionSource = 'rule' | 'semantic' | 'hybrid' | 'none'
 
 export type TaxonomyClassificationInput = {
   rawText: string

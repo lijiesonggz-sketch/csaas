@@ -82,7 +82,7 @@ export type It04ClassificationResult = {
   l2Name: string | null
   score: number
   scoreGap: number
-  decisionSource: 'rule' | 'semantic' | 'none'
+  decisionSource: 'rule' | 'semantic' | 'hybrid' | 'none'
   matchedPhrases: string[]
   matchedTokens: string[]
 }
@@ -92,7 +92,7 @@ export type It04BenchmarkCaseResult = {
   caseTitle: string
   expectedL2Code: string
   actualL2Code: string
-  classificationDecisionSource: 'rule' | 'semantic' | 'none'
+  classificationDecisionSource: 'rule' | 'semantic' | 'hybrid' | 'none'
   classificationScoreGap: number
   taxonomyHit: boolean
   failureModeHit: boolean

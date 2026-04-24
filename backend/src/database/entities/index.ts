@@ -73,8 +73,17 @@ export {
 } from './obligation-control-map.entity'
 export {
   ComplianceCase,
+  COMPLIANCE_CASE_CLASSIFICATION_SOURCES,
+  COMPLIANCE_CASE_FALLBACK_REASONS,
   COMPLIANCE_CASE_STATUSES,
 } from './compliance-case.entity'
+export {
+  ComplianceCaseClassificationRun,
+  COMPLIANCE_CASE_CLASSIFICATION_RUN_DECISION_SOURCES,
+  COMPLIANCE_CASE_CLASSIFICATION_RUN_FALLBACK_REASONS,
+  COMPLIANCE_CASE_CLASSIFICATION_RUN_PATH_DECISIONS,
+  COMPLIANCE_CASE_CLASSIFICATION_RUN_STATUSES,
+} from './compliance-case-classification-run.entity'
 export {
   CaseControlMap,
   CASE_CONTROL_RELATION_TYPES,

@@ -8,7 +8,7 @@ export type It04TaxonomyClassification = {
   l2Name: string
   score: number
   scoreGap: number
-  decisionSource: 'rule' | 'semantic'
+  decisionSource: 'rule' | 'semantic' | 'hybrid'
   matchedPhrases: string[]
   matchedTokens: string[]
 }
