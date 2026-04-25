@@ -12,8 +12,11 @@ import { CaseExtractionService } from './case-extraction.service'
 import { CaseThemeIntelligenceService } from './case-theme-intelligence.service'
 import { ComplianceCaseClassificationRunService } from './compliance-case-classification-run.service'
 import { RuntimeDomainSelectorService } from './runtime-domain-selector.service'
+import { CaseClusteringChainService } from './case-clustering-chain.service'
 import { TaxonomyClassifierService } from './taxonomy-classification/taxonomy-classifier.service'
 import { CaseNormalizationService } from './taxonomy-classification/case-normalization.service'
+import { DomainRolloutPolicyService } from './taxonomy-classification/domain-rollout-policy.service'
+import { FailureModeService } from '../../knowledge-graph/services/failure-mode.service'
 
 describe('CaseExtractionService automation regression', () => {
   const createServiceHarness = () => {
@@ -50,6 +53,58 @@ describe('CaseExtractionService automation regression', () => {
         normalizedPhrases: [],
       }),
     }
+    const domainRolloutPolicyService = {
+      resolvePolicyDecision: jest.fn().mockImplementation(
+        async ({
+          l1Code,
+          classifierResult,
+          primaryExecutability,
+        }: {
+          l1Code: string
+          classifierResult: {
+            classifierVersion: string
+            failureSemantics: string | null
+            pathDecision: 'PRIMARY_CHAIN' | 'LEGACY_FALLBACK' | 'ABSTAIN' | 'UNCLASSIFIED'
+          }
+          primaryExecutability: { isExecutable: boolean }
+        }) => ({
+          policy: {
+            l1Code,
+            rolloutState: 'domain-primary',
+            allowLegacyFallback: true,
+            primaryThreshold: 0.7,
+            shadowWindowDays: 14,
+            killSwitchEnabled: false,
+            activeClassifierVersion: classifierResult.classifierVersion,
+          },
+          rolloutState: 'domain-primary',
+          stateAllowsPrimary: true,
+          pathDecision:
+            classifierResult.pathDecision === 'PRIMARY_CHAIN' &&
+            primaryExecutability.isExecutable
+              ? 'PRIMARY_CHAIN'
+              : classifierResult.pathDecision,
+          failureSemantic:
+            classifierResult.pathDecision === 'PRIMARY_CHAIN' &&
+            !primaryExecutability.isExecutable
+              ? 'MAPPING_MISSING'
+              : classifierResult.failureSemantics,
+          primaryExecutability,
+          reason: 'test-double',
+        }),
+      ),
+    }
+    const failureModeService = {
+      findByL2Code: jest.fn().mockResolvedValue({
+        items: [{ failureModeCode: 'FM-DEFAULT' }],
+      }),
+    }
+    const caseClusteringChainService = {
+      resolveControlPointsByL2Code: jest.fn().mockResolvedValue({
+        items: [{ controlCode: 'CTRL-DEFAULT' }],
+        total: 1,
+      }),
+    }
 
     const service = new CaseExtractionService(
       complianceCaseRepository as never,
@@ -60,6 +115,9 @@ describe('CaseExtractionService automation regression', () => {
       classificationRunService as never,
       classificationTelemetryService as never,
       caseNormalizationService as never,
+      domainRolloutPolicyService as never,
+      failureModeService as never,
+      caseClusteringChainService as never,
     )
 
     return {
@@ -72,6 +130,9 @@ describe('CaseExtractionService automation regression', () => {
       classificationRunService,
       classificationTelemetryService,
       caseNormalizationService,
+      domainRolloutPolicyService,
+      failureModeService,
+      caseClusteringChainService,
     }
   }
 

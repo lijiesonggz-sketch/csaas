@@ -85,6 +85,10 @@ export {
   COMPLIANCE_CASE_CLASSIFICATION_RUN_STATUSES,
 } from './compliance-case-classification-run.entity'
 export {
+  KgTaxonomyDomainRolloutPolicy,
+  KG_TAXONOMY_DOMAIN_ROLLOUT_STATES,
+} from './kg-taxonomy-domain-rollout-policy.entity'
+export {
   CaseControlMap,
   CASE_CONTROL_RELATION_TYPES,
 } from './case-control-map.entity'

@@ -104,4 +104,18 @@ export class ComplianceCaseClassificationRunService {
       return manager.save(ComplianceCaseClassificationRun, entity)
     })
   }
+
+  async findLatestRun(
+    caseId: string,
+  ): Promise<ComplianceCaseClassificationRun | null> {
+    return this.classificationRunRepository.findOne({
+      where: {
+        caseId,
+        isLatest: true,
+      },
+      order: {
+        createdAt: 'DESC',
+      },
+    })
+  }
 }

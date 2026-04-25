@@ -7,6 +7,8 @@ import { FailureModeService } from '../../knowledge-graph/services/failure-mode.
 import { CaseClusteringChainService } from './case-clustering-chain.service'
 import { CaseClusteringService } from './case-clustering.service'
 import { CaseThemeIntelligenceService } from './case-theme-intelligence.service'
+import { ComplianceCaseClassificationRunService } from './compliance-case-classification-run.service'
+import { DomainRolloutPolicyService } from './taxonomy-classification/domain-rollout-policy.service'
 
 describe('CaseClusteringService', () => {
   let service: CaseClusteringService
@@ -35,6 +37,20 @@ describe('CaseClusteringService', () => {
     clearCache: jest.fn(),
   }
 
+  const classificationRunService = {
+    findLatestRun: jest.fn().mockResolvedValue({
+      decisionTraceJson: {
+        policySnapshot: {
+          allowLegacyFallback: true,
+        },
+      },
+    }),
+  }
+
+  const domainRolloutPolicyService = {
+    shouldAllowLegacyFallback: jest.fn().mockResolvedValue(true),
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -58,6 +74,14 @@ describe('CaseClusteringService', () => {
         {
           provide: CaseClusteringChainService,
           useValue: caseClusteringChainService,
+        },
+        {
+          provide: ComplianceCaseClassificationRunService,
+          useValue: classificationRunService,
+        },
+        {
+          provide: DomainRolloutPolicyService,
+          useValue: domainRolloutPolicyService,
         },
       ],
     }).compile()

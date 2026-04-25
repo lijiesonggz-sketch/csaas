@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common'
+import { forwardRef, Inject, Injectable, Logger, Optional } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { CaseControlMap } from '../../../database/entities/case-control-map.entity'
@@ -10,6 +10,8 @@ import {
 import { ControlPoint } from '../../../database/entities/control-point.entity'
 import { CaseClusteringChainService } from './case-clustering-chain.service'
 import { CaseThemeIntelligenceService } from './case-theme-intelligence.service'
+import { ComplianceCaseClassificationRunService } from './compliance-case-classification-run.service'
+import { DomainRolloutPolicyService } from './taxonomy-classification/domain-rollout-policy.service'
 import {
   normalizeViolationThemes,
   scoreThemeAgainstControl,
@@ -49,6 +51,10 @@ export class CaseClusteringService {
     private readonly caseThemeIntelligenceService: CaseThemeIntelligenceService,
     @Inject(forwardRef(() => CaseClusteringChainService))
     private readonly caseClusteringChainService: CaseClusteringChainService,
+    @Optional()
+    private readonly classificationRunService?: ComplianceCaseClassificationRunService,
+    @Optional()
+    private readonly domainRolloutPolicyService?: DomainRolloutPolicyService,
   ) {}
 
   async clusterBatch(batchId: string): Promise<CaseClusteringBatchResult> {
@@ -89,6 +95,10 @@ export class CaseClusteringService {
     for (const caseRecord of cases) {
       // --- New chain: try FAILURE_MODE_CHAIN first ---
       let usedNewChain = false
+      const legacyFallbackAllowed = await this.shouldAllowLegacyFallback(
+        caseRecord.caseId,
+        caseRecord.l1Code,
+      )
 
       if (caseRecord.l2Code) {
         try {
@@ -98,14 +108,37 @@ export class CaseClusteringService {
             chainMappedCaseCount += 1
             chainMapCount += chainResult.autoMappedCount
             usedNewChain = true
+          } else if (!legacyFallbackAllowed) {
+            usedNewChain = true
+            caseRecord.candidateControlPoints = [
+              {
+                controlName: caseRecord.l2Code,
+                sourceTheme: caseRecord.l2Code,
+                confidenceScore: 0,
+                reason:
+                  '当前域 rollout policy 禁止 legacy fallback，且 new chain 无可执行控制候选',
+              },
+            ]
           }
         } catch (error) {
           this.logger.warn(`New chain failed for case ${caseRecord.caseId}, falling back: ${error?.message}`)
+          if (!legacyFallbackAllowed) {
+            usedNewChain = true
+            caseRecord.candidateControlPoints = [
+              {
+                controlName: caseRecord.l2Code,
+                sourceTheme: caseRecord.l2Code,
+                confidenceScore: 0,
+                reason:
+                  '当前域 rollout policy 禁止 legacy fallback，new chain 异常已保留待人工确认',
+              },
+            ]
+          }
         }
       }
 
       // --- Old chain (fallback) ---
-      if (!usedNewChain) {
+      if (!usedNewChain && legacyFallbackAllowed) {
         fallbackToOldChainCount += 1
 
         const sourceText = [caseRecord.caseFacts, caseRecord.penaltyReason]
@@ -171,6 +204,19 @@ export class CaseClusteringService {
 
         caseRecord.normalizedThemes = normalizedThemes
         caseRecord.candidateControlPoints = ruleMatchResult.candidateControlPoints
+      } else if (!usedNewChain && !legacyFallbackAllowed) {
+        caseRecord.candidateControlPoints =
+          caseRecord.candidateControlPoints ?? [
+            {
+              controlName: caseRecord.l2Code ?? '待人工确认',
+              sourceTheme:
+                caseRecord.l2Code ??
+                caseRecord.violationThemes?.[0] ??
+                '待人工确认',
+              confidenceScore: 0,
+              reason: '当前域 rollout policy 禁止 legacy fallback，等待人工确认',
+            },
+          ]
       }
 
       caseRecord.clusteredAt = new Date()
@@ -325,5 +371,46 @@ export class CaseClusteringService {
     })
 
     await this.caseControlMapRepository.save(entity)
+  }
+
+  private async shouldAllowLegacyFallback(
+    caseId: string,
+    l1Code: string | null,
+  ): Promise<boolean> {
+    if (!this.domainRolloutPolicyService) {
+      throw new Error(
+        'Domain rollout policy service is required for clustering fallback decisions.',
+      )
+    }
+
+    if (l1Code) {
+      return this.domainRolloutPolicyService.shouldAllowLegacyFallback(l1Code)
+    }
+
+    if (!this.classificationRunService) {
+      throw new Error(
+        'Classification run service is required when clustering evaluates cases without latest l1Code context.',
+      )
+    }
+
+    const latestRun = await this.classificationRunService.findLatestRun(caseId)
+    const policySnapshot = latestRun?.decisionTraceJson?.[
+      'policySnapshot'
+    ] as Record<string, unknown> | undefined
+
+    if (policySnapshot?.['allowLegacyFallback'] !== undefined) {
+      return Boolean(policySnapshot['allowLegacyFallback'])
+    }
+
+    if (latestRun?.l1Code) {
+      return this.domainRolloutPolicyService.shouldAllowLegacyFallback(
+        latestRun.l1Code,
+      )
+    }
+
+    this.logger.warn(
+      `Latest classification run for case ${caseId} is missing both l1Code and rollout policy snapshot; defaulting clustering fallback to legacy-compatible mode.`,
+    )
+    return true
   }
 }

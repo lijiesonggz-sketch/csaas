@@ -5,6 +5,7 @@ import { CaseControlMap } from '../../database/entities/case-control-map.entity'
 import { ComplianceCase } from '../../database/entities/compliance-case.entity'
 import { ComplianceCaseClassificationRun } from '../../database/entities/compliance-case-classification-run.entity'
 import { ControlPoint } from '../../database/entities/control-point.entity'
+import { KgTaxonomyDomainRolloutPolicy } from '../../database/entities/kg-taxonomy-domain-rollout-policy.entity'
 import { RawContent } from '../../database/entities/raw-content.entity'
 import { RegulationClause } from '../../database/entities/regulation-clause.entity'
 import { AuditModule } from '../audit/audit.module'
@@ -28,8 +29,10 @@ import { It04TaxonomyClassifierService } from './services/it04-taxonomy-classifi
 import { CaseThemeIntelligenceService } from './services/case-theme-intelligence.service'
 import { ComplianceCaseBackfillService } from './services/compliance-case-backfill.service'
 import { RuntimeDomainSelectorService } from './services/runtime-domain-selector.service'
+import { TaxonomyDomainGateService } from './services/taxonomy-domain-gate.service'
 import { CaseNormalizationService } from './services/taxonomy-classification/case-normalization.service'
 import { CsvBackedMappingRepository } from './services/taxonomy-classification/csv-backed-mapping.repository'
+import { DomainRolloutPolicyService } from './services/taxonomy-classification/domain-rollout-policy.service'
 import {
   TAXONOMY_MAPPING_REPOSITORY,
 } from './services/taxonomy-classification/mapping-repository.interface'
@@ -42,6 +45,7 @@ import { TaxonomyClassifierService } from './services/taxonomy-classification/ta
       RawContent,
       ComplianceCase,
       ComplianceCaseClassificationRun,
+      KgTaxonomyDomainRolloutPolicy,
       RegulationClause,
       ControlPoint,
       CaseControlMap,
@@ -72,6 +76,8 @@ import { TaxonomyClassifierService } from './services/taxonomy-classification/ta
     CaseImportService,
     CaseImportQueueService,
     RuntimeDomainSelectorService,
+    DomainRolloutPolicyService,
+    TaxonomyDomainGateService,
     ComplianceCaseClassificationRunService,
     ClassificationTelemetryService,
     CaseNormalizationService,

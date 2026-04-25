@@ -7,8 +7,11 @@ import { CaseExtractionService } from './case-extraction.service'
 import { CaseThemeIntelligenceService } from './case-theme-intelligence.service'
 import { ComplianceCaseClassificationRunService } from './compliance-case-classification-run.service'
 import { RuntimeDomainSelectorService } from './runtime-domain-selector.service'
+import { CaseClusteringChainService } from './case-clustering-chain.service'
 import { TaxonomyClassifierService } from './taxonomy-classification/taxonomy-classifier.service'
 import { CaseNormalizationService } from './taxonomy-classification/case-normalization.service'
+import { DomainRolloutPolicyService } from './taxonomy-classification/domain-rollout-policy.service'
+import { FailureModeService } from '../../knowledge-graph/services/failure-mode.service'
 
 describe('CaseExtractionService', () => {
   let service: CaseExtractionService
@@ -44,6 +47,18 @@ describe('CaseExtractionService', () => {
 
   const caseNormalizationService = {
     normalize: jest.fn(),
+  }
+
+  const domainRolloutPolicyService = {
+    resolvePolicyDecision: jest.fn(),
+  }
+
+  const failureModeService = {
+    findByL2Code: jest.fn(),
+  }
+
+  const caseClusteringChainService = {
+    resolveControlPointsByL2Code: jest.fn(),
   }
 
   beforeEach(async () => {
@@ -82,6 +97,18 @@ describe('CaseExtractionService', () => {
           provide: CaseNormalizationService,
           useValue: caseNormalizationService,
         },
+        {
+          provide: DomainRolloutPolicyService,
+          useValue: domainRolloutPolicyService,
+        },
+        {
+          provide: FailureModeService,
+          useValue: failureModeService,
+        },
+        {
+          provide: CaseClusteringChainService,
+          useValue: caseClusteringChainService,
+        },
       ],
     }).compile()
 
@@ -97,6 +124,13 @@ describe('CaseExtractionService', () => {
       normalizedText: 'normalizedinput',
       normalizedTokens: ['normalized', 'input'],
       normalizedPhrases: [],
+    })
+    failureModeService.findByL2Code.mockResolvedValue({
+      items: [{ failureModeCode: 'FM-DEFAULT' }],
+    })
+    caseClusteringChainService.resolveControlPointsByL2Code.mockResolvedValue({
+      items: [{ controlCode: 'CTRL-DEFAULT' }],
+      total: 1,
     })
     taxonomyClassifierService.classifyCaseText.mockReturnValue({
       l1Code: 'IT04',
@@ -116,6 +150,45 @@ describe('CaseExtractionService', () => {
       pathDecision: 'UNCLASSIFIED',
       failureSemantics: 'NO_MATCH',
     })
+    domainRolloutPolicyService.resolvePolicyDecision.mockImplementation(
+      async ({
+        l1Code,
+        classifierResult,
+        primaryExecutability,
+      }: {
+        l1Code: string
+        classifierResult: {
+          classifierVersion: string
+          failureSemantics: string | null
+          pathDecision: 'PRIMARY_CHAIN' | 'LEGACY_FALLBACK' | 'ABSTAIN' | 'UNCLASSIFIED'
+        }
+        primaryExecutability: { isExecutable: boolean }
+      }) => ({
+        policy: {
+          l1Code,
+          rolloutState: 'domain-primary',
+          allowLegacyFallback: true,
+          primaryThreshold: 0.7,
+          shadowWindowDays: 14,
+          killSwitchEnabled: false,
+          activeClassifierVersion: classifierResult.classifierVersion,
+        },
+        rolloutState: 'domain-primary',
+        stateAllowsPrimary: true,
+        pathDecision:
+          classifierResult.pathDecision === 'PRIMARY_CHAIN' &&
+          primaryExecutability.isExecutable
+            ? 'PRIMARY_CHAIN'
+            : classifierResult.pathDecision,
+        failureSemantic:
+          classifierResult.pathDecision === 'PRIMARY_CHAIN' &&
+          !primaryExecutability.isExecutable
+            ? 'MAPPING_MISSING'
+            : classifierResult.failureSemantics,
+        primaryExecutability,
+        reason: 'test-double',
+      }),
+    )
     classificationRunService.appendRunAndRefreshLatest.mockResolvedValue(undefined)
     classificationTelemetryService.publishLatestSnapshotWritten.mockResolvedValue(
       undefined,

@@ -109,6 +109,7 @@ export type TaxonomyBenchmarkCaseResult = {
   actualL2Code: string
   classificationDecisionSource: TaxonomyDecisionSource
   classificationScoreGap: number
+  classifierVersion?: string
   pathDecision: TaxonomyPathDecision
   failureSemantic: TaxonomyFailureSemantic | null
   taxonomyHit: boolean
@@ -188,6 +189,7 @@ export type TaxonomyBenchmarkMachineSummary = {
   generatedAt: string
   reportId: string
   mode: TaxonomyBenchmarkMode
+  classifierVersion?: string | null
   domains: string[]
   tiers: TaxonomyBenchmarkTier[]
   gateStatus: 'PASS' | 'FAIL'
@@ -709,6 +711,7 @@ export function buildTaxonomyBenchmarkMachineSummary(input: {
   generatedAt: string
   reportId?: string
   mode: TaxonomyBenchmarkMode
+  classifierVersion?: string | null
   domains: string[]
   tiers: TaxonomyBenchmarkTier[]
   summary: Partial<TaxonomyBenchmarkMetrics>
@@ -753,10 +756,25 @@ export function buildTaxonomyBenchmarkMachineSummary(input: {
     confusionMatrix: input.summary.confusionMatrix ?? {},
   }
 
+  const classifierVersion =
+    input.classifierVersion ??
+    (() => {
+      const versions = [
+        ...new Set(
+          (input.caseResults ?? [])
+            .map((result) => result.classifierVersion ?? null)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      ]
+
+      return versions.length === 1 ? versions[0] : null
+    })()
+
   return {
     generatedAt: input.generatedAt,
     reportId: input.reportId ?? DEFAULT_REPORT_ID,
     mode: input.mode,
+    classifierVersion,
     domains: [...input.domains],
     tiers: [...input.tiers],
     gateStatus: input.gateStatus ?? 'FAIL',
@@ -1287,6 +1305,7 @@ export class TaxonomyBenchmarkRunner {
       actualL2Code: l2Code ?? 'UNCLASSIFIED',
       classificationDecisionSource: classification.decisionSource,
       classificationScoreGap: classification.scoreGap,
+      classifierVersion: classification.classifierVersion,
       pathDecision: classification.pathDecision,
       failureSemantic: classification.failureSemantics,
       taxonomyHit,
