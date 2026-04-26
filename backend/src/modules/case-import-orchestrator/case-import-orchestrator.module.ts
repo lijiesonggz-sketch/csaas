@@ -23,13 +23,22 @@ import { CaseExtractionService } from './services/case-extraction.service'
 import { ClassificationTelemetryService } from './services/classification-telemetry.service'
 import { CaseHumanReviewService } from './services/case-human-review.service'
 import { ComplianceCaseClassificationRunService } from './services/compliance-case-classification-run.service'
+import { ComplianceCaseReclassificationService } from './services/compliance-case-reclassification.service'
 import { CaseImportService } from './services/case-import.service'
 import { CaseImportQueueService } from './services/case-import-queue.service'
 import { It04TaxonomyClassifierService } from './services/it04-taxonomy-classifier.service'
 import { CaseThemeIntelligenceService } from './services/case-theme-intelligence.service'
 import { ComplianceCaseBackfillService } from './services/compliance-case-backfill.service'
+import { LegacyCaseThemeFallbackService } from './services/legacy-case-theme-fallback.service'
 import { RuntimeDomainSelectorService } from './services/runtime-domain-selector.service'
 import { TaxonomyDomainGateService } from './services/taxonomy-domain-gate.service'
+import {
+  DomainLegacyPathManagerService,
+  DomainRetirementPrerequisiteVerifierService,
+  DomainRetirementReleaseGuardService,
+  DomainRetirementSmokeVerifierService,
+  TaxonomyDomainRetirementService,
+} from './services/taxonomy-domain-retirement.service'
 import { CaseNormalizationService } from './services/taxonomy-classification/case-normalization.service'
 import { CsvBackedMappingRepository } from './services/taxonomy-classification/csv-backed-mapping.repository'
 import { DomainRolloutPolicyService } from './services/taxonomy-classification/domain-rollout-policy.service'
@@ -75,9 +84,15 @@ import { TaxonomyClassifierService } from './services/taxonomy-classification/ta
     CaseExtractionService,
     CaseImportService,
     CaseImportQueueService,
+    ComplianceCaseReclassificationService,
     RuntimeDomainSelectorService,
     DomainRolloutPolicyService,
     TaxonomyDomainGateService,
+    DomainRetirementPrerequisiteVerifierService,
+    DomainLegacyPathManagerService,
+    DomainRetirementSmokeVerifierService,
+    DomainRetirementReleaseGuardService,
+    TaxonomyDomainRetirementService,
     ComplianceCaseClassificationRunService,
     ClassificationTelemetryService,
     CaseNormalizationService,
@@ -86,6 +101,7 @@ import { TaxonomyClassifierService } from './services/taxonomy-classification/ta
     TaxonomyClassifierService,
     It04TaxonomyClassifierService,
     CaseThemeIntelligenceService,
+    LegacyCaseThemeFallbackService,
     ComplianceCaseBackfillService,
     CaseImportProcessor,
     CaseImportAuditFilter,
@@ -94,6 +110,12 @@ import { TaxonomyClassifierService } from './services/taxonomy-classification/ta
       useExisting: CsvBackedMappingRepository,
     },
   ],
-  exports: [CaseImportService, CaseImportQueueService, ComplianceCaseBackfillService],
+  exports: [
+    CaseImportService,
+    CaseImportQueueService,
+    ComplianceCaseBackfillService,
+    ComplianceCaseReclassificationService,
+    TaxonomyDomainRetirementService,
+  ],
 })
 export class CaseImportOrchestratorModule {}

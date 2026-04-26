@@ -1,7 +1,7 @@
 import { createHash } from 'crypto'
 import { Injectable, Logger, Optional } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { In, Repository } from 'typeorm'
 import {
   ComplianceCase,
   ComplianceCaseClauseCandidate,
@@ -21,7 +21,7 @@ import {
   extractViolationThemesFromText,
   isWeakTheme,
   tokenizeText,
-} from './case-theme.utils'
+} from './case-text-normalization.utils'
 import { CaseNormalizationService } from './taxonomy-classification/case-normalization.service'
 import type {
   NormalizedTaxonomyClassificationInput,
@@ -38,6 +38,13 @@ export type CaseExtractionBatchResult = {
   batchId: string
   processedCount: number
   skippedCount: number
+}
+
+export type ComplianceCaseReclassificationResult = {
+  processedCount: number
+  affectedDomains: string[]
+  latestPointerUpdated: boolean
+  classifierVersion: string | null
 }
 
 type DomainClassificationAttempt = {
@@ -95,9 +102,7 @@ export class CaseExtractionService {
     let processedCount = 0
 
     for (const caseRecord of cases) {
-      const sourceText = [caseRecord.penaltyReason, caseRecord.caseFacts]
-        .filter((value): value is string => Boolean(value))
-        .join('；')
+      const sourceText = this.buildSourceText(caseRecord)
 
       let violationThemes = extractViolationThemesFromText(sourceText)
 
@@ -167,6 +172,83 @@ export class CaseExtractionService {
       batchId,
       processedCount,
       skippedCount: 0,
+    }
+  }
+
+  async reclassifyCases(args: {
+    caseIds: string[]
+    shadowOnly?: boolean
+    forceLatestPointer?: boolean
+    classifierVersion?: string | null
+  }): Promise<ComplianceCaseReclassificationResult> {
+    const refreshLatestPointer =
+      !args.shadowOnly || args.forceLatestPointer === true
+    const cases = await this.complianceCaseRepository.find({
+      where: {
+        caseId: In(args.caseIds),
+      },
+      order: {
+        createdAt: 'ASC',
+      },
+    })
+
+    const affectedDomains = new Set<string>()
+    let classifierVersion: string | null = null
+    let processedCount = 0
+
+    if (args.classifierVersion && cases.length > 0) {
+      const probe = await this.classifyAcrossRuntimeDomains(
+        cases[0],
+        this.buildSourceText(cases[0]),
+      )
+      if (probe.appendRunArgs.classifierVersion !== args.classifierVersion) {
+        throw new Error(
+          `Requested classifier version ${args.classifierVersion} does not match runtime classifier ${probe.appendRunArgs.classifierVersion}.`,
+        )
+      }
+    }
+
+    for (const caseRecord of cases) {
+      const classificationOutcome = await this.classifyAcrossRuntimeDomains(
+        caseRecord,
+        this.buildSourceText(caseRecord),
+      )
+
+      await this.classificationRunService.appendRun(
+        classificationOutcome.appendRunArgs,
+        {
+          refreshLatestPointer,
+        },
+      )
+
+      if (refreshLatestPointer) {
+        const latestSnapshot = classificationOutcome.latestSnapshot
+
+        caseRecord.l1Code = latestSnapshot.l1Code
+        caseRecord.l2Code = latestSnapshot.l2Code
+        caseRecord.confidenceScore = latestSnapshot.confidenceScore
+        caseRecord.classificationSource = latestSnapshot.classificationSource
+        caseRecord.classificationVersion =
+          latestSnapshot.classificationVersion
+        caseRecord.fallbackReason = latestSnapshot.fallbackReason
+        caseRecord.extractedAt = new Date()
+
+        await this.complianceCaseRepository.save(caseRecord)
+      }
+
+      if (classificationOutcome.appendRunArgs.l1Code) {
+        affectedDomains.add(classificationOutcome.appendRunArgs.l1Code)
+      }
+
+      classifierVersion = classificationOutcome.appendRunArgs.classifierVersion
+      processedCount += 1
+    }
+
+    return {
+      processedCount,
+      affectedDomains: [...affectedDomains].sort(),
+      latestPointerUpdated: refreshLatestPointer,
+      classifierVersion,
     }
   }
 
@@ -802,5 +884,11 @@ export class CaseExtractionService {
 
   private extractKeywords(text: string): string[] {
     return tokenizeText(text)
+  }
+
+  private buildSourceText(caseRecord: ComplianceCase): string {
+    return [caseRecord.penaltyReason, caseRecord.caseFacts]
+      .filter((value): value is string => Boolean(value))
+      .join('；')
   }
 }

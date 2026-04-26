@@ -21,6 +21,19 @@ export type KgTaxonomyDomainRolloutState =
 
 export type KgTaxonomyDomainRolloutThresholds = Record<string, unknown>
 
+export type KgTaxonomyDomainRetirementEvidence = {
+  lastCutoverAt?: string | null
+  lastCutoverReleaseId?: string | null
+  lastLegacyOffAt?: string | null
+  lastLegacyOffReleaseId?: string | null
+  lastKillSwitchDrillAt?: string | null
+  lastRollbackVerifiedAt?: string | null
+  lastReclassifyVerifiedAt?: string | null
+  lastBackfillVerifiedAt?: string | null
+  lastSmokeVerifiedAt?: string | null
+  lastRetirementReportPath?: string | null
+}
+
 @Entity('kg_taxonomy_domain_rollout_policies')
 @Unique('UQ_kg_taxonomy_domain_rollout_policies_l1_code', ['l1Code'])
 @Index('idx_kg_taxonomy_domain_rollout_policies_state', ['rolloutState'])
@@ -95,6 +108,20 @@ export class KgTaxonomyDomainRolloutPolicy {
     nullable: true,
   })
   rollbackApprover: string | null
+
+  @Column({
+    name: 'state_changed_at',
+    type: 'timestamp',
+    default: () => 'NOW()',
+  })
+  stateChangedAt: Date
+
+  @Column({
+    name: 'retirement_evidence_json',
+    type: 'jsonb',
+    nullable: true,
+  })
+  retirementEvidenceJson: KgTaxonomyDomainRetirementEvidence | null
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import { CaseControlMap } from '../../../database/entities/case-control-map.entity'
 import { ComplianceCase } from '../../../database/entities/compliance-case.entity'
+import { parseArgs } from '../../../../scripts/backfill-compliance-cases'
 import { CaseClusteringService } from './case-clustering.service'
 import { CaseExtractionService } from './case-extraction.service'
 import { ComplianceCaseBackfillService } from './compliance-case-backfill.service'
@@ -145,14 +146,37 @@ describe('ComplianceCaseBackfillService', () => {
         LLM_ASSISTED_RULE: 0,
         LLM_FALLBACK: 0,
         MANUAL: 0,
+        FAILURE_MODE_CHAIN: 0,
       },
       mappedCaseCountBySource: {
         RULE: 1,
         LLM_ASSISTED_RULE: 0,
         LLM_FALLBACK: 0,
         MANUAL: 0,
+        FAILURE_MODE_CHAIN: 0,
       },
       batchIds: ['batch-1'],
+      affectedDomains: [],
+      rollbackCompatible: true,
+      requiresLegacyCodeRestore: false,
+    })
+  })
+
+  it('should parse kebab-case CLI arguments for backfill script', () => {
+    expect(
+      parseArgs([
+        '--batch-id=batch-1',
+        '--case-ids=case-1,case-2',
+        '--domain=IT07',
+        '--include-retirement-readiness=true',
+        '--dry-run=true',
+      ]),
+    ).toEqual({
+      batchId: 'batch-1',
+      caseIds: ['case-1', 'case-2'],
+      l1Code: 'IT07',
+      includeRetirementReadiness: true,
+      dryRun: true,
     })
   })
 })

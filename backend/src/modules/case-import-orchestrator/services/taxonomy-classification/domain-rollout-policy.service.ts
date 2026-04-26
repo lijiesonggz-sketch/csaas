@@ -4,6 +4,7 @@ import { Repository } from 'typeorm'
 import {
   KG_TAXONOMY_DOMAIN_ROLLOUT_STATES,
   KgTaxonomyDomainRolloutPolicy,
+  type KgTaxonomyDomainRetirementEvidence,
   type KgTaxonomyDomainRolloutState,
   type KgTaxonomyDomainRolloutThresholds,
 } from '../../../../database/entities/kg-taxonomy-domain-rollout-policy.entity'
@@ -23,6 +24,19 @@ export type DomainRolloutPolicyOwnership = {
   rollbackApprover: string
 }
 
+export type DomainRetirementEvidence = {
+  lastCutoverAt: string | null
+  lastCutoverReleaseId: string | null
+  lastLegacyOffAt: string | null
+  lastLegacyOffReleaseId: string | null
+  lastKillSwitchDrillAt: string | null
+  lastRollbackVerifiedAt: string | null
+  lastReclassifyVerifiedAt: string | null
+  lastBackfillVerifiedAt: string | null
+  lastSmokeVerifiedAt: string | null
+  lastRetirementReportPath: string | null
+}
+
 export type DomainRolloutPolicySnapshot = {
   id: string | null
   l1Code: string
@@ -34,6 +48,8 @@ export type DomainRolloutPolicySnapshot = {
   retirementThresholdsJson: KgTaxonomyDomainRolloutThresholds
   killSwitchEnabled: boolean
   activeClassifierVersion: string | null
+  stateChangedAt: Date | null
+  retirementEvidenceJson: DomainRetirementEvidence
   updatedAt: Date | null
   updatedBy: string | null
 } & DomainRolloutPolicyOwnership
@@ -83,6 +99,19 @@ export const DEFAULT_RETIREMENT_THRESHOLDS: KgTaxonomyDomainRolloutThresholds = 
   rollbackPath: 'Enable kill switch and revert rollout state to domain-primary',
 }
 
+export const DEFAULT_RETIREMENT_EVIDENCE: DomainRetirementEvidence = {
+  lastCutoverAt: null,
+  lastCutoverReleaseId: null,
+  lastLegacyOffAt: null,
+  lastLegacyOffReleaseId: null,
+  lastKillSwitchDrillAt: null,
+  lastRollbackVerifiedAt: null,
+  lastReclassifyVerifiedAt: null,
+  lastBackfillVerifiedAt: null,
+  lastSmokeVerifiedAt: null,
+  lastRetirementReportPath: null,
+}
+
 const PRIMARY_ENABLED_STATES = new Set<KgTaxonomyDomainRolloutState>([
   'it04-on-new-interface',
   'domain-primary',
@@ -108,6 +137,25 @@ export function normalizePolicyOwnership(
     benchmarkOwner: policy.benchmarkOwner ?? DEFAULT_POLICY_OWNER,
     gateApprover: policy.gateApprover ?? DEFAULT_POLICY_OWNER,
     rollbackApprover: policy.rollbackApprover ?? DEFAULT_POLICY_OWNER,
+  }
+}
+
+export function normalizeRetirementEvidence(
+  evidence?: KgTaxonomyDomainRetirementEvidence | DomainRetirementEvidence | null,
+): DomainRetirementEvidence {
+  return {
+    ...DEFAULT_RETIREMENT_EVIDENCE,
+    ...(evidence ?? {}),
+  }
+}
+
+export function mergeRetirementEvidence(
+  current: KgTaxonomyDomainRetirementEvidence | DomainRetirementEvidence | null | undefined,
+  patch: Partial<DomainRetirementEvidence>,
+): DomainRetirementEvidence {
+  return {
+    ...normalizeRetirementEvidence(current),
+    ...patch,
   }
 }
 
@@ -143,6 +191,8 @@ export function createBootstrapDomainRolloutPolicies(options?: {
     retirementThresholdsJson: { ...DEFAULT_RETIREMENT_THRESHOLDS },
     killSwitchEnabled: false,
     activeClassifierVersion: classifierVersion,
+    stateChangedAt: null,
+    retirementEvidenceJson: normalizeRetirementEvidence(),
     updatedAt: null,
     updatedBy: null,
     ...normalizePolicyOwnership({}),
@@ -215,6 +265,10 @@ function normalizePolicySnapshot(
     killSwitchEnabled: policy.killSwitchEnabled ?? false,
     activeClassifierVersion:
       policy.activeClassifierVersion ?? TAXONOMY_CLASSIFIER_VERSION,
+    stateChangedAt: policy.stateChangedAt ?? null,
+    retirementEvidenceJson: normalizeRetirementEvidence(
+      policy.retirementEvidenceJson,
+    ),
     updatedAt: policy.updatedAt ?? null,
     updatedBy: policy.updatedBy ?? null,
     ...normalizePolicyOwnership(policy),
@@ -412,6 +466,10 @@ export class DomainRolloutPolicyService {
       retirementThresholdsJson: policy.retirementThresholdsJson ?? undefined,
       killSwitchEnabled: policy.killSwitchEnabled,
       activeClassifierVersion: policy.activeClassifierVersion,
+      stateChangedAt: policy.stateChangedAt,
+      retirementEvidenceJson: normalizeRetirementEvidence(
+        policy.retirementEvidenceJson,
+      ),
       mappingOwner: policy.mappingOwner ?? undefined,
       rulebookOwner: policy.rulebookOwner ?? undefined,
       benchmarkOwner: policy.benchmarkOwner ?? undefined,

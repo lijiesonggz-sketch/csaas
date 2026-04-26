@@ -9,6 +9,7 @@ import { CaseClusteringService } from './case-clustering.service'
 import { CaseThemeIntelligenceService } from './case-theme-intelligence.service'
 import { ComplianceCaseClassificationRunService } from './compliance-case-classification-run.service'
 import { DomainRolloutPolicyService } from './taxonomy-classification/domain-rollout-policy.service'
+import { LegacyCaseThemeFallbackService } from './legacy-case-theme-fallback.service'
 
 describe('CaseClusteringService', () => {
   let service: CaseClusteringService
@@ -51,6 +52,10 @@ describe('CaseClusteringService', () => {
     shouldAllowLegacyFallback: jest.fn().mockResolvedValue(true),
   }
 
+  const legacyCaseThemeFallbackService = {
+    processLegacyFallback: jest.fn(),
+  }
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -83,12 +88,25 @@ describe('CaseClusteringService', () => {
           provide: DomainRolloutPolicyService,
           useValue: domainRolloutPolicyService,
         },
+        {
+          provide: LegacyCaseThemeFallbackService,
+          useValue: legacyCaseThemeFallbackService,
+        },
       ],
     }).compile()
 
     service = module.get(CaseClusteringService)
     jest.clearAllMocks()
     caseThemeIntelligenceService.suggestMappings.mockResolvedValue(null)
+    legacyCaseThemeFallbackService.processLegacyFallback.mockResolvedValue({
+      normalizedThemes: [],
+      candidateControlPoints: [],
+      autoMappings: [],
+      llmTriggered: false,
+      llmAssisted: false,
+      llmFallbackUsed: false,
+      unmapped: false,
+    })
     // Default: new chain returns fallback (no mapping)
     caseClusteringChainService.mapCaseToControlPoints.mockResolvedValue({
       autoMappedCount: 0,
@@ -130,7 +148,38 @@ describe('CaseClusteringService', () => {
     caseControlMapRepository.save.mockImplementation(async (entity) => entity)
     complianceCaseRepository.save.mockImplementation(async (entity) => entity)
 
+    legacyCaseThemeFallbackService.processLegacyFallback.mockResolvedValueOnce({
+      normalizedThemes: ['反洗钱管理', '交易监测'],
+      candidateControlPoints: [
+        {
+          controlName: '交易监测',
+          sourceTheme: '交易监测',
+          confidenceScore: 0.65,
+          reason: '关键词匹配',
+        },
+      ],
+      autoMappings: [
+        {
+          controlId: 'control-1',
+          confidenceScore: 0.8,
+          source: 'RULE',
+        },
+      ],
+      llmTriggered: false,
+      llmAssisted: false,
+      llmFallbackUsed: false,
+      unmapped: false,
+    })
+
     const result = await service.clusterBatch('batch-1')
+
+    expect(legacyCaseThemeFallbackService.processLegacyFallback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        l1Code: undefined,
+        violationThemes: ['客户身份识别不到位', '交易监测缺失'],
+        allowLegacyFallback: true,
+      }),
+    )
 
     expect(result).toEqual({
       batchId: 'batch-1',
@@ -211,6 +260,22 @@ describe('CaseClusteringService', () => {
       ],
     })
 
+    legacyCaseThemeFallbackService.processLegacyFallback.mockResolvedValueOnce({
+      normalizedThemes: ['销售行为管理', '记录留痕管理'],
+      candidateControlPoints: [],
+      autoMappings: [
+        {
+          controlId: 'control-2',
+          confidenceScore: 0.82,
+          source: 'LLM_FALLBACK',
+        },
+      ],
+      llmTriggered: true,
+      llmAssisted: false,
+      llmFallbackUsed: true,
+      unmapped: false,
+    })
+
     const result = await service.clusterBatch('batch-2')
 
     expect(result).toEqual({
@@ -230,7 +295,13 @@ describe('CaseClusteringService', () => {
       chainMapCount: 0,
       fallbackToOldChainCount: 1,
     })
-    expect(caseThemeIntelligenceService.suggestMappings).toHaveBeenCalled()
+    expect(legacyCaseThemeFallbackService.processLegacyFallback).toHaveBeenCalledWith(
+      expect.objectContaining({
+        l1Code: undefined,
+        violationThemes: ['向投资者承诺收益', '传播虚假或误导性信息', '未按规定保存微信监控记录'],
+        allowLegacyFallback: true,
+      }),
+    )
     expect(caseControlMapRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         caseId: 'case-2',
@@ -314,6 +385,22 @@ describe('CaseClusteringService', () => {
       caseControlMapRepository.save.mockImplementation(async (entity) => entity)
       complianceCaseRepository.save.mockImplementation(async (entity) => entity)
 
+      legacyCaseThemeFallbackService.processLegacyFallback.mockResolvedValueOnce({
+        normalizedThemes: ['内部控制管理'],
+        candidateControlPoints: [],
+        autoMappings: [
+          {
+            controlId: 'control-1',
+            confidenceScore: 0.86,
+            source: 'RULE',
+          },
+        ],
+        llmTriggered: false,
+        llmAssisted: false,
+        llmFallbackUsed: false,
+        unmapped: false,
+      })
+
       const result = await service.clusterBatch('batch-fallback')
 
       expect(result.chainMappedCaseCount).toBe(0)
@@ -354,6 +441,21 @@ describe('CaseClusteringService', () => {
         shouldFallback: true,
         source: 'FAILURE_MODE_CHAIN',
         writtenMappings: [],
+      })
+      legacyCaseThemeFallbackService.processLegacyFallback.mockResolvedValueOnce({
+        normalizedThemes: ['外包与第三方管理'],
+        candidateControlPoints: [],
+        autoMappings: [
+          {
+            controlId: 'control-1',
+            confidenceScore: 0.88,
+            source: 'RULE',
+          },
+        ],
+        llmTriggered: false,
+        llmAssisted: false,
+        llmFallbackUsed: false,
+        unmapped: false,
       })
 
       const result = await service.clusterBatch('batch-empty')
@@ -433,6 +535,38 @@ describe('CaseClusteringService', () => {
           shouldFallback: true,
           source: 'FAILURE_MODE_CHAIN',
           writtenMappings: [],
+        })
+
+      legacyCaseThemeFallbackService.processLegacyFallback
+        .mockResolvedValueOnce({
+          normalizedThemes: ['内部控制管理'],
+          candidateControlPoints: [],
+          autoMappings: [
+            {
+              controlId: 'control-1',
+              confidenceScore: 0.86,
+              source: 'RULE',
+            },
+          ],
+          llmTriggered: false,
+          llmAssisted: false,
+          llmFallbackUsed: false,
+          unmapped: false,
+        })
+        .mockResolvedValueOnce({
+          normalizedThemes: ['外包与第三方管理'],
+          candidateControlPoints: [],
+          autoMappings: [
+            {
+              controlId: 'control-2',
+              confidenceScore: 0.88,
+              source: 'RULE',
+            },
+          ],
+          llmTriggered: false,
+          llmAssisted: false,
+          llmFallbackUsed: false,
+          unmapped: false,
         })
 
       const result = await service.clusterBatch('batch-mixed')

@@ -34,6 +34,10 @@ export type AppendClassificationRunArgs = {
   classificationVersion: string | null
 }
 
+export type AppendClassificationRunOptions = {
+  refreshLatestPointer?: boolean
+}
+
 export type LatestClassificationSnapshot = {
   l1Code: string | null
   l2Code: string | null
@@ -70,15 +74,20 @@ export class ComplianceCaseClassificationRunService {
     private readonly classificationRunRepository: Repository<ComplianceCaseClassificationRun>,
   ) {}
 
-  async appendRunAndRefreshLatest(
+  async appendRun(
     args: AppendClassificationRunArgs,
+    options?: AppendClassificationRunOptions,
   ): Promise<ComplianceCaseClassificationRun> {
+    const refreshLatestPointer = options?.refreshLatestPointer !== false
+
     return this.classificationRunRepository.manager.transaction(async (manager) => {
-      await manager.update(
-        ComplianceCaseClassificationRun,
-        { caseId: args.caseId, isLatest: true },
-        { isLatest: false },
-      )
+      if (refreshLatestPointer) {
+        await manager.update(
+          ComplianceCaseClassificationRun,
+          { caseId: args.caseId, isLatest: true },
+          { isLatest: false },
+        )
+      }
 
       const entity = manager.create(ComplianceCaseClassificationRun, {
         caseId: args.caseId,
@@ -98,10 +107,18 @@ export class ComplianceCaseClassificationRunService {
         pathDecision: args.pathDecision,
         fallbackReason: args.fallbackReason,
         classificationStatus: args.classificationStatus,
-        isLatest: true,
+        isLatest: refreshLatestPointer,
       })
 
       return manager.save(ComplianceCaseClassificationRun, entity)
+    })
+  }
+
+  async appendRunAndRefreshLatest(
+    args: AppendClassificationRunArgs,
+  ): Promise<ComplianceCaseClassificationRun> {
+    return this.appendRun(args, {
+      refreshLatestPointer: true,
     })
   }
 

@@ -24,6 +24,9 @@ export type ComplianceCaseBackfillReport = {
   mapCountBySource: Record<CaseControlMapSource, number>
   mappedCaseCountBySource: Record<CaseControlMapSource, number>
   batchIds: string[]
+  affectedDomains: string[]
+  rollbackCompatible: boolean
+  requiresLegacyCodeRestore: boolean
 }
 
 @Injectable()
@@ -40,12 +43,23 @@ export class ComplianceCaseBackfillService {
   async backfill(params: {
     batchId?: string
     caseIds?: string[]
+    l1Code?: string
+    includeRetirementReadiness?: boolean
+    dryRun?: boolean
   }): Promise<ComplianceCaseBackfillReport> {
     const where = params.caseIds?.length
-      ? { caseId: In(params.caseIds) }
+      ? params.l1Code
+        ? { caseId: In(params.caseIds), l1Code: params.l1Code }
+        : { caseId: In(params.caseIds) }
       : params.batchId
-        ? { importBatchId: params.batchId }
-        : null
+        ? params.l1Code
+          ? { importBatchId: params.batchId, l1Code: params.l1Code }
+          : { importBatchId: params.batchId }
+        : params.l1Code
+          ? { l1Code: params.l1Code }
+          : null
+    const includeRetirementReadiness =
+      params.includeRetirementReadiness !== false
 
     if (!where) {
       throw new BadRequestException('batchId or caseIds is required for compliance case backfill')
@@ -62,10 +76,29 @@ export class ComplianceCaseBackfillService {
       throw new BadRequestException('No compliance cases matched the requested backfill scope')
     }
 
-    const resettableCases = cases.filter((caseRecord) => !caseRecord.humanReviewed && caseRecord.status !== 'reviewed')
-    const skippedReviewedCount = cases.length - resettableCases.length
+    const scopedCases = cases
+
+    if (scopedCases.length === 0) {
+      throw new BadRequestException('No compliance cases matched the requested backfill scope')
+    }
+
+    const affectedDomains = Array.from(
+      new Set(
+        scopedCases
+          .map((caseRecord) => caseRecord.l1Code)
+          .filter((l1Code): l1Code is string => Boolean(l1Code)),
+      ),
+    ).sort()
+    const resettableCases = scopedCases.filter((caseRecord) => !caseRecord.humanReviewed && caseRecord.status !== 'reviewed')
+    const skippedReviewedCount = scopedCases.length - resettableCases.length
     const casesWithBatchId = resettableCases.filter((caseRecord) => Boolean(caseRecord.importBatchId))
     const skippedMissingBatchCount = resettableCases.length - casesWithBatchId.length
+    const rollbackCompatible =
+      includeRetirementReadiness &&
+      casesWithBatchId.length > 0 &&
+      skippedMissingBatchCount === 0
+    const requiresLegacyCodeRestore =
+      includeRetirementReadiness && !rollbackCompatible
     const batchIds = Array.from(
       new Set(
         casesWithBatchId
@@ -73,6 +106,48 @@ export class ComplianceCaseBackfillService {
           .filter((batchId): batchId is string => Boolean(batchId)),
       ),
     )
+
+    if (params.dryRun) {
+      return {
+        requestedCount: scopedCases.length,
+        resetCount: casesWithBatchId.length,
+        skippedReviewedCount,
+        skippedMissingBatchCount,
+        extractedCount: 0,
+        clusteredCount: 0,
+        autoMappedCaseCount: 0,
+        unmappedCaseCount: 0,
+        ruleMappedCaseCount: 0,
+        llmTriggeredCaseCount: 0,
+        llmAssistedRuleCaseCount: 0,
+        llmFallbackCaseCount: 0,
+        llmUnmappedCaseCount: 0,
+        mapCountBySource: {
+          RULE: 0,
+          LLM_ASSISTED_RULE: 0,
+          LLM_FALLBACK: 0,
+          MANUAL: 0,
+          FAILURE_MODE_CHAIN: 0,
+        },
+        mappedCaseCountBySource: {
+          RULE: 0,
+          LLM_ASSISTED_RULE: 0,
+          LLM_FALLBACK: 0,
+          MANUAL: 0,
+          FAILURE_MODE_CHAIN: 0,
+        },
+        batchIds,
+        affectedDomains,
+        rollbackCompatible,
+        requiresLegacyCodeRestore,
+      }
+    }
+
+    if (params.caseIds?.length || params.l1Code) {
+      throw new BadRequestException(
+        'case/domain-scoped backfill currently supports dry-run readiness only; use reclassify for granular execution',
+      )
+    }
 
     if (casesWithBatchId.length > 0) {
       await this.caseControlMapRepository.delete({
@@ -137,6 +212,7 @@ export class ComplianceCaseBackfillService {
       'LLM_ASSISTED_RULE',
       'LLM_FALLBACK',
       'MANUAL',
+      'FAILURE_MODE_CHAIN',
     ]
     const mapCountBySource = sourceKeys.reduce(
       (acc, source) => ({ ...acc, [source]: caseControlMaps.filter((map) => map.source === source).length }),
@@ -154,7 +230,7 @@ export class ComplianceCaseBackfillService {
     }, {} as Record<CaseControlMapSource, number>)
 
     return {
-      requestedCount: cases.length,
+      requestedCount: scopedCases.length,
       resetCount: casesWithBatchId.length,
       skippedReviewedCount,
       skippedMissingBatchCount,
@@ -170,6 +246,9 @@ export class ComplianceCaseBackfillService {
       mapCountBySource,
       mappedCaseCountBySource,
       batchIds,
+      affectedDomains,
+      rollbackCompatible,
+      requiresLegacyCodeRestore,
     }
   }
 }

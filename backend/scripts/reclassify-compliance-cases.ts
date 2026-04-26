@@ -1,18 +1,13 @@
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from '../src/app.module'
 import {
-  ComplianceCaseBackfillService,
-} from '../src/modules/case-import-orchestrator/services/compliance-case-backfill.service'
+  ComplianceCaseReclassificationService,
+  type ComplianceCaseReclassificationParams,
+} from '../src/modules/case-import-orchestrator/services/compliance-case-reclassification.service'
 
-type BackfillCliArgs = {
-  batchId?: string
-  caseIds?: string[]
-  l1Code?: string
-  includeRetirementReadiness?: boolean
-  dryRun?: boolean
-}
-
-export function parseArgs(argv: string[]): BackfillCliArgs {
+export function parseArgs(
+  argv: string[],
+): ComplianceCaseReclassificationParams {
   const readValue = (...keys: string[]) => {
     for (const key of keys) {
       const matched = argv.find((arg) => arg.startsWith(`${key}=`))
@@ -40,21 +35,39 @@ export function parseArgs(argv: string[]): BackfillCliArgs {
     throw new Error(`Invalid boolean flag value: ${value}`)
   }
 
-  const caseIdsValue = readValue('--caseIds', '--case-ids')
+  const parseNumber = (value: string | undefined): number | undefined => {
+    if (value === undefined) {
+      return undefined
+    }
+
+    const parsed = Number(value)
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      throw new Error(`Invalid numeric flag value: ${value}`)
+    }
+
+    return parsed
+  }
+
+  const caseIds = readValue('--caseIds', '--case-ids')
+
   return {
     batchId: readValue('--batchId', '--batch-id'),
-    caseIds: caseIdsValue
+    caseIds: caseIds
       ?.split(',')
       .map((item) => item.trim())
       .filter(Boolean),
     l1Code: readValue('--domain', '--l1-code'),
-    includeRetirementReadiness: parseBoolean(
-      readValue(
-        '--includeRetirementReadiness',
-        '--include-retirement-readiness',
-      ),
+    classifierVersion: readValue(
+      '--classifierVersion',
+      '--classifier-version',
+    ),
+    shadowOnly: parseBoolean(readValue('--shadowOnly', '--shadow-only')),
+    forceLatestPointer: parseBoolean(
+      readValue('--forceLatestPointer', '--force-latest-pointer'),
     ),
     dryRun: parseBoolean(readValue('--dryRun', '--dry-run')),
+    limit: parseNumber(readValue('--limit')),
+    offset: parseNumber(readValue('--offset')),
   }
 }
 
@@ -65,10 +78,10 @@ export async function main(): Promise<void> {
   })
 
   try {
-    const service = app.get(ComplianceCaseBackfillService)
-    const report = await service.backfill(params)
+    const service = app.get(ComplianceCaseReclassificationService)
+    const report = await service.reclassify(params)
 
-    console.log('[case:backfill] complete')
+    console.log('[case:reclassify] complete')
     console.log(JSON.stringify(report, null, 2))
   } finally {
     await app.close()
@@ -77,7 +90,7 @@ export async function main(): Promise<void> {
 
 if (require.main === module) {
   main().catch((error) => {
-    console.error('[case:backfill] failed')
+    console.error('[case:reclassify] failed')
     console.error(error)
     process.exitCode = 1
   })

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import {
   extractViolationThemesFromText,
   tokenizeText,
-} from '../case-theme.utils'
+} from '../case-text-normalization.utils'
 import type {
   NormalizedTaxonomyClassificationInput,
   TaxonomyClassificationInput,

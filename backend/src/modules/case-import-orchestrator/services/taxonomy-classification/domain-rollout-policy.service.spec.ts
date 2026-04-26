@@ -2,6 +2,7 @@ import {
   createBootstrapDomainRolloutPolicies,
   DomainRolloutPolicyService,
   normalizePolicyOwnership,
+  normalizeRetirementEvidence,
   stateAllowsPrimaryPath,
   validateRolloutTransition,
 } from './domain-rollout-policy.service'
@@ -90,6 +91,8 @@ describe('DomainRolloutPolicyService', () => {
         killSwitchEnabled:
           TAXONOMY_ROLLOUT_POLICY_ATDD_PRIMARY_DECISION.killSwitchEnabled,
         activeClassifierVersion: 'taxonomy-classifier-6.4',
+        stateChangedAt: null,
+        retirementEvidenceJson: normalizeRetirementEvidence(),
         updatedAt: null,
         updatedBy: null,
         ...normalizePolicyOwnership({}),
@@ -142,6 +145,8 @@ describe('DomainRolloutPolicyService', () => {
         killSwitchEnabled:
           TAXONOMY_ROLLOUT_POLICY_ATDD_KILL_SWITCH_DECISION.killSwitchEnabled,
         activeClassifierVersion: 'taxonomy-classifier-6.4',
+        stateChangedAt: null,
+        retirementEvidenceJson: normalizeRetirementEvidence(),
         updatedAt: null,
         updatedBy: null,
         ...normalizePolicyOwnership({}),
@@ -194,6 +199,8 @@ describe('DomainRolloutPolicyService', () => {
         killSwitchEnabled:
           TAXONOMY_ROLLOUT_POLICY_ATDD_FALLBACK_DECISION.killSwitchEnabled,
         activeClassifierVersion: 'taxonomy-classifier-6.4',
+        stateChangedAt: null,
+        retirementEvidenceJson: normalizeRetirementEvidence(),
         updatedAt: null,
         updatedBy: null,
         ...normalizePolicyOwnership({}),
@@ -234,6 +241,8 @@ describe('DomainRolloutPolicyService', () => {
         killSwitchEnabled:
           TAXONOMY_ROLLOUT_POLICY_ATDD_ABSTAIN_DECISION.killSwitchEnabled,
         activeClassifierVersion: 'taxonomy-classifier-6.4',
+        stateChangedAt: null,
+        retirementEvidenceJson: normalizeRetirementEvidence(),
         updatedAt: null,
         updatedBy: null,
         ...normalizePolicyOwnership({}),
@@ -278,6 +287,8 @@ describe('DomainRolloutPolicyService', () => {
         retirementThresholdsJson: {},
         killSwitchEnabled: false,
         activeClassifierVersion: 'taxonomy-classifier-6.4',
+        stateChangedAt: null,
+        retirementEvidenceJson: normalizeRetirementEvidence(),
         updatedAt: null,
         updatedBy: null,
         ...normalizePolicyOwnership({}),
@@ -321,6 +332,8 @@ describe('DomainRolloutPolicyService', () => {
         retirementThresholdsJson: {},
         killSwitchEnabled: false,
         activeClassifierVersion: 'taxonomy-classifier-6.4',
+        stateChangedAt: null,
+        retirementEvidenceJson: normalizeRetirementEvidence(),
         updatedAt: null,
         updatedBy: null,
         ...normalizePolicyOwnership({}),

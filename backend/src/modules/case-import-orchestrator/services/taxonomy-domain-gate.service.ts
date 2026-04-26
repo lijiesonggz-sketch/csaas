@@ -15,6 +15,7 @@ import {
   DEFAULT_RETIREMENT_THRESHOLDS,
   DomainRolloutPolicyService,
   type DomainRolloutPolicySnapshot,
+  mergeRetirementEvidence,
   validateRolloutTransition,
 } from './taxonomy-classification/domain-rollout-policy.service'
 import { resolveWorkspaceArtifactPath } from './taxonomy-benchmark.runner'
@@ -193,6 +194,7 @@ export class TaxonomyDomainGateService {
   async summarizeWindow(
     l1Code: string,
     observationWindowDays: number,
+    windowStartOverride?: Date | null,
   ): Promise<TaxonomyDomainRuntimeMetrics> {
     if (!this.classificationRunRepository || !this.complianceCaseRepository) {
       return {
@@ -208,8 +210,16 @@ export class TaxonomyDomainGateService {
       }
     }
 
-    const windowStart = new Date()
-    windowStart.setDate(windowStart.getDate() - observationWindowDays)
+    const computedWindowStart = new Date()
+    computedWindowStart.setDate(
+      computedWindowStart.getDate() - observationWindowDays,
+    )
+    const windowStart =
+      windowStartOverride &&
+      !Number.isNaN(windowStartOverride.getTime()) &&
+      windowStartOverride.getTime() > computedWindowStart.getTime()
+        ? windowStartOverride
+        : computedWindowStart
 
     const runs = await this.classificationRunRepository.find({
       where: {
@@ -279,6 +289,9 @@ export class TaxonomyDomainGateService {
     const metrics = await this.summarizeWindow(
       args.l1Code,
       policy.shadowWindowDays,
+      targetState === 'legacy-off'
+        ? this.resolveRetirementObservationStart(policy)
+        : null,
     )
     const summary = readLatestBenchmarkSummary({
       l1Code: args.l1Code,
@@ -290,6 +303,15 @@ export class TaxonomyDomainGateService {
 
     if (metrics.totalRuns === 0) {
       blockingReasons.push('observation window has no runtime evidence')
+    }
+
+    if (
+      targetState === 'legacy-off' &&
+      !policy.retirementEvidenceJson?.lastCutoverAt
+    ) {
+      blockingReasons.push(
+        'retirement gate requires cutover evidence before evaluating post-cutover observation window',
+      )
     }
 
     try {
@@ -360,8 +382,11 @@ export class TaxonomyDomainGateService {
         canaryPercentage: Number(cutoverThresholds.canaryPercentage ?? 0),
         errorBudget: Number(cutoverThresholds.errorBudget ?? 0),
         rollbackPath: String(
-          cutoverThresholds.rollbackPath ??
-            'Enable kill switch and revert rollout state',
+          targetState === 'legacy-off'
+            ? retirementThresholds.rollbackPath ??
+              'Enable kill switch and revert rollout state to domain-primary'
+            : cutoverThresholds.rollbackPath ??
+              'Enable kill switch and revert rollout state',
         ),
       },
     }
@@ -371,6 +396,7 @@ export class TaxonomyDomainGateService {
     l1Code: string
     targetState: KgTaxonomyDomainRolloutState
     updatedBy?: string | null
+    releaseId?: string | null
   }): Promise<TaxonomyDomainReadinessDecision> {
     if (!this.domainRolloutPolicyService || !this.rolloutPolicyRepository) {
       throw new Error(
@@ -393,10 +419,28 @@ export class TaxonomyDomainGateService {
       )
     }
 
+    const stateChangedAt = new Date()
+    const retirementEvidenceJson = mergeRetirementEvidence(
+      currentPolicy.retirementEvidenceJson,
+      args.targetState === 'domain-primary'
+        ? {
+            lastCutoverAt: stateChangedAt.toISOString(),
+            lastCutoverReleaseId: args.releaseId ?? null,
+          }
+        : args.targetState === 'legacy-off'
+          ? {
+              lastLegacyOffAt: stateChangedAt.toISOString(),
+              lastLegacyOffReleaseId: args.releaseId ?? null,
+            }
+          : {},
+    )
+
     await this.rolloutPolicyRepository.update(
       { l1Code: args.l1Code },
       {
         rolloutState: args.targetState,
+        stateChangedAt,
+        retirementEvidenceJson,
         updatedBy: args.updatedBy ?? null,
       },
     )
@@ -438,5 +482,17 @@ export class TaxonomyDomainGateService {
         metrics: summary.metrics,
       }
     )
+  }
+
+  private resolveRetirementObservationStart(
+    policy: DomainRolloutPolicySnapshot,
+  ): Date | null {
+    const lastCutoverAt = policy.retirementEvidenceJson?.lastCutoverAt
+    if (!lastCutoverAt) {
+      return null
+    }
+
+    const parsed = new Date(lastCutoverAt)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
   }
 }
