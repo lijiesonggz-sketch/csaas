@@ -7,7 +7,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common'
-import { QueryFailedError } from 'typeorm'
+import { Brackets, QueryFailedError } from 'typeorm'
 import { ClauseControlMap } from '../../../database/entities/clause-control-map.entity'
 import { ControlPoint } from '../../../database/entities/control-point.entity'
 import { ObligationControlMap } from '../../../database/entities/obligation-control-map.entity'
@@ -40,6 +40,7 @@ function createMockRepos() {
     obligationRepo: {
       findOne: jest.fn().mockResolvedValue(null),
       find: jest.fn().mockResolvedValue([]),
+      count: jest.fn().mockResolvedValue(0),
       create: jest.fn().mockReturnValue({}),
       save: jest.fn().mockResolvedValue({}),
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilderMock),
@@ -113,6 +114,39 @@ describe('ObligationService', () => {
         limit: 20,
       })
       expect(qb.andWhere).toHaveBeenCalled()
+      expect(mocks.obligationRepo.createQueryBuilder).toHaveBeenCalledWith('obl')
+    })
+
+    it('should escape wildcard characters in keyword filters so literal % and _ do not expand the search unexpectedly', async () => {
+      const qb = mocks.queryBuilderMock
+      mocks.obligationRepo.createQueryBuilder.mockReturnValue(qb)
+      qb.getManyAndCount.mockResolvedValue([[], 0])
+
+      await service.findAll({
+        keyword: '%_',
+        page: 1,
+        limit: 20,
+      })
+
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        expect.any(Brackets),
+      )
+
+      const bracket = qb.andWhere.mock.calls.find(
+        (call) => call[0] instanceof Brackets,
+      )?.[0] as Brackets
+
+      const nested = {
+        where: jest.fn().mockReturnThis(),
+        orWhere: jest.fn().mockReturnThis(),
+      }
+
+      ;(bracket as any).whereFactory(nested)
+
+      expect(nested.where).toHaveBeenCalledWith(
+        expect.stringContaining(`ILIKE :keyword ESCAPE '\\'`),
+        { keyword: `%\\%\\_%` },
+      )
     })
   })
 
@@ -874,6 +908,37 @@ describe('ObligationService', () => {
           source: null,
         }),
       )
+    })
+
+    it('should skip orphaned obligation and clause mappings when joined relations are missing', async () => {
+      const obligationQb = mocks.queryBuilderMock
+      const clauseQb = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([
+          {
+            id: 'clause-map-orphan',
+            clauseId: 'missing-clause',
+            mappingType: 'direct',
+            reviewStatus: 'APPROVED',
+            confidenceScore: '0.8',
+            clause: null,
+          },
+        ]),
+      }
+      mocks.obligationControlMapRepo.createQueryBuilder.mockReturnValue(obligationQb)
+      obligationQb.getMany.mockResolvedValue([
+        {
+          id: 'obl-map-orphan',
+          coverage: 'FULL',
+          obligation: null,
+        },
+      ])
+      mocks.clauseControlMapRepo.createQueryBuilder.mockReturnValue(clauseQb as never)
+
+      const result = await service.findRegulatoryLinksByControlId('control-1')
+      expect(result).toEqual({ obligations: [], clauses: [] })
     })
   })
 

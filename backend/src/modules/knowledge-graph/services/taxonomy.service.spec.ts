@@ -27,6 +27,13 @@ describe('TaxonomyService', () => {
 
   const taxonomyFailureModeMapRepository = {
     find: jest.fn(),
+    createQueryBuilder: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    }),
   }
 
   const failureModeControlMapRepository = {
@@ -112,6 +119,7 @@ describe('TaxonomyService', () => {
             l2Name: '访问控制与授权管理',
             sortOrder: 23,
             status: 'ACTIVE',
+            failureModeCount: 0,
           },
         ],
       },
@@ -169,6 +177,7 @@ describe('TaxonomyService', () => {
             l2Name: '访问控制与授权管理',
             sortOrder: 23,
             status: 'ACTIVE',
+            failureModeCount: 0,
           },
         ],
       },

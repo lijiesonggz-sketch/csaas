@@ -15,7 +15,7 @@ describe('loadKgSeedData', () => {
     expect(seedData.demoProfiles).toHaveLength(6)
     expect(seedData.expectedResults).toHaveLength(6)
     expect(seedData.taxonomyL1).toHaveLength(8)
-    expect(seedData.taxonomyL2.length).toBeGreaterThanOrEqual(5)
+    expect(seedData.taxonomyL2.length).toBeGreaterThanOrEqual(55)
     expect(seedData.controlPoints.length).toBeGreaterThanOrEqual(6)
     expect(new Set(seedData.controlPacks.map((pack) => pack.packType))).toEqual(
       new Set(['base', 'sector', 'scene', 'strength']),

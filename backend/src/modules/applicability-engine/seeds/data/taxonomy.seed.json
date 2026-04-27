@@ -51,11 +51,59 @@
   ],
   "l2": [
     {
+      "l2Code": "IT01-01",
+      "l1Code": "IT01",
+      "l2Name": "信息科技风险管理不审慎/不到位",
+      "l2Desc": "笼统表述为信息科技风险管理不审慎、不合规、不到位、违反审慎经营规则",
+      "sortOrder": 11,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT01-02",
+      "l1Code": "IT01",
+      "l2Name": "信息科技治理体系/制度机制不健全",
+      "l2Desc": "信息科技治理架构、制度、流程、职责机制不完善",
+      "sortOrder": 12,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT01-03",
+      "l1Code": "IT01",
+      "l2Name": "监管要求/监管意见/检查整改落实不到位",
+      "l2Desc": "监管发现问题整改不到位、屡查屡犯、未按要求落实整改",
+      "sortOrder": 13,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT01-04",
+      "l1Code": "IT01",
+      "l2Name": "信息科技操作风险识别与控制不足",
+      "l2Desc": "对系统操作风险、科技操作风险识别不足或控制不力",
+      "sortOrder": 14,
+      "status": "ACTIVE"
+    },
+    {
       "l2Code": "IT01-05",
       "l1Code": "IT01",
       "l2Name": "AI治理与模型风险管理",
       "l2Desc": "覆盖 AI 模型准入、人工复核和模型风险治理控制",
       "sortOrder": 15,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT02-01",
+      "l1Code": "IT02",
+      "l2Name": "信息安全管理不足",
+      "l2Desc": "信息安全管理薄弱、责任落实不足、安全管理机制不完善",
+      "sortOrder": 21,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT02-02",
+      "l1Code": "IT02",
+      "l2Name": "网络安全管理不足/管控不足",
+      "l2Desc": "网络安全管控不足、网络安全责任落实不到位",
+      "sortOrder": 22,
       "status": "ACTIVE"
     },
     {
@@ -67,11 +115,91 @@
       "status": "ACTIVE"
     },
     {
+      "l2Code": "IT02-04",
+      "l1Code": "IT02",
+      "l2Name": "网络隔离/边界防护不足",
+      "l2Desc": "金融专网与互联网隔离不到位、功能区隔离不充分、边界防护不足",
+      "sortOrder": 24,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT02-05",
+      "l1Code": "IT02",
+      "l2Name": "安全漏洞/安全控制措施不到位",
+      "l2Desc": "缺少必要安全技术控制、存在明显安全缺陷或漏洞管理不足",
+      "sortOrder": 25,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT02-06",
+      "l1Code": "IT02",
+      "l2Name": "安全评估/风险评估未开展",
+      "l2Desc": "未按要求开展网络安全评估、重大变更风险评估",
+      "sortOrder": 26,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT02-07",
+      "l1Code": "IT02",
+      "l2Name": "保密及安全责任约束缺失",
+      "l2Desc": "未签保密协议、信息安全责任约束机制缺失",
+      "sortOrder": 27,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT03-01",
+      "l1Code": "IT03",
+      "l2Name": "个人信息违规收集/使用",
+      "l2Desc": "违规收集、违规使用个人信息",
+      "sortOrder": 31,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT03-02",
+      "l1Code": "IT03",
+      "l2Name": "个人信息泄露/出售/非法提供/非法查询",
+      "l2Desc": "侵犯公民个人信息、出售或非法提供、非法查询客户信息",
+      "sortOrder": 32,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT03-03",
+      "l1Code": "IT03",
+      "l2Name": "客户信息保护管理薄弱",
+      "l2Desc": "客户信息保护制度、流程、控制措施薄弱",
+      "sortOrder": 33,
+      "status": "ACTIVE"
+    },
+    {
       "l2Code": "IT03-04",
       "l1Code": "IT03",
       "l2Name": "数据出境与跨境传输管理",
       "l2Desc": "覆盖跨境数据识别、评估、审批和接收方管理控制",
       "sortOrder": 34,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT03-05",
+      "l1Code": "IT03",
+      "l2Name": "数据安全管理粗放/存在泄露风险",
+      "l2Desc": "数据分类分级、访问、脱敏、传输、存储等控制不足，存在泄露隐患",
+      "sortOrder": 35,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT03-06",
+      "l1Code": "IT03",
+      "l2Name": "第三方合作数据安全风险管控不足",
+      "l2Desc": "合作机构、第三方平台、外部接口带来的数据安全风险控制不足",
+      "sortOrder": 36,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT03-07",
+      "l1Code": "IT03",
+      "l2Name": "监管/执法/查询信息泄露",
+      "l2Desc": "泄露执法查询信息、有权部门查询信息等敏感查询信息",
+      "sortOrder": 37,
       "status": "ACTIVE"
     },
     {
@@ -179,6 +307,70 @@
       "status": "ACTIVE"
     },
     {
+      "l2Code": "IT05-02",
+      "l1Code": "IT05",
+      "l2Name": "外包准入尽调/日常管理不到位",
+      "l2Desc": "外包供应商准入、尽调、考核、日常监督不到位",
+      "sortOrder": 52,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT05-03",
+      "l1Code": "IT05",
+      "l2Name": "外包引发网络安全/运营风险事件",
+      "l2Desc": "因外包管理不到位导致网络安全事件、运营风险事件",
+      "sortOrder": 53,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT05-04",
+      "l1Code": "IT05",
+      "l2Name": "第三方平台/合作机构科技风险管控不足",
+      "l2Desc": "移动办公平台、合作机构系统、第三方服务平台风险控制不足",
+      "sortOrder": 54,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT06-01",
+      "l1Code": "IT06",
+      "l2Name": "系统开发测试不充分",
+      "l2Desc": "开发测试不足、测试不完整、测试验证不充分",
+      "sortOrder": 61,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT06-02",
+      "l1Code": "IT06",
+      "l2Name": "重要信息系统识别不全面/应认定未认定",
+      "l2Desc": "应纳入重要系统范围但未识别、未认定",
+      "sortOrder": 62,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT06-03",
+      "l1Code": "IT06",
+      "l2Name": "重要系统投产/上线/变更管理不规范",
+      "l2Desc": "投产、上线、升级、变更流程不规范",
+      "sortOrder": 63,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT06-04",
+      "l1Code": "IT06",
+      "l2Name": "重大网络架构变更未评估/未报告",
+      "l2Desc": "重大技术架构或网络架构变更未开展评估或未报监管",
+      "sortOrder": 64,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT06-05",
+      "l1Code": "IT06",
+      "l2Name": "制度建设和系统建设不到位",
+      "l2Desc": "相关制度与系统能力建设未达到监管或业务要求",
+      "sortOrder": 65,
+      "status": "ACTIVE"
+    },
+    {
       "l2Code": "IT06-07",
       "l1Code": "IT06",
       "l2Name": "变更审批与回退管理",
@@ -195,11 +387,107 @@
       "status": "ACTIVE"
     },
     {
+      "l2Code": "IT07-02",
+      "l1Code": "IT07",
+      "l2Name": "生产运维管理不严",
+      "l2Desc": "生产操作、变更执行、发布管控、运维纪律不严",
+      "sortOrder": 72,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT07-03",
+      "l1Code": "IT07",
+      "l2Name": "系统使用管控不到位",
+      "l2Desc": "系统使用行为、操作留痕、账户使用等控制不足",
+      "sortOrder": 73,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT07-04",
+      "l1Code": "IT07",
+      "l2Name": "基础软件版本管理不足",
+      "l2Desc": "操作系统、中间件、数据库等基础软件版本管理薄弱",
+      "sortOrder": 74,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT07-05",
+      "l1Code": "IT07",
+      "l2Name": "信息系统管控有效性不足",
+      "l2Desc": "系统管控措施虽有但无效，未形成有效闭环",
+      "sortOrder": 75,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT07-06",
+      "l1Code": "IT07",
+      "l2Name": "核心业务系统数据被后台修改/篡改",
+      "l2Desc": "通过后台修改核心系统数据、绕过前台控制",
+      "sortOrder": 76,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT07-07",
+      "l1Code": "IT07",
+      "l2Name": "数据中心基础设施风险隐患",
+      "l2Desc": "机房、电力、空调、网络、消防等基础设施存在隐患",
+      "sortOrder": 77,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT07-08",
+      "l1Code": "IT07",
+      "l2Name": "机房演练流于形式/虚假演练",
+      "l2Desc": "数据中心演练、切换演练、应急演练未真实开展或流于形式",
+      "sortOrder": 78,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT08-01",
+      "l1Code": "IT08",
+      "l2Name": "业务连续性管理不到位",
+      "l2Desc": "业务连续性制度、预案、演练、恢复安排不到位",
+      "sortOrder": 81,
+      "status": "ACTIVE"
+    },
+    {
       "l2Code": "IT08-02",
       "l1Code": "IT08",
       "l2Name": "业务连续性与恢复目标管理",
       "l2Desc": "覆盖业务连续性、RTO/RPO、灾备和恢复演练控制",
       "sortOrder": 82,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT08-03",
+      "l1Code": "IT08",
+      "l2Name": "科技突发事件识别和处置不及时",
+      "l2Desc": "信息系统运行风险识别不到位、事件处置迟缓",
+      "sortOrder": 83,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT08-04",
+      "l1Code": "IT08",
+      "l2Name": "突发事件定级不准确",
+      "l2Desc": "事件级别判断错误，导致上报口径错误",
+      "sortOrder": 84,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT08-05",
+      "l1Code": "IT08",
+      "l2Name": "突发事件迟报/瞒报/应报未报",
+      "l2Desc": "重大突发事件、运营中断事件迟报、漏报、瞒报",
+      "sortOrder": 85,
+      "status": "ACTIVE"
+    },
+    {
+      "l2Code": "IT08-06",
+      "l1Code": "IT08",
+      "l2Name": "运营中断事件报告不合规",
+      "l2Desc": "运营中断事件报告内容、时效、流程不符合监管要求",
+      "sortOrder": 86,
       "status": "ACTIVE"
     }
   ]

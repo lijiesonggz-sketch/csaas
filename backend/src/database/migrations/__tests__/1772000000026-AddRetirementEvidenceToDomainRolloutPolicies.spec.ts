@@ -20,7 +20,13 @@ describe('AddRetirementEvidenceToDomainRolloutPolicies1772000000026', () => {
       .join('\n')
 
     expect(sql).toContain(
-      'ADD COLUMN IF NOT EXISTS "state_changed_at" timestamp NOT NULL DEFAULT NOW()',
+      'ADD COLUMN IF NOT EXISTS "state_changed_at" timestamp',
+    )
+    expect(sql).toContain(
+      'ALTER COLUMN "state_changed_at" SET NOT NULL',
+    )
+    expect(sql).toContain(
+      'ALTER COLUMN "state_changed_at" SET DEFAULT NOW()',
     )
     expect(sql).toContain(
       'ADD COLUMN IF NOT EXISTS "retirement_evidence_json" jsonb',

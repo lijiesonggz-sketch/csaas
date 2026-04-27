@@ -17,6 +17,7 @@
 
 import { FailureMode } from '../../../database/entities/failure-mode.entity'
 import { TaxonomyFailureModeMap } from '../../../database/entities/taxonomy-failure-mode-map.entity'
+import { loadKgSeedData } from './kg-seed-data'
 
 // Dynamic import helper for functions not yet implemented (TDD red phase)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -118,6 +119,28 @@ function createMockQueryRunnerForFm() {
   const executedQueries: Array<{ sql: string; params: unknown[] }> = []
   const upsertedFmRecords: unknown[] = []
   const upsertedMapRecords: unknown[] = []
+  const seedData = loadKgSeedData()
+  const sourceIdByCode = new Map(
+    seedData.regulationSources.map((source, index) => [
+      source.sourceCode,
+      `source-${index + 1}`,
+    ] as const),
+  )
+  const clauseIdByCode = new Map(
+    seedData.regulationClauses.map((clause, index) => [
+      clause.clauseCode,
+      `clause-${index + 1}`,
+    ] as const),
+  )
+  const obligationIdByCode = new Map(
+    seedData.regulationObligations.map((obligation, index) => [
+      obligation.obligationCode,
+      `obligation-${index + 1}`,
+    ] as const),
+  )
+  const controlIdByCode = new Map(
+    seedData.controlPoints.map((control) => [control.controlCode, control.controlId] as const),
+  )
 
   const fmRepository = {
     upsert: jest.fn().mockImplementation(async (records: unknown[], conflictTargets: string[]) => {
@@ -172,10 +195,44 @@ function createMockQueryRunnerForFm() {
         return [{ failure_mode_id: `uuid-${code}`, failure_mode_code: code }]
       }
       if (sql.includes('SELECT') && sql.includes('regulation_sources') && sql.includes('source_code')) {
-        return []
+        const codes = (params?.[0] as string[] | undefined) ?? []
+        return codes
+          .filter((code) => sourceIdByCode.has(code))
+          .map((code) => ({
+            source_id: sourceIdByCode.get(code),
+            source_code: code,
+          }))
       }
       if (sql.includes('SELECT') && sql.includes('regulation_clauses') && sql.includes('clause_code')) {
-        return []
+        const codes = (params?.[0] as string[] | undefined) ?? []
+        return codes
+          .filter((code) => clauseIdByCode.has(code))
+          .map((code) => ({
+            clause_id: clauseIdByCode.get(code),
+            clause_code: code,
+          }))
+      }
+      if (
+        sql.includes('SELECT') &&
+        sql.includes('regulation_obligations') &&
+        sql.includes('obligation_code')
+      ) {
+        const codes = (params?.[0] as string[] | undefined) ?? []
+        return codes
+          .filter((code) => obligationIdByCode.has(code))
+          .map((code) => ({
+            obligation_id: obligationIdByCode.get(code),
+            obligation_code: code,
+          }))
+      }
+      if (sql.includes('SELECT') && sql.includes('control_points') && sql.includes('control_code')) {
+        const codes = (params?.[0] as string[] | undefined) ?? []
+        return codes
+          .filter((code) => controlIdByCode.has(code))
+          .map((code) => ({
+            control_id: controlIdByCode.get(code),
+            control_code: code,
+          }))
       }
       return []
     }),
@@ -357,10 +414,68 @@ describe('Story 2-3 — seedFailureModes()', () => {
           return []
         }
         if (sql.includes('SELECT') && sql.includes('regulation_sources') && sql.includes('source_code')) {
-          return []
+          const codes = (params?.[0] as string[] | undefined) ?? []
+          const seedData = loadKgSeedData()
+          const sourceIdByCode = new Map(
+            seedData.regulationSources.map((source, index) => [
+              source.sourceCode,
+              `source-${index + 1}`,
+            ] as const),
+          )
+          return codes
+            .filter((code) => sourceIdByCode.has(code))
+            .map((code) => ({
+              source_id: sourceIdByCode.get(code),
+              source_code: code,
+            }))
         }
         if (sql.includes('SELECT') && sql.includes('regulation_clauses') && sql.includes('clause_code')) {
-          return []
+          const codes = (params?.[0] as string[] | undefined) ?? []
+          const seedData = loadKgSeedData()
+          const clauseIdByCode = new Map(
+            seedData.regulationClauses.map((clause, index) => [
+              clause.clauseCode,
+              `clause-${index + 1}`,
+            ] as const),
+          )
+          return codes
+            .filter((code) => clauseIdByCode.has(code))
+            .map((code) => ({
+              clause_id: clauseIdByCode.get(code),
+              clause_code: code,
+            }))
+        }
+        if (sql.includes('SELECT') && sql.includes('regulation_obligations') && sql.includes('obligation_code')) {
+          const codes = (params?.[0] as string[] | undefined) ?? []
+          const seedData = loadKgSeedData()
+          const obligationIdByCode = new Map(
+            seedData.regulationObligations.map((obligation, index) => [
+              obligation.obligationCode,
+              `obligation-${index + 1}`,
+            ] as const),
+          )
+          return codes
+            .filter((code) => obligationIdByCode.has(code))
+            .map((code) => ({
+              obligation_id: obligationIdByCode.get(code),
+              obligation_code: code,
+            }))
+        }
+        if (sql.includes('SELECT') && sql.includes('control_points') && sql.includes('control_code')) {
+          const codes = (params?.[0] as string[] | undefined) ?? []
+          const seedData = loadKgSeedData()
+          const controlIdByCode = new Map(
+            seedData.controlPoints.map((control) => [
+              control.controlCode,
+              control.controlId,
+            ] as const),
+          )
+          return codes
+            .filter((code) => controlIdByCode.has(code))
+            .map((code) => ({
+              control_id: controlIdByCode.get(code),
+              control_code: code,
+            }))
         }
         return []
       }),

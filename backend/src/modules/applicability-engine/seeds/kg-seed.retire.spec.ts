@@ -30,6 +30,7 @@ import {
   seedKgBaselineWithQueryRunner,
   RetireSummary,
 } from './kg-seed.service'
+import { loadKgSeedData } from './kg-seed-data'
 
 // ---------------------------------------------------------------------------
 // Helper: Build a stateful mock QueryRunner that simulates SQL operations
@@ -193,6 +194,28 @@ function createMockQueryRunnerWithState() {
 
 function createEmptyMockQueryRunner() {
   const executedQueries: Array<{ sql: string; params: unknown[] }> = []
+  const seedData = loadKgSeedData()
+  const sourceIdByCode = new Map(
+    seedData.regulationSources.map((source, index) => [
+      source.sourceCode,
+      `source-${index + 1}`,
+    ] as const),
+  )
+  const clauseIdByCode = new Map(
+    seedData.regulationClauses.map((clause, index) => [
+      clause.clauseCode,
+      `clause-${index + 1}`,
+    ] as const),
+  )
+  const obligationIdByCode = new Map(
+    seedData.regulationObligations.map((obligation, index) => [
+      obligation.obligationCode,
+      `obligation-${index + 1}`,
+    ] as const),
+  )
+  const controlIdByCode = new Map(
+    seedData.controlPoints.map((control) => [control.controlCode, control.controlId] as const),
+  )
 
   const queryRunner = {
     hasTable: jest.fn().mockResolvedValue(true),
@@ -216,11 +239,47 @@ function createEmptyMockQueryRunner() {
       }
 
       if (sql.includes('SELECT') && sql.includes('regulation_sources') && sql.includes('source_code')) {
-        return []
+        const codes = (params?.[0] as string[] | undefined) ?? []
+        return codes
+          .filter((code) => sourceIdByCode.has(code))
+          .map((code) => ({
+            source_id: sourceIdByCode.get(code),
+            source_code: code,
+          }))
       }
 
       if (sql.includes('SELECT') && sql.includes('regulation_clauses') && sql.includes('clause_code')) {
-        return []
+        const codes = (params?.[0] as string[] | undefined) ?? []
+        return codes
+          .filter((code) => clauseIdByCode.has(code))
+          .map((code) => ({
+            clause_id: clauseIdByCode.get(code),
+            clause_code: code,
+          }))
+      }
+
+      if (
+        sql.includes('SELECT') &&
+        sql.includes('regulation_obligations') &&
+        sql.includes('obligation_code')
+      ) {
+        const codes = (params?.[0] as string[] | undefined) ?? []
+        return codes
+          .filter((code) => obligationIdByCode.has(code))
+          .map((code) => ({
+            obligation_id: obligationIdByCode.get(code),
+            obligation_code: code,
+          }))
+      }
+
+      if (sql.includes('SELECT') && sql.includes('control_points') && sql.includes('control_code')) {
+        const codes = (params?.[0] as string[] | undefined) ?? []
+        return codes
+          .filter((code) => controlIdByCode.has(code))
+          .map((code) => ({
+            control_id: controlIdByCode.get(code),
+            control_code: code,
+          }))
       }
 
       return []
@@ -461,7 +520,6 @@ describe('Story 2-2 — retireLegacyControlPoints()', () => {
     // Create a mock that tracks both retire queries and seed upsert queries
     const executedQueries: Array<{ sql: string; params: unknown[] }> = []
 
-    const { loadKgSeedData } = await import('./kg-seed-data')
     const seedData = loadKgSeedData()
 
     const queryRunner = {
@@ -490,10 +548,64 @@ describe('Story 2-2 — retireLegacyControlPoints()', () => {
           return []
         }
         if (sql.includes('SELECT') && sql.includes('regulation_sources') && sql.includes('source_code')) {
-          return []
+          const codes = (params?.[0] as string[] | undefined) ?? []
+          const sourceIdByCode = new Map(
+            seedData.regulationSources.map((source, index) => [
+              source.sourceCode,
+              `source-${index + 1}`,
+            ] as const),
+          )
+          return codes
+            .filter((code) => sourceIdByCode.has(code))
+            .map((code) => ({
+              source_id: sourceIdByCode.get(code),
+              source_code: code,
+            }))
         }
         if (sql.includes('SELECT') && sql.includes('regulation_clauses') && sql.includes('clause_code')) {
-          return []
+          const codes = (params?.[0] as string[] | undefined) ?? []
+          const clauseIdByCode = new Map(
+            seedData.regulationClauses.map((clause, index) => [
+              clause.clauseCode,
+              `clause-${index + 1}`,
+            ] as const),
+          )
+          return codes
+            .filter((code) => clauseIdByCode.has(code))
+            .map((code) => ({
+              clause_id: clauseIdByCode.get(code),
+              clause_code: code,
+            }))
+        }
+        if (sql.includes('SELECT') && sql.includes('regulation_obligations') && sql.includes('obligation_code')) {
+          const codes = (params?.[0] as string[] | undefined) ?? []
+          const obligationIdByCode = new Map(
+            seedData.regulationObligations.map((obligation, index) => [
+              obligation.obligationCode,
+              `obligation-${index + 1}`,
+            ] as const),
+          )
+          return codes
+            .filter((code) => obligationIdByCode.has(code))
+            .map((code) => ({
+              obligation_id: obligationIdByCode.get(code),
+              obligation_code: code,
+            }))
+        }
+        if (sql.includes('SELECT') && sql.includes('control_points') && sql.includes('control_code')) {
+          const codes = (params?.[0] as string[] | undefined) ?? []
+          const controlIdByCode = new Map(
+            seedData.controlPoints.map((control) => [
+              control.controlCode,
+              control.controlId,
+            ] as const),
+          )
+          return codes
+            .filter((code) => controlIdByCode.has(code))
+            .map((code) => ({
+              control_id: controlIdByCode.get(code),
+              control_code: code,
+            }))
         }
         return []
       }),
@@ -530,7 +642,6 @@ describe('Story 2-2 — retireLegacyControlPoints()', () => {
 
   it('[P0][2.2-INT-018] should include retireSummary in KgSeedSummary', async () => {
     const { queryRunner } = createEmptyMockQueryRunner()
-    const { loadKgSeedData } = await import('./kg-seed-data')
     const seedData = loadKgSeedData()
 
     // Add manager mock to the empty query runner
@@ -562,7 +673,6 @@ describe('Story 2-2 — retireLegacyControlPoints()', () => {
 
   it('[P1][2.2-INT-019] should leave seed control points at default maturityLevel after full run', async () => {
     const { queryRunner } = createEmptyMockQueryRunner()
-    const { loadKgSeedData } = await import('./kg-seed-data')
     const seedData = loadKgSeedData()
 
     ;(queryRunner as any).manager = {

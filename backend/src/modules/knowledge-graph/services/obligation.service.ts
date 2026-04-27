@@ -43,21 +43,66 @@ export class ObligationService {
     const page = query.page ?? 1
     const limit = query.limit ?? 20
 
-    const where = {}
-    if (query.clauseId) where['clauseId'] = query.clauseId
-    if (query.obligationType) where['obligationType'] = query.obligationType
-    if (query.status) where['status'] = query.status
+    const qb = this.obligationRepo
+      .createQueryBuilder('obl')
+      .leftJoinAndSelect('obl.clause', 'clause')
+      .leftJoinAndSelect('clause.source', 'source')
+      .orderBy('obl.obligationCode', 'ASC')
+      .skip((page - 1) * limit)
+      .take(limit)
 
-    const [items, total] = await Promise.all([
-      this.obligationRepo.find({
-        where,
-        relations: ['clause', 'clause.source'],
-        order: { obligationCode: 'ASC' },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.obligationRepo.count(),
-    ])
+    if (query.clauseId) {
+      qb.andWhere('obl.clauseId = :clauseId', { clauseId: query.clauseId })
+    }
+
+    if (query.obligationType) {
+      qb.andWhere('obl.obligationType = :obligationType', {
+        obligationType: query.obligationType,
+      })
+    }
+
+    if (query.status) {
+      qb.andWhere('obl.status = :status', { status: query.status })
+    }
+
+    if (query.applicableSector) {
+      qb.andWhere(
+        new Brackets((sectorQuery) => {
+          sectorQuery
+            .where(':sector = ANY(obl.applicableSector)', {
+              sector: query.applicableSector,
+            })
+            .orWhere(`'通用' = ANY(obl.applicableSector)`)
+            .orWhere('cardinality(obl.applicableSector) = 0')
+        }),
+      )
+    }
+
+    if (query.keyword?.trim()) {
+      const escapedKeyword = query.keyword
+        .trim()
+        .replace(/[\\%_]/g, '\\$&')
+      const keyword = `%${escapedKeyword}%`
+      qb.andWhere(
+        new Brackets((keywordQuery) => {
+          keywordQuery
+            .where(`obl.obligationCode ILIKE :keyword ESCAPE '\\'`, {
+              keyword,
+            })
+            .orWhere(`obl.obligationText ILIKE :keyword ESCAPE '\\'`, {
+              keyword,
+            })
+            .orWhere(`clause.clauseCode ILIKE :keyword ESCAPE '\\'`, {
+              keyword,
+            })
+            .orWhere(`clause.clauseSummary ILIKE :keyword ESCAPE '\\'`, {
+              keyword,
+            })
+        }),
+      )
+    }
+
+    const [items, total] = await qb.getManyAndCount()
 
     return { items, total, page, limit }
   }
@@ -351,45 +396,49 @@ export class ObligationService {
       .getMany()
 
     return {
-      obligations: obligationMaps.map((map) => ({
-        id: map.id,
-        obligationId: map.obligation?.obligationId ?? '',
-        obligationCode: map.obligation?.obligationCode ?? '',
-        obligationText: map.obligation?.obligationText ?? '',
-        obligationType: map.obligation?.obligationType ?? null,
-        coverage: map.coverage,
-        linkSource: 'obligation' as const,
-        clause: map.obligation?.clause
-          ? {
-              clauseId: map.obligation.clause.clauseId,
-              clauseCode: map.obligation.clause.clauseCode,
-              articleNo: map.obligation.clause.articleNo,
-            }
-          : null,
-      })),
-      clauses: clauseMaps.map((item) => ({
-        id: item.id,
-        clauseId: item.clauseId,
-        clauseCode: item.clause.clauseCode,
-        articleNo: item.clause.articleNo,
-        sectionPath: item.clause.sectionPath,
-        clauseText: item.clause.clauseText,
-        clauseSummary: item.clause.clauseSummary,
-        mandatoryLevel: item.clause.mandatoryLevel,
-        mappingType: item.mappingType,
-        reviewStatus: item.reviewStatus,
-        confidenceScore: item.confidenceScore,
-        linkSource: 'clause' as const,
-        source: item.clause.source
-          ? {
-              sourceId: item.clause.source.sourceId,
-              sourceCode: item.clause.source.sourceCode,
-              sourceName: item.clause.source.sourceName,
-              sourceLevel: item.clause.source.sourceLevel,
-              authorityName: item.clause.source.authorityName,
-            }
-          : null,
-      })),
+      obligations: obligationMaps
+        .filter((map) => map.obligation)
+        .map((map) => ({
+          id: map.id,
+          obligationId: map.obligation!.obligationId,
+          obligationCode: map.obligation!.obligationCode,
+          obligationText: map.obligation!.obligationText,
+          obligationType: map.obligation!.obligationType,
+          coverage: map.coverage,
+          linkSource: 'obligation' as const,
+          clause: map.obligation!.clause
+            ? {
+                clauseId: map.obligation!.clause.clauseId,
+                clauseCode: map.obligation!.clause.clauseCode,
+                articleNo: map.obligation!.clause.articleNo,
+              }
+            : null,
+        })),
+      clauses: clauseMaps
+        .filter((item) => item.clause)
+        .map((item) => ({
+          id: item.id,
+          clauseId: item.clauseId,
+          clauseCode: item.clause!.clauseCode,
+          articleNo: item.clause!.articleNo,
+          sectionPath: item.clause!.sectionPath,
+          clauseText: item.clause!.clauseText,
+          clauseSummary: item.clause!.clauseSummary,
+          mandatoryLevel: item.clause!.mandatoryLevel,
+          mappingType: item.mappingType,
+          reviewStatus: item.reviewStatus,
+          confidenceScore: item.confidenceScore,
+          linkSource: 'clause' as const,
+          source: item.clause!.source
+            ? {
+                sourceId: item.clause!.source.sourceId,
+                sourceCode: item.clause!.source.sourceCode,
+                sourceName: item.clause!.source.sourceName,
+                sourceLevel: item.clause!.source.sourceLevel,
+                authorityName: item.clause!.source.authorityName,
+              }
+            : null,
+        })),
     }
   }
 
