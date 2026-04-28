@@ -124,6 +124,8 @@ describe('ComplianceCaseService', () => {
 
   it('should return empty array when a control point has no mapped cases', async () => {
     const queryBuilder = {
+      leftJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -142,6 +144,48 @@ describe('ComplianceCaseService', () => {
       reviewStatus: 'APPROVED',
     })
     expect(result).toEqual([])
+  })
+
+  it('should tolerate mapped cases whose joined case record is missing', async () => {
+    const queryBuilder = {
+      leftJoin: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue([
+        {
+          id: 'map-1',
+          caseId: 'case-1',
+          relationType: 'VIOLATES',
+          reviewStatus: 'APPROVED',
+          confidenceScore: '0.9100',
+          caseRecord: null,
+        },
+      ]),
+    }
+    caseControlMapRepository.createQueryBuilder.mockReturnValue(queryBuilder)
+
+    const result = await service.findCasesByControlId('control-id')
+
+    expect(result).toEqual([
+      {
+        id: 'map-1',
+        caseId: 'case-1',
+        caseCode: null,
+        caseTitle: null,
+        sourceOrg: null,
+        penalizedPerson: null,
+        industry: null,
+        authorityName: null,
+        caseDate: null,
+        relationType: 'VIOLATES',
+        reviewStatus: 'APPROVED',
+        confidenceScore: '0.9100',
+      },
+    ])
   })
 
   it('should return structured extraction results for a case', async () => {

@@ -180,7 +180,22 @@ export class ComplianceCaseService {
   async findCasesByControlId(controlId: string) {
     const items = await this.caseControlMapRepository
       .createQueryBuilder('mapping')
-      .leftJoinAndSelect('mapping.caseRecord', 'caseRecord')
+      .leftJoin('mapping.caseRecord', 'caseRecord')
+      .select([
+        'mapping.id',
+        'mapping.caseId',
+        'mapping.relationType',
+        'mapping.reviewStatus',
+        'mapping.confidenceScore',
+        'caseRecord.caseId',
+        'caseRecord.caseCode',
+        'caseRecord.caseTitle',
+        'caseRecord.sourceOrg',
+        'caseRecord.penalizedPerson',
+        'caseRecord.industry',
+        'caseRecord.authorityName',
+        'caseRecord.caseDate',
+      ])
       .where('mapping.control_id = :controlId', { controlId })
       .andWhere('mapping.review_status = :reviewStatus', { reviewStatus: 'APPROVED' })
       .orderBy('caseRecord.case_date', 'DESC')
@@ -190,13 +205,13 @@ export class ComplianceCaseService {
     return items.map((item) => ({
       id: item.id,
       caseId: item.caseId,
-      caseCode: item.caseRecord.caseCode,
-      caseTitle: item.caseRecord.caseTitle,
-      sourceOrg: item.caseRecord.sourceOrg,
-      penalizedPerson: item.caseRecord.penalizedPerson,
-      industry: item.caseRecord.industry,
-      authorityName: item.caseRecord.authorityName,
-      caseDate: item.caseRecord.caseDate,
+      caseCode: item.caseRecord?.caseCode ?? null,
+      caseTitle: item.caseRecord?.caseTitle ?? null,
+      sourceOrg: item.caseRecord?.sourceOrg ?? null,
+      penalizedPerson: item.caseRecord?.penalizedPerson ?? null,
+      industry: item.caseRecord?.industry ?? null,
+      authorityName: item.caseRecord?.authorityName ?? null,
+      caseDate: item.caseRecord?.caseDate ?? null,
       relationType: item.relationType,
       reviewStatus: item.reviewStatus,
       confidenceScore: item.confidenceScore,

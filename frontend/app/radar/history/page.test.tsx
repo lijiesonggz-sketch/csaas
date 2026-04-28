@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import PushHistoryPage from './page'
@@ -43,8 +44,6 @@ jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Mock shadcn/ui Select to use native <select> for JSDOM compatibility
 jest.mock('@/components/ui/select', () => {
-  const React = require('react')
-
   const collectOptions = (children) => {
     const options = []
     React.Children.forEach(children, (child) => {
@@ -75,21 +74,13 @@ jest.mock('@/components/ui/select', () => {
   const SelectItem = ({ children, value }) => <option value={value}>{children}</option>
 
   const SelectTrigger = React.forwardRef(({ children, id, className, ...rest }, ref) => (
-    <div
-      id={id}
-      className={className}
-      ref={ref}
-      aria-label={id}
-      data-testid={id}
-      {...rest}
-    >
+    <div id={id} className={className} ref={ref} aria-label={id} data-testid={id} {...rest}>
       {children}
     </div>
   ))
+  SelectTrigger.displayName = 'SelectTrigger'
 
-  const SelectValue = ({ placeholder }) => (
-    <span>{placeholder || ''}</span>
-  )
+  const SelectValue = ({ placeholder }) => <span>{placeholder || ''}</span>
 
   return { Select, SelectContent, SelectItem, SelectTrigger, SelectValue }
 })
@@ -97,6 +88,7 @@ jest.mock('@/components/ui/select', () => {
 const mockGetPushHistory = radarApi.getPushHistory as jest.MockedFunction<
   typeof radarApi.getPushHistory
 >
+const mockGetRadarPush = radarApi.getRadarPush as jest.MockedFunction<typeof radarApi.getRadarPush>
 const mockMarkPushHistoryAsRead = radarApi.markPushHistoryAsRead as jest.MockedFunction<
   typeof radarApi.markPushHistoryAsRead
 >
@@ -159,6 +151,18 @@ describe('[P2] PushHistoryPage Component Tests - Story 5.4', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockGetPushHistory.mockResolvedValue(mockPushHistoryResponse)
+    mockGetRadarPush.mockResolvedValue({
+      id: 'push-1',
+      radarType: 'tech',
+      title: '技术雷达推送测试',
+      summary: '这是一条技术雷达推送的摘要内容',
+      sentAt: mockPushHistoryResponse.data[0].sentAt,
+      isRead: false,
+      controlId: null,
+      matchedControls: [],
+      sourceModule: 'radar',
+      sourceRecordId: 'push-1',
+    } as any)
     mockMarkPushHistoryAsRead.mockResolvedValue(undefined)
     mockGetUnreadPushCount.mockResolvedValue(2)
   })
@@ -192,7 +196,7 @@ describe('[P2] PushHistoryPage Component Tests - Story 5.4', () => {
 
     it('应该在加载时显示加载指示器', () => {
       mockGetPushHistory.mockImplementation(
-        () => new Promise((resolve) => setTimeout(resolve, 1000)),
+        () => new Promise((resolve) => setTimeout(resolve, 1000))
       )
 
       render(<PushHistoryPage />)

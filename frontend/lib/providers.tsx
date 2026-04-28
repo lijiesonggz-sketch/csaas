@@ -6,27 +6,38 @@ import { BrandProvider } from '@/components/layout/BrandProvider'
 
 /**
  * Radix UI Dialog 在 React StrictMode + Next.js App Router 下存在已知 bug：
- * Dialog 关闭后 pointer-events:none 残留在 <body> 上，导致页面无法交互。
- * 这个 hook 通过 MutationObserver 监听 body.style 变化，
- * 当检测到残留的 pointer-events:none 且没有打开的 dialog 时自动清除。
+ * route 切换后可能残留 body pointer-events:none，或残留全屏 overlay 节点。
+ * 这个 hook 会在没有打开 dialog 时清理这些孤儿状态，避免页面被灰色遮罩盖住。
  */
 function useRadixDialogCleanup() {
   useEffect(() => {
-    const observer = new MutationObserver(() => {
+    const hasOpenDialog = () =>
+      Boolean(document.querySelector('[role="dialog"][data-state="open"]'))
+
+    const cleanupOrphanedDialogState = () => {
+      if (hasOpenDialog()) {
+        return
+      }
+
       const body = document.body
       if (body.style.pointerEvents === 'none') {
-        const hasOpenDialog = document.querySelector(
-          '[data-state="open"][role="dialog"], [data-radix-overlay][data-state="open"]',
-        )
-        if (!hasOpenDialog) {
-          body.style.pointerEvents = ''
-        }
+        body.style.pointerEvents = ''
       }
-    })
+
+      document
+        .querySelectorAll<HTMLElement>('[data-radix-overlay="true"]')
+        .forEach((overlay) => overlay.remove())
+    }
+
+    const observer = new MutationObserver(cleanupOrphanedDialogState)
+
+    cleanupOrphanedDialogState()
 
     observer.observe(document.body, {
+      childList: true,
+      subtree: true,
       attributes: true,
-      attributeFilter: ['style'],
+      attributeFilter: ['style', 'data-state'],
     })
 
     return () => observer.disconnect()
@@ -38,9 +49,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider>
-      <BrandProvider>
-        {children}
-      </BrandProvider>
+      <BrandProvider>{children}</BrandProvider>
     </SessionProvider>
   )
 }

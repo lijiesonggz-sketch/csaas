@@ -81,7 +81,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { formatAuthoritativeScorePercent } from '@/lib/utils/authoritative-score'
@@ -99,9 +104,27 @@ const ORIGIN_TYPE_OPTIONS = [
   'candidate',
   'manual',
 ] as const satisfies readonly ControlPointOriginType[]
-const MATURITY_LEVEL_OPTIONS = ['hard', 'draft-hard', 'candidate', 'retired'] as const satisfies readonly ControlPointMaturityLevel[]
-const APPLICABLE_SECTOR_OPTIONS = ['银行', '证券', '保险', '基金', '期货', '通用'] as const satisfies readonly ApplicableSector[]
-const QUESTION_TYPE_OPTIONS = ['YES_NO', 'SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'RATING', 'TEXT'] as const satisfies readonly QuestionItemType[]
+const MATURITY_LEVEL_OPTIONS = [
+  'hard',
+  'draft-hard',
+  'candidate',
+  'retired',
+] as const satisfies readonly ControlPointMaturityLevel[]
+const APPLICABLE_SECTOR_OPTIONS = [
+  '银行',
+  '证券',
+  '保险',
+  '基金',
+  '期货',
+  '通用',
+] as const satisfies readonly ApplicableSector[]
+const QUESTION_TYPE_OPTIONS = [
+  'YES_NO',
+  'SINGLE_CHOICE',
+  'MULTIPLE_CHOICE',
+  'RATING',
+  'TEXT',
+] as const satisfies readonly QuestionItemType[]
 const EVIDENCE_FREQUENCY_OPTIONS = [
   'DAILY',
   'WEEKLY',
@@ -110,9 +133,21 @@ const EVIDENCE_FREQUENCY_OPTIONS = [
   'ANNUALLY',
   'EVENT_TRIGGERED',
 ] as const satisfies readonly EvidenceFrequency[]
-const EVIDENCE_SAMPLING_OPTIONS = ['FULL', 'SAMPLING', 'KEY_SAMPLE'] as const satisfies readonly EvidenceSamplingRequirement[]
-const REMEDIATION_PRIORITY_OPTIONS = ['HIGH', 'MEDIUM', 'LOW'] as const satisfies readonly RemediationPriority[]
-const REMEDIATION_EFFORT_OPTIONS = ['LOW', 'MEDIUM', 'HIGH'] as const satisfies readonly RemediationEffort[]
+const EVIDENCE_SAMPLING_OPTIONS = [
+  'FULL',
+  'SAMPLING',
+  'KEY_SAMPLE',
+] as const satisfies readonly EvidenceSamplingRequirement[]
+const REMEDIATION_PRIORITY_OPTIONS = [
+  'HIGH',
+  'MEDIUM',
+  'LOW',
+] as const satisfies readonly RemediationPriority[]
+const REMEDIATION_EFFORT_OPTIONS = [
+  'LOW',
+  'MEDIUM',
+  'HIGH',
+] as const satisfies readonly RemediationEffort[]
 const MATURITY_LABELS: Record<string, string> = {
   hard: '正式硬控制点',
   'draft-hard': '候选硬控制点',
@@ -300,7 +335,7 @@ function resolveL2Options(
     l1Name: string
     children: Array<{ l2Code: string; l2Name: string }>
   }>,
-  l1Code: string,
+  l1Code: string
 ) {
   if (!l1Code || l1Code === 'all') {
     return taxonomyTree.flatMap((item) => item.children)
@@ -358,7 +393,7 @@ function matchesClientSideMultiFilters(
     originTypes?: ControlPointOriginType[]
     maturityLevels?: ControlPointMaturityLevel[]
     sectors?: ApplicableSector[]
-  },
+  }
 ) {
   if (originTypes && !originTypes.includes(item.originType ?? 'candidate')) {
     return false
@@ -466,7 +501,7 @@ export default function ControlPointAdminPage() {
   const [packCatalog, setPackCatalog] = useState<ControlPackCatalogItem[]>([])
   const [packKeyword, setPackKeyword] = useState('')
   const [regulatoryLinks, setRegulatoryLinks] = useState<ControlPointRegulatoryLinksResponse>(
-    buildEmptyRegulatoryLinks(),
+    buildEmptyRegulatoryLinks()
   )
   const [clauseKeyword, setClauseKeyword] = useState('')
   const [clauseResults, setClauseResults] = useState<
@@ -482,34 +517,38 @@ export default function ControlPointAdminPage() {
   >([])
 
   const l1Options = useMemo(
-    () => taxonomyTree.map((item) => ({ value: item.l1Code, label: `${item.l1Code} · ${item.l1Name}` })),
-    [taxonomyTree],
+    () =>
+      taxonomyTree.map((item) => ({
+        value: item.l1Code,
+        label: `${item.l1Code} · ${item.l1Name}`,
+      })),
+    [taxonomyTree]
   )
 
   const filterL2Options = useMemo(
     () => resolveL2Options(taxonomyTree, filters.l1Code),
-    [filters.l1Code, taxonomyTree],
+    [filters.l1Code, taxonomyTree]
   )
   const createL2Options = useMemo(
     () => resolveL2Options(taxonomyTree, createForm.l1Code),
-    [createForm.l1Code, taxonomyTree],
+    [createForm.l1Code, taxonomyTree]
   )
   const editL2Options = useMemo(
     () => resolveL2Options(taxonomyTree, editForm.l1Code),
-    [editForm.l1Code, taxonomyTree],
+    [editForm.l1Code, taxonomyTree]
   )
   const totalPages = Math.max(1, Math.ceil(listTotal / PAGE_SIZE))
   const activeOriginTypes = useMemo(
     () => getSelectedFilterValues(filters.originTypes, ORIGIN_TYPE_OPTIONS),
-    [filters.originTypes],
+    [filters.originTypes]
   )
   const activeMaturityLevels = useMemo(
     () => getSelectedFilterValues(filters.maturityLevels, MATURITY_LEVEL_OPTIONS),
-    [filters.maturityLevels],
+    [filters.maturityLevels]
   )
   const activeSectors = useMemo(
     () => (filters.sectors.length === 0 ? undefined : filters.sectors),
-    [filters.sectors],
+    [filters.sectors]
   )
   const visiblePackCatalog = useMemo(() => {
     const linkedPackIds = new Set(packItems.map((item) => item.packId))
@@ -572,7 +611,7 @@ export default function ControlPointAdminPage() {
               l2Code: child.l2Code,
               l2Name: child.l2Name,
             })),
-          })),
+          }))
         )
       } catch (taxonomyError) {
         if (!cancelled) {
@@ -596,14 +635,14 @@ export default function ControlPointAdminPage() {
       try {
         const familyResult = await listControlPoints({
           page: 1,
-          limit: 1000,
+          limit: 100,
           status: filters.status === 'all' ? undefined : filters.status,
         })
         if (cancelled) return
         setControlFamilies(
           Array.from(new Set(familyResult.items.map((item) => item.controlFamily)))
             .filter(Boolean)
-            .sort((left, right) => left.localeCompare(right)),
+            .sort((left, right) => left.localeCompare(right))
         )
       } catch (familyError) {
         if (!cancelled) {
@@ -684,7 +723,7 @@ export default function ControlPointAdminPage() {
                 originTypes: activeOriginTypes,
                 maturityLevels: activeMaturityLevels,
                 sectors: activeSectors,
-              }),
+              })
             )
             const nextTotal = filteredItems.length
             const nextTotalPages = Math.max(1, Math.ceil(nextTotal / PAGE_SIZE))
@@ -910,7 +949,7 @@ export default function ControlPointAdminPage() {
           failureModeId: item.failureModeId,
           failureModeCode: item.failureModeCode,
           name: item.name,
-        })),
+        }))
       )
     } catch (searchError) {
       toast.error(errorMessage(searchError, '搜索 Failure Mode 失败'))
@@ -1080,7 +1119,9 @@ export default function ControlPointAdminPage() {
       setEditingQuestionId(null)
       setTabReloadToken((current) => current + 1)
     } catch (submitError) {
-      toast.error(errorMessage(submitError, editingQuestionId ? '更新题库项失败' : '创建题库项失败'))
+      toast.error(
+        errorMessage(submitError, editingQuestionId ? '更新题库项失败' : '创建题库项失败')
+      )
     } finally {
       setSaving(false)
     }
@@ -1127,7 +1168,7 @@ export default function ControlPointAdminPage() {
       setTabReloadToken((current) => current + 1)
     } catch (submitError) {
       toast.error(
-        errorMessage(submitError, editingRemediationId ? '更新整改建议失败' : '创建整改建议失败'),
+        errorMessage(submitError, editingRemediationId ? '更新整改建议失败' : '创建整改建议失败')
       )
     } finally {
       setSaving(false)
@@ -1277,7 +1318,11 @@ export default function ControlPointAdminPage() {
         <div className="mx-auto max-w-7xl space-y-6">
           <div className="flex items-center justify-between">
             <div className="space-y-2">
-              <Button variant="outline" className="rounded-sm" onClick={() => router.push('/dashboard')}>
+              <Button
+                variant="outline"
+                className="rounded-sm"
+                onClick={() => router.push('/dashboard')}
+              >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 返回
               </Button>
@@ -1422,27 +1467,25 @@ export default function ControlPointAdminPage() {
                     <div className="space-y-2">
                       <Label>来源类型</Label>
                       <div className="space-y-2 rounded-sm border border-[#E2E8F0] p-3">
-                        {ORIGIN_TYPE_OPTIONS.map(
-                          (item) => (
-                            <div key={item} className="flex items-center gap-2 text-sm">
-                              <Checkbox
-                                checked={filters.originTypes.includes(item)}
-                                onCheckedChange={(checked) =>
-                                  setFilters((current) => ({
-                                    ...current,
-                                    originTypes:
-                                      checked === true
-                                        ? current.originTypes.includes(item)
-                                          ? current.originTypes
-                                          : [...current.originTypes, item]
-                                        : current.originTypes.filter((value) => value !== item),
-                                  }))
-                                }
-                              />
-                              <span>{ORIGIN_LABELS[item]}</span>
-                            </div>
-                          ),
-                        )}
+                        {ORIGIN_TYPE_OPTIONS.map((item) => (
+                          <div key={item} className="flex items-center gap-2 text-sm">
+                            <Checkbox
+                              checked={filters.originTypes.includes(item)}
+                              onCheckedChange={(checked) =>
+                                setFilters((current) => ({
+                                  ...current,
+                                  originTypes:
+                                    checked === true
+                                      ? current.originTypes.includes(item)
+                                        ? current.originTypes
+                                        : [...current.originTypes, item]
+                                      : current.originTypes.filter((value) => value !== item),
+                                }))
+                              }
+                            />
+                            <span>{ORIGIN_LABELS[item]}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -1502,7 +1545,11 @@ export default function ControlPointAdminPage() {
                         onChange={(event) => setFailureModeKeyword(event.target.value)}
                         placeholder="搜索 Failure Mode"
                       />
-                      <Button variant="outline" className="rounded-sm" onClick={() => void handleSearchFailureModes()}>
+                      <Button
+                        variant="outline"
+                        className="rounded-sm"
+                        onClick={() => void handleSearchFailureModes()}
+                      >
                         <Search className="mr-2 h-4 w-4" />
                         搜索失效模式
                       </Button>
@@ -1554,9 +1601,7 @@ export default function ControlPointAdminPage() {
                         type="button"
                         variant="outline"
                         className="rounded-sm"
-                        onClick={() =>
-                          setFilters(buildClearedFilters())
-                        }
+                        onClick={() => setFilters(buildClearedFilters())}
                       >
                         清空全部过滤条件
                       </Button>
@@ -1656,9 +1701,7 @@ export default function ControlPointAdminPage() {
                     variant="outline"
                     className="rounded-sm"
                     disabled={page >= totalPages}
-                    onClick={() =>
-                      setPage((current) => Math.min(totalPages, current + 1))
-                    }
+                    onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                   >
                     下一页
                   </Button>
@@ -1735,7 +1778,9 @@ export default function ControlPointAdminPage() {
                         </div>
                         <div>
                           <p className="text-xs text-[#64748B]">默认必选</p>
-                          <p className="text-sm text-[#334155]">{detail.mandatoryDefault ? '是' : '否'}</p>
+                          <p className="text-sm text-[#334155]">
+                            {detail.mandatoryDefault ? '是' : '否'}
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs text-[#64748B]">创建时间</p>
@@ -1755,8 +1800,8 @@ export default function ControlPointAdminPage() {
                           <p className="text-xs text-[#64748B]">来源类型</p>
                           <p className="text-sm text-[#334155]">
                             {fullContext.governance?.originType
-                              ? ORIGIN_LABELS[fullContext.governance.originType] ??
-                                fullContext.governance.originType
+                              ? (ORIGIN_LABELS[fullContext.governance.originType] ??
+                                fullContext.governance.originType)
                               : '未填写'}
                           </p>
                         </div>
@@ -1764,8 +1809,8 @@ export default function ControlPointAdminPage() {
                           <p className="text-xs text-[#64748B]">成熟度</p>
                           <p className="text-sm text-[#334155]">
                             {fullContext.governance?.maturityLevel
-                              ? MATURITY_LABELS[fullContext.governance.maturityLevel] ??
-                                fullContext.governance.maturityLevel
+                              ? (MATURITY_LABELS[fullContext.governance.maturityLevel] ??
+                                fullContext.governance.maturityLevel)
                               : '未填写'}
                           </p>
                         </div>
@@ -1773,7 +1818,9 @@ export default function ControlPointAdminPage() {
                           <p className="text-xs text-[#64748B]">权威分数</p>
                           <div className="space-y-2">
                             <p className="text-sm text-[#334155]">
-                              {formatAuthoritativeScorePercent(fullContext.governance?.authoritativeScore)}
+                              {formatAuthoritativeScorePercent(
+                                fullContext.governance?.authoritativeScore
+                              )}
                             </p>
                             <Progress
                               value={(fullContext.governance?.authoritativeScore ?? 0) * 100}
@@ -1784,7 +1831,8 @@ export default function ControlPointAdminPage() {
                         <div>
                           <p className="text-xs text-[#64748B]">适用行业</p>
                           <p className="text-sm text-[#334155]">
-                            {(fullContext.governance?.applicableSector ?? []).join('、') || '未填写'}
+                            {(fullContext.governance?.applicableSector ?? []).join('、') ||
+                              '未填写'}
                           </p>
                         </div>
                       </div>
@@ -1792,8 +1840,15 @@ export default function ControlPointAdminPage() {
                         <p className="mb-2 text-xs text-[#64748B]">权威度维度</p>
                         <div className="grid gap-2 md:grid-cols-2">
                           {AUTHORITY_ITEMS.map((item) => (
-                            <div key={item.key} className="flex items-center gap-2 text-sm text-[#334155]">
-                              <Checkbox checked={fullContext.governance?.authorityProfile?.[item.key] === true} />
+                            <div
+                              key={item.key}
+                              className="flex items-center gap-2 text-sm text-[#334155]"
+                            >
+                              <Checkbox
+                                checked={
+                                  fullContext.governance?.authorityProfile?.[item.key] === true
+                                }
+                              />
                               <span>{item.label}</span>
                             </div>
                           ))}
@@ -1803,24 +1858,33 @@ export default function ControlPointAdminPage() {
                         Object.keys(fullContext.governance.sectorRequirements).length > 0 && (
                           <div className="mt-4">
                             <p className="mb-2 text-xs text-[#64748B]">行业差异化参数</p>
-                            <Accordion type="single" collapsible className="rounded-sm border border-[#E2E8F0] px-3">
-                              {Object.entries(fullContext.governance.sectorRequirements).map(([sector, requirements]) => (
-                                <AccordionItem key={sector} value={sector}>
-                                  <AccordionTrigger className="py-3 text-sm text-[#1E3A5F]">
-                                    {sector}
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <div className="space-y-2">
-                                      {Object.entries(requirements ?? {}).map(([key, value]) => (
-                                        <div key={key} className="flex justify-between gap-4 text-sm">
-                                          <span className="text-[#64748B]">{key}</span>
-                                          <span className="text-[#334155]">{String(value)}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ))}
+                            <Accordion
+                              type="single"
+                              collapsible
+                              className="rounded-sm border border-[#E2E8F0] px-3"
+                            >
+                              {Object.entries(fullContext.governance.sectorRequirements).map(
+                                ([sector, requirements]) => (
+                                  <AccordionItem key={sector} value={sector}>
+                                    <AccordionTrigger className="py-3 text-sm text-[#1E3A5F]">
+                                      {sector}
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                      <div className="space-y-2">
+                                        {Object.entries(requirements ?? {}).map(([key, value]) => (
+                                          <div
+                                            key={key}
+                                            className="flex justify-between gap-4 text-sm"
+                                          >
+                                            <span className="text-[#64748B]">{key}</span>
+                                            <span className="text-[#334155]">{String(value)}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                )
+                              )}
                             </Accordion>
                           </div>
                         )}
@@ -1843,7 +1907,9 @@ export default function ControlPointAdminPage() {
                         </div>
                         <div>
                           <p className="text-xs text-[#64748B]">规范主题</p>
-                          <p className="text-sm text-[#334155]">{detail.canonicalTheme || '未填写'}</p>
+                          <p className="text-sm text-[#334155]">
+                            {detail.canonicalTheme || '未填写'}
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs text-[#64748B]">别名</p>
@@ -1873,7 +1939,9 @@ export default function ControlPointAdminPage() {
                               className="flex w-full items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2 text-left hover:border-[#CBD5E1]"
                               onClick={() =>
                                 item.failureModeId &&
-                                router.push(`/admin/failure-modes?failureModeId=${encodeURIComponent(item.failureModeId)}`)
+                                router.push(
+                                  `/admin/failure-modes?failureModeId=${encodeURIComponent(item.failureModeId)}`
+                                )
                               }
                             >
                               <div className="space-y-2">
@@ -1909,7 +1977,9 @@ export default function ControlPointAdminPage() {
                               className="flex w-full items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2 text-left hover:border-[#CBD5E1]"
                               onClick={() =>
                                 item.obligationId &&
-                                router.push(`/admin/obligations?obligationId=${encodeURIComponent(item.obligationId)}`)
+                                router.push(
+                                  `/admin/obligations?obligationId=${encodeURIComponent(item.obligationId)}`
+                                )
                               }
                             >
                               <div className="space-y-2">
@@ -1945,7 +2015,9 @@ export default function ControlPointAdminPage() {
                               className="flex w-full items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2 text-left hover:border-[#CBD5E1]"
                               onClick={() =>
                                 item.caseId &&
-                                router.push(`/admin/compliance-cases?caseId=${encodeURIComponent(item.caseId)}`)
+                                router.push(
+                                  `/admin/compliance-cases?caseId=${encodeURIComponent(item.caseId)}`
+                                )
                               }
                             >
                               <div>
@@ -1983,7 +2055,11 @@ export default function ControlPointAdminPage() {
                                   onChange={(event) => setEvidenceKeyword(event.target.value)}
                                   placeholder="搜索 evidence types"
                                 />
-                                <Button variant="outline" className="rounded-sm" onClick={() => void handleSearchEvidences()}>
+                                <Button
+                                  variant="outline"
+                                  className="rounded-sm"
+                                  onClick={() => void handleSearchEvidences()}
+                                >
                                   <Search className="mr-2 h-4 w-4" />
                                   搜索证据
                                 </Button>
@@ -2012,7 +2088,10 @@ export default function ControlPointAdminPage() {
                                 <Input
                                   value={evidenceMeta.ownerRole}
                                   onChange={(event) =>
-                                    setEvidenceMeta((current) => ({ ...current, ownerRole: event.target.value }))
+                                    setEvidenceMeta((current) => ({
+                                      ...current,
+                                      ownerRole: event.target.value,
+                                    }))
                                   }
                                   placeholder="owner role"
                                 />
@@ -2040,10 +2119,17 @@ export default function ControlPointAdminPage() {
                               {visibleEvidenceSearchResults.length > 0 && (
                                 <div className="space-y-2 rounded-sm border border-dashed border-[#CBD5E1] p-3">
                                   {visibleEvidenceSearchResults.map((item) => (
-                                    <div key={item.evidenceId} className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2">
+                                    <div
+                                      key={item.evidenceId}
+                                      className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2"
+                                    >
                                       <div>
-                                        <p className="font-medium text-[#1E3A5F]">{item.evidenceCode}</p>
-                                        <p className="text-sm text-[#334155]">{item.evidenceName}</p>
+                                        <p className="font-medium text-[#1E3A5F]">
+                                          {item.evidenceCode}
+                                        </p>
+                                        <p className="text-sm text-[#334155]">
+                                          {item.evidenceName}
+                                        </p>
                                       </div>
                                       <Button
                                         size="sm"
@@ -2062,14 +2148,24 @@ export default function ControlPointAdminPage() {
                                   <p className="text-sm text-[#64748B]">暂无证据映射</p>
                                 ) : (
                                   evidenceItems.map((item) => (
-                                    <div key={item.id} className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2">
+                                    <div
+                                      key={item.id}
+                                      className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2"
+                                    >
                                       <div>
-                                        <p className="font-medium text-[#1E3A5F]">{item.evidenceCode} · {item.evidenceName}</p>
+                                        <p className="font-medium text-[#1E3A5F]">
+                                          {item.evidenceCode} · {item.evidenceName}
+                                        </p>
                                         <p className="text-xs text-[#64748B]">
-                                          {item.frequency || '--'} · {item.ownerRole || '--'} · {item.samplingRequirement || '--'}
+                                          {item.frequency || '--'} · {item.ownerRole || '--'} ·{' '}
+                                          {item.samplingRequirement || '--'}
                                         </p>
                                       </div>
-                                      <Button variant="ghost" size="icon" onClick={() => void handleDeleteEvidence(item.id)}>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => void handleDeleteEvidence(item.id)}
+                                      >
                                         <Trash2 className="h-4 w-4 text-rose-600" />
                                       </Button>
                                     </div>
@@ -2085,7 +2181,10 @@ export default function ControlPointAdminPage() {
                             <Input
                               value={questionForm.questionText}
                               onChange={(event) =>
-                                setQuestionForm((current) => ({ ...current, questionText: event.target.value }))
+                                setQuestionForm((current) => ({
+                                  ...current,
+                                  questionText: event.target.value,
+                                }))
                               }
                               placeholder="question text"
                             />
@@ -2145,11 +2244,18 @@ export default function ControlPointAdminPage() {
                               <p className="text-sm text-[#64748B]">暂无题库项</p>
                             ) : (
                               questionItems.map((item) => (
-                                <div key={item.questionId} className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2">
+                                <div
+                                  key={item.questionId}
+                                  className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2"
+                                >
                                   <div>
-                                    <p className="font-medium text-[#1E3A5F]">{item.questionText}</p>
+                                    <p className="font-medium text-[#1E3A5F]">
+                                      {item.questionText}
+                                    </p>
                                     <p className="text-xs text-[#64748B]">
-                                      {item.questionType} · {(item.answerSchema as { expectedAnswer?: string } | null)?.expectedAnswer || '--'}
+                                      {item.questionType} ·{' '}
+                                      {(item.answerSchema as { expectedAnswer?: string } | null)
+                                        ?.expectedAnswer || '--'}
                                     </p>
                                   </div>
                                   <div className="flex gap-2">
@@ -2163,14 +2269,22 @@ export default function ControlPointAdminPage() {
                                           questionText: item.questionText,
                                           questionType: item.questionType,
                                           expectedAnswer:
-                                            (item.answerSchema as { expectedAnswer?: string } | null)?.expectedAnswer || '',
+                                            (
+                                              item.answerSchema as {
+                                                expectedAnswer?: string
+                                              } | null
+                                            )?.expectedAnswer || '',
                                           answerSchema: item.answerSchema ?? null,
                                         })
                                       }}
                                     >
                                       编辑
                                     </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => void handleDeleteQuestion(item.questionId)}>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => void handleDeleteQuestion(item.questionId)}
+                                    >
                                       <Trash2 className="h-4 w-4 text-rose-600" />
                                     </Button>
                                   </div>
@@ -2185,14 +2299,20 @@ export default function ControlPointAdminPage() {
                             <Input
                               value={remediationForm.actionTitle}
                               onChange={(event) =>
-                                setRemediationForm((current) => ({ ...current, actionTitle: event.target.value }))
+                                setRemediationForm((current) => ({
+                                  ...current,
+                                  actionTitle: event.target.value,
+                                }))
                               }
                               placeholder="action title"
                             />
                             <Textarea
                               value={remediationForm.actionDesc}
                               onChange={(event) =>
-                                setRemediationForm((current) => ({ ...current, actionDesc: event.target.value }))
+                                setRemediationForm((current) => ({
+                                  ...current,
+                                  actionDesc: event.target.value,
+                                }))
                               }
                               placeholder="action desc"
                             />
@@ -2262,7 +2382,10 @@ export default function ControlPointAdminPage() {
                               <p className="text-sm text-[#64748B]">暂无整改建议</p>
                             ) : (
                               remediationItems.map((item) => (
-                                <div key={item.actionId} className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2">
+                                <div
+                                  key={item.actionId}
+                                  className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2"
+                                >
                                   <div>
                                     <p className="font-medium text-[#1E3A5F]">{item.actionTitle}</p>
                                     <p className="text-xs text-[#64748B]">
@@ -2286,7 +2409,11 @@ export default function ControlPointAdminPage() {
                                     >
                                       编辑
                                     </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => void handleDeleteRemediation(item.actionId)}>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => void handleDeleteRemediation(item.actionId)}
+                                    >
                                       <Trash2 className="h-4 w-4 text-rose-600" />
                                     </Button>
                                   </div>
@@ -2303,42 +2430,58 @@ export default function ControlPointAdminPage() {
                               onChange={(event) => setPackKeyword(event.target.value)}
                               placeholder="搜索 control packs"
                             />
-                            <Button variant="outline" className="rounded-sm" onClick={() => setPackKeyword((current) => current)}>
+                            <Button
+                              variant="outline"
+                              className="rounded-sm"
+                              onClick={() => setPackKeyword((current) => current)}
+                            >
                               <Search className="mr-2 h-4 w-4" />
                               筛选控制包
                             </Button>
                           </div>
                           {visiblePackCatalog.slice(0, 10).map((item) => (
-                              <div key={item.packId} className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2">
-                                <div>
-                                  <p className="font-medium text-[#1E3A5F]">{item.packCode}</p>
-                                  <p className="text-xs text-[#64748B]">
-                                    {item.packName || '未命名包'} · {item.packType || '--'} · {item.packVersion || '--'}
-                                  </p>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  className="rounded-sm"
-                                  disabled={saving}
-                                  onClick={() => void handleAddPack(item.packId)}
-                                >
-                                  添加关联
-                                </Button>
+                            <div
+                              key={item.packId}
+                              className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2"
+                            >
+                              <div>
+                                <p className="font-medium text-[#1E3A5F]">{item.packCode}</p>
+                                <p className="text-xs text-[#64748B]">
+                                  {item.packName || '未命名包'} · {item.packType || '--'} ·{' '}
+                                  {item.packVersion || '--'}
+                                </p>
                               </div>
-                            ))}
+                              <Button
+                                size="sm"
+                                className="rounded-sm"
+                                disabled={saving}
+                                onClick={() => void handleAddPack(item.packId)}
+                              >
+                                添加关联
+                              </Button>
+                            </div>
+                          ))}
                           <div className="space-y-2">
                             {packItems.length === 0 ? (
                               <p className="text-sm text-[#64748B]">暂无控制包关联</p>
                             ) : (
                               packItems.map((item) => (
-                                <div key={item.id} className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2">
+                                <div
+                                  key={item.id}
+                                  className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2"
+                                >
                                   <div>
                                     <p className="font-medium text-[#1E3A5F]">{item.packCode}</p>
                                     <p className="text-xs text-[#64748B]">
-                                      {item.packName || '未命名包'} · {item.packType || '--'} · {item.packVersion || '--'}
+                                      {item.packName || '未命名包'} · {item.packType || '--'} ·{' '}
+                                      {item.packVersion || '--'}
                                     </p>
                                   </div>
-                                  <Button variant="ghost" size="icon" onClick={() => void handleDeletePack(item.id)}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => void handleDeletePack(item.id)}
+                                  >
                                     <Trash2 className="h-4 w-4 text-rose-600" />
                                   </Button>
                                 </div>
@@ -2354,7 +2497,11 @@ export default function ControlPointAdminPage() {
                               onChange={(event) => setClauseKeyword(event.target.value)}
                               placeholder="搜索 regulation clauses"
                             />
-                            <Button variant="outline" className="rounded-sm" onClick={() => void handleSearchClauses()}>
+                            <Button
+                              variant="outline"
+                              className="rounded-sm"
+                              onClick={() => void handleSearchClauses()}
+                            >
                               <Search className="mr-2 h-4 w-4" />
                               搜索条文
                             </Button>
@@ -2362,10 +2509,15 @@ export default function ControlPointAdminPage() {
                           {visibleClauseResults.length > 0 && (
                             <div className="space-y-2 rounded-sm border border-dashed border-[#CBD5E1] p-3">
                               {visibleClauseResults.map((item) => (
-                                <div key={item.clauseId} className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2">
+                                <div
+                                  key={item.clauseId}
+                                  className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2"
+                                >
                                   <div>
                                     <p className="font-medium text-[#1E3A5F]">{item.clauseCode}</p>
-                                    <p className="text-sm text-[#334155]">{item.articleNo || ''} {item.clauseText}</p>
+                                    <p className="text-sm text-[#334155]">
+                                      {item.articleNo || ''} {item.clauseText}
+                                    </p>
                                   </div>
                                   <Button
                                     size="sm"
@@ -2384,28 +2536,42 @@ export default function ControlPointAdminPage() {
                               <p className="text-sm text-[#64748B]">暂无法规条文关联</p>
                             ) : (
                               regulatoryLinks.clauses.map((item) => (
-                                <div key={item.id} className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2">
+                                <div
+                                  key={item.id}
+                                  className="flex items-center justify-between rounded-sm border border-[#E2E8F0] px-3 py-2"
+                                >
                                   <div>
                                     <p className="font-medium text-[#1E3A5F]">{item.clauseCode}</p>
-                                    <p className="text-sm text-[#334155]">{item.sectionPath || ''} {item.clauseText}</p>
+                                    <p className="text-sm text-[#334155]">
+                                      {item.sectionPath || ''} {item.clauseText}
+                                    </p>
                                     <p className="text-xs text-[#64748B]">
-                                      {item.source?.sourceCode || item.source?.sourceName || '未提供法规来源'}
+                                      {item.source?.sourceCode ||
+                                        item.source?.sourceName ||
+                                        '未提供法规来源'}
                                     </p>
                                   </div>
-                                  <Button variant="ghost" size="icon" onClick={() => void handleDeleteClause(item.id)}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => void handleDeleteClause(item.id)}
+                                  >
                                     <Trash2 className="h-4 w-4 text-rose-600" />
                                   </Button>
                                 </div>
                               ))
                             )}
                           </div>
-                          {(regulatoryLinks.obligations.length > 0 || regulatoryLinks.cases.length > 0) && (
+                          {(regulatoryLinks.obligations.length > 0 ||
+                            regulatoryLinks.cases.length > 0) && (
                             <div className="grid gap-4 md:grid-cols-2">
                               <div className="rounded-sm border border-[#E2E8F0] p-3">
                                 <p className="font-medium text-[#1E3A5F]">相关义务</p>
                                 <div className="mt-2 space-y-1 text-sm text-[#334155]">
                                   {regulatoryLinks.obligations.map((item) => (
-                                    <div key={item.id}>{item.obligationCode} · {item.obligationText}</div>
+                                    <div key={item.id}>
+                                      {item.obligationCode} · {item.obligationText}
+                                    </div>
                                   ))}
                                 </div>
                               </div>
@@ -2413,7 +2579,9 @@ export default function ControlPointAdminPage() {
                                 <p className="font-medium text-[#1E3A5F]">相关案例</p>
                                 <div className="mt-2 space-y-1 text-sm text-[#334155]">
                                   {regulatoryLinks.cases.map((item) => (
-                                    <div key={`${item.caseCode}-${item.caseTitle}`}>{item.caseCode} · {item.caseTitle}</div>
+                                    <div key={`${item.caseCode}-${item.caseTitle}`}>
+                                      {item.caseCode} · {item.caseTitle}
+                                    </div>
                                   ))}
                                 </div>
                               </div>
@@ -2637,7 +2805,12 @@ export default function ControlPointAdminPage() {
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" className="rounded-sm" onClick={() => setCreateOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-sm"
+                onClick={() => setCreateOpen(false)}
+              >
                 取消
               </Button>
               <Button type="submit" className="rounded-sm" disabled={saving}>
@@ -2700,7 +2873,10 @@ export default function ControlPointAdminPage() {
                 <Select
                   value={editForm.controlType}
                   onValueChange={(value) =>
-                    setEditForm((current) => ({ ...current, controlType: value as typeof current.controlType }))
+                    setEditForm((current) => ({
+                      ...current,
+                      controlType: value as typeof current.controlType,
+                    }))
                   }
                 >
                   <SelectTrigger>
@@ -2833,7 +3009,12 @@ export default function ControlPointAdminPage() {
               <Label htmlFor="edit-mandatory-default">默认必选</Label>
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" className="rounded-sm" onClick={() => setEditOpen(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-sm"
+                onClick={() => setEditOpen(false)}
+              >
                 取消
               </Button>
               <Button type="submit" className="rounded-sm" disabled={saving}>
@@ -2848,10 +3029,17 @@ export default function ControlPointAdminPage() {
         <DialogContent className="rounded-sm">
           <DialogHeader>
             <DialogTitle>确认归档控制点</DialogTitle>
-            <DialogDescription>归档后该控制点将被标记为 INACTIVE，并从默认列表中过滤掉。</DialogDescription>
+            <DialogDescription>
+              归档后该控制点将被标记为 INACTIVE，并从默认列表中过滤掉。
+            </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" className="rounded-sm" onClick={() => setArchiveOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-sm"
+              onClick={() => setArchiveOpen(false)}
+            >
               取消
             </Button>
             <Button type="button" className="rounded-sm" disabled={saving} onClick={handleArchive}>

@@ -33,7 +33,6 @@ jest.mock('@/components/ui/dialog', () => ({
   DialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
 }))
 jest.mock('@/components/ui/tabs', () => {
-  const React = require('react') as typeof import('react')
   const TabsContext = React.createContext<{
     value: string
     onValueChange?: (value: string) => void
@@ -47,9 +46,7 @@ jest.mock('@/components/ui/tabs', () => {
     value: string
     onValueChange?: (value: string) => void
     children: React.ReactNode
-  }) => (
-    <TabsContext.Provider value={{ value, onValueChange }}>{children}</TabsContext.Provider>
-  )
+  }) => <TabsContext.Provider value={{ value, onValueChange }}>{children}</TabsContext.Provider>
 
   const TabsList = ({ children }: { children: React.ReactNode }) => <div>{children}</div>
   const TabsTrigger = ({ value, children }: { value: string; children: React.ReactNode }) => {
@@ -147,18 +144,16 @@ const mockGetControlPointQuestions =
 const mockUpdateQuestionItem = controlPointsApi.updateQuestionItem as jest.MockedFunction<
   typeof controlPointsApi.updateQuestionItem
 >
-const mockCreateRemediationAction =
-  controlPointsApi.createRemediationAction as jest.MockedFunction<
-    typeof controlPointsApi.createRemediationAction
-  >
+const mockCreateRemediationAction = controlPointsApi.createRemediationAction as jest.MockedFunction<
+  typeof controlPointsApi.createRemediationAction
+>
 const mockGetControlPointRemediations =
   controlPointsApi.getControlPointRemediations as jest.MockedFunction<
     typeof controlPointsApi.getControlPointRemediations
   >
-const mockUpdateRemediationAction =
-  controlPointsApi.updateRemediationAction as jest.MockedFunction<
-    typeof controlPointsApi.updateRemediationAction
-  >
+const mockUpdateRemediationAction = controlPointsApi.updateRemediationAction as jest.MockedFunction<
+  typeof controlPointsApi.updateRemediationAction
+>
 const mockCreateControlPackItem = controlPointsApi.createControlPackItem as jest.MockedFunction<
   typeof controlPointsApi.createControlPackItem
 >
@@ -169,26 +164,22 @@ const mockGetControlPointPackLinks =
   controlPointsApi.getControlPointPackLinks as jest.MockedFunction<
     typeof controlPointsApi.getControlPointPackLinks
   >
-const mockListControlPackCatalog =
-  controlPointsApi.listControlPackCatalog as jest.MockedFunction<
-    typeof controlPointsApi.listControlPackCatalog
-  >
+const mockListControlPackCatalog = controlPointsApi.listControlPackCatalog as jest.MockedFunction<
+  typeof controlPointsApi.listControlPackCatalog
+>
 const mockGetControlPointRegulatoryLinks =
   controlPointsApi.getControlPointRegulatoryLinks as jest.MockedFunction<
     typeof controlPointsApi.getControlPointRegulatoryLinks
   >
-const mockSearchRegulationClauses =
-  controlPointsApi.searchRegulationClauses as jest.MockedFunction<
-    typeof controlPointsApi.searchRegulationClauses
-  >
-const mockCreateClauseControlMap =
-  controlPointsApi.createClauseControlMap as jest.MockedFunction<
-    typeof controlPointsApi.createClauseControlMap
-  >
-const mockDeleteClauseControlMap =
-  controlPointsApi.deleteClauseControlMap as jest.MockedFunction<
-    typeof controlPointsApi.deleteClauseControlMap
-  >
+const mockSearchRegulationClauses = controlPointsApi.searchRegulationClauses as jest.MockedFunction<
+  typeof controlPointsApi.searchRegulationClauses
+>
+const mockCreateClauseControlMap = controlPointsApi.createClauseControlMap as jest.MockedFunction<
+  typeof controlPointsApi.createClauseControlMap
+>
+const mockDeleteClauseControlMap = controlPointsApi.deleteClauseControlMap as jest.MockedFunction<
+  typeof controlPointsApi.deleteClauseControlMap
+>
 const mockUpdateControlPoint = controlPointsApi.updateControlPoint as jest.MockedFunction<
   typeof controlPointsApi.updateControlPoint
 >
@@ -199,10 +190,9 @@ const mockUpdateControlPointStatus =
 const mockGetTaxonomyTree = knowledgeGraphApi.getTaxonomyTree as jest.MockedFunction<
   typeof knowledgeGraphApi.getTaxonomyTree
 >
-const mockGetControlExplain =
-  complianceIntelligenceApi.getControlExplain as jest.MockedFunction<
-    typeof complianceIntelligenceApi.getControlExplain
-  >
+const mockGetControlExplain = complianceIntelligenceApi.getControlExplain as jest.MockedFunction<
+  typeof complianceIntelligenceApi.getControlExplain
+>
 const mockListFailureModes = failureModesApi.listFailureModes as jest.MockedFunction<
   typeof failureModesApi.listFailureModes
 >
@@ -519,7 +509,7 @@ describe('ControlPointAdminPage', () => {
         maturityLevel: undefined,
         applicableSector: undefined,
         failureModeId: undefined,
-      }),
+      })
     )
   })
 
@@ -537,7 +527,7 @@ describe('ControlPointAdminPage', () => {
 
   it('loads controlFamily options from metadata beyond the current page', async () => {
     mockListControlPoints.mockImplementation(async (params) => {
-      if (params.limit === 1000) {
+      if (params.limit === 100) {
         return {
           items: [
             ...listItems,
@@ -564,7 +554,15 @@ describe('ControlPointAdminPage', () => {
 
     render(<ControlPointAdminPage />)
 
-    await waitFor(() => expect(screen.getByRole('option', { name: '监测' })).toBeInTheDocument())
+    await waitFor(() =>
+      expect(mockListControlPoints).toHaveBeenCalledWith(
+        expect.objectContaining({
+          page: 1,
+          limit: 100,
+        })
+      )
+    )
+    expect(screen.getByRole('option', { name: '监测' })).toBeInTheDocument()
   })
 
   it('creates a control point from the create dialog', async () => {
@@ -594,8 +592,8 @@ describe('ControlPointAdminPage', () => {
           controlType: 'preventive',
           riskLevelDefault: 'HIGH',
           mandatoryDefault: true,
-        }),
-      ),
+        })
+      )
     )
   })
 
@@ -608,7 +606,7 @@ describe('ControlPointAdminPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '确认归档' }))
 
     await waitFor(() =>
-      expect(mockUpdateControlPointStatus).toHaveBeenCalledWith('cp-1', { status: 'INACTIVE' }),
+      expect(mockUpdateControlPointStatus).toHaveBeenCalledWith('cp-1', { status: 'INACTIVE' })
     )
   })
 
@@ -743,7 +741,9 @@ describe('ControlPointAdminPage', () => {
 
     fireEvent.click(screen.getAllByTestId('control-point-list-item')[1])
 
-    await waitFor(() => expect(screen.getByRole('button', { name: '新增题库项' })).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '新增题库项' })).toBeInTheDocument()
+    )
   })
 
   it('clears stale question items when switching control and the next load fails', async () => {
@@ -826,7 +826,9 @@ describe('ControlPointAdminPage', () => {
 
     fireEvent.click(screen.getAllByTestId('control-point-list-item')[1])
 
-    await waitFor(() => expect(screen.getByRole('button', { name: '新增整改建议' })).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '新增整改建议' })).toBeInTheDocument()
+    )
   })
 
   it('updates a control point from the edit dialog and refreshes the detail view', async () => {
@@ -837,15 +839,13 @@ describe('ControlPointAdminPage', () => {
     }
 
     mockGetControlPoint.mockResolvedValueOnce(listItems[0]).mockResolvedValue(updatedDetail)
-    mockGetControlExplain
-      .mockResolvedValueOnce(controlExplain)
-      .mockResolvedValue({
-        ...controlExplain,
-        control: {
-          ...controlExplain.control,
-          controlName: '更新后的控制点',
-        },
-      })
+    mockGetControlExplain.mockResolvedValueOnce(controlExplain).mockResolvedValue({
+      ...controlExplain,
+      control: {
+        ...controlExplain.control,
+        controlName: '更新后的控制点',
+      },
+    })
     mockUpdateControlPoint.mockResolvedValue(updatedDetail)
 
     render(<ControlPointAdminPage />)
@@ -866,8 +866,8 @@ describe('ControlPointAdminPage', () => {
         expect.objectContaining({
           controlName: '更新后的控制点',
           controlFamily: '监测',
-        }),
-      ),
+        })
+      )
     )
     await waitFor(() => expect(screen.getAllByText('更新后的控制点').length).toBeGreaterThan(0))
   })
@@ -928,17 +928,13 @@ describe('ControlPointAdminPage', () => {
         frequency: 'MONTHLY',
         ownerRole: '审计岗',
         samplingRequirement: 'FULL',
-      }),
+      })
     )
-    await waitFor(() =>
-      expect(screen.getByText('EVD-002 · 自动校验日志')).toBeInTheDocument(),
-    )
+    await waitFor(() => expect(screen.getByText('EVD-002 · 自动校验日志')).toBeInTheDocument())
 
     fireEvent.click(getRowActionButtons('EVD-002 · 自动校验日志')[0])
 
-    await waitFor(() =>
-      expect(mockDeleteControlEvidenceMap).toHaveBeenCalledWith('evidence-map-1'),
-    )
+    await waitFor(() => expect(mockDeleteControlEvidenceMap).toHaveBeenCalledWith('evidence-map-1'))
     await waitFor(() => expect(screen.getByText('暂无证据映射')).toBeInTheDocument())
   })
 
@@ -992,8 +988,8 @@ describe('ControlPointAdminPage', () => {
           questionText: '新增题库项',
           questionType: 'SINGLE_CHOICE',
           answerSchema: { expectedAnswer: '是' },
-        }),
-      ),
+        })
+      )
     )
     await waitFor(() => expect(screen.getByText('SINGLE_CHOICE · 是')).toBeInTheDocument())
 
@@ -1001,7 +997,7 @@ describe('ControlPointAdminPage', () => {
     fireEvent.click(
       within(createdQuestionLabel.parentElement!.parentElement as HTMLElement).getByRole('button', {
         name: '编辑',
-      }),
+      })
     )
     fireEvent.change(screen.getByPlaceholderText('question text'), {
       target: { value: '更新后的题目' },
@@ -1018,15 +1014,15 @@ describe('ControlPointAdminPage', () => {
           questionText: '更新后的题目',
           questionType: 'SINGLE_CHOICE',
           answerSchema: { expectedAnswer: '否' },
-        }),
-      ),
+        })
+      )
     )
     await waitFor(() => expect(screen.getByText('更新后的题目')).toBeInTheDocument())
 
     fireEvent.click(getRowActionButtons('更新后的题目')[1])
 
     await waitFor(() =>
-      expect(mockUpdateQuestionItem).toHaveBeenLastCalledWith('question-1', { status: 'INACTIVE' }),
+      expect(mockUpdateQuestionItem).toHaveBeenLastCalledWith('question-1', { status: 'INACTIVE' })
     )
     await waitFor(() => expect(screen.getByText('暂无题库项')).toBeInTheDocument())
   })
@@ -1084,12 +1080,16 @@ describe('ControlPointAdminPage', () => {
           actionDesc: '新增整改描述',
           priorityDefault: 'MEDIUM',
           effortLevel: 'MEDIUM',
-        }),
-      ),
+        })
+      )
     )
     await waitFor(() => expect(screen.getByText('补齐复核流程')).toBeInTheDocument())
 
-    fireEvent.click(within(screen.getByText('补齐复核流程').parentElement!.parentElement as HTMLElement).getByRole('button', { name: '编辑' }))
+    fireEvent.click(
+      within(
+        screen.getByText('补齐复核流程').parentElement!.parentElement as HTMLElement
+      ).getByRole('button', { name: '编辑' })
+    )
     fireEvent.change(screen.getByPlaceholderText('action title'), {
       target: { value: '更新后的整改建议' },
     })
@@ -1104,8 +1104,8 @@ describe('ControlPointAdminPage', () => {
         expect.objectContaining({
           actionTitle: '更新后的整改建议',
           actionDesc: '更新后的整改描述',
-        }),
-      ),
+        })
+      )
     )
     await waitFor(() => expect(screen.getByText('更新后的整改建议')).toBeInTheDocument())
 
@@ -1114,7 +1114,7 @@ describe('ControlPointAdminPage', () => {
     await waitFor(() =>
       expect(mockUpdateRemediationAction).toHaveBeenLastCalledWith('action-1', {
         status: 'INACTIVE',
-      }),
+      })
     )
     await waitFor(() => expect(screen.getByText('暂无整改建议')).toBeInTheDocument())
   })
@@ -1193,7 +1193,7 @@ describe('ControlPointAdminPage', () => {
         clauseId: 'clause-1',
         mappingType: 'direct',
         reviewStatus: 'PENDING',
-      }),
+      })
     )
     await waitFor(() => expect(screen.getByText('OBL-001 · 应当建立复核机制')).toBeInTheDocument())
     expect(screen.getByText('CASE-001 · 监管处罚案例')).toBeInTheDocument()
@@ -1231,9 +1231,7 @@ describe('ControlPointAdminPage', () => {
     fireEvent.click(getRowActionButtons('PACK-BASE-CYBER')[0])
 
     expect(mockDeleteControlPackItem).not.toHaveBeenCalled()
-    expect(mockedToast.error).toHaveBeenCalledWith(
-      'hard 级控制点必须至少保留 1 个控制包关联',
-    )
+    expect(mockedToast.error).toHaveBeenCalledWith('hard 级控制点必须至少保留 1 个控制包关联')
     expect(screen.getByText('PACK-BASE-CYBER')).toBeInTheDocument()
   })
 })
