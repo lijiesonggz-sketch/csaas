@@ -1,0 +1,71 @@
+{
+  "l1Code": "IT08",
+  "version": "it08-rulebook-v1",
+  "fallbackBucket": "IT08-01",
+  "entries": [
+    {
+      "l2Code": "IT08-05",
+      "signals": [
+        {
+          "label": "迟报瞒报",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "迟报" },
+            { "type": "literal", "value": "瞒报" },
+            { "type": "literal", "value": "应报未报" }
+          ]
+        },
+        {
+          "label": "重大事件上报",
+          "weight": 4,
+          "matchers": [
+            { "type": "literal", "value": "重大突发事件" },
+            { "type": "literal", "value": "未及时报告" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT08-02",
+      "signals": [
+        {
+          "label": "灾备建设不足",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "未建灾备" },
+            { "type": "literal", "value": "双活异地灾备不足" }
+          ]
+        },
+        {
+          "label": "恢复能力不达标",
+          "weight": 4,
+          "matchers": [
+            { "type": "literal", "value": "恢复能力不达标" },
+            { "type": "literal", "value": "灾难恢复能力不符合" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT08-01",
+      "signals": [
+        {
+          "label": "业务连续性不足",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "业务连续性" },
+            { "type": "literal", "value": "应急预案" }
+          ]
+        },
+        {
+          "label": "恢复安排不到位",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "恢复安排不到位" },
+            { "type": "literal", "value": "业务连续性管理不到位" }
+          ]
+        }
+      ]
+    }
+  ]
+}

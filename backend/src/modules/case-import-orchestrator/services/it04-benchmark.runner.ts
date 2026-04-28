@@ -1,19 +1,17 @@
 import * as fs from 'fs'
-import * as path from 'path'
 import { ControlPointService } from '../../knowledge-graph/services/control-point.service'
 import { FailureModeService } from '../../knowledge-graph/services/failure-mode.service'
 import { CaseClusteringChainService } from './case-clustering-chain.service'
 import { CaseNormalizationService } from './taxonomy-classification/case-normalization.service'
+import type { MappingRepository } from './taxonomy-classification/mapping-repository.interface'
 import type {
   TaxonomyClassificationResult,
   TaxonomyMappingRecord,
 } from './taxonomy-classification/contracts/classification-result.contract'
-import { CsvBackedMappingRepository } from './taxonomy-classification/csv-backed-mapping.repository'
 import { IT04_DOMAIN_PROFILE } from './taxonomy-classification/profiles/it04.profile'
 import { TaxonomyClassifierEngine } from './taxonomy-classification/taxonomy-classifier.engine'
 import { IT04_RULEBOOK } from './taxonomy-classification/rulebooks/it04.rulebook'
 import {
-  buildTaxonomyBenchmarkMarkdown,
   DEFAULT_TAXONOMY_BENCHMARK_REPORT_DIR,
   resolveWorkspaceArtifactPath,
   TaxonomyBenchmarkCase,
@@ -24,12 +22,7 @@ import {
 const DEFAULT_DATASET_RESOLUTION = resolveWorkspaceArtifactPath(
   'backend/src/modules/case-import-orchestrator/testing/it04-benchmark-cases.fixture.json',
 )
-const DEFAULT_TAXONOMY_MAPPING_RESOLUTION = resolveWorkspaceArtifactPath(
-  'docs/it-taxonomy-to-kg-semantic-mapping-2026-04-07.csv',
-)
-
 const DEFAULT_DATASET_PATH = DEFAULT_DATASET_RESOLUTION.resolvedPath
-const DEFAULT_TAXONOMY_MAPPING_PATH = DEFAULT_TAXONOMY_MAPPING_RESOLUTION.resolvedPath
 const DEFAULT_REPORT_DIR = DEFAULT_TAXONOMY_BENCHMARK_REPORT_DIR
 const DEFAULT_MIN_FULL_CHAIN_HITS = 10
 const DEFAULT_CLASSIFIER_VERSION = 'taxonomy-classifier-6.1'
@@ -108,7 +101,10 @@ export type It04BenchmarkReport = {
 
 type FailureModeServiceLike = Pick<FailureModeService, 'findByL2Code'>
 type ControlPointServiceLike = Pick<ControlPointService, 'findByL2CodeWithFullChain'>
-type CaseClusteringChainServiceLike = Pick<CaseClusteringChainService, 'resolveControlPointsByL2Code'>
+type CaseClusteringChainServiceLike = Pick<
+  CaseClusteringChainService,
+  'resolveControlPointsByL2Code'
+>
 
 function readRequiredFile(filePath: string, label: string, candidates: string[]): string {
   if (!fs.existsSync(filePath)) {
@@ -131,11 +127,9 @@ export function loadIt04BenchmarkCases(datasetPath = DEFAULT_DATASET_PATH): It04
 }
 
 export function loadIt04TaxonomyMappings(
-  taxonomyMappingPath = DEFAULT_TAXONOMY_MAPPING_PATH,
+  mappingRepository: MappingRepository,
 ): It04TaxonomySemanticMapping[] {
-  return new CsvBackedMappingRepository({
-    mappingPath: taxonomyMappingPath,
-  }).loadByL1Code('IT04')
+  return mappingRepository.loadByL1Code('IT04')
 }
 
 function toLegacyIt04ClassificationResult(
@@ -254,8 +248,8 @@ export class It04BenchmarkRunner {
       failureModeService: FailureModeServiceLike
       controlPointService: ControlPointServiceLike
       caseClusteringChainService: CaseClusteringChainServiceLike
+      mappingRepository: MappingRepository
       datasetPath?: string
-      taxonomyMappingPath?: string
       reportDir?: string
     },
   ) {}
@@ -265,11 +259,8 @@ export class It04BenchmarkRunner {
     minFullChainHits?: number
   }): Promise<It04BenchmarkReport> {
     const datasetPath = this.services.datasetPath ?? DEFAULT_DATASET_PATH
-    const taxonomyMappingPath = this.services.taxonomyMappingPath ?? DEFAULT_TAXONOMY_MAPPING_PATH
     const benchmarkCases = loadIt04BenchmarkCases(datasetPath)
-    const mappingRepository = new CsvBackedMappingRepository({
-      mappingPath: taxonomyMappingPath,
-    })
+    const mappingRepository = this.services.mappingRepository
     const mappings = mappingRepository.loadByL1Code('IT04')
     const mappingVersion = mappingRepository.getVersion()
     const taxonomyRunner = new TaxonomyBenchmarkRunner({
@@ -318,51 +309,41 @@ export class It04BenchmarkRunner {
     const legacyReport: It04BenchmarkReport = {
       generatedAt: report.generatedAt,
       datasetPath,
-      taxonomyMappingPath,
-      classificationSource: 'hybrid IT04 rulebook + semantic mapping CSV heuristic',
+      taxonomyMappingPath: `db:taxonomy_l2_runtime_profiles@${mappingVersion}`,
+      classificationSource: 'hybrid IT04 rulebook + DB-backed runtime profile',
       summary: legacySummary,
-      caseResults: report.caseResults.map(
-        (caseResult: TaxonomyBenchmarkCaseResult) => ({
-          caseId: caseResult.caseId,
-          caseTitle: caseResult.caseTitle,
-          expectedL2Code: caseResult.expectedL2Code,
-          actualL2Code: caseResult.actualL2Code,
-          classificationDecisionSource: caseResult.classificationDecisionSource,
-          classificationScoreGap: caseResult.classificationScoreGap,
-          taxonomyHit: caseResult.taxonomyHit,
-          failureModeHit: caseResult.failureModeHit,
-          controlHit: caseResult.controlHit,
-          evidenceHit: caseResult.evidenceHit,
-          fullChainHit: caseResult.fullChainHit,
-          missCategory: caseResult.missCategory,
-          matchedClassifierSignals: caseResult.matchedClassifierSignals,
-          expectedFailureModeCodes: caseResult.expectedFailureModeCodes,
-          actualFailureModeCodes: caseResult.actualFailureModeCodes,
-          expectedControlCodes: caseResult.expectedControlCodes,
-          actualControlCodes: caseResult.actualControlCodes,
-          expectedEvidenceCodes: caseResult.expectedEvidenceCodes,
-          actualEvidenceCodes: caseResult.actualEvidenceCodes,
-          expectedEvidenceCategories: caseResult.expectedEvidenceCategories,
-          actualEvidenceCategories: caseResult.actualEvidenceCategories,
-        }),
-      ),
+      caseResults: report.caseResults.map((caseResult: TaxonomyBenchmarkCaseResult) => ({
+        caseId: caseResult.caseId,
+        caseTitle: caseResult.caseTitle,
+        expectedL2Code: caseResult.expectedL2Code,
+        actualL2Code: caseResult.actualL2Code,
+        classificationDecisionSource: caseResult.classificationDecisionSource,
+        classificationScoreGap: caseResult.classificationScoreGap,
+        taxonomyHit: caseResult.taxonomyHit,
+        failureModeHit: caseResult.failureModeHit,
+        controlHit: caseResult.controlHit,
+        evidenceHit: caseResult.evidenceHit,
+        fullChainHit: caseResult.fullChainHit,
+        missCategory: caseResult.missCategory,
+        matchedClassifierSignals: caseResult.matchedClassifierSignals,
+        expectedFailureModeCodes: caseResult.expectedFailureModeCodes,
+        actualFailureModeCodes: caseResult.actualFailureModeCodes,
+        expectedControlCodes: caseResult.expectedControlCodes,
+        actualControlCodes: caseResult.actualControlCodes,
+        expectedEvidenceCodes: caseResult.expectedEvidenceCodes,
+        actualEvidenceCodes: caseResult.actualEvidenceCodes,
+        expectedEvidenceCategories: caseResult.expectedEvidenceCategories,
+        actualEvidenceCategories: caseResult.actualEvidenceCategories,
+      })),
       markdownPath: report.markdownPath,
       jsonPath: report.jsonPath,
     }
 
     if (legacyReport.markdownPath) {
-      fs.writeFileSync(
-        legacyReport.markdownPath,
-        buildIt04BenchmarkMarkdown(legacyReport),
-        'utf8',
-      )
+      fs.writeFileSync(legacyReport.markdownPath, buildIt04BenchmarkMarkdown(legacyReport), 'utf8')
     }
     if (legacyReport.jsonPath) {
-      fs.writeFileSync(
-        legacyReport.jsonPath,
-        JSON.stringify(legacyReport, null, 2),
-        'utf8',
-      )
+      fs.writeFileSync(legacyReport.jsonPath, JSON.stringify(legacyReport, null, 2), 'utf8')
     }
 
     return legacyReport

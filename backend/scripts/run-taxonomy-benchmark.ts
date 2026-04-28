@@ -6,11 +6,12 @@ import { FailureMode } from '../src/database/entities/failure-mode.entity'
 import { TaxonomyFailureModeMap } from '../src/database/entities/taxonomy-failure-mode-map.entity'
 import { TaxonomyL1 } from '../src/database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../src/database/entities/taxonomy-l2.entity'
+import { TaxonomyL2RuntimeProfile } from '../src/database/entities/taxonomy-l2-runtime-profile.entity'
 import { CaseClusteringChainService } from '../src/modules/case-import-orchestrator/services/case-clustering-chain.service'
 import {
   classifyIt04CaseText,
   type It04ClassificationResult,
-  loadIt04TaxonomyMappings,
+  type It04TaxonomySemanticMapping,
 } from '../src/modules/case-import-orchestrator/services/it04-benchmark.runner'
 import {
   TaxonomyBenchmarkMode,
@@ -19,9 +20,9 @@ import {
 } from '../src/modules/case-import-orchestrator/services/taxonomy-benchmark.runner'
 import type { TaxonomyClassificationResult } from '../src/modules/case-import-orchestrator/services/taxonomy-classification/contracts/classification-result.contract'
 import { CaseNormalizationService } from '../src/modules/case-import-orchestrator/services/taxonomy-classification/case-normalization.service'
-import { CsvBackedMappingRepository } from '../src/modules/case-import-orchestrator/services/taxonomy-classification/csv-backed-mapping.repository'
 import { TaxonomyClassifierEngine } from '../src/modules/case-import-orchestrator/services/taxonomy-classification/taxonomy-classifier.engine'
 import { TaxonomyClassifierService } from '../src/modules/case-import-orchestrator/services/taxonomy-classification/taxonomy-classifier.service'
+import { TypeOrmBackedMappingRepository } from '../src/modules/case-import-orchestrator/services/taxonomy-classification/typeorm-backed-mapping.repository'
 import { IT04_RULEBOOK } from '../src/modules/case-import-orchestrator/services/taxonomy-classification/rulebooks/it04.rulebook'
 import { ControlPointService } from '../src/modules/knowledge-graph/services/control-point.service'
 import { FailureModeService } from '../src/modules/knowledge-graph/services/failure-mode.service'
@@ -48,11 +49,7 @@ export function parseModeEnv(value: string | undefined): TaxonomyBenchmarkMode {
     return 'new-path'
   }
 
-  if (
-    value === 'legacy-path' ||
-    value === 'dual-path-compare' ||
-    value === 'new-path'
-  ) {
+  if (value === 'legacy-path' || value === 'dual-path-compare' || value === 'new-path') {
     return value
   }
 
@@ -67,9 +64,7 @@ export function parseTierEnv(value: string | undefined): TaxonomyBenchmarkTier[]
   const requestedTiers = parseListEnv(value) ?? []
   const tiers = requestedTiers.filter(
     (entry): entry is TaxonomyBenchmarkTier =>
-      entry === 'tier-0-smoke' ||
-      entry === 'tier-1-cutover' ||
-      entry === 'tier-2-holdout',
+      entry === 'tier-0-smoke' || entry === 'tier-1-cutover' || entry === 'tier-2-holdout',
   )
 
   if (tiers.length === 0 || tiers.length !== requestedTiers.length) {
@@ -103,9 +98,7 @@ export function mapLegacyIt04BenchmarkResult(args: {
     rulebookVersion: args.rulebookVersion,
     classifiedAt: new Date().toISOString(),
     pathDecision: args.legacy.l2Code ? 'LEGACY_FALLBACK' : 'UNCLASSIFIED',
-    failureSemantics: args.legacy.l2Code
-      ? 'LEGACY_FALLBACK_TRIGGERED'
-      : 'NO_MATCH',
+    failureSemantics: args.legacy.l2Code ? 'LEGACY_FALLBACK_TRIGGERED' : 'NO_MATCH',
   }
 }
 
@@ -130,21 +123,21 @@ export async function main(): Promise<void> {
       AppDataSource.getRepository(TaxonomyFailureModeMap),
       AppDataSource.getRepository(ControlPackItem),
     )
-    const caseClusteringChainService = new CaseClusteringChainService(
-      failureModeService,
-      {
-        upsertCaseControlMap: async () => undefined,
-      } as never,
-    )
+    const caseClusteringChainService = new CaseClusteringChainService(failureModeService, {
+      upsertCaseControlMap: async () => undefined,
+    } as never)
 
-    const mappingRepository = new CsvBackedMappingRepository()
+    const mappingRepository = new TypeOrmBackedMappingRepository(
+      AppDataSource.getRepository(TaxonomyL2RuntimeProfile),
+    )
+    await mappingRepository.refreshCache()
     const taxonomyClassifierService = new TaxonomyClassifierService(
       new CaseNormalizationService(),
       mappingRepository,
       new TaxonomyClassifierEngine(),
     )
     const mappingVersion = mappingRepository.getVersion()
-    let it04Mappings: ReturnType<typeof loadIt04TaxonomyMappings> | null = null
+    let it04Mappings: It04TaxonomySemanticMapping[] | null = null
 
     const mode = parseModeEnv(process.env.CSAAS_TAXONOMY_BENCHMARK_MODE)
     const domainCodes = parseListEnv(process.env.CSAAS_TAXONOMY_BENCHMARK_DOMAINS)
@@ -161,7 +154,7 @@ export async function main(): Promise<void> {
               }
 
               if (!it04Mappings) {
-                it04Mappings = loadIt04TaxonomyMappings()
+                it04Mappings = mappingRepository.loadByL1Code('IT04')
               }
 
               const legacy = classifyIt04CaseText(
@@ -204,9 +197,7 @@ export async function main(): Promise<void> {
     )
 
     if (report.summary.gateStatus !== 'PASS') {
-      throw new Error(
-        `taxonomy benchmark gate failed: ${report.summary.reasons.join('; ')}`,
-      )
+      throw new Error(`taxonomy benchmark gate failed: ${report.summary.reasons.join('; ')}`)
     }
   } finally {
     if (AppDataSource.isInitialized) {

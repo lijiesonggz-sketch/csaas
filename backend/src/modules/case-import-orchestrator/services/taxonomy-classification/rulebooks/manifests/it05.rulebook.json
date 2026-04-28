@@ -1,0 +1,74 @@
+{
+  "l1Code": "IT05",
+  "version": "it05-rulebook-v1",
+  "fallbackBucket": "IT05-01",
+  "entries": [
+    {
+      "l2Code": "IT05-02",
+      "signals": [
+        {
+          "label": "准入尽调不足",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "准入尽职调查" },
+            { "type": "literal", "value": "尽职调查" },
+            { "type": "literal", "value": "准入尽调" },
+            { "type": "literal", "value": "供应商管理不到位" }
+          ]
+        },
+        {
+          "label": "日常监督不到位",
+          "weight": 4,
+          "matchers": [
+            { "type": "literal", "value": "日常监督不到位" },
+            { "type": "regex", "source": "日常监督.*不到位" },
+            { "type": "literal", "value": "考核管理不到位" },
+            { "type": "regex", "source": "考核管理.*不到位" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT05-03",
+      "signals": [
+        {
+          "label": "外包导致安全事件",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "外包导致" },
+            { "type": "literal", "value": "网络安全事件" }
+          ]
+        },
+        {
+          "label": "外包运营风险",
+          "weight": 4,
+          "matchers": [
+            { "type": "literal", "value": "运营风险事件" },
+            { "type": "literal", "value": "外包安全事件" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT05-01",
+      "signals": [
+        {
+          "label": "外包管理不审慎",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "信息科技外包" },
+            { "type": "literal", "value": "外包管理不审慎" }
+          ]
+        },
+        {
+          "label": "外包服务管理",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "外包服务" },
+            { "type": "literal", "value": "外包管理" }
+          ]
+        }
+      ]
+    }
+  ]
+}

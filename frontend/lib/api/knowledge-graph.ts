@@ -1,4 +1,4 @@
-import { apiFetch } from '../utils/api'
+import { apiFetch, clearTokenCache, getAuthToken } from '../utils/api'
 import type { FailureModeCategory, FailureModeControlRelevance } from './failure-modes'
 import type { ObligationType, ObligationCoverage } from './obligations'
 
@@ -129,6 +129,31 @@ export interface RegulationGraphData {
   controlPoints: RegulationGraphControlPoint[]
 }
 
+export interface TaxonomyGovernanceDomainSummary {
+  l1Code: string
+  l1Name: string
+  catalogL2Count: number
+  runtimeProfileCount: number
+  rulebookEntryCount: number
+  mappingSourceVersion: string | null
+  rulebookVersion: string | null
+  fallbackBucket: string | null
+  readinessStage: string | null
+}
+
+export interface TaxonomyGovernanceSummary {
+  generatedAt: string
+  sourceVersion: string | null
+  domains: TaxonomyGovernanceDomainSummary[]
+}
+
+export interface TaxonomyRuntimeProfileImportResult {
+  sourceVersion: string
+  importedRowCount: number
+  cacheRefreshed: boolean
+  replacedSnapshot: boolean
+}
+
 function buildQueryString(params: Record<string, string | number | undefined>) {
   const query = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
@@ -154,12 +179,9 @@ export async function getTaxonomyTree(): Promise<TaxonomyTreeL1[]> {
  * @param l2Code IT L2 分类代码（如 "IT04-02"）
  */
 export async function getReasoningChain(l2Code: string): Promise<ReasoningChainData> {
-  const response = await apiFetch(
-    `/api/admin/knowledge-graph/reasoning-chain/${l2Code}`,
-    {
-      cache: 'no-store',
-    }
-  )
+  const response = await apiFetch(`/api/admin/knowledge-graph/reasoning-chain/${l2Code}`, {
+    cache: 'no-store',
+  })
   return response
 }
 
@@ -184,4 +206,69 @@ export async function getRegulationGraph(sourceId: string): Promise<RegulationGr
   return apiFetch(`/api/admin/knowledge-graph/regulation-graph/${sourceId}`, {
     cache: 'no-store',
   }) as Promise<RegulationGraphData>
+}
+
+export async function getTaxonomyGovernanceSummary(): Promise<TaxonomyGovernanceSummary> {
+  return apiFetch('/api/admin/knowledge-graph/taxonomy-governance/summary', {
+    cache: 'no-store',
+  }) as Promise<TaxonomyGovernanceSummary>
+}
+
+export async function importTaxonomyRuntimeProfile(
+  file: File,
+  sourceVersion: string
+): Promise<TaxonomyRuntimeProfileImportResult> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('sourceVersion', sourceVersion)
+
+  return apiFetch('/api/admin/knowledge-graph/taxonomy-governance/runtime-profile/import', {
+    method: 'POST',
+    body: formData,
+  }) as Promise<TaxonomyRuntimeProfileImportResult>
+}
+
+export async function exportTaxonomyRuntimeProfile(): Promise<void> {
+  const requestUrl = `${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/knowledge-graph/taxonomy-governance/runtime-profile/export`
+  const headers = new Headers()
+  const token = await getAuthToken()
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+
+  let response = await fetch(requestUrl, {
+    method: 'GET',
+    headers,
+  })
+
+  if (response.status === 401) {
+    clearTokenCache()
+    const refreshedToken = await getAuthToken(true)
+
+    if (refreshedToken && refreshedToken !== token) {
+      headers.set('Authorization', `Bearer ${refreshedToken}`)
+      response = await fetch(requestUrl, {
+        method: 'GET',
+        headers,
+      })
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error('导出 Runtime Profile 失败')
+  }
+
+  const blob = await response.blob()
+  const contentDisposition = response.headers.get('content-disposition') ?? ''
+  const fileNameMatch = contentDisposition.match(/filename=\"?([^"]+)\"?/)
+  const fileName = fileNameMatch?.[1] ?? 'taxonomy-runtime-profile.csv'
+  const url = window.URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  window.URL.revokeObjectURL(url)
+  document.body.removeChild(anchor)
 }

@@ -1,0 +1,70 @@
+{
+  "l1Code": "IT03",
+  "version": "it03-rulebook-v1",
+  "fallbackBucket": "IT03-05",
+  "entries": [
+    {
+      "l2Code": "IT03-02",
+      "signals": [
+        {
+          "label": "个人信息泄露",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "个人信息泄露" },
+            { "type": "literal", "value": "非法提供个人信息" }
+          ]
+        },
+        {
+          "label": "非法查询客户信息",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "非法查询客户信息" },
+            { "type": "literal", "value": "侵犯公民个人信息" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT03-06",
+      "signals": [
+        {
+          "label": "第三方合作数据安全",
+          "weight": 4,
+          "matchers": [
+            { "type": "literal", "value": "第三方合作数据安全" },
+            { "type": "literal", "value": "合作机构数据安全" }
+          ]
+        },
+        {
+          "label": "第三方平台风险",
+          "weight": 4,
+          "matchers": [
+            { "type": "literal", "value": "第三方平台数据安全" },
+            { "type": "literal", "value": "第三方平台" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT03-05",
+      "signals": [
+        {
+          "label": "数据分类分级",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "数据分类分级" },
+            { "type": "literal", "value": "数据泄露风险" }
+          ]
+        },
+        {
+          "label": "脱敏控制不足",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "脱敏" },
+            { "type": "literal", "value": "数据安全管理不到位" }
+          ]
+        }
+      ]
+    }
+  ]
+}

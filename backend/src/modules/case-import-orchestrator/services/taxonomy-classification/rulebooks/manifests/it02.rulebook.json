@@ -1,0 +1,70 @@
+{
+  "l1Code": "IT02",
+  "version": "it02-rulebook-v1",
+  "fallbackBucket": "IT02-01",
+  "entries": [
+    {
+      "l2Code": "IT02-03",
+      "signals": [
+        {
+          "label": "越权访问",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "越权访问" },
+            { "type": "literal", "value": "最小权限" }
+          ]
+        },
+        {
+          "label": "授权控制不到位",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "授权控制不到位" },
+            { "type": "literal", "value": "账户权限管理" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT02-04",
+      "signals": [
+        {
+          "label": "网络隔离不到位",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "网络隔离不到位" },
+            { "type": "literal", "value": "边界防护不足" }
+          ]
+        },
+        {
+          "label": "专网互联网隔离",
+          "weight": 4,
+          "matchers": [
+            { "type": "literal", "value": "专网与互联网隔离" },
+            { "type": "literal", "value": "区域隔离不充分" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT02-01",
+      "signals": [
+        {
+          "label": "信息安全管理不足",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "信息安全管理" },
+            { "type": "literal", "value": "安全管理机制" }
+          ]
+        },
+        {
+          "label": "安全管控缺位",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "安全防护" },
+            { "type": "literal", "value": "管控缺位" }
+          ]
+        }
+      ]
+    }
+  ]
+}

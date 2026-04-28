@@ -1,21 +1,42 @@
 import {
+  exportTaxonomyRuntimeProfile,
   getReasoningChain,
   getRegulationGraph,
   getTaxonomyTree,
   listRegulationSources,
 } from './knowledge-graph'
-import { apiFetch } from '../utils/api'
+import { apiFetch, clearTokenCache, getAuthToken } from '../utils/api'
 
 // Mock apiFetch
 jest.mock('../utils/api', () => ({
   apiFetch: jest.fn(),
+  clearTokenCache: jest.fn(),
+  getAuthToken: jest.fn(),
 }))
 
 const mockedApiFetch = apiFetch as jest.MockedFunction<typeof apiFetch>
+const mockedClearTokenCache = clearTokenCache as jest.MockedFunction<typeof clearTokenCache>
+const mockedGetAuthToken = getAuthToken as jest.MockedFunction<typeof getAuthToken>
 
 describe('knowledge-graph API client', () => {
+  const originalFetch = global.fetch
+  const originalCreateObjectUrl = window.URL.createObjectURL
+  const originalRevokeObjectUrl = window.URL.revokeObjectURL
+  const originalAnchorClick = HTMLAnchorElement.prototype.click
+
   beforeEach(() => {
     jest.clearAllMocks()
+    global.fetch = jest.fn() as unknown as typeof fetch
+    window.URL.createObjectURL = jest.fn(() => 'blob:taxonomy-runtime-profile')
+    window.URL.revokeObjectURL = jest.fn()
+    HTMLAnchorElement.prototype.click = jest.fn()
+  })
+
+  afterAll(() => {
+    global.fetch = originalFetch
+    window.URL.createObjectURL = originalCreateObjectUrl
+    window.URL.revokeObjectURL = originalRevokeObjectUrl
+    HTMLAnchorElement.prototype.click = originalAnchorClick
   })
 
   describe('[P0] getTaxonomyTree', () => {
@@ -24,9 +45,7 @@ describe('knowledge-graph API client', () => {
         {
           l1Code: 'IT01',
           l1Name: '战略与治理',
-          children: [
-            { l2Code: 'IT01-01', l2Name: 'IT战略规划', failureModeCount: 5 },
-          ],
+          children: [{ l2Code: 'IT01-01', l2Name: 'IT战略规划', failureModeCount: 5 }],
         },
       ]
 
@@ -34,10 +53,9 @@ describe('knowledge-graph API client', () => {
 
       const result = await getTaxonomyTree()
 
-      expect(mockedApiFetch).toHaveBeenCalledWith(
-        '/api/admin/knowledge-graph/taxonomy/tree',
-        { cache: 'no-store' }
-      )
+      expect(mockedApiFetch).toHaveBeenCalledWith('/api/admin/knowledge-graph/taxonomy/tree', {
+        cache: 'no-store',
+      })
       expect(result).toEqual(mockData)
     })
 
@@ -235,6 +253,77 @@ describe('knowledge-graph API client', () => {
         { cache: 'no-store' }
       )
       expect(result).toEqual(mockData)
+    })
+  })
+
+  describe('[P1] taxonomy governance export', () => {
+    it('应该在 401 后刷新 token 并重试导出请求', async () => {
+      mockedGetAuthToken.mockResolvedValueOnce('expired-token').mockResolvedValueOnce('fresh-token')
+      ;(global.fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers(),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({
+            'content-disposition': 'attachment; filename="taxonomy-runtime-profile.csv"',
+          }),
+          blob: jest.fn().mockResolvedValue(new Blob(['csv-content'], { type: 'text/csv' })),
+        })
+
+      await exportTaxonomyRuntimeProfile()
+
+      expect(mockedClearTokenCache).toHaveBeenCalledTimes(1)
+      expect(mockedGetAuthToken).toHaveBeenNthCalledWith(1)
+      expect(mockedGetAuthToken).toHaveBeenNthCalledWith(2, true)
+      expect(global.fetch).toHaveBeenCalledTimes(2)
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        1,
+        '/api/admin/knowledge-graph/taxonomy-governance/runtime-profile/export',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.any(Headers),
+        })
+      )
+      expect(window.URL.createObjectURL).toHaveBeenCalledTimes(1)
+      expect(window.URL.revokeObjectURL).toHaveBeenCalledTimes(1)
+      expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1)
+    })
+
+    it('应该在重试后仍失败时抛出导出错误', async () => {
+      mockedGetAuthToken.mockResolvedValueOnce('expired-token').mockResolvedValueOnce('fresh-token')
+      ;(global.fetch as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers(),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          headers: new Headers(),
+        })
+
+      await expect(exportTaxonomyRuntimeProfile()).rejects.toThrow('导出 Runtime Profile 失败')
+    })
+
+    it('应该在 token 没有真正刷新时直接抛出错误而不进行第二次导出请求', async () => {
+      mockedGetAuthToken
+        .mockResolvedValueOnce('expired-token')
+        .mockResolvedValueOnce('expired-token')
+      ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        headers: new Headers(),
+      })
+
+      await expect(exportTaxonomyRuntimeProfile()).rejects.toThrow('导出 Runtime Profile 失败')
+
+      expect(mockedClearTokenCache).toHaveBeenCalledTimes(1)
+      expect(global.fetch).toHaveBeenCalledTimes(1)
     })
   })
 })

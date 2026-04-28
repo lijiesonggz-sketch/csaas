@@ -1,13 +1,43 @@
-import {
-  TAXONOMY_CLASSIFIER_ATDD_INVALID_MAPPING_CSV,
-} from '../../testing/taxonomy-classification-atdd.fixtures'
+import { Test } from '@nestjs/testing'
+import { TAXONOMY_CLASSIFIER_ATDD_INVALID_MAPPING_CSV } from '../../testing/taxonomy-classification-atdd.fixtures'
 import {
   TAXONOMY_CLASSIFIER_AUTOMATE_MALFORMED_CSV,
   TAXONOMY_CLASSIFIER_AUTOMATE_MISSING_MAPPING_PATH,
 } from '../../testing/taxonomy-classification-automate.fixtures'
-import { CsvBackedMappingRepository } from './csv-backed-mapping.repository'
+import {
+  CSV_BACKED_MAPPING_REPOSITORY_OPTIONS,
+  CsvBackedMappingRepository,
+} from './csv-backed-mapping.repository'
+import { TAXONOMY_MAPPING_REPOSITORY } from './mapping-repository.interface'
 
 describe('CsvBackedMappingRepository', () => {
+  it('should resolve as a Nest provider without requiring an Object token dependency', async () => {
+    const moduleRef = await Test.createTestingModule({
+      providers: [
+        {
+          provide: CSV_BACKED_MAPPING_REPOSITORY_OPTIONS,
+          useValue: {
+            csvText: [
+              '一级编码,一级类型,二级编码,二级子类型,定义口径,建议canonicalTheme,建议aliases,建议keywords',
+              'IT04,数据治理,IT04-10,信息登记/录入/更新不及时不规范,样例定义,信息更新,台账更新|登记补录,登记|更新',
+            ].join('\n'),
+            mappingVersion: '2026-04-07',
+          },
+        },
+        CsvBackedMappingRepository,
+        {
+          provide: TAXONOMY_MAPPING_REPOSITORY,
+          useExisting: CsvBackedMappingRepository,
+        },
+      ],
+    }).compile()
+
+    const repository = moduleRef.get<CsvBackedMappingRepository>(TAXONOMY_MAPPING_REPOSITORY)
+
+    expect(repository.getVersion()).toBe('2026-04-07')
+    expect(repository.loadByL1Code('IT04')).toHaveLength(1)
+  })
+
   it('should load mappings by l1Code and load all rows from the taxonomy CSV', () => {
     const repository = new CsvBackedMappingRepository({
       mappingPath: 'docs/it-taxonomy-to-kg-semantic-mapping-2026-04-07.csv',

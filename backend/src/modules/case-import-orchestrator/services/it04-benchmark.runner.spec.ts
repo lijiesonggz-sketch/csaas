@@ -10,6 +10,15 @@ import {
 import { TaxonomyClassifierEngine } from './taxonomy-classification/taxonomy-classifier.engine'
 
 describe('It04BenchmarkRunner', () => {
+  const createInjectedMappingRepository = (
+    mappings: It04TaxonomySemanticMapping[],
+    version = '2026-04-07',
+  ) => ({
+    loadAll: jest.fn().mockReturnValue(mappings),
+    loadByL1Code: jest.fn().mockReturnValue(mappings),
+    getVersion: jest.fn().mockReturnValue(version),
+  })
+
   it('should classify IT04-07 timeliness cases from semantic mapping signals', () => {
     const mappings: It04TaxonomySemanticMapping[] = [
       {
@@ -41,9 +50,7 @@ describe('It04BenchmarkRunner', () => {
 
     expect(result.l2Code).toBe('IT04-07')
     expect(result.decisionSource).toBe('rule')
-    expect(result.matchedPhrases).toEqual(
-      expect.arrayContaining(['未按时报送', '迟报未报']),
-    )
+    expect(result.matchedPhrases).toEqual(expect.arrayContaining(['未按时报送', '迟报未报']))
   })
 
   it('should classify rectification-closure cases to IT04-08 via strong signals', () => {
@@ -77,9 +84,7 @@ describe('It04BenchmarkRunner', () => {
 
     expect(result.l2Code).toBe('IT04-08')
     expect(result.decisionSource).toBe('rule')
-    expect(result.matchedPhrases).toEqual(
-      expect.arrayContaining(['整改闭环']),
-    )
+    expect(result.matchedPhrases).toEqual(expect.arrayContaining(['整改闭环']))
   })
 
   it('should prefer falsification signals over generic reporting bucket', () => {
@@ -149,9 +154,7 @@ describe('It04BenchmarkRunner', () => {
 
     expect(result.l2Code).toBe('IT04-10')
     expect(result.decisionSource).toBe('rule')
-    expect(result.matchedPhrases).toEqual(
-      expect.arrayContaining(['登记录入更新', '更新不及时']),
-    )
+    expect(result.matchedPhrases).toEqual(expect.arrayContaining(['登记录入更新', '更新不及时']))
   })
 
   it('should reuse TaxonomyClassifierEngine inside the IT04 benchmark classifier wrapper', () => {
@@ -203,8 +206,7 @@ describe('It04BenchmarkRunner', () => {
           {
             caseId: 'CASE-002',
             caseTitle: 'false filing evidence gap',
-            caseText:
-              '编制并向监管部门提供虚假报表，存在虚假记载和数据造假，监管报告严重失真。',
+            caseText: '编制并向监管部门提供虚假报表，存在虚假记载和数据造假，监管报告严重失真。',
             expectedL2Code: 'IT04-11',
             expectedFailureModeCodes: ['FM-FAL-001'],
             expectedControlCodes: ['CTRL-FAL-001'],
@@ -229,7 +231,28 @@ describe('It04BenchmarkRunner', () => {
 
     const runner = new It04BenchmarkRunner({
       datasetPath,
-      taxonomyMappingPath: csvPath,
+      mappingRepository: createInjectedMappingRepository([
+        {
+          l1Code: 'IT04',
+          l1Name: '数据治理与监管数据报送',
+          l2Code: 'IT04-04',
+          l2Name: 'EAST数据质量不符合规范要求',
+          definition: 'EAST数据质量问题，包括字段偏差、口径错误、数据不一致',
+          canonicalTheme: '监管数据质量管理',
+          aliases: ['EAST数据质量', '字段偏差', '口径错误'],
+          keywords: ['EAST', '质量', '偏差', '不符合规范'],
+        },
+        {
+          l1Code: 'IT04',
+          l1Name: '数据治理与监管数据报送',
+          l2Code: 'IT04-11',
+          l2Name: '监管报告/报表/文件/资料虚假或失真',
+          definition: '编制或提供虚假报告、报表、文件、资料',
+          canonicalTheme: '监管报告真实性控制',
+          aliases: ['虚假报告', '虚假报表', '数据造假'],
+          keywords: ['虚假记载', '数据造假', '严重失真'],
+        },
+      ]),
       reportDir,
       failureModeService: {
         findByL2Code: jest.fn().mockImplementation(async (l2Code: string) => {
@@ -332,14 +355,15 @@ describe('It04BenchmarkRunner', () => {
     expect(report.summary.missCategoryCounts.evidence).toBe(1)
     expect(report.markdownPath).toBeDefined()
     expect(report.jsonPath).toBeDefined()
+    expect(report.classificationSource).toBe('hybrid IT04 rulebook + DB-backed runtime profile')
+    expect(report.taxonomyMappingPath).toBe('db:taxonomy_l2_runtime_profiles@2026-04-07')
     expect(fs.existsSync(report.markdownPath!)).toBe(true)
     expect(fs.existsSync(report.jsonPath!)).toBe(true)
   })
 
-  it('should keep mapping version aligned with the taxonomy mapping file used by the benchmark', async () => {
+  it('should keep mapping version aligned with the injected runtime profile repository used by the benchmark', async () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'it04-benchmark-version-'))
     const datasetPath = path.join(tempDir, 'cases.json')
-    const csvPath = path.join(tempDir, 'taxonomy-2026-05-01.csv')
 
     fs.writeFileSync(
       datasetPath,
@@ -348,7 +372,8 @@ describe('It04BenchmarkRunner', () => {
           {
             caseId: 'CASE-003',
             caseTitle: 'record maintenance',
-            caseText: '监管登记信息补录和更新没有时效监控，补录超期且无人催办，导致信息更新不及时不规范。',
+            caseText:
+              '监管登记信息补录和更新没有时效监控，补录超期且无人催办，导致信息更新不及时不规范。',
             expectedL2Code: 'IT04-10',
             expectedFailureModeCodes: [],
             expectedControlCodes: [],
@@ -359,18 +384,24 @@ describe('It04BenchmarkRunner', () => {
       ),
       'utf8',
     )
-    fs.writeFileSync(
-      csvPath,
-      [
-        '一级编码,一级类型,二级编码,二级子类型,定义口径,建议canonicalTheme,建议aliases,建议keywords,建议controlFamilies,差距说明',
-        'IT04,数据治理与监管数据报送,IT04-10,信息登记/录入/更新不及时不规范,投保信息、业务信息、登记信息录入、更新、维护不及时不规范,信息登记与更新管理,信息登记|录入更新|维护及时性,录入不及时|更新不及时|补录,REG_REPORTING,',
-      ].join('\n'),
-      'utf8',
-    )
 
     const runner = new It04BenchmarkRunner({
       datasetPath,
-      taxonomyMappingPath: csvPath,
+      mappingRepository: createInjectedMappingRepository(
+        [
+          {
+            l1Code: 'IT04',
+            l1Name: '数据治理与监管数据报送',
+            l2Code: 'IT04-10',
+            l2Name: '信息登记/录入/更新不及时不规范',
+            definition: '投保信息、业务信息、登记信息录入、更新、维护不及时不规范',
+            canonicalTheme: '信息登记与更新管理',
+            aliases: ['信息登记', '录入更新', '维护及时性'],
+            keywords: ['录入不及时', '更新不及时', '补录'],
+          },
+        ],
+        '2026-05-01',
+      ),
       reportDir: tempDir,
       failureModeService: {
         findByL2Code: jest.fn().mockResolvedValue({ items: [] }),
@@ -388,15 +419,13 @@ describe('It04BenchmarkRunner', () => {
     })
 
     const report = await runner.runBenchmark({ writeReport: false })
-    expect(report.taxonomyMappingPath).toBe(csvPath)
+    expect(report.taxonomyMappingPath).toBe('db:taxonomy_l2_runtime_profiles@2026-05-01')
     expect(report.caseResults[0].actualL2Code).toBe('IT04-10')
   })
 
   it('should report UNCLASSIFIED taxonomy misses without querying downstream chain services', async () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'it04-benchmark-unclassified-'))
     const datasetPath = path.join(tempDir, 'cases.json')
-    const csvPath = path.join(tempDir, 'taxonomy-2026-05-02.csv')
-
     fs.writeFileSync(
       datasetPath,
       JSON.stringify(
@@ -415,13 +444,6 @@ describe('It04BenchmarkRunner', () => {
       ),
       'utf8',
     )
-    fs.writeFileSync(
-      csvPath,
-      [
-        '一级编码,一级类型,二级编码,二级子类型,定义口径,建议canonicalTheme,建议aliases,建议keywords,建议controlFamilies,差距说明',
-      ].join('\n'),
-      'utf8',
-    )
 
     const failureModeService = {
       findByL2Code: jest.fn(),
@@ -435,7 +457,7 @@ describe('It04BenchmarkRunner', () => {
 
     const runner = new It04BenchmarkRunner({
       datasetPath,
-      taxonomyMappingPath: csvPath,
+      mappingRepository: createInjectedMappingRepository([], '2026-05-02'),
       reportDir: tempDir,
       failureModeService: failureModeService as never,
       caseClusteringChainService: caseClusteringChainService as never,
@@ -455,7 +477,6 @@ describe('It04BenchmarkRunner', () => {
   it('should overwrite benchmark artifact files with the legacy IT04 schema after delegating to the unified runner', async () => {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'it04-benchmark-artifact-shape-'))
     const datasetPath = path.join(tempDir, 'cases.json')
-    const csvPath = path.join(tempDir, 'taxonomy-2026-05-03.csv')
 
     fs.writeFileSync(
       datasetPath,
@@ -464,7 +485,8 @@ describe('It04BenchmarkRunner', () => {
           {
             caseId: 'CASE-005',
             caseTitle: 'record maintenance',
-            caseText: '监管登记信息补录和更新没有时效监控，补录超期且无人催办，导致信息更新不及时不规范。',
+            caseText:
+              '监管登记信息补录和更新没有时效监控，补录超期且无人催办，导致信息更新不及时不规范。',
             expectedL2Code: 'IT04-10',
             expectedFailureModeCodes: [],
             expectedControlCodes: [],
@@ -475,18 +497,24 @@ describe('It04BenchmarkRunner', () => {
       ),
       'utf8',
     )
-    fs.writeFileSync(
-      csvPath,
-      [
-        '一级编码,一级类型,二级编码,二级子类型,定义口径,建议canonicalTheme,建议aliases,建议keywords,建议controlFamilies,差距说明',
-        'IT04,数据治理与监管数据报送,IT04-10,信息登记/录入/更新不及时不规范,投保信息、业务信息、登记信息录入、更新、维护不及时不规范,信息登记与更新管理,信息登记|录入更新|维护及时性,录入不及时|更新不及时|补录,REG_REPORTING,',
-      ].join('\n'),
-      'utf8',
-    )
 
     const runner = new It04BenchmarkRunner({
       datasetPath,
-      taxonomyMappingPath: csvPath,
+      mappingRepository: createInjectedMappingRepository(
+        [
+          {
+            l1Code: 'IT04',
+            l1Name: '数据治理与监管数据报送',
+            l2Code: 'IT04-10',
+            l2Name: '信息登记/录入/更新不及时不规范',
+            definition: '投保信息、业务信息、登记信息录入、更新、维护不及时不规范',
+            canonicalTheme: '信息登记与更新管理',
+            aliases: ['信息登记', '录入更新', '维护及时性'],
+            keywords: ['录入不及时', '更新不及时', '补录'],
+          },
+        ],
+        '2026-05-03',
+      ),
       reportDir: tempDir,
       failureModeService: {
         findByL2Code: jest.fn().mockResolvedValue({ items: [] }),
@@ -504,10 +532,77 @@ describe('It04BenchmarkRunner', () => {
     })
 
     const report = await runner.runBenchmark({ writeReport: true })
-    const artifactJson = JSON.parse(fs.readFileSync(report.jsonPath!, 'utf8')) as It04BenchmarkReport
+    const artifactJson = JSON.parse(
+      fs.readFileSync(report.jsonPath!, 'utf8'),
+    ) as It04BenchmarkReport
 
     expect(artifactJson.summary.minFullChainHits).toBeDefined()
     expect(artifactJson.datasetPath).toBe(datasetPath)
     expect(artifactJson.summary).not.toHaveProperty('gateStatus')
+  })
+
+  it('should prefer an injected mappingRepository over direct CSV loading in benchmark runtime path', async () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'it04-benchmark-injected-repo-'))
+    const datasetPath = path.join(tempDir, 'cases.json')
+
+    fs.writeFileSync(
+      datasetPath,
+      JSON.stringify(
+        [
+          {
+            caseId: 'CASE-006',
+            caseTitle: 'record maintenance',
+            caseText:
+              '监管登记信息补录和更新没有时效监控，补录超期且无人催办，导致信息更新不及时不规范。',
+            expectedL2Code: 'IT04-10',
+            expectedFailureModeCodes: [],
+            expectedControlCodes: [],
+          },
+        ],
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    const mappingRepository = {
+      loadByL1Code: jest.fn().mockReturnValue([
+        {
+          l1Code: 'IT04',
+          l1Name: '数据治理与监管数据报送',
+          l2Code: 'IT04-10',
+          l2Name: '信息登记/录入/更新不及时不规范',
+          definition: '投保信息、业务信息、登记信息录入、更新、维护不及时不规范',
+          canonicalTheme: '信息登记与更新管理',
+          aliases: ['信息登记', '录入更新', '维护及时性'],
+          keywords: ['录入不及时', '更新不及时', '补录'],
+        },
+      ]),
+      getVersion: jest.fn().mockReturnValue('2026-06-01'),
+    }
+
+    const runner = new It04BenchmarkRunner({
+      datasetPath,
+      mappingRepository,
+      reportDir: tempDir,
+      failureModeService: {
+        findByL2Code: jest.fn().mockResolvedValue({ items: [] }),
+      },
+      caseClusteringChainService: {
+        resolveControlPointsByL2Code: jest.fn().mockResolvedValue({ items: [], total: 0 }),
+      },
+      controlPointService: {
+        findByL2CodeWithFullChain: jest.fn().mockResolvedValue({
+          l2Code: 'IT04-10',
+          l2Name: '信息登记/录入/更新不及时不规范',
+          failureModes: [],
+        }),
+      },
+    } as never)
+
+    const report = await runner.runBenchmark({ writeReport: false })
+
+    expect(mappingRepository.loadByL1Code).toHaveBeenCalledWith('IT04')
+    expect(report.caseResults[0].actualL2Code).toBe('IT04-10')
   })
 })

@@ -10,14 +10,16 @@ sprint:
   goal: "新增失效模式层和法规义务层，建立案例驱动线+法规驱动线双轨映射，废弃旧控制点重建新体系"
   start_date: "2026-04-12"
   end_date: null
-  status: "planning"
+  status: "done"
+
+last_updated: "2026-04-22T08:51:04+08:00"
 
 development_status:
   epics:
     epic-1:
       key: "EPIC-KG2-001"
       name: "失效模式体系建立与案例驱动线"
-      status: "in_progress"
+      status: "done"
       description: "合规顾问能通过案例的 IT 分类找到对应失效模式和推荐控制点，看到完整推理链路"
       depends_on: []
       stories:
@@ -153,14 +155,14 @@ development_status:
     epic-3:
       key: "EPIC-KG2-003"
       name: "法规驱动线"
-      status: "backlog"
+      status: "done"
       description: "合规顾问能从法规条文追踪到具体义务，再到控制点，评估义务覆盖率"
       depends_on: ["epic-1"]
       stories:
         3-1:
           key: "STORY-KG2-3.1"
           name: "法规义务表结构建立"
-          status: "backlog"
+          status: "done"
           priority: "P0"
           description: "regulation_obligations + obligation_control_maps Migration + Entity/DTO"
           depends_on: []
@@ -171,7 +173,7 @@ development_status:
         3-2:
           key: "STORY-KG2-3.2"
           name: "ObligationService 与 API 端点"
-          status: "backlog"
+          status: "done"
           priority: "P0"
           description: "ObligationService CRUD + 7 个 REST API + 覆盖率分析 + 两表共存查询"
           depends_on: ["3-1"]
@@ -182,7 +184,7 @@ development_status:
         3-3:
           key: "STORY-KG2-3.3"
           name: "首部法规义务提取"
-          status: "backlog"
+          status: "done"
           priority: "P1"
           description: "至少 1 部法规完成 clause→obligation 拆分 + obligation→control_point 映射"
           depends_on: ["3-2"]
@@ -193,14 +195,14 @@ development_status:
     epic-4:
       key: "EPIC-KG2-004"
       name: "管理端与可视化"
-      status: "backlog"
+      status: "done"
       description: "管理员能通过界面维护失效模式和法规义务，查看推理链路和覆盖率看板"
       depends_on: ["epic-1", "epic-2", "epic-3"]
       stories:
         4-1:
           key: "STORY-KG2-4.1"
           name: "控制点详情页增强"
-          status: "backlog"
+          status: "done"
           priority: "P1"
           description: "展示 origin_type/maturity_level/authoritative_score/sector + failure modes/obligations/推理链路"
           depends_on: []
@@ -211,7 +213,7 @@ development_status:
         4-2:
           key: "STORY-KG2-4.2"
           name: "Failure Mode 管理页面"
-          status: "backlog"
+          status: "done"
           priority: "P1"
           description: "列表+详情面板 CRUD + taxonomy 映射 + control_point 映射管理"
           depends_on: []
@@ -222,7 +224,7 @@ development_status:
         4-3:
           key: "STORY-KG2-4.3"
           name: "Regulation Obligation 管理页面"
-          status: "backlog"
+          status: "done"
           priority: "P1"
           description: "列表+详情面板 CRUD + clause 关联 + control_point 映射管理"
           depends_on: []
@@ -233,7 +235,7 @@ development_status:
         4-4:
           key: "STORY-KG2-4.4"
           name: "覆盖率分析看板"
-          status: "backlog"
+          status: "done"
           priority: "P2"
           description: "饼图覆盖率 + 来源分析 + 未覆盖义务列表 + 行业对比"
           depends_on: []
@@ -241,27 +243,60 @@ development_status:
           estimated_days: 3
           assignee: null
 
+    epic-5:
+      key: "EPIC-KG2-005"
+      name: "知识图谱体验优化"
+      status: "done"
+      description: "合规顾问能通过统一的知识图谱总览页面理解全局关系，并在各页面间无缝导航追踪完整推理链路"
+      depends_on: ["epic-1", "epic-2", "epic-3", "epic-4"]
+      stories:
+        5-1:
+          key: "STORY-KG2-5.1"
+          name: "知识图谱总览页面"
+          status: "done"
+          priority: "P0"
+          description: "三栏布局总览页面：IT分类树 + 推理链路可视化 + 详情面板联动 + 法规驱动线视图切换"
+          depends_on: []
+          blocks: []
+          estimated_days: 5
+          assignee: null
+          story_file: "_bmad-output/implementation-artifacts/5-1-knowledge-graph-overview.md"
+
+        5-2:
+          key: "STORY-KG2-5.2"
+          name: "控制点详情页增强与交叉导航"
+          status: "done"
+          priority: "P1"
+          description: "补齐 UX-DR1~DR6 治理字段展示 + 关联实体卡片 + 推理链路步骤条 + 三个现有页面交叉导航"
+          depends_on: ["5-1"]
+          blocks: []
+          estimated_days: 3
+          assignee: null
+          story_file: "_bmad-output/implementation-artifacts/5-2-control-detail-enhancement-cross-navigation.md"
+
 # Progress Summary
 totals:
   epics:
-    total: 4
-    backlog: 2
-    in_progress: 1
-    done: 1
+    total: 5
+    backlog: 0
+    in_progress: 0
+    done: 5
   stories:
-    total: 18
-    backlog: 7
+    total: 20
+    backlog: 0
     story_created: 0
-    story_validated: 0
+    story_validated: 1
+    ready_for_dev: 0
     dev_completed: 0
     test_automated: 0
-    done: 11
+    review: 0
+    done: 20
 
 # Sprint Progress Chart
 burndown:
-  total_story_points: 47
-  remaining_story_points: 31
-  completed_story_points: 16
+  total_story_points: 55
+  remaining_story_points: 0
+  completed_story_points: 55
 
 # Execution Plan
 notes: |
@@ -277,11 +312,16 @@ notes: |
   Phase 3 (Epic 4): 前端管理页面 (~12 天)
     4.1 + 4.2 + 4.3 (并行) → 4.4
 
+  Phase 4 (Epic 5): 知识图谱体验优化 (~8 天)
+    5.1 → 5.2
+
   ## 关键依赖
   - Epic 1 是所有后续 Epic 的前置
   - Epic 2 和 Epic 3 可并行
   - Epic 4 依赖 Epic 1-3 的后端 API
+  - Epic 5 依赖 Epic 1-4 全部完成
 
   ## 并行度
   - 最大并行：Epic 2 + Epic 3 同时推进
   - Epic 4 内 Story 4.1-4.3 可并行
+  - Epic 5 内 Story 5.1 → 5.2 串行

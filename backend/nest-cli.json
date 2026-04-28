@@ -9,6 +9,10 @@
       {
         "include": "modules/applicability-engine/seeds/data/**/*",
         "outDir": "dist/src"
+      },
+      {
+        "include": "modules/case-import-orchestrator/services/taxonomy-classification/rulebooks/manifests/**/*",
+        "outDir": "dist/src"
       }
     ]
   }

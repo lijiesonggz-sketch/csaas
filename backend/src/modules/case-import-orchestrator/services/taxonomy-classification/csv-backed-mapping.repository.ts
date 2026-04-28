@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { Injectable } from '@nestjs/common'
+import { Inject, Injectable, Optional } from '@nestjs/common'
 import * as Papa from 'papaparse'
 import type { MappingRepository } from './mapping-repository.interface'
 import type { TaxonomyMappingRecord } from './contracts/classification-result.contract'
@@ -18,6 +18,8 @@ const REQUIRED_HEADERS = [
 ] as const
 
 type CsvMappingRow = Record<string, string>
+
+export const CSV_BACKED_MAPPING_REPOSITORY_OPTIONS = Symbol('CSV_BACKED_MAPPING_REPOSITORY_OPTIONS')
 
 export type CsvBackedMappingRepositoryOptions = {
   mappingPath?: string
@@ -41,9 +43,7 @@ function splitPipeList(value?: string): string[] {
 function resolveExistingPath(candidates: string[]): string {
   const found = candidates.find((candidate) => fs.existsSync(candidate))
   if (!found) {
-    throw new Error(
-      `Taxonomy mapping CSV not found. Tried candidates: ${candidates.join(', ')}`,
-    )
+    throw new Error(`Taxonomy mapping CSV not found. Tried candidates: ${candidates.join(', ')}`)
   }
 
   return found
@@ -87,13 +87,14 @@ export class CsvBackedMappingRepository implements MappingRepository {
   private readonly mappingVersion: string
   private cachedMappings: TaxonomyMappingRecord[] | null = null
 
-  constructor(options: CsvBackedMappingRepositoryOptions = {}) {
+  constructor(
+    @Optional()
+    @Inject(CSV_BACKED_MAPPING_REPOSITORY_OPTIONS)
+    options: CsvBackedMappingRepositoryOptions = {},
+  ) {
     this.csvText = options.csvText ?? null
-    this.mappingPath = this.csvText ? null : options.mappingPath ?? DEFAULT_MAPPING_RELATIVE_PATH
-    this.mappingVersion = resolveMappingVersion(
-      this.mappingPath,
-      options.mappingVersion,
-    )
+    this.mappingPath = this.csvText ? null : (options.mappingPath ?? DEFAULT_MAPPING_RELATIVE_PATH)
+    this.mappingVersion = resolveMappingVersion(this.mappingPath, options.mappingVersion)
   }
 
   loadAll(): TaxonomyMappingRecord[] {

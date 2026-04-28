@@ -40,13 +40,13 @@ export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
   id: string
 
-  @Column({ name: 'userId', type: 'uuid' })
+  @Column({ name: 'user_id', type: 'uuid' })
   userId: string
 
-  @Column({ name: 'organizationId', type: 'uuid', nullable: true })
+  @Column({ name: 'organization_id', type: 'uuid', nullable: true })
   organizationId: string | null
 
-  @Column({ name: 'tenantId', type: 'uuid', nullable: true })
+  @Column({ name: 'tenant_id', type: 'uuid', nullable: true })
   tenantId: string | null
 
   @Column({
@@ -56,24 +56,24 @@ export class AuditLog {
   })
   action: AuditAction
 
-  @Column({ name: 'entityType', type: 'varchar', length: 50 })
-  entityType: string // e.g., 'compliance_playbook', 'checklist_submission', 'RadarPush', 'Organization'
+  @Column({ name: 'entity_type', type: 'varchar', length: 50 })
+  entityType: string
 
-  @Column({ name: 'entityId', type: 'uuid', nullable: true })
-  entityId: string | null // ID of the entity being acted upon
+  @Column({ name: 'entity_id', type: 'uuid', nullable: true })
+  entityId: string | null
 
   @Column({ name: 'changes', type: 'jsonb', nullable: true })
-  changes: Record<string, any> | null // 变更内容（用于 UPDATE 操作）
+  changes: Record<string, any> | null
 
   @Column({ name: 'details', type: 'jsonb', nullable: true })
-  details: Record<string, any> | null // Additional details about the action
+  details: Record<string, any> | null
 
-  @Column({ name: 'ipAddress', type: 'varchar', length: 45, nullable: true })
-  ipAddress: string | null // IP address of the user (IPv4/IPv6)
+  @Column({ name: 'ip_address', type: 'varchar', length: 45, nullable: true })
+  ipAddress: string | null
 
-  @Column({ name: 'userAgent', type: 'text', nullable: true })
-  userAgent: string | null // Browser/client information
+  @Column({ name: 'user_agent', type: 'text', nullable: true })
+  userAgent: string | null
 
-  @CreateDateColumn({ name: 'createdAt' })
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date
 }

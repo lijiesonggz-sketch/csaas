@@ -14,12 +14,13 @@ import { RegulationSource } from '../../../database/entities/regulation-source.e
 import { RemediationAction } from '../../../database/entities/remediation-action.entity'
 import { TaxonomyL1 } from '../../../database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../../../database/entities/taxonomy-l2.entity'
-import { TaxonomyFailureModeMap } from '../../../database/entities/taxonomy-failure-mode-map.entity'
+import { TaxonomyL2RuntimeProfile } from '../../../database/entities/taxonomy-l2-runtime-profile.entity'
+import type { TaxonomyMappingRecord } from '../../case-import-orchestrator/services/taxonomy-classification/contracts/classification-result.contract'
+import { CsvBackedMappingRepository } from '../../case-import-orchestrator/services/taxonomy-classification/csv-backed-mapping.repository'
 import {
   ApplicabilityRuleSeedRecord,
   ClauseControlMapSeedRecord,
   ControlEvidenceMapSeedRecord,
-  EvidenceTypeSeedRecord,
   FailureModeControlMapSeedRecord,
   KgSeedData,
   loadKgSeedData,
@@ -53,6 +54,7 @@ export interface KgSeedSummary {
   expectedResults: number
   taxonomyL1: number
   taxonomyL2: number
+  taxonomyRuntimeProfiles?: number
   controlPoints: number
   retireSummary?: RetireSummary
   fmSummary?: FmSeedSummary
@@ -70,6 +72,8 @@ export interface KgSeedSummary {
 }
 
 const RETIRE_REASON = 'KG V2 重构全量替换'
+const DEFAULT_TAXONOMY_RUNTIME_MAPPING_PATH =
+  'docs/it-taxonomy-to-kg-semantic-mapping-2026-04-07.csv'
 
 /**
  * 退役所有非 retired 的控制点，并清理关联子表。
@@ -83,9 +87,7 @@ const RETIRE_REASON = 'KG V2 重构全量替换'
  * 幂等性：只处理 maturity_level != 'retired' 的控制点，
  * 重复运行时若全部已退役，返回全零统计。
  */
-export async function retireLegacyControlPoints(
-  queryRunner: QueryRunner,
-): Promise<RetireSummary> {
+export async function retireLegacyControlPoints(queryRunner: QueryRunner): Promise<RetireSummary> {
   // Step 1: 查询所有非 retired 的控制点 ID
   const oldControlRows: Array<{ control_id: string }> = await queryRunner.query(
     `SELECT control_id FROM control_points WHERE maturity_level != 'retired'`,
@@ -106,40 +108,51 @@ export async function retireLegacyControlPoints(
   }
 
   // Step 2: 清理子表（按 FK 约束安全顺序）— RETURNING 确保统计准确
-  const cleanedControlPackItems = (await queryRunner.query(
-    `DELETE FROM control_pack_items WHERE control_id = ANY($1) RETURNING 1`,
-    [ids],
-  )).length
+  const cleanedControlPackItems = (
+    await queryRunner.query(
+      `DELETE FROM control_pack_items WHERE control_id = ANY($1) RETURNING 1`,
+      [ids],
+    )
+  ).length
 
-  const cleanedClauseControlMaps = (await queryRunner.query(
-    `DELETE FROM clause_control_maps WHERE control_id = ANY($1) RETURNING 1`,
-    [ids],
-  )).length
+  const cleanedClauseControlMaps = (
+    await queryRunner.query(
+      `DELETE FROM clause_control_maps WHERE control_id = ANY($1) RETURNING 1`,
+      [ids],
+    )
+  ).length
 
-  const cleanedCaseControlMaps = (await queryRunner.query(
-    `DELETE FROM case_control_maps WHERE control_id = ANY($1) RETURNING 1`,
-    [ids],
-  )).length
+  const cleanedCaseControlMaps = (
+    await queryRunner.query(
+      `DELETE FROM case_control_maps WHERE control_id = ANY($1) RETURNING 1`,
+      [ids],
+    )
+  ).length
 
-  const cleanedQuestionItems = (await queryRunner.query(
-    `DELETE FROM question_items WHERE control_id = ANY($1) RETURNING 1`,
-    [ids],
-  )).length
+  const cleanedQuestionItems = (
+    await queryRunner.query(`DELETE FROM question_items WHERE control_id = ANY($1) RETURNING 1`, [
+      ids,
+    ])
+  ).length
 
-  const cleanedRemediationActions = (await queryRunner.query(
-    `DELETE FROM remediation_actions WHERE control_id = ANY($1) RETURNING 1`,
-    [ids],
-  )).length
+  const cleanedRemediationActions = (
+    await queryRunner.query(
+      `DELETE FROM remediation_actions WHERE control_id = ANY($1) RETURNING 1`,
+      [ids],
+    )
+  ).length
 
   // Step 3: 更新主表（子表已清理完毕，FK RESTRICT 不再阻止）
-  const retiredCount = (await queryRunner.query(
-    `UPDATE control_points
+  const retiredCount = (
+    await queryRunner.query(
+      `UPDATE control_points
      SET maturity_level = 'retired',
          retired_reason = $1
      WHERE control_id = ANY($2)
      RETURNING 1`,
-    [RETIRE_REASON, ids],
-  )).length
+      [RETIRE_REASON, ids],
+    )
+  ).length
 
   return {
     retiredCount,
@@ -168,6 +181,50 @@ interface TaxonomyFmMapSeedRecord {
 }
 
 const SEED_DATA_DIR = path.resolve(__dirname, 'data')
+
+export async function seedTaxonomyRuntimeProfiles(
+  queryRunner: QueryRunner,
+  mappingRecords?: TaxonomyMappingRecord[],
+  sourceVersion?: string,
+): Promise<number> {
+  const csvMappingRepository = new CsvBackedMappingRepository({
+    mappingPath: DEFAULT_TAXONOMY_RUNTIME_MAPPING_PATH,
+  })
+  const rawRuntimeMappings = mappingRecords ?? csvMappingRepository.loadAll()
+  const mappingVersion = sourceVersion ?? csvMappingRepository.getVersion()
+  const runtimeProfileRepository = queryRunner.manager.getRepository(TaxonomyL2RuntimeProfile)
+  const seenL2Codes = new Set<string>()
+
+  for (const mapping of rawRuntimeMappings) {
+    if (seenL2Codes.has(mapping.l2Code)) {
+      throw new Error(`Duplicate taxonomy runtime profile mapping for ${mapping.l2Code}`)
+    }
+    seenL2Codes.add(mapping.l2Code)
+  }
+
+  const runtimeMappings = [...rawRuntimeMappings]
+
+  await queryRunner.query(
+    `DELETE FROM taxonomy_l2_runtime_profiles
+     WHERE "source_version" <> $1
+        OR NOT ("l2_code" = ANY($2::varchar[]))`,
+    [mappingVersion, runtimeMappings.map((mapping) => mapping.l2Code)],
+  )
+
+  await runtimeProfileRepository.upsert(
+    runtimeMappings.map((mapping) => ({
+      l2Code: mapping.l2Code,
+      definition: mapping.definition,
+      canonicalTheme: mapping.canonicalTheme,
+      aliasesJson: [...mapping.aliases],
+      keywordsJson: [...mapping.keywords],
+      sourceVersion: mappingVersion,
+    })),
+    ['l2Code'],
+  )
+
+  return runtimeMappings.length
+}
 
 /**
  * 插入 8 域 failure mode 种子数据及 taxonomy 映射。
@@ -270,10 +327,11 @@ async function seedRegulationSourcesAndClauses(
     ['sourceCode'],
   )
 
-  const persistedSources: Array<{ source_id: string; source_code: string }> = await queryRunner.query(
-    `SELECT source_id, source_code FROM regulation_sources WHERE source_code = ANY($1)`,
-    [sourceRecords.map((source) => source.sourceCode)],
-  )
+  const persistedSources: Array<{ source_id: string; source_code: string }> =
+    await queryRunner.query(
+      `SELECT source_id, source_code FROM regulation_sources WHERE source_code = ANY($1)`,
+      [sourceRecords.map((source) => source.sourceCode)],
+    )
   const sourceIdByCode = new Map(
     persistedSources.map((source) => [source.source_code, source.source_id] as const),
   )
@@ -293,18 +351,18 @@ async function seedRegulationSourcesAndClauses(
       effectiveTo: clause.effectiveTo ?? null,
     }))
     .filter((clause) => Boolean(clause.sourceId)) as Array<{
-      sourceId: string
-      clauseCode: string
-      articleNo: string | null
-      sectionPath: string | null
-      clauseText: string
-      clauseSummary: string | null
-      mandatoryLevel: RegulationClauseSeedRecord['mandatoryLevel']
-      keywords: string[] | null
-      versionNo: string | null
-      effectiveFrom: string | null
-      effectiveTo: string | null
-    }>
+    sourceId: string
+    clauseCode: string
+    articleNo: string | null
+    sectionPath: string | null
+    clauseText: string
+    clauseSummary: string | null
+    mandatoryLevel: RegulationClauseSeedRecord['mandatoryLevel']
+    keywords: string[] | null
+    versionNo: string | null
+    effectiveFrom: string | null
+    effectiveTo: string | null
+  }>
 
   if (clausesToUpsert.length > 0) {
     await clauseRepository.upsert(clausesToUpsert, ['clauseCode'])
@@ -340,15 +398,14 @@ export async function seedRegulationObligationsAndMaps(
     }
   }
 
-  const obligationsToUpsert = obligationRecords
-    .map((obligation) => ({
-      clauseId: clauseIdByCode.get(obligation.clauseCode) as string,
-      obligationCode: obligation.obligationCode,
-      obligationText: obligation.obligationText,
-      obligationType: obligation.obligationType,
-      applicableSector: obligation.applicableSector ?? [],
-      status: obligation.status ?? 'ACTIVE',
-    }))
+  const obligationsToUpsert = obligationRecords.map((obligation) => ({
+    clauseId: clauseIdByCode.get(obligation.clauseCode) as string,
+    obligationCode: obligation.obligationCode,
+    obligationText: obligation.obligationText,
+    obligationType: obligation.obligationType,
+    applicableSector: obligation.applicableSector ?? [],
+    status: obligation.status ?? 'ACTIVE',
+  }))
 
   if (obligationsToUpsert.length > 0) {
     await obligationRepository.upsert(obligationsToUpsert, ['obligationCode'])
@@ -360,10 +417,9 @@ export async function seedRegulationObligationsAndMaps(
       [obligationRecords.map((obligation) => obligation.obligationCode)],
     )
   const obligationIdByCode = new Map(
-    persistedObligations.map((obligation) => [
-      obligation.obligation_code,
-      obligation.obligation_id,
-    ] as const),
+    persistedObligations.map(
+      (obligation) => [obligation.obligation_code, obligation.obligation_id] as const,
+    ),
   )
 
   for (const obligation of obligationRecords) {
@@ -381,27 +437,24 @@ export async function seedRegulationObligationsAndMaps(
     persistedControls.map((control) => [control.control_code, control.control_id] as const),
   )
 
-  const mapsToInsert = mapRecords
-    .map((mapping) => {
-      const obligationId = obligationIdByCode.get(mapping.obligationCode)
-      if (!obligationId) {
-        throw new Error(
-          `Missing regulation obligation ${mapping.obligationCode} for obligation-control map`,
-        )
-      }
-      const controlId = controlIdByCode.get(mapping.controlCode)
-      if (!controlId) {
-        throw new Error(
-          `Missing control point ${mapping.controlCode} for obligation-control map`,
-        )
-      }
-      return {
-        obligationId,
-        controlId,
-        coverage: mapping.coverage,
-        notes: mapping.notes ?? null,
-      }
-    })
+  const mapsToInsert = mapRecords.map((mapping) => {
+    const obligationId = obligationIdByCode.get(mapping.obligationCode)
+    if (!obligationId) {
+      throw new Error(
+        `Missing regulation obligation ${mapping.obligationCode} for obligation-control map`,
+      )
+    }
+    const controlId = controlIdByCode.get(mapping.controlCode)
+    if (!controlId) {
+      throw new Error(`Missing control point ${mapping.controlCode} for obligation-control map`)
+    }
+    return {
+      obligationId,
+      controlId,
+      coverage: mapping.coverage,
+      notes: mapping.notes ?? null,
+    }
+  })
 
   for (const mapping of mapsToInsert) {
     await queryRunner.query(
@@ -435,10 +488,11 @@ async function seedHardControlArtifacts(
     .filter((control) => control.maturityLevel === 'hard' && control.originType === 'case_derived')
     .map((control) => control.controlCode)
 
-  const persistedControls: Array<{ control_id: string; control_code: string }> = await queryRunner.query(
-    `SELECT control_id, control_code FROM control_points WHERE control_code = ANY($1)`,
-    [hardControlCodes],
-  )
+  const persistedControls: Array<{ control_id: string; control_code: string }> =
+    await queryRunner.query(
+      `SELECT control_id, control_code FROM control_points WHERE control_code = ANY($1)`,
+      [hardControlCodes],
+    )
   const controlIdByCode = new Map(
     persistedControls.map((control) => [control.control_code, control.control_id] as const),
   )
@@ -449,16 +503,16 @@ async function seedHardControlArtifacts(
       [seedData.failureModeControlMaps.map((mapping) => mapping.failureModeCode)],
     )
   const failureModeIdByCode = new Map(
-    persistedFailureModes.map((failureMode) => [
-      failureMode.failure_mode_code,
-      failureMode.failure_mode_id,
-    ] as const),
+    persistedFailureModes.map(
+      (failureMode) => [failureMode.failure_mode_code, failureMode.failure_mode_id] as const,
+    ),
   )
 
-  const persistedClauses: Array<{ clause_id: string; clause_code: string }> = await queryRunner.query(
-    `SELECT clause_id, clause_code FROM regulation_clauses WHERE clause_code = ANY($1)`,
-    [seedData.clauseControlMaps.map((mapping) => mapping.clauseCode)],
-  )
+  const persistedClauses: Array<{ clause_id: string; clause_code: string }> =
+    await queryRunner.query(
+      `SELECT clause_id, clause_code FROM regulation_clauses WHERE clause_code = ANY($1)`,
+      [seedData.clauseControlMaps.map((mapping) => mapping.clauseCode)],
+    )
   const clauseIdByCode = new Map(
     persistedClauses.map((clause) => [clause.clause_code, clause.clause_id] as const),
   )
@@ -482,7 +536,9 @@ async function seedHardControlArtifacts(
       [seedData.evidenceTypes.map((evidence) => evidence.evidenceCode)],
     )
   const evidenceIdByCode = new Map(
-    persistedEvidenceTypes.map((evidence) => [evidence.evidence_code, evidence.evidence_id] as const),
+    persistedEvidenceTypes.map(
+      (evidence) => [evidence.evidence_code, evidence.evidence_id] as const,
+    ),
   )
 
   const packItemsToInsert = seedData.controlPoints
@@ -495,8 +551,8 @@ async function seedHardControlArtifacts(
           controlId: controlIdByCode.get(control.controlCode),
         })),
     )
-    .filter(
-      (item): item is { packId: string; controlId: string } => Boolean(item.packId && item.controlId),
+    .filter((item): item is { packId: string; controlId: string } =>
+      Boolean(item.packId && item.controlId),
     )
 
   for (const item of packItemsToInsert) {
@@ -516,11 +572,11 @@ async function seedHardControlArtifacts(
       notes: mapping.notes ?? null,
     }))
     .filter((mapping) => Boolean(mapping.failureModeId && mapping.controlId)) as Array<{
-      failureModeId: string
-      controlId: string
-      relevance: FailureModeControlMapSeedRecord['relevance']
-      notes: string | null
-    }>
+    failureModeId: string
+    controlId: string
+    relevance: FailureModeControlMapSeedRecord['relevance']
+    notes: string | null
+  }>
 
   for (const mapping of fmControlMapsToInsert) {
     await queryRunner.query(
@@ -541,13 +597,13 @@ async function seedHardControlArtifacts(
       notes: mapping.notes ?? null,
     }))
     .filter((mapping) => Boolean(mapping.clauseId && mapping.controlId)) as Array<{
-      clauseId: string
-      controlId: string
-      mappingType: ClauseControlMapSeedRecord['mappingType']
-      confidenceScore: string | null
-      reviewStatus: NonNullable<ClauseControlMapSeedRecord['reviewStatus']>
-      notes: string | null
-    }>
+    clauseId: string
+    controlId: string
+    mappingType: ClauseControlMapSeedRecord['mappingType']
+    confidenceScore: string | null
+    reviewStatus: NonNullable<ClauseControlMapSeedRecord['reviewStatus']>
+    notes: string | null
+  }>
 
   for (const mapping of clauseControlMapsToInsert) {
     await queryRunner.query(
@@ -577,14 +633,14 @@ async function seedHardControlArtifacts(
       notes: mapping.notes ?? null,
     }))
     .filter((mapping) => Boolean(mapping.controlId && mapping.evidenceId)) as Array<{
-      controlId: string
-      evidenceId: string
-      requiredLevel: NonNullable<ControlEvidenceMapSeedRecord['requiredLevel']>
-      frequency: ControlEvidenceMapSeedRecord['frequency']
-      ownerRole: string | null
-      samplingRequirement: ControlEvidenceMapSeedRecord['samplingRequirement']
-      notes: string | null
-    }>
+    controlId: string
+    evidenceId: string
+    requiredLevel: NonNullable<ControlEvidenceMapSeedRecord['requiredLevel']>
+    frequency: ControlEvidenceMapSeedRecord['frequency']
+    ownerRole: string | null
+    samplingRequirement: ControlEvidenceMapSeedRecord['samplingRequirement']
+    notes: string | null
+  }>
 
   if (controlEvidenceMapsToUpsert.length > 0) {
     await controlEvidenceRepository.upsert(controlEvidenceMapsToUpsert, ['controlId', 'evidenceId'])
@@ -605,17 +661,17 @@ async function seedHardControlArtifacts(
       status: question.status ?? 'ACTIVE',
     }))
     .filter((question) => Boolean(question.controlId)) as Array<{
-      questionCode: string
-      controlId: string
-      questionText: string
-      questionType: QuestionItemSeedRecord['questionType']
-      roleHint: string[] | null
-      answerSchema: Record<string, unknown> | null
-      scoringRule: Record<string, unknown> | null
-      applicableTags: string[] | null
-      required: boolean
-      status: NonNullable<QuestionItemSeedRecord['status']>
-    }>
+    questionCode: string
+    controlId: string
+    questionText: string
+    questionType: QuestionItemSeedRecord['questionType']
+    roleHint: string[] | null
+    answerSchema: Record<string, unknown> | null
+    scoringRule: Record<string, unknown> | null
+    applicableTags: string[] | null
+    required: boolean
+    status: NonNullable<QuestionItemSeedRecord['status']>
+  }>
   if (questionsToUpsert.length > 0) {
     await questionRepository.upsert(questionsToUpsert, ['questionCode'])
   }
@@ -635,17 +691,17 @@ async function seedHardControlArtifacts(
       status: action.status ?? 'ACTIVE',
     }))
     .filter((action) => Boolean(action.controlId)) as Array<{
-      actionCode: string
-      controlId: string
-      actionTitle: string
-      actionDesc: string | null
-      priorityDefault: RemediationActionSeedRecord['priorityDefault']
-      effortLevel: RemediationActionSeedRecord['effortLevel']
-      expectedBenefit: RemediationActionSeedRecord['expectedBenefit']
-      ownerRoleHint: string[] | null
-      outputTemplate: Record<string, unknown> | null
-      status: NonNullable<RemediationActionSeedRecord['status']>
-    }>
+    actionCode: string
+    controlId: string
+    actionTitle: string
+    actionDesc: string | null
+    priorityDefault: RemediationActionSeedRecord['priorityDefault']
+    effortLevel: RemediationActionSeedRecord['effortLevel']
+    expectedBenefit: RemediationActionSeedRecord['expectedBenefit']
+    ownerRoleHint: string[] | null
+    outputTemplate: Record<string, unknown> | null
+    status: NonNullable<RemediationActionSeedRecord['status']>
+  }>
   if (remediationsToUpsert.length > 0) {
     await remediationRepository.upsert(remediationsToUpsert, ['actionCode'])
   }
@@ -702,6 +758,7 @@ export async function seedKgBaselineWithQueryRunner(
     'applicability_rules',
     'taxonomy_l1',
     'taxonomy_l2',
+    'taxonomy_l2_runtime_profiles',
     'control_points',
     'regulation_sources',
     'regulation_clauses',
@@ -754,6 +811,8 @@ export async function seedKgBaselineWithQueryRunner(
     })),
     ['l2Code'],
   )
+
+  const taxonomyRuntimeProfiles = await seedTaxonomyRuntimeProfiles(queryRunner)
 
   await controlPackRepository.upsert(
     seedData.controlPacks.map((pack) => ({
@@ -851,6 +910,7 @@ export async function seedKgBaselineWithQueryRunner(
     expectedResults: seedData.expectedResults.length,
     taxonomyL1: seedData.taxonomyL1.length,
     taxonomyL2: seedData.taxonomyL2.length,
+    taxonomyRuntimeProfiles,
     controlPoints: seedData.controlPoints.length,
     retireSummary,
     fmSummary,

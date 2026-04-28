@@ -1,4 +1,9 @@
-import { loadKgSeedData, loadResolverRuntimeData, normalizeFixtureResolverRules, validateResolverRuntimeData } from './kg-seed-data'
+import {
+  loadKgSeedData,
+  loadResolverRuntimeData,
+  normalizeFixtureResolverRules,
+  validateResolverRuntimeData,
+} from './kg-seed-data'
 import { seedKgBaselineWithQueryRunner } from './kg-seed.service'
 import {
   expectedSeedSummary,
@@ -145,18 +150,14 @@ function createStatefulQueryRunner() {
   }
 
   const controlPointRepository = {
-    findOne: jest
-      .fn()
-      .mockImplementation(async ({ where }: { where: { controlCode: string } }) => {
-        return controlPointState.get(where.controlCode) ?? null
-      }),
+    findOne: jest.fn().mockImplementation(async ({ where }: { where: { controlCode: string } }) => {
+      return controlPointState.get(where.controlCode) ?? null
+    }),
     create: jest.fn().mockImplementation((row) => row),
-    save: jest.fn().mockImplementation(
-      async (row: { controlId: string; controlCode: string }) => {
-        controlPointState.set(row.controlCode, row)
-        return row
-      },
-    ),
+    save: jest.fn().mockImplementation(async (row: { controlId: string; controlCode: string }) => {
+      controlPointState.set(row.controlCode, row)
+      return row
+    }),
   }
   const genericRepository = {
     upsert: jest.fn().mockResolvedValue(undefined),
@@ -172,6 +173,7 @@ function createStatefulQueryRunner() {
         case 'TaxonomyL1':
           return taxonomyL1Repository
         case 'TaxonomyL2':
+        case 'TaxonomyL2RuntimeProfile':
           return taxonomyL2Repository
         case 'ControlPack':
           return packRepository

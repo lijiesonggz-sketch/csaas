@@ -1,0 +1,70 @@
+{
+  "l1Code": "IT07",
+  "version": "it07-rulebook-v1",
+  "fallbackBucket": "IT07-01",
+  "entries": [
+    {
+      "l2Code": "IT07-06",
+      "signals": [
+        {
+          "label": "后台修改数据",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "后台修改" },
+            { "type": "literal", "value": "核心业务系统数据" }
+          ]
+        },
+        {
+          "label": "绕过前台控制",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "绕过前台控制" },
+            { "type": "literal", "value": "篡改" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT07-07",
+      "signals": [
+        {
+          "label": "数据中心风险",
+          "weight": 4,
+          "matchers": [
+            { "type": "literal", "value": "数据中心" },
+            { "type": "literal", "value": "机房" }
+          ]
+        },
+        {
+          "label": "基础设施隐患",
+          "weight": 4,
+          "matchers": [
+            { "type": "literal", "value": "基础设施风险" },
+            { "type": "literal", "value": "消防" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT07-01",
+      "signals": [
+        {
+          "label": "运行管理漏洞",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "运行管理漏洞" },
+            { "type": "literal", "value": "值守不到位" }
+          ]
+        },
+        {
+          "label": "巡检处置不足",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "巡检不到位" },
+            { "type": "literal", "value": "监控不到位" }
+          ]
+        }
+      ]
+    }
+  ]
+}

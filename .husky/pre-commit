@@ -1,1 +1,21 @@
-#\!/bin/sh\n. "$(dirname "$0")/_/husky.sh"\n\n# Run lint-staged for frontend\ncd frontend && npx lint-staged\n\n# Run lint-staged for backend\ncd ../backend && npx lint-staged
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+cd "$repo_root/frontend" || exit 1
+npx lint-staged || exit 1
+
+cd "$repo_root/backend" || exit 1
+npx lint-staged || exit 1
+
+cd "$repo_root" || exit 1
+node backend/scripts/detect-orm-risk-changes.js --staged
+orm_risk_status=$?
+
+if [ "$orm_risk_status" -eq 10 ]; then
+  echo "[husky] ORM 高风险 staged 改动 detected; running fast ORM guards"
+  npm --workspace backend run orm:guard:fast || exit 1
+elif [ "$orm_risk_status" -ne 0 ]; then
+  exit "$orm_risk_status"
+fi

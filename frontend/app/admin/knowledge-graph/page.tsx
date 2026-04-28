@@ -3,7 +3,7 @@
 import { Component, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { AlertCircle, FileText, Loader2, Network, Scale, Search, ShieldAlert } from 'lucide-react'
+import { AlertCircle, FileText, Loader2, Network, Search, ShieldAlert } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,14 +13,20 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   getReasoningChain,
   getRegulationGraph,
+  getTaxonomyGovernanceSummary,
   getTaxonomyTree,
+  importTaxonomyRuntimeProfile,
   listRegulationSources,
+  exportTaxonomyRuntimeProfile,
   type ReasoningChainData,
   type RegulationGraphData,
   type RegulationSourceSummary,
+  type TaxonomyGovernanceSummary,
+  type TaxonomyRuntimeProfileImportResult,
   type TaxonomyTreeL1,
 } from '@/lib/api/knowledge-graph'
 import { KnowledgeGraphDetailPanel } from '@/components/admin/KnowledgeGraphDetailPanel'
+import { TaxonomyGovernancePanel } from '@/components/admin/TaxonomyGovernancePanel'
 import { KnowledgeGraphTree } from '@/components/admin/KnowledgeGraphTree'
 import { ReasoningChainVisualization } from '@/components/admin/ReasoningChainVisualization'
 import { RegulationDrivenDetailPanel } from '@/components/admin/RegulationDrivenDetailPanel'
@@ -36,13 +42,18 @@ const REGULATION_SOURCE_GROUP_LABELS: Record<string, string> = {
   other: '其他',
 }
 
-type ViewMode = 'case-driven' | 'regulation-driven'
+type ViewMode = 'case-driven' | 'regulation-driven' | 'taxonomy-governance'
 type CaseEntityType = 'failure-mode' | 'control-point' | 'obligation'
 type RegulationEntityType =
   | 'regulation-source'
   | 'clause'
   | 'obligation'
   | 'regulation-control-point'
+
+type GovernanceLoadOptions = {
+  clearSummaryOnError?: boolean
+  errorFallback?: string
+}
 
 interface SelectedCaseEntity {
   type: CaseEntityType
@@ -77,14 +88,14 @@ function matchesRegulationSource(source: RegulationSourceSummary, query: string)
   const normalized = query.trim().toLowerCase()
   if (!normalized) return true
   return [source.sourceCode, source.sourceName, source.authorityName ?? ''].some((value) =>
-    value.toLowerCase().includes(normalized),
+    value.toLowerCase().includes(normalized)
   )
 }
 
 function hasRegulationEntity(
   graph: RegulationGraphData,
   entity: SelectedRegulationEntity | null,
-  sourceId: string,
+  sourceId: string
 ) {
   if (!entity) return false
   if (entity.type === 'regulation-source') return entity.id === sourceId
@@ -154,20 +165,27 @@ export default function KnowledgeGraphPage() {
   const [regulationSourcesLoading, setRegulationSourcesLoading] = useState(true)
   const [regulationSourcesError, setRegulationSourcesError] = useState<string | null>(null)
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null)
-  const [selectedRegulationEntity, setSelectedRegulationEntity] = useState<SelectedRegulationEntity | null>(null)
+  const [selectedRegulationEntity, setSelectedRegulationEntity] =
+    useState<SelectedRegulationEntity | null>(null)
   const [regulationGraph, setRegulationGraph] = useState<RegulationGraphData | null>(null)
   const [regulationGraphLoading, setRegulationGraphLoading] = useState(false)
   const [regulationGraphError, setRegulationGraphError] = useState<string | null>(null)
+  const [governanceSummary, setGovernanceSummary] = useState<TaxonomyGovernanceSummary | null>(null)
+  const [governanceLoading, setGovernanceLoading] = useState(false)
+  const [governanceError, setGovernanceError] = useState<string | null>(null)
+  const [governanceInitialLoadRequested, setGovernanceInitialLoadRequested] = useState(false)
 
   const activeErrors = (
     viewMode === 'case-driven'
       ? [taxonomyError, chainError]
-      : [regulationSourcesError, regulationGraphError]
+      : viewMode === 'regulation-driven'
+        ? [regulationSourcesError, regulationGraphError]
+        : [governanceError]
   ).filter((message): message is string => Boolean(message))
 
   const filteredRegulationSources = useMemo(
     () => regulationSources.filter((source) => matchesRegulationSource(source, debouncedSearch)),
-    [debouncedSearch, regulationSources],
+    [debouncedSearch, regulationSources]
   )
 
   const groupedRegulationSources = useMemo(() => {
@@ -241,7 +259,7 @@ export default function KnowledgeGraphPage() {
         setSelectedSourceId((current) =>
           current && result.items.some((item) => item.sourceId === current)
             ? current
-            : (result.items[0]?.sourceId ?? null),
+            : (result.items[0]?.sourceId ?? null)
         )
       } catch (loadError) {
         if (!cancelled) setRegulationSourcesError(errorMessage(loadError, '加载法规来源失败'))
@@ -308,7 +326,7 @@ export default function KnowledgeGraphPage() {
         setSelectedRegulationEntity((current) =>
           hasRegulationEntity(data, current, sourceId)
             ? current
-            : { type: 'regulation-source', id: sourceId },
+            : { type: 'regulation-source', id: sourceId }
         )
       } catch (loadError) {
         if (!cancelled) setRegulationGraphError(errorMessage(loadError, '加载法规驱动线失败'))
@@ -322,6 +340,73 @@ export default function KnowledgeGraphPage() {
       cancelled = true
     }
   }, [canAccess, selectedSourceId, status])
+
+  async function loadGovernanceSummary(
+    options: GovernanceLoadOptions = {}
+  ): Promise<TaxonomyGovernanceSummary | null> {
+    try {
+      setGovernanceLoading(true)
+      setGovernanceError(null)
+      const result = await getTaxonomyGovernanceSummary()
+      setGovernanceSummary(result)
+      return result
+    } catch (loadError) {
+      if (options.clearSummaryOnError) {
+        setGovernanceSummary(null)
+      }
+      const message = options.errorFallback
+        ? `${options.errorFallback}${
+            loadError instanceof Error && loadError.message.trim()
+              ? `：${loadError.message.trim()}`
+              : ''
+          }`
+        : errorMessage(loadError, '加载 taxonomy 治理摘要失败')
+      setGovernanceError(message)
+      return null
+    } finally {
+      setGovernanceLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (status !== 'authenticated' || !canAccess || viewMode !== 'taxonomy-governance') {
+      return
+    }
+
+    if (governanceSummary || governanceLoading || governanceInitialLoadRequested) {
+      return
+    }
+
+    setGovernanceInitialLoadRequested(true)
+    void loadGovernanceSummary()
+  }, [
+    canAccess,
+    governanceInitialLoadRequested,
+    governanceLoading,
+    governanceSummary,
+    status,
+    viewMode,
+  ])
+
+  useEffect(() => {
+    if (viewMode === 'taxonomy-governance' || governanceSummary) {
+      return
+    }
+
+    setGovernanceInitialLoadRequested(false)
+  }, [governanceSummary, viewMode])
+
+  async function handleImportGovernanceRuntimeProfile(
+    file: File,
+    sourceVersion: string
+  ): Promise<TaxonomyRuntimeProfileImportResult> {
+    const result = await importTaxonomyRuntimeProfile(file, sourceVersion)
+    await loadGovernanceSummary({
+      clearSummaryOnError: true,
+      errorFallback: '导入成功，但治理摘要刷新失败，请点击刷新重试',
+    })
+    return result
+  }
 
   function handleSelectRegulationSource(sourceId: string) {
     setSelectedSourceId(sourceId)
@@ -378,6 +463,7 @@ export default function KnowledgeGraphPage() {
               <TabsList>
                 <TabsTrigger value="case-driven">案例驱动线</TabsTrigger>
                 <TabsTrigger value="regulation-driven">法规驱动线</TabsTrigger>
+                <TabsTrigger value="taxonomy-governance">taxonomy 治理</TabsTrigger>
               </TabsList>
             </Tabs>
             <div className="relative">
@@ -451,12 +537,12 @@ export default function KnowledgeGraphPage() {
                       entityType={
                         selectedCaseEntity?.type === 'control-point'
                           ? null
-                          : selectedCaseEntity?.type ?? null
+                          : (selectedCaseEntity?.type ?? null)
                       }
                       entityId={
                         selectedCaseEntity?.type === 'control-point'
                           ? null
-                          : selectedCaseEntity?.id ?? null
+                          : (selectedCaseEntity?.id ?? null)
                       }
                       reasoningChain={reasoningChain}
                       loading={chainLoading}
@@ -465,7 +551,7 @@ export default function KnowledgeGraphPage() {
                 </CardContent>
               </Card>
             </>
-          ) : (
+          ) : viewMode === 'regulation-driven' ? (
             <>
               <Card className="rounded-sm border-[#E2E8F0] shadow-sm">
                 <CardContent className="p-4">
@@ -498,7 +584,9 @@ export default function KnowledgeGraphPage() {
                                 }`}
                                 onClick={() => handleSelectRegulationSource(source.sourceId)}
                               >
-                                <div className="text-xs font-mono text-[#64748B]">{source.sourceCode}</div>
+                                <div className="text-xs font-mono text-[#64748B]">
+                                  {source.sourceCode}
+                                </div>
                                 <div className="mt-1 text-sm font-medium text-[#1E3A5F]">
                                   {source.sourceName}
                                 </div>
@@ -551,6 +639,15 @@ export default function KnowledgeGraphPage() {
                 </CardContent>
               </Card>
             </>
+          ) : (
+            <TaxonomyGovernancePanel
+              summary={governanceSummary}
+              loading={governanceLoading}
+              error={governanceError}
+              onRefresh={() => void loadGovernanceSummary()}
+              onExport={() => exportTaxonomyRuntimeProfile()}
+              onImport={handleImportGovernanceRuntimeProfile}
+            />
           )}
         </div>
       </div>

@@ -1,31 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as Papa from 'papaparse'
-import {
-  IT01_RULEBOOK,
-} from '../../case-import-orchestrator/services/taxonomy-classification/rulebooks/it01.rulebook'
-import {
-  IT02_RULEBOOK,
-} from '../../case-import-orchestrator/services/taxonomy-classification/rulebooks/it02.rulebook'
-import {
-  IT03_RULEBOOK,
-} from '../../case-import-orchestrator/services/taxonomy-classification/rulebooks/it03.rulebook'
-import {
-  IT04_RULEBOOK,
-} from '../../case-import-orchestrator/services/taxonomy-classification/rulebooks/it04.rulebook'
-import {
-  IT05_RULEBOOK,
-} from '../../case-import-orchestrator/services/taxonomy-classification/rulebooks/it05.rulebook'
-import {
-  IT06_RULEBOOK,
-} from '../../case-import-orchestrator/services/taxonomy-classification/rulebooks/it06.rulebook'
-import {
-  IT07_RULEBOOK,
-} from '../../case-import-orchestrator/services/taxonomy-classification/rulebooks/it07.rulebook'
-import {
-  IT08_RULEBOOK,
-} from '../../case-import-orchestrator/services/taxonomy-classification/rulebooks/it08.rulebook'
-import type { TaxonomyRulebook } from '../../case-import-orchestrator/services/taxonomy-classification/contracts/classification-result.contract'
+import { loadAllRulebookManifests } from '../../case-import-orchestrator/services/taxonomy-classification/rulebooks/rulebook-manifest.loader'
 
 type CsvRow = {
   一级编码: string
@@ -39,21 +15,9 @@ const CSV_PATH = path.resolve(
   '../../../../../docs/it-taxonomy-to-kg-semantic-mapping-2026-04-07.csv',
 )
 const SEED_PATH = path.resolve(__dirname, './data/taxonomy.seed.json')
-const RULEBOOKS: TaxonomyRulebook[] = [
-  IT01_RULEBOOK,
-  IT02_RULEBOOK,
-  IT03_RULEBOOK,
-  IT04_RULEBOOK,
-  IT05_RULEBOOK,
-  IT06_RULEBOOK,
-  IT07_RULEBOOK,
-  IT08_RULEBOOK,
-]
 
 function sortValues(values: Iterable<string>): string[] {
-  return Array.from(new Set(values)).sort((left, right) =>
-    left.localeCompare(right),
-  )
+  return Array.from(new Set(values)).sort((left, right) => left.localeCompare(right))
 }
 
 function loadCsvL2Codes(): string[] {
@@ -133,8 +97,10 @@ function loadSeedTaxonomyRows(): Array<{
 }
 
 function loadRulebookL2Codes(): string[] {
+  const rulebookManifests = Object.values(loadAllRulebookManifests())
+
   return sortValues(
-    RULEBOOKS.flatMap((rulebook) => rulebook.entries.map((entry) => entry.l2Code)),
+    rulebookManifests.flatMap((rulebook) => rulebook.entries.map((entry) => entry.l2Code)),
   )
 }
 

@@ -5,10 +5,7 @@ import type {
   TaxonomyClassificationResult,
   TaxonomyDomainRegistryEntry,
 } from './contracts/classification-result.contract'
-import {
-  TAXONOMY_MAPPING_REPOSITORY,
-  type MappingRepository,
-} from './mapping-repository.interface'
+import { TAXONOMY_MAPPING_REPOSITORY, type MappingRepository } from './mapping-repository.interface'
 import { TaxonomyClassifierEngine } from './taxonomy-classifier.engine'
 import { getTaxonomyDomainRegistryEntry } from './profiles/domain-registry'
 
@@ -23,9 +20,7 @@ export class TaxonomyClassifierService {
     private readonly taxonomyClassifierEngine: TaxonomyClassifierEngine,
   ) {}
 
-  classifyCaseText(
-    request: TaxonomyClassificationRequest,
-  ): TaxonomyClassificationResult {
+  classifyCaseText(request: TaxonomyClassificationRequest): TaxonomyClassificationResult {
     const activeDomain = this.resolveActiveDomain(request.preferredL1Code)
     if (!activeDomain) {
       return this.buildUnsupportedDomainResult(request.preferredL1Code ?? null)
@@ -53,10 +48,16 @@ export class TaxonomyClassifierService {
     }
   }
 
-  private resolveActiveDomain(
-    preferredL1Code?: string | null,
-  ): TaxonomyDomainRegistryEntry | null {
+  private resolveActiveDomain(preferredL1Code?: string | null): TaxonomyDomainRegistryEntry | null {
     return getTaxonomyDomainRegistryEntry(preferredL1Code)
+  }
+
+  private safeGetMappingVersion(): string {
+    try {
+      return this.mappingRepository.getVersion()
+    } catch {
+      return 'unavailable'
+    }
   }
 
   private buildUnsupportedDomainResult(
@@ -74,7 +75,7 @@ export class TaxonomyClassifierService {
       matchedPhrases: [],
       matchedTokens: [],
       classifierVersion: TAXONOMY_CLASSIFIER_VERSION,
-      mappingVersion: this.mappingRepository.getVersion(),
+      mappingVersion: this.safeGetMappingVersion(),
       rulebookVersion: 'unconfigured',
       classifiedAt: new Date().toISOString(),
       pathDecision: 'UNCLASSIFIED',
@@ -97,7 +98,7 @@ export class TaxonomyClassifierService {
       matchedPhrases: [],
       matchedTokens: [],
       classifierVersion: TAXONOMY_CLASSIFIER_VERSION,
-      mappingVersion: this.mappingRepository.getVersion(),
+      mappingVersion: this.safeGetMappingVersion(),
       rulebookVersion: domain.profile.rulebookVersion,
       classifiedAt: new Date().toISOString(),
       pathDecision: 'UNCLASSIFIED',

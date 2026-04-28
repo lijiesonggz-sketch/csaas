@@ -4,11 +4,13 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToOne,
   OneToMany,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm'
 import { ControlPoint } from './control-point.entity'
+import { TaxonomyL2RuntimeProfile } from './taxonomy-l2-runtime-profile.entity'
 import { TaxonomyL1, TaxonomyStatus } from './taxonomy-l1.entity'
 import { TaxonomyFailureModeMap } from './taxonomy-failure-mode-map.entity'
 
@@ -49,4 +51,7 @@ export class TaxonomyL2 {
 
   @OneToMany(() => TaxonomyFailureModeMap, (map) => map.taxonomyL2)
   taxonomyFailureModeMaps: TaxonomyFailureModeMap[]
+
+  @OneToOne(() => TaxonomyL2RuntimeProfile, (runtimeProfile) => runtimeProfile.taxonomyL2)
+  runtimeProfile?: TaxonomyL2RuntimeProfile | null
 }

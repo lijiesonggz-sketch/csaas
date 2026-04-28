@@ -10,6 +10,8 @@ import { RuntimeDomainSelectorService } from './runtime-domain-selector.service'
 import { CaseClusteringChainService } from './case-clustering-chain.service'
 import { TaxonomyClassifierService } from './taxonomy-classification/taxonomy-classifier.service'
 import { CaseNormalizationService } from './taxonomy-classification/case-normalization.service'
+import { TypeOrmBackedMappingRepository } from './taxonomy-classification/typeorm-backed-mapping.repository'
+import { TaxonomyClassifierEngine } from './taxonomy-classification/taxonomy-classifier.engine'
 import { DomainRolloutPolicyService } from './taxonomy-classification/domain-rollout-policy.service'
 import { FailureModeService } from '../../knowledge-graph/services/failure-mode.service'
 
@@ -176,13 +178,11 @@ describe('CaseExtractionService', () => {
         rolloutState: 'domain-primary',
         stateAllowsPrimary: true,
         pathDecision:
-          classifierResult.pathDecision === 'PRIMARY_CHAIN' &&
-          primaryExecutability.isExecutable
+          classifierResult.pathDecision === 'PRIMARY_CHAIN' && primaryExecutability.isExecutable
             ? 'PRIMARY_CHAIN'
             : classifierResult.pathDecision,
         failureSemantic:
-          classifierResult.pathDecision === 'PRIMARY_CHAIN' &&
-          !primaryExecutability.isExecutable
+          classifierResult.pathDecision === 'PRIMARY_CHAIN' && !primaryExecutability.isExecutable
             ? 'MAPPING_MISSING'
             : classifierResult.failureSemantics,
         primaryExecutability,
@@ -190,9 +190,7 @@ describe('CaseExtractionService', () => {
       }),
     )
     classificationRunService.appendRunAndRefreshLatest.mockResolvedValue(undefined)
-    classificationTelemetryService.publishLatestSnapshotWritten.mockResolvedValue(
-      undefined,
-    )
+    classificationTelemetryService.publishLatestSnapshotWritten.mockResolvedValue(undefined)
   })
 
   it('should extract violation themes and clause candidates for pending cases without blocking on unclassified snapshot outcomes', async () => {
@@ -289,6 +287,90 @@ describe('CaseExtractionService', () => {
     )
   })
 
+  it('should preserve extraction snapshot outputs when classifier is backed by hydrated runtime profile data', async () => {
+    const runtimeProfileRepository = {
+      find: jest.fn().mockResolvedValue([
+        {
+          l2Code: 'IT04-10',
+          definition: '投保信息、业务信息、登记信息录入、更新、维护不及时不规范',
+          canonicalTheme: '信息登记与更新管理',
+          aliasesJson: ['信息登记', '录入更新', '维护及时性'],
+          keywordsJson: ['录入不及时', '更新不及时', '补录'],
+          sourceVersion: '2026-04-07',
+          taxonomyL2: {
+            l2Code: 'IT04-10',
+            l1Code: 'IT04',
+            l2Name: '信息登记/录入/更新不及时不规范',
+            parent: {
+              l1Code: 'IT04',
+              l1Name: '数据治理与监管数据报送',
+            },
+          },
+        },
+      ]),
+    }
+    const dbBackedRepository = new TypeOrmBackedMappingRepository(runtimeProfileRepository as never)
+    await dbBackedRepository.refreshCache()
+    const realClassifier = new TaxonomyClassifierService(
+      new CaseNormalizationService(),
+      dbBackedRepository,
+      new TaxonomyClassifierEngine(),
+    )
+
+    complianceCaseRepository.find.mockResolvedValue([
+      {
+        caseId: 'case-db-backed-1',
+        importBatchId: 'batch-db-backed-1',
+        status: 'pending',
+        penaltyReason: '监管登记信息补录和更新没有时效监控',
+        caseFacts: '补录超期且无人催办，导致信息更新不及时不规范',
+      },
+    ])
+    regulationClauseRepository.find.mockResolvedValue([])
+    complianceCaseRepository.save.mockImplementation(async (entity) => entity)
+    runtimeDomainSelectorService.getSupportedDomains.mockReturnValue(['IT04'])
+    taxonomyClassifierService.classifyCaseText.mockImplementation((request) =>
+      realClassifier.classifyCaseText(request),
+    )
+
+    domainRolloutPolicyService.resolvePolicyDecision.mockResolvedValue({
+      policy: {
+        l1Code: 'IT04',
+        rolloutState: 'domain-primary',
+        allowLegacyFallback: true,
+        primaryThreshold: 0.7,
+        shadowWindowDays: 14,
+        killSwitchEnabled: false,
+        activeClassifierVersion: 'taxonomy-classifier-6.3',
+      },
+      rolloutState: 'domain-primary',
+      stateAllowsPrimary: true,
+      pathDecision: 'PRIMARY_CHAIN',
+      failureSemantic: null,
+      primaryExecutability: {
+        failureModeCount: 1,
+        controlCandidateCount: 1,
+        isExecutable: true,
+        reason: 'READY',
+      },
+      reason: 'test-double',
+    })
+
+    const result = await service.extractBatch('batch-db-backed-1')
+
+    expect(result.processedCount).toBe(1)
+    expect(complianceCaseRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        l1Code: 'IT04',
+        l2Code: 'IT04-10',
+        confidenceScore: '9.0000',
+        classificationSource: 'rule',
+        classificationVersion: 'taxonomy-classifier-6.3',
+        fallbackReason: null,
+      }),
+    )
+  })
+
   it('should fan out across supported runtime domains and persist the strongest primary snapshot instead of hardcoding IT04', async () => {
     complianceCaseRepository.find.mockResolvedValue([
       {
@@ -303,10 +385,7 @@ describe('CaseExtractionService', () => {
     ])
     regulationClauseRepository.find.mockResolvedValue([])
     complianceCaseRepository.save.mockImplementation(async (entity) => entity)
-    runtimeDomainSelectorService.getSupportedDomains.mockReturnValue([
-      'IT02',
-      'IT07',
-    ])
+    runtimeDomainSelectorService.getSupportedDomains.mockReturnValue(['IT02', 'IT07'])
     taxonomyClassifierService.classifyCaseText.mockImplementation(
       ({ preferredL1Code }: { preferredL1Code: string }) => {
         if (preferredL1Code === 'IT07') {

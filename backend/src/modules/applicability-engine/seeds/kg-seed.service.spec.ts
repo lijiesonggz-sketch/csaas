@@ -88,6 +88,9 @@ describe('seedKgBaselineWithQueryRunner', () => {
     const taxonomyL2Repository = {
       upsert: jest.fn().mockResolvedValue(undefined),
     }
+    const taxonomyRuntimeProfileRepository = {
+      upsert: jest.fn().mockResolvedValue(undefined),
+    }
     const controlPointRepository = {
       findOne: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockImplementation((value) => value),
@@ -101,6 +104,10 @@ describe('seedKgBaselineWithQueryRunner', () => {
 
         if (entity.name === 'TaxonomyL2') {
           return taxonomyL2Repository
+        }
+
+        if (entity.name === 'TaxonomyL2RuntimeProfile') {
+          return taxonomyRuntimeProfileRepository
         }
 
         if (entity === ControlPack) {
@@ -194,6 +201,7 @@ describe('seedKgBaselineWithQueryRunner', () => {
     expect(summary.expectedResults).toBe(seedData.expectedResults.length)
     expect(summary.taxonomyL1).toBe(seedData.taxonomyL1.length)
     expect(summary.taxonomyL2).toBe(seedData.taxonomyL2.length)
+    expect(summary.taxonomyRuntimeProfiles).toBeGreaterThan(0)
     expect(summary.controlPoints).toBe(seedData.controlPoints.length)
   })
 
@@ -226,7 +234,11 @@ describe('seedKgBaselineWithQueryRunner', () => {
     }
     const manager = {
       getRepository: jest.fn((entity) => {
-        if (entity.name === 'TaxonomyL1' || entity.name === 'TaxonomyL2') {
+        if (
+          entity.name === 'TaxonomyL1' ||
+          entity.name === 'TaxonomyL2' ||
+          entity.name === 'TaxonomyL2RuntimeProfile'
+        ) {
           return genericRepository
         }
         if (entity === ControlPack) {
@@ -290,6 +302,12 @@ describe('runKgSeed', () => {
           }
 
           if (entity.name === 'TaxonomyL2') {
+            return {
+              upsert: jest.fn().mockResolvedValue(undefined),
+            }
+          }
+
+          if (entity.name === 'TaxonomyL2RuntimeProfile') {
             return {
               upsert: jest.fn().mockResolvedValue(undefined),
             }

@@ -7,10 +7,7 @@ export {
   CONTROL_PACK_MATURITY_LEVELS,
   CONTROL_PACK_TYPES,
 } from './control-pack.entity'
-export {
-  ControlPackItem,
-  CONTROL_PACK_ITEM_ROLES,
-} from './control-pack-item.entity'
+export { ControlPackItem, CONTROL_PACK_ITEM_ROLES } from './control-pack-item.entity'
 export {
   ApplicabilityRule,
   APPLICABILITY_RULE_TARGET_TYPES,
@@ -38,6 +35,7 @@ export { CurrentStateDescription } from './current-state-description.entity'
 export { WeaknessSnapshot } from './weakness-snapshot.entity'
 export { TaxonomyL1, TAXONOMY_STATUSES } from './taxonomy-l1.entity'
 export { TaxonomyL2 } from './taxonomy-l2.entity'
+export { TaxonomyL2RuntimeProfile } from './taxonomy-l2-runtime-profile.entity'
 export {
   ControlPoint,
   CONTROL_POINT_RISK_LEVELS,
@@ -53,10 +51,7 @@ export {
   REGULATION_SOURCE_LEVELS,
   REGULATION_SOURCE_STATUSES,
 } from './regulation-source.entity'
-export {
-  RegulationClause,
-  REGULATION_CLAUSE_MANDATORY_LEVELS,
-} from './regulation-clause.entity'
+export { RegulationClause, REGULATION_CLAUSE_MANDATORY_LEVELS } from './regulation-clause.entity'
 export {
   RegulationObligation,
   OBLIGATION_TYPES,
@@ -67,10 +62,7 @@ export {
   CLAUSE_CONTROL_MAPPING_TYPES,
   MAP_REVIEW_STATUSES,
 } from './clause-control-map.entity'
-export {
-  ObligationControlMap,
-  OBLIGATION_COVERAGES,
-} from './obligation-control-map.entity'
+export { ObligationControlMap, OBLIGATION_COVERAGES } from './obligation-control-map.entity'
 export {
   ComplianceCase,
   COMPLIANCE_CASE_CLASSIFICATION_SOURCES,
@@ -88,15 +80,8 @@ export {
   KgTaxonomyDomainRolloutPolicy,
   KG_TAXONOMY_DOMAIN_ROLLOUT_STATES,
 } from './kg-taxonomy-domain-rollout-policy.entity'
-export {
-  CaseControlMap,
-  CASE_CONTROL_RELATION_TYPES,
-} from './case-control-map.entity'
-export {
-  EvidenceType,
-  EVIDENCE_CATEGORIES,
-  EVIDENCE_TYPE_STATUSES,
-} from './evidence-type.entity'
+export { CaseControlMap, CASE_CONTROL_RELATION_TYPES } from './case-control-map.entity'
+export { EvidenceType, EVIDENCE_CATEGORIES, EVIDENCE_TYPE_STATUSES } from './evidence-type.entity'
 export {
   ControlEvidenceMap,
   CONTROL_EVIDENCE_REQUIRED_LEVELS,
@@ -104,11 +89,7 @@ export {
   EVIDENCE_SAMPLING_REQUIREMENTS,
 } from './control-evidence-map.entity'
 export type { EvidenceFrequency, EvidenceSamplingRequirement } from './control-evidence-map.entity'
-export {
-  QuestionItem,
-  QUESTION_ITEM_STATUSES,
-  QUESTION_ITEM_TYPES,
-} from './question-item.entity'
+export { QuestionItem, QUESTION_ITEM_STATUSES, QUESTION_ITEM_TYPES } from './question-item.entity'
 export {
   RemediationAction,
   REMEDIATION_ACTION_BENEFIT_LEVELS,
@@ -153,11 +134,7 @@ export { WatchedTopic } from './watched-topic.entity'
 export { WatchedPeer } from './watched-peer.entity'
 
 // KG V2: 失效模式体系
-export {
-  FailureMode,
-  FAILURE_MODE_CATEGORIES,
-  FAILURE_MODE_STATUSES,
-} from './failure-mode.entity'
+export { FailureMode, FAILURE_MODE_CATEGORIES, FAILURE_MODE_STATUSES } from './failure-mode.entity'
 export { TaxonomyFailureModeMap } from './taxonomy-failure-mode-map.entity'
 export {
   FailureModeControlMap,

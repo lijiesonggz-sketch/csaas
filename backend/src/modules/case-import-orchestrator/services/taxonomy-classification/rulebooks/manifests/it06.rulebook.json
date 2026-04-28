@@ -1,0 +1,71 @@
+{
+  "l1Code": "IT06",
+  "version": "it06-rulebook-v1",
+  "fallbackBucket": "IT06-05",
+  "entries": [
+    {
+      "l2Code": "IT06-03",
+      "signals": [
+        {
+          "label": "投产上线失控",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "投产上线" },
+            { "type": "literal", "value": "上线审批" }
+          ]
+        },
+        {
+          "label": "变更控制缺失",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "变更审批" },
+            { "type": "literal", "value": "回退控制" },
+            { "type": "literal", "value": "发布管理" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT06-04",
+      "signals": [
+        {
+          "label": "重大架构变更",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "重大架构变更" },
+            { "type": "literal", "value": "网络架构重大变更" }
+          ]
+        },
+        {
+          "label": "变更评估缺失",
+          "weight": 4,
+          "matchers": [
+            { "type": "literal", "value": "未开展评估" },
+            { "type": "literal", "value": "未报监管" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT06-05",
+      "signals": [
+        {
+          "label": "系统建设不足",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "系统建设不到位" },
+            { "type": "literal", "value": "系统能力建设不足" }
+          ]
+        },
+        {
+          "label": "制度建设不足",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "制度建设不足" },
+            { "type": "literal", "value": "信息系统建设不到位" }
+          ]
+        }
+      ]
+    }
+  ]
+}

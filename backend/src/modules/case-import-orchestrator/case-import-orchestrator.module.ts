@@ -1,5 +1,5 @@
 import { BullModule } from '@nestjs/bullmq'
-import { forwardRef, Module } from '@nestjs/common'
+import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { CaseControlMap } from '../../database/entities/case-control-map.entity'
 import { ComplianceCase } from '../../database/entities/compliance-case.entity'
@@ -8,6 +8,9 @@ import { ControlPoint } from '../../database/entities/control-point.entity'
 import { KgTaxonomyDomainRolloutPolicy } from '../../database/entities/kg-taxonomy-domain-rollout-policy.entity'
 import { RawContent } from '../../database/entities/raw-content.entity'
 import { RegulationClause } from '../../database/entities/regulation-clause.entity'
+import { TaxonomyL2RuntimeProfile } from '../../database/entities/taxonomy-l2-runtime-profile.entity'
+import { TaxonomyL1 } from '../../database/entities/taxonomy-l1.entity'
+import { TaxonomyL2 } from '../../database/entities/taxonomy-l2.entity'
 import { AuditModule } from '../audit/audit.module'
 import { AIClientsModule } from '../ai-clients/ai-clients.module'
 import { KnowledgeGraphModule } from '../knowledge-graph/knowledge-graph.module'
@@ -15,6 +18,7 @@ import { OrganizationsModule } from '../organizations/organizations.module'
 import { KG_CASE_IMPORT_QUEUE } from './constants/case-import.constants'
 import { CaseImportController } from './controllers/case-import.controller'
 import { CaseHumanReviewController } from './controllers/case-human-review.controller'
+import { TaxonomyGovernanceController } from './controllers/taxonomy-governance.controller'
 import { CaseImportAuditFilter } from './filters/case-import-audit.filter'
 import { CaseImportProcessor } from './processors/case-import.processor'
 import { CaseClusteringChainService } from './services/case-clustering-chain.service'
@@ -40,11 +44,14 @@ import {
   TaxonomyDomainRetirementService,
 } from './services/taxonomy-domain-retirement.service'
 import { CaseNormalizationService } from './services/taxonomy-classification/case-normalization.service'
-import { CsvBackedMappingRepository } from './services/taxonomy-classification/csv-backed-mapping.repository'
-import { DomainRolloutPolicyService } from './services/taxonomy-classification/domain-rollout-policy.service'
 import {
-  TAXONOMY_MAPPING_REPOSITORY,
-} from './services/taxonomy-classification/mapping-repository.interface'
+  CSV_BACKED_MAPPING_REPOSITORY_OPTIONS,
+  CsvBackedMappingRepository,
+} from './services/taxonomy-classification/csv-backed-mapping.repository'
+import { DomainRolloutPolicyService } from './services/taxonomy-classification/domain-rollout-policy.service'
+import { TaxonomyGovernanceService } from './services/taxonomy-classification/taxonomy-governance.service'
+import { TypeOrmBackedMappingRepository } from './services/taxonomy-classification/typeorm-backed-mapping.repository'
+import { TAXONOMY_MAPPING_REPOSITORY } from './services/taxonomy-classification/mapping-repository.interface'
 import { TaxonomyClassifierEngine } from './services/taxonomy-classification/taxonomy-classifier.engine'
 import { TaxonomyClassifierService } from './services/taxonomy-classification/taxonomy-classifier.service'
 
@@ -55,6 +62,9 @@ import { TaxonomyClassifierService } from './services/taxonomy-classification/ta
       ComplianceCase,
       ComplianceCaseClassificationRun,
       KgTaxonomyDomainRolloutPolicy,
+      TaxonomyL1,
+      TaxonomyL2,
+      TaxonomyL2RuntimeProfile,
       RegulationClause,
       ControlPoint,
       CaseControlMap,
@@ -76,7 +86,7 @@ import { TaxonomyClassifierService } from './services/taxonomy-classification/ta
     OrganizationsModule,
     AuditModule,
   ],
-  controllers: [CaseImportController, CaseHumanReviewController],
+  controllers: [CaseImportController, CaseHumanReviewController, TaxonomyGovernanceController],
   providers: [
     CaseHumanReviewService,
     CaseClusteringChainService,
@@ -93,10 +103,16 @@ import { TaxonomyClassifierService } from './services/taxonomy-classification/ta
     DomainRetirementSmokeVerifierService,
     DomainRetirementReleaseGuardService,
     TaxonomyDomainRetirementService,
+    TaxonomyGovernanceService,
     ComplianceCaseClassificationRunService,
     ClassificationTelemetryService,
     CaseNormalizationService,
+    {
+      provide: CSV_BACKED_MAPPING_REPOSITORY_OPTIONS,
+      useValue: {},
+    },
     CsvBackedMappingRepository,
+    TypeOrmBackedMappingRepository,
     TaxonomyClassifierEngine,
     TaxonomyClassifierService,
     It04TaxonomyClassifierService,
@@ -107,7 +123,7 @@ import { TaxonomyClassifierService } from './services/taxonomy-classification/ta
     CaseImportAuditFilter,
     {
       provide: TAXONOMY_MAPPING_REPOSITORY,
-      useExisting: CsvBackedMappingRepository,
+      useExisting: TypeOrmBackedMappingRepository,
     },
   ],
   exports: [

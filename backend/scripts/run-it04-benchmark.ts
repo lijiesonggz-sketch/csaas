@@ -6,8 +6,10 @@ import { FailureMode } from '../src/database/entities/failure-mode.entity'
 import { TaxonomyFailureModeMap } from '../src/database/entities/taxonomy-failure-mode-map.entity'
 import { TaxonomyL1 } from '../src/database/entities/taxonomy-l1.entity'
 import { TaxonomyL2 } from '../src/database/entities/taxonomy-l2.entity'
+import { TaxonomyL2RuntimeProfile } from '../src/database/entities/taxonomy-l2-runtime-profile.entity'
 import { CaseClusteringChainService } from '../src/modules/case-import-orchestrator/services/case-clustering-chain.service'
 import { It04BenchmarkRunner } from '../src/modules/case-import-orchestrator/services/it04-benchmark.runner'
+import { TypeOrmBackedMappingRepository } from '../src/modules/case-import-orchestrator/services/taxonomy-classification/typeorm-backed-mapping.repository'
 import { ControlPointService } from '../src/modules/knowledge-graph/services/control-point.service'
 import { FailureModeService } from '../src/modules/knowledge-graph/services/failure-mode.service'
 
@@ -34,17 +36,19 @@ async function main(): Promise<void> {
       AppDataSource.getRepository(TaxonomyFailureModeMap),
       AppDataSource.getRepository(ControlPackItem),
     )
-    const caseClusteringChainService = new CaseClusteringChainService(
-      failureModeService,
-      {
-        upsertCaseControlMap: async () => undefined,
-      } as never,
+    const caseClusteringChainService = new CaseClusteringChainService(failureModeService, {
+      upsertCaseControlMap: async () => undefined,
+    } as never)
+    const mappingRepository = new TypeOrmBackedMappingRepository(
+      AppDataSource.getRepository(TaxonomyL2RuntimeProfile),
     )
+    await mappingRepository.refreshCache()
 
     const runner = new It04BenchmarkRunner({
       failureModeService,
       controlPointService,
       caseClusteringChainService,
+      mappingRepository,
     })
     const report = await runner.runBenchmark({
       writeReport: true,

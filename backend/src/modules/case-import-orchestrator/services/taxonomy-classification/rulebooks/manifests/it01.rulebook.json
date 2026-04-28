@@ -1,0 +1,70 @@
+{
+  "l1Code": "IT01",
+  "version": "it01-rulebook-v1",
+  "fallbackBucket": "IT01-01",
+  "entries": [
+    {
+      "l2Code": "IT01-02",
+      "signals": [
+        {
+          "label": "治理体系不健全",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "治理体系不健全" },
+            { "type": "literal", "value": "制度机制不健全" }
+          ]
+        },
+        {
+          "label": "职责机制不完善",
+          "weight": 4,
+          "matchers": [
+            { "type": "literal", "value": "职责机制不完善" },
+            { "type": "literal", "value": "治理架构不完善" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT01-03",
+      "signals": [
+        {
+          "label": "整改落实不到位",
+          "weight": 5,
+          "matchers": [
+            { "type": "literal", "value": "整改不到位" },
+            { "type": "literal", "value": "监管意见落实不到位" }
+          ]
+        },
+        {
+          "label": "屡查屡犯",
+          "weight": 4,
+          "matchers": [
+            { "type": "literal", "value": "屡查屡犯" },
+            { "type": "literal", "value": "反复发生" }
+          ]
+        }
+      ]
+    },
+    {
+      "l2Code": "IT01-01",
+      "signals": [
+        {
+          "label": "科技风险管理",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "科技风险管理" },
+            { "type": "literal", "value": "风险管理不审慎" }
+          ]
+        },
+        {
+          "label": "风险控制不到位",
+          "weight": 3,
+          "matchers": [
+            { "type": "literal", "value": "风险控制不到位" },
+            { "type": "literal", "value": "操作风险识别" }
+          ]
+        }
+      ]
+    }
+  ]
+}
