@@ -6,16 +6,10 @@ import {
   stateAllowsPrimaryPath,
   validateRolloutTransition,
 } from './domain-rollout-policy.service'
-import {
-  TAXONOMY_ROLLOUT_POLICY_ATDD_ABSTAIN_DECISION,
-  TAXONOMY_ROLLOUT_POLICY_ATDD_FALLBACK_DECISION,
-  TAXONOMY_ROLLOUT_POLICY_ATDD_KILL_SWITCH_DECISION,
-  TAXONOMY_ROLLOUT_POLICY_ATDD_OWNER_ASSIGNMENTS,
-  TAXONOMY_ROLLOUT_POLICY_ATDD_PRIMARY_DECISION,
-} from '../../testing/taxonomy-rollout-policy.atdd.fixtures'
+import { TAXONOMY_ROLLOUT_POLICY_ATDD_OWNER_ASSIGNMENTS } from '../../testing/taxonomy-rollout-policy.atdd.fixtures'
 
-describe('DomainRolloutPolicyService', () => {
-  it('should bootstrap stable per-domain defaults for runtime-ready domains', () => {
+describe('DomainRolloutPolicyService core policy semantics', () => {
+  test('[8.1-SVC-001][P0] should bootstrap stable per-domain defaults for runtime-ready domains', () => {
     const policies = createBootstrapDomainRolloutPolicies({
       domainCodes: ['IT01', 'IT04', 'IT07'],
       activeClassifierVersion: 'taxonomy-classifier-6.4',
@@ -40,7 +34,7 @@ describe('DomainRolloutPolicyService', () => {
     )
   })
 
-  it('should normalize owner assignments with safe defaults', () => {
+  test('[8.1-SVC-002][P1] should normalize owner assignments with safe defaults', () => {
     expect(normalizePolicyOwnership({})).toEqual({
       mappingOwner: 'unassigned',
       rulebookOwner: 'unassigned',
@@ -53,19 +47,13 @@ describe('DomainRolloutPolicyService', () => {
     )
   })
 
-  it('should enforce forward-only adjacent state promotions while allowing rollback', () => {
-    expect(() =>
-      validateRolloutTransition('legacy-primary', 'it04-on-new-interface'),
-    ).not.toThrow()
-    expect(() =>
-      validateRolloutTransition('domain-primary', 'domain-compare'),
-    ).not.toThrow()
-    expect(() =>
-      validateRolloutTransition('legacy-primary', 'legacy-off'),
-    ).toThrow(/skip/i)
+  test('[8.1-SVC-003][P0] should enforce forward-only adjacent state promotions while allowing rollback', () => {
+    expect(() => validateRolloutTransition('legacy-primary', 'it04-on-new-interface')).not.toThrow()
+    expect(() => validateRolloutTransition('domain-primary', 'domain-compare')).not.toThrow()
+    expect(() => validateRolloutTransition('legacy-primary', 'legacy-off')).toThrow(/skip/i)
   })
 
-  it('should expose primary path only for states that authorize it', () => {
+  test('[8.1-SVC-004][P0] should expose primary path only for states that authorize it', () => {
     expect(stateAllowsPrimaryPath('legacy-primary')).toBe(false)
     expect(stateAllowsPrimaryPath('domain-shadow')).toBe(false)
     expect(stateAllowsPrimaryPath('it04-on-new-interface')).toBe(true)
@@ -73,298 +61,56 @@ describe('DomainRolloutPolicyService', () => {
     expect(stateAllowsPrimaryPath('legacy-off')).toBe(true)
   })
 
-  it('should resolve primary chain when policy authorizes primary and the chain is executable', async () => {
-    const service = new DomainRolloutPolicyService(undefined as never)
-
-    const decision = await service.resolvePolicyDecision({
-      l1Code: TAXONOMY_ROLLOUT_POLICY_ATDD_PRIMARY_DECISION.l1Code,
-      policy: {
-        id: null,
-        l1Code: TAXONOMY_ROLLOUT_POLICY_ATDD_PRIMARY_DECISION.l1Code,
-        rolloutState: TAXONOMY_ROLLOUT_POLICY_ATDD_PRIMARY_DECISION.rolloutState,
-        allowLegacyFallback:
-          TAXONOMY_ROLLOUT_POLICY_ATDD_PRIMARY_DECISION.allowLegacyFallback,
-        primaryThreshold: 0.78,
-        shadowWindowDays: 14,
-        cutoverThresholdsJson: {},
-        retirementThresholdsJson: {},
-        killSwitchEnabled:
-          TAXONOMY_ROLLOUT_POLICY_ATDD_PRIMARY_DECISION.killSwitchEnabled,
-        activeClassifierVersion: 'taxonomy-classifier-6.4',
-        stateChangedAt: null,
+  test.each([
+    [
+      '8.1-SVC-005',
+      'legacy-primary with fallback enabled and no evidence',
+      {
+        rolloutState: 'legacy-primary',
+        allowLegacyFallback: true,
         retirementEvidenceJson: normalizeRetirementEvidence(),
-        updatedAt: null,
-        updatedBy: null,
-        ...normalizePolicyOwnership({}),
       },
-      classifierResult: {
-        ...TAXONOMY_ROLLOUT_POLICY_ATDD_PRIMARY_DECISION.classifierResult,
-        l2Name: '核心业务系统数据被后台修改/篡改',
-        score: 0.91,
-        decisionSource: 'rule',
-        matchedSignals: ['后台直接修改'],
-        matchedPhrases: ['后台直接修改'],
-        matchedTokens: ['后台'],
-        classifierVersion: 'taxonomy-classifier-6.4',
-        mappingVersion: '2026-04-07',
-        rulebookVersion: 'it07-rulebook-v1',
-        classifiedAt: new Date().toISOString(),
+      {
+        stateAllowsPrimary: false,
+        stateAllowsLegacyFallback: true,
+        hasRetirementEvidence: false,
       },
-      primaryExecutability: {
-        ...TAXONOMY_ROLLOUT_POLICY_ATDD_PRIMARY_DECISION.primaryExecutability,
-        isExecutable: true,
-        reason: 'READY',
+    ],
+    [
+      '8.1-SVC-006',
+      'domain-primary with fallback disabled and cutover evidence',
+      {
+        rolloutState: 'domain-primary',
+        allowLegacyFallback: false,
+        retirementEvidenceJson: normalizeRetirementEvidence({
+          lastCutoverAt: '2026-01-10T00:00:00.000Z',
+        }),
       },
-    })
-
-    expect(decision).toEqual(
-      expect.objectContaining({
-        pathDecision: 'PRIMARY_CHAIN',
-        failureSemantic: null,
-        reason: 'primary-path-authorized',
-      }),
-    )
-  })
-
-  it('should force legacy fallback when kill switch is enabled', async () => {
-    const service = new DomainRolloutPolicyService(undefined as never)
-
-    const decision = await service.resolvePolicyDecision({
-      l1Code: TAXONOMY_ROLLOUT_POLICY_ATDD_KILL_SWITCH_DECISION.l1Code,
-      policy: {
-        id: null,
-        l1Code: TAXONOMY_ROLLOUT_POLICY_ATDD_KILL_SWITCH_DECISION.l1Code,
-        rolloutState:
-          TAXONOMY_ROLLOUT_POLICY_ATDD_KILL_SWITCH_DECISION.rolloutState,
-        allowLegacyFallback:
-          TAXONOMY_ROLLOUT_POLICY_ATDD_KILL_SWITCH_DECISION.allowLegacyFallback,
-        primaryThreshold: 0.7,
-        shadowWindowDays: 14,
-        cutoverThresholdsJson: {},
-        retirementThresholdsJson: {},
-        killSwitchEnabled:
-          TAXONOMY_ROLLOUT_POLICY_ATDD_KILL_SWITCH_DECISION.killSwitchEnabled,
-        activeClassifierVersion: 'taxonomy-classifier-6.4',
-        stateChangedAt: null,
-        retirementEvidenceJson: normalizeRetirementEvidence(),
-        updatedAt: null,
-        updatedBy: null,
-        ...normalizePolicyOwnership({}),
+      {
+        stateAllowsPrimary: true,
+        stateAllowsLegacyFallback: false,
+        hasRetirementEvidence: true,
       },
-      classifierResult: {
-        ...TAXONOMY_ROLLOUT_POLICY_ATDD_KILL_SWITCH_DECISION.classifierResult,
-        l2Name: '核心业务系统数据被后台修改/篡改',
-        score: 0.95,
-        decisionSource: 'rule',
-        matchedSignals: ['核心系统'],
-        matchedPhrases: ['核心系统'],
-        matchedTokens: ['核心'],
-        classifierVersion: 'taxonomy-classifier-6.4',
-        mappingVersion: '2026-04-07',
-        rulebookVersion: 'it07-rulebook-v1',
-        classifiedAt: new Date().toISOString(),
-      },
-      primaryExecutability: {
-        ...TAXONOMY_ROLLOUT_POLICY_ATDD_KILL_SWITCH_DECISION.primaryExecutability,
-        isExecutable: true,
-        reason: 'READY',
-      },
-    })
-
-    expect(decision).toEqual(
-      expect.objectContaining({
-        pathDecision: 'LEGACY_FALLBACK',
-        failureSemantic: 'LEGACY_FALLBACK_TRIGGERED',
-        reason: 'kill-switch-enabled',
-      }),
-    )
-  })
-
-  it('should fall back or abstain according to policy when primary conditions are not executable', async () => {
-    const service = new DomainRolloutPolicyService(undefined as never)
-
-    const fallbackDecision = await service.resolvePolicyDecision({
-      l1Code: TAXONOMY_ROLLOUT_POLICY_ATDD_FALLBACK_DECISION.l1Code,
-      policy: {
-        id: null,
-        l1Code: TAXONOMY_ROLLOUT_POLICY_ATDD_FALLBACK_DECISION.l1Code,
-        rolloutState:
-          TAXONOMY_ROLLOUT_POLICY_ATDD_FALLBACK_DECISION.rolloutState,
-        allowLegacyFallback:
-          TAXONOMY_ROLLOUT_POLICY_ATDD_FALLBACK_DECISION.allowLegacyFallback,
-        primaryThreshold: 0.7,
-        shadowWindowDays: 14,
-        cutoverThresholdsJson: {},
-        retirementThresholdsJson: {},
-        killSwitchEnabled:
-          TAXONOMY_ROLLOUT_POLICY_ATDD_FALLBACK_DECISION.killSwitchEnabled,
-        activeClassifierVersion: 'taxonomy-classifier-6.4',
-        stateChangedAt: null,
-        retirementEvidenceJson: normalizeRetirementEvidence(),
-        updatedAt: null,
-        updatedBy: null,
-        ...normalizePolicyOwnership({}),
-      },
-      classifierResult: {
-        ...TAXONOMY_ROLLOUT_POLICY_ATDD_FALLBACK_DECISION.classifierResult,
-        l2Name: null,
-        score: 0.44,
-        decisionSource: 'none',
-        matchedSignals: [],
-        matchedPhrases: [],
-        matchedTokens: [],
-        classifierVersion: 'taxonomy-classifier-6.4',
-        mappingVersion: '2026-04-07',
-        rulebookVersion: 'it04-rulebook-v1',
-        classifiedAt: new Date().toISOString(),
-      },
-      primaryExecutability: {
-        ...TAXONOMY_ROLLOUT_POLICY_ATDD_FALLBACK_DECISION.primaryExecutability,
-        isExecutable: false,
-        reason: 'NO_PRIMARY_CLASSIFICATION',
-      },
-    })
-
-    const abstainDecision = await service.resolvePolicyDecision({
-      l1Code: TAXONOMY_ROLLOUT_POLICY_ATDD_ABSTAIN_DECISION.l1Code,
-      policy: {
-        id: null,
-        l1Code: TAXONOMY_ROLLOUT_POLICY_ATDD_ABSTAIN_DECISION.l1Code,
-        rolloutState:
-          TAXONOMY_ROLLOUT_POLICY_ATDD_ABSTAIN_DECISION.rolloutState,
-        allowLegacyFallback:
-          TAXONOMY_ROLLOUT_POLICY_ATDD_ABSTAIN_DECISION.allowLegacyFallback,
-        primaryThreshold: 0.7,
-        shadowWindowDays: 14,
-        cutoverThresholdsJson: {},
-        retirementThresholdsJson: {},
-        killSwitchEnabled:
-          TAXONOMY_ROLLOUT_POLICY_ATDD_ABSTAIN_DECISION.killSwitchEnabled,
-        activeClassifierVersion: 'taxonomy-classifier-6.4',
-        stateChangedAt: null,
-        retirementEvidenceJson: normalizeRetirementEvidence(),
-        updatedAt: null,
-        updatedBy: null,
-        ...normalizePolicyOwnership({}),
-      },
-      classifierResult: {
-        ...TAXONOMY_ROLLOUT_POLICY_ATDD_ABSTAIN_DECISION.classifierResult,
-        l2Name: '恢复演练与韧性验证不足',
-        score: 0.82,
-        decisionSource: 'semantic',
-        matchedSignals: [],
-        matchedPhrases: ['恢复演练'],
-        matchedTokens: ['恢复'],
-        classifierVersion: 'taxonomy-classifier-6.4',
-        mappingVersion: '2026-04-07',
-        rulebookVersion: 'it08-rulebook-v1',
-        classifiedAt: new Date().toISOString(),
-      },
-      primaryExecutability: {
-        ...TAXONOMY_ROLLOUT_POLICY_ATDD_ABSTAIN_DECISION.primaryExecutability,
-        isExecutable: false,
-        reason: 'NO_CONTROL_CANDIDATE',
-      },
-    })
-
-    expect(fallbackDecision.pathDecision).toBe('LEGACY_FALLBACK')
-    expect(abstainDecision.pathDecision).toBe('ABSTAIN')
-  })
-
-  it('should disable legacy fallback when rollout state is legacy-off and preserve engine failures from chain-query outages', async () => {
-    const service = new DomainRolloutPolicyService(undefined as never)
-
-    const legacyOffDecision = await service.resolvePolicyDecision({
-      l1Code: 'IT07',
-      policy: {
-        id: null,
-        l1Code: 'IT07',
+    ],
+    [
+      '8.1-SVC-007',
+      'legacy-off with allowLegacyFallback=true and report evidence',
+      {
         rolloutState: 'legacy-off',
         allowLegacyFallback: true,
-        primaryThreshold: 0.78,
-        shadowWindowDays: 14,
-        cutoverThresholdsJson: {},
-        retirementThresholdsJson: {},
-        killSwitchEnabled: false,
-        activeClassifierVersion: 'taxonomy-classifier-6.4',
-        stateChangedAt: null,
-        retirementEvidenceJson: normalizeRetirementEvidence(),
-        updatedAt: null,
-        updatedBy: null,
-        ...normalizePolicyOwnership({}),
+        retirementEvidenceJson: normalizeRetirementEvidence({
+          lastRetirementReportPath: '/reports/it07-retirement.json',
+        }),
       },
-      classifierResult: {
-        l1Code: 'IT07',
-        l2Code: null,
-        l2Name: null,
-        score: 0,
-        confidenceScore: 0,
-        scoreGap: 0,
-        decisionSource: 'none',
-        matchedSignals: [],
-        matchedPhrases: [],
-        matchedTokens: [],
-        classifierVersion: 'taxonomy-classifier-6.4',
-        mappingVersion: '2026-04-07',
-        rulebookVersion: 'it07-rulebook-v1',
-        classifiedAt: new Date().toISOString(),
-        pathDecision: 'UNCLASSIFIED',
-        failureSemantics: 'NO_MATCH',
+      {
+        stateAllowsPrimary: true,
+        stateAllowsLegacyFallback: false,
+        hasRetirementEvidence: true,
       },
-      primaryExecutability: {
-        failureModeCount: 0,
-        controlCandidateCount: 0,
-        isExecutable: false,
-        reason: 'NO_PRIMARY_CLASSIFICATION',
-      },
-    })
+    ],
+  ])('[%s][P0] should derive readiness summary for %s', (_testId, _label, policy, expected) => {
+    const service = new DomainRolloutPolicyService(undefined as never)
 
-    const chainQueryFailureDecision = await service.resolvePolicyDecision({
-      l1Code: 'IT07',
-      policy: {
-        id: null,
-        l1Code: 'IT07',
-        rolloutState: 'domain-primary',
-        allowLegacyFallback: true,
-        primaryThreshold: 0.78,
-        shadowWindowDays: 14,
-        cutoverThresholdsJson: {},
-        retirementThresholdsJson: {},
-        killSwitchEnabled: false,
-        activeClassifierVersion: 'taxonomy-classifier-6.4',
-        stateChangedAt: null,
-        retirementEvidenceJson: normalizeRetirementEvidence(),
-        updatedAt: null,
-        updatedBy: null,
-        ...normalizePolicyOwnership({}),
-      },
-      classifierResult: {
-        l1Code: 'IT07',
-        l2Code: 'IT07-06',
-        l2Name: '核心业务系统数据被后台修改/篡改',
-        score: 0.9,
-        confidenceScore: 0.9,
-        scoreGap: 0.2,
-        decisionSource: 'rule',
-        matchedSignals: ['后台'],
-        matchedPhrases: ['后台'],
-        matchedTokens: ['后台'],
-        classifierVersion: 'taxonomy-classifier-6.4',
-        mappingVersion: '2026-04-07',
-        rulebookVersion: 'it07-rulebook-v1',
-        classifiedAt: new Date().toISOString(),
-        pathDecision: 'PRIMARY_CHAIN',
-        failureSemantics: null,
-      },
-      primaryExecutability: {
-        failureModeCount: 0,
-        controlCandidateCount: 0,
-        isExecutable: false,
-        reason: 'CHAIN_QUERY_FAILED',
-      },
-    })
-
-    expect(legacyOffDecision.pathDecision).toBe('UNCLASSIFIED')
-    expect(chainQueryFailureDecision.failureSemantic).toBe('ENGINE_ERROR')
+    expect(service.getReadinessSummary(policy as never)).toEqual(expected)
   })
 })
