@@ -124,6 +124,11 @@ const allMenuItems: MenuItem[] = [
         icon: <GitBranch className="w-4 h-4" />,
         label: '知识图谱总览',
       },
+      {
+        key: '/admin/taxonomy-rollout',
+        icon: <GitBranch className="w-4 h-4" />,
+        label: 'Taxonomy Rollout',
+      },
       { key: '/admin/peer-crawler', icon: <Settings className="w-4 h-4" />, label: '同业爬虫管理' },
       {
         key: '/admin/peer-crawler/health',
@@ -317,7 +322,11 @@ export default function Sidebar({
               onClick={handleToggleCollapse}
               className="w-full flex items-center justify-center py-2 text-white/60 hover:text-white transition-colors"
             >
-              {collapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+              {collapsed ? (
+                <ChevronRight className="w-5 h-5" />
+              ) : (
+                <ChevronLeft className="w-5 h-5" />
+              )}
             </button>
           </div>
         )}

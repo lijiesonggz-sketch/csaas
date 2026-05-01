@@ -1,7 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertTriangle, Download, Loader2, RefreshCw, ShieldCheck, Upload } from 'lucide-react'
+import Link from 'next/link'
+import {
+  AlertTriangle,
+  Download,
+  GitBranch,
+  Loader2,
+  RefreshCw,
+  ShieldCheck,
+  Upload,
+} from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -113,6 +122,12 @@ export function TaxonomyGovernancePanel({
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="rounded-sm" asChild>
+              <Link href="/admin/taxonomy-rollout">
+                <GitBranch className="mr-2 h-4 w-4" />
+                Taxonomy Rollout
+              </Link>
+            </Button>
             <Button
               variant="outline"
               className="rounded-sm"

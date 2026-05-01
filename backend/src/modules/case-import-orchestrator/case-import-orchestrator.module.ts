@@ -19,6 +19,7 @@ import { KG_CASE_IMPORT_QUEUE } from './constants/case-import.constants'
 import { CaseImportController } from './controllers/case-import.controller'
 import { CaseHumanReviewController } from './controllers/case-human-review.controller'
 import { TaxonomyGovernanceController } from './controllers/taxonomy-governance.controller'
+import { TaxonomyRolloutController } from './controllers/taxonomy-rollout.controller'
 import { CaseImportAuditFilter } from './filters/case-import-audit.filter'
 import { CaseImportProcessor } from './processors/case-import.processor'
 import { CaseClusteringChainService } from './services/case-clustering-chain.service'
@@ -86,7 +87,12 @@ import { TaxonomyClassifierService } from './services/taxonomy-classification/ta
     OrganizationsModule,
     AuditModule,
   ],
-  controllers: [CaseImportController, CaseHumanReviewController, TaxonomyGovernanceController],
+  controllers: [
+    CaseImportController,
+    CaseHumanReviewController,
+    TaxonomyGovernanceController,
+    TaxonomyRolloutController,
+  ],
   providers: [
     CaseHumanReviewService,
     CaseClusteringChainService,

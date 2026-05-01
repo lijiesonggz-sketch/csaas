@@ -37,6 +37,12 @@ export type DomainRetirementEvidence = {
   lastRetirementReportPath: string | null
 }
 
+export type TaxonomyRolloutReadinessSummary = {
+  stateAllowsPrimary: boolean
+  stateAllowsLegacyFallback: boolean
+  hasRetirementEvidence: boolean
+}
+
 export type DomainRolloutPolicySnapshot = {
   id: string | null
   l1Code: string
@@ -159,9 +165,7 @@ export function mergeRetirementEvidence(
   }
 }
 
-function resolveDefaultRolloutState(
-  l1Code: string,
-): KgTaxonomyDomainRolloutState {
+function resolveDefaultRolloutState(l1Code: string): KgTaxonomyDomainRolloutState {
   if (l1Code === 'IT04') {
     return 'it04-on-new-interface'
   }
@@ -175,10 +179,8 @@ export function createBootstrapDomainRolloutPolicies(options?: {
   domainCodes?: string[]
   activeClassifierVersion?: string | null
 }): DomainRolloutPolicySnapshot[] {
-  const domainCodes =
-    options?.domainCodes ?? listRuntimeReadyTaxonomyDomainCodes()
-  const classifierVersion =
-    options?.activeClassifierVersion ?? TAXONOMY_CLASSIFIER_VERSION
+  const domainCodes = options?.domainCodes ?? listRuntimeReadyTaxonomyDomainCodes()
+  const classifierVersion = options?.activeClassifierVersion ?? TAXONOMY_CLASSIFIER_VERSION
 
   return domainCodes.map((l1Code) => ({
     id: null,
@@ -219,15 +221,11 @@ export function validateRolloutTransition(
   }
 
   if (targetIndex - currentIndex > 1) {
-    throw new Error(
-      `Cannot skip rollout states from ${currentState} to ${targetState}`,
-    )
+    throw new Error(`Cannot skip rollout states from ${currentState} to ${targetState}`)
   }
 }
 
-export function stateAllowsPrimaryPath(
-  rolloutState: KgTaxonomyDomainRolloutState,
-): boolean {
+export function stateAllowsPrimaryPath(rolloutState: KgTaxonomyDomainRolloutState): boolean {
   return PRIMARY_ENABLED_STATES.has(rolloutState)
 }
 
@@ -249,8 +247,7 @@ function normalizePolicySnapshot(
   return {
     id: policy.id ?? null,
     l1Code: policy.l1Code,
-    rolloutState:
-      policy.rolloutState ?? resolveDefaultRolloutState(policy.l1Code),
+    rolloutState: policy.rolloutState ?? resolveDefaultRolloutState(policy.l1Code),
     allowLegacyFallback: policy.allowLegacyFallback ?? true,
     primaryThreshold: policy.primaryThreshold ?? 0.7,
     shadowWindowDays: policy.shadowWindowDays ?? 14,
@@ -263,12 +260,9 @@ function normalizePolicySnapshot(
       DEFAULT_RETIREMENT_THRESHOLDS,
     ),
     killSwitchEnabled: policy.killSwitchEnabled ?? false,
-    activeClassifierVersion:
-      policy.activeClassifierVersion ?? TAXONOMY_CLASSIFIER_VERSION,
+    activeClassifierVersion: policy.activeClassifierVersion ?? TAXONOMY_CLASSIFIER_VERSION,
     stateChangedAt: policy.stateChangedAt ?? null,
-    retirementEvidenceJson: normalizeRetirementEvidence(
-      policy.retirementEvidenceJson,
-    ),
+    retirementEvidenceJson: normalizeRetirementEvidence(policy.retirementEvidenceJson),
     updatedAt: policy.updatedAt ?? null,
     updatedBy: policy.updatedBy ?? null,
     ...normalizePolicyOwnership(policy),
@@ -307,10 +301,16 @@ function buildNonPrimaryFailureSemantic(
   return args.classifierResult.failureSemantics ?? null
 }
 
-function effectiveAllowLegacyFallback(
-  policy: DomainRolloutPolicySnapshot,
-): boolean {
+function effectiveAllowLegacyFallback(policy: DomainRolloutPolicySnapshot): boolean {
   return policy.rolloutState !== 'legacy-off' && policy.allowLegacyFallback
+}
+
+export function hasRetirementEvidence(
+  evidence?: KgTaxonomyDomainRetirementEvidence | DomainRetirementEvidence | null,
+): boolean {
+  return Object.values(normalizeRetirementEvidence(evidence)).some((value) =>
+    typeof value === 'string' ? value.trim().length > 0 : value !== null,
+  )
 }
 
 @Injectable()
@@ -321,11 +321,10 @@ export class DomainRolloutPolicyService {
     private readonly rolloutPolicyRepository?: Repository<KgTaxonomyDomainRolloutPolicy>,
   ) {}
 
+  /** @deprecated Prefer findAll() for read-only UI/API flows with bootstrap fallback. */
   async listPolicies(): Promise<DomainRolloutPolicySnapshot[]> {
     if (!this.rolloutPolicyRepository) {
-      throw new Error(
-        'Domain rollout policy repository is required for control-plane reads.',
-      )
+      throw new Error('Domain rollout policy repository is required for control-plane reads.')
     }
 
     const policies = await this.rolloutPolicyRepository.find({
@@ -343,9 +342,7 @@ export class DomainRolloutPolicyService {
 
   async getPolicyForDomain(l1Code: string): Promise<DomainRolloutPolicySnapshot> {
     if (!this.rolloutPolicyRepository) {
-      throw new Error(
-        'Domain rollout policy repository is required for control-plane reads.',
-      )
+      throw new Error('Domain rollout policy repository is required for control-plane reads.')
     }
 
     const entity = await this.rolloutPolicyRepository.findOne({
@@ -354,6 +351,42 @@ export class DomainRolloutPolicyService {
 
     if (!entity) {
       throw new Error(`No rollout policy configured for domain ${l1Code}.`)
+    }
+
+    return this.toSnapshot(entity)
+  }
+
+  async findAll(): Promise<DomainRolloutPolicySnapshot[]> {
+    const bootstrapPolicies = createBootstrapDomainRolloutPolicies()
+    if (!this.rolloutPolicyRepository) {
+      return bootstrapPolicies
+    }
+
+    const policies = await this.rolloutPolicyRepository.find({
+      order: { l1Code: 'ASC' },
+    })
+
+    if (policies.length === 0) {
+      return bootstrapPolicies
+    }
+
+    return this.mergePoliciesWithBootstrap(
+      policies.map((policy) => this.toSnapshot(policy)),
+      bootstrapPolicies,
+    )
+  }
+
+  async findByL1Code(l1Code: string): Promise<DomainRolloutPolicySnapshot | null> {
+    if (!this.rolloutPolicyRepository) {
+      return this.findBootstrapPolicy(l1Code)
+    }
+
+    const entity = await this.rolloutPolicyRepository.findOne({
+      where: { l1Code },
+    })
+
+    if (!entity) {
+      return this.findBootstrapPolicy(l1Code)
     }
 
     return this.toSnapshot(entity)
@@ -371,10 +404,8 @@ export class DomainRolloutPolicyService {
   async resolvePolicyDecision(
     args: ResolvePolicyDecisionArgs,
   ): Promise<ResolvePolicyDecisionResult> {
-    const policy =
-      args.policy ?? (await this.getPolicyForDomain(args.l1Code))
-    const primaryExecutability =
-      args.primaryExecutability ?? defaultPrimaryExecutability()
+    const policy = args.policy ?? (await this.getPolicyForDomain(args.l1Code))
+    const primaryExecutability = args.primaryExecutability ?? defaultPrimaryExecutability()
     const stateAllowsPrimary = stateAllowsPrimaryPath(policy.rolloutState)
 
     if (policy.killSwitchEnabled) {
@@ -385,8 +416,8 @@ export class DomainRolloutPolicyService {
         pathDecision: effectiveAllowLegacyFallback(policy) ? 'LEGACY_FALLBACK' : 'ABSTAIN',
         failureSemantic: effectiveAllowLegacyFallback(policy)
           ? 'LEGACY_FALLBACK_TRIGGERED'
-          : buildNonPrimaryFailureSemantic(args, primaryExecutability) ??
-            'LEGACY_FALLBACK_TRIGGERED',
+          : (buildNonPrimaryFailureSemantic(args, primaryExecutability) ??
+            'LEGACY_FALLBACK_TRIGGERED'),
         primaryExecutability,
         reason: 'kill-switch-enabled',
       }
@@ -427,12 +458,9 @@ export class DomainRolloutPolicyService {
         rolloutState: policy.rolloutState,
         stateAllowsPrimary,
         pathDecision: 'LEGACY_FALLBACK',
-        failureSemantic:
-          failureSemantic ?? 'LEGACY_FALLBACK_TRIGGERED',
+        failureSemantic: failureSemantic ?? 'LEGACY_FALLBACK_TRIGGERED',
         primaryExecutability,
-        reason: stateAllowsPrimary
-          ? 'fallback-authorized-by-policy'
-          : 'state-prefers-legacy',
+        reason: stateAllowsPrimary ? 'fallback-authorized-by-policy' : 'state-prefers-legacy',
       }
     }
 
@@ -441,9 +469,7 @@ export class DomainRolloutPolicyService {
       rolloutState: policy.rolloutState,
       stateAllowsPrimary,
       pathDecision:
-        args.classifierResult.pathDecision === 'UNCLASSIFIED'
-          ? 'UNCLASSIFIED'
-          : 'ABSTAIN',
+        args.classifierResult.pathDecision === 'UNCLASSIFIED' ? 'UNCLASSIFIED' : 'ABSTAIN',
       failureSemantic,
       primaryExecutability,
       reason: stateAllowsPrimary
@@ -452,9 +478,42 @@ export class DomainRolloutPolicyService {
     }
   }
 
-  private toSnapshot(
-    policy: KgTaxonomyDomainRolloutPolicy,
-  ): DomainRolloutPolicySnapshot {
+  getReadinessSummary(
+    policy: Pick<
+      DomainRolloutPolicySnapshot,
+      'rolloutState' | 'allowLegacyFallback' | 'retirementEvidenceJson'
+    >,
+  ): TaxonomyRolloutReadinessSummary {
+    const stateAllowsPrimary = stateAllowsPrimaryPath(policy.rolloutState)
+
+    return {
+      stateAllowsPrimary,
+      stateAllowsLegacyFallback: policy.rolloutState !== 'legacy-off' && policy.allowLegacyFallback,
+      hasRetirementEvidence: hasRetirementEvidence(policy.retirementEvidenceJson),
+    }
+  }
+
+  private findBootstrapPolicy(l1Code: string): DomainRolloutPolicySnapshot | null {
+    return createBootstrapDomainRolloutPolicies().find((p) => p.l1Code === l1Code) ?? null
+  }
+
+  private mergePoliciesWithBootstrap(
+    policies: DomainRolloutPolicySnapshot[],
+    bootstrapPolicies: DomainRolloutPolicySnapshot[],
+  ): DomainRolloutPolicySnapshot[] {
+    const policiesByCode = new Map(policies.map((policy) => [policy.l1Code, policy] as const))
+    const bootstrapCodes = new Set(bootstrapPolicies.map((policy) => policy.l1Code))
+    const extras = policies.filter((policy) => !bootstrapCodes.has(policy.l1Code))
+
+    return [
+      ...bootstrapPolicies.map(
+        (bootstrapPolicy) => policiesByCode.get(bootstrapPolicy.l1Code) ?? bootstrapPolicy,
+      ),
+      ...extras.sort((left, right) => left.l1Code.localeCompare(right.l1Code)),
+    ]
+  }
+
+  private toSnapshot(policy: KgTaxonomyDomainRolloutPolicy): DomainRolloutPolicySnapshot {
     return normalizePolicySnapshot({
       id: policy.id,
       l1Code: policy.l1Code,
@@ -467,9 +526,7 @@ export class DomainRolloutPolicyService {
       killSwitchEnabled: policy.killSwitchEnabled,
       activeClassifierVersion: policy.activeClassifierVersion,
       stateChangedAt: policy.stateChangedAt,
-      retirementEvidenceJson: normalizeRetirementEvidence(
-        policy.retirementEvidenceJson,
-      ),
+      retirementEvidenceJson: normalizeRetirementEvidence(policy.retirementEvidenceJson),
       mappingOwner: policy.mappingOwner ?? undefined,
       rulebookOwner: policy.rulebookOwner ?? undefined,
       benchmarkOwner: policy.benchmarkOwner ?? undefined,

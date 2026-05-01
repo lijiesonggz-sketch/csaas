@@ -291,6 +291,24 @@ describe('KnowledgeGraphPage governance red-phase scaffolds', () => {
     })
   })
 
+  test('[P1] governance tab should show a navigation link to Taxonomy Rollout page', async () => {
+    render(<KnowledgeGraphPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: '知识图谱总览' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'taxonomy 治理' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: '治理概览' })).toBeInTheDocument()
+    })
+
+    const rolloutLink = screen.getByRole('link', { name: /Taxonomy Rollout/i })
+    expect(rolloutLink).toBeInTheDocument()
+    expect(rolloutLink).toHaveAttribute('href', '/admin/taxonomy-rollout')
+  })
+
   test('[P1] governance import success should refetch summary and surface the updated sourceVersion', async () => {
     mockKnowledgeGraphApi.getTaxonomyGovernanceSummary
       .mockResolvedValueOnce(governanceSummaryV1)
