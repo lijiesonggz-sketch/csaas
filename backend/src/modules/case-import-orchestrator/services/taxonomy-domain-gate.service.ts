@@ -31,6 +31,11 @@ type BenchmarkGroupSummary = {
   }
 }
 
+export type TaxonomyBenchmarkGateResult = BenchmarkGroupSummary & {
+  sourceTier: string | null
+  sourceMode: string | null
+}
+
 type TaxonomyBenchmarkMachineSummary = {
   generatedAt?: string
   reportId?: string
@@ -39,10 +44,7 @@ type TaxonomyBenchmarkMachineSummary = {
   classifierVersion?: string | null
   gateStatus?: 'PASS' | 'FAIL'
   metrics?: BenchmarkGroupSummary['metrics']
-  groups?: Record<
-    string,
-    Record<string, Record<string, BenchmarkGroupSummary>>
-  >
+  groups?: Record<string, Record<string, Record<string, BenchmarkGroupSummary>>>
 }
 
 type ReadLatestBenchmarkSummaryArgs = {
@@ -64,17 +66,20 @@ export type TaxonomyDomainRuntimeMetrics = {
 }
 
 export type TaxonomyDomainReadinessDecision = {
+  l1Code: string
   currentState: KgTaxonomyDomainRolloutState
   targetState: KgTaxonomyDomainRolloutState
   allowed: boolean
   gateStatus: 'PASS' | 'FAIL'
   blockingReasons: string[]
+  benchmarkGate: TaxonomyBenchmarkGateResult
   metrics: TaxonomyDomainRuntimeMetrics
   rolloutGuidance: {
     canaryPercentage: number
     errorBudget: number
     rollbackPath: string
   }
+  recommendedNextAction: string
 }
 
 function toRate(numerator: number, denominator: number): number {
@@ -85,9 +90,7 @@ function toRate(numerator: number, denominator: number): number {
   return Number((numerator / denominator).toFixed(4))
 }
 
-function parseBenchmarkGeneratedAt(
-  summary: TaxonomyBenchmarkMachineSummary,
-): Date | null {
+function parseBenchmarkGeneratedAt(summary: TaxonomyBenchmarkMachineSummary): Date | null {
   if (!summary.generatedAt) {
     return null
   }
@@ -99,30 +102,27 @@ function parseBenchmarkGeneratedAt(
 function readLatestBenchmarkSummary(
   args: ReadLatestBenchmarkSummaryArgs,
 ): TaxonomyBenchmarkMachineSummary | null {
-  const reportDir = resolveWorkspaceArtifactPath(
-    '_bmad-output/test-artifacts',
-  ).resolvedPath
+  const reportDir = resolveWorkspaceArtifactPath('_bmad-output/test-artifacts').resolvedPath
 
   if (!fs.existsSync(reportDir)) {
     return null
   }
 
-  const expectedClassifierVersion =
-    args.activeClassifierVersion?.trim() ?? null
+  const expectedClassifierVersion = args.activeClassifierVersion?.trim() ?? null
   const minimumGeneratedAtMs = args.minimumGeneratedAt?.getTime() ?? null
   const candidates = fs
     .readdirSync(reportDir)
     .filter((entry) => entry.endsWith('.json') && entry.includes('summary'))
     .map((entry) => path.join(reportDir, entry))
     .sort((left, right) => {
-      return (
-        fs.statSync(right).mtime.getTime() - fs.statSync(left).mtime.getTime()
-      )
+      return fs.statSync(right).mtime.getTime() - fs.statSync(left).mtime.getTime()
     })
 
   for (const candidate of candidates) {
     try {
-      const parsed = JSON.parse(fs.readFileSync(candidate, 'utf8')) as TaxonomyBenchmarkMachineSummary
+      const parsed = JSON.parse(
+        fs.readFileSync(candidate, 'utf8'),
+      ) as TaxonomyBenchmarkMachineSummary
       const generatedAt = parseBenchmarkGeneratedAt(parsed)
 
       if (
@@ -133,10 +133,8 @@ function readLatestBenchmarkSummary(
         parsed.groups?.[args.l1Code] &&
         parsed.metrics &&
         generatedAt &&
-        (minimumGeneratedAtMs === null ||
-          generatedAt.getTime() >= minimumGeneratedAtMs) &&
-        (!expectedClassifierVersion ||
-          parsed.classifierVersion === expectedClassifierVersion)
+        (minimumGeneratedAtMs === null || generatedAt.getTime() >= minimumGeneratedAtMs) &&
+        (!expectedClassifierVersion || parsed.classifierVersion === expectedClassifierVersion)
       ) {
         return parsed
       }
@@ -148,9 +146,7 @@ function readLatestBenchmarkSummary(
   return null
 }
 
-function resolveBenchmarkSummaryCutoff(
-  policy: DomainRolloutPolicySnapshot,
-): Date {
+function resolveBenchmarkSummaryCutoff(policy: DomainRolloutPolicySnapshot): Date {
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - policy.shadowWindowDays)
 
@@ -211,9 +207,7 @@ export class TaxonomyDomainGateService {
     }
 
     const computedWindowStart = new Date()
-    computedWindowStart.setDate(
-      computedWindowStart.getDate() - observationWindowDays,
-    )
+    computedWindowStart.setDate(computedWindowStart.getDate() - observationWindowDays)
     const windowStart =
       windowStartOverride &&
       !Number.isNaN(windowStartOverride.getTime()) &&
@@ -231,12 +225,9 @@ export class TaxonomyDomainGateService {
       },
     })
 
-    const fallbackCount = runs.filter(
-      (run) => run.pathDecision === 'LEGACY_FALLBACK',
-    ).length
+    const fallbackCount = runs.filter((run) => run.pathDecision === 'LEGACY_FALLBACK').length
     const unknownCount = runs.filter(
-      (run) =>
-        run.pathDecision === 'ABSTAIN' || run.pathDecision === 'UNCLASSIFIED',
+      (run) => run.pathDecision === 'ABSTAIN' || run.pathDecision === 'UNCLASSIFIED',
     ).length
     const caseIds = [...new Set(runs.map((run) => run.caseId))]
     const manualCorrectionCount =
@@ -289,9 +280,7 @@ export class TaxonomyDomainGateService {
     const metrics = await this.summarizeWindow(
       args.l1Code,
       policy.shadowWindowDays,
-      targetState === 'legacy-off'
-        ? this.resolveRetirementObservationStart(policy)
-        : null,
+      targetState === 'legacy-off' ? this.resolveRetirementObservationStart(policy) : null,
     )
     const summary = readLatestBenchmarkSummary({
       l1Code: args.l1Code,
@@ -305,10 +294,7 @@ export class TaxonomyDomainGateService {
       blockingReasons.push('observation window has no runtime evidence')
     }
 
-    if (
-      targetState === 'legacy-off' &&
-      !policy.retirementEvidenceJson?.lastCutoverAt
-    ) {
+    if (targetState === 'legacy-off' && !policy.retirementEvidenceJson?.lastCutoverAt) {
       blockingReasons.push(
         'retirement gate requires cutover evidence before evaluating post-cutover observation window',
       )
@@ -317,9 +303,7 @@ export class TaxonomyDomainGateService {
     try {
       validateRolloutTransition(currentState, targetState)
     } catch (error) {
-      blockingReasons.push(
-        error instanceof Error ? error.message : String(error),
-      )
+      blockingReasons.push(error instanceof Error ? error.message : String(error))
     }
 
     if (
@@ -339,15 +323,12 @@ export class TaxonomyDomainGateService {
     }
 
     if (targetState === 'legacy-off' && currentState !== 'domain-primary') {
-      blockingReasons.push(
-        'domain must reach domain-primary before requesting legacy-off',
-      )
+      blockingReasons.push('domain must reach domain-primary before requesting legacy-off')
     }
 
     if (
       targetState === 'legacy-off' &&
-      metrics.fallbackRate >
-        Number(retirementThresholds.fallbackRateMax ?? 0.05)
+      metrics.fallbackRate > Number(retirementThresholds.fallbackRateMax ?? 0.05)
     ) {
       blockingReasons.push('fallback rate exceeds retirement threshold')
     }
@@ -361,34 +342,39 @@ export class TaxonomyDomainGateService {
 
     if (
       targetState === 'legacy-off' &&
-      metrics.manualCorrectionRate >
-        Number(retirementThresholds.manualCorrectionRateMax ?? 0.1)
+      metrics.manualCorrectionRate > Number(retirementThresholds.manualCorrectionRateMax ?? 0.1)
     ) {
-      blockingReasons.push(
-        'manual correction rate exceeds retirement threshold',
-      )
+      blockingReasons.push('manual correction rate exceeds retirement threshold')
     }
 
     const allowed = blockingReasons.length === 0
+    const rollbackPath = String(
+      targetState === 'legacy-off'
+        ? (retirementThresholds.rollbackPath ??
+            'Enable kill switch and revert rollout state to domain-primary')
+        : (cutoverThresholds.rollbackPath ?? 'Enable kill switch and revert rollout state'),
+    )
 
     return {
+      l1Code: args.l1Code,
       currentState,
       targetState,
       allowed,
       gateStatus: allowed ? 'PASS' : 'FAIL',
       blockingReasons,
+      benchmarkGate,
       metrics,
       rolloutGuidance: {
         canaryPercentage: Number(cutoverThresholds.canaryPercentage ?? 0),
         errorBudget: Number(cutoverThresholds.errorBudget ?? 0),
-        rollbackPath: String(
-          targetState === 'legacy-off'
-            ? retirementThresholds.rollbackPath ??
-              'Enable kill switch and revert rollout state to domain-primary'
-            : cutoverThresholds.rollbackPath ??
-              'Enable kill switch and revert rollout state',
-        ),
+        rollbackPath,
       },
+      recommendedNextAction: this.buildRecommendedNextAction({
+        l1Code: args.l1Code,
+        targetState,
+        allowed,
+        rollbackPath,
+      }),
     }
   }
 
@@ -404,7 +390,7 @@ export class TaxonomyDomainGateService {
       )
     }
 
-    const currentPolicy = await this.domainRolloutPolicyService.getPolicyForDomain(
+    const currentPolicy = await this.domainRolloutPolicyService.getOrCreatePolicyForDomain(
       args.l1Code,
     )
     const decision = await this.evaluateDomainReadiness({
@@ -414,9 +400,7 @@ export class TaxonomyDomainGateService {
     })
 
     if (!decision.allowed) {
-      throw new Error(
-        `Rollout transition blocked: ${decision.blockingReasons.join('; ')}`,
-      )
+      throw new Error(`Rollout transition blocked: ${decision.blockingReasons.join('; ')}`)
     }
 
     const stateChangedAt = new Date()
@@ -435,8 +419,11 @@ export class TaxonomyDomainGateService {
           : {},
     )
 
-    await this.rolloutPolicyRepository.update(
-      { l1Code: args.l1Code },
+    const updateResult = await this.rolloutPolicyRepository.update(
+      {
+        l1Code: args.l1Code,
+        rolloutState: currentPolicy.rolloutState,
+      },
       {
         rolloutState: args.targetState,
         stateChangedAt,
@@ -445,48 +432,75 @@ export class TaxonomyDomainGateService {
       },
     )
 
-    return decision
-  }
-
-  private async resolvePolicy(
-    l1Code: string,
-  ): Promise<DomainRolloutPolicySnapshot> {
-    if (!this.domainRolloutPolicyService) {
+    if (updateResult.affected !== 1) {
       throw new Error(
-        `No domain rollout policy service is available for ${l1Code}.`,
+        `Rollout transition concurrency conflict for domain ${args.l1Code}: state changed before transition could be persisted.`,
       )
     }
 
-    return this.domainRolloutPolicyService.getPolicyForDomain(l1Code)
+    return decision
+  }
+
+  private async resolvePolicy(l1Code: string): Promise<DomainRolloutPolicySnapshot> {
+    if (!this.domainRolloutPolicyService) {
+      throw new Error(`No domain rollout policy service is available for ${l1Code}.`)
+    }
+
+    return this.domainRolloutPolicyService.getOrCreatePolicyForDomain(l1Code)
   }
 
   private resolveBenchmarkGate(
     summary: TaxonomyBenchmarkMachineSummary | null,
     l1Code: string,
-  ): BenchmarkGroupSummary {
+  ): TaxonomyBenchmarkGateResult {
     if (!summary) {
-      return { gateStatus: 'FAIL' }
+      return { gateStatus: 'FAIL', sourceTier: null, sourceMode: null }
     }
 
     const domainGroups = summary.groups?.[l1Code]
     if (!domainGroups) {
-      return { gateStatus: 'FAIL' }
+      return { gateStatus: 'FAIL', sourceTier: null, sourceMode: null }
     }
 
-    return (
-      domainGroups['tier-2-holdout']?.['dual-path-compare'] ??
-      domainGroups['tier-1-cutover']?.['dual-path-compare'] ??
-      domainGroups['tier-1-cutover']?.['new-path'] ??
-      {
-        gateStatus: summary.gateStatus ?? 'FAIL',
-        metrics: summary.metrics,
+    const preferredGroups: Array<[string, string]> = [
+      ['tier-2-holdout', 'dual-path-compare'],
+      ['tier-1-cutover', 'dual-path-compare'],
+      ['tier-1-cutover', 'new-path'],
+    ]
+
+    for (const [tier, mode] of preferredGroups) {
+      const group = domainGroups[tier]?.[mode]
+      if (group) {
+        return {
+          ...group,
+          sourceTier: tier,
+          sourceMode: mode,
+        }
       }
-    )
+    }
+
+    return {
+      gateStatus: summary.gateStatus ?? 'FAIL',
+      metrics: summary.metrics,
+      sourceTier: null,
+      sourceMode: summary.mode ?? null,
+    }
   }
 
-  private resolveRetirementObservationStart(
-    policy: DomainRolloutPolicySnapshot,
-  ): Date | null {
+  private buildRecommendedNextAction(args: {
+    l1Code: string
+    targetState: KgTaxonomyDomainRolloutState
+    allowed: boolean
+    rollbackPath: string
+  }): string {
+    if (args.allowed) {
+      return `Promote ${args.l1Code} to ${args.targetState} and keep monitoring rollback path ${args.rollbackPath}.`
+    }
+
+    return `Resolve blocking reasons before promoting ${args.l1Code} to ${args.targetState}.`
+  }
+
+  private resolveRetirementObservationStart(policy: DomainRolloutPolicySnapshot): Date | null {
     const lastCutoverAt = policy.retirementEvidenceJson?.lastCutoverAt
     if (!lastCutoverAt) {
       return null

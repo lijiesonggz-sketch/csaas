@@ -356,6 +356,48 @@ export class DomainRolloutPolicyService {
     return this.toSnapshot(entity)
   }
 
+  async getOrCreatePolicyForDomain(l1Code: string): Promise<DomainRolloutPolicySnapshot> {
+    if (!this.rolloutPolicyRepository) {
+      throw new Error('Domain rollout policy repository is required for control-plane reads.')
+    }
+
+    const existing = await this.rolloutPolicyRepository.findOne({
+      where: { l1Code },
+    })
+
+    if (existing) {
+      return this.toSnapshot(existing)
+    }
+
+    const bootstrapPolicy = this.findBootstrapPolicy(l1Code)
+    if (!bootstrapPolicy) {
+      throw new Error(`No rollout policy configured for domain ${l1Code}.`)
+    }
+
+    const created = this.rolloutPolicyRepository.create({
+      l1Code: bootstrapPolicy.l1Code,
+      rolloutState: bootstrapPolicy.rolloutState,
+      allowLegacyFallback: bootstrapPolicy.allowLegacyFallback,
+      primaryThreshold: bootstrapPolicy.primaryThreshold.toFixed(4),
+      shadowWindowDays: bootstrapPolicy.shadowWindowDays,
+      cutoverThresholdsJson: bootstrapPolicy.cutoverThresholdsJson,
+      retirementThresholdsJson: bootstrapPolicy.retirementThresholdsJson,
+      killSwitchEnabled: bootstrapPolicy.killSwitchEnabled,
+      activeClassifierVersion: bootstrapPolicy.activeClassifierVersion,
+      stateChangedAt: bootstrapPolicy.stateChangedAt ?? new Date(),
+      retirementEvidenceJson: bootstrapPolicy.retirementEvidenceJson,
+      mappingOwner: bootstrapPolicy.mappingOwner,
+      rulebookOwner: bootstrapPolicy.rulebookOwner,
+      benchmarkOwner: bootstrapPolicy.benchmarkOwner,
+      gateApprover: bootstrapPolicy.gateApprover,
+      rollbackApprover: bootstrapPolicy.rollbackApprover,
+      updatedBy: bootstrapPolicy.updatedBy,
+    })
+
+    const saved = await this.rolloutPolicyRepository.save(created)
+    return this.toSnapshot(saved)
+  }
+
   async findAll(): Promise<DomainRolloutPolicySnapshot[]> {
     const bootstrapPolicies = createBootstrapDomainRolloutPolicies()
     if (!this.rolloutPolicyRepository) {

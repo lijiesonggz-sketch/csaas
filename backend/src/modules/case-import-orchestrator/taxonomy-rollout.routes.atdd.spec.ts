@@ -5,6 +5,7 @@ import { TransformInterceptor } from '../../common/interceptors/transform.interc
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { RolesGuard } from '../auth/guards/roles.guard'
 import { TenantGuard } from '../organizations/guards/tenant.guard'
+import { TaxonomyDomainGateService } from './services/taxonomy-domain-gate.service'
 import { DomainRolloutPolicyService } from './services/taxonomy-classification/domain-rollout-policy.service'
 
 const VALID_TENANT_ID = 'tenant-test-001'
@@ -42,6 +43,10 @@ describe('Story 8.1 - taxonomy rollout routes', () => {
     findByL1Code: jest.fn(),
     getReadinessSummary: jest.fn(),
   }
+  const mockTaxonomyDomainGateService = {
+    evaluateDomainReadiness: jest.fn(),
+    transitionRolloutState: jest.fn(),
+  }
 
   async function createApp(): Promise<INestApplication> {
     const { TaxonomyRolloutController } = await import('./controllers/taxonomy-rollout.controller')
@@ -52,6 +57,10 @@ describe('Story 8.1 - taxonomy rollout routes', () => {
         {
           provide: DomainRolloutPolicyService,
           useValue: mockDomainRolloutPolicyService,
+        },
+        {
+          provide: TaxonomyDomainGateService,
+          useValue: mockTaxonomyDomainGateService,
         },
       ],
     })

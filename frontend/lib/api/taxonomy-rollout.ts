@@ -8,6 +8,11 @@ export type TaxonomyRolloutState =
   | 'domain-primary'
   | 'legacy-off'
 
+export type TaxonomyRolloutMutableTargetState =
+  | 'domain-shadow'
+  | 'domain-compare'
+  | 'domain-primary'
+
 export interface TaxonomyRolloutPolicyListItem {
   id: string | null
   l1Code: string
@@ -46,6 +51,85 @@ export interface TaxonomyRolloutPolicyDetail extends TaxonomyRolloutPolicyListIt
   updatedAt: string | null
 }
 
+export interface TaxonomyRolloutPolicySummary {
+  l1Code: string
+  rolloutState: TaxonomyRolloutState
+  allowLegacyFallback: boolean
+  killSwitchEnabled: boolean
+  activeClassifierVersion: string | null
+  primaryThreshold: number
+  shadowWindowDays: number
+  stateChangedAt: string | null
+}
+
+export interface TaxonomyRolloutBenchmarkGate {
+  gateStatus: 'PASS' | 'FAIL'
+  metrics?: {
+    fullChainHitRate?: number
+    fallbackTriggerRate?: number
+    highRiskFalseNegativeRate?: number
+    taxonomyPrecision?: number
+    taxonomyRecall?: number
+  }
+  sourceTier?: string | null
+  sourceMode?: string | null
+}
+
+export interface TaxonomyRolloutRuntimeMetrics {
+  totalRuns: number
+  fallbackCount: number
+  unknownCount: number
+  manualCorrectionCount: number
+  fallbackRate: number
+  unknownRate: number
+  manualCorrectionRate: number
+  errorBudgetConsumed: number
+  observationWindowDays: number
+}
+
+export interface TaxonomyRolloutGateGuidance {
+  canaryPercentage: number
+  errorBudget: number
+  rollbackPath: string
+}
+
+export interface TaxonomyRolloutGateDecision {
+  l1Code: string
+  currentState: TaxonomyRolloutState
+  targetState: TaxonomyRolloutMutableTargetState
+  allowed: boolean
+  gateStatus: 'PASS' | 'FAIL'
+  blockingReasons: string[]
+  benchmarkGate: TaxonomyRolloutBenchmarkGate
+  metrics: TaxonomyRolloutRuntimeMetrics
+  rolloutGuidance: TaxonomyRolloutGateGuidance
+  recommendedNextAction: string
+  policySummary: TaxonomyRolloutPolicySummary
+}
+
+export interface EvaluateTaxonomyRolloutGateRequest {
+  l1Code: string
+  targetState: TaxonomyRolloutMutableTargetState
+}
+
+export interface TaxonomyRolloutTransitionResult {
+  l1Code: string
+  previousState: TaxonomyRolloutState
+  targetState: TaxonomyRolloutMutableTargetState
+  stateChangedAt: string | null
+  operator: string | null
+  auditSummary: {
+    updatedBy: string | null
+    releaseId?: string | null
+    rollbackPath: string
+  }
+  policySummary: TaxonomyRolloutPolicySummary
+}
+
+export interface TransitionTaxonomyRolloutStateRequest extends EvaluateTaxonomyRolloutGateRequest {
+  releaseId?: string | null
+}
+
 export async function fetchRolloutPolicies(): Promise<TaxonomyRolloutPolicyListItem[]> {
   return apiFetch<TaxonomyRolloutPolicyListItem[]>(
     '/api/admin/knowledge-graph/taxonomy-rollout/policies'
@@ -57,5 +141,29 @@ export async function fetchRolloutPolicyByL1Code(
 ): Promise<TaxonomyRolloutPolicyDetail> {
   return apiFetch<TaxonomyRolloutPolicyDetail>(
     `/api/admin/knowledge-graph/taxonomy-rollout/policies/${l1Code}`
+  )
+}
+
+export async function evaluateRolloutGate(
+  payload: EvaluateTaxonomyRolloutGateRequest
+): Promise<TaxonomyRolloutGateDecision> {
+  return apiFetch<TaxonomyRolloutGateDecision>(
+    '/api/admin/knowledge-graph/taxonomy-rollout/gates/evaluate',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  )
+}
+
+export async function transitionRolloutState(
+  payload: TransitionTaxonomyRolloutStateRequest
+): Promise<TaxonomyRolloutTransitionResult> {
+  return apiFetch<TaxonomyRolloutTransitionResult>(
+    '/api/admin/knowledge-graph/taxonomy-rollout/transitions',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
   )
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
@@ -222,14 +223,44 @@ export default function TaxonomyRolloutPage() {
               IT01-IT08 domain rollout 状态、fallback 开关、版本和责任边界
             </p>
           </div>
-          <Button
-            variant="outline"
-            className="rounded-sm"
-            onClick={() => router.push('/admin/knowledge-graph')}
-          >
-            返回知识图谱总览
-          </Button>
+          <div className="flex gap-3">
+            <Button asChild variant="outline" className="rounded-sm">
+              <Link
+                href={
+                  selectedL1Code
+                    ? `/admin/taxonomy-rollout/gates?l1Code=${selectedL1Code}`
+                    : '/admin/taxonomy-rollout/gates'
+                }
+              >
+                Open Gates Console
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-sm"
+              onClick={() => router.push('/admin/knowledge-graph')}
+            >
+              返回知识图谱总览
+            </Button>
+          </div>
         </div>
+
+        <Card className="rounded-sm border-[#E2E8F0] shadow-sm">
+          <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[#1E3A5F]">Gate Promotion Console</p>
+              <p className="mt-1 text-sm text-[#64748B]">
+                前往独立 gates 子页评估 rollout readiness，并在 PASS 后执行 Promote。
+              </p>
+            </div>
+            <Button
+              className="rounded-sm bg-[#1E3A5F] text-white hover:bg-[#16304E]"
+              onClick={() => router.push('/admin/taxonomy-rollout/gates')}
+            >
+              打开 Gates Console
+            </Button>
+          </CardContent>
+        </Card>
 
         {error && (
           <Alert variant="destructive" className="rounded-sm">
