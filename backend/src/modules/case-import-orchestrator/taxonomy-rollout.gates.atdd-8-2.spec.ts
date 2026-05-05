@@ -7,6 +7,8 @@ import { RolesGuard } from '../auth/guards/roles.guard'
 import { TenantGuard } from '../organizations/guards/tenant.guard'
 import { DomainRolloutPolicyService } from './services/taxonomy-classification/domain-rollout-policy.service'
 import { TaxonomyDomainGateService } from './services/taxonomy-domain-gate.service'
+import { TaxonomyDomainRetirementService } from './services/taxonomy-domain-retirement.service'
+import { AuditLogService } from '../audit/audit-log.service'
 
 const VALID_TENANT_ID = 'tenant-test-001'
 const VALID_ADMIN_USER_ID = '00000000-0000-0000-0000-000000000111'
@@ -47,6 +49,16 @@ describe('Story 8.2 - taxonomy rollout gate routes (ATDD RED PHASE)', () => {
     evaluateDomainReadiness: jest.fn(),
     transitionRolloutState: jest.fn(),
   }
+  const mockTaxonomyDomainRetirementService = {
+    evaluateRetirementReadiness: jest.fn(),
+    evaluateRetirementDryRun: jest.fn(),
+    executeRetirement: jest.fn(),
+    rollbackRetirement: jest.fn(),
+  }
+
+  const mockAuditLogService = {
+    log: jest.fn().mockResolvedValue(undefined),
+  }
 
   async function createApp(): Promise<INestApplication> {
     const { TaxonomyRolloutController } = await import('./controllers/taxonomy-rollout.controller')
@@ -61,6 +73,14 @@ describe('Story 8.2 - taxonomy rollout gate routes (ATDD RED PHASE)', () => {
         {
           provide: TaxonomyDomainGateService,
           useValue: mockTaxonomyDomainGateService,
+        },
+        {
+          provide: TaxonomyDomainRetirementService,
+          useValue: mockTaxonomyDomainRetirementService,
+        },
+        {
+          provide: AuditLogService,
+          useValue: mockAuditLogService,
         },
       ],
     })

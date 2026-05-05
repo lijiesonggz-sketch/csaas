@@ -5,6 +5,7 @@ import { TAXONOMY_ROLLOUT_POLICY_ATDD_MACHINE_SUMMARY } from '../testing/taxonom
 describe('TaxonomyDomainGateService', () => {
   afterEach(() => {
     jest.restoreAllMocks()
+    jest.useRealTimers()
   })
 
   it('should summarize runtime fallback, unknown, and manual correction rates from the observation window', async () => {
@@ -91,9 +92,11 @@ describe('TaxonomyDomainGateService', () => {
       }),
     }
     const classificationRunRepository = {
-      find: jest.fn().mockResolvedValue([
-        { caseId: 'case-1', pathDecision: 'PRIMARY_CHAIN', createdAt: new Date() },
-      ]),
+      find: jest
+        .fn()
+        .mockResolvedValue([
+          { caseId: 'case-1', pathDecision: 'PRIMARY_CHAIN', createdAt: new Date() },
+        ]),
     }
     const complianceCaseRepository = {
       count: jest.fn().mockResolvedValue(0),
@@ -186,19 +189,13 @@ describe('TaxonomyDomainGateService', () => {
     })
 
     expect(decision.allowed).toBe(false)
-    expect(decision.blockingReasons).toContain(
-      'observation window has no runtime evidence',
-    )
-    expect(decision.blockingReasons).toContain(
-      'benchmark gate is not PASS for target domain',
-    )
+    expect(decision.blockingReasons).toContain('observation window has no runtime evidence')
+    expect(decision.blockingReasons).toContain('benchmark gate is not PASS for target domain')
   })
 
   it('should fail readiness when benchmark evidence is stale or bound to a different classifier version', async () => {
     jest.spyOn(fs, 'existsSync').mockReturnValue(true)
-    jest
-      .spyOn(fs, 'readdirSync')
-      .mockReturnValue(['taxonomy-benchmark-summary.json'] as never)
+    jest.spyOn(fs, 'readdirSync').mockReturnValue(['taxonomy-benchmark-summary.json'] as never)
     jest
       .spyOn(fs, 'statSync')
       .mockReturnValue({ mtime: new Date('2026-04-25T16:00:00+08:00') } as never)
@@ -236,9 +233,11 @@ describe('TaxonomyDomainGateService', () => {
       }),
     }
     const classificationRunRepository = {
-      find: jest.fn().mockResolvedValue([
-        { caseId: 'case-1', pathDecision: 'PRIMARY_CHAIN', createdAt: new Date() },
-      ]),
+      find: jest
+        .fn()
+        .mockResolvedValue([
+          { caseId: 'case-1', pathDecision: 'PRIMARY_CHAIN', createdAt: new Date() },
+        ]),
     }
     const complianceCaseRepository = {
       count: jest.fn().mockResolvedValue(0),
@@ -257,18 +256,17 @@ describe('TaxonomyDomainGateService', () => {
     })
 
     expect(decision.allowed).toBe(false)
-    expect(decision.blockingReasons).toContain(
-      'benchmark gate is not PASS for target domain',
-    )
+    expect(decision.blockingReasons).toContain('benchmark gate is not PASS for target domain')
   })
 
   it('should bind gate evaluation to rollout-state writes through transitionRolloutState', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-04-26T00:00:00.000Z'))
     jest.spyOn(fs, 'existsSync').mockReturnValue(true)
     jest.spyOn(fs, 'readdirSync').mockReturnValue(['taxonomy-benchmark-summary.json'] as never)
     jest.spyOn(fs, 'statSync').mockReturnValue({ mtime: new Date() } as never)
-    jest.spyOn(fs, 'readFileSync').mockReturnValue(
-      JSON.stringify(TAXONOMY_ROLLOUT_POLICY_ATDD_MACHINE_SUMMARY) as never,
-    )
+    jest
+      .spyOn(fs, 'readFileSync')
+      .mockReturnValue(JSON.stringify(TAXONOMY_ROLLOUT_POLICY_ATDD_MACHINE_SUMMARY) as never)
 
     const domainRolloutPolicyService = {
       getPolicyForDomain: jest.fn().mockResolvedValue({
@@ -299,9 +297,11 @@ describe('TaxonomyDomainGateService', () => {
       update: jest.fn().mockResolvedValue({ affected: 1 }),
     }
     const classificationRunRepository = {
-      find: jest.fn().mockResolvedValue([
-        { caseId: 'case-1', pathDecision: 'PRIMARY_CHAIN', createdAt: new Date() },
-      ]),
+      find: jest
+        .fn()
+        .mockResolvedValue([
+          { caseId: 'case-1', pathDecision: 'PRIMARY_CHAIN', createdAt: new Date() },
+        ]),
     }
     const complianceCaseRepository = {
       count: jest.fn().mockResolvedValue(0),
@@ -322,11 +322,64 @@ describe('TaxonomyDomainGateService', () => {
 
     expect(decision.allowed).toBe(true)
     expect(rolloutPolicyRepository.update).toHaveBeenCalledWith(
-      { l1Code: 'IT07' },
+      { l1Code: 'IT07', rolloutState: 'domain-shadow' },
       expect.objectContaining({
         rolloutState: 'domain-compare',
         updatedBy: 'user-1',
       }),
     )
+  })
+
+  it('should allow rollback transitions without runtime observation evidence', async () => {
+    const domainRolloutPolicyService = {
+      getPolicyForDomain: jest.fn().mockResolvedValue({
+        id: 'policy-1',
+        l1Code: 'IT04',
+        rolloutState: 'legacy-off',
+        allowLegacyFallback: false,
+        primaryThreshold: 0.7,
+        shadowWindowDays: 14,
+        cutoverThresholdsJson: {
+          rollbackPath: 'Enable kill switch and revert rollout state',
+        },
+        retirementThresholdsJson: {
+          rollbackPath: 'Enable kill switch and revert rollout state to domain-primary',
+        },
+        retirementEvidenceJson: {
+          lastRetirementReportPath: '/reports/taxonomy-retirement/IT04-rel.json',
+        },
+        killSwitchEnabled: false,
+        activeClassifierVersion: 'taxonomy-classifier-6.6',
+        mappingOwner: 'owner-a',
+        rulebookOwner: 'owner-b',
+        benchmarkOwner: 'owner-c',
+        gateApprover: 'owner-d',
+        rollbackApprover: 'owner-e',
+        updatedAt: null,
+        updatedBy: null,
+      }),
+    }
+    const classificationRunRepository = {
+      find: jest.fn().mockResolvedValue([]),
+    }
+    const complianceCaseRepository = {
+      count: jest.fn().mockResolvedValue(0),
+    }
+
+    const service = new TaxonomyDomainGateService(
+      domainRolloutPolicyService as never,
+      undefined,
+      classificationRunRepository as never,
+      complianceCaseRepository as never,
+    )
+
+    const decision = await service.evaluateDomainReadiness({
+      l1Code: 'IT04',
+      targetState: 'domain-primary',
+    })
+
+    expect(decision.allowed).toBe(true)
+    expect(decision.blockingReasons).not.toContain('observation window has no runtime evidence')
+    expect(decision.recommendedNextAction).toContain('Rollback IT04 to domain-primary')
   })
 })

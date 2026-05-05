@@ -4,19 +4,16 @@ import { Injectable, Optional } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { ComplianceCase } from '../../../database/entities/compliance-case.entity'
-import type {
-  KgTaxonomyDomainRolloutState,
-} from '../../../database/entities/kg-taxonomy-domain-rollout-policy.entity'
+import type { KgTaxonomyDomainRolloutState } from '../../../database/entities/kg-taxonomy-domain-rollout-policy.entity'
 import { KgTaxonomyDomainRolloutPolicy } from '../../../database/entities/kg-taxonomy-domain-rollout-policy.entity'
 import { ComplianceCaseBackfillService } from './compliance-case-backfill.service'
-import {
-  ComplianceCaseReclassificationService,
-} from './compliance-case-reclassification.service'
+import { ComplianceCaseReclassificationService } from './compliance-case-reclassification.service'
 import { TaxonomyDomainGateService } from './taxonomy-domain-gate.service'
 import { resolveWorkspaceArtifactPath } from './taxonomy-benchmark.runner'
 import {
   DomainRolloutPolicyService,
   mergeRetirementEvidence,
+  validateRolloutTransition,
   type DomainRetirementEvidence,
   type DomainRolloutPolicySnapshot,
 } from './taxonomy-classification/domain-rollout-policy.service'
@@ -79,6 +76,28 @@ export type DomainRetirementReport = {
   reportPath: string | null
 }
 
+export type DomainRetirementRollbackResult = {
+  l1Code: string
+  previousState: KgTaxonomyDomainRolloutState
+  targetState: 'domain-primary'
+  legacyFallbackRestored: boolean
+  rollbackPath: string
+  reportPath: string | null
+  evidenceSummary: {
+    lastRollbackVerifiedAt: string | null
+    lastRetirementReportPath: string | null
+  }
+}
+
+export type DomainRetirementDryRunDecision = DomainRetirementReadiness & {
+  cleanupReadiness: DomainPhysicalCleanupDecision
+}
+
+export type DomainRetirementReportFile = {
+  fileName: string
+  content: string
+}
+
 export type DomainPhysicalCleanupDecision = {
   allowed: boolean
   blockingReasons: string[]
@@ -90,6 +109,55 @@ function formatTimestamp(date: Date): string {
 
 function sanitizePathSegment(value: string): string {
   return value.replace(/[\\/:*?"<>|]/g, '-')
+}
+
+const RETIREMENT_REPORT_PUBLIC_PREFIX = '/reports/taxonomy-retirement/'
+
+function resolveRetirementReportDirectory(): string {
+  return path.join(
+    resolveWorkspaceArtifactPath('_bmad-output/test-artifacts').resolvedPath,
+    'taxonomy-retirement',
+  )
+}
+
+function toPublicRetirementReportPath(fileName: string): string {
+  return `${RETIREMENT_REPORT_PUBLIC_PREFIX}${fileName}`
+}
+
+function resolveRetirementReportPath(reportPath: string): string {
+  const trimmedReportPath = reportPath.trim()
+  if (!trimmedReportPath) {
+    throw new Error('Retirement report path is required.')
+  }
+
+  const reportDir = resolveRetirementReportDirectory()
+  const resolvedReportDir = path.resolve(reportDir)
+  const slashNormalizedPath = trimmedReportPath.replace(/\\/g, '/')
+  const publicPrefixWithoutLeadingSlash = RETIREMENT_REPORT_PUBLIC_PREFIX.slice(1)
+  const fileName = slashNormalizedPath.startsWith(RETIREMENT_REPORT_PUBLIC_PREFIX)
+    ? path.posix.basename(slashNormalizedPath)
+    : slashNormalizedPath.startsWith(publicPrefixWithoutLeadingSlash)
+      ? path.posix.basename(slashNormalizedPath)
+      : path.isAbsolute(trimmedReportPath)
+        ? null
+        : path.posix.basename(slashNormalizedPath)
+
+  const resolvedReportPath = fileName
+    ? path.resolve(reportDir, fileName)
+    : path.resolve(trimmedReportPath)
+
+  if (
+    resolvedReportPath !== resolvedReportDir &&
+    !resolvedReportPath.startsWith(`${resolvedReportDir}${path.sep}`)
+  ) {
+    throw new Error('Retirement report path is outside the allowed report directory.')
+  }
+
+  if (!path.basename(resolvedReportPath).endsWith('.json')) {
+    throw new Error('Retirement report path must reference a JSON report.')
+  }
+
+  return resolvedReportPath
 }
 
 function isAssignedOwner(value: string | null | undefined): boolean {
@@ -127,38 +195,30 @@ export class DomainRetirementPrerequisiteVerifierService {
 
   async verifyPrerequisites(args: {
     l1Code: string
-    gateDecision: Awaited<
-      ReturnType<TaxonomyDomainGateService['evaluateDomainReadiness']>
-    >
+    gateDecision: Awaited<ReturnType<TaxonomyDomainGateService['evaluateDomainReadiness']>>
   }): Promise<DomainRetirementPrerequisites> {
     const policy = await this.resolvePolicy(args.l1Code)
     const evidence = policy?.retirementEvidenceJson
 
     return {
       cutoverTierPassed:
-        Boolean(evidence?.lastCutoverAt) ||
-        args.gateDecision.currentState === 'domain-primary',
+        Boolean(evidence?.lastCutoverAt) || args.gateDecision.currentState === 'domain-primary',
       observationWindowPassed:
         args.gateDecision.metrics.totalRuns >= MIN_OBSERVATION_RUNS &&
-        args.gateDecision.metrics.fallbackRate <=
-          args.gateDecision.rolloutGuidance.errorBudget &&
+        args.gateDecision.metrics.fallbackRate <= args.gateDecision.rolloutGuidance.errorBudget &&
         args.gateDecision.metrics.unknownRate <= MAX_UNKNOWN_RATE &&
         args.gateDecision.metrics.manualCorrectionRate <= MAX_MANUAL_CORRECTION_RATE,
       killSwitchDrillPassed:
-        normalizeBoolean(
-          await this.simulateKillSwitchDrill(policy),
-        ) || Boolean(evidence?.lastKillSwitchDrillAt),
+        normalizeBoolean(await this.simulateKillSwitchDrill(policy)) ||
+        Boolean(evidence?.lastKillSwitchDrillAt),
       rollbackVerified:
-        this.hasRollbackMetadata(policy) &&
-        (await this.hasRollbackExecutionSurface(args.l1Code)),
+        this.hasRollbackMetadata(policy) && (await this.hasRollbackExecutionSurface(args.l1Code)),
       reclassifyReady: await this.canDryRunReclassify(args.l1Code),
       backfillReady: await this.canDryRunBackfill(args.l1Code),
     }
   }
 
-  private async resolvePolicy(
-    l1Code: string,
-  ): Promise<DomainRolloutPolicySnapshot | null> {
+  private async resolvePolicy(l1Code: string): Promise<DomainRolloutPolicySnapshot | null> {
     if (!this.domainRolloutPolicyService) {
       return null
     }
@@ -196,23 +256,21 @@ export class DomainRetirementPrerequisiteVerifierService {
       classifiedAt: new Date().toISOString(),
     }
 
-    const decision = await this.domainRolloutPolicyService.resolvePolicyDecision(
-      {
-        l1Code: policy.l1Code,
-        classifierResult: simulatedResult,
-        primaryExecutability: {
-          failureModeCount: 1,
-          controlCandidateCount: 1,
-          isExecutable: true,
-          reason: 'READY',
-        },
-        // Simulated drill uses in-memory policy override only; no repository write path.
-        policy: {
-          ...policy,
-          killSwitchEnabled: true,
-        },
+    const decision = await this.domainRolloutPolicyService.resolvePolicyDecision({
+      l1Code: policy.l1Code,
+      classifierResult: simulatedResult,
+      primaryExecutability: {
+        failureModeCount: 1,
+        controlCandidateCount: 1,
+        isExecutable: true,
+        reason: 'READY',
       },
-    )
+      // Simulated drill uses in-memory policy override only; no repository write path.
+      policy: {
+        ...policy,
+        killSwitchEnabled: true,
+      },
+    })
 
     return decision.pathDecision !== 'PRIMARY_CHAIN'
   }
@@ -313,44 +371,61 @@ export class DomainLegacyPathManagerService {
     private readonly rolloutPolicyRepository?: Repository<KgTaxonomyDomainRolloutPolicy>,
   ) {}
 
-  async disableDomainLegacyPath(l1Code: string): Promise<void> {
+  async disableDomainLegacyPath(
+    l1Code: string,
+    expectedRolloutState: KgTaxonomyDomainRolloutState = 'legacy-off',
+  ): Promise<void> {
     if (!this.domainRolloutPolicyService || !this.rolloutPolicyRepository) {
       return
     }
 
-    const policy = await this.domainRolloutPolicyService.getPolicyForDomain(
-      l1Code,
-    )
+    const policy = await this.domainRolloutPolicyService.getPolicyForDomain(l1Code)
+    if (policy.rolloutState !== expectedRolloutState) {
+      throw new Error(
+        `Domain ${l1Code} legacy fallback update blocked: expected ${expectedRolloutState}, got ${policy.rolloutState}.`,
+      )
+    }
 
-    await this.rolloutPolicyRepository.update(
-      { l1Code },
+    const updateResult = await this.rolloutPolicyRepository.update(
+      { l1Code, rolloutState: expectedRolloutState },
       {
         allowLegacyFallback: false,
       },
     )
 
-    const updated = await this.rolloutPolicyRepository.findOne({ where: { l1Code } })
-    if (!updated || updated.allowLegacyFallback) {
+    if (updateResult.affected !== 1) {
       throw new Error(
-        `Domain ${l1Code} still allows legacy fallback after retirement execution.`,
+        `Domain ${l1Code} legacy fallback update blocked: rollout state changed before retirement execution could be persisted.`,
       )
+    }
+
+    const updated = await this.rolloutPolicyRepository.findOne({ where: { l1Code } })
+    if (!updated || updated.rolloutState !== expectedRolloutState || updated.allowLegacyFallback) {
+      throw new Error(`Domain ${l1Code} still allows legacy fallback after retirement execution.`)
     }
   }
 
   async restoreDomainLegacyPath(
     l1Code: string,
     allowLegacyFallback: boolean,
+    expectedRolloutState?: KgTaxonomyDomainRolloutState,
   ): Promise<void> {
     if (!this.rolloutPolicyRepository) {
       return
     }
 
-    await this.rolloutPolicyRepository.update(
-      { l1Code },
+    const updateResult = await this.rolloutPolicyRepository.update(
+      expectedRolloutState ? { l1Code, rolloutState: expectedRolloutState } : { l1Code },
       {
         allowLegacyFallback,
       },
     )
+
+    if (expectedRolloutState && updateResult.affected !== 1) {
+      throw new Error(
+        `Domain ${l1Code} legacy fallback restore blocked: rollout state changed before fallback could be restored.`,
+      )
+    }
   }
 }
 
@@ -405,28 +480,26 @@ export class DomainRetirementSmokeVerifierService {
         }
       }
 
-      const [legacyFallbackAllowed, metrics, reclassifyReport, backfillReport] =
-        await Promise.all([
-          this.domainRolloutPolicyService.shouldAllowLegacyFallback(l1Code),
-          this.domainRolloutPolicyService.getPolicyForDomain(l1Code).then((policy) =>
-            this.taxonomyDomainGateService!.summarizeWindow(
-              l1Code,
-              policy.shadowWindowDays,
-            ),
+      const [legacyFallbackAllowed, metrics, reclassifyReport, backfillReport] = await Promise.all([
+        this.domainRolloutPolicyService.shouldAllowLegacyFallback(l1Code),
+        this.domainRolloutPolicyService
+          .getPolicyForDomain(l1Code)
+          .then((policy) =>
+            this.taxonomyDomainGateService!.summarizeWindow(l1Code, policy.shadowWindowDays),
           ),
-          this.complianceCaseReclassificationService.reclassify({
-            caseIds,
-            l1Code,
-            shadowOnly: true,
-            dryRun: true,
-          }),
-          this.complianceCaseBackfillService.backfill({
-            caseIds,
-            l1Code,
-            includeRetirementReadiness: true,
-            dryRun: true,
-          }),
-        ])
+        this.complianceCaseReclassificationService.reclassify({
+          caseIds,
+          l1Code,
+          shadowOnly: true,
+          dryRun: true,
+        }),
+        this.complianceCaseBackfillService.backfill({
+          caseIds,
+          l1Code,
+          includeRetirementReadiness: true,
+          dryRun: true,
+        }),
+      ])
 
       return {
         passed:
@@ -484,9 +557,7 @@ export class DomainRetirementReleaseGuardService {
       blockingReasons.push('domain-primary stable window cannot be verified')
     } else {
       const stableWindowEnd = new Date(cutoverAt)
-      stableWindowEnd.setDate(
-        stableWindowEnd.getDate() + Math.max(args.stableWindowDays, 1),
-      )
+      stableWindowEnd.setDate(stableWindowEnd.getDate() + Math.max(args.stableWindowDays, 1))
 
       if (stableWindowEnd.getTime() > Date.now()) {
         blockingReasons.push('domain-primary stable window has not elapsed')
@@ -524,32 +595,22 @@ export class TaxonomyDomainRetirementService {
     private readonly rolloutPolicyRepository?: Repository<KgTaxonomyDomainRolloutPolicy>,
   ) {}
 
-  async evaluateRetirementReadiness(args: {
-    l1Code: string
-  }): Promise<DomainRetirementReadiness> {
+  async evaluateRetirementReadiness(args: { l1Code: string }): Promise<DomainRetirementReadiness> {
     if (!this.taxonomyDomainGateService || !this.prerequisiteVerifier) {
       throw new Error('Retirement readiness requires gate service and prerequisite verifier.')
     }
 
-    const gateDecision = await this.taxonomyDomainGateService.evaluateDomainReadiness(
-      {
-        l1Code: args.l1Code,
-        targetState: 'legacy-off',
-      },
-    )
-    const prerequisites =
-      await this.prerequisiteVerifier.verifyPrerequisites({
-        l1Code: args.l1Code,
-        gateDecision,
-      })
+    const gateDecision = await this.taxonomyDomainGateService.evaluateDomainReadiness({
+      l1Code: args.l1Code,
+      targetState: 'legacy-off',
+    })
+    const prerequisites = await this.prerequisiteVerifier.verifyPrerequisites({
+      l1Code: args.l1Code,
+      gateDecision,
+    })
 
-    const prerequisiteBlockingReasons = this.mapPrerequisiteBlockingReasons(
-      prerequisites,
-    )
-    const blockingReasons = [
-      ...gateDecision.blockingReasons,
-      ...prerequisiteBlockingReasons,
-    ]
+    const prerequisiteBlockingReasons = this.mapPrerequisiteBlockingReasons(prerequisites)
+    const blockingReasons = [...gateDecision.blockingReasons, ...prerequisiteBlockingReasons]
     const allowed = gateDecision.allowed && prerequisiteBlockingReasons.length === 0
 
     return {
@@ -565,20 +626,45 @@ export class TaxonomyDomainRetirementService {
     }
   }
 
+  async evaluateRetirementDryRun(args: {
+    l1Code: string
+  }): Promise<DomainRetirementDryRunDecision> {
+    if (!this.domainRolloutPolicyService) {
+      throw new Error('Retirement dry-run requires policy service.')
+    }
+
+    const readiness = await this.evaluateRetirementReadiness(args)
+    const policy = await this.domainRolloutPolicyService.getPolicyForDomain(args.l1Code)
+    const lastReleaseId = policy.retirementEvidenceJson.lastLegacyOffReleaseId
+
+    if (policy.retirementEvidenceJson.lastLegacyOffAt && lastReleaseId) {
+      return {
+        ...readiness,
+        cleanupReadiness: await this.evaluatePhysicalCleanup({
+          l1Code: args.l1Code,
+          currentReleaseId: lastReleaseId,
+        }),
+      }
+    }
+
+    return {
+      ...readiness,
+      cleanupReadiness: {
+        allowed: false,
+        blockingReasons: ['physical cleanup requires a completed legacy-off retirement first'],
+      },
+    }
+  }
+
   async evaluatePhysicalCleanup(args: {
     l1Code: string
     currentReleaseId: string
   }): Promise<DomainPhysicalCleanupDecision> {
-    if (
-      !this.releaseGuard ||
-      !this.domainRolloutPolicyService
-    ) {
+    if (!this.releaseGuard || !this.domainRolloutPolicyService) {
       throw new Error('Physical cleanup evaluation requires release guard and policy service.')
     }
 
-    const policy = await this.domainRolloutPolicyService.getPolicyForDomain(
-      args.l1Code,
-    )
+    const policy = await this.domainRolloutPolicyService.getPolicyForDomain(args.l1Code)
     const policies = await this.domainRolloutPolicyService.listPolicies()
     const nonIt04Cutovers = policies
       .filter((candidate) => {
@@ -597,9 +683,7 @@ export class TaxonomyDomainRetirementService {
         return leftTs - rightTs
       })
     const stableWindowDays = Number(
-      policy.retirementThresholdsJson.stableWindowDays ??
-        policy.shadowWindowDays ??
-        14,
+      policy.retirementThresholdsJson.stableWindowDays ?? policy.shadowWindowDays ?? 14,
     )
 
     return this.releaseGuard.evaluateCleanupReadiness({
@@ -619,10 +703,7 @@ export class TaxonomyDomainRetirementService {
     updatedBy?: string | null
     dryRun?: boolean
   }): Promise<DomainRetirementReport> {
-    if (
-      !this.taxonomyDomainGateService ||
-      !this.domainRolloutPolicyService
-    ) {
+    if (!this.taxonomyDomainGateService || !this.domainRolloutPolicyService) {
       throw new Error('Retirement execution requires gate service and policy service.')
     }
 
@@ -631,17 +712,13 @@ export class TaxonomyDomainRetirementService {
     })
 
     if (!readiness.allowed) {
-      throw new Error(
-        `Retirement blocked: ${readiness.blockingReasons.join('; ')}`,
-      )
+      throw new Error(`Retirement blocked: ${readiness.blockingReasons.join('; ')}`)
     }
 
     if (args.dryRun) {
       const cleanupDecision: DomainPhysicalCleanupDecision = {
         allowed: false,
-        blockingReasons: [
-          'physical cleanup requires a completed legacy-off retirement first',
-        ],
+        blockingReasons: ['physical cleanup requires a completed legacy-off retirement first'],
       }
 
       return this.buildRetirementReport({
@@ -656,8 +733,9 @@ export class TaxonomyDomainRetirementService {
       })
     }
 
-    const policyBeforeRetirement =
-      await this.domainRolloutPolicyService.getPolicyForDomain(args.l1Code)
+    const policyBeforeRetirement = await this.domainRolloutPolicyService.getPolicyForDomain(
+      args.l1Code,
+    )
 
     if (!this.smokeVerifier) {
       throw new Error('Retirement execution requires smoke verifier to be configured.')
@@ -670,12 +748,16 @@ export class TaxonomyDomainRetirementService {
       releaseId: args.releaseId,
     })
     try {
-      await this.legacyPathManager?.disableDomainLegacyPath(args.l1Code)
+      await this.legacyPathManager?.disableDomainLegacyPath(args.l1Code, 'legacy-off')
 
       const smokeVerification = await this.smokeVerifier.verifyDomainSmoke(args.l1Code)
 
       if (!smokeVerification.passed) {
-        throw new Error('retirement smoke verification failed')
+        throw new Error(
+          smokeVerification.reason
+            ? `retirement smoke verification failed: ${smokeVerification.reason}`
+            : 'retirement smoke verification failed',
+        )
       }
 
       const cleanupDecision = await this.evaluatePhysicalCleanup({
@@ -689,11 +771,7 @@ export class TaxonomyDomainRetirementService {
         smokeVerification,
         reportPath: null,
       })
-      const reportPath = await this.writeRetirementReport(
-        args.l1Code,
-        report,
-        args.releaseId,
-      )
+      const reportPath = await this.writeRetirementReport(args.l1Code, report, args.releaseId)
       await this.persistRetirementEvidence(args.l1Code, {
         lastSmokeVerifiedAt: smokeVerification.checkedAt,
         lastRetirementReportPath: reportPath,
@@ -712,10 +790,11 @@ export class TaxonomyDomainRetirementService {
       await this.legacyPathManager?.restoreDomainLegacyPath(
         args.l1Code,
         policyBeforeRetirement.allowLegacyFallback,
+        policyBeforeRetirement.rolloutState,
       )
       if (this.rolloutPolicyRepository) {
-        await this.rolloutPolicyRepository.update(
-          { l1Code: args.l1Code },
+        const restoreResult = await this.rolloutPolicyRepository.update(
+          { l1Code: args.l1Code, rolloutState: policyBeforeRetirement.rolloutState },
           {
             retirementEvidenceJson: policyBeforeRetirement.retirementEvidenceJson,
             ...(policyBeforeRetirement.stateChangedAt
@@ -723,14 +802,108 @@ export class TaxonomyDomainRetirementService {
               : {}),
           },
         )
+        if (restoreResult.affected !== 1) {
+          throw new Error(
+            `Retirement compensation failed for domain ${args.l1Code}: rollout policy changed before evidence could be restored.`,
+          )
+        }
       }
       throw error
     }
   }
 
-  private mapPrerequisiteBlockingReasons(
-    prerequisites: DomainRetirementPrerequisites,
-  ): string[] {
+  async rollbackRetirement(args: {
+    l1Code: string
+    targetState?: 'domain-primary'
+    updatedBy?: string | null
+    restoreLegacyFallback?: boolean
+  }): Promise<DomainRetirementRollbackResult> {
+    if (!this.domainRolloutPolicyService || !this.rolloutPolicyRepository) {
+      throw new Error('Rollback requires policy service and repository.')
+    }
+
+    const policyBeforeRollback = await this.domainRolloutPolicyService.getPolicyForDomain(
+      args.l1Code,
+    )
+
+    if (policyBeforeRollback.rolloutState !== 'legacy-off') {
+      throw new Error(
+        'Rollback blocked: domain is not in legacy-off and no retirement evidence is available',
+      )
+    }
+
+    const targetState = args.targetState ?? 'domain-primary'
+    if (targetState !== 'domain-primary') {
+      throw new Error('Rollback blocked: retirement rollback target must be domain-primary')
+    }
+
+    validateRolloutTransition(policyBeforeRollback.rolloutState, targetState)
+
+    const rollbackPath = String(
+      policyBeforeRollback.retirementThresholdsJson.rollbackPath ??
+        'Enable kill switch and revert rollout state to domain-primary',
+    )
+
+    const restoreLegacyFallback = args.restoreLegacyFallback ?? true
+    const lastRollbackVerifiedAt = new Date().toISOString()
+    const retirementEvidenceJson = mergeRetirementEvidence(
+      policyBeforeRollback.retirementEvidenceJson,
+      { lastRollbackVerifiedAt },
+    )
+
+    const updateResult = await this.rolloutPolicyRepository.update(
+      {
+        l1Code: args.l1Code,
+        rolloutState: 'legacy-off',
+      },
+      {
+        rolloutState: targetState,
+        allowLegacyFallback: restoreLegacyFallback,
+        stateChangedAt: new Date(),
+        retirementEvidenceJson,
+        updatedBy: args.updatedBy ?? null,
+      },
+    )
+
+    if (updateResult.affected !== 1) {
+      throw new Error(
+        `Rollback blocked: concurrency conflict for domain ${args.l1Code}; rollout state changed before rollback could be persisted.`,
+      )
+    }
+
+    const updatedPolicy = await this.domainRolloutPolicyService.getPolicyForDomain(args.l1Code)
+
+    if (restoreLegacyFallback && !updatedPolicy.allowLegacyFallback) {
+      throw new Error(
+        `Rollback blocked: domain ${args.l1Code} did not restore legacy fallback after rollback.`,
+      )
+    }
+
+    return {
+      l1Code: args.l1Code,
+      previousState: policyBeforeRollback.rolloutState,
+      targetState: updatedPolicy.rolloutState as 'domain-primary',
+      legacyFallbackRestored: updatedPolicy.allowLegacyFallback,
+      rollbackPath,
+      reportPath: policyBeforeRollback.retirementEvidenceJson.lastRetirementReportPath,
+      evidenceSummary: {
+        lastRollbackVerifiedAt,
+        lastRetirementReportPath:
+          policyBeforeRollback.retirementEvidenceJson.lastRetirementReportPath,
+      },
+    }
+  }
+
+  async readRetirementReport(reportPath: string): Promise<DomainRetirementReportFile> {
+    const resolvedReportPath = resolveRetirementReportPath(reportPath)
+    const content = await fs.promises.readFile(resolvedReportPath, 'utf8')
+    return {
+      fileName: path.basename(resolvedReportPath),
+      content,
+    }
+  }
+
+  private mapPrerequisiteBlockingReasons(prerequisites: DomainRetirementPrerequisites): string[] {
     const reasons: string[] = []
 
     if (!prerequisites.cutoverTierPassed) {
@@ -777,10 +950,7 @@ export class TaxonomyDomainRetirementService {
         path: args.readiness.rolloutGuidance.rollbackPath,
       },
       smokeVerification: args.smokeVerification,
-      blockingReasons: [
-        ...args.readiness.blockingReasons,
-        ...args.cleanupDecision.blockingReasons,
-      ],
+      blockingReasons: [...args.readiness.blockingReasons, ...args.cleanupDecision.blockingReasons],
       reportPath: args.reportPath,
     }
   }
@@ -791,23 +961,19 @@ export class TaxonomyDomainRetirementService {
     releaseId: string,
   ): Promise<string> {
     const safeReleaseId = sanitizePathSegment(releaseId)
-    const reportDir = path.join(
-      resolveWorkspaceArtifactPath('_bmad-output/test-artifacts').resolvedPath,
-      'taxonomy-retirement',
-    )
+    const reportDir = resolveRetirementReportDirectory()
     await fs.promises.mkdir(reportDir, { recursive: true })
 
-    const reportPath = path.join(
-      reportDir,
-      `retirement-${l1Code}-${safeReleaseId}-${formatTimestamp(new Date())}.json`,
-    )
+    const reportFileName = `retirement-${l1Code}-${safeReleaseId}-${formatTimestamp(new Date())}.json`
+    const reportPath = path.join(reportDir, reportFileName)
+    const publicReportPath = toPublicRetirementReportPath(reportFileName)
 
     await fs.promises.writeFile(
       reportPath,
       JSON.stringify(
         {
           ...report,
-          reportPath,
+          reportPath: publicReportPath,
           releaseId,
         },
         null,
@@ -816,7 +982,7 @@ export class TaxonomyDomainRetirementService {
       'utf8',
     )
 
-    return reportPath
+    return publicReportPath
   }
 
   private async persistRetirementEvidence(
@@ -827,18 +993,19 @@ export class TaxonomyDomainRetirementService {
       return
     }
 
-    const policy = await this.domainRolloutPolicyService.getPolicyForDomain(
-      l1Code,
-    )
+    const policy = await this.domainRolloutPolicyService.getPolicyForDomain(l1Code)
 
-    await this.rolloutPolicyRepository.update(
-      { l1Code },
+    const updateResult = await this.rolloutPolicyRepository.update(
+      { l1Code, rolloutState: 'legacy-off' },
       {
-        retirementEvidenceJson: mergeRetirementEvidence(
-          policy.retirementEvidenceJson,
-          patch,
-        ),
+        retirementEvidenceJson: mergeRetirementEvidence(policy.retirementEvidenceJson, patch),
       },
     )
+
+    if (updateResult.affected !== 1) {
+      throw new Error(
+        `Retirement evidence update blocked for domain ${l1Code}: rollout state changed before evidence could be persisted.`,
+      )
+    }
   }
 }

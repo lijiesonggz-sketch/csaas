@@ -185,11 +185,19 @@ describe('DomainRetirementPrerequisiteVerifierService', () => {
 describe('DomainLegacyPathManagerService', () => {
   it('should update allowLegacyFallback to false and verify the write', async () => {
     const rolloutPolicyRepository = {
-      update: jest.fn().mockResolvedValue(undefined),
-      findOne: jest.fn().mockResolvedValue({ l1Code: 'IT07', allowLegacyFallback: false }),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+      findOne: jest.fn().mockResolvedValue({
+        l1Code: 'IT07',
+        rolloutState: 'legacy-off',
+        allowLegacyFallback: false,
+      }),
     }
     const domainRolloutPolicyService = {
-      getPolicyForDomain: jest.fn().mockResolvedValue({ l1Code: 'IT07', allowLegacyFallback: true }),
+      getPolicyForDomain: jest.fn().mockResolvedValue({
+        l1Code: 'IT07',
+        rolloutState: 'legacy-off',
+        allowLegacyFallback: true,
+      }),
     }
     const service = new DomainLegacyPathManagerService(
       domainRolloutPolicyService as never,
@@ -199,18 +207,26 @@ describe('DomainLegacyPathManagerService', () => {
     await service.disableDomainLegacyPath('IT07')
 
     expect(rolloutPolicyRepository.update).toHaveBeenCalledWith(
-      { l1Code: 'IT07' },
+      { l1Code: 'IT07', rolloutState: 'legacy-off' },
       { allowLegacyFallback: false },
     )
   })
 
   it('should throw when allowLegacyFallback is still true after update', async () => {
     const rolloutPolicyRepository = {
-      update: jest.fn().mockResolvedValue(undefined),
-      findOne: jest.fn().mockResolvedValue({ l1Code: 'IT07', allowLegacyFallback: true }),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+      findOne: jest.fn().mockResolvedValue({
+        l1Code: 'IT07',
+        rolloutState: 'legacy-off',
+        allowLegacyFallback: true,
+      }),
     }
     const domainRolloutPolicyService = {
-      getPolicyForDomain: jest.fn().mockResolvedValue({ l1Code: 'IT07', allowLegacyFallback: true }),
+      getPolicyForDomain: jest.fn().mockResolvedValue({
+        l1Code: 'IT07',
+        rolloutState: 'legacy-off',
+        allowLegacyFallback: true,
+      }),
     }
     const service = new DomainLegacyPathManagerService(
       domainRolloutPolicyService as never,
@@ -224,12 +240,9 @@ describe('DomainLegacyPathManagerService', () => {
 
   it('should restore allowLegacyFallback to the given value', async () => {
     const rolloutPolicyRepository = {
-      update: jest.fn().mockResolvedValue(undefined),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
     }
-    const service = new DomainLegacyPathManagerService(
-      undefined,
-      rolloutPolicyRepository as never,
-    )
+    const service = new DomainLegacyPathManagerService(undefined, rolloutPolicyRepository as never)
 
     await service.restoreDomainLegacyPath('IT07', true)
 
@@ -293,9 +306,9 @@ describe('DomainRetirementSmokeVerifierService', () => {
 
   it('should return passed=true when all checks succeed', async () => {
     const complianceCaseRepository = {
-      find: jest.fn().mockResolvedValue([
-        { caseId: 'case-1', l1Code: 'IT07', createdAt: new Date() },
-      ]),
+      find: jest
+        .fn()
+        .mockResolvedValue([{ caseId: 'case-1', l1Code: 'IT07', createdAt: new Date() }]),
     }
     const domainRolloutPolicyService = {
       shouldAllowLegacyFallback: jest.fn().mockResolvedValue(false),
@@ -308,7 +321,11 @@ describe('DomainRetirementSmokeVerifierService', () => {
       reclassify: jest.fn().mockResolvedValue({ caseCount: 1 }),
     }
     const complianceCaseBackfillService = {
-      backfill: jest.fn().mockResolvedValue({ resetCount: 1, skippedMissingBatchCount: 0, rollbackCompatible: true }),
+      backfill: jest.fn().mockResolvedValue({
+        resetCount: 1,
+        skippedMissingBatchCount: 0,
+        rollbackCompatible: true,
+      }),
     }
     const service = new DomainRetirementSmokeVerifierService(
       domainRolloutPolicyService as never,

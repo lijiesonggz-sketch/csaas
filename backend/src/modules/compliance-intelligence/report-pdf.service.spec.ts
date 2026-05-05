@@ -17,6 +17,8 @@ jest.mock('fs/promises', () => ({
   writeFile: jest.fn().mockResolvedValue(undefined),
 }))
 
+const futureExpiryDate = () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+
 describe('ReportPdfService', () => {
   let service: ReportPdfService
 
@@ -191,7 +193,7 @@ describe('ReportPdfService', () => {
       reportId: 'report-1',
       requestedByUserId: 'user-1',
       status: 'queued',
-      expiresAt: new Date('2026-04-29T00:00:00.000Z'),
+      expiresAt: futureExpiryDate(),
     })
     reportPdfJobRepository.save.mockResolvedValue({
       pdfJobId: 'pdf-job-1',
@@ -204,7 +206,7 @@ describe('ReportPdfService', () => {
       filePath: null,
       fileSizeBytes: null,
       errorSummary: null,
-      expiresAt: new Date('2026-04-29T00:00:00.000Z'),
+      expiresAt: futureExpiryDate(),
       startedAt: null,
       completedAt: null,
       failedAt: null,
@@ -260,7 +262,7 @@ describe('ReportPdfService', () => {
       filePath: null,
       fileSizeBytes: null,
       errorSummary: null,
-      expiresAt: new Date('2026-04-29T00:00:00.000Z'),
+      expiresAt: futureExpiryDate(),
       startedAt: null,
       completedAt: null,
       failedAt: null,
@@ -306,7 +308,7 @@ describe('ReportPdfService', () => {
       filePath: null,
       fileSizeBytes: null,
       errorSummary: null,
-      expiresAt: new Date('2026-04-29T00:00:00.000Z'),
+      expiresAt: futureExpiryDate(),
       startedAt: null,
       completedAt: null,
       failedAt: null,
@@ -344,7 +346,7 @@ describe('ReportPdfService', () => {
       filePath: 'D:/tmp/control-report.pdf',
       fileSizeBytes: 123,
       errorSummary: null,
-      expiresAt: new Date('2026-04-29T00:00:00.000Z'),
+      expiresAt: futureExpiryDate(),
       startedAt: new Date('2026-03-30T09:00:02.000Z'),
       completedAt: new Date('2026-03-30T09:00:12.000Z'),
       failedAt: null,

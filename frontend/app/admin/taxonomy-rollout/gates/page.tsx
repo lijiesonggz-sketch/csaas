@@ -324,6 +324,17 @@ export default function TaxonomyRolloutGatesPage() {
           </div>
           <div className="flex gap-3">
             <Button asChild variant="outline" className="rounded-sm">
+              <Link
+                href={
+                  selectedL1Code
+                    ? `/admin/taxonomy-rollout/retirement?l1Code=${selectedL1Code}`
+                    : '/admin/taxonomy-rollout/retirement'
+                }
+              >
+                打开 Retirement Console
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-sm">
               <Link href="/admin/taxonomy-rollout">返回 Rollout Overview</Link>
             </Button>
             <Button asChild variant="outline" className="rounded-sm">

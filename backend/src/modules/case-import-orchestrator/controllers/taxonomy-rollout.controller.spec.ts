@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { TaxonomyRolloutController } from './taxonomy-rollout.controller'
 import { DomainRolloutPolicyService } from '../services/taxonomy-classification/domain-rollout-policy.service'
 import { TaxonomyDomainGateService } from '../services/taxonomy-domain-gate.service'
+import { TaxonomyDomainRetirementService } from '../services/taxonomy-domain-retirement.service'
+import { AuditLogService } from '../../audit/audit-log.service'
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { TenantGuard } from '../../organizations/guards/tenant.guard'
 import { RolesGuard } from '../../auth/guards/roles.guard'
@@ -10,6 +12,8 @@ describe('TaxonomyRolloutController - Story 8.1', () => {
   let controller: TaxonomyRolloutController
   let mockService: jest.Mocked<DomainRolloutPolicyService>
   let mockGateService: jest.Mocked<TaxonomyDomainGateService>
+  let mockRetirementService: jest.Mocked<TaxonomyDomainRetirementService>
+  let mockAuditLogService: { log: jest.Mock }
 
   beforeEach(async () => {
     mockService = {
@@ -22,6 +26,16 @@ describe('TaxonomyRolloutController - Story 8.1', () => {
       evaluateDomainReadiness: jest.fn(),
       transitionRolloutState: jest.fn(),
     } as any
+    mockRetirementService = {
+      evaluateRetirementReadiness: jest.fn(),
+      evaluateRetirementDryRun: jest.fn(),
+      executeRetirement: jest.fn(),
+      rollbackRetirement: jest.fn(),
+      readRetirementReport: jest.fn(),
+    } as any
+    mockAuditLogService = {
+      log: jest.fn().mockResolvedValue(undefined),
+    }
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TaxonomyRolloutController],
@@ -33,6 +47,14 @@ describe('TaxonomyRolloutController - Story 8.1', () => {
         {
           provide: TaxonomyDomainGateService,
           useValue: mockGateService,
+        },
+        {
+          provide: TaxonomyDomainRetirementService,
+          useValue: mockRetirementService,
+        },
+        {
+          provide: AuditLogService,
+          useValue: mockAuditLogService,
         },
       ],
     })
@@ -408,6 +430,333 @@ describe('TaxonomyRolloutController - Story 8.1', () => {
           { user: { id: 'admin-user-001' } } as any,
         ),
       ).rejects.toThrow('Rollout transition blocked')
+    })
+
+    test('[8.3-CTRL-007][P1] should reject unsafe transition releaseId before gate mutation', async () => {
+      await expect(
+        controller.transitionRolloutState(
+          {
+            l1Code: 'IT04',
+            targetState: 'domain-shadow',
+            releaseId: ' bad release ',
+          } as any,
+          { user: { id: 'admin-user-001' } } as any,
+        ),
+      ).rejects.toThrow('releaseId must be 1-80 characters')
+
+      expect(mockGateService.transitionRolloutState).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('POST /retirement/dry-run', () => {
+    test('[8.3-CTRL-001][P0] should return structured retirement readiness with policy summary and latest execution metadata', async () => {
+      mockRetirementService.evaluateRetirementDryRun.mockResolvedValue({
+        l1Code: 'IT04',
+        currentState: 'domain-primary',
+        targetState: 'legacy-off',
+        allowed: false,
+        gateStatus: 'FAIL',
+        prerequisites: {
+          cutoverTierPassed: true,
+          observationWindowPassed: true,
+          killSwitchDrillPassed: false,
+          rollbackVerified: true,
+          reclassifyReady: true,
+          backfillReady: false,
+        },
+        blockingReasons: ['kill switch drill has not been verified'],
+        metrics: {
+          totalRuns: 18,
+          fallbackCount: 1,
+          unknownCount: 0,
+          manualCorrectionCount: 0,
+          fallbackRate: 0.0556,
+          unknownRate: 0,
+          manualCorrectionRate: 0,
+          errorBudgetConsumed: 0.0556,
+          observationWindowDays: 14,
+        },
+        rolloutGuidance: {
+          canaryPercentage: 10,
+          errorBudget: 0.06,
+          rollbackPath: 'Enable kill switch and revert rollout state to domain-primary',
+        },
+        cleanupReadiness: {
+          allowed: false,
+          blockingReasons: ['physical cleanup requires a completed legacy-off retirement first'],
+        },
+      } as any)
+      mockService.getOrCreatePolicyForDomain.mockResolvedValue({
+        l1Code: 'IT04',
+        rolloutState: 'domain-primary',
+        allowLegacyFallback: true,
+        killSwitchEnabled: false,
+        activeClassifierVersion: 'taxonomy-classifier-6.6',
+        primaryThreshold: 0.7,
+        shadowWindowDays: 14,
+        stateChangedAt: new Date('2026-05-02T00:00:00.000Z'),
+        retirementEvidenceJson: {
+          lastLegacyOffAt: null,
+          lastLegacyOffReleaseId: null,
+          lastSmokeVerifiedAt: '2026-05-02T08:20:00.000Z',
+          lastRollbackVerifiedAt: null,
+          lastRetirementReportPath: '/reports/it04-retirement.json',
+        },
+      } as any)
+
+      const result = await controller.evaluateRetirementDryRun(
+        {
+          l1Code: 'it04',
+        } as any,
+        { user: { id: 'admin-user-001' }, tenantId: 'tenant-1' } as any,
+      )
+
+      expect(mockRetirementService.evaluateRetirementDryRun).toHaveBeenCalledWith({
+        l1Code: 'IT04',
+      })
+      expect(mockAuditLogService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'read',
+          entityType: 'TaxonomyRolloutRetirement',
+          tenantId: 'tenant-1',
+          details: expect.objectContaining({
+            operation: 'dry-run',
+            l1Code: 'IT04',
+          }),
+        }),
+      )
+      expect(result).toEqual(
+        expect.objectContaining({
+          l1Code: 'IT04',
+          gateStatus: 'FAIL',
+          latestExecution: expect.objectContaining({
+            lastRetirementReportPath: '/reports/it04-retirement.json',
+          }),
+          policySummary: expect.objectContaining({
+            rolloutState: 'domain-primary',
+          }),
+        }),
+      )
+    })
+  })
+
+  describe('GET /retirement/report', () => {
+    test('[8.3-CTRL-006][P1] should stream a report artifact through the audited report endpoint', async () => {
+      mockRetirementService.readRetirementReport.mockResolvedValue({
+        fileName: 'retirement-IT04-rel-8-3-001.json',
+        content: '{"l1Code":"IT04"}',
+      } as any)
+      const response = {
+        setHeader: jest.fn(),
+        send: jest.fn(),
+      }
+
+      await controller.getRetirementReport(
+        '/reports/taxonomy-retirement/retirement-IT04-rel-8-3-001.json',
+        { user: { id: 'admin-user-001' }, tenantId: 'tenant-1' } as any,
+        response as any,
+      )
+
+      expect(mockRetirementService.readRetirementReport).toHaveBeenCalledWith(
+        '/reports/taxonomy-retirement/retirement-IT04-rel-8-3-001.json',
+      )
+      expect(response.setHeader).toHaveBeenCalledWith(
+        'Content-Type',
+        'application/json; charset=utf-8',
+      )
+      expect(response.setHeader).toHaveBeenCalledWith(
+        'Content-Disposition',
+        'inline; filename="retirement-IT04-rel-8-3-001.json"',
+      )
+      expect(response.send).toHaveBeenCalledWith('{"l1Code":"IT04"}')
+      expect(mockAuditLogService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'read',
+          entityType: 'TaxonomyRolloutRetirement',
+          tenantId: 'tenant-1',
+          details: expect.objectContaining({
+            operation: 'report-view',
+            outcome: 'success',
+            fileName: 'retirement-IT04-rel-8-3-001.json',
+          }),
+        }),
+      )
+    })
+  })
+
+  describe('POST /retirement/execute', () => {
+    test('[8.3-CTRL-002][P0] should map executeRetirement report into operator-facing response', async () => {
+      mockService.getOrCreatePolicyForDomain
+        .mockResolvedValueOnce({
+          l1Code: 'IT04',
+          rolloutState: 'domain-primary',
+          allowLegacyFallback: true,
+          killSwitchEnabled: false,
+          activeClassifierVersion: 'taxonomy-classifier-6.6',
+          primaryThreshold: 0.7,
+          shadowWindowDays: 14,
+          stateChangedAt: null,
+        } as any)
+        .mockResolvedValueOnce({
+          l1Code: 'IT04',
+          rolloutState: 'legacy-off',
+          allowLegacyFallback: false,
+          killSwitchEnabled: false,
+          activeClassifierVersion: 'taxonomy-classifier-6.6',
+          primaryThreshold: 0.7,
+          shadowWindowDays: 14,
+          stateChangedAt: new Date('2026-05-03T08:20:00.000Z'),
+        } as any)
+      mockRetirementService.executeRetirement.mockResolvedValue({
+        finalFallbackRate: 0.0087,
+        rollbackReadiness: {
+          verified: true,
+          path: 'Enable kill switch and revert rollout state to domain-primary',
+        },
+        smokeVerification: {
+          passed: true,
+          checkedAt: '2026-05-03T08:21:00.000Z',
+        },
+        blockingReasons: ['first non-IT04 cleanup requires a separate release'],
+        gateResults: {
+          legacyOff: 'PASS',
+          cleanup: 'DEFERRED',
+        },
+        reportPath: '/reports/taxonomy-retirement/IT04-rel-8-3-001.json',
+      } as any)
+
+      const result = await controller.executeRetirement(
+        {
+          l1Code: 'IT04',
+          releaseId: 'rel-8-3-001',
+          confirmationText: 'IT04',
+        } as any,
+        { user: { id: 'admin-user-001' }, tenantId: 'tenant-1' } as any,
+      )
+
+      expect(mockRetirementService.executeRetirement).toHaveBeenCalledWith({
+        l1Code: 'IT04',
+        releaseId: 'rel-8-3-001',
+        updatedBy: 'admin-user-001',
+      })
+      expect(mockAuditLogService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'update',
+          entityType: 'TaxonomyRolloutRetirement',
+          tenantId: 'tenant-1',
+          details: expect.objectContaining({
+            operation: 'execute',
+            l1Code: 'IT04',
+            releaseId: 'rel-8-3-001',
+            outcome: 'success',
+          }),
+        }),
+      )
+      expect(result).toEqual(
+        expect.objectContaining({
+          previousState: 'domain-primary',
+          targetState: 'legacy-off',
+          operator: 'admin-user-001',
+          reportPath: '/reports/taxonomy-retirement/IT04-rel-8-3-001.json',
+          policySummary: expect.objectContaining({
+            rolloutState: 'legacy-off',
+            allowLegacyFallback: false,
+          }),
+        }),
+      )
+    })
+
+    test('[8.3-CTRL-003][P1] should reject mismatched confirmationText', async () => {
+      await expect(
+        controller.executeRetirement(
+          {
+            l1Code: 'IT04',
+            releaseId: 'rel-8-3-001',
+            confirmationText: 'IT07',
+          } as any,
+          { user: { id: 'admin-user-001' } } as any,
+        ),
+      ).rejects.toThrow('confirmationText must exactly match the selected l1Code')
+    })
+
+    test('[8.3-CTRL-005][P1] should reject blank or unsafe releaseId before execution', async () => {
+      await expect(
+        controller.executeRetirement(
+          {
+            l1Code: 'IT04',
+            releaseId: '   ',
+            confirmationText: 'IT04',
+          } as any,
+          { user: { id: 'admin-user-001' } } as any,
+        ),
+      ).rejects.toThrow('releaseId must be 1-80 characters')
+      expect(mockRetirementService.executeRetirement).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('POST /retirement/rollback', () => {
+    test('[8.3-CTRL-004][P0] should map rollbackRetirement result into restored-state response', async () => {
+      mockRetirementService.rollbackRetirement.mockResolvedValue({
+        previousState: 'legacy-off',
+        targetState: 'domain-primary',
+        legacyFallbackRestored: true,
+        rollbackPath: 'Enable kill switch and revert rollout state to domain-primary',
+        reportPath: '/reports/taxonomy-retirement/IT04-rel-8-3-001.json',
+        evidenceSummary: {
+          lastRollbackVerifiedAt: '2026-05-03T08:30:00.000Z',
+          lastRetirementReportPath: '/reports/taxonomy-retirement/IT04-rel-8-3-001.json',
+        },
+      } as any)
+      mockService.getOrCreatePolicyForDomain.mockResolvedValue({
+        l1Code: 'IT04',
+        rolloutState: 'domain-primary',
+        allowLegacyFallback: true,
+        killSwitchEnabled: false,
+        activeClassifierVersion: 'taxonomy-classifier-6.6',
+        primaryThreshold: 0.7,
+        shadowWindowDays: 14,
+        stateChangedAt: new Date('2026-05-03T08:30:00.000Z'),
+      } as any)
+
+      const result = await controller.rollbackRetirement(
+        {
+          l1Code: 'IT04',
+          targetState: 'domain-primary',
+          confirmationText: 'IT04',
+          restoreLegacyFallback: true,
+        } as any,
+        { user: { id: 'admin-user-001' }, tenantId: 'tenant-1' } as any,
+      )
+
+      expect(mockRetirementService.rollbackRetirement).toHaveBeenCalledWith({
+        l1Code: 'IT04',
+        targetState: 'domain-primary',
+        updatedBy: 'admin-user-001',
+        restoreLegacyFallback: true,
+      })
+      expect(mockAuditLogService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'update',
+          entityType: 'TaxonomyRolloutRetirement',
+          tenantId: 'tenant-1',
+          details: expect.objectContaining({
+            operation: 'rollback',
+            l1Code: 'IT04',
+            outcome: 'success',
+          }),
+        }),
+      )
+      expect(result).toEqual(
+        expect.objectContaining({
+          targetState: 'domain-primary',
+          legacyFallbackRestored: true,
+          rollbackPath: 'Enable kill switch and revert rollout state to domain-primary',
+          policySummary: expect.objectContaining({
+            rolloutState: 'domain-primary',
+            allowLegacyFallback: true,
+          }),
+        }),
+      )
     })
   })
 })

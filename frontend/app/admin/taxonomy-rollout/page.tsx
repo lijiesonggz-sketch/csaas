@@ -235,6 +235,17 @@ export default function TaxonomyRolloutPage() {
                 Open Gates Console
               </Link>
             </Button>
+            <Button asChild variant="outline" className="rounded-sm">
+              <Link
+                href={
+                  selectedL1Code
+                    ? `/admin/taxonomy-rollout/retirement?l1Code=${selectedL1Code}`
+                    : '/admin/taxonomy-rollout/retirement'
+                }
+              >
+                Open Retirement Console
+              </Link>
+            </Button>
             <Button
               variant="outline"
               className="rounded-sm"
@@ -253,12 +264,27 @@ export default function TaxonomyRolloutPage() {
                 前往独立 gates 子页评估 rollout readiness，并在 PASS 后执行 Promote。
               </p>
             </div>
-            <Button
-              className="rounded-sm bg-[#1E3A5F] text-white hover:bg-[#16304E]"
-              onClick={() => router.push('/admin/taxonomy-rollout/gates')}
-            >
-              打开 Gates Console
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                className="rounded-sm bg-[#1E3A5F] text-white hover:bg-[#16304E]"
+                onClick={() => router.push('/admin/taxonomy-rollout/gates')}
+              >
+                打开 Gates Console
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-sm"
+                onClick={() =>
+                  router.push(
+                    selectedL1Code
+                      ? `/admin/taxonomy-rollout/retirement?l1Code=${selectedL1Code}`
+                      : '/admin/taxonomy-rollout/retirement'
+                  )
+                }
+              >
+                打开 Retirement Console
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

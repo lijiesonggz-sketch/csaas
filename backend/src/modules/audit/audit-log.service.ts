@@ -1,11 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { AuditLog } from '../../database/entities/audit-log.entity';
+import { Injectable, Logger } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { AuditLog } from '../../database/entities/audit-log.entity'
 
 export interface QueryAuditLogDto {
-  limit?: number;
-  offset?: number;
+  limit?: number
+  offset?: number
 }
 
 /**
@@ -25,7 +25,7 @@ export interface QueryAuditLogDto {
  */
 @Injectable()
 export class AuditLogService {
-  private readonly logger = new Logger(AuditLogService.name);
+  private readonly logger = new Logger(AuditLogService.name)
 
   constructor(
     @InjectRepository(AuditLog)
@@ -42,13 +42,26 @@ export class AuditLogService {
    */
   async log(data: Partial<AuditLog>): Promise<void> {
     try {
-      const auditLog = this.auditLogRepository.create(data);
-      await this.auditLogRepository.save(auditLog);
-      this.logger.debug(`Audit log created: ${data.action} on ${data.entityType}`);
+      const auditLog = this.auditLogRepository.create(data)
+      await this.auditLogRepository.save(auditLog)
+      this.logger.debug(`Audit log created: ${data.action} on ${data.entityType}`)
     } catch (error) {
       // Audit log write failure should not affect the main request
-      this.logger.error('Failed to write audit log', error);
+      this.logger.error('Failed to write audit log', error)
     }
+  }
+
+  /**
+   * Create an audit log entry and propagate persistence failures.
+   *
+   * Control-plane operations that must not proceed without a durable audit
+   * record should call this strict variant instead of the fail-safe `log`.
+   */
+  async logStrict(data: Partial<AuditLog>): Promise<AuditLog> {
+    const auditLog = this.auditLogRepository.create(data)
+    const saved = await this.auditLogRepository.save(auditLog)
+    this.logger.debug(`Strict audit log created: ${data.action} on ${data.entityType}`)
+    return saved
   }
 
   /**
@@ -64,7 +77,7 @@ export class AuditLogService {
       order: { createdAt: 'DESC' },
       take: query.limit || 100,
       skip: query.offset || 0,
-    });
+    })
   }
 
   /**
@@ -75,11 +88,15 @@ export class AuditLogService {
    * @param resourceId - Resource ID
    * @returns Array of audit logs
    */
-  async findByResource(tenantId: string, resource: string, resourceId: string): Promise<AuditLog[]> {
+  async findByResource(
+    tenantId: string,
+    resource: string,
+    resourceId: string,
+  ): Promise<AuditLog[]> {
     return this.auditLogRepository.find({
       where: { tenantId, entityType: resource, entityId: resourceId },
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   /**

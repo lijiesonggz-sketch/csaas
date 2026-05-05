@@ -82,6 +82,22 @@ export type TaxonomyDomainReadinessDecision = {
   recommendedNextAction: string
 }
 
+const ROLLOUT_STATE_ORDER: KgTaxonomyDomainRolloutState[] = [
+  'legacy-primary',
+  'it04-on-new-interface',
+  'domain-shadow',
+  'domain-compare',
+  'domain-primary',
+  'legacy-off',
+]
+
+function isBackwardTransition(
+  currentState: KgTaxonomyDomainRolloutState,
+  targetState: KgTaxonomyDomainRolloutState,
+): boolean {
+  return ROLLOUT_STATE_ORDER.indexOf(targetState) < ROLLOUT_STATE_ORDER.indexOf(currentState)
+}
+
 function toRate(numerator: number, denominator: number): number {
   if (denominator === 0) {
     return 0
@@ -289,8 +305,9 @@ export class TaxonomyDomainGateService {
     })
     const benchmarkGate = this.resolveBenchmarkGate(summary, args.l1Code)
     const blockingReasons: string[] = []
+    const backwardTransition = isBackwardTransition(currentState, targetState)
 
-    if (metrics.totalRuns === 0) {
+    if (!backwardTransition && metrics.totalRuns === 0) {
       blockingReasons.push('observation window has no runtime evidence')
     }
 
@@ -307,6 +324,7 @@ export class TaxonomyDomainGateService {
     }
 
     if (
+      !backwardTransition &&
       (targetState === 'domain-compare' || targetState === 'domain-primary') &&
       benchmarkGate.gateStatus !== 'PASS'
     ) {
@@ -315,6 +333,7 @@ export class TaxonomyDomainGateService {
 
     const configuredErrorBudget = Number(cutoverThresholds.errorBudget ?? 0)
     if (
+      !backwardTransition &&
       (targetState === 'domain-compare' || targetState === 'domain-primary') &&
       configuredErrorBudget > 0 &&
       metrics.errorBudgetConsumed > configuredErrorBudget
@@ -371,6 +390,7 @@ export class TaxonomyDomainGateService {
       },
       recommendedNextAction: this.buildRecommendedNextAction({
         l1Code: args.l1Code,
+        currentState,
         targetState,
         allowed,
         rollbackPath,
@@ -390,9 +410,8 @@ export class TaxonomyDomainGateService {
       )
     }
 
-    const currentPolicy = await this.domainRolloutPolicyService.getOrCreatePolicyForDomain(
-      args.l1Code,
-    )
+    const currentPolicy = await this.resolvePolicy(args.l1Code)
+    const backwardTransition = isBackwardTransition(currentPolicy.rolloutState, args.targetState)
     const decision = await this.evaluateDomainReadiness({
       l1Code: args.l1Code,
       currentState: currentPolicy.rolloutState,
@@ -406,12 +425,12 @@ export class TaxonomyDomainGateService {
     const stateChangedAt = new Date()
     const retirementEvidenceJson = mergeRetirementEvidence(
       currentPolicy.retirementEvidenceJson,
-      args.targetState === 'domain-primary'
+      !backwardTransition && args.targetState === 'domain-primary'
         ? {
             lastCutoverAt: stateChangedAt.toISOString(),
             lastCutoverReleaseId: args.releaseId ?? null,
           }
-        : args.targetState === 'legacy-off'
+        : !backwardTransition && args.targetState === 'legacy-off'
           ? {
               lastLegacyOffAt: stateChangedAt.toISOString(),
               lastLegacyOffReleaseId: args.releaseId ?? null,
@@ -446,7 +465,14 @@ export class TaxonomyDomainGateService {
       throw new Error(`No domain rollout policy service is available for ${l1Code}.`)
     }
 
-    return this.domainRolloutPolicyService.getOrCreatePolicyForDomain(l1Code)
+    if (
+      'getOrCreatePolicyForDomain' in this.domainRolloutPolicyService &&
+      typeof this.domainRolloutPolicyService.getOrCreatePolicyForDomain === 'function'
+    ) {
+      return this.domainRolloutPolicyService.getOrCreatePolicyForDomain(l1Code)
+    }
+
+    return this.domainRolloutPolicyService.getPolicyForDomain(l1Code)
   }
 
   private resolveBenchmarkGate(
@@ -489,15 +515,23 @@ export class TaxonomyDomainGateService {
 
   private buildRecommendedNextAction(args: {
     l1Code: string
+    currentState: KgTaxonomyDomainRolloutState
     targetState: KgTaxonomyDomainRolloutState
     allowed: boolean
     rollbackPath: string
   }): string {
+    const backwardTransition = isBackwardTransition(args.currentState, args.targetState)
+
     if (args.allowed) {
+      if (backwardTransition) {
+        return `Rollback ${args.l1Code} to ${args.targetState} and verify legacy fallback plus report evidence.`
+      }
       return `Promote ${args.l1Code} to ${args.targetState} and keep monitoring rollback path ${args.rollbackPath}.`
     }
 
-    return `Resolve blocking reasons before promoting ${args.l1Code} to ${args.targetState}.`
+    return backwardTransition
+      ? `Resolve blocking reasons before rolling back ${args.l1Code} to ${args.targetState}.`
+      : `Resolve blocking reasons before promoting ${args.l1Code} to ${args.targetState}.`
   }
 
   private resolveRetirementObservationStart(policy: DomainRolloutPolicySnapshot): Date | null {
