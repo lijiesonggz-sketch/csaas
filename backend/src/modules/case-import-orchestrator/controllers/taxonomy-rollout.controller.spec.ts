@@ -7,13 +7,21 @@ import { AuditLogService } from '../../audit/audit-log.service'
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { TenantGuard } from '../../organizations/guards/tenant.guard'
 import { RolesGuard } from '../../auth/guards/roles.guard'
+import { ComplianceCaseReclassificationService } from '../services/compliance-case-reclassification.service'
+import { ComplianceCaseBackfillService } from '../services/compliance-case-backfill.service'
 
 describe('TaxonomyRolloutController - Story 8.1', () => {
   let controller: TaxonomyRolloutController
   let mockService: jest.Mocked<DomainRolloutPolicyService>
   let mockGateService: jest.Mocked<TaxonomyDomainGateService>
   let mockRetirementService: jest.Mocked<TaxonomyDomainRetirementService>
-  let mockAuditLogService: { log: jest.Mock }
+  let mockReclassificationService: jest.Mocked<ComplianceCaseReclassificationService>
+  let mockBackfillService: jest.Mocked<ComplianceCaseBackfillService>
+  let mockAuditLogService: {
+    log: jest.Mock
+    logStrict?: jest.Mock
+    findTaxonomyRolloutReports: jest.Mock
+  }
 
   beforeEach(async () => {
     mockService = {
@@ -33,8 +41,15 @@ describe('TaxonomyRolloutController - Story 8.1', () => {
       rollbackRetirement: jest.fn(),
       readRetirementReport: jest.fn(),
     } as any
+    mockReclassificationService = {
+      reclassify: jest.fn(),
+    } as any
+    mockBackfillService = {
+      backfill: jest.fn(),
+    } as any
     mockAuditLogService = {
       log: jest.fn().mockResolvedValue(undefined),
+      findTaxonomyRolloutReports: jest.fn(),
     }
 
     const module: TestingModule = await Test.createTestingModule({
@@ -51,6 +66,14 @@ describe('TaxonomyRolloutController - Story 8.1', () => {
         {
           provide: TaxonomyDomainRetirementService,
           useValue: mockRetirementService,
+        },
+        {
+          provide: ComplianceCaseReclassificationService,
+          useValue: mockReclassificationService,
+        },
+        {
+          provide: ComplianceCaseBackfillService,
+          useValue: mockBackfillService,
         },
         {
           provide: AuditLogService,
@@ -755,6 +778,240 @@ describe('TaxonomyRolloutController - Story 8.1', () => {
             rolloutState: 'domain-primary',
             allowLegacyFallback: true,
           }),
+        }),
+      )
+    })
+  })
+
+  describe('Story 8.4 recovery contract', () => {
+    const req = {
+      user: { id: 'admin-user-001' },
+      tenantId: 'tenant-1',
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    } as any
+
+    test('[8.4-CTRL-001][P0] should dry-run reclassification through ComplianceCaseReclassificationService', async () => {
+      mockReclassificationService.reclassify.mockResolvedValue({
+        dryRun: true,
+        reranClustering: false,
+        latestPointerUpdated: false,
+        caseCount: 2,
+        affectedDomains: ['IT04'],
+        classifierVersion: 'taxonomy-classifier-8.4-dry-run',
+        scope: {
+          batchId: 'batch-it04-2026-05-05',
+          caseIds: ['case-it04-001', 'case-it04-002'],
+          l1Code: 'IT04',
+          shadowOnly: true,
+          forceLatestPointer: false,
+        },
+      })
+
+      const result = await (controller as any).reclassifyTaxonomyCases(
+        {
+          l1Code: 'it04',
+          batchId: ' batch-it04-2026-05-05 ',
+          classifierVersion: ' taxonomy-classifier-8.4-dry-run ',
+          shadowOnly: true,
+          dryRun: true,
+        },
+        req,
+      )
+
+      expect(mockReclassificationService.reclassify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          l1Code: 'IT04',
+          batchId: 'batch-it04-2026-05-05',
+          classifierVersion: 'taxonomy-classifier-8.4-dry-run',
+          shadowOnly: true,
+          forceLatestPointer: false,
+          dryRun: true,
+        }),
+      )
+      expect(mockAuditLogService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'update',
+          entityType: 'TaxonomyRolloutRecovery',
+          tenantId: 'tenant-1',
+          details: expect.objectContaining({
+            operation: 'reclassify',
+            l1Code: 'IT04',
+            dryRun: true,
+            shadowOnly: true,
+            classifierVersion: 'taxonomy-classifier-8.4-dry-run',
+            outcome: 'success',
+          }),
+        }),
+      )
+      expect(result).toEqual(
+        expect.objectContaining({
+          operation: 'reclassify',
+          l1Code: 'IT04',
+          dryRun: true,
+          processedCount: 2,
+          affectedDomains: ['IT04'],
+          latestPointerUpdated: false,
+          classifierVersion: 'taxonomy-classifier-8.4-dry-run',
+          auditSummary: expect.objectContaining({
+            updatedBy: 'admin-user-001',
+            outcome: 'success',
+          }),
+        }),
+      )
+      expect(result.reportPath).toMatch(/^\/reports\/taxonomy-recovery\/reclassify\//)
+    })
+
+    test('[8.4-CTRL-002][P0] should dry-run backfill through ComplianceCaseBackfillService', async () => {
+      mockBackfillService.backfill.mockResolvedValue({
+        requestedCount: 4,
+        resetCount: 3,
+        skippedReviewedCount: 1,
+        skippedMissingBatchCount: 0,
+        extractedCount: 0,
+        clusteredCount: 0,
+        autoMappedCaseCount: 0,
+        unmappedCaseCount: 0,
+        ruleMappedCaseCount: 0,
+        llmTriggeredCaseCount: 0,
+        llmAssistedRuleCaseCount: 0,
+        llmFallbackCaseCount: 0,
+        llmUnmappedCaseCount: 0,
+        mapCountBySource: {} as any,
+        mappedCaseCountBySource: {} as any,
+        batchIds: ['batch-it05-2026-05-05'],
+        affectedDomains: ['IT05'],
+        rollbackCompatible: true,
+        requiresLegacyCodeRestore: false,
+      })
+
+      const result = await (controller as any).backfillTaxonomyCases(
+        { l1Code: 'it05', batchId: 'batch-it05-2026-05-05', dryRun: true },
+        req,
+      )
+
+      expect(mockBackfillService.backfill).toHaveBeenCalledWith(
+        expect.objectContaining({
+          l1Code: 'IT05',
+          batchId: 'batch-it05-2026-05-05',
+          dryRun: true,
+        }),
+      )
+      expect(result).toEqual(
+        expect.objectContaining({
+          operation: 'backfill',
+          l1Code: 'IT05',
+          dryRun: true,
+          processedCount: 4,
+          affectedDomains: ['IT05'],
+          latestPointerUpdated: false,
+          classifierVersion: null,
+          backfillSummary: expect.objectContaining({
+            requestedCount: 4,
+            resetCount: 3,
+            skippedReviewedCount: 1,
+            rollbackCompatible: true,
+          }),
+        }),
+      )
+    })
+
+    test('[8.4-CTRL-003][P0] should reject missing l1Code and dangerous execute scopes before service calls', async () => {
+      await expect(
+        (controller as any).reclassifyTaxonomyCases(
+          { batchId: 'batch-without-domain', dryRun: true },
+          req,
+        ),
+      ).rejects.toThrow('l1Code')
+
+      await expect(
+        (controller as any).backfillTaxonomyCases(
+          { l1Code: 'IT04', dryRun: false, confirmationText: 'IT04' },
+          req,
+        ),
+      ).rejects.toThrow('batchId or caseIds')
+
+      expect(mockReclassificationService.reclassify).not.toHaveBeenCalled()
+      expect(mockBackfillService.backfill).not.toHaveBeenCalled()
+    })
+
+    test('[8.4-CTRL-004][P0] should convert scoped backfill blocked errors to stable conflict and strict audit', async () => {
+      const blockedMessage =
+        'case/domain-scoped backfill currently supports dry-run readiness only; use reclassify for granular execution'
+      mockAuditLogService.logStrict = jest.fn().mockResolvedValue({ id: 'audit-blocked-1' })
+      mockBackfillService.backfill.mockRejectedValue(new Error(blockedMessage))
+
+      await expect(
+        (controller as any).backfillTaxonomyCases(
+          { l1Code: 'IT05', caseIds: ['case-it05-009'], dryRun: false, confirmationText: 'IT05' },
+          req,
+        ),
+      ).rejects.toThrow(blockedMessage)
+
+      expect(mockAuditLogService.logStrict).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'admin-user-001',
+          tenantId: 'tenant-1',
+          entityType: 'TaxonomyRolloutRecovery',
+          details: expect.objectContaining({
+            operation: 'backfill',
+            l1Code: 'IT05',
+            dryRun: false,
+            outcome: 'blocked',
+            reason: blockedMessage,
+          }),
+        }),
+      )
+    })
+
+    test('[8.4-CTRL-005][P1] should return paginated report history with date filters and server-side limit clamp', async () => {
+      mockAuditLogService.findTaxonomyRolloutReports.mockResolvedValue({
+        items: [
+          {
+            id: 'audit-reclassify-001',
+            type: 'reclassify',
+            l1Code: 'IT04',
+            occurredAt: '2026-05-04T09:15:00.000Z',
+            outcome: 'success',
+            status: 'completed',
+            summary: 'Reclassified 12 cases for IT04',
+            reportPath: '/reports/taxonomy-recovery/reclassify/IT04-20260504.json',
+          },
+        ],
+        page: 2,
+        limit: 50,
+        total: 118,
+        hasNextPage: true,
+      })
+
+      const result = await (controller as any).getTaxonomyRolloutReports(
+        {
+          l1Code: 'it04',
+          page: '2',
+          limit: '500',
+          dateFrom: '2026-05-01T00:00:00.000Z',
+          dateTo: '2026-05-05T23:59:59.999Z',
+        },
+        req,
+      )
+
+      expect(mockAuditLogService.findTaxonomyRolloutReports).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tenantId: 'tenant-1',
+          l1Code: 'IT04',
+          page: 2,
+          limit: 50,
+          dateFrom: new Date('2026-05-01T00:00:00.000Z'),
+          dateTo: new Date('2026-05-05T23:59:59.999Z'),
+        }),
+      )
+      expect(result).toEqual(
+        expect.objectContaining({
+          page: 2,
+          limit: 50,
+          total: 118,
+          hasNextPage: true,
+          items: [expect.objectContaining({ type: 'reclassify', l1Code: 'IT04' })],
         }),
       )
     })

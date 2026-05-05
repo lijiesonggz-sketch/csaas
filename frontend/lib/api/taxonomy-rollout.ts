@@ -1,4 +1,4 @@
-import { apiFetch } from '../utils/api'
+import { apiFetch, clearTokenCache, getAuthToken } from '../utils/api'
 
 export type TaxonomyRolloutState =
   | 'legacy-primary'
@@ -233,6 +233,106 @@ export interface TaxonomyRolloutRetirementRollbackResult {
   policySummary: TaxonomyRolloutPolicySummary
 }
 
+export type TaxonomyRolloutRecoveryOperation = 'reclassify' | 'backfill'
+
+export interface ReclassifyTaxonomyCasesRequest {
+  l1Code: string
+  batchId?: string | null
+  caseIds?: string[]
+  classifierVersion?: string | null
+  shadowOnly?: boolean
+  dryRun: boolean
+  confirmationText?: string | null
+}
+
+export interface BackfillTaxonomyCasesRequest {
+  l1Code: string
+  batchId?: string | null
+  caseIds?: string[]
+  classifierVersion?: string | null
+  shadowOnly?: boolean
+  dryRun: boolean
+  confirmationText?: string | null
+}
+
+export interface TaxonomyRolloutRecoveryResult {
+  operation: TaxonomyRolloutRecoveryOperation
+  l1Code: string
+  dryRun: boolean
+  shadowOnly?: boolean
+  processedCount: number
+  affectedDomains: string[]
+  latestPointerUpdated: boolean
+  classifierVersion: string | null
+  summary?: string | null
+  reportPath?: string | null
+  auditId?: string | null
+  scope?: {
+    batchId?: string | null
+    caseIds?: string[] | null
+    l1Code?: string | null
+    shadowOnly?: boolean | null
+  }
+  backfillSummary?: {
+    requestedCount?: number
+    resetCount?: number
+    skippedReviewedCount?: number
+    rollbackCompatible?: boolean
+    [key: string]: unknown
+  }
+  auditSummary?: {
+    updatedBy?: string | null
+    outcome?: string | null
+    auditId?: string | null
+    [key: string]: unknown
+  }
+}
+
+export type TaxonomyRolloutReportType =
+  | 'retirement'
+  | 'rollback'
+  | 'reclassify'
+  | 'backfill'
+  | 'smoke'
+  | 'evidence'
+  | string
+
+export interface TaxonomyRolloutReportHistoryItem {
+  id: string
+  l1Code: string
+  type: TaxonomyRolloutReportType
+  status?: string | null
+  outcome?: string | null
+  createdAt?: string | null
+  occurredAt?: string | null
+  summary?: string | null
+  reportPath?: string | null
+  evidenceLink?: string | null
+  auditId?: string | null
+}
+
+export interface FetchTaxonomyRolloutReportsRequest {
+  l1Code?: string | null
+  page: number
+  limit: number
+  dateFrom?: string | null
+  dateTo?: string | null
+}
+
+export interface TaxonomyRolloutReportHistoryResponse {
+  items: TaxonomyRolloutReportHistoryItem[]
+  page: number
+  limit: number
+  total: number
+  hasNextPage?: boolean
+}
+
+export interface TaxonomyRolloutApiError extends Error {
+  status?: number
+  code?: string
+  auditId?: string
+}
+
 export async function fetchRolloutPolicies(): Promise<TaxonomyRolloutPolicyListItem[]> {
   return apiFetch<TaxonomyRolloutPolicyListItem[]>(
     '/api/admin/knowledge-graph/taxonomy-rollout/policies'
@@ -307,7 +407,153 @@ export async function rollbackTaxonomyRetirement(
   )
 }
 
-export function buildTaxonomyRetirementReportUrl(
+function extractTaxonomyRolloutError(body: unknown): {
+  message: string
+  code?: string
+  auditId?: string
+} {
+  if (!body || typeof body !== 'object') return { message: 'API request failed' }
+
+  const record = body as Record<string, unknown>
+  const nestedError =
+    record.error && typeof record.error === 'object'
+      ? (record.error as Record<string, unknown>)
+      : null
+  const rawMessage = record.message ?? nestedError?.message
+  const message = Array.isArray(rawMessage)
+    ? rawMessage.join(' ')
+    : typeof rawMessage === 'string' && rawMessage.trim()
+      ? rawMessage
+      : 'API request failed'
+  const code =
+    typeof record.code === 'string'
+      ? record.code
+      : typeof nestedError?.code === 'string'
+        ? nestedError.code
+        : undefined
+  const auditId =
+    typeof record.auditId === 'string'
+      ? record.auditId
+      : typeof nestedError?.auditId === 'string'
+        ? nestedError.auditId
+        : undefined
+
+  return { message, code, auditId }
+}
+
+async function taxonomyRolloutRecoveryFetch<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '')
+  const url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`
+  const token = await getAuthToken()
+  const headers = new Headers(options.headers)
+  const isFormDataRequest = typeof FormData !== 'undefined' && options.body instanceof FormData
+
+  if (!headers.has('Content-Type') && !isFormDataRequest) {
+    headers.set('Content-Type', 'application/json')
+  }
+
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
+
+  let response = await fetch(url, {
+    ...options,
+    headers,
+  })
+
+  if (response.status === 401 && token) {
+    clearTokenCache()
+    const refreshedToken = await getAuthToken(true)
+
+    if (refreshedToken && refreshedToken !== token) {
+      headers.set('Authorization', `Bearer ${refreshedToken}`)
+      response = await fetch(url, {
+        ...options,
+        headers,
+      })
+    }
+  }
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ message: 'API request failed' }))
+    const details = extractTaxonomyRolloutError(body)
+    const error = new Error(details.message) as TaxonomyRolloutApiError
+    error.status = response.status
+    error.code = details.code
+    error.auditId = details.auditId
+    throw error
+  }
+
+  if (response.status === 204) return null as T
+
+  const result = await response.json()
+  if (result?.success !== undefined && result?.data !== undefined) {
+    return result.data as T
+  }
+
+  return result as T
+}
+
+export async function reclassifyTaxonomyCases(
+  payload: ReclassifyTaxonomyCasesRequest
+): Promise<TaxonomyRolloutRecoveryResult> {
+  return taxonomyRolloutRecoveryFetch<TaxonomyRolloutRecoveryResult>(
+    '/api/admin/knowledge-graph/taxonomy-rollout/reclassify',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  )
+}
+
+export async function backfillTaxonomyCases(
+  payload: BackfillTaxonomyCasesRequest
+): Promise<TaxonomyRolloutRecoveryResult> {
+  return taxonomyRolloutRecoveryFetch<TaxonomyRolloutRecoveryResult>(
+    '/api/admin/knowledge-graph/taxonomy-rollout/backfill',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }
+  )
+}
+
+export async function fetchTaxonomyRolloutReports(
+  query: FetchTaxonomyRolloutReportsRequest
+): Promise<TaxonomyRolloutReportHistoryResponse> {
+  const params = new URLSearchParams()
+  params.set('page', String(query.page))
+  params.set('limit', String(query.limit))
+
+  const l1Code = query.l1Code?.trim().toUpperCase()
+  if (l1Code) params.set('l1Code', l1Code)
+  if (query.dateFrom?.trim()) params.set('dateFrom', query.dateFrom.trim())
+  if (query.dateTo?.trim()) params.set('dateTo', query.dateTo.trim())
+
+  return taxonomyRolloutRecoveryFetch<TaxonomyRolloutReportHistoryResponse>(
+    `/api/admin/knowledge-graph/taxonomy-rollout/reports?${params.toString()}`
+  )
+}
+
+function isAllowedTaxonomyRetirementReportPath(normalizedSlashes: string): boolean {
+  return (
+    /^\/?reports\/taxonomy-retirement\/[^/]+\.json$/i.test(normalizedSlashes) ||
+    /^taxonomy-retirement\/[^/]+\.json$/i.test(normalizedSlashes)
+  )
+}
+
+function isAllowedTaxonomyRecoveryReportPath(normalizedSlashes: string): boolean {
+  return (
+    /^\/?reports\/taxonomy-recovery\/(?:reclassify|backfill)\/[^/]+\.json$/i.test(
+      normalizedSlashes
+    ) || /^taxonomy-recovery\/(?:reclassify|backfill)\/[^/]+\.json$/i.test(normalizedSlashes)
+  )
+}
+
+export function buildTaxonomyRolloutReportUrl(
   reportPath: string | null | undefined
 ): string | null {
   const normalizedReportPath = reportPath?.trim()
@@ -315,12 +561,26 @@ export function buildTaxonomyRetirementReportUrl(
 
   const normalizedSlashes = normalizedReportPath.replace(/\\/g, '/')
   if (
-    !/^\/?reports\/taxonomy-retirement\/[^/]+\.json$/i.test(normalizedSlashes) &&
-    !/^taxonomy-retirement\/[^/]+\.json$/i.test(normalizedSlashes)
+    !isAllowedTaxonomyRetirementReportPath(normalizedSlashes) &&
+    !isAllowedTaxonomyRecoveryReportPath(normalizedSlashes)
   ) {
     return null
   }
 
   const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '')
   return `${baseUrl}/api/admin/knowledge-graph/taxonomy-rollout/retirement/report?path=${encodeURIComponent(normalizedReportPath)}`
+}
+
+export function buildTaxonomyRetirementReportUrl(
+  reportPath: string | null | undefined
+): string | null {
+  const normalizedReportPath = reportPath?.trim()
+  if (!normalizedReportPath) return null
+
+  const normalizedSlashes = normalizedReportPath.replace(/\\/g, '/')
+  if (!isAllowedTaxonomyRetirementReportPath(normalizedSlashes)) {
+    return null
+  }
+
+  return buildTaxonomyRolloutReportUrl(normalizedReportPath)
 }

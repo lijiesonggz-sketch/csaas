@@ -23,7 +23,10 @@ describe('Story 6.6 - Taxonomy Domain Retirement (ATDD)', () => {
         .mockResolvedValue(TAXONOMY_RETIREMENT_ATDD_MISSING_PREREQUISITES),
     }
 
-    const service = new TaxonomyDomainRetirementService(gateService, prerequisiteVerifier)
+    const service = new TaxonomyDomainRetirementService(
+      gateService as never,
+      prerequisiteVerifier as never,
+    )
 
     const decision = await service.evaluateRetirementReadiness({
       l1Code: 'IT07',

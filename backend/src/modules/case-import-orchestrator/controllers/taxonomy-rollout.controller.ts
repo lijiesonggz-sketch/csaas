@@ -3,8 +3,11 @@ import {
   Body,
   ConflictException,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
+  HttpException,
+  InternalServerErrorException,
   NotFoundException,
   Param,
   Post,
@@ -44,6 +47,15 @@ import {
   TaxonomyRolloutTransitionResultDto,
   TransitionTaxonomyRolloutStateDto,
 } from '../dto/taxonomy-rollout.dto'
+import {
+  BackfillTaxonomyRolloutRecoveryDto,
+  ReclassifyTaxonomyRolloutRecoveryDto,
+  TaxonomyRolloutRecoveryOperationResultDto,
+  TaxonomyRolloutReportHistoryQueryDto,
+  TaxonomyRolloutReportHistoryResponseDto,
+} from '../dto/taxonomy-rollout.dto'
+import { ComplianceCaseBackfillService } from '../services/compliance-case-backfill.service'
+import { ComplianceCaseReclassificationService } from '../services/compliance-case-reclassification.service'
 import { TaxonomyDomainGateService } from '../services/taxonomy-domain-gate.service'
 import { TaxonomyDomainRetirementService } from '../services/taxonomy-domain-retirement.service'
 import { DomainRolloutPolicyService } from '../services/taxonomy-classification/domain-rollout-policy.service'
@@ -55,6 +67,9 @@ type TaxonomyRolloutRequest = {
   headers?: Record<string, string | string[] | undefined>
 }
 
+type RecoveryOperation = 'reclassify' | 'backfill'
+type RecoveryOutcome = 'success' | 'blocked' | 'failed'
+
 @ApiTags('Knowledge Graph - Taxonomy Rollout')
 @ApiBearerAuth()
 @Controller('api/admin/knowledge-graph/taxonomy-rollout')
@@ -65,15 +80,137 @@ export class TaxonomyRolloutController {
     private readonly domainRolloutPolicyService: DomainRolloutPolicyService,
     private readonly taxonomyDomainGateService: TaxonomyDomainGateService,
     private readonly taxonomyDomainRetirementService: TaxonomyDomainRetirementService,
+    private readonly complianceCaseReclassificationService: ComplianceCaseReclassificationService,
+    private readonly complianceCaseBackfillService: ComplianceCaseBackfillService,
     private readonly auditLogService: AuditLogService,
   ) {}
 
-  private validateL1Code(l1Code: string): string {
+  private validateL1Code(l1Code: string | null | undefined): string {
+    if (typeof l1Code !== 'string') {
+      throw new BadRequestException(
+        'l1Code is required and must match the ITxx domain code format.',
+      )
+    }
     const normalized = l1Code.trim().toUpperCase()
     if (!/^IT\d{2}$/.test(normalized)) {
       throw new BadRequestException('l1Code must match the ITxx domain code format.')
     }
     return normalized
+  }
+
+  private normalizeOptionalString(value: string | null | undefined): string | null {
+    if (typeof value !== 'string') return null
+    const normalized = value.trim()
+    return normalized ? normalized : null
+  }
+
+  private normalizeCaseIds(value: unknown): string[] {
+    if (value === undefined || value === null) return []
+    if (!Array.isArray(value)) {
+      throw new BadRequestException('caseIds must be an array of case id strings.')
+    }
+
+    const normalized = value
+      .map((caseId) => (typeof caseId === 'string' ? caseId.trim() : ''))
+      .filter((caseId) => caseId.length > 0)
+
+    if (normalized.length === 0) {
+      throw new BadRequestException(
+        'caseIds must contain at least one non-empty case id when provided.',
+      )
+    }
+
+    return Array.from(new Set(normalized))
+  }
+
+  private assertRecoveryExecutionScope(params: {
+    operation: RecoveryOperation
+    dryRun: boolean
+    batchId: string | null
+    caseIds: string[]
+  }): void {
+    if (params.dryRun) return
+    if (params.batchId || params.caseIds.length > 0) return
+
+    throw new BadRequestException(
+      `${params.operation} execute requires batchId or caseIds scope; domain-only execute is not allowed.`,
+    )
+  }
+
+  private parsePositiveInteger(
+    value: string | number | undefined,
+    fallback: number,
+    max: number,
+  ): number {
+    const parsed =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string' && value.trim()
+          ? Number(value)
+          : fallback
+
+    if (!Number.isFinite(parsed) || parsed < 1) return fallback
+    return Math.min(Math.floor(parsed), max)
+  }
+
+  private parseOptionalDate(value: string | undefined, fieldName: string): Date | undefined {
+    const normalized = this.normalizeOptionalString(value)
+    if (!normalized) return undefined
+    const dateOnlyMatch = /^\d{4}-\d{2}-\d{2}$/.test(normalized)
+    const date =
+      dateOnlyMatch && fieldName === 'dateTo'
+        ? new Date(`${normalized}T23:59:59.999Z`)
+        : dateOnlyMatch && fieldName === 'dateFrom'
+          ? new Date(`${normalized}T00:00:00.000Z`)
+          : new Date(normalized)
+    if (Number.isNaN(date.getTime())) {
+      throw new BadRequestException(`${fieldName} must be a valid ISO date string.`)
+    }
+    return date
+  }
+
+  private assertTenantScope(req?: TaxonomyRolloutRequest): string {
+    const tenantId = this.normalizeOptionalString(req?.tenantId)
+    if (!tenantId) {
+      throw new ForbiddenException('tenant scope is required for taxonomy rollout history.')
+    }
+    return tenantId
+  }
+
+  private buildRecoveryReportPath(
+    operation: RecoveryOperation,
+    l1Code: string,
+    dryRun: boolean,
+  ): string {
+    const timestamp = new Date().toISOString().replace(/[-:.]/g, '').replace('T', 'T')
+    const mode = dryRun ? 'dry-run' : 'execute'
+    return `/reports/taxonomy-recovery/${operation}/${l1Code}-${timestamp}-${mode}.json`
+  }
+
+  private buildRecoverySummary(params: {
+    operation: RecoveryOperation
+    l1Code: string
+    dryRun: boolean
+    processedCount: number
+  }): string {
+    const mode = params.dryRun ? 'Dry-run' : 'Execute'
+    const verb = params.operation === 'reclassify' ? 'reclassified' : 'backfilled'
+    return `${mode} ${verb} ${params.processedCount} cases for ${params.l1Code}.`
+  }
+
+  private extractErrorMessage(error: unknown): string {
+    if (error instanceof HttpException) {
+      const response = error.getResponse()
+      if (typeof response === 'string') return response
+      if (typeof response === 'object' && response !== null && 'message' in response) {
+        const message = (response as { message?: unknown }).message
+        if (Array.isArray(message)) return message.join(' ')
+        if (typeof message === 'string') return message
+      }
+    }
+
+    if (error instanceof Error) return error.message
+    return String(error)
   }
 
   private buildPolicySummary(policy: {
@@ -157,6 +294,62 @@ export class TaxonomyRolloutController {
     )
   }
 
+  private isRecoveryBlockedErrorMessage(message: string): boolean {
+    return (
+      message.startsWith('Recovery operation blocked:') ||
+      /currently supports dry-run readiness only/i.test(message) ||
+      /blocked/i.test(message)
+    )
+  }
+
+  private async writeRecoveryReportArtifact(payload: {
+    operation: RecoveryOperation
+    l1Code: string
+    dryRun: boolean
+    summary: string
+    recoveryResult: Record<string, unknown>
+  }): Promise<string> {
+    const reportWriter = this.taxonomyDomainRetirementService as TaxonomyDomainRetirementService & {
+      writeRecoveryReport?: (payload: {
+        operation: RecoveryOperation
+        l1Code: string
+        dryRun: boolean
+        summary: string
+        recoveryResult: Record<string, unknown>
+      }) => Promise<string>
+    }
+
+    if (typeof reportWriter.writeRecoveryReport === 'function') {
+      return reportWriter.writeRecoveryReport(payload)
+    }
+
+    return this.buildRecoveryReportPath(payload.operation, payload.l1Code, payload.dryRun)
+  }
+
+  private throwRecoveryHttpException(params: {
+    message: string
+    outcome: RecoveryOutcome
+    auditId: string | null
+    error: unknown
+  }): never {
+    const code = params.outcome === 'blocked' ? 'RECOVERY_BLOCKED' : 'RECOVERY_FAILED'
+    const body = {
+      code,
+      message: params.message,
+      auditId: params.auditId,
+    }
+
+    if (params.outcome === 'blocked') {
+      throw new ConflictException(body)
+    }
+
+    if (params.error instanceof BadRequestException) {
+      throw new BadRequestException(body)
+    }
+
+    throw new InternalServerErrorException(body)
+  }
+
   private async writeRetirementAudit(
     req: TaxonomyRolloutRequest | undefined,
     details: Record<string, unknown> & {
@@ -187,6 +380,40 @@ export class TaxonomyRolloutController {
     }
 
     await this.auditLogService.log(auditLogPayload)
+  }
+
+  private async writeRecoveryAudit(
+    req: TaxonomyRolloutRequest | undefined,
+    details: Record<string, unknown> & {
+      operation: RecoveryOperation
+      l1Code: string
+      outcome: RecoveryOutcome
+    },
+    action: AuditAction = AuditAction.UPDATE,
+  ): Promise<string | null> {
+    const auditLogPayload = {
+      userId: this.resolveAuditUserId(req),
+      tenantId: req?.tenantId ?? null,
+      organizationId: null,
+      action,
+      entityType: 'TaxonomyRolloutRecovery',
+      entityId: null,
+      details,
+      ipAddress: req?.ip ?? null,
+      userAgent: this.resolveUserAgent(req),
+    }
+
+    const auditLogger = this.auditLogService as AuditLogService & {
+      logStrict?: (data: typeof auditLogPayload) => Promise<{ id?: string } | void>
+    }
+
+    if (typeof auditLogger.logStrict === 'function') {
+      const saved = await auditLogger.logStrict(auditLogPayload)
+      return saved && typeof saved.id === 'string' ? saved.id : null
+    }
+
+    await this.auditLogService.log(auditLogPayload)
+    return null
   }
 
   @Get('policies')
@@ -449,6 +676,342 @@ export class TaxonomyRolloutController {
       const message = error instanceof Error ? error.message : String(error)
       throw new BadRequestException(message)
     }
+  }
+
+  @Post('reclassify')
+  @ApiOperation({ summary: '执行受控 taxonomy reclassification recovery 操作' })
+  @ApiBody({ type: ReclassifyTaxonomyRolloutRecoveryDto })
+  @ApiResponse({
+    status: 200,
+    description: '成功返回 reclassify recovery 摘要',
+    type: TaxonomyRolloutRecoveryOperationResultDto,
+  })
+  @ApiResponse({ status: 400, description: 'scope 或 l1Code 非法' })
+  @ApiResponse({ status: 409, description: 'reclassify 被 service contract 阻止' })
+  @HttpCode(200)
+  async reclassifyTaxonomyCases(
+    @Body() body: ReclassifyTaxonomyRolloutRecoveryDto,
+    @Req() req: TaxonomyRolloutRequest,
+  ): Promise<TaxonomyRolloutRecoveryOperationResultDto> {
+    const operation: RecoveryOperation = 'reclassify'
+    let normalizedL1Code = 'UNKNOWN'
+    let batchId: string | null = null
+    let caseIds: string[] = []
+    let classifierVersion: string | null = null
+    let dryRun = true
+    let shadowOnly = false
+    let forceLatestPointer = false
+
+    try {
+      normalizedL1Code = this.validateL1Code(body.l1Code)
+      batchId = this.normalizeOptionalString(body.batchId)
+      caseIds = this.normalizeCaseIds(body.caseIds)
+      classifierVersion = this.normalizeOptionalString(body.classifierVersion)
+      dryRun = body.dryRun !== false
+      shadowOnly = body.shadowOnly === true
+      forceLatestPointer = body.forceLatestPointer === true
+
+      if (!dryRun) {
+        this.assertConfirmationText(normalizedL1Code, body.confirmationText ?? '')
+      }
+      this.assertRecoveryExecutionScope({ operation, dryRun, batchId, caseIds })
+
+      await this.writeRecoveryAudit(req, {
+        operation,
+        l1Code: normalizedL1Code,
+        outcome: 'success',
+        stage: 'requested',
+        dryRun,
+        shadowOnly,
+        classifierVersion,
+        scope: {
+          batchId,
+          caseIds,
+          l1Code: normalizedL1Code,
+          shadowOnly,
+          forceLatestPointer,
+        },
+      })
+
+      const report = await this.complianceCaseReclassificationService.reclassify({
+        l1Code: normalizedL1Code,
+        ...(batchId ? { batchId } : {}),
+        ...(caseIds.length > 0 ? { caseIds } : {}),
+        classifierVersion,
+        shadowOnly,
+        forceLatestPointer,
+        dryRun,
+      })
+      const processedCount = report.caseCount
+      const summary = this.buildRecoverySummary({
+        operation,
+        l1Code: normalizedL1Code,
+        dryRun: report.dryRun,
+        processedCount,
+      })
+      const reportPath = await this.writeRecoveryReportArtifact({
+        operation,
+        l1Code: normalizedL1Code,
+        dryRun: report.dryRun,
+        summary,
+        recoveryResult: {
+          ...report,
+          latestPointerUpdated: report.dryRun ? false : report.latestPointerUpdated,
+        },
+      })
+      const auditId = await this.writeRecoveryAudit(req, {
+        operation,
+        l1Code: normalizedL1Code,
+        outcome: 'success',
+        dryRun: report.dryRun,
+        shadowOnly,
+        classifierVersion,
+        processedCount,
+        affectedDomains: report.affectedDomains,
+        latestPointerUpdated: report.dryRun ? false : report.latestPointerUpdated,
+        scope: report.scope,
+        reportPath,
+        summary,
+      })
+
+      return {
+        operation,
+        l1Code: normalizedL1Code,
+        dryRun: report.dryRun,
+        shadowOnly,
+        processedCount,
+        affectedDomains: report.affectedDomains,
+        latestPointerUpdated: report.dryRun ? false : report.latestPointerUpdated,
+        classifierVersion: report.classifierVersion,
+        summary,
+        reportPath,
+        scope: report.scope,
+        auditSummary: {
+          updatedBy: this.resolveOperatorId(req),
+          outcome: 'success',
+          auditId,
+        },
+      }
+    } catch (error) {
+      const message = this.extractErrorMessage(error)
+      const outcome: RecoveryOutcome = this.isRecoveryBlockedErrorMessage(message)
+        ? 'blocked'
+        : 'failed'
+      let auditId: string | null = null
+      try {
+        auditId = await this.writeRecoveryAudit(req, {
+          operation,
+          l1Code: normalizedL1Code,
+          outcome,
+          dryRun,
+          shadowOnly,
+          classifierVersion,
+          scope: {
+            batchId,
+            caseIds,
+            l1Code: normalizedL1Code,
+            shadowOnly,
+            forceLatestPointer,
+          },
+          reason: message,
+        })
+      } catch {
+        auditId = null
+      }
+
+      this.throwRecoveryHttpException({ message, outcome, auditId, error })
+    }
+  }
+
+  @Post('backfill')
+  @ApiOperation({ summary: '执行受控 taxonomy backfill recovery 操作' })
+  @ApiBody({ type: BackfillTaxonomyRolloutRecoveryDto })
+  @ApiResponse({
+    status: 200,
+    description: '成功返回 backfill recovery 摘要',
+    type: TaxonomyRolloutRecoveryOperationResultDto,
+  })
+  @ApiResponse({ status: 400, description: 'scope 或 l1Code 非法' })
+  @ApiResponse({ status: 409, description: 'backfill 被 service contract 阻止' })
+  @HttpCode(200)
+  async backfillTaxonomyCases(
+    @Body() body: BackfillTaxonomyRolloutRecoveryDto,
+    @Req() req: TaxonomyRolloutRequest,
+  ): Promise<TaxonomyRolloutRecoveryOperationResultDto> {
+    const operation: RecoveryOperation = 'backfill'
+    let normalizedL1Code = 'UNKNOWN'
+    let batchId: string | null = null
+    let caseIds: string[] = []
+    let classifierVersion: string | null = null
+    let dryRun = true
+    let shadowOnly = false
+    let includeRetirementReadiness = true
+
+    try {
+      normalizedL1Code = this.validateL1Code(body.l1Code)
+      batchId = this.normalizeOptionalString(body.batchId)
+      caseIds = this.normalizeCaseIds(body.caseIds)
+      classifierVersion = this.normalizeOptionalString(body.classifierVersion)
+      dryRun = body.dryRun !== false
+      shadowOnly = body.shadowOnly === true
+      includeRetirementReadiness = body.includeRetirementReadiness !== false
+
+      if (!dryRun) {
+        this.assertConfirmationText(normalizedL1Code, body.confirmationText ?? '')
+      }
+      this.assertRecoveryExecutionScope({ operation, dryRun, batchId, caseIds })
+
+      const scope = {
+        batchId,
+        caseIds,
+        l1Code: normalizedL1Code,
+        shadowOnly,
+      }
+
+      await this.writeRecoveryAudit(req, {
+        operation,
+        l1Code: normalizedL1Code,
+        outcome: 'success',
+        stage: 'requested',
+        dryRun,
+        shadowOnly,
+        classifierVersion,
+        scope,
+      })
+
+      const report = await this.complianceCaseBackfillService.backfill({
+        l1Code: normalizedL1Code,
+        ...(batchId ? { batchId } : {}),
+        ...(caseIds.length > 0 ? { caseIds } : {}),
+        includeRetirementReadiness,
+        dryRun,
+      })
+      const processedCount = report.requestedCount
+      const summary = this.buildRecoverySummary({
+        operation,
+        l1Code: normalizedL1Code,
+        dryRun,
+        processedCount,
+      })
+      const backfillSummary = {
+        requestedCount: report.requestedCount,
+        resetCount: report.resetCount,
+        skippedReviewedCount: report.skippedReviewedCount,
+        skippedMissingBatchCount: report.skippedMissingBatchCount,
+        extractedCount: report.extractedCount,
+        clusteredCount: report.clusteredCount,
+        rollbackCompatible: report.rollbackCompatible,
+        requiresLegacyCodeRestore: report.requiresLegacyCodeRestore,
+        batchIds: report.batchIds,
+      }
+      const reportPath = await this.writeRecoveryReportArtifact({
+        operation,
+        l1Code: normalizedL1Code,
+        dryRun,
+        summary,
+        recoveryResult: {
+          ...report,
+          classifierVersion,
+          shadowOnly,
+          latestPointerUpdated: false,
+          scope,
+          backfillSummary,
+        },
+      })
+      const auditId = await this.writeRecoveryAudit(req, {
+        operation,
+        l1Code: normalizedL1Code,
+        outcome: 'success',
+        dryRun,
+        shadowOnly,
+        classifierVersion,
+        scope,
+        processedCount,
+        affectedDomains: report.affectedDomains,
+        latestPointerUpdated: false,
+        backfillSummary,
+        reportPath,
+        summary,
+      })
+
+      return {
+        operation,
+        l1Code: normalizedL1Code,
+        dryRun,
+        processedCount,
+        affectedDomains: report.affectedDomains,
+        latestPointerUpdated: false,
+        classifierVersion,
+        shadowOnly,
+        summary,
+        reportPath,
+        scope,
+        auditSummary: {
+          updatedBy: this.resolveOperatorId(req),
+          outcome: 'success',
+          auditId,
+        },
+        backfillSummary,
+      }
+    } catch (error) {
+      const message = this.extractErrorMessage(error)
+      const outcome: RecoveryOutcome = this.isRecoveryBlockedErrorMessage(message)
+        ? 'blocked'
+        : 'failed'
+      let auditId: string | null = null
+      try {
+        auditId = await this.writeRecoveryAudit(req, {
+          operation,
+          l1Code: normalizedL1Code,
+          outcome,
+          dryRun,
+          shadowOnly,
+          classifierVersion,
+          scope: {
+            batchId,
+            caseIds,
+            l1Code: normalizedL1Code,
+            shadowOnly,
+          },
+          reason: message,
+        })
+      } catch {
+        auditId = null
+      }
+
+      this.throwRecoveryHttpException({ message, outcome, auditId, error })
+    }
+  }
+
+  @Get('reports')
+  @ApiOperation({ summary: '查询 taxonomy rollout recovery / retirement report history' })
+  @ApiResponse({
+    status: 200,
+    description: '成功返回分页 report history',
+    type: TaxonomyRolloutReportHistoryResponseDto,
+  })
+  async getTaxonomyRolloutReports(
+    @Query() query: TaxonomyRolloutReportHistoryQueryDto,
+    @Req() req: TaxonomyRolloutRequest,
+  ): Promise<TaxonomyRolloutReportHistoryResponseDto> {
+    const l1Code = query.l1Code ? this.validateL1Code(query.l1Code) : undefined
+    const page = this.parsePositiveInteger(query.page, 1, 10000)
+    const limit = this.parsePositiveInteger(query.limit, 20, 50)
+    const dateFrom = this.parseOptionalDate(query.dateFrom, 'dateFrom')
+    const dateTo = this.parseOptionalDate(query.dateTo, 'dateTo')
+
+    if (dateFrom && dateTo && dateFrom.getTime() > dateTo.getTime()) {
+      throw new BadRequestException('dateFrom must be earlier than or equal to dateTo.')
+    }
+
+    return this.auditLogService.findTaxonomyRolloutReports({
+      tenantId: this.assertTenantScope(req),
+      l1Code,
+      page,
+      limit,
+      dateFrom,
+      dateTo,
+    })
   }
 
   @Post('retirement/execute')

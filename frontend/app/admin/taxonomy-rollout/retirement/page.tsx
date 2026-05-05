@@ -388,7 +388,7 @@ export default function TaxonomyRolloutRetirementPage() {
               执行 `legacy-off` dry-run、retirement 和 rollback，并查看最近一次 report / evidence。
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button asChild variant="outline" className="rounded-sm">
               <Link
                 href={
@@ -398,6 +398,17 @@ export default function TaxonomyRolloutRetirementPage() {
                 }
               >
                 返回 Gates Console
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-sm">
+              <Link
+                href={
+                  selectedL1Code
+                    ? `/admin/taxonomy-rollout/recovery?l1Code=${selectedL1Code}`
+                    : '/admin/taxonomy-rollout/recovery'
+                }
+              >
+                Recovery/History Console
               </Link>
             </Button>
             <Button asChild variant="outline" className="rounded-sm">

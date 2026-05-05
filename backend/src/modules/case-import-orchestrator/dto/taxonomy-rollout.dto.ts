@@ -1,6 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { Transform } from 'class-transformer'
-import { IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator'
+import {
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  Min,
+} from 'class-validator'
 import type {
   KgTaxonomyDomainRolloutState,
   KgTaxonomyDomainRolloutThresholds,
@@ -487,4 +498,301 @@ export class TaxonomyRolloutRetirementRollbackResultDto {
 
   @ApiProperty({ type: TaxonomyRolloutPolicySummaryDto })
   policySummary: TaxonomyRolloutPolicySummaryDto
+}
+
+export class ReclassifyTaxonomyRolloutRecoveryDto {
+  @ApiProperty({ example: 'IT04' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  @IsOptional()
+  @IsString()
+  l1Code?: string
+
+  @ApiPropertyOptional({ example: 'batch-it04-2026-05-05' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
+  @IsString()
+  batchId?: string | null
+
+  @ApiPropertyOptional({ type: [String], example: ['case-it04-001', 'case-it04-002'] })
+  @Transform(({ value }) =>
+    Array.isArray(value)
+      ? value
+          .map((item) => (typeof item === 'string' ? item.trim() : item))
+          .filter((item) => item !== '')
+      : value,
+  )
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  caseIds?: string[]
+
+  @ApiPropertyOptional({ example: 'taxonomy-classifier-8.4' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
+  @IsString()
+  classifierVersion?: string | null
+
+  @ApiPropertyOptional({ example: true, default: false })
+  @IsOptional()
+  @IsBoolean()
+  shadowOnly?: boolean
+
+  @ApiPropertyOptional({ example: true, default: true })
+  @IsOptional()
+  @IsBoolean()
+  dryRun?: boolean
+
+  @ApiPropertyOptional({ example: false, default: false })
+  @IsOptional()
+  @IsBoolean()
+  forceLatestPointer?: boolean
+
+  @ApiPropertyOptional({ example: 'IT04' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  @IsOptional()
+  @IsString()
+  confirmationText?: string | null
+}
+
+export class BackfillTaxonomyRolloutRecoveryDto {
+  @ApiProperty({ example: 'IT04' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  @IsOptional()
+  @IsString()
+  l1Code?: string
+
+  @ApiPropertyOptional({ example: 'batch-it04-2026-05-05' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
+  @IsString()
+  batchId?: string | null
+
+  @ApiPropertyOptional({ type: [String], example: ['case-it04-001', 'case-it04-002'] })
+  @Transform(({ value }) =>
+    Array.isArray(value)
+      ? value
+          .map((item) => (typeof item === 'string' ? item.trim() : item))
+          .filter((item) => item !== '')
+      : value,
+  )
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  caseIds?: string[]
+
+  @ApiPropertyOptional({ example: true, default: true })
+  @IsOptional()
+  @IsBoolean()
+  dryRun?: boolean
+
+  @ApiPropertyOptional({ example: 'taxonomy-classifier-8.4' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
+  @IsString()
+  classifierVersion?: string | null
+
+  @ApiPropertyOptional({ example: false, default: false })
+  @IsOptional()
+  @IsBoolean()
+  shadowOnly?: boolean
+
+  @ApiPropertyOptional({ example: true, default: true })
+  @IsOptional()
+  @IsBoolean()
+  includeRetirementReadiness?: boolean
+
+  @ApiPropertyOptional({ example: 'IT04' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  @IsOptional()
+  @IsString()
+  confirmationText?: string | null
+}
+
+export class TaxonomyRolloutRecoveryScopeDto {
+  @ApiPropertyOptional({ example: 'batch-it04-2026-05-05' })
+  batchId: string | null
+
+  @ApiProperty({ type: [String] })
+  caseIds: string[]
+
+  @ApiProperty({ example: 'IT04' })
+  l1Code: string
+
+  @ApiPropertyOptional({ example: true })
+  shadowOnly?: boolean
+
+  @ApiPropertyOptional({ example: false })
+  forceLatestPointer?: boolean
+}
+
+export class TaxonomyRolloutRecoveryAuditSummaryDto {
+  @ApiProperty({ example: '00000000-0000-0000-0000-000000000111', nullable: true })
+  updatedBy: string | null
+
+  @ApiProperty({ enum: ['success', 'blocked', 'failed'], example: 'success' })
+  outcome: 'success' | 'blocked' | 'failed'
+
+  @ApiPropertyOptional({ example: 'audit-log-id-001', nullable: true })
+  auditId?: string | null
+}
+
+export class TaxonomyRolloutBackfillSummaryDto {
+  @ApiProperty({ example: 4 })
+  requestedCount: number
+
+  @ApiProperty({ example: 3 })
+  resetCount: number
+
+  @ApiProperty({ example: 1 })
+  skippedReviewedCount: number
+
+  @ApiProperty({ example: 0 })
+  skippedMissingBatchCount: number
+
+  @ApiProperty({ example: 0 })
+  extractedCount: number
+
+  @ApiProperty({ example: 0 })
+  clusteredCount: number
+
+  @ApiProperty({ example: true })
+  rollbackCompatible: boolean
+
+  @ApiProperty({ example: false })
+  requiresLegacyCodeRestore: boolean
+
+  @ApiProperty({ type: [String] })
+  batchIds: string[]
+}
+
+export class TaxonomyRolloutRecoveryOperationResultDto {
+  @ApiProperty({ enum: ['reclassify', 'backfill'], example: 'reclassify' })
+  operation: 'reclassify' | 'backfill'
+
+  @ApiProperty({ example: 'IT04' })
+  l1Code: string
+
+  @ApiProperty({ example: true })
+  dryRun: boolean
+
+  @ApiPropertyOptional({ example: true })
+  shadowOnly?: boolean
+
+  @ApiProperty({ example: 12 })
+  processedCount: number
+
+  @ApiProperty({ type: [String], example: ['IT04'] })
+  affectedDomains: string[]
+
+  @ApiProperty({ example: false })
+  latestPointerUpdated: boolean
+
+  @ApiPropertyOptional({ example: 'taxonomy-classifier-8.4', nullable: true })
+  classifierVersion: string | null
+
+  @ApiProperty({ example: 'Dry-run reclassified 12 cases for IT04.' })
+  summary: string
+
+  @ApiPropertyOptional({
+    example: '/reports/taxonomy-recovery/reclassify/IT04-20260505T040000000Z-dry-run.json',
+    nullable: true,
+  })
+  reportPath: string | null
+
+  @ApiProperty({ type: TaxonomyRolloutRecoveryScopeDto })
+  scope: TaxonomyRolloutRecoveryScopeDto
+
+  @ApiProperty({ type: TaxonomyRolloutRecoveryAuditSummaryDto })
+  auditSummary: TaxonomyRolloutRecoveryAuditSummaryDto
+
+  @ApiPropertyOptional({ type: TaxonomyRolloutBackfillSummaryDto })
+  backfillSummary?: TaxonomyRolloutBackfillSummaryDto
+}
+
+export class TaxonomyRolloutReportHistoryQueryDto {
+  @ApiPropertyOptional({ example: 'IT04' })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
+  @IsOptional()
+  @IsString()
+  @Matches(/^IT\d{2}$/)
+  l1Code?: string
+
+  @ApiPropertyOptional({ example: 1, default: 1 })
+  @Transform(({ value }) => (value === undefined ? value : Number(value)))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  page?: number
+
+  @ApiPropertyOptional({ example: 20, default: 20, maximum: 50 })
+  @Transform(({ value }) => (value === undefined ? value : Number(value)))
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  limit?: number
+
+  @ApiPropertyOptional({ example: '2026-05-01T00:00:00.000Z' })
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string
+
+  @ApiPropertyOptional({ example: '2026-05-05T23:59:59.999Z' })
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string
+}
+
+export class TaxonomyRolloutReportHistoryItemDto {
+  @ApiProperty({ example: 'audit-reclassify-001' })
+  id: string
+
+  @ApiProperty({
+    enum: ['retirement', 'rollback', 'reclassify', 'backfill', 'smoke', 'evidence'],
+    example: 'reclassify',
+  })
+  type: 'retirement' | 'rollback' | 'reclassify' | 'backfill' | 'smoke' | 'evidence'
+
+  @ApiProperty({ example: 'IT04' })
+  l1Code: string
+
+  @ApiProperty({ example: '2026-05-04T09:15:00.000Z' })
+  occurredAt: string
+
+  @ApiProperty({ example: 'completed' })
+  status: string
+
+  @ApiProperty({ example: 'success' })
+  outcome: string
+
+  @ApiProperty({ example: 'Reclassified 12 cases for IT04.' })
+  summary: string
+
+  @ApiPropertyOptional({
+    example: '/reports/taxonomy-recovery/reclassify/IT04-20260504.json',
+    nullable: true,
+  })
+  reportPath?: string | null
+
+  @ApiPropertyOptional({
+    example: '/reports/taxonomy-retirement/IT04-smoke.json',
+    nullable: true,
+  })
+  evidenceLink?: string | null
+}
+
+export class TaxonomyRolloutReportHistoryResponseDto {
+  @ApiProperty({ type: [TaxonomyRolloutReportHistoryItemDto] })
+  items: TaxonomyRolloutReportHistoryItemDto[]
+
+  @ApiProperty({ example: 1 })
+  page: number
+
+  @ApiProperty({ example: 20 })
+  limit: number
+
+  @ApiProperty({ example: 118 })
+  total: number
+
+  @ApiProperty({ example: true })
+  hasNextPage: boolean
 }

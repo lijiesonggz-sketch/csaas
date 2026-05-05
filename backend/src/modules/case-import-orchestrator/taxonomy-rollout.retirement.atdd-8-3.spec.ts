@@ -9,6 +9,8 @@ import { DomainRolloutPolicyService } from './services/taxonomy-classification/d
 import { TaxonomyDomainGateService } from './services/taxonomy-domain-gate.service'
 import { TaxonomyDomainRetirementService } from './services/taxonomy-domain-retirement.service'
 import { AuditLogService } from '../audit/audit-log.service'
+import { ComplianceCaseReclassificationService } from './services/compliance-case-reclassification.service'
+import { ComplianceCaseBackfillService } from './services/compliance-case-backfill.service'
 
 const VALID_TENANT_ID = 'tenant-test-001'
 const VALID_ADMIN_USER_ID = '00000000-0000-0000-0000-000000000111'
@@ -57,9 +59,16 @@ describe('Story 8.3 - taxonomy rollout retirement routes (ATDD RED PHASE)', () =
     rollbackRetirement: jest.fn(),
     evaluatePhysicalCleanup: jest.fn(),
   }
+  const mockComplianceCaseReclassificationService = {
+    reclassify: jest.fn(),
+  }
+  const mockComplianceCaseBackfillService = {
+    backfill: jest.fn(),
+  }
 
   const mockAuditLogService = {
     log: jest.fn().mockResolvedValue(undefined),
+    findTaxonomyRolloutReports: jest.fn(),
   }
 
   async function createApp(): Promise<INestApplication> {
@@ -79,6 +88,14 @@ describe('Story 8.3 - taxonomy rollout retirement routes (ATDD RED PHASE)', () =
         {
           provide: TaxonomyDomainRetirementService,
           useValue: mockTaxonomyDomainRetirementService,
+        },
+        {
+          provide: ComplianceCaseReclassificationService,
+          useValue: mockComplianceCaseReclassificationService,
+        },
+        {
+          provide: ComplianceCaseBackfillService,
+          useValue: mockComplianceCaseBackfillService,
         },
         {
           provide: AuditLogService,

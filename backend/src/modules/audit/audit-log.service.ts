@@ -8,6 +8,43 @@ export interface QueryAuditLogDto {
   offset?: number
 }
 
+export type TaxonomyRolloutReportHistoryType =
+  | 'retirement'
+  | 'rollback'
+  | 'reclassify'
+  | 'backfill'
+  | 'smoke'
+  | 'evidence'
+
+export interface FindTaxonomyRolloutReportsQuery {
+  tenantId?: string | null
+  l1Code?: string
+  page: number
+  limit: number
+  dateFrom?: Date
+  dateTo?: Date
+}
+
+export interface TaxonomyRolloutReportHistoryItem {
+  id: string
+  type: TaxonomyRolloutReportHistoryType
+  l1Code: string
+  occurredAt: string
+  outcome: string
+  status: string
+  summary: string
+  reportPath?: string | null
+  evidenceLink?: string | null
+}
+
+export interface TaxonomyRolloutReportHistoryResult {
+  items: TaxonomyRolloutReportHistoryItem[]
+  page: number
+  limit: number
+  total: number
+  hasNextPage: boolean
+}
+
 /**
  * AuditLogService
  *
@@ -97,6 +134,115 @@ export class AuditLogService {
       where: { tenantId, entityType: resource, entityId: resourceId },
       order: { createdAt: 'DESC' },
     })
+  }
+
+  async findTaxonomyRolloutReports(
+    query: FindTaxonomyRolloutReportsQuery,
+  ): Promise<TaxonomyRolloutReportHistoryResult> {
+    if (!query.tenantId) {
+      throw new Error('tenant scope is required for taxonomy rollout report history.')
+    }
+
+    const page = Math.min(Math.max(1, query.page), 10000)
+    const limit = Math.min(Math.max(1, query.limit), 50)
+    const offset = (page - 1) * limit
+    const entityTypes = ['TaxonomyRolloutRetirement', 'TaxonomyRolloutRecovery']
+
+    const queryBuilder = this.auditLogRepository
+      .createQueryBuilder('audit')
+      .where('audit.entityType IN (:...entityTypes)', { entityTypes })
+      .andWhere("(audit.details ->> 'stage') IS DISTINCT FROM 'requested'")
+      .orderBy('audit.createdAt', 'DESC')
+      .skip(offset)
+      .take(limit)
+
+    queryBuilder.andWhere('audit.tenantId = :tenantId', { tenantId: query.tenantId })
+
+    if (query.l1Code) {
+      queryBuilder.andWhere("audit.details ->> 'l1Code' = :l1Code", {
+        l1Code: query.l1Code,
+      })
+    }
+
+    if (query.dateFrom) {
+      queryBuilder.andWhere('audit.createdAt >= :dateFrom', { dateFrom: query.dateFrom })
+    }
+
+    if (query.dateTo) {
+      queryBuilder.andWhere('audit.createdAt <= :dateTo', { dateTo: query.dateTo })
+    }
+
+    const [auditLogs, total] = await queryBuilder.getManyAndCount()
+
+    return {
+      items: auditLogs.map((auditLog) => this.toTaxonomyRolloutReportHistoryItem(auditLog)),
+      page,
+      limit,
+      total,
+      hasNextPage: offset + auditLogs.length < total,
+    }
+  }
+
+  private toTaxonomyRolloutReportHistoryItem(auditLog: AuditLog): TaxonomyRolloutReportHistoryItem {
+    const details = auditLog.details ?? {}
+    const operation = this.readString(details.operation)
+    const l1Code = this.readString(details.l1Code) ?? 'UNKNOWN'
+    const outcome = this.readString(details.outcome) ?? 'unknown'
+    const type = this.resolveTaxonomyRolloutReportType(auditLog.entityType, operation, details)
+    const reportPath =
+      this.readString(details.reportPath) ?? this.readString(details.lastRetirementReportPath)
+    const evidenceLink =
+      this.readString(details.evidenceLink) ??
+      this.readString(details.smokeEvidencePath) ??
+      (details.smokeVerification ? reportPath : null)
+    const summary =
+      this.readString(details.summary) ??
+      this.buildTaxonomyRolloutReportSummary(type, l1Code, outcome, details)
+
+    return {
+      id: auditLog.id,
+      type,
+      l1Code,
+      occurredAt: auditLog.createdAt.toISOString(),
+      outcome,
+      status: outcome === 'success' ? 'completed' : outcome,
+      summary,
+      reportPath,
+      evidenceLink,
+    }
+  }
+
+  private resolveTaxonomyRolloutReportType(
+    entityType: string,
+    operation: string | null,
+    details: Record<string, any>,
+  ): TaxonomyRolloutReportHistoryType {
+    if (operation === 'reclassify' || operation === 'backfill') return operation
+    if (operation === 'rollback') return 'rollback'
+    if (operation === 'dry-run') return 'evidence'
+    if (details.smokeVerification || operation === 'smoke') return 'smoke'
+    if (operation === 'evidence' || operation === 'report-view') return 'evidence'
+    if (entityType === 'TaxonomyRolloutRetirement') return 'retirement'
+    return 'evidence'
+  }
+
+  private buildTaxonomyRolloutReportSummary(
+    type: TaxonomyRolloutReportHistoryType,
+    l1Code: string,
+    outcome: string,
+    details: Record<string, any>,
+  ): string {
+    const processedCount =
+      typeof details.processedCount === 'number' ? details.processedCount : undefined
+    if (processedCount !== undefined) {
+      return `${type} ${outcome} for ${processedCount} cases in ${l1Code}.`
+    }
+
+    return `${type} ${outcome} for ${l1Code}.`
+  }
+
+  private readString(value: unknown): string | null {
+    return typeof value === 'string' && value.trim() ? value.trim() : null
   }
 
   /**

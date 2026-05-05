@@ -9,6 +9,8 @@ import { AuditLogService } from '../audit/audit-log.service'
 import { TaxonomyDomainGateService } from './services/taxonomy-domain-gate.service'
 import { DomainRolloutPolicyService } from './services/taxonomy-classification/domain-rollout-policy.service'
 import { TaxonomyDomainRetirementService } from './services/taxonomy-domain-retirement.service'
+import { ComplianceCaseReclassificationService } from './services/compliance-case-reclassification.service'
+import { ComplianceCaseBackfillService } from './services/compliance-case-backfill.service'
 
 const VALID_TENANT_ID = 'tenant-test-001'
 const VALID_ADMIN_USER_ID = 'admin-user-001'
@@ -55,9 +57,16 @@ describe('Story 8.1 - taxonomy rollout routes', () => {
     executeRetirement: jest.fn(),
     rollbackRetirement: jest.fn(),
   }
+  const mockComplianceCaseReclassificationService = {
+    reclassify: jest.fn(),
+  }
+  const mockComplianceCaseBackfillService = {
+    backfill: jest.fn(),
+  }
 
   const mockAuditLogService = {
     log: jest.fn().mockResolvedValue(undefined),
+    findTaxonomyRolloutReports: jest.fn(),
   }
 
   async function createApp(): Promise<INestApplication> {
@@ -77,6 +86,14 @@ describe('Story 8.1 - taxonomy rollout routes', () => {
         {
           provide: TaxonomyDomainRetirementService,
           useValue: mockTaxonomyDomainRetirementService,
+        },
+        {
+          provide: ComplianceCaseReclassificationService,
+          useValue: mockComplianceCaseReclassificationService,
+        },
+        {
+          provide: ComplianceCaseBackfillService,
+          useValue: mockComplianceCaseBackfillService,
         },
         {
           provide: AuditLogService,

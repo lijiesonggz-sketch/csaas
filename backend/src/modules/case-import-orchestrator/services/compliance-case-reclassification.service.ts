@@ -51,9 +51,11 @@ export class ComplianceCaseReclassificationService {
     }
 
     const where = params.caseIds?.length
-      ? params.l1Code
-        ? { caseId: In(params.caseIds), l1Code: params.l1Code }
-        : { caseId: In(params.caseIds) }
+      ? {
+          caseId: In(params.caseIds),
+          ...(params.batchId ? { importBatchId: params.batchId } : {}),
+          ...(params.l1Code ? { l1Code: params.l1Code } : {}),
+        }
       : params.batchId
         ? params.l1Code
           ? { importBatchId: params.batchId, l1Code: params.l1Code }
@@ -74,7 +76,9 @@ export class ComplianceCaseReclassificationService {
     const scopedCases = cases
 
     if (scopedCases.length === 0) {
-      throw new BadRequestException('No compliance cases matched the requested reclassification scope')
+      throw new BadRequestException(
+        'No compliance cases matched the requested reclassification scope',
+      )
     }
 
     const affectedDomains = Array.from(
@@ -85,8 +89,9 @@ export class ComplianceCaseReclassificationService {
       ),
     ).sort()
 
-    const latestPointerUpdated =
-      !params.shadowOnly || params.forceLatestPointer === true
+    const latestPointerUpdated = params.dryRun
+      ? false
+      : !params.shadowOnly || params.forceLatestPointer === true
     const scope = {
       batchId: params.batchId ?? null,
       caseIds: scopedCases.map((caseRecord) => caseRecord.caseId),
@@ -120,10 +125,7 @@ export class ComplianceCaseReclassificationService {
       reranClustering: false,
       latestPointerUpdated: result.latestPointerUpdated,
       caseCount: result.processedCount,
-      affectedDomains:
-        result.affectedDomains.length > 0
-          ? result.affectedDomains
-          : affectedDomains,
+      affectedDomains: result.affectedDomains.length > 0 ? result.affectedDomains : affectedDomains,
       classifierVersion: result.classifierVersion,
       scope,
     }

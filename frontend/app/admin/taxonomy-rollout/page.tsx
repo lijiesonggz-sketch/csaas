@@ -95,6 +95,18 @@ function formatEvidenceValue(value: string | null, isDate = false): string {
   return isDate ? formatUtcDate(value) : value
 }
 
+function getCurrentQueryL1Code(): string | null {
+  if (typeof window === 'undefined') return null
+  const requested = new URLSearchParams(window.location.search).get('l1Code')?.trim().toUpperCase()
+  return requested || null
+}
+
+function buildRecoveryHref(l1Code: string | null): string {
+  return l1Code
+    ? `/admin/taxonomy-rollout/recovery?l1Code=${l1Code}`
+    : '/admin/taxonomy-rollout/recovery'
+}
+
 export default function TaxonomyRolloutPage() {
   const router = useRouter()
   const { data: session, status } = useSession()
@@ -210,6 +222,8 @@ export default function TaxonomyRolloutPage() {
     )
   }
 
+  const navigationL1Code = selectedL1Code ?? getCurrentQueryL1Code()
+
   return (
     <div className="min-h-screen bg-[#FEFDFB] px-6 py-16">
       <div className="mx-auto max-w-7xl space-y-6">
@@ -223,7 +237,7 @@ export default function TaxonomyRolloutPage() {
               IT01-IT08 domain rollout 状态、fallback 开关、版本和责任边界
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button asChild variant="outline" className="rounded-sm">
               <Link
                 href={
@@ -245,6 +259,9 @@ export default function TaxonomyRolloutPage() {
               >
                 Open Retirement Console
               </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-sm">
+              <Link href={buildRecoveryHref(navigationL1Code)}>Open Recovery/History Console</Link>
             </Button>
             <Button
               variant="outline"

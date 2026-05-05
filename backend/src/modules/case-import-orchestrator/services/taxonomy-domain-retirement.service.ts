@@ -98,6 +98,13 @@ export type DomainRetirementReportFile = {
   content: string
 }
 
+export type DomainRecoveryReportPayload = Record<string, unknown> & {
+  operation: RecoveryReportOperation
+  l1Code: string
+  dryRun: boolean
+  summary: string
+}
+
 export type DomainPhysicalCleanupDecision = {
   allowed: boolean
   blockingReasons: string[]
@@ -112,6 +119,8 @@ function sanitizePathSegment(value: string): string {
 }
 
 const RETIREMENT_REPORT_PUBLIC_PREFIX = '/reports/taxonomy-retirement/'
+const RECOVERY_REPORT_PUBLIC_PREFIX = '/reports/taxonomy-recovery/'
+type RecoveryReportOperation = 'reclassify' | 'backfill'
 
 function resolveRetirementReportDirectory(): string {
   return path.join(
@@ -122,6 +131,18 @@ function resolveRetirementReportDirectory(): string {
 
 function toPublicRetirementReportPath(fileName: string): string {
   return `${RETIREMENT_REPORT_PUBLIC_PREFIX}${fileName}`
+}
+
+function resolveRecoveryReportDirectory(operation: RecoveryReportOperation): string {
+  return path.join(
+    resolveWorkspaceArtifactPath('_bmad-output/test-artifacts').resolvedPath,
+    'taxonomy-recovery',
+    operation,
+  )
+}
+
+function toPublicRecoveryReportPath(operation: RecoveryReportOperation, fileName: string): string {
+  return `${RECOVERY_REPORT_PUBLIC_PREFIX}${operation}/${fileName}`
 }
 
 function resolveRetirementReportPath(reportPath: string): string {
@@ -158,6 +179,46 @@ function resolveRetirementReportPath(reportPath: string): string {
   }
 
   return resolvedReportPath
+}
+
+function resolveRecoveryReportPath(reportPath: string): string {
+  const trimmedReportPath = reportPath.trim()
+  if (!trimmedReportPath) {
+    throw new Error('Recovery report path is required.')
+  }
+
+  const slashNormalizedPath = trimmedReportPath.replace(/\\/g, '/')
+  const match = slashNormalizedPath.match(
+    /^\/?(?:reports\/)?taxonomy-recovery\/(reclassify|backfill)\/([^/]+\.json)$/i,
+  )
+
+  if (!match) {
+    throw new Error(
+      'Recovery report path must reference an allowlisted taxonomy recovery JSON report.',
+    )
+  }
+
+  const operation = match[1].toLowerCase() as RecoveryReportOperation
+  const fileName = path.posix.basename(match[2])
+  const reportDir = resolveRecoveryReportDirectory(operation)
+  const resolvedReportDir = path.resolve(reportDir)
+  const resolvedReportPath = path.resolve(reportDir, fileName)
+
+  if (
+    resolvedReportPath !== resolvedReportDir &&
+    !resolvedReportPath.startsWith(`${resolvedReportDir}${path.sep}`)
+  ) {
+    throw new Error('Recovery report path is outside the allowed report directory.')
+  }
+
+  return resolvedReportPath
+}
+
+function isRecoveryReportPath(reportPath: string): boolean {
+  const slashNormalizedPath = reportPath.trim().replace(/\\/g, '/')
+  return /^\/?(?:reports\/)?taxonomy-recovery\/(?:reclassify|backfill)\/[^/]+\.json$/i.test(
+    slashNormalizedPath,
+  )
 }
 
 function isAssignedOwner(value: string | null | undefined): boolean {
@@ -895,12 +956,39 @@ export class TaxonomyDomainRetirementService {
   }
 
   async readRetirementReport(reportPath: string): Promise<DomainRetirementReportFile> {
-    const resolvedReportPath = resolveRetirementReportPath(reportPath)
+    const resolvedReportPath = isRecoveryReportPath(reportPath)
+      ? resolveRecoveryReportPath(reportPath)
+      : resolveRetirementReportPath(reportPath)
     const content = await fs.promises.readFile(resolvedReportPath, 'utf8')
     return {
       fileName: path.basename(resolvedReportPath),
       content,
     }
+  }
+
+  async writeRecoveryReport(payload: DomainRecoveryReportPayload): Promise<string> {
+    const reportDir = resolveRecoveryReportDirectory(payload.operation)
+    await fs.promises.mkdir(reportDir, { recursive: true })
+
+    const mode = payload.dryRun ? 'dry-run' : 'execute'
+    const reportFileName = `${payload.operation}-${payload.l1Code}-${mode}-${formatTimestamp(new Date())}.json`
+    const reportPath = path.join(reportDir, reportFileName)
+    const publicReportPath = toPublicRecoveryReportPath(payload.operation, reportFileName)
+
+    await fs.promises.writeFile(
+      reportPath,
+      JSON.stringify(
+        {
+          ...payload,
+          reportPath: publicReportPath,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+
+    return publicReportPath
   }
 
   private mapPrerequisiteBlockingReasons(prerequisites: DomainRetirementPrerequisites): string[] {

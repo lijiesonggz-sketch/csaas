@@ -32,9 +32,7 @@ describe('ComplianceCaseReclassificationService edge cases', () => {
   it('should throw BadRequestException when no cases match the scope', async () => {
     const { service } = makeService([])
 
-    await expect(
-      service.reclassify({ l1Code: 'IT07' }),
-    ).rejects.toThrow(BadRequestException)
+    await expect(service.reclassify({ l1Code: 'IT07' })).rejects.toThrow(BadRequestException)
   })
 
   it('should respect limit and offset params in dry-run', async () => {
@@ -49,10 +47,8 @@ describe('ComplianceCaseReclassificationService edge cases', () => {
     )
   })
 
-  it('should set latestPointerUpdated=true when forceLatestPointer=true even in shadowOnly mode', async () => {
-    const { service } = makeService([
-      { caseId: 'case-1', l1Code: 'IT07', createdAt: new Date() },
-    ])
+  it('should keep latestPointerUpdated=false in dry-run even when forceLatestPointer=true', async () => {
+    const { service } = makeService([{ caseId: 'case-1', l1Code: 'IT07', createdAt: new Date() }])
 
     const report = await service.reclassify({
       l1Code: 'IT07',
@@ -61,13 +57,11 @@ describe('ComplianceCaseReclassificationService edge cases', () => {
       dryRun: true,
     })
 
-    expect(report.latestPointerUpdated).toBe(true)
+    expect(report.latestPointerUpdated).toBe(false)
   })
 
   it('should set latestPointerUpdated=false when shadowOnly=true and forceLatestPointer is not set', async () => {
-    const { service } = makeService([
-      { caseId: 'case-1', l1Code: 'IT07', createdAt: new Date() },
-    ])
+    const { service } = makeService([{ caseId: 'case-1', l1Code: 'IT07', createdAt: new Date() }])
 
     const report = await service.reclassify({
       l1Code: 'IT07',
@@ -79,9 +73,7 @@ describe('ComplianceCaseReclassificationService edge cases', () => {
   })
 
   it('should include scope metadata in report', async () => {
-    const { service } = makeService([
-      { caseId: 'case-1', l1Code: 'IT07', createdAt: new Date() },
-    ])
+    const { service } = makeService([{ caseId: 'case-1', l1Code: 'IT07', createdAt: new Date() }])
 
     const report = await service.reclassify({
       batchId: 'batch-7',
@@ -144,7 +136,9 @@ describe('ComplianceCaseBackfillService edge cases', () => {
   }
 
   it('should throw BadRequestException when no scope is provided', async () => {
-    const { service } = makeService([[{ caseId: 'c1', importBatchId: 'b1', humanReviewed: false, status: 'clustered' }]])
+    const { service } = makeService([
+      [{ caseId: 'c1', importBatchId: 'b1', humanReviewed: false, status: 'clustered' }],
+    ])
 
     await expect(service.backfill({})).rejects.toThrow(BadRequestException)
   })
@@ -157,27 +151,47 @@ describe('ComplianceCaseBackfillService edge cases', () => {
 
   it('should throw BadRequestException when caseIds scope is used in non-dry-run mode', async () => {
     const { service } = makeService([
-      [{ caseId: 'case-1', importBatchId: 'batch-1', humanReviewed: false, status: 'clustered', l1Code: 'IT07' }],
+      [
+        {
+          caseId: 'case-1',
+          importBatchId: 'batch-1',
+          humanReviewed: false,
+          status: 'clustered',
+          l1Code: 'IT07',
+        },
+      ],
     ])
 
-    await expect(
-      service.backfill({ caseIds: ['case-1'] }),
-    ).rejects.toThrow(BadRequestException)
+    await expect(service.backfill({ caseIds: ['case-1'] })).rejects.toThrow(BadRequestException)
   })
 
   it('should throw BadRequestException when l1Code scope is used in non-dry-run mode', async () => {
     const { service } = makeService([
-      [{ caseId: 'case-1', importBatchId: 'batch-1', humanReviewed: false, status: 'clustered', l1Code: 'IT07' }],
+      [
+        {
+          caseId: 'case-1',
+          importBatchId: 'batch-1',
+          humanReviewed: false,
+          status: 'clustered',
+          l1Code: 'IT07',
+        },
+      ],
     ])
 
-    await expect(
-      service.backfill({ l1Code: 'IT07' }),
-    ).rejects.toThrow(BadRequestException)
+    await expect(service.backfill({ l1Code: 'IT07' })).rejects.toThrow(BadRequestException)
   })
 
   it('should set rollbackCompatible=false when cases have no importBatchId', async () => {
     const { service } = makeService([
-      [{ caseId: 'case-1', importBatchId: null, humanReviewed: false, status: 'clustered', l1Code: 'IT07' }],
+      [
+        {
+          caseId: 'case-1',
+          importBatchId: null,
+          humanReviewed: false,
+          status: 'clustered',
+          l1Code: 'IT07',
+        },
+      ],
     ])
 
     const report = await service.backfill({ caseIds: ['case-1'], dryRun: true })

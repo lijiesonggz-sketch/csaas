@@ -48,9 +48,11 @@ export class ComplianceCaseBackfillService {
     dryRun?: boolean
   }): Promise<ComplianceCaseBackfillReport> {
     const where = params.caseIds?.length
-      ? params.l1Code
-        ? { caseId: In(params.caseIds), l1Code: params.l1Code }
-        : { caseId: In(params.caseIds) }
+      ? {
+          caseId: In(params.caseIds),
+          ...(params.batchId ? { importBatchId: params.batchId } : {}),
+          ...(params.l1Code ? { l1Code: params.l1Code } : {}),
+        }
       : params.batchId
         ? params.l1Code
           ? { importBatchId: params.batchId, l1Code: params.l1Code }
@@ -58,8 +60,7 @@ export class ComplianceCaseBackfillService {
         : params.l1Code
           ? { l1Code: params.l1Code }
           : null
-    const includeRetirementReadiness =
-      params.includeRetirementReadiness !== false
+    const includeRetirementReadiness = params.includeRetirementReadiness !== false
 
     if (!where) {
       throw new BadRequestException('batchId or caseIds is required for compliance case backfill')
@@ -89,16 +90,17 @@ export class ComplianceCaseBackfillService {
           .filter((l1Code): l1Code is string => Boolean(l1Code)),
       ),
     ).sort()
-    const resettableCases = scopedCases.filter((caseRecord) => !caseRecord.humanReviewed && caseRecord.status !== 'reviewed')
+    const resettableCases = scopedCases.filter(
+      (caseRecord) => !caseRecord.humanReviewed && caseRecord.status !== 'reviewed',
+    )
     const skippedReviewedCount = scopedCases.length - resettableCases.length
-    const casesWithBatchId = resettableCases.filter((caseRecord) => Boolean(caseRecord.importBatchId))
+    const casesWithBatchId = resettableCases.filter((caseRecord) =>
+      Boolean(caseRecord.importBatchId),
+    )
     const skippedMissingBatchCount = resettableCases.length - casesWithBatchId.length
     const rollbackCompatible =
-      includeRetirementReadiness &&
-      casesWithBatchId.length > 0 &&
-      skippedMissingBatchCount === 0
-    const requiresLegacyCodeRestore =
-      includeRetirementReadiness && !rollbackCompatible
+      includeRetirementReadiness && casesWithBatchId.length > 0 && skippedMissingBatchCount === 0
+    const requiresLegacyCodeRestore = includeRetirementReadiness && !rollbackCompatible
     const batchIds = Array.from(
       new Set(
         casesWithBatchId
@@ -143,7 +145,7 @@ export class ComplianceCaseBackfillService {
       }
     }
 
-    if (params.caseIds?.length || params.l1Code) {
+    if (params.caseIds?.length || (params.l1Code && !params.batchId)) {
       throw new BadRequestException(
         'case/domain-scoped backfill currently supports dry-run readiness only; use reclassify for granular execution',
       )
@@ -215,19 +217,25 @@ export class ComplianceCaseBackfillService {
       'FAILURE_MODE_CHAIN',
     ]
     const mapCountBySource = sourceKeys.reduce(
-      (acc, source) => ({ ...acc, [source]: caseControlMaps.filter((map) => map.source === source).length }),
+      (acc, source) => ({
+        ...acc,
+        [source]: caseControlMaps.filter((map) => map.source === source).length,
+      }),
       {} as Record<CaseControlMapSource, number>,
     )
-    const mappedCaseCountBySource = sourceKeys.reduce((acc, source) => {
-      const caseIds = new Set(
-        caseControlMaps.filter((map) => map.source === source).map((map) => map.caseId),
-      )
+    const mappedCaseCountBySource = sourceKeys.reduce(
+      (acc, source) => {
+        const caseIds = new Set(
+          caseControlMaps.filter((map) => map.source === source).map((map) => map.caseId),
+        )
 
-      return {
-        ...acc,
-        [source]: caseIds.size,
-      }
-    }, {} as Record<CaseControlMapSource, number>)
+        return {
+          ...acc,
+          [source]: caseIds.size,
+        }
+      },
+      {} as Record<CaseControlMapSource, number>,
+    )
 
     return {
       requestedCount: scopedCases.length,
@@ -236,8 +244,12 @@ export class ComplianceCaseBackfillService {
       skippedMissingBatchCount,
       extractedCount,
       clusteredCount,
-      autoMappedCaseCount: refreshedCases.filter((caseRecord) => mappedCaseIds.has(caseRecord.caseId)).length,
-      unmappedCaseCount: refreshedCases.filter((caseRecord) => !mappedCaseIds.has(caseRecord.caseId)).length,
+      autoMappedCaseCount: refreshedCases.filter((caseRecord) =>
+        mappedCaseIds.has(caseRecord.caseId),
+      ).length,
+      unmappedCaseCount: refreshedCases.filter(
+        (caseRecord) => !mappedCaseIds.has(caseRecord.caseId),
+      ).length,
       ruleMappedCaseCount,
       llmTriggeredCaseCount,
       llmAssistedRuleCaseCount,

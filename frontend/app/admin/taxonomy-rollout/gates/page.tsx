@@ -322,7 +322,7 @@ export default function TaxonomyRolloutGatesPage() {
               transition。
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button asChild variant="outline" className="rounded-sm">
               <Link
                 href={
@@ -332,6 +332,17 @@ export default function TaxonomyRolloutGatesPage() {
                 }
               >
                 打开 Retirement Console
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-sm">
+              <Link
+                href={
+                  selectedL1Code
+                    ? `/admin/taxonomy-rollout/recovery?l1Code=${selectedL1Code}`
+                    : '/admin/taxonomy-rollout/recovery'
+                }
+              >
+                打开 Recovery/History Console
               </Link>
             </Button>
             <Button asChild variant="outline" className="rounded-sm">
