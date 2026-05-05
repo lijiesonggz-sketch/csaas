@@ -1,13 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ProjectList from '../ProjectList'
 import { apiFetch } from '@/lib/utils/api'
-import { useRouter } from 'next/navigation'
 
 // Mock dependencies
 jest.mock('@/lib/utils/api')
-jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(),
-}))
 
 // Mock child components
 jest.mock('../ProjectCard', () => ({
@@ -58,15 +54,12 @@ jest.mock('@/components/ui/content-card', () => ({
 }))
 
 const mockApiFetch = apiFetch as jest.Mock
-const mockUseRouter = useRouter as jest.Mock
 
 describe('ProjectList', () => {
   const mockOnProjectClick = jest.fn()
-  const mockPush = jest.fn()
 
   beforeEach(() => {
     jest.clearAllMocks()
-    mockUseRouter.mockReturnValue({ push: mockPush })
   })
 
   const mockProjects = [
@@ -119,7 +112,7 @@ describe('ProjectList', () => {
 
     await waitFor(() => {
       expect(screen.getByText('还没有任何项目')).toBeInTheDocument()
-      expect(screen.getByText('点击上方"创建项目"按钮开始您的第一个咨询项目')).toBeInTheDocument()
+      expect(screen.getByText('点击上方「创建项目」按钮开始您的第一个咨询项目')).toBeInTheDocument()
     })
   })
 
@@ -214,18 +207,16 @@ describe('ProjectList', () => {
     })
   })
 
-  it('should navigate to dashboard when back button is clicked', async () => {
+  it('should not render redundant dashboard return button', async () => {
     mockApiFetch.mockResolvedValue(mockProjects)
 
     render(<ProjectList onProjectClick={mockOnProjectClick} />)
 
     await waitFor(() => {
-      expect(screen.getByText('返回工作台')).toBeInTheDocument()
+      expect(screen.getByText('Project 1')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByText('返回工作台'))
-
-    expect(mockPush).toHaveBeenCalledWith('/dashboard')
+    expect(screen.queryByText('返回工作台')).not.toBeInTheDocument()
   })
 
   it('should call onProjectClick when project card is clicked', async () => {

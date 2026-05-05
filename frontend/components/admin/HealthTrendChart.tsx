@@ -7,9 +7,9 @@
  * @story 7-1
  */
 
-'use client';
+'use client'
 
-import React from 'react';
+import React from 'react'
 import {
   LineChart,
   Line,
@@ -19,17 +19,17 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-} from 'recharts';
+} from 'recharts'
 
 interface HealthTrendChartProps {
-  metric: string;
+  metric: string
   data: Array<{
-    date: string;
-    value: number;
-  }>;
-  range: '7d' | '30d' | '90d';
-  onRangeChange?: (range: '7d' | '30d' | '90d') => void;
-  onExport?: () => void;
+    date: string
+    value: number
+  }>
+  range: '7d' | '30d' | '90d'
+  onRangeChange?: (range: '7d' | '30d' | '90d') => void
+  onExport?: () => void
 }
 
 export function HealthTrendChart({
@@ -45,37 +45,37 @@ export function HealthTrendChart({
       push_success_rate: '推送成功率',
       ai_cost: 'AI成本',
       customer_activity: '客户活跃度',
-    };
-    return labels[metric] || metric;
-  };
+    }
+    return labels[metric] || metric
+  }
 
   const getRangeLabel = (range: string) => {
     const labels: Record<string, string> = {
       '7d': '最近7天',
       '30d': '最近30天',
       '90d': '最近90天',
-    };
-    return labels[range] || range;
-  };
+    }
+    return labels[range] || range
+  }
 
   return (
-    <div className="bg-white rounded-lg border p-6">
+    <div className="rounded-sm border border-[#E2E8F0] bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">
+        <h3 className="text-lg font-semibold text-[#1E3A5F]">
           {getMetricLabel(metric)} - {getRangeLabel(range)}
         </h3>
 
         <div className="flex items-center space-x-2">
           {onRangeChange && (
-            <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+            <div className="flex space-x-1 rounded-sm bg-[#F8FAFC] p-1">
               {(['7d', '30d', '90d'] as const).map((r) => (
                 <button
                   key={r}
                   onClick={() => onRangeChange(r)}
                   className={`px-3 py-1 text-sm font-medium rounded ${
                     range === r
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-[#1E3A5F] text-white shadow-sm'
+                      : 'text-[#64748B] hover:text-[#1E3A5F]'
                   }`}
                 >
                   {getRangeLabel(r)}
@@ -87,7 +87,7 @@ export function HealthTrendChart({
           {onExport && (
             <button
               onClick={onExport}
-              className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+              className="rounded-sm border border-[#E2E8F0] bg-white px-3 py-1 text-sm font-medium text-[#1E3A5F] hover:bg-[#F8FAFC]"
             >
               导出CSV
             </button>
@@ -96,27 +96,21 @@ export function HealthTrendChart({
       </div>
 
       {data.length === 0 ? (
-        <div className="flex items-center justify-center h-64 text-gray-500">
-          暂无数据
-        </div>
+        <div className="flex items-center justify-center h-64 text-[#64748B]">暂无数据</div>
       ) : (
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis
               dataKey="date"
-              stroke="#6b7280"
+              stroke="#64748B"
               style={{ fontSize: '12px' }}
               tickFormatter={(value) => {
-                const date = new Date(value);
-                return `${date.getMonth() + 1}/${date.getDate()}`;
+                const date = new Date(value)
+                return `${date.getMonth() + 1}/${date.getDate()}`
               }}
             />
-            <YAxis
-              stroke="#6b7280"
-              style={{ fontSize: '12px' }}
-              domain={['auto', 'auto']}
-            />
+            <YAxis stroke="#64748B" style={{ fontSize: '12px' }} domain={['auto', 'auto']} />
             <Tooltip
               contentStyle={{
                 backgroundColor: '#fff',
@@ -125,26 +119,23 @@ export function HealthTrendChart({
                 fontSize: '12px',
               }}
               labelFormatter={(value) => {
-                const date = new Date(value);
-                return date.toLocaleDateString('zh-CN');
+                const date = new Date(value)
+                return date.toLocaleDateString('zh-CN')
               }}
               formatter={(value: number) => [value.toFixed(2), getMetricLabel(metric)]}
             />
-            <Legend
-              wrapperStyle={{ fontSize: '12px' }}
-              formatter={() => getMetricLabel(metric)}
-            />
+            <Legend wrapperStyle={{ fontSize: '12px' }} formatter={() => getMetricLabel(metric)} />
             <Line
               type="monotone"
               dataKey="value"
-              stroke="#3b82f6"
+              stroke="#1E3A5F"
               strokeWidth={2}
-              dot={{ fill: '#3b82f6', r: 3 }}
+              dot={{ fill: '#1E3A5F', r: 3 }}
               activeDot={{ r: 5 }}
             />
           </LineChart>
         </ResponsiveContainer>
       )}
     </div>
-  );
+  )
 }

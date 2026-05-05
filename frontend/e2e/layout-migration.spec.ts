@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 
 /**
  * E2E Tests for Layout Migration (Story 11-2)
@@ -6,6 +6,11 @@ import { test, expect } from '@playwright/test'
  */
 
 test.describe('Layout Migration', () => {
+  const getHeaderUserButton = (page: Page) =>
+    page.locator('header').getByRole('button', { name: /Admin User|admin@test\.com|admin/ })
+
+  const getSidebar = (page: Page) => page.getByRole('navigation', { name: '主导航' })
+
   test.beforeEach(async ({ page }) => {
     // Login before each test
     await page.goto('/login')
@@ -23,13 +28,11 @@ test.describe('Layout Migration', () => {
     })
 
     test('should display user information', async ({ page }) => {
-      const header = page.locator('header')
-      await expect(header.getByText('admin@test.com')).toBeVisible()
+      await expect(getHeaderUserButton(page)).toBeVisible()
     })
 
     test('should open user menu when clicked', async ({ page }) => {
-      const header = page.locator('header')
-      await header.getByText('admin@test.com').click()
+      await getHeaderUserButton(page).click()
 
       // Check menu items
       await expect(page.getByRole('menuitem', { name: '个人信息' })).toBeVisible()
@@ -38,8 +41,7 @@ test.describe('Layout Migration', () => {
     })
 
     test('should logout when logout is clicked', async ({ page }) => {
-      const header = page.locator('header')
-      await header.getByText('admin@test.com').click()
+      await getHeaderUserButton(page).click()
       await page.getByRole('menuitem', { name: '退出登录' }).click()
 
       // Should redirect to login
@@ -50,40 +52,47 @@ test.describe('Layout Migration', () => {
 
   test.describe('Sidebar Component [P1]', () => {
     test('should display navigation menu items', async ({ page }) => {
-      const sidebar = page.locator('[role="navigation"], nav, .MuiDrawer-root')
+      const sidebar = getSidebar(page)
 
-      await expect(page.getByText('工作台')).toBeVisible()
-      await expect(page.getByText('项目管理')).toBeVisible()
-      await expect(page.getByText('技术雷达')).toBeVisible()
-      await expect(page.getByText('报告中心')).toBeVisible()
-      await expect(page.getByText('团队管理')).toBeVisible()
-      await expect(page.getByText('系统管理')).toBeVisible()
+      await expect(sidebar.getByRole('button', { name: '工作台' })).toBeVisible()
+      await expect(sidebar.getByRole('button', { name: '项目管理' })).toBeVisible()
+      await expect(sidebar.getByRole('button', { name: '技术雷达' })).toBeVisible()
+      await expect(sidebar.getByRole('button', { name: '报告中心' })).toBeVisible()
+      await expect(sidebar.getByRole('button', { name: '团队管理' })).toBeVisible()
+      await expect(sidebar.getByRole('button', { name: '系统管理' })).toBeVisible()
     })
 
     test('should navigate to dashboard when clicking 工作台', async ({ page }) => {
-      await page.getByText('工作台').click()
+      await getSidebar(page).getByRole('button', { name: '工作台' }).click()
       await page.waitForURL('**/dashboard')
       await expect(page.url()).toContain('/dashboard')
     })
 
     test('should navigate to projects when clicking 项目管理', async ({ page }) => {
-      await page.getByText('项目管理').click()
+      await getSidebar(page).getByRole('button', { name: '项目管理' }).click()
       await page.waitForURL('**/projects')
       await expect(page.url()).toContain('/projects')
     })
 
     test('should expand admin menu when clicked', async ({ page }) => {
-      await page.getByText('系统管理').click()
+      const sidebar = getSidebar(page)
+      const dashboardItem = sidebar.getByRole('button', { name: '运营仪表板' })
+
+      if (!(await dashboardItem.isVisible().catch(() => false))) {
+        await sidebar.getByRole('button', { name: '系统管理' }).click()
+      }
 
       // Child items should appear
-      await expect(page.getByText('运营仪表板')).toBeVisible()
-      await expect(page.getByText('内容质量管理')).toBeVisible()
-      await expect(page.getByText('客户管理')).toBeVisible()
+      await expect(dashboardItem).toBeVisible()
+      await expect(sidebar.getByRole('button', { name: '内容质量管理' })).toBeVisible()
+      await expect(sidebar.getByRole('button', { name: '客户管理' })).toBeVisible()
     })
 
     test('should collapse sidebar when toggle button is clicked', async ({ page }) => {
       // Find and click the collapse button
-      const collapseButton = page.locator('button[aria-label*="collapse"], button:has(svg[data-testid*="Chevron"])')
+      const collapseButton = page.locator(
+        'button[aria-label*="collapse"], button:has(svg[data-testid*="Chevron"])'
+      )
       if (await collapseButton.isVisible().catch(() => false)) {
         await collapseButton.click()
 
@@ -137,36 +146,38 @@ test.describe('Layout Migration', () => {
       await page.waitForLoadState('networkidle')
 
       await expect(page.locator('header')).toBeVisible()
-      await expect(page.getByText('工作台')).toBeVisible()
+      await expect(getSidebar(page).getByRole('button', { name: '工作台' })).toBeVisible()
     })
   })
 
   test.describe('Page Navigation Flows [P1]', () => {
     test('should navigate through multiple pages', async ({ page }) => {
+      const sidebar = getSidebar(page)
+
       // Go to dashboard
-      await page.getByText('工作台').click()
+      await sidebar.getByRole('button', { name: '工作台' }).click()
       await page.waitForURL('**/dashboard')
 
       // Go to projects
-      await page.getByText('项目管理').click()
+      await sidebar.getByRole('button', { name: '项目管理' }).click()
       await page.waitForURL('**/projects')
 
       // Go to radar
-      await page.getByText('技术雷达').click()
+      await sidebar.getByRole('button', { name: '技术雷达' }).click()
       await page.waitForURL('**/radar**')
 
       // Go to reports
-      await page.getByText('报告中心').click()
+      await sidebar.getByRole('button', { name: '报告中心' }).click()
       await page.waitForURL('**/reports')
 
       // Go to team
-      await page.getByText('团队管理').click()
+      await sidebar.getByRole('button', { name: '团队管理' }).click()
       await page.waitForURL('**/team')
     })
 
     test('should highlight current navigation item', async ({ page }) => {
       // Navigate to projects
-      await page.getByText('项目管理').click()
+      await getSidebar(page).getByRole('button', { name: '项目管理' }).click()
       await page.waitForURL('**/projects')
 
       // The selected menu item should have selected styling
@@ -187,7 +198,9 @@ test.describe('Layout Migration', () => {
 
     test('should support keyboard navigation', async ({ page }) => {
       // Focus on a menu item
-      await page.getByText('工作台').focus()
+      const dashboardButton = getSidebar(page).getByRole('button', { name: '工作台' })
+      await dashboardButton.focus()
+      await expect(dashboardButton).toBeFocused()
 
       // Press tab to move to next item
       await page.keyboard.press('Tab')

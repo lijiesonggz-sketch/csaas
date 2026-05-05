@@ -12,20 +12,10 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2 } from 'lucide-react'
-import {
-  Edit,
-  Trash2,
-  Play,
-  Plus,
-} from 'lucide-react'
+import { Edit, Trash2, Play, Plus } from 'lucide-react'
 import { RadarSource } from '@/lib/api/radar-sources'
 
 /**
@@ -134,11 +124,9 @@ export function PeerCrawlerSourceList({
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-xl font-semibold">采集源列表</h2>
-          <p className="text-sm text-muted-foreground ml-1">
-            ({sources.length} 个)
-          </p>
+          <p className="text-sm text-muted-foreground ml-1">({sources.length} 个)</p>
         </div>
-        <Button onClick={onCreate}>
+        <Button onClick={onCreate} className="rounded-sm bg-[#1E3A5F] hover:bg-[#162e4d]">
           <Plus className="h-4 w-4 mr-1" />
           添加采集源
         </Button>
@@ -148,21 +136,21 @@ export function PeerCrawlerSourceList({
       {sources.length === 0 ? (
         <Alert>
           <AlertDescription>
-            暂无采集源配置，点击"添加采集源"按钮创建第一个采集源。
+            暂无采集源配置，点击「添加采集源」按钮创建第一个采集源。
           </AlertDescription>
         </Alert>
       ) : (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="overflow-hidden rounded-sm border border-[#E2E8F0]">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>同业机构名称</TableHead>
-                <TableHead>来源类型</TableHead>
-                <TableHead>采集URL</TableHead>
-                <TableHead>状态</TableHead>
-                <TableHead>上次采集时间</TableHead>
-                <TableHead>成功率</TableHead>
-                <TableHead className="text-right">操作</TableHead>
+              <TableRow className="bg-[#1E3A5F] hover:bg-[#1E3A5F]">
+                <TableHead className="text-white">同业机构名称</TableHead>
+                <TableHead className="text-white">来源类型</TableHead>
+                <TableHead className="text-white">采集URL</TableHead>
+                <TableHead className="text-white">状态</TableHead>
+                <TableHead className="text-white">上次采集时间</TableHead>
+                <TableHead className="text-white">成功率</TableHead>
+                <TableHead className="text-right text-white">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -183,9 +171,7 @@ export function PeerCrawlerSourceList({
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <p className="text-sm max-w-[200px] truncate">
-                            {source.url}
-                          </p>
+                          <p className="text-sm max-w-[200px] truncate">{source.url}</p>
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>{source.url}</p>
@@ -195,7 +181,10 @@ export function PeerCrawlerSourceList({
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Badge variant={statusConfig[source.lastCrawlStatus].variant} className="text-xs">
+                      <Badge
+                        variant={statusConfig[source.lastCrawlStatus].variant}
+                        className="text-xs"
+                      >
                         {statusConfig[source.lastCrawlStatus].label}
                       </Badge>
                       <Switch

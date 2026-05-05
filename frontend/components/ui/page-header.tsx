@@ -20,13 +20,13 @@ export function PageHeader({
   description,
   icon,
   action,
-  variant = 'gradient',
+  variant = 'default',
   className,
   ...props
 }: PageHeaderProps) {
   const variantStyles = {
     default: 'bg-[#1E3A5F] text-white',
-    gradient: 'bg-gradient-to-br from-[#1E3A5F] to-[#059669] text-white',
+    gradient: 'bg-[#1E3A5F] text-white',
     subtle: 'bg-[#F1F5F9] text-[#1E3A5F]',
   }
 
@@ -40,29 +40,21 @@ export function PageHeader({
       {...props}
     >
       <div className="relative z-10">
-        <div className="flex items-center gap-3 mb-2">
-          {icon && (
-            <div className="flex items-center justify-center w-12 h-12 rounded-sm bg-white/20 backdrop-blur-sm">
-              {icon}
-            </div>
-          )}
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">{title}</h1>
-            {description && (
-              <p className="text-sm opacity-90 mt-0.5">{description}</p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-3 lg:min-w-[480px]">
+            {icon && (
+              <div className="flex items-center justify-center w-12 h-12 rounded-sm bg-white/20 backdrop-blur-sm">
+                {icon}
+              </div>
             )}
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold">{title}</h1>
+              {description && <p className="text-sm opacity-90 mt-0.5">{description}</p>}
+            </div>
           </div>
-          {action && <div className="flex-shrink-0">{action}</div>}
+          {action && <div className="min-w-0">{action}</div>}
         </div>
       </div>
-
-      {/* Decorative background pattern */}
-      {variant === 'gradient' && (
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-        </div>
-      )}
     </div>
   )
 }

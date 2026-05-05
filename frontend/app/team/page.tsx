@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { PageHeader } from '@/components/ui/page-header'
 import { AddMemberDialog } from './components/AddMemberDialog'
 import { EditMemberDialog } from './components/EditMemberDialog'
 import { ConfirmRemoveDialog } from './components/ConfirmRemoveDialog'
@@ -85,7 +86,7 @@ export default function TeamManagementPage() {
       const response = await organizationsApi.getOrganizationMembers(
         organizationId,
         page + 1,
-        rowsPerPage,
+        rowsPerPage
       )
       setMembers(response?.data || [])
       setTotal(response?.pagination?.total || 0)
@@ -199,24 +200,24 @@ export default function TeamManagementPage() {
 
   return (
     <div className="p-6 bg-[#FEFDFB] min-h-screen">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2">
-          <Users className="w-6 h-6 text-[#1E3A5F]" />
-          <h1 className="text-2xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
-            团队管理
-          </h1>
-        </div>
-        {isAdmin && (
-          <Button
-            onClick={() => setAddDialogOpen(true)}
-            className="bg-[#1E3A5F] hover:bg-[#162e4d] text-white rounded-sm"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            添加成员
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="团队管理"
+        description="维护咨询团队成员、角色权限和组织协作边界"
+        icon={<Users className="h-6 w-6" />}
+        variant="default"
+        className="p-8"
+        action={
+          isAdmin ? (
+            <Button
+              onClick={() => setAddDialogOpen(true)}
+              className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              添加成员
+            </Button>
+          ) : null
+        }
+      />
 
       {/* Members Table */}
       <Card className="border border-[#E2E8F0] rounded-sm shadow-sm">
@@ -312,7 +313,8 @@ export default function TeamManagementPage() {
           {/* Pagination */}
           <div className="flex items-center justify-between px-4 py-3 border-t border-[#E2E8F0]">
             <p className="text-sm text-[#94A3B8]">
-              显示 {page * rowsPerPage + 1} - {Math.min((page + 1) * rowsPerPage, total)} 共 {total} 条
+              显示 {page * rowsPerPage + 1} - {Math.min((page + 1) * rowsPerPage, total)} 共 {total}{' '}
+              条
             </p>
             <div className="flex items-center gap-2">
               <span className="text-sm text-[#94A3B8]">每页行数:</span>

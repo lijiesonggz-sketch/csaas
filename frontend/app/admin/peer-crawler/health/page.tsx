@@ -24,7 +24,8 @@ import { getAlerts, resolveAlert, Alert } from '@/lib/api/dashboard'
 import { CrawlerHealthDashboard } from '@/components/admin/CrawlerHealthDashboard'
 import { CrawlerTaskLogList } from '@/components/admin/CrawlerTaskLogList'
 import { AlertList } from '@/components/admin/AlertList'
-import { ArrowLeft, RefreshCw } from 'lucide-react'
+import { Activity, RefreshCw } from 'lucide-react'
+import { PageHeader } from '@/components/ui/page-header'
 
 export default function PeerCrawlerHealthPage() {
   const { data: session, status } = useSession()
@@ -75,7 +76,11 @@ export default function PeerCrawlerHealthPage() {
           offset: (taskPage - 1) * 20,
         }),
         getCrawlerStats(30),
-        getAlerts(session.accessToken, { status: 'unresolved', alertType: 'crawler_failure', limit: 10 }),
+        getAlerts(session.accessToken, {
+          status: 'unresolved',
+          alertType: 'crawler_failure',
+          limit: 10,
+        }),
       ])
 
       setHealth(healthData.data)
@@ -98,11 +103,6 @@ export default function PeerCrawlerHealthPage() {
       fetchData()
     }
   }, [session?.accessToken, taskPage, taskFilters])
-
-  // Handle back navigation
-  const handleBack = () => {
-    router.push('/dashboard')
-  }
 
   // Handle manual refresh
   const handleRefresh = () => {
@@ -164,35 +164,23 @@ export default function PeerCrawlerHealthPage() {
   return (
     <div className="min-h-screen bg-[#FEFDFB] p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Back Button */}
-        <div className="mb-4">
-          <button
-            onClick={handleBack}
-            className="flex items-center space-x-2 text-[#94A3B8] hover:text-[#1E3A5F] transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span>返回仪表板</span>
-          </button>
-        </div>
-
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-[#1E3A5F]">爬虫健康度监控</h1>
-              <p className="mt-1 text-sm text-[#94A3B8]">监控同业采集爬虫的健康状态和性能指标</p>
-            </div>
-
+        <PageHeader
+          title="爬虫健康度监控"
+          description="监控同业采集爬虫的健康状态、告警和任务日志"
+          icon={<Activity className="h-6 w-6" />}
+          variant="default"
+          className="p-8"
+          action={
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center space-x-2 px-4 py-2 bg-white border border-[#E2E8F0] rounded-sm hover:bg-[#FEFDFB] disabled:opacity-50"
+              className="flex items-center space-x-2 rounded-sm bg-white px-4 py-2 text-[#1E3A5F] hover:bg-white/90 disabled:opacity-50"
             >
               <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
               <span>{refreshing ? '刷新中...' : '手动刷新'}</span>
             </button>
-          </div>
-        </div>
+          }
+        />
 
         {/* Health Dashboard */}
         {health && <CrawlerHealthDashboard health={health} loading={loading} />}

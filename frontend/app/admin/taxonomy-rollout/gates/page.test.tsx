@@ -381,7 +381,7 @@ describe('TaxonomyRolloutGatesPage', () => {
     await renderPage()
 
     expect(screen.getByText('无权访问 Taxonomy Rollout Gates')).toBeVisible()
-    expect(screen.getByRole('button', { name: '返回管理后台' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: '返回管理后台' })).not.toBeInTheDocument()
   })
 
   test('[8.2-RTL-006][P1] shows evaluate error message when gate evaluation request fails', async () => {

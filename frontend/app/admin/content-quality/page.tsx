@@ -8,11 +8,11 @@
  * @story 7-2
  */
 
-'use client';
+'use client'
 
-import React, { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import {
   getContentQualityMetrics,
   getLowRatedPushes,
@@ -24,152 +24,148 @@ import {
   LowRatedPush,
   PushFeedbackDetail,
   QualityTrends,
-} from '@/lib/api/content-quality';
-import { QualityMetricCard } from '@/components/admin/QualityMetricCard';
-import { RatingDistributionChart } from '@/components/admin/RatingDistributionChart';
-import { LowRatedPushList } from '@/components/admin/LowRatedPushList';
-import { PushFeedbackDetailDialog } from '@/components/admin/PushFeedbackDetailDialog';
-import { QualityTrendChart } from '@/components/admin/QualityTrendChart';
-import { RefreshCw, ArrowLeft } from 'lucide-react';
+} from '@/lib/api/content-quality'
+import { QualityMetricCard } from '@/components/admin/QualityMetricCard'
+import { RatingDistributionChart } from '@/components/admin/RatingDistributionChart'
+import { LowRatedPushList } from '@/components/admin/LowRatedPushList'
+import { PushFeedbackDetailDialog } from '@/components/admin/PushFeedbackDetailDialog'
+import { QualityTrendChart } from '@/components/admin/QualityTrendChart'
+import { RefreshCw, ShieldCheck } from 'lucide-react'
+import { PageHeader } from '@/components/ui/page-header'
 
 export default function ContentQualityPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
+  const { data: session, status } = useSession()
+  const router = useRouter()
 
-  const [metrics, setMetrics] = useState<ContentQualityMetrics | null>(null);
-  const [lowRatedPushes, setLowRatedPushes] = useState<LowRatedPush[]>([]);
-  const [trends, setTrends] = useState<QualityTrends | null>(null);
-  const [selectedPushDetail, setSelectedPushDetail] = useState<PushFeedbackDetail | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [metrics, setMetrics] = useState<ContentQualityMetrics | null>(null)
+  const [lowRatedPushes, setLowRatedPushes] = useState<LowRatedPush[]>([])
+  const [trends, setTrends] = useState<QualityTrends | null>(null)
+  const [selectedPushDetail, setSelectedPushDetail] = useState<PushFeedbackDetail | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [actionLoading, setActionLoading] = useState(false)
 
   // Redirect if not authenticated or not admin
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login');
+      router.push('/login')
     } else if (session?.user && session.user.role !== 'admin') {
-      router.push('/');
+      router.push('/')
     }
-  }, [status, session, router]);
+  }, [status, session, router])
 
   // Fetch all data
   const fetchData = async (isRefresh = false) => {
-    if (!session?.accessToken) return;
+    if (!session?.accessToken) return
 
     try {
       if (isRefresh) {
-        setRefreshing(true);
+        setRefreshing(true)
       } else {
-        setLoading(true);
+        setLoading(true)
       }
-      setError(null);
+      setError(null)
 
       const [metricsData, pushesData, trendsData] = await Promise.all([
         getContentQualityMetrics(session.accessToken),
         getLowRatedPushes(session.accessToken, { limit: 20 }),
         getQualityTrends(session.accessToken, '30d'),
-      ]);
+      ])
 
-      setMetrics(metricsData);
-      setLowRatedPushes(pushesData.data);
-      setTrends(trendsData);
+      setMetrics(metricsData)
+      setLowRatedPushes(pushesData.data)
+      setTrends(trendsData)
     } catch (err) {
-      console.error('Failed to fetch content quality data:', err);
-      setError('加载内容质量数据失败，请稍后重试');
+      console.error('Failed to fetch content quality data:', err)
+      setError('加载内容质量数据失败，请稍后重试')
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setLoading(false)
+      setRefreshing(false)
     }
-  };
+  }
 
   // Initial load
   useEffect(() => {
     if (session?.accessToken) {
-      fetchData();
+      fetchData()
     }
-  }, [session?.accessToken]);
-
-  // Handle back navigation
-  const handleBack = () => {
-    router.push('/dashboard');
-  };
+  }, [session?.accessToken])
 
   // Handle refresh
   const handleRefresh = () => {
-    fetchData(true);
-  };
+    fetchData(true)
+  }
 
   // Handle view details
   const handleViewDetails = async (pushId: string) => {
-    if (!session?.accessToken) return;
+    if (!session?.accessToken) return
 
     try {
-      const detail = await getPushFeedbackDetails(session.accessToken, pushId);
-      setSelectedPushDetail(detail);
-      setIsDialogOpen(true);
+      const detail = await getPushFeedbackDetails(session.accessToken, pushId)
+      setSelectedPushDetail(detail)
+      setIsDialogOpen(true)
     } catch (err) {
-      console.error('Failed to fetch push details:', err);
-      alert('获取推送详情失败');
+      console.error('Failed to fetch push details:', err)
+      alert('获取推送详情失败')
     }
-  };
+  }
 
   // Handle mark as optimized
   const handleMarkOptimized = async (pushId: string) => {
-    if (!session?.accessToken) return;
+    if (!session?.accessToken) return
 
-    setActionLoading(true);
+    setActionLoading(true)
     try {
-      await markPushAsOptimized(session.accessToken, pushId);
+      await markPushAsOptimized(session.accessToken, pushId)
       // Update local state
       if (selectedPushDetail) {
         setSelectedPushDetail({
           ...selectedPushDetail,
           status: 'optimized',
-        });
+        })
       }
       // Refresh data
-      fetchData(true);
+      fetchData(true)
     } catch (err) {
-      console.error('Failed to mark as optimized:', err);
-      alert('标记失败，请稍后重试');
+      console.error('Failed to mark as optimized:', err)
+      alert('标记失败，请稍后重试')
     } finally {
-      setActionLoading(false);
+      setActionLoading(false)
     }
-  };
+  }
 
   // Handle mark as ignored
   const handleMarkIgnored = async (pushId: string) => {
-    if (!session?.accessToken) return;
+    if (!session?.accessToken) return
 
-    setActionLoading(true);
+    setActionLoading(true)
     try {
-      await markPushAsIgnored(session.accessToken, pushId);
+      await markPushAsIgnored(session.accessToken, pushId)
       // Update local state
       if (selectedPushDetail) {
         setSelectedPushDetail({
           ...selectedPushDetail,
           status: 'ignored',
-        });
+        })
       }
       // Refresh data
-      fetchData(true);
+      fetchData(true)
     } catch (err) {
-      console.error('Failed to mark as ignored:', err);
-      alert('标记失败，请稍后重试');
+      console.error('Failed to mark as ignored:', err)
+      alert('标记失败，请稍后重试')
     } finally {
-      setActionLoading(false);
+      setActionLoading(false)
     }
-  };
+  }
 
   if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1E3A5F]"></div>
       </div>
-    );
+    )
   }
 
   if (error) {
@@ -185,45 +181,29 @@ export default function ContentQualityPage() {
           </button>
         </div>
       </div>
-    );
+    )
   }
 
   return (
     <div className="min-h-screen bg-[#FEFDFB] p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Back Button */}
-        <div className="mb-4">
-          <button
-            onClick={handleBack}
-            className="flex items-center space-x-2 text-[#94A3B8] hover:text-[#1E3A5F] transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span>返回仪表板</span>
-          </button>
-        </div>
-
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-[#1E3A5F]">内容质量管理</h1>
-              <p className="mt-1 text-sm text-[#94A3B8]">
-                监控推送内容质量，收集用户反馈，持续改进服务
-              </p>
-            </div>
-
+        <PageHeader
+          title="内容质量管理"
+          description="监控推送内容质量，收集用户反馈，持续改进服务"
+          icon={<ShieldCheck className="h-6 w-6" />}
+          variant="default"
+          className="p-8"
+          action={
             <button
               onClick={handleRefresh}
               disabled={refreshing}
-              className="flex items-center space-x-2 px-4 py-2 bg-white border border-[#E2E8F0] rounded-sm hover:bg-[#FEFDFB] disabled:opacity-50"
+              className="flex items-center space-x-2 rounded-sm bg-white px-4 py-2 text-[#1E3A5F] hover:bg-white/90 disabled:opacity-50"
             >
-              <RefreshCw
-                className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`}
-              />
+              <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
               <span>{refreshing ? '刷新中...' : '手动刷新'}</span>
             </button>
-          </div>
-        </div>
+          }
+        />
 
         {/* Metrics Cards */}
         {metrics && (
@@ -261,9 +241,7 @@ export default function ContentQualityPage() {
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {metrics && (
-            <RatingDistributionChart distribution={metrics.ratingDistribution} />
-          )}
+          {metrics && <RatingDistributionChart distribution={metrics.ratingDistribution} />}
 
           {trends && (
             <QualityTrendChart
@@ -291,5 +269,5 @@ export default function ContentQualityPage() {
         />
       </div>
     </div>
-  );
+  )
 }

@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
-  ArrowLeft,
   GitBranch,
   Link2,
   Loader2,
@@ -55,6 +54,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { ControlPointDirectorySelector } from '@/components/admin/ControlPointDirectorySelector'
 import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
+import { PageHeader } from '@/components/ui/page-header'
 import { formatAuthoritativeScorePercent } from '@/lib/utils/authoritative-score'
 import { useRef } from 'react'
 
@@ -191,9 +191,9 @@ export default function FailureModeAdminPage() {
             ? appliedDeepLinkId.current
             : deepLinkedFailureModeId && current === deepLinkedFailureModeId
               ? current
-            : current && listResult.items.some((item) => item.failureModeId === current)
-              ? current
-              : (listResult.items[0]?.failureModeId ?? null)
+              : current && listResult.items.some((item) => item.failureModeId === current)
+                ? current
+                : (listResult.items[0]?.failureModeId ?? null)
         )
       } catch (loadError) {
         if (!cancelled) setError(errorMessage(loadError, '加载 Failure Mode 列表失败'))
@@ -426,13 +426,6 @@ export default function FailureModeAdminPage() {
                 <h1 className="text-2xl font-bold text-[#1E3A5F]">无权访问 Failure Mode 管理</h1>
                 <p className="mt-2 text-[#64748B]">当前账号没有查看该页面的权限，请联系管理员。</p>
               </div>
-              <Button
-                variant="outline"
-                className="rounded-sm"
-                onClick={() => router.push('/dashboard')}
-              >
-                返回管理后台
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -442,38 +435,33 @@ export default function FailureModeAdminPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-[#FEFDFB] px-6 py-16">
+      <div className="min-h-screen bg-[#FEFDFB] px-6 py-8">
         <div className="mx-auto max-w-7xl space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <Button
-                variant="outline"
-                className="rounded-sm"
-                onClick={() => router.push('/dashboard')}
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                返回
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold text-[#1E3A5F]">Failure Mode 管理</h1>
-                <p className="mt-1 text-[#64748B]">维护失效模式字典、IT 分类映射和控制点映射。</p>
+          <PageHeader
+            title="Failure Mode 管理"
+            description="维护失效模式字典、IT 分类映射和控制点映射"
+            icon={<GitBranch className="h-6 w-6" />}
+            variant="default"
+            className="p-8"
+            action={
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+                  onClick={() => setReloadToken((current) => current + 1)}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  刷新
+                </Button>
+                <Button
+                  className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+                  onClick={openCreateDialog}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  新建 Failure Mode
+                </Button>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="rounded-sm"
-                onClick={() => setReloadToken((current) => current + 1)}
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                刷新
-              </Button>
-              <Button className="rounded-sm" onClick={openCreateDialog}>
-                <Plus className="mr-2 h-4 w-4" />
-                新建 Failure Mode
-              </Button>
-            </div>
-          </div>
+            }
+          />
 
           {error && (
             <Alert variant="destructive" className="rounded-sm">

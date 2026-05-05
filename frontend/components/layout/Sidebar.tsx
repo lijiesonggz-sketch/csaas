@@ -102,17 +102,17 @@ const allMenuItems: MenuItem[] = [
       {
         key: '/admin/failure-modes',
         icon: <GitBranch className="w-4 h-4" />,
-        label: 'Failure Mode 管理',
+        label: '失效模式管理',
       },
       {
         key: '/admin/obligations',
         icon: <Scale className="w-4 h-4" />,
-        label: 'Obligation 管理',
+        label: '法规义务管理',
       },
       {
         key: '/admin/control-points',
         icon: <Target className="w-4 h-4" />,
-        label: 'Control Point 管理',
+        label: '控制点管理',
       },
       {
         key: '/admin/obligations/coverage-analysis',
@@ -127,7 +127,7 @@ const allMenuItems: MenuItem[] = [
       {
         key: '/admin/taxonomy-rollout',
         icon: <GitBranch className="w-4 h-4" />,
-        label: 'Taxonomy Rollout',
+        label: '分类体系发布',
       },
       { key: '/admin/peer-crawler', icon: <Settings className="w-4 h-4" />, label: '同业爬虫管理' },
       {
@@ -164,7 +164,7 @@ export default function Sidebar({
   const pathname = usePathname()
   const router = useRouter()
   const { data: session } = useSession()
-  const [expandedKeys, setExpandedKeys] = useState<string[]>(['/admin'])
+  const [expandedKeys, setExpandedKeys] = useState<string[]>([])
   const organizationId = session?.user?.organizationId
 
   const isAdmin = session?.user?.role === 'admin'
@@ -232,10 +232,15 @@ export default function Sidebar({
     return pathname === key || pathname.startsWith(`${key}/`)
   }
 
+  const isChildSelected = (key: string) => {
+    return pathname === key || pathname.startsWith(`${key}/`)
+  }
+
   const currentWidth = isMobile ? width : collapsed ? collapsedWidth : width
 
   return (
     <nav
+      aria-label="主导航"
       className={`fixed left-0 top-16 bottom-0 bg-[#1E3A5F] text-white transition-all duration-200 overflow-x-hidden overflow-y-auto z-40 ${
         isMobile ? (mobileOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'
       }`}
@@ -254,9 +259,9 @@ export default function Sidebar({
                 <div key={item.key}>
                   <button
                     onClick={() => handleExpandToggle(item.key)}
-                    className={`w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors ${
+                    className={`w-full cursor-pointer flex items-center gap-3 px-5 py-3 text-sm transition-colors ${
                       selected
-                        ? 'bg-white/10 text-white font-semibold'
+                        ? 'Mui-selected bg-white/10 text-white font-semibold'
                         : 'text-white/70 hover:bg-white/5 hover:text-white'
                     } ${collapsed ? 'justify-center px-0' : ''}`}
                     title={collapsed ? item.label : undefined}
@@ -281,9 +286,9 @@ export default function Sidebar({
                         <button
                           key={child.key}
                           onClick={() => handleNavigation(child.key)}
-                          className={`w-full flex items-center gap-2 pl-12 pr-5 py-2.5 text-[13px] transition-colors ${
-                            pathname === child.key
-                              ? 'text-emerald-400 font-medium bg-white/5'
+                          className={`w-full cursor-pointer flex items-center gap-2 pl-12 pr-5 py-2.5 text-[13px] transition-colors ${
+                            isChildSelected(child.key)
+                              ? 'Mui-selected text-emerald-400 font-medium bg-white/5'
                               : 'text-white/60 hover:text-white hover:bg-white/5'
                           }`}
                         >
@@ -301,9 +306,9 @@ export default function Sidebar({
               <button
                 key={item.key}
                 onClick={() => handleNavigation(item.key)}
-                className={`w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors ${
+                className={`w-full cursor-pointer flex items-center gap-3 px-5 py-3 text-sm transition-colors ${
                   selected
-                    ? 'bg-white/10 text-white font-semibold border-l-2 border-emerald-400'
+                    ? 'Mui-selected bg-white/10 text-white font-semibold border-l-2 border-emerald-400'
                     : 'text-white/70 hover:bg-white/5 hover:text-white'
                 } ${collapsed ? 'justify-center px-0' : ''}`}
                 title={collapsed ? item.label : undefined}
@@ -319,8 +324,9 @@ export default function Sidebar({
         {!isMobile && (
           <div className="p-2 border-t border-white/10">
             <button
+              aria-label={collapsed ? '展开侧边栏' : '折叠侧边栏'}
               onClick={handleToggleCollapse}
-              className="w-full flex items-center justify-center py-2 text-white/60 hover:text-white transition-colors"
+              className="w-full cursor-pointer flex items-center justify-center py-2 text-white/60 hover:text-white transition-colors"
             >
               {collapsed ? (
                 <ChevronRight className="w-5 h-5" />

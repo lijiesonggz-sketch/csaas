@@ -5,14 +5,7 @@ import { Project } from '@/lib/api/projects'
 import { apiFetch } from '@/lib/utils/api'
 import ProjectCard from './ProjectCard'
 import CreateProjectDialog from './CreateProjectDialog'
-import {
-  Sparkles,
-  ArrowLeft,
-  LayoutDashboard,
-  Plus,
-  Loader2,
-} from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { Sparkles, LayoutDashboard, Plus, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { Button } from '@/components/ui/button'
 import { ContentCard } from '@/components/ui/content-card'
@@ -24,7 +17,6 @@ interface ProjectListProps {
 }
 
 export default function ProjectList({ onProjectClick }: ProjectListProps) {
-  const router = useRouter()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -66,9 +58,7 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
       >
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-[#1E3A5F]" />
-          <p className="text-sm text-[#64748B]">
-            加载项目列表...
-          </p>
+          <p className="text-sm text-[#64748B]">加载项目列表...</p>
         </div>
       </main>
     )
@@ -79,9 +69,7 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
       <main className="max-w-[1920px] mx-auto px-12 py-6" role="alert" aria-live="polite">
         <Alert variant="destructive" className="mb-4 border-[#FECACA] bg-[#FEF2F2]">
           <AlertCircle className="h-4 w-4 text-[#DC2626]" />
-          <AlertDescription className="text-[#991B1B]">
-            {error}
-          </AlertDescription>
+          <AlertDescription className="text-[#991B1B]">{error}</AlertDescription>
         </Alert>
         <div className="flex justify-center">
           <Button
@@ -114,18 +102,6 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
         }
       />
 
-      {/* 返回按钮 */}
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => router.push('/dashboard')}
-          className="text-[#64748B] hover:text-[#1E3A5F] hover:bg-[#F1F5F9]"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          返回工作台
-        </Button>
-      </div>
-
       {/* 项目列表或空状态 */}
       {projects.length === 0 ? (
         <ContentCard padding="lg" className="text-center py-16">
@@ -134,11 +110,9 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
               <Sparkles className="h-12 w-12 text-[#6366f1]" />
             </div>
           </div>
-          <h3 className="text-xl font-semibold text-[#1E3A5F] mb-3">
-            还没有任何项目
-          </h3>
+          <h3 className="text-xl font-semibold text-[#1E3A5F] mb-3">还没有任何项目</h3>
           <p className="text-sm text-[#64748B] mb-10">
-            点击上方"创建项目"按钮开始您的第一个咨询项目
+            点击上方「创建项目」按钮开始您的第一个咨询项目
           </p>
           <Button
             onClick={() => setCreateDialogOpen(true)}
@@ -155,10 +129,7 @@ export default function ProjectList({ onProjectClick }: ProjectListProps) {
           aria-label="项目列表"
         >
           {projects.map((project) => (
-            <div
-              key={project.id}
-              className="p-3"
-            >
+            <div key={project.id} className="p-3">
               <div className="w-full min-w-0">
                 <ProjectCard
                   project={project}

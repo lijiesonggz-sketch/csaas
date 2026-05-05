@@ -1,11 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { Loader2, Palette } from 'lucide-react'
 import { toast } from 'sonner'
 import { BrandingForm } from '@/components/admin/BrandingForm'
 import { BrandingPreview } from '@/components/admin/BrandingPreview'
+import { PageHeader } from '@/components/ui/page-header'
 import {
   BrandingConfig,
   getAdminBranding,
@@ -14,7 +14,6 @@ import {
   resetBranding,
   UpdateBrandingData,
 } from '@/lib/api/branding'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { AlertCircle } from 'lucide-react'
@@ -32,7 +31,6 @@ import { AlertCircle } from 'lucide-react'
  * - 重置为默认品牌
  */
 export default function BrandingPage() {
-  const router = useRouter()
   const [config, setConfig] = useState<BrandingConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -46,11 +44,6 @@ export default function BrandingPage() {
     message: '',
     severity: 'success',
   })
-
-  // 返回上一页
-  const handleBack = () => {
-    router.push('/dashboard')
-  }
 
   // 加载品牌配置
   const loadBranding = async () => {
@@ -71,10 +64,7 @@ export default function BrandingPage() {
   }, [])
 
   // 显示提示消息
-  const showSnackbar = (
-    message: string,
-    severity: 'success' | 'error' | 'info' = 'success',
-  ) => {
+  const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' = 'success') => {
     setSnackbar({ open: true, message, severity })
     if (severity === 'success') {
       toast.success(message)
@@ -158,26 +148,14 @@ export default function BrandingPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-16 px-6 bg-[#FEFDFB] min-h-screen">
-      {/* 返回按钮 */}
-      <div className="mb-6">
-        <Button
-          variant="outline"
-          onClick={handleBack}
-          className="rounded-sm"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          返回
-        </Button>
-      </div>
-
-      {/* 页面标题 */}
-      <h1 className="text-3xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)] mb-2">
-        品牌配置
-      </h1>
-      <p className="text-[#94A3B8] mb-8">
-        配置您的品牌标识，包括 Logo、主题色和公司信息
-      </p>
+    <div className="max-w-7xl mx-auto py-8 px-6 bg-[#FEFDFB] min-h-screen">
+      <PageHeader
+        title="品牌配置"
+        description="配置品牌标识、主题色和公司信息，统一咨询交付物的对外呈现"
+        icon={<Palette className="h-6 w-6" />}
+        variant="default"
+        className="p-8"
+      />
 
       {/* 主要内容区域 */}
       <div className="flex flex-col lg:flex-row gap-6">

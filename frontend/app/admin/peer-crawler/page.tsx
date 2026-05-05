@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { PeerCrawlerSourceList } from '@/components/admin/PeerCrawlerSourceList'
 import { PeerCrawlerSourceForm } from '@/components/admin/PeerCrawlerSourceForm'
@@ -19,8 +18,9 @@ import {
   CreateRadarSourceData,
   UpdateRadarSourceData,
 } from '@/lib/api/radar-sources'
-import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageHeader } from '@/components/ui/page-header'
+import { Building2 } from 'lucide-react'
 
 /**
  * 同业采集源管理页面
@@ -54,11 +54,6 @@ export default function PeerCrawlerPage() {
   const [testDialogOpen, setTestDialogOpen] = useState(false)
   const [testingSource, setTestingSource] = useState<RadarSource | null>(null)
   const [testResult, setTestResult] = useState<any>(null)
-
-  // 返回上一页
-  const handleBack = () => {
-    router.push('/dashboard')
-  }
 
   // 加载同业采集源列表
   const loadSources = async () => {
@@ -99,9 +94,7 @@ export default function PeerCrawlerPage() {
   }
 
   // 提交表单
-  const handleSubmitForm = async (
-    data: CreateRadarSourceData | UpdateRadarSourceData,
-  ) => {
+  const handleSubmitForm = async (data: CreateRadarSourceData | UpdateRadarSourceData) => {
     try {
       if (editingSource) {
         // 更新
@@ -168,50 +161,49 @@ export default function PeerCrawlerPage() {
 
   // 按类型筛选
   const filteredSources =
-    typeFilter === 'all'
-      ? sources
-      : sources.filter((s) => s.type === typeFilter)
+    typeFilter === 'all' ? sources : sources.filter((s) => s.type === typeFilter)
 
   return (
-    <div className="max-w-7xl mx-auto py-16 px-6 bg-[#FEFDFB] min-h-screen">
-      {/* 返回按钮 */}
-      <div className="mb-6">
-        <Button
-          variant="outline"
-          onClick={handleBack}
-          className="rounded-sm"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          返回
-        </Button>
-      </div>
-
-      {/* 页面标题 */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">
-          同业采集源管理
-        </h1>
-        <p className="text-[#94A3B8] mt-1">
-          配置和管理同业采集源（官网、公众号、知乎、会议等）
-        </p>
-      </div>
+    <div className="max-w-7xl mx-auto py-8 px-6 bg-[#FEFDFB] min-h-screen">
+      <PageHeader
+        title="同业采集源管理"
+        description="配置和管理同业采集源，包括官网、公众号、招聘和会议渠道"
+        icon={<Building2 className="h-6 w-6" />}
+        variant="default"
+        className="p-8"
+      />
 
       {/* 类型筛选标签 */}
       <Tabs value={typeFilter} onValueChange={setTypeFilter} className="mb-6">
         <TabsList className="bg-[#E2E8F0] rounded-sm p-1">
-          <TabsTrigger value="all" className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white">
+          <TabsTrigger
+            value="all"
+            className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white"
+          >
             全部
           </TabsTrigger>
-          <TabsTrigger value="website" className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white">
+          <TabsTrigger
+            value="website"
+            className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white"
+          >
             官网
           </TabsTrigger>
-          <TabsTrigger value="wechat" className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white">
+          <TabsTrigger
+            value="wechat"
+            className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white"
+          >
             公众号
           </TabsTrigger>
-          <TabsTrigger value="recruitment" className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white">
+          <TabsTrigger
+            value="recruitment"
+            className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white"
+          >
             招聘
           </TabsTrigger>
-          <TabsTrigger value="conference" className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white">
+          <TabsTrigger
+            value="conference"
+            className="rounded-sm data-[state=active]:bg-[#1E3A5F] data-[state=active]:text-white"
+          >
             会议
           </TabsTrigger>
         </TabsList>

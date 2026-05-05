@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { PageHeader } from '@/components/ui/page-header'
 import {
   fetchRolloutPolicies,
   fetchRolloutPolicyByL1Code,
@@ -208,13 +209,6 @@ export default function TaxonomyRolloutPage() {
                 <h1 className="text-2xl font-bold text-[#1E3A5F]">无权访问 Taxonomy Rollout</h1>
                 <p className="mt-2 text-[#64748B]">当前账号没有查看该页面的权限，请联系管理员。</p>
               </div>
-              <Button
-                variant="outline"
-                className="rounded-sm"
-                onClick={() => router.push('/dashboard')}
-              >
-                返回管理后台
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -225,53 +219,52 @@ export default function TaxonomyRolloutPage() {
   const navigationL1Code = selectedL1Code ?? getCurrentQueryL1Code()
 
   return (
-    <div className="min-h-screen bg-[#FEFDFB] px-6 py-16">
+    <div className="min-h-screen bg-[#FEFDFB] px-6 py-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <GitBranch className="h-6 w-6 text-[#1E3A5F]" />
-              <h1 className="text-3xl font-bold text-[#1E3A5F]">Taxonomy Rollout Overview</h1>
+        <PageHeader
+          title="Taxonomy Rollout Overview"
+          description="IT01-IT08 domain rollout 状态、fallback 开关、版本和责任边界"
+          icon={<GitBranch className="h-6 w-6" />}
+          variant="default"
+          className="p-8"
+          action={
+            <div className="flex flex-wrap gap-3">
+              <Button asChild className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90">
+                <Link
+                  href={
+                    selectedL1Code
+                      ? `/admin/taxonomy-rollout/gates?l1Code=${selectedL1Code}`
+                      : '/admin/taxonomy-rollout/gates'
+                  }
+                >
+                  Open Gates Console
+                </Link>
+              </Button>
+              <Button asChild className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90">
+                <Link
+                  href={
+                    selectedL1Code
+                      ? `/admin/taxonomy-rollout/retirement?l1Code=${selectedL1Code}`
+                      : '/admin/taxonomy-rollout/retirement'
+                  }
+                >
+                  Open Retirement Console
+                </Link>
+              </Button>
+              <Button asChild className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90">
+                <Link href={buildRecoveryHref(navigationL1Code)}>
+                  Open Recovery/History Console
+                </Link>
+              </Button>
+              <Button
+                className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+                onClick={() => router.push('/admin/knowledge-graph')}
+              >
+                返回知识图谱总览
+              </Button>
             </div>
-            <p className="mt-1 text-[#64748B]">
-              IT01-IT08 domain rollout 状态、fallback 开关、版本和责任边界
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Button asChild variant="outline" className="rounded-sm">
-              <Link
-                href={
-                  selectedL1Code
-                    ? `/admin/taxonomy-rollout/gates?l1Code=${selectedL1Code}`
-                    : '/admin/taxonomy-rollout/gates'
-                }
-              >
-                Open Gates Console
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="rounded-sm">
-              <Link
-                href={
-                  selectedL1Code
-                    ? `/admin/taxonomy-rollout/retirement?l1Code=${selectedL1Code}`
-                    : '/admin/taxonomy-rollout/retirement'
-                }
-              >
-                Open Retirement Console
-              </Link>
-            </Button>
-            <Button asChild variant="outline" className="rounded-sm">
-              <Link href={buildRecoveryHref(navigationL1Code)}>Open Recovery/History Console</Link>
-            </Button>
-            <Button
-              variant="outline"
-              className="rounded-sm"
-              onClick={() => router.push('/admin/knowledge-graph')}
-            >
-              返回知识图谱总览
-            </Button>
-          </div>
-        </div>
+          }
+        />
 
         <Card className="rounded-sm border-[#E2E8F0] shadow-sm">
           <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">

@@ -582,6 +582,6 @@ describe('TaxonomyRolloutRetirementPage', () => {
     await renderPage()
 
     expect(screen.getByText('无权访问 Taxonomy Rollout Retirement Console')).toBeVisible()
-    expect(screen.getByRole('button', { name: '返回管理后台' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: '返回管理后台' })).not.toBeInTheDocument()
   })
 })

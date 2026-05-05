@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft, RefreshCw, Eye, Loader2, X } from 'lucide-react'
+import { RefreshCw, Eye, Loader2, X, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
@@ -42,6 +42,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { PageHeader } from '@/components/ui/page-header'
 import { AlertCircle } from 'lucide-react'
 
 // Constants
@@ -218,11 +219,6 @@ export default function RawContentsPage() {
     }
   }
 
-  // 返回上一页
-  const handleBack = () => {
-    router.push('/dashboard')
-  }
-
   // 获取状态颜色
   const getStatusColor = (status: RawContentStatus): string => {
     switch (status) {
@@ -294,22 +290,13 @@ export default function RawContentsPage() {
 
   return (
     <div className="p-6 bg-[#FEFDFB] min-h-screen">
-      {/* 返回按钮 */}
-      <div className="mb-6">
-        <Button
-          variant="outline"
-          onClick={handleBack}
-          className="rounded-sm"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          返回
-        </Button>
-      </div>
-
-      {/* 页面标题 */}
-      <h1 className="text-3xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)] mb-6">
-        文件导入管理
-      </h1>
+      <PageHeader
+        title="文件导入管理"
+        description="集中查看雷达采集内容、解析状态和重新分析任务"
+        icon={<FileText className="h-6 w-6" />}
+        variant="default"
+        className="p-8"
+      />
 
       {/* 统计卡片区域 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
@@ -415,11 +402,7 @@ export default function RawContentsPage() {
 
             {/* 清除筛选按钮 */}
             <div className="flex items-end">
-              <Button
-                variant="outline"
-                onClick={handleClearFilters}
-                className="rounded-sm w-full"
-              >
+              <Button variant="outline" onClick={handleClearFilters} className="rounded-sm w-full">
                 <X className="w-4 h-4 mr-2" />
                 清除筛选
               </Button>
@@ -467,16 +450,20 @@ export default function RawContentsPage() {
                 ) : (
                   rawContents.map((content) => (
                     <TableRow key={content.id} className="hover:bg-[#FEFDFB]">
-                      <TableCell className="max-w-xs truncate">
-                        {content.title}
-                      </TableCell>
+                      <TableCell className="max-w-xs truncate">{content.title}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="rounded-sm border-[#94A3B8] text-[#94A3B8]">
+                        <Badge
+                          variant="outline"
+                          className="rounded-sm border-[#94A3B8] text-[#94A3B8]"
+                        >
                           {getSourceLabel(content.source)}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="rounded-sm border-[#1E3A5F] text-[#1E3A5F]">
+                        <Badge
+                          variant="outline"
+                          className="rounded-sm border-[#1E3A5F] text-[#1E3A5F]"
+                        >
                           {getCategoryLabel(content.category)}
                         </Badge>
                       </TableCell>
@@ -485,9 +472,7 @@ export default function RawContentsPage() {
                           {getStatusLabel(content.status)}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        {dayjs(content.createdAt).format('YYYY-MM-DD HH:mm')}
-                      </TableCell>
+                      <TableCell>{dayjs(content.createdAt).format('YYYY-MM-DD HH:mm')}</TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center gap-1">
                           <TooltipProvider>
@@ -542,7 +527,9 @@ export default function RawContentsPage() {
           {!loading && rawContents.length > 0 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-[#E2E8F0]">
               <p className="text-sm text-[#94A3B8]">
-                显示 {pagination.page * pagination.limit - pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} 共 {pagination.total} 条
+                显示 {pagination.page * pagination.limit - pagination.limit + 1} -{' '}
+                {Math.min(pagination.page * pagination.limit, pagination.total)} 共{' '}
+                {pagination.total} 条
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -609,11 +596,15 @@ export default function RawContentsPage() {
                 </div>
                 <div>
                   <p className="text-sm text-[#94A3B8]">导入时间</p>
-                  <p className="text-sm">{dayjs(selectedContent.createdAt).format('YYYY-MM-DD HH:mm:ss')}</p>
+                  <p className="text-sm">
+                    {dayjs(selectedContent.createdAt).format('YYYY-MM-DD HH:mm:ss')}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-[#94A3B8]">更新时间</p>
-                  <p className="text-sm">{dayjs(selectedContent.updatedAt).format('YYYY-MM-DD HH:mm:ss')}</p>
+                  <p className="text-sm">
+                    {dayjs(selectedContent.updatedAt).format('YYYY-MM-DD HH:mm:ss')}
+                  </p>
                 </div>
               </div>
 

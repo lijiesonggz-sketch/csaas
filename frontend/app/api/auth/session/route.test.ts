@@ -29,7 +29,7 @@ describe('GET /api/auth/session', () => {
     mockGetServerSession.mockResolvedValue(null)
 
     const { GET } = await import('./route')
-    const response = await GET({} as any)
+    const response = await GET()
     const body = await response.json()
 
     expect(response.status).toBe(200)

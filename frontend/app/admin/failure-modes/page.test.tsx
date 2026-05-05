@@ -17,7 +17,7 @@ const mockDrawer = jest.fn((props: { open: boolean; controlId: string; sourceMod
       data-control-id={props.controlId}
       data-source-module={props.sourceModule}
     />
-  ) : null,
+  ) : null
 )
 
 jest.mock('next/navigation', () => ({
@@ -43,8 +43,6 @@ jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
     mockDrawer(props),
 }))
 jest.mock('@/components/admin/ControlPointDirectorySelector', () => {
-  const React = require('react')
-
   return {
     ControlPointDirectorySelector: ({
       onPreview,
@@ -227,16 +225,16 @@ describe('FailureModeAdminPage', () => {
     expect(screen.getByText(/score 83%/)).toBeInTheDocument()
   })
 
-  it('navigates back to /dashboard from the page header back button', async () => {
+  it('does not render a redundant dashboard return action in the page header', async () => {
     render(<FailureModeAdminPage />)
 
     await waitFor(() => expect(screen.getByText('Failure Mode 管理')).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: '返回' }))
 
-    expect(mockPush).toHaveBeenCalledWith('/dashboard')
+    expect(screen.queryByRole('button', { name: '返回' })).not.toBeInTheDocument()
+    expect(mockPush).not.toHaveBeenCalledWith('/dashboard')
   })
 
-  it('navigates back to /dashboard from the forbidden state action', () => {
+  it('renders forbidden state without a redundant dashboard return action', () => {
     mockUseSession.mockReturnValue({
       data: { user: { id: 'user-2', role: 'consultant' } },
       status: 'authenticated',
@@ -245,9 +243,8 @@ describe('FailureModeAdminPage', () => {
     render(<FailureModeAdminPage />)
 
     expect(screen.getByText('无权访问 Failure Mode 管理')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '返回管理后台' }))
-
-    expect(mockPush).toHaveBeenCalledWith('/dashboard')
+    expect(screen.queryByRole('button', { name: '返回管理后台' })).not.toBeInTheDocument()
+    expect(mockPush).not.toHaveBeenCalledWith('/dashboard')
   })
 
   it('opens create dialog with suggested code and creates a failure mode', async () => {
@@ -266,8 +263,9 @@ describe('FailureModeAdminPage', () => {
   })
 
   it('keeps user-edited create form values when async code refresh finishes', async () => {
-    let resolveKnownCodes: ((value: { items: typeof detail[]; total: number; page: number; limit: number }) => void) | null =
-      null
+    let resolveKnownCodes:
+      | ((value: { items: (typeof detail)[]; total: number; page: number; limit: number }) => void)
+      | null = null
 
     mockListFailureModes
       .mockResolvedValueOnce({ items: [detail], total: 1, page: 1, limit: 20 })
@@ -275,12 +273,10 @@ describe('FailureModeAdminPage', () => {
         () =>
           new Promise((resolve) => {
             resolveKnownCodes = resolve
-          }),
+          })
       )
 
-    mockSuggestFailureModeCode
-      .mockReturnValueOnce('FM-DEF-001')
-      .mockReturnValueOnce('FM-DEF-009')
+    mockSuggestFailureModeCode.mockReturnValueOnce('FM-DEF-001').mockReturnValueOnce('FM-DEF-009')
 
     render(<FailureModeAdminPage />)
     await waitFor(() => expect(screen.getByText('新建 Failure Mode')).toBeInTheDocument())
@@ -288,7 +284,9 @@ describe('FailureModeAdminPage', () => {
     fireEvent.click(screen.getByText('新建 Failure Mode'))
     fireEvent.change(screen.getByLabelText('编码'), { target: { value: 'FM-CUSTOM-999' } })
     fireEvent.change(screen.getByLabelText('名称'), { target: { value: '手工输入名称' } })
-    fireEvent.change(screen.getAllByRole('combobox').at(-1)!, { target: { value: 'MAPPING_ERROR' } })
+    fireEvent.change(screen.getAllByRole('combobox').at(-1)!, {
+      target: { value: 'MAPPING_ERROR' },
+    })
 
     resolveKnownCodes?.({
       items: [
@@ -339,7 +337,7 @@ describe('FailureModeAdminPage', () => {
     let deleteTaxonomyButton: HTMLButtonElement | null = null
     await waitFor(() => {
       deleteTaxonomyButton = document.querySelector(
-        'button[aria-label="删除 IT 分类映射 IT04-01"]',
+        'button[aria-label="删除 IT 分类映射 IT04-01"]'
       ) as HTMLButtonElement | null
       expect(deleteTaxonomyButton).toBeTruthy()
     })
@@ -370,9 +368,9 @@ describe('FailureModeAdminPage', () => {
     render(<FailureModeAdminPage />)
 
     await waitFor(() => expect(screen.getByText('控制点映射')).toBeInTheDocument())
-    const relevanceSelect = screen.getAllByRole('combobox').find((element) =>
-      (element as HTMLSelectElement).value === 'PRIMARY',
-    ) as HTMLSelectElement
+    const relevanceSelect = screen
+      .getAllByRole('combobox')
+      .find((element) => (element as HTMLSelectElement).value === 'PRIMARY') as HTMLSelectElement
     fireEvent.change(relevanceSelect, { target: { value: 'SECONDARY' } })
 
     fireEvent.change(screen.getByPlaceholderText('搜索 control code / control name'), {
@@ -388,8 +386,8 @@ describe('FailureModeAdminPage', () => {
     await waitFor(() =>
       expect(mockCreateControlMap).toHaveBeenCalledWith(
         'fm-1',
-        expect.objectContaining({ controlId: 'cp-2', relevance: 'SECONDARY' }),
-      ),
+        expect.objectContaining({ controlId: 'cp-2', relevance: 'SECONDARY' })
+      )
     )
   })
 
@@ -399,7 +397,7 @@ describe('FailureModeAdminPage', () => {
     let controlDeleteButton: HTMLButtonElement | null = null
     await waitFor(() => {
       controlDeleteButton = document.querySelector(
-        'button[aria-label="删除控制点映射 CTRL-001"]',
+        'button[aria-label="删除控制点映射 CTRL-001"]'
       ) as HTMLButtonElement | null
       expect(controlDeleteButton).toBeTruthy()
     })
@@ -421,9 +419,7 @@ describe('FailureModeAdminPage', () => {
 
     render(<FailureModeAdminPage />)
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: '下一页' })).toBeDisabled(),
-    )
+    await waitFor(() => expect(screen.getByRole('button', { name: '下一页' })).toBeDisabled())
   })
 
   it('loads the deep-linked failure mode detail even when it is not present on the current list page', async () => {
@@ -521,12 +517,12 @@ describe('FailureModeAdminPage', () => {
     await waitFor(() =>
       expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
         'data-control-id',
-        'cp-1',
-      ),
+        'cp-1'
+      )
     )
     expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
       'data-source-module',
-      'admin',
+      'admin'
     )
   })
 })

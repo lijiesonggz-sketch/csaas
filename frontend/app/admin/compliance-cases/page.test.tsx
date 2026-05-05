@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import ComplianceCasesAdminPage from './page'
@@ -14,20 +15,21 @@ const mockUseSession = jest.fn(() => ({
   status: 'authenticated',
 }))
 let mockCaseIdParam: string | null = null
-const mockDrawer = jest.fn((props: {
-  open: boolean
-  controlId: string
-  sourceModule: string
-  sourceTrace?: { label: string; detail: string } | null
-}) =>
-  props.open ? (
-    <div
-      data-testid="control-detail-drawer-probe"
-      data-control-id={props.controlId}
-      data-source-module={props.sourceModule}
-      data-source-trace-detail={props.sourceTrace?.detail ?? ''}
-    />
-  ) : null,
+const mockDrawer = jest.fn(
+  (props: {
+    open: boolean
+    controlId: string
+    sourceModule: string
+    sourceTrace?: { label: string; detail: string } | null
+  }) =>
+    props.open ? (
+      <div
+        data-testid="control-detail-drawer-probe"
+        data-control-id={props.controlId}
+        data-source-module={props.sourceModule}
+        data-source-trace-detail={props.sourceTrace?.detail ?? ''}
+      />
+    ) : null
 )
 
 jest.mock('next/navigation', () => ({
@@ -65,14 +67,13 @@ jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
     controlId: string
     sourceModule: string
     sourceTrace?: { label: string; detail: string } | null
-  }) =>
-    mockDrawer(props),
+  }) => mockDrawer(props),
 }))
 
 jest.mock('@/components/ui/select', () => {
-  const React = require('react')
-
-  const collectItems = (children: React.ReactNode): Array<{ value: string; children: React.ReactNode }> => {
+  const collectItems = (
+    children: React.ReactNode
+  ): Array<{ value: string; children: React.ReactNode }> => {
     const items: Array<{ value: string; children: React.ReactNode }> = []
     React.Children.forEach(children, (child: any) => {
       if (!React.isValidElement(child)) return
@@ -278,13 +279,13 @@ describe('ComplianceCasesAdminPage', () => {
       () =>
         new Promise((resolve) => {
           resolveExtraction = resolve
-        }),
+        })
     )
     mockGetClustering.mockImplementationOnce(
       () =>
         new Promise((resolve) => {
           resolveClustering = resolve
-        }),
+        })
     )
 
     render(<ComplianceCasesAdminPage />)
@@ -299,7 +300,9 @@ describe('ComplianceCasesAdminPage', () => {
 
     expect(screen.queryByText('基础信息')).not.toBeInTheDocument()
     expect(screen.queryByText('暂无提取主题')).not.toBeInTheDocument()
-    expect(screen.queryByText('当前案例状态为 待处理，不可再次提交人工审核。')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('当前案例状态为 待处理，不可再次提交人工审核。')
+    ).not.toBeInTheDocument()
 
     resolveExtraction?.(extractionResult)
     resolveClustering?.(clusteringResult)
@@ -320,16 +323,16 @@ describe('ComplianceCasesAdminPage', () => {
     })
   })
 
-  it('navigates back to /dashboard from the page header back button', async () => {
+  it('does not render a redundant dashboard return action in the page header', async () => {
     render(<ComplianceCasesAdminPage />)
 
     await waitFor(() => expect(screen.getByText('案例运营')).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: '返回' }))
 
-    expect(mockPush).toHaveBeenCalledWith('/dashboard')
+    expect(screen.queryByRole('button', { name: '返回' })).not.toBeInTheDocument()
+    expect(mockPush).not.toHaveBeenCalledWith('/dashboard')
   })
 
-  it('navigates back to /dashboard from the forbidden state action', () => {
+  it('renders forbidden state without a redundant dashboard return action', () => {
     mockUseSession.mockReturnValue({
       data: {
         user: {
@@ -343,9 +346,8 @@ describe('ComplianceCasesAdminPage', () => {
     render(<ComplianceCasesAdminPage />)
 
     expect(screen.getByText('无权访问案例运营后台')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '返回工作台' }))
-
-    expect(mockPush).toHaveBeenCalledWith('/dashboard')
+    expect(screen.queryByRole('button', { name: '返回工作台' })).not.toBeInTheDocument()
+    expect(mockPush).not.toHaveBeenCalledWith('/dashboard')
   })
 
   it('applies filters and refetches case list', async () => {
@@ -388,9 +390,11 @@ describe('ComplianceCasesAdminPage', () => {
       screen.getByLabelText('监管编码', { selector: 'input#import-regulator-code' }),
       {
         target: { value: 'PBOC' },
-      },
+      }
     )
-    fireEvent.change(screen.getByLabelText('批次号（可选）'), { target: { value: 'PBOC-batch-001' } })
+    fireEvent.change(screen.getByLabelText('批次号（可选）'), {
+      target: { value: 'PBOC-batch-001' },
+    })
     fireEvent.click(screen.getByRole('button', { name: '创建导入任务' }))
 
     await waitFor(() => {
@@ -501,7 +505,7 @@ describe('ComplianceCasesAdminPage', () => {
         caseId: 'case-off-page',
         page: 1,
         limit: 1,
-      }),
+      })
     )
     await waitFor(() => expect(screen.getByText('基础信息')).toBeInTheDocument())
     expect(mockGetExtraction).toHaveBeenCalledWith('case-off-page')
@@ -520,16 +524,16 @@ describe('ComplianceCasesAdminPage', () => {
     await waitFor(() =>
       expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
         'data-control-id',
-        'control-1',
-      ),
+        'control-1'
+      )
     )
     expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
       'data-source-module',
-      'admin',
+      'admin'
     )
     expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
       'data-source-trace-detail',
-      'PBOC-CASE-001 → FM-REP-001 · 报送口径定义错误 → CTRL-001',
+      'PBOC-CASE-001 → FM-REP-001 · 报送口径定义错误 → CTRL-001'
     )
   })
 })

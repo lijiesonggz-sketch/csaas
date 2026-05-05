@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useSession } from 'next-auth/react'
 import KnowledgeGraphPage from './page'
@@ -22,7 +23,7 @@ const mockDrawer = jest.fn(
         data-source-module={props.sourceModule}
         data-source-record-id={props.sourceRecordId}
       />
-    ) : null,
+    ) : null
 )
 
 jest.mock('next/navigation', () => ({
@@ -34,7 +35,6 @@ jest.mock('next-auth/react', () => ({
 }))
 
 jest.mock('@/components/ui/tabs', () => {
-  const React = require('react')
   const TabsContext = React.createContext({
     value: '',
     onValueChange: (_value: string) => {},
@@ -60,13 +60,7 @@ jest.mock('@/components/ui/tabs', () => {
     return <div role="tablist">{children}</div>
   }
 
-  function TabsTrigger({
-    value,
-    children,
-  }: {
-    value: string
-    children: React.ReactNode
-  }) {
+  function TabsTrigger({ value, children }: { value: string; children: React.ReactNode }) {
     const ctx = React.useContext(TabsContext)
     const selected = ctx.value === value
     return (
@@ -102,7 +96,9 @@ jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
 const mockUseSession = useSession as jest.Mock
 const mockGetTaxonomyTree = getTaxonomyTree as jest.MockedFunction<typeof getTaxonomyTree>
 const mockGetReasoningChain = getReasoningChain as jest.MockedFunction<typeof getReasoningChain>
-const mockListRegulationSources = listRegulationSources as jest.MockedFunction<typeof listRegulationSources>
+const mockListRegulationSources = listRegulationSources as jest.MockedFunction<
+  typeof listRegulationSources
+>
 const mockGetRegulationGraph = getRegulationGraph as jest.MockedFunction<typeof getRegulationGraph>
 
 const mockTree: TaxonomyTreeL1[] = [
@@ -283,8 +279,8 @@ describe('KnowledgeGraphPage', () => {
     expect(mockGetTaxonomyTree).not.toHaveBeenCalled()
     expect(mockListRegulationSources).not.toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: '返回管理后台' }))
-    expect(mockPush).toHaveBeenCalledWith('/dashboard')
+    expect(screen.queryByRole('button', { name: '返回管理后台' })).not.toBeInTheDocument()
+    expect(mockPush).not.toHaveBeenCalledWith('/dashboard')
   })
 
   it('[P0] 管理员进入页面时加载并显示 IT 分类树', async () => {
@@ -343,12 +339,12 @@ describe('KnowledgeGraphPage', () => {
     await waitFor(() =>
       expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
         'data-control-id',
-        'cp-1',
-      ),
+        'cp-1'
+      )
     )
     expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
       'data-source-module',
-      'admin',
+      'admin'
     )
   })
 

@@ -1,8 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, Plus, Upload, Settings, Users, Search, RefreshCw, Filter } from 'lucide-react'
+import { Plus, Upload, Settings, Users, Search, RefreshCw, Filter } from 'lucide-react'
 import { ClientCard } from '@/components/admin/ClientCard'
 import { AddClientDialog } from '@/components/admin/AddClientDialog'
 import { BulkConfigDialog } from '@/components/admin/BulkConfigDialog'
@@ -35,6 +34,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import { PageHeader } from '@/components/ui/page-header'
 import {
   Select,
   SelectContent,
@@ -58,7 +58,6 @@ import { useToast } from '@/hooks/use-toast'
  * - 搜索和筛选
  */
 export default function ClientsPage() {
-  const router = useRouter()
   const { toast } = useToast()
   const [clients, setClients] = useState<Client[]>([])
   const [groups, setGroups] = useState<ClientGroup[]>([])
@@ -75,16 +74,8 @@ export default function ClientsPage() {
   const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false)
   const [groupDialogOpen, setGroupDialogOpen] = useState(false)
 
-  // 返回上一页
-  const handleBack = () => {
-    router.push('/dashboard')
-  }
-
   // 显示提示消息
-  const showToast = (
-    message: string,
-    variant: 'default' | 'destructive' = 'default',
-  ) => {
+  const showToast = (message: string, variant: 'default' | 'destructive' = 'default') => {
     toast({
       title: variant === 'destructive' ? '错误' : '成功',
       description: message,
@@ -157,7 +148,7 @@ export default function ClientsPage() {
     const result = await bulkImportFromCsv(file)
     showToast(
       `导入完成: 成功 ${result.success} 个，失败 ${result.failed} 个`,
-      result.failed > 0 ? 'destructive' : 'default',
+      result.failed > 0 ? 'destructive' : 'default'
     )
     loadClients()
     return result
@@ -255,260 +246,276 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4">
-      {/* 返回按钮 */}
-      <div className="mb-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleBack}
-          className="text-primary hover:text-primary hover:bg-primary/10"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-      </div>
-
-      {/* 页面标题和操作按钮 */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold" data-testid="page-title">
-            客户管理
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            管理您的客户组织，配置推送设置和分组
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            data-testid="bulk-import-button"
-            variant="outline"
-            onClick={() => setBulkImportDialogOpen(true)}
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            批量导入
-          </Button>
-          <Button
-            data-testid="group-management-button"
-            variant="outline"
-            onClick={() => setGroupDialogOpen(true)}
-          >
-            <Users className="w-4 h-4 mr-2" />
-            分组管理
-          </Button>
-          <Button
-            data-testid="add-client-button"
-            onClick={() => setAddDialogOpen(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            添加客户
-          </Button>
-        </div>
-      </div>
-
-      {/* 统计信息 */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-primary">{clients.length}</div>
-              <div className="text-sm text-muted-foreground">总客户数</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-green-600">
-                {clients.filter((c) => c.status === 'active').length}
-              </div>
-              <div className="text-sm text-muted-foreground">活跃客户</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-amber-500">
-                {clients.filter((c) => c.status === 'trial').length}
-              </div>
-              <div className="text-sm text-muted-foreground">试用客户</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600">{groups.length}</div>
-              <div className="text-sm text-muted-foreground">客户分组</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 搜索和筛选 */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div className="md:col-span-1">
-              <Label htmlFor="search" className="sr-only">搜索</Label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  id="search"
-                  data-testid="search-input"
-                  placeholder="搜索客户名称、联系人或邮箱"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="industry" className="sr-only">行业类型</Label>
-              <Select
-                value={filterIndustry}
-                onValueChange={(value) => setFilterIndustry(value as IndustryType | '')}
+    <div className="min-h-screen bg-[#FEFDFB] px-6 py-8">
+      <div className="mx-auto max-w-7xl">
+        <PageHeader
+          title="客户管理"
+          description="管理客户组织、推送设置和客户分组"
+          icon={<Users className="h-6 w-6" />}
+          variant="default"
+          className="p-8"
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Button
+                data-testid="bulk-import-button"
+                className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+                onClick={() => setBulkImportDialogOpen(true)}
               >
-                <SelectTrigger id="industry" data-testid="industry-filter">
-                  <SelectValue placeholder="全部行业" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">全部</SelectItem>
-                  <SelectItem data-testid="industry-option-banking" value={IndustryType.BANKING}>银行</SelectItem>
-                  <SelectItem data-testid="industry-option-securities" value={IndustryType.SECURITIES}>证券</SelectItem>
-                  <SelectItem data-testid="industry-option-insurance" value={IndustryType.INSURANCE}>保险</SelectItem>
-                  <SelectItem data-testid="industry-option-enterprise" value={IndustryType.ENTERPRISE}>企业</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="status" className="sr-only">状态</Label>
-              <Select
-                value={filterStatus}
-                onValueChange={(value) => setFilterStatus(value as OrganizationStatus | '')}
+                <Upload className="w-4 h-4 mr-2" />
+                批量导入
+              </Button>
+              <Button
+                data-testid="group-management-button"
+                className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+                onClick={() => setGroupDialogOpen(true)}
               >
-                <SelectTrigger id="status" data-testid="status-filter">
-                  <SelectValue placeholder="全部状态" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">全部</SelectItem>
-                  <SelectItem data-testid="status-option-active" value={OrganizationStatus.ACTIVE}>活跃</SelectItem>
-                  <SelectItem data-testid="status-option-inactive" value={OrganizationStatus.INACTIVE}>停用</SelectItem>
-                  <SelectItem data-testid="status-option-trial" value={OrganizationStatus.TRIAL}>试用</SelectItem>
-                </SelectContent>
-              </Select>
+                <Users className="w-4 h-4 mr-2" />
+                分组管理
+              </Button>
+              <Button
+                data-testid="add-client-button"
+                className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+                onClick={() => setAddDialogOpen(true)}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                添加客户
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              onClick={loadClients}
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              刷新
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          }
+        />
 
-      {/* 批量操作栏 */}
-      {selectedClients.length > 0 && (
-        <Card className="mb-6 bg-primary/5 border-primary/20">
+        {/* 统计信息 */}
+        <Card className="mb-6">
           <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={selectedClients.length === filteredClients.length}
-                  onCheckedChange={handleSelectAll}
-                />
-                <span>已选择 {selectedClients.length} 个客户</span>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-primary">{clients.length}</div>
+                <div className="text-sm text-muted-foreground">总客户数</div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  onClick={() => setBulkConfigDialogOpen(true)}
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  批量配置
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setGroupDialogOpen(true)}
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  添加到分组
-                </Button>
-                <Button variant="outline" onClick={() => setSelectedClients([])}>
-                  取消选择
-                </Button>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-green-600">
+                  {clients.filter((c) => c.status === 'active').length}
+                </div>
+                <div className="text-sm text-muted-foreground">活跃客户</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-amber-500">
+                  {clients.filter((c) => c.status === 'trial').length}
+                </div>
+                <div className="text-sm text-muted-foreground">试用客户</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-600">{groups.length}</div>
+                <div className="text-sm text-muted-foreground">客户分组</div>
               </div>
             </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* 客户列表 */}
-      {filteredClients.length === 0 ? (
-        <Card className="p-8 text-center">
-          <p className="text-muted-foreground">
-            {searchQuery || filterIndustry || filterStatus
-              ? '没有找到符合条件的客户'
-              : '暂无客户，请添加客户'}
-          </p>
+        {/* 搜索和筛选 */}
+        <Card className="mb-6">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+              <div className="md:col-span-1">
+                <Label htmlFor="search" className="sr-only">
+                  搜索
+                </Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    id="search"
+                    data-testid="search-input"
+                    placeholder="搜索客户名称、联系人或邮箱"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="industry" className="sr-only">
+                  行业类型
+                </Label>
+                <Select
+                  value={filterIndustry}
+                  onValueChange={(value) => setFilterIndustry(value as IndustryType | '')}
+                >
+                  <SelectTrigger id="industry" data-testid="industry-filter">
+                    <SelectValue placeholder="全部行业" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">全部</SelectItem>
+                    <SelectItem data-testid="industry-option-banking" value={IndustryType.BANKING}>
+                      银行
+                    </SelectItem>
+                    <SelectItem
+                      data-testid="industry-option-securities"
+                      value={IndustryType.SECURITIES}
+                    >
+                      证券
+                    </SelectItem>
+                    <SelectItem
+                      data-testid="industry-option-insurance"
+                      value={IndustryType.INSURANCE}
+                    >
+                      保险
+                    </SelectItem>
+                    <SelectItem
+                      data-testid="industry-option-enterprise"
+                      value={IndustryType.ENTERPRISE}
+                    >
+                      企业
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="status" className="sr-only">
+                  状态
+                </Label>
+                <Select
+                  value={filterStatus}
+                  onValueChange={(value) => setFilterStatus(value as OrganizationStatus | '')}
+                >
+                  <SelectTrigger id="status" data-testid="status-filter">
+                    <SelectValue placeholder="全部状态" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">全部</SelectItem>
+                    <SelectItem
+                      data-testid="status-option-active"
+                      value={OrganizationStatus.ACTIVE}
+                    >
+                      活跃
+                    </SelectItem>
+                    <SelectItem
+                      data-testid="status-option-inactive"
+                      value={OrganizationStatus.INACTIVE}
+                    >
+                      停用
+                    </SelectItem>
+                    <SelectItem data-testid="status-option-trial" value={OrganizationStatus.TRIAL}>
+                      试用
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button variant="outline" onClick={loadClients}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                刷新
+              </Button>
+            </div>
+          </CardContent>
         </Card>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredClients.map((client) => (
-            <ClientCard
-              key={client.id}
-              client={client}
-              onEdit={(c) => {
-                setEditingClient(c)
-                setAddDialogOpen(true)
-              }}
-              onDelete={handleDeleteClient}
-              onConfig={(c) => {
-                setSelectedClients([c])
-                setBulkConfigDialogOpen(true)
-              }}
-              selected={selectedClients.some((c) => c.id === client.id)}
-              onSelect={handleSelectClient}
-            />
-          ))}
-        </div>
-      )}
 
-      {/* 添加/编辑客户对话框 */}
-      <AddClientDialog
-        open={addDialogOpen}
-        onClose={() => {
-          setAddDialogOpen(false)
-          setEditingClient(null)
-        }}
-        onSubmit={async (data: CreateClientData | UpdateClientData) => {
-          if (editingClient) {
-            await handleUpdateClient(data as UpdateClientData)
-          } else {
-            await handleCreateClient(data as CreateClientData)
-          }
-        }}
-        client={editingClient}
-        mode={editingClient ? 'edit' : 'create'}
-      />
+        {/* 批量操作栏 */}
+        {selectedClients.length > 0 && (
+          <Card className="mb-6 bg-primary/5 border-primary/20">
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={selectedClients.length === filteredClients.length}
+                    onCheckedChange={handleSelectAll}
+                  />
+                  <span>已选择 {selectedClients.length} 个客户</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => setBulkConfigDialogOpen(true)}>
+                    <Settings className="w-4 h-4 mr-2" />
+                    批量配置
+                  </Button>
+                  <Button variant="outline" onClick={() => setGroupDialogOpen(true)}>
+                    <Users className="w-4 h-4 mr-2" />
+                    添加到分组
+                  </Button>
+                  <Button variant="outline" onClick={() => setSelectedClients([])}>
+                    取消选择
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* 批量配置对话框 */}
-      <BulkConfigDialog
-        open={bulkConfigDialogOpen}
-        onClose={() => setBulkConfigDialogOpen(false)}
-        onSubmit={handleBulkConfig}
-        selectedClients={selectedClients}
-      />
+        {/* 客户列表 */}
+        {filteredClients.length === 0 ? (
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground">
+              {searchQuery || filterIndustry || filterStatus
+                ? '没有找到符合条件的客户'
+                : '暂无客户，请添加客户'}
+            </p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredClients.map((client) => (
+              <ClientCard
+                key={client.id}
+                client={client}
+                onEdit={(c) => {
+                  setEditingClient(c)
+                  setAddDialogOpen(true)
+                }}
+                onDelete={handleDeleteClient}
+                onConfig={(c) => {
+                  setSelectedClients([c])
+                  setBulkConfigDialogOpen(true)
+                }}
+                selected={selectedClients.some((c) => c.id === client.id)}
+                onSelect={handleSelectClient}
+              />
+            ))}
+          </div>
+        )}
 
-      {/* 批量导入对话框 */}
-      <BulkImportDialog
-        open={bulkImportDialogOpen}
-        onClose={() => setBulkImportDialogOpen(false)}
-        onImport={handleBulkImport}
-        onDownloadTemplate={downloadCsvTemplate}
-      />
+        {/* 添加/编辑客户对话框 */}
+        <AddClientDialog
+          open={addDialogOpen}
+          onClose={() => {
+            setAddDialogOpen(false)
+            setEditingClient(null)
+          }}
+          onSubmit={async (data: CreateClientData | UpdateClientData) => {
+            if (editingClient) {
+              await handleUpdateClient(data as UpdateClientData)
+            } else {
+              await handleCreateClient(data as CreateClientData)
+            }
+          }}
+          client={editingClient}
+          mode={editingClient ? 'edit' : 'create'}
+        />
 
-      {/* 分组管理对话框 */}
-      <ClientGroupDialog
-        open={groupDialogOpen}
-        onClose={() => setGroupDialogOpen(false)}
-        onCreateGroup={handleCreateGroup}
-        onDeleteGroup={handleDeleteGroup}
-        onAddClientsToGroup={handleAddClientsToGroup}
-        onRemoveClientFromGroup={handleRemoveClientFromGroup}
-        groups={groups}
-        clients={clients}
-        selectedClients={selectedClients}
-      />
+        {/* 批量配置对话框 */}
+        <BulkConfigDialog
+          open={bulkConfigDialogOpen}
+          onClose={() => setBulkConfigDialogOpen(false)}
+          onSubmit={handleBulkConfig}
+          selectedClients={selectedClients}
+        />
+
+        {/* 批量导入对话框 */}
+        <BulkImportDialog
+          open={bulkImportDialogOpen}
+          onClose={() => setBulkImportDialogOpen(false)}
+          onImport={handleBulkImport}
+          onDownloadTemplate={downloadCsvTemplate}
+        />
+
+        {/* 分组管理对话框 */}
+        <ClientGroupDialog
+          open={groupDialogOpen}
+          onClose={() => setGroupDialogOpen(false)}
+          onCreateGroup={handleCreateGroup}
+          onDeleteGroup={handleDeleteGroup}
+          onAddClientsToGroup={handleAddClientsToGroup}
+          onRemoveClientFromGroup={handleRemoveClientFromGroup}
+          groups={groups}
+          clients={clients}
+          selectedClients={selectedClients}
+        />
+      </div>
     </div>
   )
 }

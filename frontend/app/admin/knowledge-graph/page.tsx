@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PageHeader } from '@/components/ui/page-header'
 import {
   getReasoningChain,
   getRegulationGraph,
@@ -431,13 +432,6 @@ export default function KnowledgeGraphPage() {
                 <h1 className="text-2xl font-bold text-[#1E3A5F]">无权访问知识图谱总览</h1>
                 <p className="mt-2 text-[#64748B]">当前账号没有查看该页面的权限，请联系管理员。</p>
               </div>
-              <Button
-                variant="outline"
-                className="rounded-sm"
-                onClick={() => router.push('/dashboard')}
-              >
-                返回管理后台
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -446,38 +440,51 @@ export default function KnowledgeGraphPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FEFDFB] px-6 py-16">
+    <div className="min-h-screen bg-[#FEFDFB] px-6 py-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <Network className="h-6 w-6 text-[#1E3A5F]" />
-              <h1 className="text-3xl font-bold text-[#1E3A5F]">知识图谱总览</h1>
+        <PageHeader
+          title="知识图谱总览"
+          description="IT 分类 → 失效模式 → 控制点 → 合规义务推理链路可视化"
+          icon={<Network className="h-6 w-6" />}
+          variant="default"
+          className="p-8"
+          action={
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
+                <TabsList className="bg-white/15">
+                  <TabsTrigger
+                    value="case-driven"
+                    className="text-white/75 data-[state=active]:bg-white data-[state=active]:text-[#1E3A5F]"
+                  >
+                    案例驱动线
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="regulation-driven"
+                    className="text-white/75 data-[state=active]:bg-white data-[state=active]:text-[#1E3A5F]"
+                  >
+                    法规驱动线
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="taxonomy-governance"
+                    className="text-white/75 data-[state=active]:bg-white data-[state=active]:text-[#1E3A5F]"
+                  >
+                    taxonomy 治理
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
+                <Input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="搜索 IT 分类、失效模式、控制点、义务..."
+                  className="w-64 rounded-sm bg-white pl-9 text-[#1E3A5F] placeholder:text-[#64748B]"
+                  aria-label="搜索知识图谱"
+                />
+              </div>
             </div>
-            <p className="mt-1 text-[#64748B]">
-              IT 分类 → 失效模式 → 控制点 → 合规义务 推理链路可视化
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)}>
-              <TabsList>
-                <TabsTrigger value="case-driven">案例驱动线</TabsTrigger>
-                <TabsTrigger value="regulation-driven">法规驱动线</TabsTrigger>
-                <TabsTrigger value="taxonomy-governance">taxonomy 治理</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#64748B]" />
-              <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="搜索 IT 分类、失效模式、控制点、义务..."
-                className="w-64 pl-9"
-                aria-label="搜索知识图谱"
-              />
-            </div>
-          </div>
-        </div>
+          }
+        />
 
         {activeErrors.map((message) => (
           <Alert key={message} variant="destructive" className="rounded-sm">

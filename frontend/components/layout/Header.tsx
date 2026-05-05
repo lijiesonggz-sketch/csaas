@@ -3,13 +3,7 @@
 import { useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import {
-  User,
-  Settings,
-  LogOut,
-  Menu,
-  Bell,
-} from 'lucide-react'
+import { User, Settings, LogOut, Menu, Bell } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,13 +52,16 @@ export default function Header({ onMenuToggle, showMenuButton = false }: HeaderP
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-[#FEFDFB] border-b border-[#E2E8F0] flex items-center justify-between px-6">
+    <header
+      role="banner"
+      className="fixed top-0 left-0 right-0 z-50 h-16 bg-[#FEFDFB] border-b border-[#E2E8F0] flex items-center justify-between px-6"
+    >
       {/* Left: Logo + Menu toggle */}
       <div className="flex items-center gap-3">
         {showMenuButton && (
           <button
             onClick={onMenuToggle}
-            className="p-1.5 rounded hover:bg-gray-100 transition-colors"
+            className="cursor-pointer p-1.5 rounded hover:bg-gray-100 transition-colors"
             aria-label="toggle menu"
           >
             <Menu className="w-5 h-5 text-gray-600" />
@@ -84,7 +81,7 @@ export default function Header({ onMenuToggle, showMenuButton = false }: HeaderP
           {/* Notifications */}
           <button
             onClick={() => router.push(buildRadarHistoryRoute(organizationId))}
-            className="relative p-2 rounded hover:bg-gray-100 transition-colors"
+            className="relative cursor-pointer p-2 rounded hover:bg-gray-100 transition-colors"
             aria-label="推送历史"
           >
             <Bell className="w-5 h-5 text-gray-500" />
@@ -98,15 +95,19 @@ export default function Header({ onMenuToggle, showMenuButton = false }: HeaderP
           {/* User dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 py-1 px-2 rounded hover:bg-gray-100 transition-colors">
+              <button className="flex cursor-pointer items-center gap-2 py-1 px-2 rounded hover:bg-gray-100 transition-colors">
                 <Avatar className="w-8 h-8 bg-[#1E3A5F]">
                   <AvatarFallback className="bg-[#1E3A5F] text-white text-sm">
                     {displayName?.[0]?.toUpperCase() || <User className="w-4 h-4" />}
                   </AvatarFallback>
                 </Avatar>
                 <div className="hidden sm:block text-left">
-                  <div className="text-sm font-medium text-gray-900 leading-tight">{displayName}</div>
-                  <div className="text-[11px] text-gray-400 leading-tight">{getRoleLabel(session.user.role)}</div>
+                  <div className="text-sm font-medium text-gray-900 leading-tight">
+                    {displayName}
+                  </div>
+                  <div className="text-[11px] text-gray-400 leading-tight">
+                    {getRoleLabel(session.user.role)}
+                  </div>
                 </div>
               </button>
             </DropdownMenuTrigger>

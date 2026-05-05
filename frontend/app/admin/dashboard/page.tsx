@@ -8,11 +8,11 @@
  * @story 7-1
  */
 
-'use client';
+'use client'
 
-import React, { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import {
   getHealthMetrics,
   getAlerts,
@@ -21,173 +21,165 @@ import {
   HealthMetrics,
   Alert,
   TrendData,
-} from '@/lib/api/dashboard';
-import { HealthMetricCard } from '@/components/admin/HealthMetricCard';
-import { AlertList } from '@/components/admin/AlertList';
-import { HealthTrendChart } from '@/components/admin/HealthTrendChart';
-import { RefreshCw, ArrowLeft } from 'lucide-react';
+} from '@/lib/api/dashboard'
+import { HealthMetricCard } from '@/components/admin/HealthMetricCard'
+import { AlertList } from '@/components/admin/AlertList'
+import { HealthTrendChart } from '@/components/admin/HealthTrendChart'
+import { Activity, RefreshCw } from 'lucide-react'
+import { PageHeader } from '@/components/ui/page-header'
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
+  const { data: session, status } = useSession()
+  const router = useRouter()
 
-  const [metrics, setMetrics] = useState<HealthMetrics | null>(null);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [unresolvedCount, setUnresolvedCount] = useState(0);
-  const [trendData, setTrendData] = useState<TrendData | null>(null);
+  const [metrics, setMetrics] = useState<HealthMetrics | null>(null)
+  const [alerts, setAlerts] = useState<Alert[]>([])
+  const [unresolvedCount, setUnresolvedCount] = useState(0)
+  const [trendData, setTrendData] = useState<TrendData | null>(null)
   const [selectedMetric, setSelectedMetric] = useState<
     'availability' | 'push_success_rate' | 'ai_cost' | 'customer_activity'
-  >('availability');
-  const [selectedRange, setSelectedRange] = useState<'7d' | '30d' | '90d'>('30d');
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  >('availability')
+  const [selectedRange, setSelectedRange] = useState<'7d' | '30d' | '90d'>('30d')
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Redirect if not authenticated or not admin
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login');
+      router.push('/login')
     } else if (session?.user && session.user.role !== 'admin') {
-      router.push('/');
+      router.push('/')
     }
-  }, [status, session, router]);
+  }, [status, session, router])
 
   // Fetch all dashboard data
   const fetchDashboardData = async (isRefresh = false) => {
-    if (!session?.accessToken) return;
+    if (!session?.accessToken) return
 
     try {
       if (isRefresh) {
-        setRefreshing(true);
+        setRefreshing(true)
       } else {
-        setLoading(true);
+        setLoading(true)
       }
-      setError(null);
+      setError(null)
 
       // Fetch metrics, alerts, and trend data in parallel
       const [metricsData, alertsData, trendsData] = await Promise.all([
         getHealthMetrics(session.accessToken),
         getAlerts(session.accessToken, { status: 'unresolved', limit: 10 }),
         getTrendData(session.accessToken, selectedMetric, selectedRange),
-      ]);
+      ])
 
       // Conditional update: only update if data has changed (cache invalidation)
       // Check if backend data is newer than current data
       if (metricsData.lastUpdated) {
-        const backendUpdateTime = new Date(metricsData.lastUpdated);
+        const backendUpdateTime = new Date(metricsData.lastUpdated)
         if (backendUpdateTime > lastUpdate || !metrics) {
-          setMetrics(metricsData);
-          setLastUpdate(backendUpdateTime);
+          setMetrics(metricsData)
+          setLastUpdate(backendUpdateTime)
         }
       } else {
         // Fallback: always update if no timestamp
-        setMetrics(metricsData);
-        setLastUpdate(new Date());
+        setMetrics(metricsData)
+        setLastUpdate(new Date())
       }
 
-      setAlerts(alertsData.data);
-      setUnresolvedCount(alertsData.meta.unresolved);
-      setTrendData(trendsData);
+      setAlerts(alertsData.data)
+      setUnresolvedCount(alertsData.meta.unresolved)
+      setTrendData(trendsData)
     } catch (err) {
-      console.error('Failed to fetch dashboard data:', err);
-      setError('加载仪表板数据失败，请稍后重试');
+      console.error('Failed to fetch dashboard data:', err)
+      setError('加载仪表板数据失败，请稍后重试')
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setLoading(false)
+      setRefreshing(false)
     }
-  };
+  }
 
   // Initial load
   useEffect(() => {
     if (session?.accessToken) {
-      fetchDashboardData();
+      fetchDashboardData()
     }
-  }, [session?.accessToken]);
+  }, [session?.accessToken])
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
-    if (!session?.accessToken) return;
+    if (!session?.accessToken) return
 
     const interval = setInterval(() => {
-      fetchDashboardData(true);
-    }, 30000); // 30 seconds
+      fetchDashboardData(true)
+    }, 30000) // 30 seconds
 
-    return () => clearInterval(interval);
-  }, [session?.accessToken, selectedMetric, selectedRange]);
+    return () => clearInterval(interval)
+  }, [session?.accessToken, selectedMetric, selectedRange])
 
   // Refetch trend data when metric or range changes
   useEffect(() => {
     if (session?.accessToken && !loading) {
       const fetchTrends = async () => {
         try {
-          const trendsData = await getTrendData(
-            session.accessToken,
-            selectedMetric,
-            selectedRange,
-          );
-          setTrendData(trendsData);
+          const trendsData = await getTrendData(session.accessToken, selectedMetric, selectedRange)
+          setTrendData(trendsData)
         } catch (err) {
-          console.error('Failed to fetch trend data:', err);
+          console.error('Failed to fetch trend data:', err)
         }
-      };
-      fetchTrends();
+      }
+      fetchTrends()
     }
-  }, [selectedMetric, selectedRange, session?.accessToken]);
+  }, [selectedMetric, selectedRange, session?.accessToken])
 
   // Handle manual refresh
   const handleRefresh = () => {
-    fetchDashboardData(true);
-  };
-
-  // Handle back navigation
-  const handleBack = () => {
-    router.push('/dashboard');
-  };
+    fetchDashboardData(true)
+  }
 
   // Handle alert resolution
   const handleResolveAlert = async (alertId: string) => {
-    if (!session?.accessToken) return;
+    if (!session?.accessToken) return
 
     try {
-      await resolveAlert(session.accessToken, alertId);
+      await resolveAlert(session.accessToken, alertId)
       // Refresh alerts list
       const alertsData = await getAlerts(session.accessToken, {
         status: 'unresolved',
         limit: 10,
-      });
-      setAlerts(alertsData.data);
-      setUnresolvedCount(alertsData.meta.unresolved);
+      })
+      setAlerts(alertsData.data)
+      setUnresolvedCount(alertsData.meta.unresolved)
     } catch (err) {
-      console.error('Failed to resolve alert:', err);
-      alert('处理告警失败，请稍后重试');
+      console.error('Failed to resolve alert:', err)
+      alert('处理告警失败，请稍后重试')
     }
-  };
+  }
 
   // Handle chart export
   const handleExportChart = () => {
-    if (!trendData) return;
+    if (!trendData) return
 
     const csv = [
       ['日期', '数值'],
       ...trendData.data.map((item) => [item.date, item.value.toString()]),
     ]
       .map((row) => row.join(','))
-      .join('\n');
+      .join('\n')
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${selectedMetric}_${selectedRange}_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-  };
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `${selectedMetric}_${selectedRange}_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
 
   if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
-    );
+    )
   }
 
   if (error) {
@@ -197,42 +189,28 @@ export default function DashboardPage() {
           <p className="text-red-600 mb-4">{error}</p>
           <button
             onClick={handleRefresh}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="rounded-sm bg-[#1E3A5F] px-4 py-2 text-white hover:bg-[#162e4d]"
           >
             重试
           </button>
         </div>
       </div>
-    );
+    )
   }
 
   return (
     <div className="min-h-screen bg-[#FEFDFB] p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Back Button */}
-        <div className="mb-4">
-          <button
-            onClick={handleBack}
-            className="flex items-center space-x-2 text-[#94A3B8] hover:text-[#1E3A5F] transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span>返回仪表板</span>
-          </button>
-        </div>
-
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">运营仪表板</h1>
-              <p className="mt-1 text-sm text-[#94A3B8] font-[var(--font-inter)]">
-                最后更新: {lastUpdate.toLocaleTimeString('zh-CN')}
-              </p>
-            </div>
-
-            <div className="flex items-center space-x-4">
+        <PageHeader
+          title="运营仪表板"
+          description={`系统健康、推送成功率、AI成本与客户活跃度监控。最后更新：${lastUpdate.toLocaleTimeString('zh-CN')}`}
+          icon={<Activity className="h-6 w-6" />}
+          variant="default"
+          className="p-8"
+          action={
+            <div className="flex flex-wrap items-center gap-3">
               {unresolvedCount > 0 && (
-                <span className="inline-flex items-center px-3 py-1 rounded-sm text-sm font-medium bg-red-100 text-red-700">
+                <span className="inline-flex items-center px-3 py-1 rounded-sm border border-red-200 bg-red-50 text-sm font-medium text-red-700">
                   {unresolvedCount} 个未处理告警
                 </span>
               )}
@@ -240,16 +218,14 @@ export default function DashboardPage() {
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-[#E2E8F0] rounded-sm hover:bg-[#FEFDFB] disabled:opacity-50"
+                className="flex items-center space-x-2 rounded-sm bg-white px-4 py-2 text-[#1E3A5F] hover:bg-white/90 disabled:opacity-50"
               >
-                <RefreshCw
-                  className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`}
-                />
+                <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
                 <span>{refreshing ? '刷新中...' : '手动刷新'}</span>
               </button>
             </div>
-          </div>
-        </div>
+          }
+        />
 
         {/* Metrics Cards */}
         {metrics && (
@@ -292,21 +268,17 @@ export default function DashboardPage() {
         {/* Alerts Section */}
         <div className="mb-6">
           <div className="bg-white rounded-sm border border-[#E2E8F0] shadow-sm p-6">
-            <h2 className="text-xl font-semibold text-[#1E3A5F] mb-4 font-[var(--font-plus-jakarta)]">异常告警</h2>
-            <AlertList
-              alerts={alerts}
-              onResolve={handleResolveAlert}
-              loading={loading}
-            />
+            <h2 className="text-xl font-semibold text-[#1E3A5F] mb-4 font-[var(--font-plus-jakarta)]">
+              异常告警
+            </h2>
+            <AlertList alerts={alerts} onResolve={handleResolveAlert} loading={loading} />
           </div>
         </div>
 
         {/* Trend Chart */}
         <div className="mb-6">
           <div className="mb-4">
-            <label className="block text-sm font-medium text-[#1E3A5F] mb-2">
-              选择指标
-            </label>
+            <label className="block text-sm font-medium text-[#1E3A5F] mb-2">选择指标</label>
             <div className="flex space-x-2">
               {[
                 { value: 'availability', label: '系统可用性' },
@@ -341,5 +313,5 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }

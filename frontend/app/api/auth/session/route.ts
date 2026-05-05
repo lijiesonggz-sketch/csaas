@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth-options'
+
+export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/auth/session
@@ -8,7 +10,7 @@ import { authOptions } from '@/lib/auth/auth-options'
  * Returns the current session data for client-side consumption
  * Used by apiFetch to get the access token
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions)
 

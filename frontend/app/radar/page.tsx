@@ -7,7 +7,6 @@ import {
   Building2,
   AlertTriangle,
   Settings,
-  ArrowLeft,
   ArrowRight,
   Info,
   History as HistoryIcon,
@@ -125,15 +124,6 @@ function RadarDashboardContent() {
                   <span className="ml-2">推送历史</span>
                 </Button>
                 <Button
-                  variant="outline"
-                  size="default"
-                  onClick={() => router.push('/dashboard')}
-                  className="border-white text-white hover:bg-white/10 rounded-sm"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  返回首页
-                </Button>
-                <Button
                   size="default"
                   onClick={() => router.push(`/radar/settings${orgId ? `?orgId=${orgId}` : ''}`)}
                   className="bg-white text-[#1E3A5F] hover:bg-white/90 rounded-sm"
@@ -175,9 +165,7 @@ function RadarDashboardContent() {
             >
               <div className={cn('p-6 text-white', radar.color)}>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 bg-white/20 rounded-sm">
-                    {radar.icon}
-                  </div>
+                  <div className="p-3 bg-white/20 rounded-sm">{radar.icon}</div>
                   <h2 className="text-xl font-semibold font-[var(--font-plus-jakarta)]">
                     {radar.title}
                   </h2>
@@ -206,7 +194,9 @@ function RadarDashboardContent() {
                 Radar Service会根据您的评估结果自动识别薄弱项，并推送相关内容。
                 {orgId ? (
                   <>
-                    {' '}您的组织ID: <code className="px-2 py-1 bg-slate-100 rounded-sm text-xs">{orgId}</code>
+                    {' '}
+                    您的组织ID:{' '}
+                    <code className="px-2 py-1 bg-slate-100 rounded-sm text-xs">{orgId}</code>
                   </>
                 ) : (
                   '请先选择组织。'

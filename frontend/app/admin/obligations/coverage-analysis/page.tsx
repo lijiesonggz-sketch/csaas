@@ -53,6 +53,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { PageHeader } from '@/components/ui/page-header'
 
 const ALLOWED_ROLES = ['admin']
 const OBLIGATION_TYPE_OPTIONS: Array<ObligationType | 'all'> = [
@@ -171,16 +172,10 @@ export default function ObligationCoverageAnalysisPage() {
       if (obligationTypeFilter !== 'all' && item.obligationType !== obligationTypeFilter) {
         return false
       }
-      if (
-        sectorFilter !== 'all' &&
-        !matchesSector(item.applicableSector ?? [], sectorFilter)
-      ) {
+      if (sectorFilter !== 'all' && !matchesSector(item.applicableSector ?? [], sectorFilter)) {
         return false
       }
-      if (
-        selectedSector !== 'all' &&
-        !matchesSector(item.applicableSector ?? [], selectedSector)
-      ) {
+      if (selectedSector !== 'all' && !matchesSector(item.applicableSector ?? [], selectedSector)) {
         return false
       }
       return true
@@ -192,7 +187,7 @@ export default function ObligationCoverageAnalysisPage() {
       { name: '已覆盖', value: data?.totals?.covered ?? 0, fill: OVERVIEW_COLORS[0] },
       { name: '未覆盖', value: data?.totals?.uncovered ?? 0, fill: OVERVIEW_COLORS[1] },
     ],
-    [data],
+    [data]
   )
 
   const originChartData = useMemo(
@@ -202,12 +197,12 @@ export default function ObligationCoverageAnalysisPage() {
         label: ORIGIN_LABELS[key] ?? key,
         value,
       })),
-    [data],
+    [data]
   )
 
   const industryCoverageData = useMemo(
     () => (data?.sectorCoverage ?? []).filter((item) => item.sector !== '通用'),
-    [data],
+    [data]
   )
 
   function handleBlindSpotClick(blindSpot: ObligationCoverageBlindSpot) {
@@ -225,13 +220,6 @@ export default function ObligationCoverageAnalysisPage() {
                 <h1 className="text-2xl font-bold text-[#1E3A5F]">无权访问覆盖率分析</h1>
                 <p className="mt-2 text-[#64748B]">当前账号没有查看该页面的权限，请联系管理员。</p>
               </div>
-              <Button
-                variant="outline"
-                className="rounded-sm"
-                onClick={() => router.push('/dashboard')}
-              >
-                返回管理后台
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -248,40 +236,38 @@ export default function ObligationCoverageAnalysisPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FEFDFB] px-6 py-16">
+    <div className="min-h-screen bg-[#FEFDFB] px-6 py-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-2">
-            <Button
-              variant="outline"
-              className="rounded-sm"
-              onClick={() => router.push('/admin/obligations')}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              返回 Obligation 管理
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-[#1E3A5F]">覆盖率分析</h1>
-              <p className="mt-1 text-[#64748B]">
-                查看法规义务覆盖率、来源结构和行业对比，快速识别当前合规盲区。
-              </p>
+        <PageHeader
+          title="覆盖率分析"
+          description="查看法规义务覆盖率、来源结构和行业对比，快速识别当前合规盲区"
+          icon={<BarChart3 className="h-6 w-6" />}
+          variant="default"
+          className="p-8"
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Button
+                className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+                onClick={() => router.push('/admin/obligations')}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                返回 Obligation 管理
+              </Button>
+              <Button
+                className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+                onClick={() => setReloadToken((current) => current + 1)}
+                disabled={refreshing}
+              >
+                {refreshing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                刷新
+              </Button>
             </div>
-          </div>
-
-          <Button
-            variant="outline"
-            className="rounded-sm"
-            onClick={() => setReloadToken((current) => current + 1)}
-            disabled={refreshing}
-          >
-            {refreshing ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
-            刷新
-          </Button>
-        </div>
+          }
+        />
 
         {error && (
           <Alert variant="destructive" className="rounded-sm">
@@ -373,7 +359,9 @@ export default function ObligationCoverageAnalysisPage() {
                 <BarChart3 className="h-5 w-5 text-[#1E3A5F]" />
                 <div>
                   <h2 className="font-semibold text-[#1E3A5F]">来源分析</h2>
-                  <p className="text-sm text-[#64748B]">按 control point originType 观察当前覆盖来源结构</p>
+                  <p className="text-sm text-[#64748B]">
+                    按 control point originType 观察当前覆盖来源结构
+                  </p>
                 </div>
               </div>
               <div className="h-[280px] min-h-[280px]">
@@ -409,7 +397,9 @@ export default function ObligationCoverageAnalysisPage() {
                 <BarChart3 className="h-5 w-5 text-[#1E3A5F]" />
                 <div>
                   <h2 className="font-semibold text-[#1E3A5F]">行业覆盖</h2>
-                  <p className="text-sm text-[#64748B]">比较银行、证券、保险、基金、期货的义务覆盖率差异</p>
+                  <p className="text-sm text-[#64748B]">
+                    比较银行、证券、保险、基金、期货的义务覆盖率差异
+                  </p>
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -417,7 +407,10 @@ export default function ObligationCoverageAnalysisPage() {
                   size="sm"
                   variant={selectedSector === 'all' ? 'default' : 'outline'}
                   className="rounded-sm"
-                  onClick={() => { setSelectedSector('all'); setSectorFilter('all') }}
+                  onClick={() => {
+                    setSelectedSector('all')
+                    setSectorFilter('all')
+                  }}
                 >
                   全部行业
                 </Button>
@@ -427,7 +420,10 @@ export default function ObligationCoverageAnalysisPage() {
                     size="sm"
                     variant={selectedSector === sector ? 'default' : 'outline'}
                     className="rounded-sm"
-                    onClick={() => { setSelectedSector(sector); setSectorFilter('all') }}
+                    onClick={() => {
+                      setSelectedSector(sector)
+                      setSectorFilter('all')
+                    }}
                   >
                     {sector}
                   </Button>
@@ -553,7 +549,10 @@ export default function ObligationCoverageAnalysisPage() {
                         <TableCell className="font-medium text-[#1E3A5F]">
                           {item.obligationCode}
                         </TableCell>
-                        <TableCell className="max-w-[360px] truncate text-[#475569]" title={item.obligationText}>
+                        <TableCell
+                          className="max-w-[360px] truncate text-[#475569]"
+                          title={item.obligationText}
+                        >
                           {item.obligationText}
                         </TableCell>
                         <TableCell>
@@ -569,13 +568,14 @@ export default function ObligationCoverageAnalysisPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
-                            {(item.applicableSector.length > 0 ? item.applicableSector : ['通用']).map(
-                              (sector) => (
-                                <Badge key={`${item.obligationId}-${sector}`} variant="outline">
-                                  {sector}
-                                </Badge>
-                              ),
-                            )}
+                            {(item.applicableSector.length > 0
+                              ? item.applicableSector
+                              : ['通用']
+                            ).map((sector) => (
+                              <Badge key={`${item.obligationId}-${sector}`} variant="outline">
+                                {sector}
+                              </Badge>
+                            ))}
                           </div>
                         </TableCell>
                       </TableRow>

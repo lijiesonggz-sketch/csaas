@@ -17,7 +17,7 @@ const mockDrawer = jest.fn((props: { open: boolean; controlId: string; sourceMod
       data-control-id={props.controlId}
       data-source-module={props.sourceModule}
     />
-  ) : null,
+  ) : null
 )
 
 jest.mock('next/navigation', () => ({
@@ -31,8 +31,6 @@ jest.mock('@/components/compliance/ControlDetailDrawer', () => ({
     mockDrawer(props),
 }))
 jest.mock('@/components/admin/ControlPointDirectorySelector', () => {
-  const React = require('react')
-
   return {
     ControlPointDirectorySelector: ({
       onPreview,
@@ -263,16 +261,16 @@ describe('ObligationAdminPage', () => {
     expect(screen.getByText(/score 92%/)).toBeInTheDocument()
   })
 
-  it('navigates back to /dashboard from the page header back button', async () => {
+  it('does not render a redundant dashboard return action in the page header', async () => {
     render(<ObligationAdminPage />)
 
     await waitFor(() => expect(screen.getByText('Obligation 管理')).toBeInTheDocument())
-    fireEvent.click(screen.getByRole('button', { name: '返回' }))
 
-    expect(mockPush).toHaveBeenCalledWith('/dashboard')
+    expect(screen.queryByRole('button', { name: '返回' })).not.toBeInTheDocument()
+    expect(mockPush).not.toHaveBeenCalledWith('/dashboard')
   })
 
-  it('navigates back to /dashboard from the forbidden state action', () => {
+  it('renders forbidden state without a redundant dashboard return action', () => {
     mockUseSession.mockReturnValue({
       data: { user: { id: 'user-2', role: 'consultant' } },
       status: 'authenticated',
@@ -281,9 +279,8 @@ describe('ObligationAdminPage', () => {
     render(<ObligationAdminPage />)
 
     expect(screen.getByText('无权访问 Obligation 管理')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '返回管理后台' }))
-
-    expect(mockPush).toHaveBeenCalledWith('/dashboard')
+    expect(screen.queryByRole('button', { name: '返回管理后台' })).not.toBeInTheDocument()
+    expect(mockPush).not.toHaveBeenCalledWith('/dashboard')
   })
 
   it('opens create dialog, searches clauses, and creates an obligation with suggested code', async () => {
@@ -305,14 +302,16 @@ describe('ObligationAdminPage', () => {
           clauseId: 'clause-1',
           obligationCode: 'OBL-IT04-4.1-02',
           obligationText: '新义务',
-        }),
-      ),
+        })
+      )
     )
   })
 
   it('updates obligation detail', async () => {
     render(<ObligationAdminPage />)
-    await waitFor(() => expect(screen.getByDisplayValue('应当建立监管报送复核机制')).toBeInTheDocument())
+    await waitFor(() =>
+      expect(screen.getByDisplayValue('应当建立监管报送复核机制')).toBeInTheDocument()
+    )
     fireEvent.change(screen.getByDisplayValue('应当建立监管报送复核机制'), {
       target: { value: '更新后的义务描述' },
     })
@@ -320,8 +319,8 @@ describe('ObligationAdminPage', () => {
     await waitFor(() =>
       expect(mockUpdateObligation).toHaveBeenCalledWith(
         'obl-1',
-        expect.objectContaining({ obligationText: '更新后的义务描述' }),
-      ),
+        expect.objectContaining({ obligationText: '更新后的义务描述' })
+      )
     )
   })
 
@@ -331,7 +330,9 @@ describe('ObligationAdminPage', () => {
     fireEvent.click(screen.getByText('查看条文详情'))
     await waitFor(() => {
       expect(screen.getByText('第四条/第一款')).toBeInTheDocument()
-      expect(screen.getByText('金融机构应当建立监管报送复核机制，并保留复核痕迹。')).toBeInTheDocument()
+      expect(
+        screen.getByText('金融机构应当建立监管报送复核机制，并保留复核痕迹。')
+      ).toBeInTheDocument()
     })
   })
 
@@ -341,7 +342,7 @@ describe('ObligationAdminPage', () => {
     let deleteButton: HTMLButtonElement | null = null
     await waitFor(() => {
       deleteButton = document.querySelector(
-        'button[aria-label="删除控制点映射 CTRL-REP-001"]',
+        'button[aria-label="删除控制点映射 CTRL-REP-001"]'
       ) as HTMLButtonElement | null
       expect(deleteButton).toBeTruthy()
     })
@@ -349,9 +350,7 @@ describe('ObligationAdminPage', () => {
     expect(mockDeleteControlMap).not.toHaveBeenCalled()
     await waitFor(() => expect(screen.getByText('确认删除控制点映射')).toBeInTheDocument())
     fireEvent.click(screen.getByRole('button', { name: '确认删除' }))
-    await waitFor(() =>
-      expect(mockDeleteControlMap).toHaveBeenCalledWith('obl-1', 'map-1'),
-    )
+    await waitFor(() => expect(mockDeleteControlMap).toHaveBeenCalledWith('obl-1', 'map-1'))
   })
 
   it('closes the delete confirmation instead of deleting against a newly selected obligation', async () => {
@@ -394,16 +393,14 @@ describe('ObligationAdminPage', () => {
     await waitFor(() => expect(screen.getByText('控制点映射')).toBeInTheDocument())
     fireEvent.click(
       document.querySelector(
-        'button[aria-label="删除控制点映射 CTRL-REP-001"]',
-      ) as HTMLButtonElement,
+        'button[aria-label="删除控制点映射 CTRL-REP-001"]'
+      ) as HTMLButtonElement
     )
     await waitFor(() => expect(screen.getByText('确认删除控制点映射')).toBeInTheDocument())
 
     fireEvent.click(screen.getByRole('button', { name: /OBL-IT04-4.1-02.*第二条义务/ }))
 
-    await waitFor(() =>
-      expect(screen.queryByText('确认删除控制点映射')).not.toBeInTheDocument(),
-    )
+    await waitFor(() => expect(screen.queryByText('确认删除控制点映射')).not.toBeInTheDocument())
     expect(mockDeleteControlMap).not.toHaveBeenCalled()
   })
 
@@ -411,9 +408,7 @@ describe('ObligationAdminPage', () => {
     render(<ObligationAdminPage />)
     await waitFor(() => expect(screen.getByText('控制点映射')).toBeInTheDocument())
     await waitFor(() =>
-      expect(
-        screen.getByPlaceholderText('搜索 control code / control name'),
-      ).toBeInTheDocument(),
+      expect(screen.getByPlaceholderText('搜索 control code / control name')).toBeInTheDocument()
     )
     fireEvent.change(screen.getByPlaceholderText('搜索 control code / control name'), {
       target: { value: '复核' },
@@ -427,8 +422,8 @@ describe('ObligationAdminPage', () => {
     await waitFor(() =>
       expect(mockCreateControlMap).toHaveBeenCalledWith(
         'obl-1',
-        expect.objectContaining({ controlId: 'cp-2' }),
-      ),
+        expect.objectContaining({ controlId: 'cp-2' })
+      )
     )
   })
 
@@ -436,9 +431,9 @@ describe('ObligationAdminPage', () => {
     render(<ObligationAdminPage />)
 
     await waitFor(() => expect(screen.getByText('控制点映射')).toBeInTheDocument())
-    const coverageSelect = screen.getAllByRole('combobox').find((element) =>
-      (element as HTMLSelectElement).value === 'FULL',
-    ) as HTMLSelectElement
+    const coverageSelect = screen
+      .getAllByRole('combobox')
+      .find((element) => (element as HTMLSelectElement).value === 'FULL') as HTMLSelectElement
     fireEvent.change(coverageSelect, { target: { value: 'PARTIAL' } })
 
     fireEvent.change(screen.getByPlaceholderText('搜索 control code / control name'), {
@@ -455,8 +450,8 @@ describe('ObligationAdminPage', () => {
     await waitFor(() =>
       expect(mockCreateControlMap).toHaveBeenCalledWith(
         'obl-1',
-        expect.objectContaining({ controlId: 'cp-2', coverage: 'PARTIAL' }),
-      ),
+        expect.objectContaining({ controlId: 'cp-2', coverage: 'PARTIAL' })
+      )
     )
   })
 
@@ -507,13 +502,11 @@ describe('ObligationAdminPage', () => {
 
     await waitFor(() => expect(mockListObligations).toHaveBeenCalledTimes(11))
     expect(mockListObligations.mock.calls[0][0]).toEqual(
-      expect.objectContaining({ page: 1, limit: 20 }),
+      expect.objectContaining({ page: 1, limit: 20 })
     )
-    expect(
-      mockListObligations.mock.calls
-        .slice(1)
-        .every(([params]) => params?.limit === 100),
-    ).toBe(true)
+    expect(mockListObligations.mock.calls.slice(1).every(([params]) => params?.limit === 100)).toBe(
+      true
+    )
   })
 
   it('loads the deep-linked obligation detail even when it is not present on the current list page', async () => {
@@ -544,9 +537,7 @@ describe('ObligationAdminPage', () => {
 
     render(<ObligationAdminPage />)
 
-    await waitFor(() =>
-      expect(mockGetObligation).toHaveBeenCalledWith('obl-deep-link'),
-    )
+    await waitFor(() => expect(mockGetObligation).toHaveBeenCalledWith('obl-deep-link'))
     expect(screen.getByDisplayValue('深链预选的义务详情')).toBeInTheDocument()
     expect(screen.getByText('OBL-LIST-001')).toBeInTheDocument()
   })
@@ -618,20 +609,16 @@ describe('ObligationAdminPage', () => {
       page: 1,
       limit: 20,
     })
-    mockGetObligation
-      .mockRejectedValueOnce(new Error('Not found'))
-      .mockResolvedValueOnce({
-        ...detail,
-        obligationId: 'obl-list-1',
-        obligationCode: 'OBL-LIST-001',
-        obligationText: '列表默认第一项',
-      })
+    mockGetObligation.mockRejectedValueOnce(new Error('Not found')).mockResolvedValueOnce({
+      ...detail,
+      obligationId: 'obl-list-1',
+      obligationCode: 'OBL-LIST-001',
+      obligationText: '列表默认第一项',
+    })
 
     render(<ObligationAdminPage />)
 
-    await waitFor(() =>
-      expect(mockGetObligation).toHaveBeenCalledWith('obl-nonexistent'),
-    )
+    await waitFor(() => expect(mockGetObligation).toHaveBeenCalledWith('obl-nonexistent'))
     await waitFor(() => expect(mockGetObligation).toHaveBeenLastCalledWith('obl-list-1'))
     expect(screen.getByDisplayValue('列表默认第一项')).toBeInTheDocument()
   })
@@ -645,12 +632,12 @@ describe('ObligationAdminPage', () => {
     await waitFor(() =>
       expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
         'data-control-id',
-        'cp-1',
-      ),
+        'cp-1'
+      )
     )
     expect(screen.getByTestId('control-detail-drawer-probe')).toHaveAttribute(
       'data-source-module',
-      'admin',
+      'admin'
     )
   })
 })

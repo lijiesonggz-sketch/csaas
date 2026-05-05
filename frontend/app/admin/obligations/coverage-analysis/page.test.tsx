@@ -68,7 +68,6 @@ jest.mock('@/components/ui/select', () => {
 })
 
 jest.mock('recharts', () => {
-  const ReactLib = require('react')
   const Container = ({ children }: { children: React.ReactNode }) => (
     <div className="recharts-responsive-container">{children}</div>
   )
@@ -90,9 +89,10 @@ jest.mock('recharts', () => {
 
 jest.mock('@/lib/api/obligations')
 
-const mockGetObligationCoverageAnalysis = obligationsApi.getObligationCoverageAnalysis as jest.MockedFunction<
-  typeof obligationsApi.getObligationCoverageAnalysis
->
+const mockGetObligationCoverageAnalysis =
+  obligationsApi.getObligationCoverageAnalysis as jest.MockedFunction<
+    typeof obligationsApi.getObligationCoverageAnalysis
+  >
 
 const coverageAnalysisResponse: obligationsApi.ObligationCoverageAnalysis = {
   totals: {
@@ -223,8 +223,8 @@ describe('ObligationCoverageAnalysisPage', () => {
     render(<ObligationCoverageAnalysisPage />)
 
     expect(screen.getByText('无权访问覆盖率分析')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: '返回管理后台' }))
-    expect(mockPush).toHaveBeenCalledWith('/dashboard')
+    expect(screen.queryByRole('button', { name: '返回管理后台' })).not.toBeInTheDocument()
+    expect(mockPush).not.toHaveBeenCalledWith('/dashboard')
   })
 
   it('shows a stable all-covered state when there are no blind spots', async () => {
@@ -251,15 +251,19 @@ describe('ObligationCoverageAnalysisPage', () => {
 
     render(<ObligationCoverageAnalysisPage />)
 
-    await waitFor(() =>
-      expect(screen.getByText('coverage-analysis failed')).toBeInTheDocument(),
-    )
+    await waitFor(() => expect(screen.getByText('coverage-analysis failed')).toBeInTheDocument())
   })
 
   it('shows placeholder when there are zero obligations', async () => {
     mockGetObligationCoverageAnalysis.mockResolvedValue({
       totals: { obligations: 0, covered: 0, uncovered: 0, coverageRate: 0 },
-      originDistribution: { case_derived: 0, regulation_derived: 0, both: 0, candidate: 0, manual: 0 },
+      originDistribution: {
+        case_derived: 0,
+        regulation_derived: 0,
+        both: 0,
+        candidate: 0,
+        manual: 0,
+      },
       sectorCoverage: [
         { sector: '银行', obligations: 0, covered: 0, coverageRate: 0 },
         { sector: '证券', obligations: 0, covered: 0, coverageRate: 0 },

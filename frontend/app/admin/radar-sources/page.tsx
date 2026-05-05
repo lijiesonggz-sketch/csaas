@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 import { RadarSourceList } from '@/components/admin/RadarSourceList'
 import { RadarSourceForm } from '@/components/admin/RadarSourceForm'
@@ -18,7 +17,6 @@ import {
   CreateRadarSourceData,
   UpdateRadarSourceData,
 } from '@/lib/api/radar-sources'
-import { Button } from '@/components/ui/button'
 
 /**
  * 雷达信息源配置管理页面
@@ -47,11 +45,6 @@ export default function RadarSourcesPage() {
   const [error, setError] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [editingSource, setEditingSource] = useState<RadarSource | null>(null)
-
-  // 返回上一页
-  const handleBack = () => {
-    router.push('/dashboard')
-  }
 
   // 加载信息源列表
   const loadSources = async () => {
@@ -92,9 +85,7 @@ export default function RadarSourcesPage() {
   }
 
   // 提交表单
-  const handleSubmitForm = async (
-    data: CreateRadarSourceData | UpdateRadarSourceData,
-  ) => {
+  const handleSubmitForm = async (data: CreateRadarSourceData | UpdateRadarSourceData) => {
     try {
       if (editingSource) {
         // 更新
@@ -139,7 +130,7 @@ export default function RadarSourcesPage() {
     try {
       await testRadarSourceCrawl(id)
       toast.success('测试爬虫任务已加入队列', {
-        description: '请稍后查看结果'
+        description: '请稍后查看结果',
       })
     } catch (err: any) {
       toast.error(err.message || '测试爬虫失败')
@@ -147,19 +138,7 @@ export default function RadarSourcesPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-16 px-6 bg-[#FEFDFB] min-h-screen">
-      {/* 返回按钮 */}
-      <div className="mb-6">
-        <Button
-          variant="outline"
-          onClick={handleBack}
-          className="rounded-sm"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          返回
-        </Button>
-      </div>
-
+    <div className="max-w-7xl mx-auto py-8 px-6 bg-[#FEFDFB] min-h-screen">
       {/* 信息源列表 */}
       <RadarSourceList
         sources={sources}

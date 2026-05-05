@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
   AlertCircle,
-  ArrowLeft,
   CheckCircle2,
   Loader2,
   Plus,
@@ -62,6 +61,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
+import { PageHeader } from '@/components/ui/page-header'
 
 type CaseStatusFilter = ComplianceCaseStatus | 'all'
 type ReviewDecision = 'approve' | 'reject' | 'pending'
@@ -128,7 +128,7 @@ function sourceLabel(source: CaseControlMapSource) {
 
 function buildDerivedFailureModeTrace(
   caseRecord: ComplianceCaseSummary | null,
-  draft: ComplianceCaseControlMapDraft,
+  draft: ComplianceCaseControlMapDraft
 ) {
   const failureMode = draft.derivedFailureMode
   if (!failureMode) {
@@ -146,7 +146,11 @@ function buildDerivedFailureModeTrace(
 }
 
 function themesEqual(left: string[] = [], right: string[] = []) {
-  return left.length > 0 && left.length === right.length && left.every((value, index) => value === right[index])
+  return (
+    left.length > 0 &&
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  )
 }
 
 function initialDecisions(clustering: ComplianceCaseClusteringResult | null) {
@@ -177,7 +181,12 @@ export default function ComplianceCasesAdminPage() {
   const [error, setError] = useState<string | null>(null)
   const [forbidden, setForbidden] = useState(false)
   const [reloadToken, setReloadToken] = useState(0)
-  const [pagination, setPagination] = useState({ page: 1, limit: DEFAULT_PAGE_SIZE, total: 0, totalPages: 1 })
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: DEFAULT_PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  })
 
   const [importForm, setImportForm] = useState<{
     file: File | null
@@ -217,7 +226,7 @@ export default function ComplianceCasesAdminPage() {
   const canReview = detailStatus === 'clustered' && canAccess
   const normalizedNeedsAttention = themesEqual(
     extraction?.violationThemes ?? [],
-    clustering?.normalizedThemes ?? [],
+    clustering?.normalizedThemes ?? []
   )
 
   useEffect(() => {
@@ -406,7 +415,12 @@ export default function ComplianceCasesAdminPage() {
         batchId: '',
       }))
       setImportFileInputKey((prev) => prev + 1)
-      const nextFilters = { ...DEFAULT_FILTERS, batchId: result.batchId, regulatorCode: result.regulatorCode, status: 'all' as const }
+      const nextFilters = {
+        ...DEFAULT_FILTERS,
+        batchId: result.batchId,
+        regulatorCode: result.regulatorCode,
+        status: 'all' as const,
+      }
       setFilters(nextFilters)
       setAppliedFilters(nextFilters)
       setPagination((prev) => ({ ...prev, page: 1 }))
@@ -458,7 +472,10 @@ export default function ComplianceCasesAdminPage() {
   }
 
   const setDecision = (draftId: string, next: ReviewDecision) => {
-    setReviewDecisions((prev) => ({ ...prev, [draftId]: prev[draftId] === next ? 'pending' : next }))
+    setReviewDecisions((prev) => ({
+      ...prev,
+      [draftId]: prev[draftId] === next ? 'pending' : next,
+    }))
   }
 
   const searchControls = async () => {
@@ -470,9 +487,15 @@ export default function ComplianceCasesAdminPage() {
     try {
       setControlLoading(true)
       const result = await searchControlPoints({ keyword, status: 'ACTIVE', limit: 10, page: 1 })
-      const existingDraftIds = new Set(clustering?.caseControlMapDrafts.map((draft) => draft.controlId) ?? [])
+      const existingDraftIds = new Set(
+        clustering?.caseControlMapDrafts.map((draft) => draft.controlId) ?? []
+      )
       const existingManualIds = new Set(manualMappings.map((mapping) => mapping.controlId))
-      setControlResults(result.items.filter((item) => !existingDraftIds.has(item.controlId) && !existingManualIds.has(item.controlId)))
+      setControlResults(
+        result.items.filter(
+          (item) => !existingDraftIds.has(item.controlId) && !existingManualIds.has(item.controlId)
+        )
+      )
     } catch (searchError) {
       toast.error(errorMessage(searchError, '搜索控制点失败'))
     } finally {
@@ -481,12 +504,29 @@ export default function ComplianceCasesAdminPage() {
   }
 
   const addManualMapping = (item: ControlPointSummary) => {
-    setManualMappings((prev) => [...prev, { controlId: item.controlId, controlCode: item.controlCode, controlName: item.controlName, relationType: 'VIOLATES', confidenceScore: '1' }])
+    setManualMappings((prev) => [
+      ...prev,
+      {
+        controlId: item.controlId,
+        controlCode: item.controlCode,
+        controlName: item.controlName,
+        relationType: 'VIOLATES',
+        confidenceScore: '1',
+      },
+    ])
     setControlResults((prev) => prev.filter((candidate) => candidate.controlId !== item.controlId))
   }
 
-  const updateManualMapping = (controlId: string, field: 'relationType' | 'confidenceScore', value: string) => {
-    setManualMappings((prev) => prev.map((mapping) => (mapping.controlId === controlId ? { ...mapping, [field]: value } : mapping)))
+  const updateManualMapping = (
+    controlId: string,
+    field: 'relationType' | 'confidenceScore',
+    value: string
+  ) => {
+    setManualMappings((prev) =>
+      prev.map((mapping) =>
+        mapping.controlId === controlId ? { ...mapping, [field]: value } : mapping
+      )
+    )
   }
 
   const removeManualMapping = (controlId: string) => {
@@ -499,8 +539,12 @@ export default function ComplianceCasesAdminPage() {
       setReviewError('只有 clustered 状态的案例可以执行人工审核。')
       return
     }
-    const approvedMapIds = Object.entries(reviewDecisions).filter(([, value]) => value === 'approve').map(([id]) => id)
-    const rejectedMapIds = Object.entries(reviewDecisions).filter(([, value]) => value === 'reject').map(([id]) => id)
+    const approvedMapIds = Object.entries(reviewDecisions)
+      .filter(([, value]) => value === 'approve')
+      .map(([id]) => id)
+    const rejectedMapIds = Object.entries(reviewDecisions)
+      .filter(([, value]) => value === 'reject')
+      .map(([id]) => id)
     if (approvedMapIds.length === 0 && rejectedMapIds.length === 0 && manualMappings.length === 0) {
       setReviewError('请至少确认、拒绝一个草稿映射，或手工追加一条映射。')
       return
@@ -512,17 +556,30 @@ export default function ComplianceCasesAdminPage() {
       const result = await submitComplianceCaseHumanReview(selectedCase.caseId, {
         approvedMapIds: approvedMapIds.length > 0 ? approvedMapIds : undefined,
         rejectedMapIds: rejectedMapIds.length > 0 ? rejectedMapIds : undefined,
-        manualMappings: manualMappings.length > 0 ? manualMappings.map((mapping) => {
-          const confidenceScore = Number(mapping.confidenceScore)
-          return {
-            controlId: mapping.controlId,
-            relationType: mapping.relationType,
-            confidenceScore: Number.isFinite(confidenceScore) ? confidenceScore : undefined,
-          }
-        }) : undefined,
+        manualMappings:
+          manualMappings.length > 0
+            ? manualMappings.map((mapping) => {
+                const confidenceScore = Number(mapping.confidenceScore)
+                return {
+                  controlId: mapping.controlId,
+                  relationType: mapping.relationType,
+                  confidenceScore: Number.isFinite(confidenceScore) ? confidenceScore : undefined,
+                }
+              })
+            : undefined,
       })
       toast.success('人工审核已提交')
-      setSelectedCase((prev) => prev ? { ...prev, status: result.status, humanReviewed: result.humanReviewed, reviewedBy: result.reviewedBy, reviewedAt: result.reviewedAt } : prev)
+      setSelectedCase((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: result.status,
+              humanReviewed: result.humanReviewed,
+              reviewedBy: result.reviewedBy,
+              reviewedAt: result.reviewedAt,
+            }
+          : prev
+      )
       setManualMappings([])
       setControlResults([])
       setReloadToken((prev) => prev + 1)
@@ -553,11 +610,10 @@ export default function ComplianceCasesAdminPage() {
               <ShieldAlert className="h-12 w-12 text-amber-600" />
               <div>
                 <h1 className="text-2xl font-bold text-[#1E3A5F]">无权访问案例运营后台</h1>
-                <p className="mt-2 text-[#64748B]">当前账号没有查看该页面的权限，请联系管理员分配相应角色。</p>
+                <p className="mt-2 text-[#64748B]">
+                  当前账号没有查看该页面的权限，请联系管理员分配相应角色。
+                </p>
               </div>
-              <Button variant="outline" className="rounded-sm" onClick={() => router.push('/dashboard')}>
-                返回工作台
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -567,32 +623,33 @@ export default function ComplianceCasesAdminPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-[#FEFDFB] px-6 py-16">
+      <div className="min-h-screen bg-[#FEFDFB] px-6 py-8">
         <div className="mx-auto max-w-7xl space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <Button variant="outline" className="rounded-sm" onClick={() => router.push('/dashboard')}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                返回
+          <PageHeader
+            title="案例运营"
+            description="通过后台统一完成处罚案例导入、结果查看与人工审核"
+            icon={<ShieldAlert className="h-6 w-6" />}
+            variant="default"
+            className="p-8"
+            action={
+              <Button
+                className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+                onClick={() => setReloadToken((prev) => prev + 1)}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                刷新列表
               </Button>
-              <div>
-                <h1 className="text-3xl font-bold text-[#1E3A5F] font-[var(--font-plus-jakarta)]">案例运营</h1>
-                <p className="mt-1 text-[#64748B]">通过后台统一完成处罚案例导入、结果查看与人工审核。</p>
-              </div>
-            </div>
-
-            <Button variant="outline" className="rounded-sm" onClick={() => setReloadToken((prev) => prev + 1)}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              刷新列表
-            </Button>
-          </div>
+            }
+          />
 
           <Card className="rounded-sm border-[#E2E8F0] shadow-sm">
             <CardContent className="space-y-4 p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-[#1E3A5F]">导入案例</h2>
-                  <p className="text-sm text-[#64748B]">提交既有导入 pipeline，获取可追踪的 jobId 和 batchId。</p>
+                  <p className="text-sm text-[#64748B]">
+                    提交既有导入 pipeline，获取可追踪的 jobId 和 batchId。
+                  </p>
                 </div>
                 {importing && <Loader2 className="h-5 w-5 animate-spin text-[#1E3A5F]" />}
               </div>
@@ -624,7 +681,9 @@ export default function ComplianceCasesAdminPage() {
                     id="import-regulator-code"
                     placeholder="例如 PBOC"
                     value={importForm.regulatorCode}
-                    onChange={(event) => setImportForm((prev) => ({ ...prev, regulatorCode: event.target.value }))}
+                    onChange={(event) =>
+                      setImportForm((prev) => ({ ...prev, regulatorCode: event.target.value }))
+                    }
                   />
                 </div>
 
@@ -634,7 +693,9 @@ export default function ComplianceCasesAdminPage() {
                     id="import-batch-id"
                     placeholder="留空则后端自动生成"
                     value={importForm.batchId}
-                    onChange={(event) => setImportForm((prev) => ({ ...prev, batchId: event.target.value }))}
+                    onChange={(event) =>
+                      setImportForm((prev) => ({ ...prev, batchId: event.target.value }))
+                    }
                   />
                 </div>
 
@@ -666,7 +727,7 @@ export default function ComplianceCasesAdminPage() {
                 <Alert className="rounded-sm border-emerald-200 bg-emerald-50">
                   <CheckCircle2 className="h-4 w-4 text-emerald-700" />
                   <AlertDescription className="text-emerald-900">
-                    导入任务已创建：文件 `{importResult.fileName}`，jobId=`{importResult.jobId}`，batchId=`{importResult.batchId}`，状态 `{importResult.status}`。
+                    {`导入任务已创建：文件 \`${importResult.fileName}\`，jobId=\`${importResult.jobId}\`，batchId=\`${importResult.batchId}\`，状态 \`${importResult.status}\`。`}
                   </AlertDescription>
                 </Alert>
               )}
@@ -678,7 +739,9 @@ export default function ComplianceCasesAdminPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-semibold text-[#1E3A5F]">案例列表</h2>
-                  <p className="text-sm text-[#64748B]">支持按 batchId、监管编码、状态和关键词筛选。</p>
+                  <p className="text-sm text-[#64748B]">
+                    支持按 batchId、监管编码、状态和关键词筛选。
+                  </p>
                 </div>
                 <p className="text-sm text-[#64748B]">
                   共 {pagination.total} 条，当前第 {pagination.page} / {pagination.totalPages} 页
@@ -691,7 +754,9 @@ export default function ComplianceCasesAdminPage() {
                   <Input
                     id="filter-batch-id"
                     value={filters.batchId}
-                    onChange={(event) => setFilters((prev) => ({ ...prev, batchId: event.target.value }))}
+                    onChange={(event) =>
+                      setFilters((prev) => ({ ...prev, batchId: event.target.value }))
+                    }
                     onKeyDown={onFilterKeyDown}
                   />
                 </div>
@@ -701,7 +766,9 @@ export default function ComplianceCasesAdminPage() {
                   <Input
                     id="filter-regulator"
                     value={filters.regulatorCode}
-                    onChange={(event) => setFilters((prev) => ({ ...prev, regulatorCode: event.target.value }))}
+                    onChange={(event) =>
+                      setFilters((prev) => ({ ...prev, regulatorCode: event.target.value }))
+                    }
                     onKeyDown={onFilterKeyDown}
                   />
                 </div>
@@ -710,7 +777,9 @@ export default function ComplianceCasesAdminPage() {
                   <Label htmlFor="filter-status">状态</Label>
                   <Select
                     value={filters.status}
-                    onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value as CaseStatusFilter }))}
+                    onValueChange={(value) =>
+                      setFilters((prev) => ({ ...prev, status: value as CaseStatusFilter }))
+                    }
                   >
                     <SelectTrigger id="filter-status">
                       <SelectValue />
@@ -734,14 +803,26 @@ export default function ComplianceCasesAdminPage() {
                       id="filter-keyword"
                       placeholder="案例编号 / 标题 / 事实关键词"
                       value={filters.keyword}
-                      onChange={(event) => setFilters((prev) => ({ ...prev, keyword: event.target.value }))}
+                      onChange={(event) =>
+                        setFilters((prev) => ({ ...prev, keyword: event.target.value }))
+                      }
                       onKeyDown={onFilterKeyDown}
                     />
-                    <Button type="button" variant="outline" className="rounded-sm" onClick={applyFilters}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-sm"
+                      onClick={applyFilters}
+                    >
                       <Search className="mr-2 h-4 w-4" />
                       查询
                     </Button>
-                    <Button type="button" variant="outline" className="rounded-sm" onClick={clearFilters}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-sm"
+                      onClick={clearFilters}
+                    >
                       重置
                     </Button>
                   </div>
@@ -750,7 +831,11 @@ export default function ComplianceCasesAdminPage() {
 
               {error && (
                 <Alert variant={forbidden ? 'default' : 'destructive'} className="rounded-sm">
-                  {forbidden ? <ShieldAlert className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                  {forbidden ? (
+                    <ShieldAlert className="h-4 w-4" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4" />
+                  )}
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
@@ -784,11 +869,15 @@ export default function ComplianceCasesAdminPage() {
                     ) : (
                       items.map((item) => (
                         <TableRow key={item.caseId} className="hover:bg-[#FEFDFB]">
-                          <TableCell className="font-medium text-[#1E3A5F]">{item.caseCode}</TableCell>
+                          <TableCell className="font-medium text-[#1E3A5F]">
+                            {item.caseCode}
+                          </TableCell>
                           <TableCell>
                             <div className="space-y-1">
                               <div>{item.caseTitle || '未命名案例'}</div>
-                              <div className="text-xs text-[#64748B]">{item.authorityName || item.sourceOrg || '暂无来源机构'}</div>
+                              <div className="text-xs text-[#64748B]">
+                                {item.authorityName || item.sourceOrg || '暂无来源机构'}
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell>{item.importBatchId || '-'}</TableCell>
@@ -801,7 +890,13 @@ export default function ComplianceCasesAdminPage() {
                             <div>审核时间：{formatDate(item.reviewedAt)}</div>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button type="button" size="sm" variant="outline" className="rounded-sm" onClick={() => openDetail(item)}>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="rounded-sm"
+                              onClick={() => openDetail(item)}
+                            >
                               查看详情
                             </Button>
                           </TableCell>
@@ -814,13 +909,29 @@ export default function ComplianceCasesAdminPage() {
 
               <div className="flex items-center justify-between">
                 <p className="text-sm text-[#64748B]">
-                  显示 {(pagination.page - 1) * pagination.limit + 1} - {Math.min(pagination.page * pagination.limit, pagination.total)} / {pagination.total}
+                  显示 {(pagination.page - 1) * pagination.limit + 1} -{' '}
+                  {Math.min(pagination.page * pagination.limit, pagination.total)} /{' '}
+                  {pagination.total}
                 </p>
                 <div className="flex gap-2">
-                  <Button type="button" size="sm" variant="outline" className="rounded-sm" disabled={pagination.page <= 1} onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="rounded-sm"
+                    disabled={pagination.page <= 1}
+                    onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
+                  >
                     上一页
                   </Button>
-                  <Button type="button" size="sm" variant="outline" className="rounded-sm" disabled={pagination.page >= pagination.totalPages} onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="rounded-sm"
+                    disabled={pagination.page >= pagination.totalPages}
+                    onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
+                  >
                     下一页
                   </Button>
                 </div>
@@ -833,8 +944,12 @@ export default function ComplianceCasesAdminPage() {
       <Dialog open={detailOpen} onOpenChange={closeDetail}>
         <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto rounded-sm">
           <DialogHeader>
-            <DialogTitle className="text-[#1E3A5F]">{selectedCase?.caseCode || '案例详情'}</DialogTitle>
-            <DialogDescription>查看提取结果、聚类草稿，并在允许状态下完成人工审核。</DialogDescription>
+            <DialogTitle className="text-[#1E3A5F]">
+              {selectedCase?.caseCode || '案例详情'}
+            </DialogTitle>
+            <DialogDescription>
+              查看提取结果、聚类草稿，并在允许状态下完成人工审核。
+            </DialogDescription>
           </DialogHeader>
 
           {detailLoading ? (
@@ -864,11 +979,15 @@ export default function ComplianceCasesAdminPage() {
                 <Card className="rounded-sm border-[#E2E8F0] shadow-sm">
                   <CardContent className="space-y-2 p-4 text-sm">
                     <h3 className="font-semibold text-[#1E3A5F]">处理状态</h3>
-                    <Badge variant="outline">{caseStatusLabel(detailStatus || selectedCase.status)}</Badge>
+                    <Badge variant="outline">
+                      {caseStatusLabel(detailStatus || selectedCase.status)}
+                    </Badge>
                     <div>提取时间：{formatDate(extraction?.extractedAt)}</div>
                     <div>聚类时间：{formatDate(clustering?.clusteredAt)}</div>
                     <div>审核人：{clustering?.reviewedBy || selectedCase.reviewedBy || '-'}</div>
-                    <div>审核时间：{formatDate(clustering?.reviewedAt || selectedCase.reviewedAt)}</div>
+                    <div>
+                      审核时间：{formatDate(clustering?.reviewedAt || selectedCase.reviewedAt)}
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -890,7 +1009,9 @@ export default function ComplianceCasesAdminPage() {
                       <div className="flex flex-wrap gap-2">
                         {extraction?.violationThemes?.length ? (
                           extraction.violationThemes.map((theme) => (
-                            <Badge key={theme} variant="outline">{theme}</Badge>
+                            <Badge key={theme} variant="outline">
+                              {theme}
+                            </Badge>
                           ))
                         ) : (
                           <span className="text-sm text-[#64748B]">暂无提取主题</span>
@@ -901,10 +1022,15 @@ export default function ComplianceCasesAdminPage() {
                       <Label>条款候选</Label>
                       {extraction?.clauseCandidates?.length ? (
                         extraction.clauseCandidates.map((candidate) => (
-                          <div key={candidate.clauseId} className="rounded-sm border border-[#E2E8F0] p-3 text-sm">
+                          <div
+                            key={candidate.clauseId}
+                            className="rounded-sm border border-[#E2E8F0] p-3 text-sm"
+                          >
                             <div className="font-medium text-[#1E3A5F]">{candidate.clauseCode}</div>
                             <div>{candidate.summary || '暂无摘要'}</div>
-                            <div className="text-xs text-[#64748B]">关键词：{candidate.matchedKeywords?.join('、') || '无'}</div>
+                            <div className="text-xs text-[#64748B]">
+                              关键词：{candidate.matchedKeywords?.join('、') || '无'}
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -927,7 +1053,9 @@ export default function ComplianceCasesAdminPage() {
                       <div className="flex flex-wrap gap-2">
                         {clustering?.normalizedThemes?.length ? (
                           clustering.normalizedThemes.map((theme) => (
-                            <Badge key={theme} variant="outline">{theme}</Badge>
+                            <Badge key={theme} variant="outline">
+                              {theme}
+                            </Badge>
                           ))
                         ) : (
                           <span className="text-sm text-[#64748B]">暂无归一化主题</span>
@@ -938,10 +1066,18 @@ export default function ComplianceCasesAdminPage() {
                       <Label>候选新控制点</Label>
                       {clustering?.candidateControlPoints?.length ? (
                         <>
-                          <p className="text-xs text-[#64748B]">未命中现有 KG control point，建议人工补映射或补充 control point 中文别名/关键词。</p>
+                          <p className="text-xs text-[#64748B]">
+                            未命中现有 KG control point，建议人工补映射或补充 control point
+                            中文别名/关键词。
+                          </p>
                           {clustering.candidateControlPoints.map((candidate) => (
-                            <div key={`${candidate.controlName}-${candidate.sourceTheme}`} className="rounded-sm border border-[#E2E8F0] p-3 text-sm">
-                              <div className="font-medium text-[#1E3A5F]">{candidate.controlName}</div>
+                            <div
+                              key={`${candidate.controlName}-${candidate.sourceTheme}`}
+                              className="rounded-sm border border-[#E2E8F0] p-3 text-sm"
+                            >
+                              <div className="font-medium text-[#1E3A5F]">
+                                {candidate.controlName}
+                              </div>
                               <div>来源主题：{candidate.sourceTheme}</div>
                               <div className="text-[#64748B]">{candidate.reason}</div>
                             </div>
@@ -960,7 +1096,9 @@ export default function ComplianceCasesAdminPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-semibold text-[#1E3A5F]">人工审核</h3>
-                      <p className="text-sm text-[#64748B]">clustered 状态允许确认、拒绝或手工追加映射。</p>
+                      <p className="text-sm text-[#64748B]">
+                        clustered 状态允许确认、拒绝或手工追加映射。
+                      </p>
                     </div>
                     {!canReview && <Badge variant="outline">只读模式</Badge>}
                   </div>
@@ -969,7 +1107,8 @@ export default function ComplianceCasesAdminPage() {
                     <Alert className="rounded-sm border-[#E2E8F0]">
                       <ShieldAlert className="h-4 w-4" />
                       <AlertDescription>
-                        当前案例状态为 {caseStatusLabel(detailStatus || selectedCase.status)}，不可再次提交人工审核。
+                        当前案例状态为 {caseStatusLabel(detailStatus || selectedCase.status)}
+                        ，不可再次提交人工审核。
                       </AlertDescription>
                     </Alert>
                   )}
@@ -980,7 +1119,11 @@ export default function ComplianceCasesAdminPage() {
                       clustering.caseControlMapDrafts.map((draft) => {
                         const decision = reviewDecisions[draft.id] ?? 'pending'
                         const displayStatus =
-                          decision === 'approve' ? 'APPROVED' : decision === 'reject' ? 'REJECTED' : draft.reviewStatus
+                          decision === 'approve'
+                            ? 'APPROVED'
+                            : decision === 'reject'
+                              ? 'REJECTED'
+                              : draft.reviewStatus
 
                         return (
                           <div key={draft.id} className="rounded-sm border border-[#E2E8F0] p-3">
@@ -991,12 +1134,18 @@ export default function ComplianceCasesAdminPage() {
                                   className="font-medium text-[#1E3A5F] hover:underline"
                                   onClick={() => {
                                     setSelectedControlId(draft.controlId)
-                                    setSelectedControlTrace(buildDerivedFailureModeTrace(selectedCase, draft))
+                                    setSelectedControlTrace(
+                                      buildDerivedFailureModeTrace(selectedCase, draft)
+                                    )
                                   }}
                                 >
-                                  {draft.controlCode || '未编码'} · {draft.controlName || '未命名控制点'}
+                                  {draft.controlCode || '未编码'} ·{' '}
+                                  {draft.controlName || '未命名控制点'}
                                 </button>
-                                <div className="text-[#64748B]">关系：{relationLabel(draft.relationType)} · 置信度：{draft.confidenceScore || '-'} · 来源：{sourceLabel(draft.source)}</div>
+                                <div className="text-[#64748B]">
+                                  关系：{relationLabel(draft.relationType)} · 置信度：
+                                  {draft.confidenceScore || '-'} · 来源：{sourceLabel(draft.source)}
+                                </div>
                                 {draft.derivedFailureMode && (
                                   <div className="mt-1 text-xs text-[#1E3A5F]">
                                     推导来源：{draft.derivedFailureMode.failureModeCode} ·{' '}
@@ -1008,10 +1157,22 @@ export default function ComplianceCasesAdminPage() {
                                 <Badge variant="outline">{reviewStatusLabel(displayStatus)}</Badge>
                                 {canReview && (
                                   <>
-                                    <Button type="button" size="sm" variant={decision === 'approve' ? 'default' : 'outline'} className="rounded-sm" onClick={() => setDecision(draft.id, 'approve')}>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant={decision === 'approve' ? 'default' : 'outline'}
+                                      className="rounded-sm"
+                                      onClick={() => setDecision(draft.id, 'approve')}
+                                    >
                                       确认
                                     </Button>
-                                    <Button type="button" size="sm" variant={decision === 'reject' ? 'destructive' : 'outline'} className="rounded-sm" onClick={() => setDecision(draft.id, 'reject')}>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant={decision === 'reject' ? 'destructive' : 'outline'}
+                                      className="rounded-sm"
+                                      onClick={() => setDecision(draft.id, 'reject')}
+                                    >
                                       拒绝
                                     </Button>
                                   </>
@@ -1029,28 +1190,57 @@ export default function ComplianceCasesAdminPage() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <Label>手工追加映射</Label>
-                      <span className="text-xs text-[#64748B]">通过既有 control point 列表搜索并追加</span>
+                      <span className="text-xs text-[#64748B]">
+                        通过既有 control point 列表搜索并追加
+                      </span>
                     </div>
 
                     <div className="flex gap-2">
-                      <Input value={controlKeyword} onChange={(event) => setControlKeyword(event.target.value)} placeholder="搜索 control code / control name" disabled={!canReview} />
-                      <Button type="button" variant="outline" className="rounded-sm" disabled={!canReview || controlLoading} onClick={searchControls}>
-                        {controlLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>
-                          <Search className="mr-2 h-4 w-4" />
-                          搜索
-                        </>}
+                      <Input
+                        value={controlKeyword}
+                        onChange={(event) => setControlKeyword(event.target.value)}
+                        placeholder="搜索 control code / control name"
+                        disabled={!canReview}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-sm"
+                        disabled={!canReview || controlLoading}
+                        onClick={searchControls}
+                      >
+                        {controlLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Search className="mr-2 h-4 w-4" />
+                            搜索
+                          </>
+                        )}
                       </Button>
                     </div>
 
                     {controlResults.length > 0 && (
                       <div className="space-y-2 rounded-sm border border-dashed border-[#CBD5E1] p-3">
                         {controlResults.map((item) => (
-                          <div key={item.controlId} className="flex flex-col gap-2 rounded-sm border border-[#E2E8F0] p-3 md:flex-row md:items-center md:justify-between">
+                          <div
+                            key={item.controlId}
+                            className="flex flex-col gap-2 rounded-sm border border-[#E2E8F0] p-3 md:flex-row md:items-center md:justify-between"
+                          >
                             <div className="text-sm">
-                              <div className="font-medium text-[#1E3A5F]">{item.controlCode} · {item.controlName}</div>
-                              <div className="text-[#64748B]">{item.controlFamily} · {item.l1Code} / {item.l2Code}</div>
+                              <div className="font-medium text-[#1E3A5F]">
+                                {item.controlCode} · {item.controlName}
+                              </div>
+                              <div className="text-[#64748B]">
+                                {item.controlFamily} · {item.l1Code} / {item.l2Code}
+                              </div>
                             </div>
-                            <Button type="button" size="sm" className="rounded-sm" onClick={() => addManualMapping(item)}>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="rounded-sm"
+                              onClick={() => addManualMapping(item)}
+                            >
                               <Plus className="mr-1 h-4 w-4" />
                               添加映射
                             </Button>
@@ -1062,7 +1252,10 @@ export default function ComplianceCasesAdminPage() {
                     {manualMappings.length > 0 ? (
                       <div className="space-y-3">
                         {manualMappings.map((mapping) => (
-                          <div key={mapping.controlId} className="grid grid-cols-1 gap-3 rounded-sm border border-[#E2E8F0] p-3 md:grid-cols-12">
+                          <div
+                            key={mapping.controlId}
+                            className="grid grid-cols-1 gap-3 rounded-sm border border-[#E2E8F0] p-3 md:grid-cols-12"
+                          >
                             <div className="md:col-span-5">
                               <button
                                 type="button"
@@ -1077,8 +1270,15 @@ export default function ComplianceCasesAdminPage() {
                             </div>
                             <div className="space-y-2 md:col-span-3">
                               <Label>关系</Label>
-                              <Select value={mapping.relationType} onValueChange={(value) => updateManualMapping(mapping.controlId, 'relationType', value)}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
+                              <Select
+                                value={mapping.relationType}
+                                onValueChange={(value) =>
+                                  updateManualMapping(mapping.controlId, 'relationType', value)
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="VIOLATES">违反</SelectItem>
                                   <SelectItem value="RELATED">相关</SelectItem>
@@ -1088,10 +1288,29 @@ export default function ComplianceCasesAdminPage() {
                             </div>
                             <div className="space-y-2 md:col-span-3">
                               <Label>置信度</Label>
-                              <Input type="number" min="0" max="1" step="0.01" value={mapping.confidenceScore} onChange={(event) => updateManualMapping(mapping.controlId, 'confidenceScore', event.target.value)} />
+                              <Input
+                                type="number"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                value={mapping.confidenceScore}
+                                onChange={(event) =>
+                                  updateManualMapping(
+                                    mapping.controlId,
+                                    'confidenceScore',
+                                    event.target.value
+                                  )
+                                }
+                              />
                             </div>
                             <div className="flex items-end md:col-span-1">
-                              <Button type="button" size="icon" variant="ghost" aria-label={`删除 ${mapping.controlCode}`} onClick={() => removeManualMapping(mapping.controlId)}>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                aria-label={`删除 ${mapping.controlCode}`}
+                                onClick={() => removeManualMapping(mapping.controlId)}
+                              >
                                 <Trash2 className="h-4 w-4 text-rose-600" />
                               </Button>
                             </div>
@@ -1111,7 +1330,12 @@ export default function ComplianceCasesAdminPage() {
                   )}
 
                   <div className="flex justify-end">
-                    <Button type="button" className="rounded-sm" disabled={!canReview || reviewSubmitting} onClick={submitReview}>
+                    <Button
+                      type="button"
+                      className="rounded-sm"
+                      disabled={!canReview || reviewSubmitting}
+                      onClick={submitReview}
+                    >
                       {reviewSubmitting ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

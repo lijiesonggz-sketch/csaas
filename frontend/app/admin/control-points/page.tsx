@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
   Archive,
-  ArrowLeft,
   Edit,
   Loader2,
   Plus,
@@ -89,6 +88,7 @@ import {
 } from '@/components/ui/accordion'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { PageHeader } from '@/components/ui/page-header'
 import { formatAuthoritativeScorePercent } from '@/lib/utils/authoritative-score'
 import { listFailureModes } from '@/lib/api/failure-modes'
 
@@ -1298,13 +1298,6 @@ export default function ControlPointAdminPage() {
                 <h1 className="text-2xl font-bold text-[#1E3A5F]">无权访问 Control Point 管理</h1>
                 <p className="mt-2 text-[#64748B]">当前账号没有查看该页面的权限，请联系管理员。</p>
               </div>
-              <Button
-                variant="outline"
-                className="rounded-sm"
-                onClick={() => router.push('/dashboard')}
-              >
-                返回管理后台
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -1314,38 +1307,33 @@ export default function ControlPointAdminPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-[#FEFDFB] px-6 py-16">
+      <div className="min-h-screen bg-[#FEFDFB] px-6 py-8">
         <div className="mx-auto max-w-7xl space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <Button
-                variant="outline"
-                className="rounded-sm"
-                onClick={() => router.push('/dashboard')}
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                返回
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold text-[#1E3A5F]">Control Point 管理</h1>
-                <p className="mt-1 text-[#64748B]">维护控制点清单、治理字段与关联上下文。</p>
+          <PageHeader
+            title="Control Point 管理"
+            description="维护控制点清单、治理字段与关联上下文"
+            icon={<Target className="h-6 w-6" />}
+            variant="default"
+            className="p-8"
+            action={
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+                  onClick={() => setReloadToken((current) => current + 1)}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  刷新
+                </Button>
+                <Button
+                  className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+                  onClick={() => setCreateOpen(true)}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  新建 Control Point
+                </Button>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="rounded-sm"
-                onClick={() => setReloadToken((current) => current + 1)}
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                刷新
-              </Button>
-              <Button className="rounded-sm" onClick={() => setCreateOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                新建 Control Point
-              </Button>
-            </div>
-          </div>
+            }
+          />
 
           {error && (
             <Alert variant="destructive" className="rounded-sm">

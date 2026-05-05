@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import PeerCrawlerPage from './page'
 import * as radarSourcesApi from '@/lib/api/radar-sources'
@@ -55,13 +55,7 @@ jest.mock('@/components/admin/TestCrawlDialog', () => ({
 jest.mock('@/components/ui/tabs', () => {
   const Tabs = ({ children }: { children: React.ReactNode }) => <div>{children}</div>
   const TabsList = ({ children }: { children: React.ReactNode }) => <div>{children}</div>
-  const TabsTrigger = ({
-    children,
-    value,
-  }: {
-    children: React.ReactNode
-    value: string
-  }) => (
+  const TabsTrigger = ({ children, value }: { children: React.ReactNode; value: string }) => (
     <button type="button" data-value={value}>
       {children}
     </button>
@@ -91,14 +85,13 @@ describe('PeerCrawlerPage', () => {
     })
   })
 
-  it('navigates back to /dashboard from the page header back button', async () => {
+  it('does not render a redundant dashboard return action in the page header', async () => {
     render(<PeerCrawlerPage />)
 
     await waitFor(() => expect(mockGetRadarSources).toHaveBeenCalledWith({ category: 'industry' }))
     expect(screen.getByText('同业采集源管理')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: '返回' }))
-
-    expect(mockPush).toHaveBeenCalledWith('/dashboard')
+    expect(screen.queryByRole('button', { name: '返回' })).not.toBeInTheDocument()
+    expect(mockPush).not.toHaveBeenCalledWith('/dashboard')
   })
 })

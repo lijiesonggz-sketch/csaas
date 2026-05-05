@@ -62,29 +62,19 @@ describe('Sidebar', () => {
     expect(dashboardButton).toBeInTheDocument()
   })
 
-  it('expands admin menu when clicked', async () => {
+  it('keeps admin menu collapsed by default and expands it when clicked', async () => {
     render(<Sidebar />)
 
-    // The admin menu is expanded by default (expandedKeys includes '/admin')
-    // First verify child items are visible
-    expect(screen.getByText('运营仪表板')).toBeInTheDocument()
+    expect(screen.queryByText('运营仪表板')).not.toBeInTheDocument()
 
     // Find the admin menu button by getting the parent of the text
     const adminText = screen.getByText('系统管理')
     const adminButton = adminText.closest('button')
 
-    // Click to collapse
+    // Click to expand
     fireEvent.click(adminButton!)
 
-    // Child items should be hidden
-    await waitFor(() => {
-      expect(screen.queryByText('运营仪表板')).not.toBeInTheDocument()
-    })
-
-    // Click again to expand
-    fireEvent.click(adminButton!)
-
-    // Child items should be visible again
+    // Child items should be visible
     await waitFor(() => {
       expect(screen.getByText('运营仪表板')).toBeInTheDocument()
       expect(screen.getByText('内容质量管理')).toBeInTheDocument()
@@ -93,26 +83,27 @@ describe('Sidebar', () => {
       expect(screen.getByText('品牌配置')).toBeInTheDocument()
       expect(screen.getByText('信息源配置')).toBeInTheDocument()
       expect(screen.getByText('案例运营')).toBeInTheDocument()
-      expect(screen.getByText('Failure Mode 管理')).toBeInTheDocument()
-      expect(screen.getByText('Obligation 管理')).toBeInTheDocument()
-      expect(screen.getByText('Control Point 管理')).toBeInTheDocument()
+      expect(screen.getByText('失效模式管理')).toBeInTheDocument()
+      expect(screen.getByText('法规义务管理')).toBeInTheDocument()
+      expect(screen.getByText('控制点管理')).toBeInTheDocument()
       expect(screen.getByText('覆盖率分析')).toBeInTheDocument()
       expect(screen.getByText('同业爬虫管理')).toBeInTheDocument()
       expect(screen.getByText('爬虫健康监控')).toBeInTheDocument()
+      expect(screen.getByText('分类体系发布')).toBeInTheDocument()
     })
   })
 
   it('collapses admin menu when clicked again', async () => {
     render(<Sidebar />)
 
-    // The admin menu is expanded by default
-    expect(screen.getByText('运营仪表板')).toBeInTheDocument()
-
-    // Find the admin menu button
     const adminText = screen.getByText('系统管理')
     const adminButton = adminText.closest('button')
 
-    // Click to collapse
+    fireEvent.click(adminButton!)
+    await waitFor(() => {
+      expect(screen.getByText('运营仪表板')).toBeInTheDocument()
+    })
+
     fireEvent.click(adminButton!)
 
     // Child items should be hidden after collapse
@@ -287,8 +278,8 @@ describe('Sidebar', () => {
   it('navigates to child route when admin submenu item is clicked', async () => {
     render(<Sidebar />)
 
-    // The admin menu is expanded by default, so child items should be visible
-    // Now click on a child item
+    fireEvent.click(screen.getByText('系统管理').closest('button')!)
+
     const childItem = screen.getByText('运营仪表板')
     const childButton = childItem.closest('button')
     fireEvent.click(childButton!)
@@ -299,6 +290,8 @@ describe('Sidebar', () => {
   it('navigates to obligation coverage analysis from the admin submenu', async () => {
     render(<Sidebar />)
 
+    fireEvent.click(screen.getByText('系统管理').closest('button')!)
+
     const childItem = screen.getByText('覆盖率分析')
     const childButton = childItem.closest('button')
     fireEvent.click(childButton!)
@@ -306,29 +299,27 @@ describe('Sidebar', () => {
     expect(mockPush).toHaveBeenCalledWith('/admin/obligations/coverage-analysis')
   })
 
-  it('keeps Control Point 管理 between Obligation 管理 and 覆盖率分析 in the admin submenu', async () => {
+  it('keeps 控制点管理 between 法规义务管理 and 覆盖率分析 in the admin submenu', async () => {
     render(<Sidebar />)
+
+    fireEvent.click(screen.getByText('系统管理').closest('button')!)
 
     const adminTexts = screen
       .getAllByRole('button')
       .map((button) => button.textContent ?? '')
       .filter((text) =>
-        ['Obligation 管理', 'Control Point 管理', '覆盖率分析'].some((label) =>
-          text.includes(label),
-        ),
+        ['法规义务管理', '控制点管理', '覆盖率分析'].some((label) => text.includes(label))
       )
 
-    expect(adminTexts).toEqual([
-      'Obligation 管理',
-      'Control Point 管理',
-      '覆盖率分析',
-    ])
+    expect(adminTexts).toEqual(['法规义务管理', '控制点管理', '覆盖率分析'])
   })
 
-  it('navigates to Control Point 管理 from the admin submenu', async () => {
+  it('navigates to 控制点管理 from the admin submenu', async () => {
     render(<Sidebar />)
 
-    const childItem = screen.getByText('Control Point 管理')
+    fireEvent.click(screen.getByText('系统管理').closest('button')!)
+
+    const childItem = screen.getByText('控制点管理')
     const childButton = childItem.closest('button')
     fireEvent.click(childButton!)
 

@@ -21,7 +21,7 @@ test.describe('[Story 7.2] 文件导入管理', () => {
     // Wait for redirect to dashboard
     await page.waitForURL('/dashboard', {
       timeout: 15000,
-      waitUntil: 'networkidle'
+      waitUntil: 'networkidle',
     })
   })
 
@@ -35,13 +35,18 @@ test.describe('[Story 7.2] 文件导入管理', () => {
       await expect(page.getByRole('heading', { name: '文件导入管理' })).toBeVisible()
     })
 
-    test('[P1] 应该显示返回按钮', async ({ page }) => {
+    test('[P1] 应该显示侧边栏文件导入入口且无页面级返回按钮', async ({ page }) => {
       // GIVEN: 文件导入管理页面已加载
       await page.goto('/admin/raw-contents')
       await page.waitForLoadState('networkidle')
 
-      // THEN: 显示返回按钮
-      await expect(page.locator('button svg[data-testid="ArrowBackIcon"], button:has(svg)').first()).toBeVisible()
+      // THEN: 全局导航由侧边栏承载
+      await expect(
+        page
+          .getByRole('navigation', { name: '主导航' })
+          .getByRole('button', { name: '文件导入管理' })
+      ).toBeVisible()
+      await expect(page.locator('main').getByRole('button', { name: /返回/ })).toHaveCount(0)
     })
   })
 
@@ -173,7 +178,9 @@ test.describe('[Story 7.2] 文件导入管理', () => {
       await page.waitForLoadState('networkidle')
 
       // THEN: 表格中包含状态标签
-      const statusChips = page.locator('.MuiChip-root').filter({ hasText: /待分析|分析中|已分析|失败/ })
+      const statusChips = page
+        .locator('.MuiChip-root')
+        .filter({ hasText: /待分析|分析中|已分析|失败/ })
       const count = await statusChips.count()
       if (count > 0) {
         await expect(statusChips.first()).toBeVisible()
@@ -229,7 +236,11 @@ test.describe('[Story 7.2] 文件导入管理', () => {
       await page.waitForSelector('table tbody tr', { timeout: 10000 })
 
       // WHEN: 点击详情按钮
-      const viewButton = page.locator('table tbody tr:first-child button[aria-label="查看详情"], table tbody tr:first-child button').first()
+      const viewButton = page
+        .locator(
+          'table tbody tr:first-child button[aria-label="查看详情"], table tbody tr:first-child button'
+        )
+        .first()
       await viewButton.click()
 
       // THEN: 显示详情对话框
@@ -243,7 +254,11 @@ test.describe('[Story 7.2] 文件导入管理', () => {
       await page.waitForLoadState('networkidle')
       await page.waitForSelector('table tbody tr', { timeout: 10000 })
 
-      const viewButton = page.locator('table tbody tr:first-child button[aria-label="查看详情"], table tbody tr:first-child button').first()
+      const viewButton = page
+        .locator(
+          'table tbody tr:first-child button[aria-label="查看详情"], table tbody tr:first-child button'
+        )
+        .first()
       await viewButton.click()
 
       // THEN: 显示基本信息
@@ -261,7 +276,11 @@ test.describe('[Story 7.2] 文件导入管理', () => {
       await page.waitForLoadState('networkidle')
       await page.waitForSelector('table tbody tr', { timeout: 10000 })
 
-      const viewButton = page.locator('table tbody tr:first-child button[aria-label="查看详情"], table tbody tr:first-child button').first()
+      const viewButton = page
+        .locator(
+          'table tbody tr:first-child button[aria-label="查看详情"], table tbody tr:first-child button'
+        )
+        .first()
       await viewButton.click()
       await expect(page.getByRole('dialog')).toBeVisible()
 
@@ -292,7 +311,10 @@ test.describe('[Story 7.2] 文件导入管理', () => {
 
         if (statusText?.includes('失败') || statusText?.includes('待分析')) {
           // WHEN: 点击重新分析按钮
-          const reanalyzeButton = rows.nth(i).locator('button[aria-label="重新分析"], button').nth(1)
+          const reanalyzeButton = rows
+            .nth(i)
+            .locator('button[aria-label="重新分析"], button')
+            .nth(1)
           await reanalyzeButton.click()
 
           // THEN: 显示成功提示
@@ -313,11 +335,15 @@ test.describe('[Story 7.2] 文件导入管理', () => {
       await page.waitForSelector('table tbody tr', { timeout: 10000 })
 
       // WHEN: 点击删除按钮
-      const deleteButton = page.locator('table tbody tr:first-child button[color="error"], table tbody tr:first-child button').last()
+      const deleteButton = page
+        .locator(
+          'table tbody tr:first-child button[color="error"], table tbody tr:first-child button'
+        )
+        .last()
       await deleteButton.click()
 
       // THEN: 显示浏览器确认对话框
-      page.on('dialog', async dialog => {
+      page.on('dialog', async (dialog) => {
         expect(dialog.message()).toContain('确定要删除')
         await dialog.dismiss()
       })
@@ -325,18 +351,15 @@ test.describe('[Story 7.2] 文件导入管理', () => {
   })
 
   test.describe('[P1] 导航功能', () => {
-    test('[P1] 应该返回仪表板', async ({ page }) => {
+    test('[P1] 不应显示页面级返回仪表板按钮', async ({ page }) => {
       // GIVEN: 文件导入管理页面已加载
       await page.goto('/admin/raw-contents')
       await page.waitForLoadState('networkidle')
 
-      // WHEN: 点击返回按钮
-      const backButton = page.locator('button svg[data-testid="ArrowBackIcon"]').first().locator('..')
-      await backButton.click()
-
-      // THEN: 导航到仪表板
-      await page.waitForURL('/dashboard', { timeout: 10000 })
-      await expect(page).toHaveURL('/dashboard')
+      // THEN: 全局导航由侧边栏承载，不再显示页面级返回按钮
+      await expect(
+        page.getByRole('button', { name: /返回(仪表板|工作台|管理后台|首页)/ })
+      ).toHaveCount(0)
     })
   })
 

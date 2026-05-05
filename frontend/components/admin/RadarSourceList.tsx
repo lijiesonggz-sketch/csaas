@@ -12,21 +12,12 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2 } from 'lucide-react'
-import {
-  Edit,
-  Trash2,
-  Play,
-  Plus,
-} from 'lucide-react'
+import { Edit, Trash2, Play, Plus, RadioTower } from 'lucide-react'
 import { RadarSource } from '@/lib/api/radar-sources'
+import { PageHeader } from '@/components/ui/page-header'
 
 /**
  * RadarSourceList 组件属性
@@ -57,14 +48,11 @@ const categoryConfig: Record<
 /**
  * 类型标签配置
  */
-const typeConfig: Record<
-  'wechat' | 'recruitment' | 'conference' | 'website',
-  { label: string; icon: string }
-> = {
-  wechat: { label: '微信公众号', icon: '💬' },
-  recruitment: { label: '招聘网站', icon: '💼' },
-  conference: { label: '会议/活动', icon: '🎤' },
-  website: { label: '网站', icon: '🌐' },
+const typeConfig: Record<'wechat' | 'recruitment' | 'conference' | 'website', { label: string }> = {
+  wechat: { label: '微信公众号' },
+  recruitment: { label: '招聘网站' },
+  conference: { label: '会议/活动' },
+  website: { label: '网站' },
 }
 
 /**
@@ -142,36 +130,44 @@ export function RadarSourceList({
 
   return (
     <div>
-      {/* 头部操作栏 */}
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold">雷达信息源配置</h1>
-        <Button onClick={onCreate}>
-          <Plus className="h-4 w-4 mr-1" />
-          添加信息源
-        </Button>
-      </div>
+      <PageHeader
+        title="雷达信息源配置"
+        description="维护技术、行业和合规雷达的信息源，控制采集状态与测试任务"
+        icon={<RadioTower className="h-6 w-6" />}
+        variant="default"
+        className="p-8"
+        action={
+          <Button
+            onClick={onCreate}
+            className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            添加信息源
+          </Button>
+        }
+      />
 
       {/* 信息源列表 */}
       {sources.length === 0 ? (
         <Alert>
           <AlertDescription>
-            暂无信息源配置，点击"添加信息源"按钮创建第一个信息源。
+            暂无信息源配置，点击「添加信息源」按钮创建第一个信息源。
           </AlertDescription>
         </Alert>
       ) : (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="overflow-hidden rounded-sm border border-[#E2E8F0]">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>信息源名称</TableHead>
-                <TableHead>类别</TableHead>
-                <TableHead>类型</TableHead>
-                <TableHead>URL</TableHead>
-                <TableHead>同业机构</TableHead>
-                <TableHead>爬取频率</TableHead>
-                <TableHead>最后爬取状态</TableHead>
-                <TableHead>启用状态</TableHead>
-                <TableHead className="text-right">操作</TableHead>
+              <TableRow className="bg-[#1E3A5F] hover:bg-[#1E3A5F]">
+                <TableHead className="text-white">信息源名称</TableHead>
+                <TableHead className="text-white">类别</TableHead>
+                <TableHead className="text-white">类型</TableHead>
+                <TableHead className="text-white">URL</TableHead>
+                <TableHead className="text-white">同业机构</TableHead>
+                <TableHead className="text-white">爬取频率</TableHead>
+                <TableHead className="text-white">最后爬取状态</TableHead>
+                <TableHead className="text-white">启用状态</TableHead>
+                <TableHead className="text-right text-white">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -186,18 +182,13 @@ export function RadarSourceList({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      <span>{typeConfig[source.type].icon}</span>
-                      <p className="text-sm">{typeConfig[source.type].label}</p>
-                    </div>
+                    <p className="text-sm">{typeConfig[source.type].label}</p>
                   </TableCell>
                   <TableCell>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <p className="text-sm max-w-[200px] truncate">
-                            {source.url}
-                          </p>
+                          <p className="text-sm max-w-[200px] truncate">{source.url}</p>
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>{source.url}</p>
@@ -217,7 +208,10 @@ export function RadarSourceList({
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1">
-                      <Badge variant={statusConfig[source.lastCrawlStatus].variant} className="text-xs w-fit">
+                      <Badge
+                        variant={statusConfig[source.lastCrawlStatus].variant}
+                        className="text-xs w-fit"
+                      >
                         {statusConfig[source.lastCrawlStatus].label}
                       </Badge>
                       {source.lastCrawledAt && (

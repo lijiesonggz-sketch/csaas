@@ -1,4 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth/auth-options'
+
+export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/organizations/me
@@ -6,26 +10,13 @@ import { NextRequest, NextResponse } from 'next/server'
  * 获取当前用户的组织信息
  * 代理请求到后端 API
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // 获取后端URL
     const backendUrl =
-      process.env.INTERNAL_API_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      'http://localhost:3000'
+      process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
-    // 获取session以获取token
-    const sessionResponse = await fetch(new URL('/api/auth/session', request.url), {
-      headers: {
-        cookie: request.headers.get('cookie') || '',
-      },
-    })
-
-    if (!sessionResponse.ok) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
-    }
-
-    const session = await sessionResponse.json()
+    const session = await getServerSession(authOptions)
     const token = session?.accessToken
 
     if (!token) {
@@ -35,15 +26,16 @@ export async function GET(request: NextRequest) {
     // 代理请求到后端
     const response = await fetch(`${backendUrl}/organizations/me`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      cache: 'no-store',
     })
 
     if (!response.ok) {
       return NextResponse.json(
         { message: 'Failed to fetch organization' },
-        { status: response.status },
+        { status: response.status }
       )
     }
 
@@ -52,9 +44,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data)
   } catch (error) {
     console.error('[API /organizations/me] Error:', error)
-    return NextResponse.json(
-      { message: 'Internal server error' },
-      { status: 500 },
-    )
+    return NextResponse.json({ message: 'Internal server error' }, { status: 500 })
   }
 }

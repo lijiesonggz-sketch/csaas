@@ -360,7 +360,7 @@ test.describe('Story 8.1 - Taxonomy Rollout Overview', () => {
 
     await page.goto('/admin/taxonomy-rollout')
     await expect(page.getByRole('heading', { name: '无权访问 Taxonomy Rollout' })).toBeVisible()
-    await expect(page.getByRole('button', { name: '返回管理后台' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '返回管理后台' })).toHaveCount(0)
   })
 
   test('[8.1-E2E-013][P1] should show detail failure state when policy detail request fails', async ({

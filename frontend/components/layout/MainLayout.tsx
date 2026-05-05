@@ -63,6 +63,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <div className="flex min-h-screen bg-[#FEFDFB]">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-sm focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-[#1E3A5F] focus:shadow"
+      >
+        跳到主内容
+      </a>
       <Header
         showMenuButton={isMobile}
         onMenuToggle={() => setMobileSidebarOpen((current) => !current)}
@@ -78,12 +84,13 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <button
           type="button"
           aria-label="关闭侧边栏遮罩"
-          className="fixed inset-0 top-16 z-30 bg-slate-950/30"
+          className="fixed inset-0 top-16 z-30 cursor-pointer bg-slate-950/30"
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}
       <main
-        className="flex-1 mt-16 min-h-[calc(100vh-64px)] transition-all duration-200"
+        id="main-content"
+        className="mt-16 min-h-[calc(100vh-64px)] w-full min-w-0 flex-1 overflow-x-hidden transition-all duration-200"
         style={{ marginLeft: `${mainMarginLeft}px` }}
       >
         {children}

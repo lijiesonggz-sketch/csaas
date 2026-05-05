@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
-  ArrowLeft,
   BadgeInfo,
   FileText,
   Link2,
@@ -57,13 +56,21 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { ControlPointDirectorySelector } from '@/components/admin/ControlPointDirectorySelector'
 import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
+import { PageHeader } from '@/components/ui/page-header'
 import { formatAuthoritativeScorePercent } from '@/lib/utils/authoritative-score'
 
 const ALLOWED_ROLES = ['admin']
 const OBLIGATION_TYPE_OPTIONS: ObligationType[] = ['MANDATORY', 'PROHIBITIVE', 'RECOMMENDED']
 const STATUS_OPTIONS: Array<ObligationStatus | 'all'> = ['all', 'ACTIVE', 'INACTIVE']
 const COVERAGE_OPTIONS: ObligationCoverage[] = ['FULL', 'PARTIAL']
-const APPLICABLE_SECTOR_OPTIONS: ApplicableSector[] = ['银行', '证券', '保险', '基金', '期货', '通用']
+const APPLICABLE_SECTOR_OPTIONS: ApplicableSector[] = [
+  '银行',
+  '证券',
+  '保险',
+  '基金',
+  '期货',
+  '通用',
+]
 const OBLIGATION_LIST_PAGE_SIZE = 20
 const OBLIGATION_CODE_SCAN_PAGE_SIZE = 100
 const MAX_OBLIGATION_CODE_SCAN = 1000
@@ -166,9 +173,7 @@ export default function ObligationAdminPage() {
             appliedFilters.obligationType === 'all' ? undefined : appliedFilters.obligationType,
           status: appliedFilters.status === 'all' ? undefined : appliedFilters.status,
           applicableSector:
-            appliedFilters.applicableSector === 'all'
-              ? undefined
-              : appliedFilters.applicableSector,
+            appliedFilters.applicableSector === 'all' ? undefined : appliedFilters.applicableSector,
           keyword: appliedFilters.keyword || undefined,
         })
         if (cancelled) return
@@ -179,9 +184,9 @@ export default function ObligationAdminPage() {
             ? appliedDeepLinkId.current
             : deepLinkedObligationId && current === deepLinkedObligationId
               ? current
-            : current && listResult.items.some((item) => item.obligationId === current)
-              ? current
-              : (listResult.items[0]?.obligationId ?? null),
+              : current && listResult.items.some((item) => item.obligationId === current)
+                ? current
+                : (listResult.items[0]?.obligationId ?? null)
         )
       } catch (loadError) {
         if (!cancelled) {
@@ -440,13 +445,6 @@ export default function ObligationAdminPage() {
                 <h1 className="text-2xl font-bold text-[#1E3A5F]">无权访问 Obligation 管理</h1>
                 <p className="mt-2 text-[#64748B]">当前账号没有查看该页面的权限，请联系管理员。</p>
               </div>
-              <Button
-                variant="outline"
-                className="rounded-sm"
-                onClick={() => router.push('/dashboard')}
-              >
-                返回管理后台
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -456,38 +454,33 @@ export default function ObligationAdminPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-[#FEFDFB] px-6 py-16">
+      <div className="min-h-screen bg-[#FEFDFB] px-6 py-8">
         <div className="mx-auto max-w-7xl space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <Button
-                variant="outline"
-                className="rounded-sm"
-                onClick={() => router.push('/dashboard')}
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                返回
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold text-[#1E3A5F]">Obligation 管理</h1>
-                <p className="mt-1 text-[#64748B]">维护法规义务、关联条文和控制点映射。</p>
+          <PageHeader
+            title="Obligation 管理"
+            description="维护法规义务、关联条文和控制点映射"
+            icon={<BadgeInfo className="h-6 w-6" />}
+            variant="default"
+            className="p-8"
+            action={
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+                  onClick={() => setReloadToken((current) => current + 1)}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  刷新
+                </Button>
+                <Button
+                  className="rounded-sm bg-white text-[#1E3A5F] hover:bg-white/90"
+                  onClick={openCreateDialog}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  新建 Obligation
+                </Button>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                className="rounded-sm"
-                onClick={() => setReloadToken((current) => current + 1)}
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                刷新
-              </Button>
-              <Button className="rounded-sm" onClick={openCreateDialog}>
-                <Plus className="mr-2 h-4 w-4" />
-                新建 Obligation
-              </Button>
-            </div>
-          </div>
+            }
+          />
 
           {error && (
             <Alert variant="destructive" className="rounded-sm">
@@ -649,7 +642,8 @@ export default function ObligationAdminPage() {
                           {item.obligationText}
                         </div>
                         <div className="mt-1 text-xs text-[#64748B]">
-                          {item.obligationType} · {(item.applicableSector ?? []).join('、') || '通用'}
+                          {item.obligationType} ·{' '}
+                          {(item.applicableSector ?? []).join('、') || '通用'}
                         </div>
                       </button>
                     ))
@@ -755,14 +749,20 @@ export default function ObligationAdminPage() {
                         <Label>适用行业</Label>
                         <div className="flex flex-wrap gap-2 rounded-sm border border-[#E2E8F0] p-3">
                           {APPLICABLE_SECTOR_OPTIONS.map((sector) => (
-                            <label key={sector} className="flex items-center gap-2 text-sm text-[#334155]">
+                            <label
+                              key={sector}
+                              className="flex items-center gap-2 text-sm text-[#334155]"
+                            >
                               <input
                                 type="checkbox"
                                 checked={draft.applicableSector.includes(sector)}
                                 onChange={() =>
                                   setDraft((current) => ({
                                     ...current,
-                                    applicableSector: toggleSector(current.applicableSector, sector),
+                                    applicableSector: toggleSector(
+                                      current.applicableSector,
+                                      sector
+                                    ),
                                   }))
                                 }
                               />
@@ -830,7 +830,9 @@ export default function ObligationAdminPage() {
                         <Label>覆盖程度</Label>
                         <Select
                           value={selectedCoverage}
-                          onValueChange={(value) => setSelectedCoverage(value as ObligationCoverage)}
+                          onValueChange={(value) =>
+                            setSelectedCoverage(value as ObligationCoverage)
+                          }
                         >
                           <SelectTrigger>
                             <SelectValue />
@@ -970,7 +972,9 @@ export default function ObligationAdminPage() {
                 }
               />
               <p className="text-xs text-[#64748B]">
-                {selectedClause ? `建议编码：${createForm.suggestedCode}` : '请先选择条文以生成建议编码'}
+                {selectedClause
+                  ? `建议编码：${createForm.suggestedCode}`
+                  : '请先选择条文以生成建议编码'}
               </p>
             </div>
 

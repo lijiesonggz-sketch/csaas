@@ -21,7 +21,7 @@ test.describe('[Story 7.1] 雷达源管理', () => {
     // Wait for redirect to dashboard
     await page.waitForURL('/dashboard', {
       timeout: 15000,
-      waitUntil: 'networkidle'
+      waitUntil: 'networkidle',
     })
   })
 
@@ -44,14 +44,16 @@ test.describe('[Story 7.1] 雷达源管理', () => {
       await expect(page.getByRole('button', { name: '添加信息源' })).toBeVisible()
     })
 
-    test('[P1] 应该显示返回按钮', async ({ page }) => {
+    test('[P1] 应该显示侧边栏信息源配置入口且无页面级返回按钮', async ({ page }) => {
       // GIVEN: 雷达源管理页面已加载
       await page.goto('/admin/radar-sources')
       await page.waitForLoadState('networkidle')
 
-      // THEN: 显示返回按钮
-      const backButton = page.locator('button').first()
-      await expect(backButton).toBeVisible()
+      // THEN: 全局导航由侧边栏承载
+      await expect(
+        page.getByRole('navigation', { name: '主导航' }).getByRole('button', { name: '信息源配置' })
+      ).toBeVisible()
+      await expect(page.locator('main').getByRole('button', { name: /返回/ })).toHaveCount(0)
     })
   })
 
@@ -76,7 +78,9 @@ test.describe('[Story 7.1] 雷达源管理', () => {
       await page.waitForLoadState('networkidle')
 
       // THEN: 表格中包含类别标签
-      const categoryChips = page.locator('.MuiChip-root').filter({ hasText: /技术雷达|行业雷达|合规雷达/ })
+      const categoryChips = page
+        .locator('.MuiChip-root')
+        .filter({ hasText: /技术雷达|行业雷达|合规雷达/ })
       await expect(categoryChips.first()).toBeVisible()
     })
 
@@ -174,7 +178,11 @@ test.describe('[Story 7.1] 雷达源管理', () => {
       await page.waitForSelector('table tbody tr', { timeout: 10000 })
 
       // WHEN: 点击编辑按钮
-      const editButton = page.locator('table tbody tr:first-child td:last-child button[aria-label="编辑"], table tbody tr:first-child td:last-child button').nth(1)
+      const editButton = page
+        .locator(
+          'table tbody tr:first-child td:last-child button[aria-label="编辑"], table tbody tr:first-child td:last-child button'
+        )
+        .nth(1)
       await editButton.click()
 
       // THEN: 显示编辑信息源弹窗
@@ -193,11 +201,15 @@ test.describe('[Story 7.1] 雷达源管理', () => {
       await page.waitForSelector('table tbody tr', { timeout: 10000 })
 
       // WHEN: 点击删除按钮
-      const deleteButton = page.locator('table tbody tr:first-child td:last-child button[color="error"], table tbody tr:first-child td:last-child button').last()
+      const deleteButton = page
+        .locator(
+          'table tbody tr:first-child td:last-child button[color="error"], table tbody tr:first-child td:last-child button'
+        )
+        .last()
       await deleteButton.click()
 
       // THEN: 显示浏览器确认对话框
-      page.on('dialog', async dialog => {
+      page.on('dialog', async (dialog) => {
         expect(dialog.message()).toContain('确定要删除')
         await dialog.dismiss()
       })
@@ -243,18 +255,15 @@ test.describe('[Story 7.1] 雷达源管理', () => {
   })
 
   test.describe('[P1] 导航功能', () => {
-    test('[P1] 应该返回仪表板', async ({ page }) => {
+    test('[P1] 不应显示页面级返回仪表板按钮', async ({ page }) => {
       // GIVEN: 雷达源管理页面已加载
       await page.goto('/admin/radar-sources')
       await page.waitForLoadState('networkidle')
 
-      // WHEN: 点击返回按钮
-      const backButton = page.locator('button svg[data-testid="ArrowBackIcon"]').first().locator('..')
-      await backButton.click()
-
-      // THEN: 导航到仪表板
-      await page.waitForURL('/dashboard', { timeout: 10000 })
-      await expect(page).toHaveURL('/dashboard')
+      // THEN: 全局导航由侧边栏承载，不再显示页面级返回按钮
+      await expect(
+        page.getByRole('button', { name: /返回(仪表板|工作台|管理后台|首页)/ })
+      ).toHaveCount(0)
     })
   })
 

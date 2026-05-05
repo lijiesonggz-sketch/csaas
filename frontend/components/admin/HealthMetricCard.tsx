@@ -7,18 +7,23 @@
  * @story 7-1
  */
 
-import React from 'react';
-import { ArrowUpIcon, ArrowDownIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/solid';
+import React from 'react'
+import {
+  ArrowUpIcon,
+  ArrowDownIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+} from '@heroicons/react/24/solid'
 
 interface HealthMetricCardProps {
-  title: string;
-  current: number;
-  target: number;
-  status: 'healthy' | 'warning' | 'critical';
-  unit?: string;
-  subtitle?: string;
-  trend?: 'up' | 'down' | 'stable';
-  trendValue?: number;
+  title: string
+  current: number
+  target: number
+  status: 'healthy' | 'warning' | 'critical'
+  unit?: string
+  subtitle?: string
+  trend?: 'up' | 'down' | 'stable'
+  trendValue?: number
 }
 
 export function HealthMetricCard({
@@ -31,34 +36,36 @@ export function HealthMetricCard({
   trend,
   trendValue,
 }: HealthMetricCardProps) {
-  const statusColors = {
-    healthy: 'bg-green-50 border-green-200',
-    warning: 'bg-yellow-50 border-yellow-200',
-    critical: 'bg-red-50 border-red-200',
-  };
+  const statusAccent = {
+    healthy: 'border-l-[#059669]',
+    warning: 'border-l-amber-500',
+    critical: 'border-l-red-600',
+  }
 
   const statusTextColors = {
-    healthy: 'text-green-700',
-    warning: 'text-yellow-700',
+    healthy: 'text-[#059669]',
+    warning: 'text-amber-700',
     critical: 'text-red-700',
-  };
+  }
 
   const statusIcons = {
-    healthy: <CheckCircleIcon className="h-5 w-5 text-green-500" />,
-    warning: <ExclamationTriangleIcon className="h-5 w-5 text-yellow-500" />,
-    critical: <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />,
-  };
+    healthy: <CheckCircleIcon className="h-5 w-5 text-[#059669]" />,
+    warning: <ExclamationTriangleIcon className="h-5 w-5 text-amber-600" />,
+    critical: <ExclamationTriangleIcon className="h-5 w-5 text-red-600" />,
+  }
 
   return (
-    <div className={`rounded-lg border-2 p-6 ${statusColors[status]}`}>
+    <div
+      className={`rounded-sm border border-l-4 border-[#E2E8F0] bg-white p-6 shadow-sm ${statusAccent[status]}`}
+    >
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-medium text-gray-600">{title}</h3>
+        <h3 className="text-sm font-medium text-[#64748B]">{title}</h3>
         {statusIcons[status]}
       </div>
 
       <div className="mt-2">
         <div className="flex items-baseline">
-          <p className={`text-3xl font-bold ${statusTextColors[status]}`}>
+          <p className="text-3xl font-bold text-[#1E3A5F]">
             {(current ?? 0).toFixed(2)}
             {unit}
           </p>
@@ -81,19 +88,21 @@ export function HealthMetricCard({
         </div>
 
         <div className="mt-2 flex items-center justify-between text-sm">
-          <span className="text-gray-600">
+          <span className="text-[#64748B]">
             目标: {target.toFixed(2)}
             {unit}
           </span>
-          <span className={`font-medium ${statusTextColors[status]}`}>
+          <span
+            className={`rounded-sm px-2 py-0.5 text-xs font-medium ${statusTextColors[status]} bg-[#F8FAFC]`}
+          >
             {status === 'healthy' && '正常'}
             {status === 'warning' && '警告'}
             {status === 'critical' && '异常'}
           </span>
         </div>
 
-        {subtitle && <p className="mt-2 text-xs text-gray-500">{subtitle}</p>}
+        {subtitle && <p className="mt-2 text-xs text-[#64748B]">{subtitle}</p>}
       </div>
     </div>
-  );
+  )
 }

@@ -8,12 +8,12 @@
  * @story 7-4
  */
 
-'use client';
+'use client'
 
-import React, { useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { UserRole } from '@/lib/auth/types';
+import React, { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
+import { UserRole } from '@/lib/auth/types'
 import {
   getCostMetrics,
   getCostTrends,
@@ -25,203 +25,194 @@ import {
   OptimizationSuggestion,
   getOrganizationCost,
   OrganizationCostDetails,
-} from '@/lib/api/cost-optimization';
-import { HealthMetricCard } from '@/components/admin/HealthMetricCard';
-import { CostTrendChart } from '@/components/admin/CostTrendChart';
-import { CostBreakdownChart } from '@/components/admin/CostBreakdownChart';
-import { HighCostClientList } from '@/components/admin/HighCostClientList';
-import { OptimizationSuggestionsList } from '@/components/admin/OptimizationSuggestionsList';
-import { BatchOptimizeDialog } from '@/components/admin/BatchOptimizeDialog';
-import { RefreshCw, Download, ArrowLeft } from 'lucide-react';
-import { formatChinaDate } from '@/lib/utils/dateTime';
+} from '@/lib/api/cost-optimization'
+import { HealthMetricCard } from '@/components/admin/HealthMetricCard'
+import { CostTrendChart } from '@/components/admin/CostTrendChart'
+import { CostBreakdownChart } from '@/components/admin/CostBreakdownChart'
+import { HighCostClientList } from '@/components/admin/HighCostClientList'
+import { OptimizationSuggestionsList } from '@/components/admin/OptimizationSuggestionsList'
+import { BatchOptimizeDialog } from '@/components/admin/BatchOptimizeDialog'
+import { RefreshCw, Download, WalletCards } from 'lucide-react'
+import { formatChinaDate } from '@/lib/utils/dateTime'
+import { PageHeader } from '@/components/ui/page-header'
 
 export default function CostOptimizationPage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
+  const { data: session, status } = useSession()
+  const router = useRouter()
 
-  const [metrics, setMetrics] = useState<CostMetrics | null>(null);
-  const [trends, setTrends] = useState<CostTrendsResponse | null>(null);
-  const [suggestions, setSuggestions] = useState<OptimizationSuggestion[]>([]);
+  const [metrics, setMetrics] = useState<CostMetrics | null>(null)
+  const [trends, setTrends] = useState<CostTrendsResponse | null>(null)
+  const [suggestions, setSuggestions] = useState<OptimizationSuggestion[]>([])
   const [selectedOrganizationDetails, setSelectedOrganizationDetails] =
-    useState<OrganizationCostDetails | null>(null);
-  const [selectedDays, setSelectedDays] = useState<number>(30);
-  const [selectedOrganizations, setSelectedOrganizations] = useState<string[]>([]);
-  const [showBatchDialog, setShowBatchDialog] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+    useState<OrganizationCostDetails | null>(null)
+  const [selectedDays, setSelectedDays] = useState<number>(30)
+  const [selectedOrganizations, setSelectedOrganizations] = useState<string[]>([])
+  const [showBatchDialog, setShowBatchDialog] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Redirect if not authenticated or not admin
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/login');
+      router.push('/login')
     } else if (session?.user && session.user.role !== UserRole.ADMIN) {
-      router.push('/');
+      router.push('/')
     }
-  }, [status, session, router]);
+  }, [status, session, router])
 
   // Fetch all cost optimization data
   const fetchCostData = async (isRefresh = false) => {
-    if (!session?.accessToken) return;
+    if (!session?.accessToken) return
 
     try {
       if (isRefresh) {
-        setRefreshing(true);
+        setRefreshing(true)
       } else {
-        setLoading(true);
+        setLoading(true)
       }
-      setError(null);
+      setError(null)
 
       // Fetch metrics, trends, and suggestions in parallel
       const [metricsData, trendsData, suggestionsData] = await Promise.all([
         getCostMetrics(session.accessToken),
         getCostTrends(session.accessToken, selectedDays),
         getOptimizationSuggestions(session.accessToken),
-      ]);
+      ])
 
-      setMetrics(metricsData);
-      setTrends(trendsData);
-      setSuggestions(suggestionsData);
+      setMetrics(metricsData)
+      setTrends(trendsData)
+      setSuggestions(suggestionsData)
     } catch (err) {
-      console.error('Failed to fetch cost data:', err);
-      setError('加载成本数据失败，请稍后重试');
+      console.error('Failed to fetch cost data:', err)
+      setError('加载成本数据失败，请稍后重试')
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setLoading(false)
+      setRefreshing(false)
     }
-  };
+  }
 
   // Initial load
   useEffect(() => {
     if (session?.accessToken) {
-      fetchCostData();
+      fetchCostData()
     }
-  }, [session?.accessToken]);
+  }, [session?.accessToken])
 
   // Refetch trends when days change
   useEffect(() => {
     if (session?.accessToken && !loading) {
       const fetchTrends = async () => {
         try {
-          const trendsData = await getCostTrends(session.accessToken, selectedDays);
-          setTrends(trendsData);
+          const trendsData = await getCostTrends(session.accessToken, selectedDays)
+          setTrends(trendsData)
         } catch (err) {
-          console.error('Failed to fetch trends:', err);
+          console.error('Failed to fetch trends:', err)
         }
-      };
-      fetchTrends();
+      }
+      fetchTrends()
     }
-  }, [selectedDays, session?.accessToken]);
-
-  // Handle back navigation
-  const handleBack = () => {
-    router.push('/dashboard');
-  };
+  }, [selectedDays, session?.accessToken])
 
   // Handle manual refresh
   const handleRefresh = () => {
-    fetchCostData(true);
-  };
+    fetchCostData(true)
+  }
 
   // Handle view organization details
   const handleViewDetails = async (organizationId: string) => {
-    if (!session?.accessToken) return;
+    if (!session?.accessToken) return
 
     try {
-      const details = await getOrganizationCost(session.accessToken, organizationId);
-      setSelectedOrganizationDetails(details);
+      const details = await getOrganizationCost(session.accessToken, organizationId)
+      setSelectedOrganizationDetails(details)
     } catch (err) {
-      console.error('Failed to fetch organization details:', err);
-      alert('获取客户详情失败，请稍后重试');
+      console.error('Failed to fetch organization details:', err)
+      alert('获取客户详情失败，请稍后重试')
     }
-  };
+  }
 
   // Handle export report
   const handleExportReport = async (format: 'csv' | 'excel' = 'csv') => {
-    if (!session?.accessToken) return;
+    if (!session?.accessToken) return
 
     try {
-      const blob = await exportCostReport(session.accessToken, { format });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `cost-report-${new Date().toISOString().split('T')[0]}.${format === 'csv' ? 'csv' : 'xlsx'}`;
-      link.click();
-      window.URL.revokeObjectURL(url);
+      const blob = await exportCostReport(session.accessToken, { format })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `cost-report-${new Date().toISOString().split('T')[0]}.${format === 'csv' ? 'csv' : 'xlsx'}`
+      link.click()
+      window.URL.revokeObjectURL(url)
     } catch (err) {
-      console.error('Failed to export report:', err);
-      alert('导出报告失败，请稍后重试');
+      console.error('Failed to export report:', err)
+      alert('导出报告失败，请稍后重试')
     }
-  };
+  }
 
   // Handle export chart
   const handleExportChart = () => {
-    if (!trends) return;
+    if (!trends) return
 
     const csv = [
       ['日期', '成本', '调用次数'],
       ...trends.trends.map((item) => [item.date, item.cost.toString(), item.count.toString()]),
     ]
       .map((row) => row.join(','))
-      .join('\n');
+      .join('\n')
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `cost-trends-${selectedDays}d-${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-  };
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `cost-trends-${selectedDays}d-${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
 
   // Handle organization selection
   const handleSelectOrganization = (organizationId: string) => {
     setSelectedOrganizations((prev) =>
       prev.includes(organizationId)
         ? prev.filter((id) => id !== organizationId)
-        : [...prev, organizationId],
-    );
-  };
+        : [...prev, organizationId]
+    )
+  }
 
   // Handle batch optimize
   const handleBatchOptimize = async (action: string, notes: string) => {
-    if (!session?.accessToken || selectedOrganizations.length === 0) return;
+    if (!session?.accessToken || selectedOrganizations.length === 0) return
 
     try {
       const result = await batchOptimize(session.accessToken, {
         organizationIds: selectedOrganizations,
         action: action as 'switch_model' | 'enable_caching' | 'optimize_prompts',
         notes,
-      });
+      })
 
-      alert(
-        `批量优化完成！\n成功: ${result.success} 个\n失败: ${result.failed} 个`,
-      );
+      alert(`批量优化完成！\n成功: ${result.success} 个\n失败: ${result.failed} 个`)
 
       // Clear selection and refresh data
-      setSelectedOrganizations([]);
-      fetchCostData(true);
+      setSelectedOrganizations([])
+      fetchCostData(true)
     } catch (err) {
-      console.error('Batch optimize failed:', err);
-      throw err;
+      console.error('Batch optimize failed:', err)
+      throw err
     }
-  };
+  }
 
   // Calculate cost status
-  const getCostStatus = (
-    current: number,
-    target: number,
-  ): 'healthy' | 'warning' | 'critical' => {
-    const ratio = current / target;
-    if (ratio <= 1) return 'healthy';
-    if (ratio <= 1.2) return 'warning';
-    return 'critical';
-  };
+  const getCostStatus = (current: number, target: number): 'healthy' | 'warning' | 'critical' => {
+    const ratio = current / target
+    if (ratio <= 1) return 'healthy'
+    if (ratio <= 1.2) return 'warning'
+    return 'critical'
+  }
 
   if (status === 'loading' || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1E3A5F]"></div>
       </div>
-    );
+    )
   }
 
   if (error) {
@@ -237,38 +228,24 @@ export default function CostOptimizationPage() {
           </button>
         </div>
       </div>
-    );
+    )
   }
 
   return (
     <div className="min-h-screen bg-[#FEFDFB] p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Back Button */}
-        <div className="mb-4">
-          <button
-            onClick={handleBack}
-            className="flex items-center space-x-2 text-[#94A3B8] hover:text-[#1E3A5F] transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span>返回仪表板</span>
-          </button>
-        </div>
-
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-[#1E3A5F]">AI成本优化</h1>
-              <p className="mt-1 text-sm text-[#94A3B8]">
-                监控AI使用成本并获取优化建议
-              </p>
-            </div>
-
-            <div className="flex items-center space-x-4">
+        <PageHeader
+          title="AI成本优化"
+          description="监控AI使用成本、客户成本分布和优化建议"
+          icon={<WalletCards className="h-6 w-6" />}
+          variant="default"
+          className="p-8"
+          action={
+            <div className="flex flex-wrap items-center gap-3">
               {selectedOrganizations.length > 0 && (
                 <button
                   onClick={() => setShowBatchDialog(true)}
-                  className="px-4 py-2 bg-[#1E3A5F] text-white rounded-sm hover:bg-[#1E3A5F]/80"
+                  className="rounded-sm bg-[#059669] px-4 py-2 text-white hover:bg-[#047857]"
                 >
                   批量优化 ({selectedOrganizations.length})
                 </button>
@@ -276,7 +253,7 @@ export default function CostOptimizationPage() {
 
               <button
                 onClick={() => handleExportReport('csv')}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-[#E2E8F0] rounded-sm hover:bg-[#FEFDFB]"
+                className="flex items-center space-x-2 rounded-sm bg-white px-4 py-2 text-[#1E3A5F] hover:bg-white/90"
               >
                 <Download className="h-5 w-5" />
                 <span>导出报告</span>
@@ -285,14 +262,14 @@ export default function CostOptimizationPage() {
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-[#E2E8F0] rounded-sm hover:bg-[#FEFDFB] disabled:opacity-50"
+                className="flex items-center space-x-2 rounded-sm bg-white px-4 py-2 text-[#1E3A5F] hover:bg-white/90 disabled:opacity-50"
               >
                 <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
                 <span>{refreshing ? '刷新中...' : '刷新'}</span>
               </button>
             </div>
-          </div>
-        </div>
+          }
+        />
 
         {/* Metrics Cards */}
         {metrics && (
@@ -300,13 +277,19 @@ export default function CostOptimizationPage() {
             <HealthMetricCard
               title="总成本"
               current={metrics.totalCost}
-              target={metrics.averageCostPerOrganization * (metrics.topCostOrganizations?.length || 0)}
+              target={
+                metrics.averageCostPerOrganization * (metrics.topCostOrganizations?.length || 0)
+              }
               status={getCostStatus(
                 metrics.totalCost,
-                metrics.averageCostPerOrganization * (metrics.topCostOrganizations?.length || 0),
+                metrics.averageCostPerOrganization * (metrics.topCostOrganizations?.length || 0)
               )}
               unit="元"
-              subtitle={metrics.period ? `本月累计 (${formatChinaDate(metrics.period.startDate)} - ${formatChinaDate(metrics.period.endDate)})` : '本月累计'}
+              subtitle={
+                metrics.period
+                  ? `本月累计 (${formatChinaDate(metrics.period.startDate)} - ${formatChinaDate(metrics.period.endDate)})`
+                  : '本月累计'
+              }
             />
 
             <HealthMetricCard
@@ -381,5 +364,5 @@ export default function CostOptimizationPage() {
         />
       </div>
     </div>
-  );
+  )
 }
