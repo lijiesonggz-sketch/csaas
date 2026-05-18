@@ -1,0 +1,42 @@
+schema: 1
+story: '1.1'
+story_key: 1-1-register-thinktank-module-entry
+gate: PASS
+status_reason: >-
+  Story 1.1 has 100% P0, 100% P1, and 100% overall traceability coverage.
+  Focused backend/frontend tests and TypeScript checks passed. Backend full
+  regression has unrelated taxonomy-domain-gate temporal failures outside the
+  story change set.
+reviewed_at: '2026-05-19T02:43:16+08:00'
+quality_score: 90
+waiver:
+  active: false
+top_issues: []
+coverage:
+  total_requirements: 6
+  fully_covered: 6
+  partially_covered: 0
+  uncovered: 0
+  p0:
+    total: 4
+    covered: 4
+    percentage: 100
+  p1:
+    total: 2
+    covered: 2
+    percentage: 100
+evidence:
+  focused_tests:
+    - backend npm run test -- advisory
+    - frontend npm run test -- Sidebar advisory
+  static_checks:
+    - backend npx tsc --noEmit
+    - frontend npx tsc --noEmit
+  regression:
+    frontend_unit: PASS
+    backend_unit: NON_STORY_FAILURES
+recommendations:
+  immediate: []
+  future:
+    - Add an advisory E2E smoke test after stable auth/server orchestration exists.
+    - Repair unrelated taxonomy-domain-gate temporal tests outside this story.

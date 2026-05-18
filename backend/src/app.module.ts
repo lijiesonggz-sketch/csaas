@@ -26,6 +26,7 @@ import { CaseImportOrchestratorModule } from './modules/case-import-orchestrator
 import { RadarModule } from './modules/radar/radar.module'
 import { AdminModule } from './modules/admin/admin.module'
 import { CostOptimizationModule } from './modules/admin/cost-optimization/cost-optimization.module'
+import { AdvisoryModule } from './modules/advisory/advisory.module'
 
 @Module({
   imports: [
@@ -77,6 +78,7 @@ import { CostOptimizationModule } from './modules/admin/cost-optimization/cost-o
     CaseImportOrchestratorModule,
     OrganizationsModule,
     RadarModule,
+    AdvisoryModule,
     AdminModule,
     CostOptimizationModule,
   ],

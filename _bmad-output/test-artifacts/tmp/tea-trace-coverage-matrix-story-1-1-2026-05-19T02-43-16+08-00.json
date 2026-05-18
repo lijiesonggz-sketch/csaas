@@ -1,0 +1,166 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-19T02:43:16+08:00",
+  "story_id": "1.1",
+  "story_key": "1-1-register-thinktank-module-entry",
+  "requirements": [
+    {
+      "id": "AC-1",
+      "priority": "P0",
+      "requirement": "Authorized users see ThinkTank in CSAAS navigation.",
+      "coverage": "FULL",
+      "tests": [
+        "frontend/components/layout/__tests__/Sidebar.test.tsx::shows ThinkTank navigation for admin/consultant/client_pm users",
+        "frontend/components/layout/__tests__/Sidebar.test.tsx::hides ThinkTank navigation for respondent users",
+        "frontend/components/layout/__tests__/Sidebar.test.tsx::navigates to the ThinkTank route when the entry is clicked",
+        "frontend/components/layout/__tests__/Sidebar.test.tsx::keeps ThinkTank accessible as a titled icon in collapsed state"
+      ],
+      "levels": ["component"],
+      "heuristics": {
+        "authz_positive": true,
+        "authz_negative": true,
+        "endpoint_coverage": "not_applicable",
+        "error_path": "not_applicable"
+      }
+    },
+    {
+      "id": "AC-2",
+      "priority": "P1",
+      "requirement": "Authorized users open an access-controlled ThinkTank placeholder route.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/access/advisory-access.controller.spec.ts::returns the authorized ThinkTank access payload and emits opened audit",
+        "frontend/app/advisory/__tests__/page.test.tsx::renders the authorized ThinkTank entry placeholder"
+      ],
+      "levels": ["api", "component"],
+      "heuristics": {
+        "endpoint_coverage": true,
+        "authz_positive": true,
+        "authz_negative": false,
+        "error_path": "not_required_for_positive_path"
+      }
+    },
+    {
+      "id": "AC-3",
+      "priority": "P1",
+      "requirement": "Do not implement full advisory workspace, session sidebar, conversation workspace, document drawer, workflow runtime, or session creation.",
+      "coverage": "FULL",
+      "tests": [
+        "frontend/app/advisory/__tests__/page.test.tsx::renders the authorized ThinkTank entry placeholder",
+        "repository search verified no advisory workflow/session/output/checkpoint/rating/context tables or workspace features under advisory implementation"
+      ],
+      "levels": ["component", "static"],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "authz_positive": "not_applicable",
+        "authz_negative": "not_applicable",
+        "error_path": "not_applicable"
+      }
+    },
+    {
+      "id": "AC-4",
+      "priority": "P0",
+      "requirement": "Successful authorized access emits audit event thinktank.access.opened.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/access/advisory-access.service.spec.ts::emits the access opened audit event without advisory content",
+        "backend/src/modules/advisory/access/advisory-access.controller.spec.ts::returns the authorized ThinkTank access payload and emits opened audit"
+      ],
+      "levels": ["unit", "api"],
+      "heuristics": {
+        "endpoint_coverage": true,
+        "authz_positive": true,
+        "authz_negative": "not_applicable",
+        "error_path": "not_applicable"
+      }
+    },
+    {
+      "id": "AC-5",
+      "priority": "P0",
+      "requirement": "Authenticated users without ThinkTank access are blocked with a friendly authorization message.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/access/advisory-access.service.spec.ts::denies respondent users",
+        "backend/src/modules/advisory/access/advisory-access.service.spec.ts::denies users with missing role value",
+        "backend/src/modules/advisory/access/advisory-access.controller.spec.ts::blocks denied users with a friendly message and emits denied audit",
+        "frontend/app/advisory/__tests__/page.test.tsx::renders a friendly authorization denied state",
+        "frontend/components/layout/__tests__/Sidebar.test.tsx::hides ThinkTank navigation for respondent users"
+      ],
+      "levels": ["unit", "api", "component"],
+      "heuristics": {
+        "endpoint_coverage": true,
+        "authz_positive": true,
+        "authz_negative": true,
+        "error_path": true
+      }
+    },
+    {
+      "id": "AC-6",
+      "priority": "P0",
+      "requirement": "Blocked access attempt emits audit event thinktank.access.denied.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/access/advisory-access.service.spec.ts::emits the access denied audit event with reason",
+        "backend/src/modules/advisory/access/advisory-access.controller.spec.ts::blocks denied users with a friendly message and emits denied audit"
+      ],
+      "levels": ["unit", "api"],
+      "heuristics": {
+        "endpoint_coverage": true,
+        "authz_positive": "not_applicable",
+        "authz_negative": true,
+        "error_path": true
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 6,
+    "fully_covered": 6,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 4, "covered": 4, "percentage": 100 },
+      "P1": { "total": 2, "covered": 2, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Add an advisory E2E smoke test after stable test data and server orchestration exist.",
+      "requirements": ["AC-1", "AC-2", "AC-5"]
+    },
+    {
+      "priority": "LOW",
+      "action": "Run bmad-testarch-test-review if this story's tests are expanded beyond focused unit/component coverage.",
+      "requirements": []
+    }
+  ],
+  "verification": {
+    "focused_backend": "PASS: npm run test -- advisory (12 tests)",
+    "focused_frontend": "PASS: npm run test -- Sidebar advisory (29 tests)",
+    "backend_tsc": "PASS: npx tsc --noEmit",
+    "frontend_tsc": "PASS: npx tsc --noEmit",
+    "frontend_full_unit": "PASS: npm test -- --runInBand",
+    "backend_full_unit": "NON_STORY_FAILURES: taxonomy-domain-gate temporal benchmark-summary assertions failed outside Story 1.1 touched files"
+  }
+}

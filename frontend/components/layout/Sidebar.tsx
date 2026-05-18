@@ -10,6 +10,7 @@ import {
   Settings,
   Users,
   Radar,
+  BrainCircuit,
   Building2,
   ClipboardCheck,
   GitBranch,
@@ -21,6 +22,7 @@ import {
   ChevronUp,
   ChevronDown,
 } from 'lucide-react'
+import { canAccessThinkTank } from '@/lib/advisory/access'
 
 interface MenuItem {
   key: string
@@ -29,6 +31,7 @@ interface MenuItem {
   children?: MenuItem[]
   adminOnly?: boolean
   requiresOrganization?: boolean
+  thinkTankOnly?: boolean
 }
 
 const allMenuItems: MenuItem[] = [
@@ -58,6 +61,12 @@ const allMenuItems: MenuItem[] = [
     key: '/radar',
     icon: <Radar className="w-5 h-5" />,
     label: '技术雷达',
+  },
+  {
+    key: '/advisory',
+    icon: <BrainCircuit className="w-5 h-5" />,
+    label: 'ThinkTank',
+    thinkTankOnly: true,
   },
   {
     key: '/reports',
@@ -171,6 +180,7 @@ export default function Sidebar({
   const visibleMenuItems = allMenuItems.filter((item) => {
     if (item.adminOnly && !isAdmin) return false
     if (item.requiresOrganization && !organizationId) return false
+    if (item.thinkTankOnly && !canAccessThinkTank(session?.user?.role)) return false
     return true
   })
 

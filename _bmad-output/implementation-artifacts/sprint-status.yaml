@@ -1,0 +1,100 @@
+# generated: 2026-05-18T21:27:35+08:00
+# last_updated: 2026-05-19T02:43:16+08:00
+# project: Csaas
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: D:\Csaas\_bmad-output\implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog -> in-progress: Automatically when first story is created (via create-story)
+#   - in-progress -> done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: '2026-05-18T21:27:35+08:00'
+last_updated: '2026-05-19T02:43:16+08:00'
+project: Csaas
+project_key: NOKEY
+tracking_system: file-system
+story_location: 'D:\Csaas\_bmad-output\implementation-artifacts'
+
+development_status:
+  epic-1: in-progress
+  1-1-register-thinktank-module-entry: done
+  1-2-tenant-module-enablement-and-role-permissions: backlog
+  1-3-tenant-isolation-foundation: backlog
+  1-4-audit-and-telemetry-event-foundation: backlog
+  1-5-governed-ai-provider-gateway: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog
+  2-1-desktop-advisory-workspace-shell: backlog
+  2-2-advisory-ui-state-and-accessibility-baseline: backlog
+  2-3-theme-density-and-compatibility-baseline: backlog
+  2-4-runtime-file-loading-and-brand-mapping: backlog
+  2-5-workflow-selection-and-launch: backlog
+  2-6-guided-step-conversation-and-decision-controls: backlog
+  2-7-streaming-message-experience: backlog
+  2-8-live-document-drawer-and-ai-labeled-report-draft: backlog
+  2-9-report-viewing-and-export: backlog
+  2-10-prompt-caching-and-cost-aware-workflow-calls: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-quick-consult-problem-intake: backlog
+  3-2-problem-type-detection-and-scenario-language: backlog
+  3-3-method-recommendations-with-rationale: backlog
+  3-4-manual-workflow-and-method-browsing: backlog
+  3-5-recommendation-feedback: backlog
+  3-6-enterprise-background-capture-and-maintenance: backlog
+  3-7-contextual-recommendations-with-csaas-data-fallback: backlog
+  epic-3-retrospective: optional
+
+  epic-4: backlog
+  4-1-automatic-checkpoint-persistence: backlog
+  4-2-resume-interrupted-sessions: backlog
+  4-3-conversation-history-and-search: backlog
+  4-4-report-rating-favorites-and-asset-state: backlog
+  4-5-report-reuse-in-enterprise-knowledge-base: backlog
+  4-6-conversation-context-compression-boundary: backlog
+  4-7-safe-exit-and-destructive-session-actions: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-party-mode-entry-from-workflow: backlog
+  5-2-advisor-persona-loading-and-selection: backlog
+  5-3-serial-expert-discussion-experience: backlog
+  5-4-differentiated-frameworks-and-integrated-conclusion: backlog
+  5-5-party-mode-resource-and-failure-controls: backlog
+  epic-5-retrospective: optional
+
+  epic-6: backlog
+  6-1-usage-and-completion-dashboard: backlog
+  6-2-provider-telemetry-aggregation: backlog
+  6-3-cost-latency-and-failure-dashboard: backlog
+  6-4-feedback-and-output-quality-analysis: backlog
+  6-5-governance-review-from-audit-and-telemetry: backlog
+  epic-6-retrospective: optional

@@ -47,6 +47,7 @@ describe('Sidebar', () => {
     expect(screen.getByText('机构画像')).toBeInTheDocument()
     expect(screen.getByText('适用控制点')).toBeInTheDocument()
     expect(screen.getByText('技术雷达')).toBeInTheDocument()
+    expect(screen.getByText('ThinkTank')).toBeInTheDocument()
     expect(screen.getByText('报告中心')).toBeInTheDocument()
     expect(screen.getByText('团队管理')).toBeInTheDocument()
     expect(screen.getByText('系统管理')).toBeInTheDocument()
@@ -141,6 +142,63 @@ describe('Sidebar', () => {
     fireEvent.click(projectsButton!)
 
     expect(mockPush).toHaveBeenCalledWith('/projects')
+  })
+
+  it.each(['admin', 'consultant', 'client_pm'])(
+    'shows ThinkTank navigation for %s users',
+    (role) => {
+      mockUseSession.mockReturnValue({
+        data: {
+          user: {
+            name: 'Test User',
+            email: 'test@example.com',
+            role,
+            organizationId: 'org-123',
+          },
+        },
+        status: 'authenticated',
+      })
+
+      render(<Sidebar />)
+
+      expect(screen.getByText('ThinkTank')).toBeInTheDocument()
+    },
+  )
+
+  it('hides ThinkTank navigation for respondent users', () => {
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          name: 'Test User',
+          email: 'test@example.com',
+          role: 'respondent',
+          organizationId: 'org-123',
+        },
+      },
+      status: 'authenticated',
+    })
+
+    render(<Sidebar />)
+
+    expect(screen.queryByText('ThinkTank')).not.toBeInTheDocument()
+  })
+
+  it('navigates to the ThinkTank route when the entry is clicked', () => {
+    render(<Sidebar />)
+
+    const thinkTankButton = screen.getByText('ThinkTank').closest('button')
+    fireEvent.click(thinkTankButton!)
+
+    expect(mockPush).toHaveBeenCalledWith('/advisory')
+  })
+
+  it('keeps ThinkTank accessible as a titled icon in collapsed state', () => {
+    render(<Sidebar collapsed={true} />)
+
+    const thinkTankButton = screen.getByTitle('ThinkTank')
+    fireEvent.click(thinkTankButton)
+
+    expect(mockPush).toHaveBeenCalledWith('/advisory')
   })
 
   it('navigates to organization profile using the current organization id', () => {
