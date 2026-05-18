@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "subagent": "atdd-e2e-tests",
+  "story_id": "1.5",
+  "story_title": "Governed AI Provider Gateway",
+  "tests": [],
+  "fixture_needs": [],
+  "knowledge_fragments_used": [
+    "test-quality",
+    "test-levels-framework",
+    "test-priorities-matrix"
+  ],
+  "test_count": 0,
+  "tdd_phase": "RED",
+  "summary": "No E2E RED tests generated because Story 1.5 introduces no browser-visible UI, route, or user journey."
+}

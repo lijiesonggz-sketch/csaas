@@ -1,0 +1,27 @@
+{
+  "tdd_phase": "RED",
+  "story_id": "1.5",
+  "story_title": "Governed AI Provider Gateway",
+  "total_tests": 8,
+  "api_tests": 8,
+  "e2e_tests": 0,
+  "all_tests_skipped": true,
+  "expected_to_fail": true,
+  "fixtures_created": 1,
+  "acceptance_criteria_covered": ["AC1", "AC2", "AC3", "AC4", "AC5"],
+  "knowledge_fragments_used": [
+    "data-factories",
+    "test-quality",
+    "test-levels-framework",
+    "test-priorities-matrix",
+    "test-healing-patterns",
+    "contract-testing"
+  ],
+  "execution": "SEQUENTIAL",
+  "performance_gain": "baseline",
+  "artifacts": [
+    "_bmad-output/test-artifacts/atdd-checklist-1-5.md",
+    "_bmad-output/test-artifacts/atdd-story-1-5-api-red.spec.ts",
+    "_bmad-output/test-artifacts/atdd-story-1-5-fixtures.ts"
+  ]
+}

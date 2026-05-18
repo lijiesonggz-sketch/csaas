@@ -132,4 +132,67 @@ describe('AdvisoryEventService', () => {
       }),
     ).rejects.toThrow(/event kind/i)
   })
+
+  it('persists provider telemetry through the shared event contract without raw content', async () => {
+    await service.emitTelemetry({
+      eventName: 'thinktank.provider.call_completed',
+      tenantId,
+      actorId,
+      subjectType: 'provider_call',
+      subjectId: '990e8400-e29b-41d4-a716-446655440014',
+      outcome: 'success',
+      privacyClassification: 'operational',
+      correlationId,
+      optional: {
+        provider: 'fake',
+        latencyMs: 12,
+        estimatedTokens: 19,
+        estimatedCost: 0,
+      },
+      metadata: {
+        status: 'completed',
+        model: 'fake-thinktank-smoke',
+        inputTokens: 12,
+        outputTokens: 7,
+        totalTokens: 19,
+      },
+    })
+
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: actorId,
+        tenantId,
+        action: AuditAction.READ,
+        entityType: 'ThinkTankProviderTelemetry',
+        entityId: null,
+        details: expect.objectContaining({
+          event_name: 'thinktank.provider.call_completed',
+          event_version: expect.any(Number),
+          tenant_id: tenantId,
+          actor_id: actorId,
+          subject_type: 'provider_call',
+          subject_id: '990e8400-e29b-41d4-a716-446655440014',
+          outcome: 'success',
+          correlation_id: correlationId,
+          privacy_classification: 'operational',
+          provider: 'fake',
+          latency_ms: 12,
+          estimated_tokens: 19,
+          estimated_cost: 0,
+          status: 'completed',
+          model: 'fake-thinktank-smoke',
+          input_tokens: 12,
+          output_tokens: 7,
+          total_tokens: 19,
+        }),
+      }),
+    )
+    const details = auditLogService.log.mock.calls[0][0].details
+    expect(details).not.toHaveProperty('messages')
+    expect(details).not.toHaveProperty('prompt')
+    expect(details).not.toHaveProperty('content')
+    expect(details).not.toHaveProperty('report')
+    expect(details).not.toHaveProperty('document')
+    expect(details).not.toHaveProperty('enterpriseContext')
+  })
 })

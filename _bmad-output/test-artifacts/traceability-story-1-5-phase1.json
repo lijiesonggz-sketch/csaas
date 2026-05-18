@@ -1,0 +1,146 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-19T05:13:37+08:00",
+  "story_id": "1.5",
+  "story_title": "Governed AI Provider Gateway",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "description": "Advisory code calls GLM 5.1 through a shared gateway using Anthropic-compatible messages and feature code cannot directly instantiate the SDK client.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "id": "1.5-UNIT-001",
+          "file": "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.service.spec.ts:81",
+          "level": "Unit/static",
+          "asserts": "Gateway exposes complete/stream and no advisory feature file directly calls new Anthropic outside provider adapters."
+        },
+        {
+          "id": "1.5-CONFIG-002",
+          "file": "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.config.spec.ts:28",
+          "level": "Unit",
+          "asserts": "Explicit GLM config remains behind provider gateway settings."
+        }
+      ]
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "description": "Fake smoke path returns deterministic advisor response and emits completed/failed provider telemetry with provider, latency, status, token/cost metadata, and error category where applicable.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "id": "1.5-SVC-002",
+          "file": "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.service.spec.ts:95",
+          "level": "Service integration",
+          "asserts": "Fake success response is deterministic and emits completed telemetry."
+        },
+        {
+          "id": "1.5-SVC-006",
+          "file": "backend/src/modules/advisory/events/advisory-event.service.spec.ts:136",
+          "level": "Service integration",
+          "asserts": "Provider telemetry persists through shared event contract without raw content."
+        }
+      ]
+    },
+    {
+      "id": "AC3",
+      "priority": "P1",
+      "description": "This story remains infrastructure-only and future user-facing FR coverage stays with workflow, recommendation, and Party Mode stories.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "id": "1.5-UNIT-008",
+          "file": "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.service.spec.ts:278",
+          "level": "Unit/static",
+          "asserts": "AdvisoryModule exports the gateway and does not import future workflow runtime modules."
+        }
+      ]
+    },
+    {
+      "id": "AC4",
+      "priority": "P0",
+      "description": "No-network automated tests use fake streaming/non-streaming responses and assert retry, timeout, latency, token-cost metadata, and call_retried telemetry.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "id": "1.5-SVC-003",
+          "file": "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.service.spec.ts:142",
+          "level": "Service integration",
+          "asserts": "Fake streaming returns deterministic chunks plus token/cost metadata and completed telemetry."
+        },
+        {
+          "id": "1.5-SVC-004",
+          "file": "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.service.spec.ts:176",
+          "level": "Service integration",
+          "asserts": "Retryable provider failures emit call_retried and use injected no-wait sleeper."
+        },
+        {
+          "id": "1.5-CONFIG-001",
+          "file": "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.config.spec.ts:7",
+          "level": "Unit",
+          "asserts": "Test/default execution is fake mode without GLM or Anthropic API keys."
+        }
+      ]
+    },
+    {
+      "id": "AC5",
+      "priority": "P0",
+      "description": "GLM/provider error or timeout returns normalized ThinkTank error shape and emits failed provider telemetry.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "id": "1.5-SVC-005",
+          "file": "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.service.spec.ts:216",
+          "level": "Service integration",
+          "asserts": "Timeout failure normalizes to stable error shape and emits failed telemetry without raw content."
+        },
+        {
+          "id": "1.5-UNIT-006",
+          "file": "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.service.spec.ts:263",
+          "level": "Unit",
+          "asserts": "Invalid requests produce a stable validation error shape."
+        }
+      ]
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 5,
+    "fully_covered": 5,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 4, "covered": 4, "percentage": 100 },
+      "P1": { "total": 1, "covered": 1, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "When Epic 2 adds user-facing provider calls or SSE, add workflow/API/E2E coverage there rather than expanding Story 1.5.",
+      "requirements": ["AC3"]
+    }
+  ]
+}

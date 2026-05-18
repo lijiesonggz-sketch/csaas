@@ -1,0 +1,47 @@
+schema: 1
+story_id: '1.5'
+story_title: Governed AI Provider Gateway
+gate_type: story
+decision: PASS
+decision_mode: deterministic
+decision_date: '2026-05-19T05:13:37+08:00'
+evaluator: leo / TEA Agent
+rationale: >
+  Story 1.5 has 100% P0, 100% P1, and 100% overall acceptance-criteria coverage.
+  Focused provider gateway/advisory event tests, TypeScript, and ORM entity parity pass.
+  Full backend regression still has the previously known unrelated taxonomy-domain-gate failures,
+  which are recorded as residual project risk and not attributed to Story 1.5.
+criteria:
+  p0_coverage_required: 100
+  p0_coverage_actual: 100
+  p0_status: MET
+  p1_coverage_target_pass: 90
+  p1_coverage_minimum: 80
+  p1_coverage_actual: 100
+  p1_status: MET
+  overall_coverage_minimum: 80
+  overall_coverage_actual: 100
+  overall_status: MET
+evidence:
+  traceability: _bmad-output/test-artifacts/traceability-report-story-1-5.md
+  phase1_matrix: _bmad-output/test-artifacts/traceability-story-1-5-phase1.json
+  atdd: _bmad-output/test-artifacts/atdd-checklist-1-5.md
+  code_review: _bmad-output/test-artifacts/code-review-story-1-5.md
+  focused_tests: cd backend && npm run test -- thinktank-provider advisory-event thinktank-event --runInBand
+  focused_tests_result: PASS - 5 suites, 22 tests
+  typescript: cd backend && npx tsc --noEmit
+  typescript_result: PASS
+  orm_parity: cd backend && npm run orm:entities:parity
+  orm_parity_result: PASS
+known_unrelated_failures:
+  - file: backend/src/modules/case-import-orchestrator/services/taxonomy-domain-gate.automation.spec.ts
+    test_id: '[P0][6.5-AUTO-003]'
+  - file: backend/src/modules/case-import-orchestrator/services/taxonomy-domain-gate.automation.spec.ts
+    test_id: '[P0][6.5-AUTO-007]'
+  - file: backend/src/modules/case-import-orchestrator/services/taxonomy-domain-gate.atdd-8-2.spec.ts
+    test_id: '[8.2-SVC-003][P1]'
+residual_risks:
+  - Future Epic 2 user-facing provider workflows still need their own API/UI/SSE coverage.
+next_steps:
+  - Mark Story 1.5 done after post-pipeline status update.
+  - Keep future FR coverage in owning feature stories.
