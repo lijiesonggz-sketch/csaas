@@ -19,6 +19,7 @@ export { AITask, AITaskType, TaskStatus } from './ai-task.entity'
 export { AIGenerationEvent, AIModel } from './ai-generation-event.entity'
 export { AICostTracking } from './ai-cost-tracking.entity'
 export { AuditLog, AuditAction } from './audit-log.entity'
+export { AdvisoryModuleConfig } from './advisory-module-config.entity'
 export {
   AIGenerationResult,
   ReviewStatus,

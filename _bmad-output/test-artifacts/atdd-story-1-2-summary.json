@@ -1,0 +1,17 @@
+{
+  "storyId": "1.2",
+  "storyTitle": "Tenant Module Enablement and Role Permissions",
+  "tddPhase": "RED",
+  "totalTests": 22,
+  "backendTests": 12,
+  "frontendTests": 10,
+  "allTestsSkipped": true,
+  "placeholderAssertions": 0,
+  "generatedFiles": [
+    "_bmad-output/test-artifacts/atdd-story-1-2-fixtures.ts",
+    "_bmad-output/test-artifacts/atdd-story-1-2-backend-red.spec.ts",
+    "_bmad-output/test-artifacts/atdd-story-1-2-frontend-red.spec.ts",
+    "_bmad-output/test-artifacts/atdd-checklist-1-2.md"
+  ],
+  "nextWorkflow": "bmad-dev-story"
+}

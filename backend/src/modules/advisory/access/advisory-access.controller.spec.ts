@@ -6,16 +6,24 @@ import { UserRole } from '../../../database/entities/user.entity'
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { AuditLogService } from '../../audit/audit-log.service'
 import { TenantGuard } from '../../organizations/guards/tenant.guard'
+import { AdvisoryAdminService } from '../admin/advisory-admin.service'
 import { AdvisoryAccessController } from './advisory-access.controller'
 import { AdvisoryAccessService } from './advisory-access.service'
 
 describe('AdvisoryAccessController', () => {
   let controller: AdvisoryAccessController
   let auditLogService: jest.Mocked<Pick<AuditLogService, 'log'>>
+  let advisoryAdminService: jest.Mocked<Pick<AdvisoryAdminService, 'getEffectiveModuleConfig'>>
 
   beforeEach(async () => {
     auditLogService = {
       log: jest.fn().mockResolvedValue(undefined),
+    }
+    advisoryAdminService = {
+      getEffectiveModuleConfig: jest.fn().mockResolvedValue({
+        enabled: true,
+        allowedRoles: [UserRole.ADMIN, UserRole.CONSULTANT, UserRole.CLIENT_PM],
+      }),
     }
 
     const module: TestingModule = await Test.createTestingModule({
@@ -25,6 +33,10 @@ describe('AdvisoryAccessController', () => {
         {
           provide: AuditLogService,
           useValue: auditLogService,
+        },
+        {
+          provide: AdvisoryAdminService,
+          useValue: advisoryAdminService,
         },
       ],
     })
@@ -74,7 +86,7 @@ describe('AdvisoryAccessController', () => {
     )
   })
 
-  it('blocks denied users with a friendly message and emits denied audit', async () => {
+  it('blocks enabled tenants when the user role is not bound and emits denied audit', async () => {
     await expect(
       controller.getAccess(
         {
@@ -110,6 +122,34 @@ describe('AdvisoryAccessController', () => {
           outcome: 'denied',
           module: 'thinktank',
           reason: 'role_not_allowed',
+        }),
+      }),
+    )
+  })
+
+  it('blocks disabled tenants with a distinct disabled-state message', async () => {
+    advisoryAdminService.getEffectiveModuleConfig.mockResolvedValueOnce({
+      enabled: false,
+      allowedRoles: [UserRole.ADMIN],
+    })
+
+    await expect(
+      controller.getAccess(
+        {
+          id: 'user-1',
+          role: UserRole.ADMIN,
+          organizationId: 'org-1',
+        },
+        'tenant-1',
+      ),
+    ).rejects.toThrow('ThinkTank 当前未在本租户启用，请联系管理员开通。')
+
+    expect(auditLogService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: AuditAction.ACCESS_DENIED,
+        details: expect.objectContaining({
+          eventName: 'thinktank.access.denied',
+          reason: 'module_disabled',
         }),
       }),
     )

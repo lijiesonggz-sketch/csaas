@@ -1,0 +1,23 @@
+{
+  "storyId": "1.2",
+  "tdd_phase": "RED",
+  "total_tests": 22,
+  "api_tests": 12,
+  "e2e_tests": 10,
+  "all_tests_skipped": true,
+  "expected_to_fail": true,
+  "fixtures_created": 1,
+  "subagent_execution": "SEQUENTIAL (API -> E2E)",
+  "performance_gain": "baseline (no parallel speedup)",
+  "acceptance_criteria_covered": ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8"],
+  "knowledge_fragments_used": [
+    "api-request",
+    "data-factories",
+    "component-tdd",
+    "selector-resilience",
+    "network-first",
+    "test-quality",
+    "test-levels-framework",
+    "test-priorities-matrix"
+  ]
+}

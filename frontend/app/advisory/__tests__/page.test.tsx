@@ -35,7 +35,7 @@ describe('AdvisoryPage', () => {
       expect(screen.getByRole('heading', { name: 'ThinkTank' })).toBeInTheDocument()
     })
     expect(
-      screen.getByText('ThinkTank 模块已启用入口，完整咨询工作台将在后续版本开放。'),
+      screen.getByText('ThinkTank 模块已启用入口，完整咨询工作台将在后续版本开放。')
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '咨询工作台暂未开放' })).toBeDisabled()
   })
@@ -51,11 +51,29 @@ describe('AdvisoryPage', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
-        '当前账号暂无 ThinkTank 访问权限，请联系管理员开通。',
+        '当前账号暂无 ThinkTank 访问权限，请联系管理员开通。'
       )
     })
     expect(
-      screen.queryByText('ThinkTank 模块已启用入口，完整咨询工作台将在后续版本开放。'),
+      screen.queryByText('ThinkTank 模块已启用入口，完整咨询工作台将在后续版本开放。')
     ).not.toBeInTheDocument()
+  })
+
+  it('renders a clear disabled tenant state', async () => {
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: false,
+      module: 'thinktank',
+      reason: 'module_disabled',
+      message: 'ThinkTank 当前未在本租户启用，请联系管理员开通。',
+    })
+
+    render(<AdvisoryPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'ThinkTank 当前未在本租户启用，请联系管理员开通。'
+      )
+    })
+    expect(screen.queryByText('运行工作流')).not.toBeInTheDocument()
   })
 })

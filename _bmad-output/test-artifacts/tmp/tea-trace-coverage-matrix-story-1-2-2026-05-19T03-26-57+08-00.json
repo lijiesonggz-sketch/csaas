@@ -1,0 +1,82 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-19T03:26:57+08:00",
+  "story_id": "1.2",
+  "story_title": "Tenant Module Enablement and Role Permissions",
+  "source_matrix": "_bmad-output/test-artifacts/traceability-story-1-2-phase1.json",
+  "coverage_statistics": {
+    "total_requirements": 8,
+    "fully_covered": 8,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": {
+        "total": 8,
+        "covered": 8,
+        "percentage": 100
+      },
+      "P1": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P2": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P3": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "requirements": [
+    "AC1",
+    "AC2",
+    "AC3",
+    "AC4",
+    "AC5",
+    "AC6",
+    "AC7",
+    "AC8"
+  ],
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Add stable Playwright E2E coverage once shared authenticated admin fixtures exist.",
+      "requirements": [
+        "AC1",
+        "AC2",
+        "AC4"
+      ],
+      "blocking": false
+    },
+    {
+      "priority": "LOW",
+      "action": "Run bmad-testarch-test-review if the team wants a separate test-quality audit.",
+      "requirements": [],
+      "blocking": false
+    }
+  ]
+}

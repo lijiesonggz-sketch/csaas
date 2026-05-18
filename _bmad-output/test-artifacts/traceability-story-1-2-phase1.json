@@ -1,0 +1,336 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-19T03:26:57+08:00",
+  "story_id": "1.2",
+  "story_title": "Tenant Module Enablement and Role Permissions",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "requirement": "Tenant administrators can enable ThinkTank so authorized tenant users can see and open the module.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/admin/advisory-admin.service.spec.ts:116",
+          "name": "enables ThinkTank and emits thinktank.module.enabled with changed setting details"
+        },
+        {
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/access/advisory-access.service.spec.ts:35",
+          "name": "allows access only when tenant config is enabled and the role is bound"
+        },
+        {
+          "level": "API",
+          "file": "backend/src/modules/advisory/access/advisory-access.controller.spec.ts:56",
+          "name": "returns the authorized ThinkTank access payload and emits opened audit"
+        },
+        {
+          "level": "Component",
+          "file": "frontend/components/layout/__tests__/Sidebar.test.tsx:163",
+          "name": "shows ThinkTank navigation for admin, consultant, and client_pm users"
+        },
+        {
+          "level": "Component",
+          "file": "frontend/components/layout/__tests__/Sidebar.test.tsx:211",
+          "name": "shows ThinkTank navigation for respondent users when tenant config binds the role"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "authz_coverage": "positive and negative paths present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "requirement": "Module configuration screen shows module status, role binding, retention policy, privacy confirmation, and latest audit summary.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/admin/advisory-admin.service.spec.ts:92",
+          "name": "creates a tenant default config as disabled with empty roles and 90-day retention"
+        },
+        {
+          "level": "API",
+          "file": "backend/src/modules/advisory/admin/advisory-admin.controller.spec.ts:46",
+          "name": "wraps GET module config in a ThinkTank-owned data envelope"
+        },
+        {
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/module-config/route.test.ts:44",
+          "name": "forwards GET module config with the request authorization header"
+        },
+        {
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/page.test.tsx:54",
+          "name": "renders module status, role binding, retention, privacy confirmation, and audit summary"
+        },
+        {
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/page.test.tsx:119",
+          "name": "shows an audit-delay fallback when latest audit summary is empty"
+        },
+        {
+          "level": "Unit",
+          "file": "frontend/lib/advisory/admin-config.test.ts:26",
+          "name": "unwraps nested data envelopes when loading module config"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "authz_coverage": "admin route metadata covered",
+        "error_path_coverage": "audit delay and client error message paths present"
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P0",
+      "requirement": "Enabling ThinkTank emits thinktank.module.enabled with actor, tenant, timestamp, and changed setting.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/admin/advisory-admin.service.spec.ts:116",
+          "name": "enables ThinkTank and emits thinktank.module.enabled with changed setting details"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "covered through update service/controller tests",
+        "authz_coverage": "admin-only metadata covered",
+        "error_path_coverage": "not applicable beyond audit strictness"
+      }
+    },
+    {
+      "id": "AC4",
+      "priority": "P0",
+      "requirement": "Disabled tenants receive a clear unavailable message when any tenant user opens ThinkTank.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/access/advisory-access.service.spec.ts:73",
+          "name": "denies disabled tenant config with a distinct disabled message"
+        },
+        {
+          "level": "API",
+          "file": "backend/src/modules/advisory/access/advisory-access.controller.spec.ts:130",
+          "name": "blocks disabled tenants with a distinct disabled-state message"
+        },
+        {
+          "level": "Component",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx:62",
+          "name": "renders a clear disabled tenant state"
+        },
+        {
+          "level": "Component",
+          "file": "frontend/components/layout/__tests__/Sidebar.test.tsx:236",
+          "name": "hides ThinkTank navigation after backend reports the tenant module is disabled"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "authz_coverage": "disabled negative path present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC5",
+      "priority": "P0",
+      "requirement": "Disabled tenants cannot create advisory sessions; this story introduces the reusable availability guard before sessions exist.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/access/advisory-access.service.spec.ts:88",
+          "name": "exposes a reusable disabled-module guard for future session creation paths"
+        },
+        {
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/admin/advisory-admin.service.spec.ts:239",
+          "name": "reports disabled access distinctly from role denial"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "not applicable; reusable service guard only",
+        "authz_coverage": "disabled negative path present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC6",
+      "priority": "P0",
+      "requirement": "Disabling ThinkTank emits thinktank.module.disabled with actor, tenant, timestamp, and changed setting.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/admin/advisory-admin.service.spec.ts:153",
+          "name": "disables ThinkTank and emits thinktank.module.disabled"
+        },
+        {
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/page.test.tsx:96",
+          "name": "requires confirmation before disabling ThinkTank"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "covered through PUT path and service audit tests",
+        "authz_coverage": "admin-only metadata covered",
+        "error_path_coverage": "confirmation flow present"
+      }
+    },
+    {
+      "id": "AC7",
+      "priority": "P0",
+      "requirement": "Role access updates use existing CSAAS RBAC roles and take effect without a separate ThinkTank account model.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/admin/advisory-admin.service.spec.ts:215",
+          "name": "rejects roles outside the existing CSAAS RBAC model"
+        },
+        {
+          "level": "API",
+          "file": "backend/src/modules/advisory/admin/advisory-admin.controller.spec.ts:57",
+          "name": "wraps PUT module config in a data envelope and uses CurrentTenant/CurrentUser"
+        },
+        {
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/access/advisory-access.service.spec.ts:47",
+          "name": "denies users whose role is not bound in the enabled tenant config"
+        },
+        {
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/access/advisory-access.service.spec.ts:63",
+          "name": "denies missing role values with explicit reason"
+        },
+        {
+          "level": "Component",
+          "file": "frontend/components/layout/__tests__/Sidebar.test.tsx:184",
+          "name": "hides ThinkTank navigation for respondent users when backend denies tenant access"
+        },
+        {
+          "level": "Component",
+          "file": "frontend/components/layout/__tests__/Sidebar.test.tsx:211",
+          "name": "shows ThinkTank navigation for respondent users when tenant config binds the role"
+        },
+        {
+          "level": "Unit",
+          "file": "frontend/lib/advisory/access.test.ts:35",
+          "name": "treats every CSAAS role as a backend-check candidate"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "authz_coverage": "positive and negative role paths present",
+        "error_path_coverage": "invalid role and missing role paths present"
+      }
+    },
+    {
+      "id": "AC8",
+      "priority": "P0",
+      "requirement": "Role binding changes emit thinktank.role_access.updated.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/admin/advisory-admin.service.spec.ts:184",
+          "name": "emits thinktank.role_access.updated when allowedRoles changes"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "covered through update service/controller tests",
+        "authz_coverage": "admin-only metadata covered",
+        "error_path_coverage": "role diff path present"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 8,
+    "fully_covered": 8,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": {
+        "total": 8,
+        "covered": 8,
+        "percentage": 100
+      },
+      "P1": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P2": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P3": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      }
+    },
+    "test_level_summary": {
+      "Unit": 14,
+      "API": 5,
+      "Component": 9,
+      "E2E": 0
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    },
+    "endpoint_inventory": [
+      {
+        "endpoint": "GET /advisory/access",
+        "status": "covered",
+        "evidence": "backend controller tests and frontend access client tests"
+      },
+      {
+        "endpoint": "GET /advisory/admin/module-config",
+        "status": "covered",
+        "evidence": "backend admin controller tests and frontend proxy route tests"
+      },
+      {
+        "endpoint": "PUT /advisory/admin/module-config",
+        "status": "covered",
+        "evidence": "backend admin controller tests, service audit tests, frontend proxy route tests, and admin page save tests"
+      }
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Add stable Playwright E2E coverage once shared authenticated admin fixtures exist.",
+      "requirements": ["AC1", "AC2", "AC4"],
+      "blocking": false
+    },
+    {
+      "priority": "LOW",
+      "action": "Run bmad-testarch-test-review if the team wants a separate test-quality audit.",
+      "requirements": [],
+      "blocking": false
+    }
+  ]
+}

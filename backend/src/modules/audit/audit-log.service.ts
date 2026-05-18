@@ -136,6 +136,22 @@ export class AuditLogService {
     })
   }
 
+  async findRecentByEventNames(
+    tenantId: string,
+    eventNames: string[],
+    limit: number = 5,
+  ): Promise<AuditLog[]> {
+    if (!eventNames.length) return []
+
+    return this.auditLogRepository
+      .createQueryBuilder('audit')
+      .where('audit.tenantId = :tenantId', { tenantId })
+      .andWhere("audit.details ->> 'eventName' IN (:...eventNames)", { eventNames })
+      .orderBy('audit.createdAt', 'DESC')
+      .take(Math.min(Math.max(limit, 1), 20))
+      .getMany()
+  }
+
   async findTaxonomyRolloutReports(
     query: FindTaxonomyRolloutReportsQuery,
   ): Promise<TaxonomyRolloutReportHistoryResult> {

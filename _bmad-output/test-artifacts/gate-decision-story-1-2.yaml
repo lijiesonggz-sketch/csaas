@@ -1,0 +1,36 @@
+story_id: '1.2'
+story_title: Tenant Module Enablement and Role Permissions
+decision: PASS
+decision_date: '2026-05-19T03:26:57+08:00'
+rationale: >-
+  P0 coverage is 100%, no P1 requirements are present, and overall coverage is
+  100%. Endpoint, auth/authz, and error-path heuristics report zero blocking gaps.
+gate_criteria:
+  p0_coverage_required: 100%
+  p0_coverage_actual: 100%
+  p0_status: MET
+  p1_coverage_target_pass: 90%
+  p1_coverage_minimum: 80%
+  p1_coverage_actual: N/A effective 100%
+  p1_status: MET
+  overall_coverage_minimum: 80%
+  overall_coverage_actual: 100%
+  overall_status: MET
+coverage:
+  total_requirements: 8
+  fully_covered: 8
+  partially_covered: 0
+  uncovered: 0
+  critical_gaps: 0
+  high_gaps: 0
+heuristics:
+  endpoints_without_tests: 0
+  auth_missing_negative_paths: 0
+  happy_path_only_criteria: 0
+non_blocking_followups:
+  - Add stable Playwright E2E coverage once shared authenticated admin fixtures exist.
+  - Optionally run bmad-testarch-test-review for an independent test-quality audit.
+artifacts:
+  traceability_report: _bmad-output/test-artifacts/traceability-report-story-1-2.md
+  phase1_matrix: _bmad-output/test-artifacts/traceability-story-1-2-phase1.json
+  code_review: _bmad-output/test-artifacts/code-review-story-1-2.md

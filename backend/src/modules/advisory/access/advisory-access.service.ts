@@ -2,15 +2,15 @@ import { Injectable } from '@nestjs/common'
 import { AuditAction } from '../../../database/entities/audit-log.entity'
 import { UserRole } from '../../../database/entities/user.entity'
 import { AuditLogService } from '../../audit/audit-log.service'
+import {
+  AdvisoryAdminService,
+  THINKTANK_MODULE_DISABLED_MESSAGE,
+  THINKTANK_MODULE_KEY,
+} from '../admin/advisory-admin.service'
+export { THINKTANK_MODULE_KEY } from '../admin/advisory-admin.service'
 
-export const THINKTANK_MODULE_KEY = 'thinktank'
 export const THINKTANK_ACCESS_ENTITY_TYPE = 'ThinkTankAccess'
-
-const THINKTANK_ALLOWED_ROLES = new Set<string>([
-  UserRole.ADMIN,
-  UserRole.CONSULTANT,
-  UserRole.CLIENT_PM,
-])
+export const THINKTANK_ACCESS_DENIED_MESSAGE = '当前账号暂无 ThinkTank 访问权限，请联系管理员开通。'
 
 export interface AdvisoryAccessUser {
   id: string
@@ -25,16 +25,66 @@ interface AdvisoryAccessAuditContext {
   reason?: string
 }
 
+export interface AdvisoryAccessEvaluation {
+  allowed: boolean
+  reason?: 'module_disabled' | 'role_not_allowed' | 'missing_role'
+  message?: string
+}
+
 @Injectable()
 export class AdvisoryAccessService {
-  constructor(private readonly auditLogService: AuditLogService) {}
+  constructor(
+    private readonly auditLogService: AuditLogService,
+    private readonly advisoryAdminService: AdvisoryAdminService,
+  ) {}
 
-  canAccessThinkTank(user: Partial<AdvisoryAccessUser> | null | undefined): boolean {
-    return typeof user?.role === 'string' && THINKTANK_ALLOWED_ROLES.has(user.role)
+  async evaluateAccess(
+    user: Partial<AdvisoryAccessUser> | null | undefined,
+    tenantId: string,
+  ): Promise<AdvisoryAccessEvaluation> {
+    const config = await this.advisoryAdminService.getEffectiveModuleConfig(tenantId)
+
+    if (!config.enabled) {
+      return {
+        allowed: false,
+        reason: 'module_disabled',
+        message: THINKTANK_MODULE_DISABLED_MESSAGE,
+      }
+    }
+
+    const role = typeof user?.role === 'string' ? user.role : null
+    if (!role) {
+      return {
+        allowed: false,
+        reason: 'missing_role',
+        message: THINKTANK_ACCESS_DENIED_MESSAGE,
+      }
+    }
+
+    if (!config.allowedRoles.includes(role as UserRole)) {
+      return {
+        allowed: false,
+        reason: 'role_not_allowed',
+        message: THINKTANK_ACCESS_DENIED_MESSAGE,
+      }
+    }
+
+    return { allowed: true }
+  }
+
+  canAccessThinkTank(
+    user: Partial<AdvisoryAccessUser> | null | undefined,
+    allowedRoles: UserRole[] = [],
+  ): boolean {
+    return typeof user?.role === 'string' && allowedRoles.includes(user.role as UserRole)
   }
 
   getDeniedReason(user: Partial<AdvisoryAccessUser> | null | undefined): string {
     return user?.role ? 'role_not_allowed' : 'missing_role'
+  }
+
+  async assertThinkTankModuleAvailable(user: AdvisoryAccessUser, tenantId: string): Promise<void> {
+    await this.advisoryAdminService.assertThinkTankModuleAvailable(user, tenantId)
   }
 
   async recordAccessOpened(context: AdvisoryAccessAuditContext): Promise<void> {

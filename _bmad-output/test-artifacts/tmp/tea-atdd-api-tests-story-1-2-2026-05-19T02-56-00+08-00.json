@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "subagent": "atdd-api-tests",
+  "storyId": "1.2",
+  "tests": [
+    {
+      "file": "_bmad-output/test-artifacts/atdd-story-1-2-backend-red.spec.ts",
+      "description": "ATDD backend/API tests for ThinkTank tenant module config, access policy, audit, tenant scoping, and migration boundaries.",
+      "expected_to_fail": true,
+      "acceptance_criteria_covered": ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8"],
+      "priority_coverage": { "P0": 10, "P1": 2, "P2": 0, "P3": 0 }
+    }
+  ],
+  "fixture_needs": ["advisoryModuleConfigFixture", "tenantAdminUserFixture", "auditLogFixture"],
+  "knowledge_fragments_used": ["api-request", "data-factories", "test-quality", "test-levels-framework", "test-priorities-matrix"],
+  "test_count": 12,
+  "tdd_phase": "RED",
+  "provider_scrutiny": "completed",
+  "summary": "Generated 12 skipped RED backend/API intent tests for Story 1.2."
+}

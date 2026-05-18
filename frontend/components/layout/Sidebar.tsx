@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import {
@@ -22,7 +22,7 @@ import {
   ChevronUp,
   ChevronDown,
 } from 'lucide-react'
-import { canAccessThinkTank } from '@/lib/advisory/access'
+import { canAccessThinkTank, fetchThinkTankAccess } from '@/lib/advisory/access'
 
 interface MenuItem {
   key: string
@@ -84,6 +84,11 @@ const allMenuItems: MenuItem[] = [
     label: '系统管理',
     adminOnly: true,
     children: [
+      {
+        key: '/admin/advisory',
+        icon: <BrainCircuit className="w-4 h-4" />,
+        label: 'ThinkTank 配置',
+      },
       {
         key: '/admin/dashboard',
         icon: <LayoutDashboard className="w-4 h-4" />,
@@ -174,13 +179,42 @@ export default function Sidebar({
   const router = useRouter()
   const { data: session } = useSession()
   const [expandedKeys, setExpandedKeys] = useState<string[]>([])
+  const [thinkTankAccessAllowed, setThinkTankAccessAllowed] = useState<boolean | null>(null)
   const organizationId = session?.user?.organizationId
+  const userRole = session?.user?.role
 
   const isAdmin = session?.user?.role === 'admin'
+
+  useEffect(() => {
+    let active = true
+
+    if (!canAccessThinkTank(userRole)) {
+      setThinkTankAccessAllowed(false)
+      return () => {
+        active = false
+      }
+    }
+
+    setThinkTankAccessAllowed(null)
+    fetchThinkTankAccess()
+      .then((access) => {
+        if (active) setThinkTankAccessAllowed(access.allowed)
+      })
+      .catch(() => {
+        if (active) setThinkTankAccessAllowed(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [userRole])
+
   const visibleMenuItems = allMenuItems.filter((item) => {
     if (item.adminOnly && !isAdmin) return false
     if (item.requiresOrganization && !organizationId) return false
-    if (item.thinkTankOnly && !canAccessThinkTank(session?.user?.role)) return false
+    if (item.thinkTankOnly && (!canAccessThinkTank(userRole) || thinkTankAccessAllowed === false)) {
+      return false
+    }
     return true
   })
 

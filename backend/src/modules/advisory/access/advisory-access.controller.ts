@@ -6,11 +6,9 @@ import { TenantGuard } from '../../organizations/guards/tenant.guard'
 import {
   AdvisoryAccessService,
   AdvisoryAccessUser,
+  THINKTANK_ACCESS_DENIED_MESSAGE,
   THINKTANK_MODULE_KEY,
 } from './advisory-access.service'
-
-export const THINKTANK_ACCESS_DENIED_MESSAGE =
-  '当前账号暂无 ThinkTank 访问权限，请联系管理员开通。'
 
 @Controller('advisory')
 @UseGuards(JwtAuthGuard, TenantGuard)
@@ -19,7 +17,9 @@ export class AdvisoryAccessController {
 
   @Get('access')
   async getAccess(@CurrentUser() user: AdvisoryAccessUser, @CurrentTenant() tenantId: string) {
-    if (this.advisoryAccessService.canAccessThinkTank(user)) {
+    const evaluation = await this.advisoryAccessService.evaluateAccess(user, tenantId)
+
+    if (evaluation.allowed) {
       await this.advisoryAccessService.recordAccessOpened({
         user,
         tenantId,
@@ -36,9 +36,9 @@ export class AdvisoryAccessController {
     await this.advisoryAccessService.recordAccessDenied({
       user,
       tenantId,
-      reason: this.advisoryAccessService.getDeniedReason(user),
+      reason: evaluation.reason ?? this.advisoryAccessService.getDeniedReason(user),
     })
 
-    throw new ForbiddenException(THINKTANK_ACCESS_DENIED_MESSAGE)
+    throw new ForbiddenException(evaluation.message ?? THINKTANK_ACCESS_DENIED_MESSAGE)
   }
 }

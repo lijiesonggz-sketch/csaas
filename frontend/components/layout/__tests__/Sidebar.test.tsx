@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { useSession } from 'next-auth/react'
 import Sidebar from '../Sidebar'
+import { fetchThinkTankAccess } from '@/lib/advisory/access'
 
 const mockPush = jest.fn()
 
@@ -17,11 +18,25 @@ jest.mock('next-auth/react', () => ({
   useSession: jest.fn(),
 }))
 
+jest.mock('@/lib/advisory/access', () => ({
+  canAccessThinkTank: jest.fn((role?: string | null) =>
+    ['admin', 'consultant', 'client_pm', 'respondent'].includes(role ?? '')
+  ),
+  fetchThinkTankAccess: jest.fn(),
+}))
+
 describe('Sidebar', () => {
   const mockUseSession = useSession as jest.Mock
+  const mockFetchThinkTankAccess = fetchThinkTankAccess as jest.MockedFunction<
+    typeof fetchThinkTankAccess
+  >
 
   beforeEach(() => {
     mockPush.mockReset()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
     mockUseSession.mockReturnValue({
       data: {
         user: {
@@ -91,6 +106,7 @@ describe('Sidebar', () => {
       expect(screen.getByText('同业爬虫管理')).toBeInTheDocument()
       expect(screen.getByText('爬虫健康监控')).toBeInTheDocument()
       expect(screen.getByText('分类体系发布')).toBeInTheDocument()
+      expect(screen.getByText('ThinkTank 配置')).toBeInTheDocument()
     })
   })
 
@@ -162,10 +178,16 @@ describe('Sidebar', () => {
       render(<Sidebar />)
 
       expect(screen.getByText('ThinkTank')).toBeInTheDocument()
-    },
+    }
   )
 
-  it('hides ThinkTank navigation for respondent users', () => {
+  it('hides ThinkTank navigation for respondent users when backend denies tenant access', async () => {
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: false,
+      module: 'thinktank',
+      reason: 'role_not_allowed',
+      message: '当前账号暂无 ThinkTank 访问权限，请联系管理员开通。',
+    })
     mockUseSession.mockReturnValue({
       data: {
         user: {
@@ -180,7 +202,49 @@ describe('Sidebar', () => {
 
     render(<Sidebar />)
 
-    expect(screen.queryByText('ThinkTank')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByText('ThinkTank')).not.toBeInTheDocument()
+    })
+    expect(mockFetchThinkTankAccess).toHaveBeenCalled()
+  })
+
+  it('shows ThinkTank navigation for respondent users when tenant config binds the role', async () => {
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          name: 'Test User',
+          email: 'test@example.com',
+          role: 'respondent',
+          organizationId: 'org-123',
+        },
+      },
+      status: 'authenticated',
+    })
+
+    render(<Sidebar />)
+
+    await waitFor(() => {
+      expect(screen.getByText('ThinkTank')).toBeInTheDocument()
+    })
+    expect(mockFetchThinkTankAccess).toHaveBeenCalled()
+  })
+
+  it('hides ThinkTank navigation after backend reports the tenant module is disabled', async () => {
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: false,
+      module: 'thinktank',
+      message: 'ThinkTank 当前未在本租户启用，请联系管理员开通。',
+    })
+
+    render(<Sidebar />)
+
+    await waitFor(() => {
+      expect(screen.queryByText('ThinkTank')).not.toBeInTheDocument()
+    })
   })
 
   it('navigates to the ThinkTank route when the entry is clicked', () => {
@@ -343,6 +407,18 @@ describe('Sidebar', () => {
     fireEvent.click(childButton!)
 
     expect(mockPush).toHaveBeenCalledWith('/admin/dashboard')
+  })
+
+  it('navigates to ThinkTank 配置 from the admin submenu', async () => {
+    render(<Sidebar />)
+
+    fireEvent.click(screen.getByText('系统管理').closest('button')!)
+
+    const childItem = screen.getByText('ThinkTank 配置')
+    const childButton = childItem.closest('button')
+    fireEvent.click(childButton!)
+
+    expect(mockPush).toHaveBeenCalledWith('/admin/advisory')
   })
 
   it('navigates to obligation coverage analysis from the admin submenu', async () => {
