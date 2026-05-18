@@ -1,4 +1,4 @@
-import { Repository, FindManyOptions, FindOneOptions, DeepPartial } from 'typeorm'
+import { DeepPartial, FindManyOptions, FindOneOptions, FindOptionsWhere, Repository } from 'typeorm'
 import { TenantEntity } from '../interfaces/tenant-entity.interface'
 
 /**
@@ -28,6 +28,45 @@ import { TenantEntity } from '../interfaces/tenant-entity.interface'
 export abstract class BaseRepository<T extends TenantEntity> {
   constructor(protected readonly repository: Repository<T>) {}
 
+  protected addTenantFilter(
+    tenantId: string,
+    where?: FindOptionsWhere<T> | FindOptionsWhere<T>[],
+    requiredWhere?: FindOptionsWhere<T>,
+  ): FindOptionsWhere<T> | FindOptionsWhere<T>[] {
+    const applyTenantScope = (branch?: FindOptionsWhere<T>): FindOptionsWhere<T> =>
+      ({
+        ...((branch ?? {}) as object),
+        ...((requiredWhere ?? {}) as object),
+        tenantId,
+      }) as FindOptionsWhere<T>
+
+    if (Array.isArray(where)) {
+      if (where.length === 0) {
+        return applyTenantScope()
+      }
+
+      return where.map((branch) => applyTenantScope(branch))
+    }
+
+    return applyTenantScope(where)
+  }
+
+  protected stripTenantId(data: DeepPartial<T>): DeepPartial<T> {
+    const { tenantId: _ignoredTenantId, ...safeData } = (data ?? {}) as Record<string, unknown>
+    return safeData as DeepPartial<T>
+  }
+
+  protected async findOneWhere(
+    tenantId: string,
+    where: FindOptionsWhere<T>,
+    options?: FindOneOptions<T>,
+  ): Promise<T | null> {
+    return this.repository.findOne({
+      ...options,
+      where: this.addTenantFilter(tenantId, where) as any,
+    })
+  }
+
   /**
    * Find all entities for a tenant
    *
@@ -38,10 +77,7 @@ export abstract class BaseRepository<T extends TenantEntity> {
   async findAll(tenantId: string, options?: FindManyOptions<T>): Promise<T[]> {
     return this.repository.find({
       ...options,
-      where: {
-        ...((options?.where as object) || {}),
-        tenantId,
-      } as any,
+      where: this.addTenantFilter(tenantId, options?.where as any) as any,
     })
   }
 
@@ -53,18 +89,14 @@ export abstract class BaseRepository<T extends TenantEntity> {
    * @param options - Additional TypeORM find options
    * @returns Entity if found, null otherwise
    */
-  async findOne(
-    tenantId: string,
-    id: string,
-    options?: FindOneOptions<T>,
-  ): Promise<T | null> {
+  async findOne(tenantId: string, id: string, options?: FindOneOptions<T>): Promise<T | null> {
     return this.repository.findOne({
       ...options,
-      where: {
-        ...((options?.where as object) || {}),
-        id,
+      where: this.addTenantFilter(
         tenantId,
-      } as any,
+        options?.where as any,
+        { id } as FindOptionsWhere<T>,
+      ) as any,
     })
   }
 
@@ -77,7 +109,7 @@ export abstract class BaseRepository<T extends TenantEntity> {
    */
   async create(tenantId: string, data: DeepPartial<T>): Promise<T> {
     const entity = this.repository.create({
-      ...data,
+      ...this.stripTenantId(data),
       tenantId,
     } as any)
     const saved = await this.repository.save(entity as any)
@@ -93,10 +125,12 @@ export abstract class BaseRepository<T extends TenantEntity> {
    * @returns Updated entity, or null if not found
    */
   async update(tenantId: string, id: string, data: DeepPartial<T>): Promise<T | null> {
-    await this.repository.update(
-      { id, tenantId } as any,
-      data as any,
-    )
+    const safeData = this.stripTenantId(data)
+
+    if (Object.keys(safeData as object).length > 0) {
+      await this.repository.update({ id, tenantId } as any, safeData as any)
+    }
+
     return this.findOne(tenantId, id)
   }
 
@@ -120,10 +154,7 @@ export abstract class BaseRepository<T extends TenantEntity> {
   async count(tenantId: string, options?: FindManyOptions<T>): Promise<number> {
     return this.repository.count({
       ...options,
-      where: {
-        ...((options?.where as object) || {}),
-        tenantId,
-      } as any,
+      where: this.addTenantFilter(tenantId, options?.where as any) as any,
     })
   }
 }

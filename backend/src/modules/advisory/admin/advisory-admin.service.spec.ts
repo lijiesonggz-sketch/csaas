@@ -1,9 +1,9 @@
 import { BadRequestException } from '@nestjs/common'
-import { Repository } from 'typeorm'
 import { AuditAction, AuditLog } from '../../../database/entities/audit-log.entity'
 import { AdvisoryModuleConfig } from '../../../database/entities/advisory-module-config.entity'
 import { UserRole } from '../../../database/entities/user.entity'
 import { AuditLogService } from '../../audit/audit-log.service'
+import { AdvisoryModuleConfigRepository } from './advisory-module-config.repository'
 import {
   AdvisoryAdminService,
   THINKTANK_MODULE_CONFIG_ENTITY_TYPE,
@@ -38,53 +38,68 @@ function createConfig(overrides: Partial<AdvisoryModuleConfig> = {}): AdvisoryMo
   }
 }
 
-function createRepository(seed: AdvisoryModuleConfig[] = []) {
+function createConfigRepository(seed: AdvisoryModuleConfig[] = []) {
   const records = [...seed]
 
   return {
-    findOne: jest.fn(async ({ where }: { where: { tenantId: string; moduleKey: string } }) => {
+    findByModuleKey: jest.fn(async (scopedTenantId: string, moduleKey: string) => {
       return (
         records.find(
-          (record) => record.tenantId === where.tenantId && record.moduleKey === where.moduleKey,
+          (record) => record.tenantId === scopedTenantId && record.moduleKey === moduleKey,
         ) ?? null
       )
     }),
-    create: jest.fn((input: Partial<AdvisoryModuleConfig>) => createConfig(input)),
-    save: jest.fn(async (input: AdvisoryModuleConfig) => {
-      const index = records.findIndex(
-        (record) => record.tenantId === input.tenantId && record.moduleKey === input.moduleKey,
-      )
-      const saved = {
-        ...input,
-        id: input.id ?? `config-${records.length + 1}`,
-        updatedAt: new Date('2026-05-19T00:01:00.000Z'),
-      }
-
-      if (index >= 0) {
-        records[index] = saved
-      } else {
+    createForTenant: jest.fn(
+      async (scopedTenantId: string, input: Partial<AdvisoryModuleConfig>) => {
+        const saved = createConfig({
+          ...input,
+          id: input.id ?? `config-${records.length + 1}`,
+          tenantId: scopedTenantId,
+          updatedAt: new Date('2026-05-19T00:01:00.000Z'),
+        })
         records.push(saved)
-      }
 
-      return saved
-    }),
+        return saved
+      },
+    ),
+    updateForTenant: jest.fn(
+      async (scopedTenantId: string, id: string, input: Partial<AdvisoryModuleConfig>) => {
+        const index = records.findIndex(
+          (record) => record.tenantId === scopedTenantId && record.id === id,
+        )
+
+        if (index < 0) return null
+
+        const saved = {
+          ...records[index],
+          ...input,
+          id,
+          tenantId: scopedTenantId,
+          updatedAt: new Date('2026-05-19T00:01:00.000Z'),
+        }
+
+        records[index] = saved
+
+        return saved
+      },
+    ),
     records,
   }
 }
 
 describe('AdvisoryAdminService', () => {
-  let repository: ReturnType<typeof createRepository>
+  let repository: ReturnType<typeof createConfigRepository>
   let auditLogService: jest.Mocked<Pick<AuditLogService, 'logStrict' | 'findRecentByEventNames'>>
   let service: AdvisoryAdminService
 
   beforeEach(() => {
-    repository = createRepository()
+    repository = createConfigRepository()
     auditLogService = {
       logStrict: jest.fn().mockResolvedValue({ id: 'audit-1' } as AuditLog),
       findRecentByEventNames: jest.fn().mockResolvedValue([]),
     }
     service = new AdvisoryAdminService(
-      repository as unknown as Repository<AdvisoryModuleConfig>,
+      repository as unknown as AdvisoryModuleConfigRepository,
       auditLogService as unknown as AuditLogService,
     )
   })
@@ -102,9 +117,9 @@ describe('AdvisoryAdminService', () => {
       privacyConfirmedBy: null,
       latestAuditSummary: [],
     })
-    expect(repository.save).toHaveBeenCalledWith(
+    expect(repository.createForTenant).toHaveBeenCalledWith(
+      tenantId,
       expect.objectContaining({
-        tenantId,
         moduleKey: THINKTANK_MODULE_KEY,
         enabled: false,
         allowedRoles: [],
@@ -114,9 +129,9 @@ describe('AdvisoryAdminService', () => {
   })
 
   it('enables ThinkTank and emits thinktank.module.enabled with changed setting details', async () => {
-    repository = createRepository([createConfig({ enabled: false, allowedRoles: [] })])
+    repository = createConfigRepository([createConfig({ enabled: false, allowedRoles: [] })])
     service = new AdvisoryAdminService(
-      repository as unknown as Repository<AdvisoryModuleConfig>,
+      repository as unknown as AdvisoryModuleConfigRepository,
       auditLogService as unknown as AuditLogService,
     )
 
@@ -151,14 +166,14 @@ describe('AdvisoryAdminService', () => {
   })
 
   it('disables ThinkTank and emits thinktank.module.disabled', async () => {
-    repository = createRepository([
+    repository = createConfigRepository([
       createConfig({
         enabled: true,
         allowedRoles: [UserRole.ADMIN],
       }),
     ])
     service = new AdvisoryAdminService(
-      repository as unknown as Repository<AdvisoryModuleConfig>,
+      repository as unknown as AdvisoryModuleConfigRepository,
       auditLogService as unknown as AuditLogService,
     )
 
@@ -182,14 +197,14 @@ describe('AdvisoryAdminService', () => {
   })
 
   it('emits thinktank.role_access.updated when allowedRoles changes', async () => {
-    repository = createRepository([
+    repository = createConfigRepository([
       createConfig({
         enabled: true,
         allowedRoles: [UserRole.ADMIN],
       }),
     ])
     service = new AdvisoryAdminService(
-      repository as unknown as Repository<AdvisoryModuleConfig>,
+      repository as unknown as AdvisoryModuleConfigRepository,
       auditLogService as unknown as AuditLogService,
     )
 
@@ -223,7 +238,36 @@ describe('AdvisoryAdminService', () => {
     ).rejects.toThrow(BadRequestException)
   })
 
+  it('does not expose another tenant enabled module config through effective access lookup', async () => {
+    repository = createConfigRepository([
+      createConfig({
+        id: 'other-tenant-config',
+        tenantId: secondaryTenantId,
+        enabled: true,
+        allowedRoles: [UserRole.ADMIN],
+      }),
+    ])
+    service = new AdvisoryAdminService(
+      repository as unknown as AdvisoryModuleConfigRepository,
+      auditLogService as unknown as AuditLogService,
+    )
+
+    const response = await service.getEffectiveModuleConfig(tenantId)
+
+    expect(response).toEqual({
+      enabled: false,
+      allowedRoles: [],
+    })
+    expect(repository.findByModuleKey).toHaveBeenCalledWith(tenantId, THINKTANK_MODULE_KEY)
+  })
+
   it('ignores tenant id supplied in update payload and persists only CurrentTenant scope', async () => {
+    repository = createConfigRepository([createConfig({ enabled: false })])
+    service = new AdvisoryAdminService(
+      repository as unknown as AdvisoryModuleConfigRepository,
+      auditLogService as unknown as AuditLogService,
+    )
+
     const response = await service.updateModuleConfig(tenantId, adminUser, {
       tenantId: secondaryTenantId,
       enabled: true,
@@ -234,12 +278,44 @@ describe('AdvisoryAdminService', () => {
 
     expect(response.tenantId).toBe(tenantId)
     expect(response.tenantId).not.toBe(secondaryTenantId)
+    expect(repository.updateForTenant).toHaveBeenCalledWith(
+      tenantId,
+      '550e8400-e29b-41d4-a716-446655440000',
+      expect.not.objectContaining({ tenantId: secondaryTenantId }),
+    )
+  })
+
+  it('does not read or overwrite another tenant advisory_module_configs row', async () => {
+    repository = createConfigRepository([
+      createConfig({
+        id: 'other-tenant-config',
+        tenantId: secondaryTenantId,
+        enabled: false,
+      }),
+    ])
+    service = new AdvisoryAdminService(
+      repository as unknown as AdvisoryModuleConfigRepository,
+      auditLogService as unknown as AuditLogService,
+    )
+
+    const response = await service.updateModuleConfig(tenantId, adminUser, {
+      enabled: true,
+      allowedRoles: [UserRole.ADMIN],
+      dataRetentionDays: 90,
+      privacyConfirmed: true,
+    })
+
+    expect(response.tenantId).toBe(tenantId)
+    expect(repository.records.find((record) => record.id === 'other-tenant-config')).toMatchObject({
+      tenantId: secondaryTenantId,
+      enabled: false,
+    })
   })
 
   it('reports disabled access distinctly from role denial', async () => {
-    repository = createRepository([createConfig({ enabled: false })])
+    repository = createConfigRepository([createConfig({ enabled: false })])
     service = new AdvisoryAdminService(
-      repository as unknown as Repository<AdvisoryModuleConfig>,
+      repository as unknown as AdvisoryModuleConfigRepository,
       auditLogService as unknown as AuditLogService,
     )
 

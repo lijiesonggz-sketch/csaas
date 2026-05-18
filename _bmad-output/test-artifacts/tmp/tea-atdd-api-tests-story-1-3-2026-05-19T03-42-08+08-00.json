@@ -1,0 +1,37 @@
+{
+  "success": true,
+  "subagent": "atdd-api-tests",
+  "tests": [
+    {
+      "file": "_bmad-output/test-artifacts/atdd-story-1-3-backend-red.spec.ts",
+      "content": "import { Repository } from 'typeorm'\nimport { BaseRepository } from '../../backend/src/database/repositories/base.repository'\nimport { TenantEntity } from '../../backend/src/database/interfaces/tenant-entity.interface'\n\ntype MockRepository<T> = jest.Mocked<Pick<Repository<T>, 'find' | 'findOne' | 'create' | 'save' | 'update' | 'delete' | 'count'>>\n\ninterface TestTenantRecord extends TenantEntity {\n  name: string\n  status?: string\n}\n\nclass TestTenantRepository extends BaseRepository<TestTenantRecord> {\n  constructor(repository: Repository<TestTenantRecord>) {\n    super(repository)\n  }\n}\n\ndescribe('Story 1.3 ATDD RED - shared tenant repository contract', () => {\n  let repository: MockRepository<TestTenantRecord>\n  let tenantRepository: TestTenantRepository\n\n  beforeEach(() => {\n    repository = {\n      find: jest.fn(),\n      findOne: jest.fn(),\n      create: jest.fn((input) => input as TestTenantRecord),\n      save: jest.fn(async (input) => input as TestTenantRecord),\n      update: jest.fn(async () => ({ affected: 1 } as never)),\n      delete: jest.fn(async () => ({ affected: 1 } as never)),\n      count: jest.fn(),\n    }\n    tenantRepository = new TestTenantRepository(repository as unknown as Repository<TestTenantRecord>)\n  })\n\n  test.skip('[P0] create overwrites caller-supplied tenantId with the scoped tenant', async () => {\n    await tenantRepository.create('tenant-a', {\n      tenantId: 'tenant-b',\n      name: 'malicious create attempt',\n    } as never)\n\n    expect(repository.create).toHaveBeenCalledWith({\n      tenantId: 'tenant-a',\n      name: 'malicious create attempt',\n    })\n  })\n\n  test.skip('[P0] update strips caller-supplied tenantId before mutation', async () => {\n    repository.findOne.mockResolvedValue({ id: 'record-1', tenantId: 'tenant-a', name: 'updated' })\n\n    await tenantRepository.update('tenant-a', 'record-1', {\n      tenantId: 'tenant-b',\n      name: 'updated',\n    } as never)\n\n    expect(repository.update).toHaveBeenCalledWith(\n      { id: 'record-1', tenantId: 'tenant-a' },\n      { name: 'updated' },\n    )\n  })\n\n  test.skip('[P0] findAll injects tenantId into every OR-where branch', async () => {\n    repository.find.mockResolvedValue([])\n\n    await tenantRepository.findAll('tenant-a', {\n      where: [{ status: 'active' }, { name: 'draft' }] as never,\n    })\n\n    expect(repository.find).toHaveBeenCalledWith({\n      where: [\n        { status: 'active', tenantId: 'tenant-a' },\n        { name: 'draft', tenantId: 'tenant-a' },\n      ],\n    })\n  })\n\n  test.skip('[P0] update and delete are scoped by id plus tenantId', async () => {\n    repository.findOne.mockResolvedValue({ id: 'record-1', tenantId: 'tenant-a', name: 'scoped' })\n\n    await tenantRepository.update('tenant-a', 'record-1', { name: 'updated' })\n    await tenantRepository.delete('tenant-a', 'record-1')\n\n    expect(repository.update).toHaveBeenCalledWith(\n      { id: 'record-1', tenantId: 'tenant-a' },\n      { name: 'updated' },\n    )\n    expect(repository.delete).toHaveBeenCalledWith({ id: 'record-1', tenantId: 'tenant-a' })\n  })\n})\n\ndescribe('Story 1.3 ATDD RED - advisory module config tenant isolation', () => {\n  test.skip('[P0] advisory config uses a tenant-scoped repository wrapper instead of raw Repository access', async () => {\n    await expect(import('../../backend/src/modules/advisory/admin/advisory-module-config.repository')).resolves.toBeDefined()\n  })\n\n  test.skip('[P0] tenant A cannot read tenant B advisory module config through service accessors', async () => {\n    // Expected green implementation: AdvisoryAdminService reads module configs through a scoped repository.\n    // Current red phase: this fails until the repository wrapper exists and service tests are updated.\n    await expect(import('../../backend/src/modules/advisory/admin/advisory-module-config.repository')).resolves.toHaveProperty('AdvisoryModuleConfigRepository')\n  })\n\n  test.skip('[P0] malicious admin payload cannot overwrite another tenant advisory module config', async () => {\n    // Expected green implementation: payload tenantId is ignored and only CurrentTenant scope is mutated.\n    await expect(import('../../backend/src/modules/advisory/admin/advisory-module-config.repository')).resolves.toHaveProperty('AdvisoryModuleConfigRepository')\n  })\n})\n",
+      "description": "ATDD RED backend/Jest coverage for Story 1.3 tenant repository and advisory config isolation",
+      "expected_to_fail": true,
+      "acceptance_criteria_covered": [
+        "AC1 tenantId automatically applied through shared BaseRepository and cannot be mutated",
+        "AC2 cross-tenant reads, updates, and deletes are rejected for current Epic 1 data surface",
+        "AC5 MVP tenantId + BaseRepository decision is enforced in code tests"
+      ],
+      "priority_coverage": {
+        "P0": 7,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0
+      }
+    }
+  ],
+  "fixture_needs": [
+    "mockTypeOrmRepository",
+    "tenantScopedAdvisoryModuleConfigFactory"
+  ],
+  "knowledge_fragments_used": [
+    "data-factories",
+    "test-quality",
+    "test-levels-framework",
+    "test-priorities-matrix"
+  ],
+  "test_count": 7,
+  "tdd_phase": "RED",
+  "provider_scrutiny": "not_applicable_no_new_external_api_contract",
+  "summary": "Generated 7 skipped RED backend tests for Story 1.3 repository and advisory module config tenant isolation."
+}

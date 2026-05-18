@@ -1,10 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common'
-import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
 import { AuditAction, AuditLog } from '../../../database/entities/audit-log.entity'
 import { AdvisoryModuleConfig } from '../../../database/entities/advisory-module-config.entity'
 import { UserRole } from '../../../database/entities/user.entity'
 import { AuditLogService } from '../../audit/audit-log.service'
+import { AdvisoryModuleConfigRepository } from './advisory-module-config.repository'
 import { UpdateAdvisoryModuleConfigDto } from './dto/update-advisory-module-config.dto'
 
 export const THINKTANK_MODULE_KEY = 'thinktank'
@@ -60,8 +59,7 @@ export interface AdvisoryEffectiveModuleConfig {
 @Injectable()
 export class AdvisoryAdminService {
   constructor(
-    @InjectRepository(AdvisoryModuleConfig)
-    private readonly configRepository: Repository<AdvisoryModuleConfig>,
+    private readonly configRepository: AdvisoryModuleConfigRepository,
     private readonly auditLogService: AuditLogService,
   ) {}
 
@@ -71,9 +69,7 @@ export class AdvisoryAdminService {
   }
 
   async getEffectiveModuleConfig(tenantId: string): Promise<AdvisoryEffectiveModuleConfig> {
-    const config = await this.configRepository.findOne({
-      where: { tenantId, moduleKey: THINKTANK_MODULE_KEY },
-    })
+    const config = await this.configRepository.findByModuleKey(tenantId, THINKTANK_MODULE_KEY)
 
     if (!config) {
       return {
@@ -97,24 +93,27 @@ export class AdvisoryAdminService {
     const previousEnabled = config.enabled
     const previousAllowedRoles = this.normalizeAllowedRoles(config.allowedRoles)
     const nextAllowedRoles = this.normalizeAllowedRoles(dto.allowedRoles)
+    const privacyConfirmedAt = dto.privacyConfirmed
+      ? (config.privacyConfirmedAt ?? new Date())
+      : config.privacyConfirmedAt
+    const privacyConfirmedBy = dto.privacyConfirmed
+      ? (config.privacyConfirmedBy ?? actor.id)
+      : config.privacyConfirmedBy
 
-    config.tenantId = tenantId
-    config.moduleKey = THINKTANK_MODULE_KEY
-    config.enabled = dto.enabled
-    config.allowedRoles = nextAllowedRoles
-    config.dataRetentionDays = dto.dataRetentionDays ?? DEFAULT_RETENTION_DAYS
-    config.updatedBy = actor.id
+    const saved = await this.configRepository.updateForTenant(tenantId, config.id, {
+      moduleKey: THINKTANK_MODULE_KEY,
+      enabled: dto.enabled,
+      allowedRoles: nextAllowedRoles,
+      dataRetentionDays: dto.dataRetentionDays ?? DEFAULT_RETENTION_DAYS,
+      privacyConfirmedAt,
+      privacyConfirmedBy,
+      createdBy: config.createdBy ?? actor.id,
+      updatedBy: actor.id,
+    })
 
-    if (!config.createdBy) {
-      config.createdBy = actor.id
+    if (!saved) {
+      throw new ForbiddenException('当前租户无权修改该 ThinkTank 模块配置。')
     }
-
-    if (dto.privacyConfirmed) {
-      config.privacyConfirmedAt = config.privacyConfirmedAt ?? new Date()
-      config.privacyConfirmedBy = config.privacyConfirmedBy ?? actor.id
-    }
-
-    const saved = await this.configRepository.save(config)
 
     if (previousEnabled !== saved.enabled) {
       await this.logConfigChange(
@@ -158,14 +157,11 @@ export class AdvisoryAdminService {
   }
 
   private async getOrCreateConfig(tenantId: string): Promise<AdvisoryModuleConfig> {
-    const existing = await this.configRepository.findOne({
-      where: { tenantId, moduleKey: THINKTANK_MODULE_KEY },
-    })
+    const existing = await this.configRepository.findByModuleKey(tenantId, THINKTANK_MODULE_KEY)
 
     if (existing) return existing
 
-    const config = this.configRepository.create({
-      tenantId,
+    return this.configRepository.createForTenant(tenantId, {
       moduleKey: THINKTANK_MODULE_KEY,
       enabled: false,
       allowedRoles: [],
@@ -175,8 +171,6 @@ export class AdvisoryAdminService {
       createdBy: null,
       updatedBy: null,
     })
-
-    return this.configRepository.save(config)
   }
 
   private normalizeAllowedRoles(roles: unknown): UserRole[] {
