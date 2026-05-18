@@ -146,7 +146,10 @@ export class AuditLogService {
     return this.auditLogRepository
       .createQueryBuilder('audit')
       .where('audit.tenantId = :tenantId', { tenantId })
-      .andWhere("audit.details ->> 'eventName' IN (:...eventNames)", { eventNames })
+      .andWhere(
+        "(audit.details ->> 'event_name' IN (:...eventNames) OR audit.details ->> 'eventName' IN (:...eventNames))",
+        { eventNames },
+      )
       .orderBy('audit.createdAt', 'DESC')
       .take(Math.min(Math.max(limit, 1), 20))
       .getMany()

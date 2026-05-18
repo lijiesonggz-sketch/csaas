@@ -3,6 +3,7 @@ import { AuditAction, AuditLog } from '../../../database/entities/audit-log.enti
 import { AdvisoryModuleConfig } from '../../../database/entities/advisory-module-config.entity'
 import { UserRole } from '../../../database/entities/user.entity'
 import { AuditLogService } from '../../audit/audit-log.service'
+import { AdvisoryEventService } from '../events/advisory-event.service'
 import { AdvisoryModuleConfigRepository } from './advisory-module-config.repository'
 import {
   AdvisoryAdminService,
@@ -89,18 +90,22 @@ function createConfigRepository(seed: AdvisoryModuleConfig[] = []) {
 
 describe('AdvisoryAdminService', () => {
   let repository: ReturnType<typeof createConfigRepository>
-  let auditLogService: jest.Mocked<Pick<AuditLogService, 'logStrict' | 'findRecentByEventNames'>>
+  let auditLogService: jest.Mocked<
+    Pick<AuditLogService, 'log' | 'logStrict' | 'findRecentByEventNames'>
+  >
   let service: AdvisoryAdminService
 
   beforeEach(() => {
     repository = createConfigRepository()
     auditLogService = {
+      log: jest.fn().mockResolvedValue(undefined),
       logStrict: jest.fn().mockResolvedValue({ id: 'audit-1' } as AuditLog),
       findRecentByEventNames: jest.fn().mockResolvedValue([]),
     }
     service = new AdvisoryAdminService(
       repository as unknown as AdvisoryModuleConfigRepository,
       auditLogService as unknown as AuditLogService,
+      new AdvisoryEventService(auditLogService as unknown as AuditLogService),
     )
   })
 
@@ -133,6 +138,7 @@ describe('AdvisoryAdminService', () => {
     service = new AdvisoryAdminService(
       repository as unknown as AdvisoryModuleConfigRepository,
       auditLogService as unknown as AuditLogService,
+      new AdvisoryEventService(auditLogService as unknown as AuditLogService),
     )
 
     const response = await service.updateModuleConfig(tenantId, adminUser, {
@@ -153,13 +159,20 @@ describe('AdvisoryAdminService', () => {
         entityType: THINKTANK_MODULE_CONFIG_ENTITY_TYPE,
         entityId: '550e8400-e29b-41d4-a716-446655440000',
         details: expect.objectContaining({
-          eventName: 'thinktank.module.enabled',
+          event_name: 'thinktank.module.enabled',
+          event_version: 1,
+          tenant_id: tenantId,
+          actor_id: adminUser.id,
+          subject_type: 'module_config',
+          subject_id: '550e8400-e29b-41d4-a716-446655440000',
           module: THINKTANK_MODULE_KEY,
-          changedSetting: 'enabled',
-          oldValue: false,
-          newValue: true,
+          changed_setting: 'enabled',
+          old_value: false,
+          new_value: true,
           outcome: 'success',
-          occurredAt: expect.any(String),
+          occurred_at: expect.any(String),
+          correlation_id: expect.any(String),
+          privacy_classification: 'operational',
         }),
       }),
     )
@@ -175,6 +188,7 @@ describe('AdvisoryAdminService', () => {
     service = new AdvisoryAdminService(
       repository as unknown as AdvisoryModuleConfigRepository,
       auditLogService as unknown as AuditLogService,
+      new AdvisoryEventService(auditLogService as unknown as AuditLogService),
     )
 
     await service.updateModuleConfig(tenantId, adminUser, {
@@ -187,10 +201,10 @@ describe('AdvisoryAdminService', () => {
     expect(auditLogService.logStrict).toHaveBeenCalledWith(
       expect.objectContaining({
         details: expect.objectContaining({
-          eventName: 'thinktank.module.disabled',
-          changedSetting: 'enabled',
-          oldValue: true,
-          newValue: false,
+          event_name: 'thinktank.module.disabled',
+          changed_setting: 'enabled',
+          old_value: true,
+          new_value: false,
         }),
       }),
     )
@@ -206,6 +220,7 @@ describe('AdvisoryAdminService', () => {
     service = new AdvisoryAdminService(
       repository as unknown as AdvisoryModuleConfigRepository,
       auditLogService as unknown as AuditLogService,
+      new AdvisoryEventService(auditLogService as unknown as AuditLogService),
     )
 
     await service.updateModuleConfig(tenantId, adminUser, {
@@ -218,12 +233,89 @@ describe('AdvisoryAdminService', () => {
     expect(auditLogService.logStrict).toHaveBeenCalledWith(
       expect.objectContaining({
         details: expect.objectContaining({
-          eventName: 'thinktank.role_access.updated',
-          changedSetting: 'allowedRoles',
-          oldValue: [UserRole.ADMIN],
-          newValue: [UserRole.ADMIN, UserRole.CONSULTANT, UserRole.CLIENT_PM],
+          event_name: 'thinktank.role_access.updated',
+          changed_setting: 'allowedRoles',
+          old_value: [UserRole.ADMIN],
+          new_value: [UserRole.ADMIN, UserRole.CONSULTANT, UserRole.CLIENT_PM],
         }),
       }),
+    )
+  })
+
+  it('builds latest audit summary from canonical snake_case details with legacy fallback', async () => {
+    repository = createConfigRepository([createConfig({ enabled: true })])
+    auditLogService.findRecentByEventNames.mockResolvedValue([
+      {
+        id: 'audit-1',
+        userId: adminUser.id,
+        organizationId: tenantId,
+        tenantId,
+        entityType: THINKTANK_MODULE_CONFIG_ENTITY_TYPE,
+        entityId: '550e8400-e29b-41d4-a716-446655440000',
+        action: AuditAction.UPDATE,
+        changes: null,
+        details: {
+          event_name: 'thinktank.module.enabled',
+          changed_setting: 'enabled',
+          old_value: false,
+          new_value: true,
+          occurred_at: '2026-05-19T00:02:00.000Z',
+        },
+        ipAddress: null,
+        userAgent: null,
+        createdAt: new Date('2026-05-19T00:02:01.000Z'),
+      } as AuditLog,
+      {
+        id: 'audit-2',
+        userId: adminUser.id,
+        organizationId: tenantId,
+        tenantId,
+        entityType: THINKTANK_MODULE_CONFIG_ENTITY_TYPE,
+        entityId: '550e8400-e29b-41d4-a716-446655440000',
+        action: AuditAction.UPDATE,
+        changes: null,
+        details: {
+          eventName: 'thinktank.role_access.updated',
+          changedSetting: 'allowedRoles',
+          oldValue: [],
+          newValue: [UserRole.ADMIN],
+          occurredAt: '2026-05-19T00:01:00.000Z',
+        },
+        ipAddress: null,
+        userAgent: null,
+        createdAt: new Date('2026-05-19T00:01:01.000Z'),
+      } as AuditLog,
+    ])
+    service = new AdvisoryAdminService(
+      repository as unknown as AdvisoryModuleConfigRepository,
+      auditLogService as unknown as AuditLogService,
+      new AdvisoryEventService(auditLogService as unknown as AuditLogService),
+    )
+
+    const response = await service.getModuleConfig(tenantId)
+
+    expect(response.latestAuditSummary).toEqual([
+      {
+        eventName: 'thinktank.module.enabled',
+        actorUserId: adminUser.id,
+        changedSetting: 'enabled',
+        oldValue: false,
+        newValue: true,
+        occurredAt: '2026-05-19T00:02:00.000Z',
+      },
+      {
+        eventName: 'thinktank.role_access.updated',
+        actorUserId: adminUser.id,
+        changedSetting: 'allowedRoles',
+        oldValue: [],
+        newValue: [UserRole.ADMIN],
+        occurredAt: '2026-05-19T00:01:00.000Z',
+      },
+    ])
+    expect(auditLogService.findRecentByEventNames).toHaveBeenCalledWith(
+      tenantId,
+      ['thinktank.module.enabled', 'thinktank.module.disabled', 'thinktank.role_access.updated'],
+      5,
     )
   })
 
@@ -250,6 +342,7 @@ describe('AdvisoryAdminService', () => {
     service = new AdvisoryAdminService(
       repository as unknown as AdvisoryModuleConfigRepository,
       auditLogService as unknown as AuditLogService,
+      new AdvisoryEventService(auditLogService as unknown as AuditLogService),
     )
 
     const response = await service.getEffectiveModuleConfig(tenantId)
@@ -266,6 +359,7 @@ describe('AdvisoryAdminService', () => {
     service = new AdvisoryAdminService(
       repository as unknown as AdvisoryModuleConfigRepository,
       auditLogService as unknown as AuditLogService,
+      new AdvisoryEventService(auditLogService as unknown as AuditLogService),
     )
 
     const response = await service.updateModuleConfig(tenantId, adminUser, {
@@ -296,6 +390,7 @@ describe('AdvisoryAdminService', () => {
     service = new AdvisoryAdminService(
       repository as unknown as AdvisoryModuleConfigRepository,
       auditLogService as unknown as AuditLogService,
+      new AdvisoryEventService(auditLogService as unknown as AuditLogService),
     )
 
     const response = await service.updateModuleConfig(tenantId, adminUser, {
@@ -317,6 +412,7 @@ describe('AdvisoryAdminService', () => {
     service = new AdvisoryAdminService(
       repository as unknown as AdvisoryModuleConfigRepository,
       auditLogService as unknown as AuditLogService,
+      new AdvisoryEventService(auditLogService as unknown as AuditLogService),
     )
 
     await expect(service.assertThinkTankModuleAvailable(adminUser, tenantId)).rejects.toThrow(

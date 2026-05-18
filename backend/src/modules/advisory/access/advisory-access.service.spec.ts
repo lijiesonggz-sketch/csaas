@@ -6,6 +6,7 @@ import {
   THINKTANK_MODULE_DISABLED_MESSAGE,
 } from '../admin/advisory-admin.service'
 import { AuditLogService } from '../../audit/audit-log.service'
+import { AdvisoryEventService } from '../events/advisory-event.service'
 import { AdvisoryAccessService } from './advisory-access.service'
 
 describe('AdvisoryAccessService', () => {
@@ -27,7 +28,7 @@ describe('AdvisoryAccessService', () => {
       assertThinkTankModuleAvailable: jest.fn().mockResolvedValue(undefined),
     }
     service = new AdvisoryAccessService(
-      auditLogService as unknown as AuditLogService,
+      new AdvisoryEventService(auditLogService as unknown as AuditLogService),
       advisoryAdminService as unknown as AdvisoryAdminService,
     )
   })
@@ -110,10 +111,17 @@ describe('AdvisoryAccessService', () => {
         entityType: 'ThinkTankAccess',
         entityId: null,
         details: expect.objectContaining({
-          eventName: 'thinktank.access.opened',
+          event_name: 'thinktank.access.opened',
+          event_version: 1,
+          tenant_id: 'tenant-1',
+          actor_id: 'user-1',
+          subject_type: 'module',
+          subject_id: 'thinktank',
           outcome: 'success',
+          correlation_id: expect.any(String),
+          privacy_classification: 'operational',
           module: 'thinktank',
-          occurredAt: expect.any(String),
+          occurred_at: expect.any(String),
         }),
       }),
     )
@@ -138,11 +146,18 @@ describe('AdvisoryAccessService', () => {
         entityType: 'ThinkTankAccess',
         entityId: null,
         details: expect.objectContaining({
-          eventName: 'thinktank.access.denied',
+          event_name: 'thinktank.access.denied',
+          event_version: 1,
+          tenant_id: 'tenant-1',
+          actor_id: 'user-1',
+          subject_type: 'module',
+          subject_id: 'thinktank',
           outcome: 'denied',
+          correlation_id: expect.any(String),
+          privacy_classification: 'operational',
           module: 'thinktank',
           reason: 'module_disabled',
-          occurredAt: expect.any(String),
+          occurred_at: expect.any(String),
         }),
       }),
     )

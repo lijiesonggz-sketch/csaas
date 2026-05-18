@@ -18,6 +18,7 @@ describe('AuditLogService', () => {
             create: jest.fn(),
             save: jest.fn(),
             find: jest.fn(),
+            createQueryBuilder: jest.fn(),
           },
         },
       ],
@@ -185,6 +186,31 @@ describe('AuditLogService', () => {
         where: { tenantId, entityType: resource, entityId: resourceId },
         order: { createdAt: 'DESC' },
       })
+    })
+  })
+
+  describe('findRecentByEventNames', () => {
+    it('queries canonical snake_case event_name while preserving legacy eventName compatibility', async () => {
+      const queryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      }
+      repository.createQueryBuilder.mockReturnValue(queryBuilder as never)
+
+      await service.findRecentByEventNames('tenant-456', ['thinktank.module.enabled'], 5)
+
+      expect(queryBuilder.where).toHaveBeenCalledWith('audit.tenantId = :tenantId', {
+        tenantId: 'tenant-456',
+      })
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        "(audit.details ->> 'event_name' IN (:...eventNames) OR audit.details ->> 'eventName' IN (:...eventNames))",
+        { eventNames: ['thinktank.module.enabled'] },
+      )
+      expect(queryBuilder.take).toHaveBeenCalledWith(5)
+      expect(queryBuilder.getMany).toHaveBeenCalled()
     })
   })
 })

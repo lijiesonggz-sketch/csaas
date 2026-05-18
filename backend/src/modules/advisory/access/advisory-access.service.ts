@@ -1,12 +1,18 @@
 import { Injectable } from '@nestjs/common'
 import { AuditAction } from '../../../database/entities/audit-log.entity'
 import { UserRole } from '../../../database/entities/user.entity'
-import { AuditLogService } from '../../audit/audit-log.service'
 import {
   AdvisoryAdminService,
   THINKTANK_MODULE_DISABLED_MESSAGE,
   THINKTANK_MODULE_KEY,
 } from '../admin/advisory-admin.service'
+import {
+  ThinkTankEventName,
+  ThinkTankEventOutcome,
+  ThinkTankPrivacyClassification,
+  ThinkTankSubjectType,
+} from '../events/thinktank-event-contract'
+import { AdvisoryEventService } from '../events/advisory-event.service'
 export { THINKTANK_MODULE_KEY } from '../admin/advisory-admin.service'
 
 export const THINKTANK_ACCESS_ENTITY_TYPE = 'ThinkTankAccess'
@@ -23,6 +29,7 @@ interface AdvisoryAccessAuditContext {
   user: AdvisoryAccessUser
   tenantId?: string | null
   reason?: string
+  correlationId?: string | null
 }
 
 export interface AdvisoryAccessEvaluation {
@@ -34,7 +41,7 @@ export interface AdvisoryAccessEvaluation {
 @Injectable()
 export class AdvisoryAccessService {
   constructor(
-    private readonly auditLogService: AuditLogService,
+    private readonly advisoryEventService: AdvisoryEventService,
     private readonly advisoryAdminService: AdvisoryAdminService,
   ) {}
 
@@ -88,39 +95,61 @@ export class AdvisoryAccessService {
   }
 
   async recordAccessOpened(context: AdvisoryAccessAuditContext): Promise<void> {
-    await this.auditLogService.log({
-      userId: context.user.id,
-      organizationId: context.user.organizationId ?? null,
-      tenantId: context.tenantId ?? context.user.tenantId ?? null,
-      action: AuditAction.READ,
-      entityType: THINKTANK_ACCESS_ENTITY_TYPE,
-      entityId: null,
-      changes: null,
-      details: {
-        eventName: 'thinktank.access.opened',
-        outcome: 'success',
+    const tenantId = this.resolveTenantId(context)
+
+    await this.advisoryEventService.emitAudit({
+      eventName: ThinkTankEventName.AccessOpened,
+      tenantId,
+      actorId: context.user.id,
+      subjectType: ThinkTankSubjectType.Module,
+      subjectId: THINKTANK_MODULE_KEY,
+      outcome: ThinkTankEventOutcome.Success,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      correlationId: context.correlationId,
+      audit: {
+        action: AuditAction.READ,
+        entityType: THINKTANK_ACCESS_ENTITY_TYPE,
+        entityId: null,
+        organizationId: context.user.organizationId ?? null,
+      },
+      metadata: {
         module: THINKTANK_MODULE_KEY,
-        occurredAt: new Date().toISOString(),
       },
     })
   }
 
   async recordAccessDenied(context: AdvisoryAccessAuditContext): Promise<void> {
-    await this.auditLogService.log({
-      userId: context.user.id,
-      organizationId: context.user.organizationId ?? null,
-      tenantId: context.tenantId ?? context.user.tenantId ?? null,
-      action: AuditAction.ACCESS_DENIED,
-      entityType: THINKTANK_ACCESS_ENTITY_TYPE,
-      entityId: null,
-      changes: null,
-      details: {
-        eventName: 'thinktank.access.denied',
-        outcome: 'denied',
+    const tenantId = this.resolveTenantId(context)
+
+    await this.advisoryEventService.emitAudit({
+      eventName: ThinkTankEventName.AccessDenied,
+      tenantId,
+      actorId: context.user.id,
+      subjectType: ThinkTankSubjectType.Module,
+      subjectId: THINKTANK_MODULE_KEY,
+      outcome: ThinkTankEventOutcome.Denied,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      correlationId: context.correlationId,
+      audit: {
+        action: AuditAction.ACCESS_DENIED,
+        entityType: THINKTANK_ACCESS_ENTITY_TYPE,
+        entityId: null,
+        organizationId: context.user.organizationId ?? null,
+      },
+      metadata: {
         module: THINKTANK_MODULE_KEY,
         reason: context.reason ?? this.getDeniedReason(context.user),
-        occurredAt: new Date().toISOString(),
       },
     })
+  }
+
+  private resolveTenantId(context: AdvisoryAccessAuditContext): string {
+    const tenantId = context.tenantId ?? context.user.tenantId
+
+    if (!tenantId) {
+      throw new Error('ThinkTank access audit event requires tenant scope')
+    }
+
+    return tenantId
   }
 }

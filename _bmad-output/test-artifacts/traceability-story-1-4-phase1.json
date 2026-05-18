@@ -1,0 +1,99 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-19T04:39:25+08:00",
+  "story_id": "1.4",
+  "story_key": "1-4-audit-and-telemetry-event-foundation",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "coverage": "FULL",
+      "test_level": ["Unit", "Integration-style unit", "Controller unit", "Evidence"],
+      "tests": [
+        "backend/src/modules/advisory/events/thinktank-event-contract.spec.ts",
+        "backend/src/modules/advisory/events/thinktank-event-registry.spec.ts",
+        "backend/src/modules/advisory/events/advisory-event.service.spec.ts",
+        "backend/src/modules/advisory/access/advisory-access.service.spec.ts",
+        "backend/src/modules/advisory/admin/advisory-admin.service.spec.ts"
+      ]
+    },
+    {
+      "id": "AC2",
+      "priority": "P1",
+      "coverage": "FULL",
+      "test_level": ["Unit", "Integration-style unit", "Evidence"],
+      "tests": [
+        "backend/src/modules/advisory/events/thinktank-event-registry.spec.ts",
+        "backend/src/modules/advisory/events/thinktank-event-contract.spec.ts",
+        "backend/src/modules/advisory/events/advisory-event.service.spec.ts",
+        "_bmad-output/implementation-artifacts/1-4-audit-and-telemetry-event-foundation.md"
+      ]
+    },
+    {
+      "id": "AC3",
+      "priority": "P0",
+      "coverage": "FULL",
+      "test_level": ["Unit", "Integration-style unit", "Controller unit"],
+      "tests": [
+        "backend/src/modules/advisory/events/thinktank-event-registry.spec.ts",
+        "backend/src/modules/advisory/access/advisory-access.controller.spec.ts",
+        "backend/src/modules/advisory/access/advisory-access.service.spec.ts",
+        "backend/src/modules/advisory/admin/advisory-admin.service.spec.ts",
+        "backend/src/modules/audit/audit-log.service.spec.ts"
+      ]
+    },
+    {
+      "id": "AC4",
+      "priority": "P0",
+      "coverage": "FULL",
+      "test_level": ["Unit", "Evidence"],
+      "tests": [
+        "backend/src/modules/advisory/events/thinktank-audit-retention.spec.ts",
+        "_bmad-output/implementation-artifacts/1-4-audit-and-telemetry-event-foundation.md"
+      ]
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 4,
+    "fully_covered": 4,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 3, "covered": 3, "percentage": 100 },
+      "P1": { "total": 1, "covered": 1, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Track unrelated taxonomy-domain-gate regression failures outside Story 1.4.",
+      "requirements": []
+    },
+    {
+      "priority": "LOW",
+      "action": "Future first-use stories should use the shared registry and contract for owned runtime event names.",
+      "requirements": ["AC2", "AC3"]
+    }
+  ]
+}

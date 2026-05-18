@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { AuditLogService } from '../../audit/audit-log.service'
 import { TenantGuard } from '../../organizations/guards/tenant.guard'
 import { AdvisoryAdminService } from '../admin/advisory-admin.service'
+import { AdvisoryEventService } from '../events/advisory-event.service'
 import { AdvisoryAccessController } from './advisory-access.controller'
 import { AdvisoryAccessService } from './advisory-access.service'
 
@@ -30,6 +31,7 @@ describe('AdvisoryAccessController', () => {
       controllers: [AdvisoryAccessController],
       providers: [
         AdvisoryAccessService,
+        AdvisoryEventService,
         {
           provide: AuditLogService,
           useValue: auditLogService,
@@ -78,8 +80,15 @@ describe('AdvisoryAccessController', () => {
         entityType: 'ThinkTankAccess',
         entityId: null,
         details: expect.objectContaining({
-          eventName: 'thinktank.access.opened',
+          event_name: 'thinktank.access.opened',
+          event_version: 1,
+          tenant_id: 'tenant-1',
+          actor_id: 'user-1',
+          subject_type: 'module',
+          subject_id: 'thinktank',
           outcome: 'success',
+          correlation_id: expect.any(String),
+          privacy_classification: 'operational',
           module: 'thinktank',
         }),
       }),
@@ -118,8 +127,15 @@ describe('AdvisoryAccessController', () => {
         entityType: 'ThinkTankAccess',
         entityId: null,
         details: expect.objectContaining({
-          eventName: 'thinktank.access.denied',
+          event_name: 'thinktank.access.denied',
+          event_version: 1,
+          tenant_id: 'tenant-1',
+          actor_id: 'user-2',
+          subject_type: 'module',
+          subject_id: 'thinktank',
           outcome: 'denied',
+          correlation_id: expect.any(String),
+          privacy_classification: 'operational',
           module: 'thinktank',
           reason: 'role_not_allowed',
         }),
@@ -148,7 +164,7 @@ describe('AdvisoryAccessController', () => {
       expect.objectContaining({
         action: AuditAction.ACCESS_DENIED,
         details: expect.objectContaining({
-          eventName: 'thinktank.access.denied',
+          event_name: 'thinktank.access.denied',
           reason: 'module_disabled',
         }),
       }),

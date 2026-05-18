@@ -7,11 +7,17 @@ import { AdvisoryAccessService } from './access/advisory-access.service'
 import { AdvisoryModuleConfigRepository } from './admin/advisory-module-config.repository'
 import { AdvisoryAdminController } from './admin/advisory-admin.controller'
 import { AdvisoryAdminService } from './admin/advisory-admin.service'
+import { AdvisoryEventService } from './events/advisory-event.service'
 
 @Module({
   imports: [AuditModule, TypeOrmModule.forFeature([AdvisoryModuleConfig])],
   controllers: [AdvisoryAccessController, AdvisoryAdminController],
-  providers: [AdvisoryAccessService, AdvisoryAdminService, AdvisoryModuleConfigRepository],
-  exports: [AdvisoryAccessService, AdvisoryAdminService],
+  providers: [
+    AdvisoryAccessService,
+    AdvisoryAdminService,
+    AdvisoryModuleConfigRepository,
+    AdvisoryEventService,
+  ],
+  exports: [AdvisoryAccessService, AdvisoryAdminService, AdvisoryEventService],
 })
 export class AdvisoryModule {}

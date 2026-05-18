@@ -3,6 +3,13 @@ import { AuditAction, AuditLog } from '../../../database/entities/audit-log.enti
 import { AdvisoryModuleConfig } from '../../../database/entities/advisory-module-config.entity'
 import { UserRole } from '../../../database/entities/user.entity'
 import { AuditLogService } from '../../audit/audit-log.service'
+import { AdvisoryEventService } from '../events/advisory-event.service'
+import {
+  ThinkTankEventName,
+  ThinkTankEventOutcome,
+  ThinkTankPrivacyClassification,
+  ThinkTankSubjectType,
+} from '../events/thinktank-event-contract'
 import { AdvisoryModuleConfigRepository } from './advisory-module-config.repository'
 import { UpdateAdvisoryModuleConfigDto } from './dto/update-advisory-module-config.dto'
 
@@ -12,9 +19,9 @@ export const THINKTANK_MODULE_DISABLED_MESSAGE = 'ThinkTank 当前未在本租�
 
 const DEFAULT_RETENTION_DAYS = 90
 const CONFIG_AUDIT_EVENT_NAMES = [
-  'thinktank.module.enabled',
-  'thinktank.module.disabled',
-  'thinktank.role_access.updated',
+  ThinkTankEventName.ModuleEnabled,
+  ThinkTankEventName.ModuleDisabled,
+  ThinkTankEventName.RoleAccessUpdated,
 ] as const
 const VALID_ROLE_ORDER = [
   UserRole.ADMIN,
@@ -61,6 +68,7 @@ export class AdvisoryAdminService {
   constructor(
     private readonly configRepository: AdvisoryModuleConfigRepository,
     private readonly auditLogService: AuditLogService,
+    private readonly advisoryEventService: AdvisoryEventService,
   ) {}
 
   async getModuleConfig(tenantId: string): Promise<AdvisoryModuleConfigResponse> {
@@ -119,7 +127,7 @@ export class AdvisoryAdminService {
       await this.logConfigChange(
         saved,
         actor,
-        saved.enabled ? 'thinktank.module.enabled' : 'thinktank.module.disabled',
+        saved.enabled ? ThinkTankEventName.ModuleEnabled : ThinkTankEventName.ModuleDisabled,
         'enabled',
         previousEnabled,
         saved.enabled,
@@ -130,7 +138,7 @@ export class AdvisoryAdminService {
       await this.logConfigChange(
         saved,
         actor,
-        'thinktank.role_access.updated',
+        ThinkTankEventName.RoleAccessUpdated,
         'allowedRoles',
         previousAllowedRoles,
         saved.allowedRoles,
@@ -199,27 +207,31 @@ export class AdvisoryAdminService {
     oldValue: unknown,
     newValue: unknown,
   ): Promise<void> {
-    await this.auditLogService.logStrict({
-      userId: actor.id,
-      organizationId: actor.organizationId ?? null,
+    await this.advisoryEventService.emitAuditStrict({
+      eventName,
       tenantId: config.tenantId,
-      action: AuditAction.UPDATE,
-      entityType: THINKTANK_MODULE_CONFIG_ENTITY_TYPE,
-      entityId: config.id,
+      actorId: actor.id,
+      subjectType: ThinkTankSubjectType.ModuleConfig,
+      subjectId: config.id,
+      outcome: ThinkTankEventOutcome.Success,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      audit: {
+        action: AuditAction.UPDATE,
+        entityType: THINKTANK_MODULE_CONFIG_ENTITY_TYPE,
+        entityId: config.id,
+        organizationId: actor.organizationId ?? null,
+      },
       changes: {
         [changedSetting]: {
           oldValue,
           newValue,
         },
       },
-      details: {
-        eventName,
-        outcome: 'success',
+      metadata: {
         module: THINKTANK_MODULE_KEY,
         changedSetting,
         oldValue,
         newValue,
-        occurredAt: new Date().toISOString(),
       },
     })
   }
@@ -253,12 +265,14 @@ export class AdvisoryAdminService {
   private toAuditSummary(log: AuditLog): AdvisoryModuleAuditSummary {
     const details = log.details ?? {}
     return {
-      eventName: this.readString(details.eventName) ?? '',
+      eventName: this.readString(details.event_name) ?? this.readString(details.eventName) ?? '',
       actorUserId: log.userId ?? null,
-      changedSetting: this.readString(details.changedSetting),
-      oldValue: details.oldValue ?? null,
-      newValue: details.newValue ?? null,
+      changedSetting:
+        this.readString(details.changed_setting) ?? this.readString(details.changedSetting),
+      oldValue: details.old_value ?? details.oldValue ?? null,
+      newValue: details.new_value ?? details.newValue ?? null,
       occurredAt:
+        this.readString(details.occurred_at) ??
         this.readString(details.occurredAt) ??
         log.createdAt?.toISOString() ??
         new Date().toISOString(),

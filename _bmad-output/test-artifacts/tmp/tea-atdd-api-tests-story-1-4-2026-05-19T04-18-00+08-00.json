@@ -1,0 +1,41 @@
+{
+  "success": true,
+  "subagent": "atdd-api-tests",
+  "tests": [
+    {
+      "file": "_bmad-output/test-artifacts/atdd-story-1-4-backend-red.spec.ts",
+      "content_file": "_bmad-output/test-artifacts/atdd-story-1-4-backend-red.spec.ts",
+      "description": "ATDD backend Jest RED tests for Story 1.4 audit and telemetry event foundation",
+      "expected_to_fail": true,
+      "acceptance_criteria_covered": [
+        "Structured versioned event contract with required fields",
+        "Shared event registry and fail-closed validation",
+        "No raw sensitive conversation content by default",
+        "Current access/admin events emit canonical fields",
+        "Audit retention defaults to at least 180 days"
+      ],
+      "priority_coverage": {
+        "P0": 5,
+        "P1": 1,
+        "P2": 0,
+        "P3": 0
+      }
+    }
+  ],
+  "fixture_needs": [
+    "story14ContractFixtures",
+    "auditLogServiceMock",
+    "advisoryModuleConfigRepositoryMock"
+  ],
+  "knowledge_fragments_used": [
+    "data-factories",
+    "test-quality",
+    "test-levels-framework",
+    "test-priorities-matrix",
+    "test-healing-patterns"
+  ],
+  "test_count": 6,
+  "tdd_phase": "RED",
+  "provider_scrutiny": "not_applicable_no_new_http_contract",
+  "summary": "Generated 6 skipped RED backend tests for Story 1.4 contract, registry, privacy, emitter, current-service, and retention coverage."
+}
