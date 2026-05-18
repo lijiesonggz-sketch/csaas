@@ -1,23 +1,17 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import {
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  TrendingUp,
-  ArrowRight,
-} from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, TrendingUp, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { message } from '@/lib/message'
+import { clearTokenCache } from '@/lib/utils/api'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -28,6 +22,20 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [touched, setTouched] = useState<Record<string, boolean>>({})
   const [loginError, setLoginError] = useState('')
+
+  useEffect(() => {
+    const currentUrl = new URL(window.location.href)
+    const hasCredentialParams =
+      currentUrl.searchParams.has('email') || currentUrl.searchParams.has('password')
+
+    if (!hasCredentialParams) return
+
+    currentUrl.searchParams.delete('email')
+    currentUrl.searchParams.delete('password')
+
+    const sanitizedUrl = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`
+    window.history.replaceState(window.history.state, '', sanitizedUrl)
+  }, [])
 
   const validateEmail = (value: string): string => {
     if (!value) return '请输入邮箱'
@@ -76,6 +84,7 @@ export default function LoginPage() {
       if (result?.error) {
         setLoginError(result.error)
       } else {
+        clearTokenCache()
         message.success('登录成功!')
         router.push('/dashboard')
       }
@@ -102,9 +111,7 @@ export default function LoginPage() {
               <h1 className="text-2xl font-bold text-white mb-2 font-[var(--font-plus-jakarta)]">
                 欢迎回来
               </h1>
-              <p className="text-white/80 text-sm font-[var(--font-inter)]">
-                登录您的 Csaas 账号
-              </p>
+              <p className="text-white/80 text-sm font-[var(--font-inter)]">登录您的 Csaas 账号</p>
             </div>
           </div>
 
@@ -118,7 +125,9 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} noValidate className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-[#1E3A5F]">邮箱</Label>
+                <Label htmlFor="email" className="text-[#1E3A5F]">
+                  邮箱
+                </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
                   <Input
@@ -146,7 +155,9 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-[#1E3A5F]">密码</Label>
+                <Label htmlFor="password" className="text-[#1E3A5F]">
+                  密码
+                </Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94A3B8]" />
                   <Input
@@ -172,11 +183,7 @@ export default function LoginPage() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8] hover:text-[#1E3A5F]"
                   >
-                    {showPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
                 {touched.password && errors.password && (
@@ -195,10 +202,7 @@ export default function LoginPage() {
 
               <p className="text-sm text-[#94A3B8] text-center font-[var(--font-inter)]">
                 还没有账号？{' '}
-                <Link
-                  href="/register"
-                  className="text-[#059669] font-semibold hover:underline"
-                >
+                <Link href="/register" className="text-[#059669] font-semibold hover:underline">
                   立即注册
                 </Link>
               </p>
@@ -208,10 +212,7 @@ export default function LoginPage() {
 
         {/* Back to home */}
         <p className="text-sm text-[#94A3B8] text-center mt-8 font-[var(--font-inter)]">
-          <Link
-            href="/"
-            className="text-[#94A3B8] hover:text-[#1E3A5F]"
-          >
+          <Link href="/" className="text-[#94A3B8] hover:text-[#1E3A5F]">
             ← 返回首页
           </Link>
         </p>

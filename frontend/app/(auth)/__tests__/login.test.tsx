@@ -32,6 +32,7 @@ describe('LoginPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    window.history.replaceState({}, '', '/login')
     ;(useRouter as jest.Mock).mockReturnValue({
       push: mockPush,
       replace: jest.fn(),
@@ -69,6 +70,23 @@ describe('LoginPage', () => {
 
       const registerLink = screen.getByText('立即注册')
       expect(registerLink).toHaveAttribute('href', '/register')
+    })
+
+    it('should remove credential query params without prefilling the form', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/login?email=admin%40test.com&password=admin123&callbackUrl=%2Fdashboard'
+      )
+
+      render(<LoginPage />)
+
+      await waitFor(() => {
+        expect(window.location.search).toBe('?callbackUrl=%2Fdashboard')
+      })
+
+      expect(screen.getByLabelText('邮箱')).toHaveValue('')
+      expect(screen.getByLabelText('密码')).toHaveValue('')
     })
   })
 
@@ -202,7 +220,12 @@ describe('LoginPage', () => {
     })
 
     it('should show error message when login fails', async () => {
-      mockSignIn.mockResolvedValue({ ok: false, error: 'Invalid credentials', url: null, status: 401 })
+      mockSignIn.mockResolvedValue({
+        ok: false,
+        error: 'Invalid credentials',
+        url: null,
+        status: 401,
+      })
 
       render(<LoginPage />)
 
@@ -266,8 +289,10 @@ describe('LoginPage', () => {
       expect(passwordInput.type).toBe('password')
 
       // Find and click the visibility toggle button
-      const visibilityButton = screen.getByRole('button', { name: '' })
-        .closest('div.relative')?.querySelector('button[type="button"]') as HTMLElement
+      const visibilityButton = screen
+        .getByRole('button', { name: '' })
+        .closest('div.relative')
+        ?.querySelector('button[type="button"]') as HTMLElement
       fireEvent.click(visibilityButton)
 
       // Password should now be visible

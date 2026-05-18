@@ -32,11 +32,14 @@ export async function getAuthToken(forceRefresh = false): Promise<string | null>
         const session = await response.json()
         const token = session?.accessToken || null
 
-        // 更新缓存
-        tokenCache = {
-          token,
-          expiresAt: Date.now() + TOKEN_CACHE_DURATION,
-        }
+        // Only cache usable tokens. Caching null causes post-login requests to keep
+        // sending no Authorization header until the cache expires.
+        tokenCache = token
+          ? {
+              token,
+              expiresAt: Date.now() + TOKEN_CACHE_DURATION,
+            }
+          : null
 
         return token
       }
@@ -71,17 +74,11 @@ export function clearTokenCache() {
  * @param options - Fetch options
  * @returns Fetch response
  */
-export async function apiFetch<T = any>(
-  endpoint: string,
-  options: RequestInit = {},
-): Promise<T> {
+export async function apiFetch<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
   return apiFetchInternal(endpoint, options) as Promise<T>
 }
 
-async function apiFetchInternal(
-  endpoint: string,
-  options: RequestInit = {},
-): Promise<unknown> {
+async function apiFetchInternal(endpoint: string, options: RequestInit = {}): Promise<unknown> {
   const url = endpoint.startsWith('http')
     ? endpoint
     : `${process.env.NEXT_PUBLIC_API_URL || ''}${endpoint}`
@@ -91,8 +88,7 @@ async function apiFetchInternal(
 
   // Prepare headers
   const headers = new Headers(options.headers)
-  const isFormDataRequest =
-    typeof FormData !== 'undefined' && options.body instanceof FormData
+  const isFormDataRequest = typeof FormData !== 'undefined' && options.body instanceof FormData
 
   if (!headers.has('Content-Type') && !isFormDataRequest) {
     headers.set('Content-Type', 'application/json')
