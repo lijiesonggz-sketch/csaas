@@ -1,0 +1,25 @@
+storyId: '2.7'
+storyKey: 2-7-streaming-message-experience
+decision: PASS
+decisionDate: '2026-05-20T07:25:00+08:00'
+rationale: 'P0 coverage is 100%, P1 coverage is 100%, and overall coverage is 100%. No critical or high coverage gaps remain after code-review fixes.'
+criteria:
+  p0CoverageRequired: '100%'
+  p0CoverageActual: '100%'
+  p0Status: MET
+  p1CoveragePassTarget: '90%'
+  p1CoverageMinimum: '80%'
+  p1CoverageActual: '100%'
+  p1Status: MET
+  overallCoverageMinimum: '80%'
+  overallCoverageActual: '100%'
+  overallStatus: MET
+uncoveredRequirements: []
+recommendations:
+  - priority: LOW
+    action: Split the aggregated advisory route test suite later if subsequent Epic 2 stories make it difficult to maintain.
+    requirements:
+      - AC1
+      - AC2
+      - AC3
+      - AC4

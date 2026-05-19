@@ -12,6 +12,7 @@ import {
   Workflow,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { AdvisoryChatMessage } from '@/components/advisory/AdvisoryChatMessage'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Separator } from '@/components/ui/separator'
@@ -38,12 +39,15 @@ import {
   fetchThinkTankSessionMessages,
   fetchThinkTankWorkflows,
   launchThinkTankWorkflow,
-  sendThinkTankSessionMessage,
   type ThinkTankConversationMessage,
   type ThinkTankDecisionOption,
   type ThinkTankWorkflowCatalogItem,
   type ThinkTankWorkflowLaunchResult,
 } from '@/lib/advisory/workflows'
+import {
+  THINKTANK_STREAM_ERROR_MESSAGE,
+  streamThinkTankSessionMessage,
+} from '@/lib/advisory/streaming'
 import { cn } from '@/lib/utils'
 
 const ADVISORY_STATE_SUMMARY_ID = 'advisory-state-summary'
@@ -51,9 +55,13 @@ const DOCUMENT_DRAWER_DESCRIPTION_ID = 'advisory-document-drawer-disabled-descri
 const WORKFLOW_CATALOG_ERROR_MESSAGE = '暂时无法加载 ThinkTank 工作流目录，请刷新页面后重试。'
 const SESSION_MESSAGES_ERROR_MESSAGE = '暂时无法加载 ThinkTank 会话消息，请刷新页面后重试。'
 const THINKTANK_DRAFT_STORAGE_PREFIX = 'thinktank:session-draft'
+const THINKTANK_MESSAGE_LAZY_RENDER_THRESHOLD = 80
+const THINKTANK_SCROLL_BOTTOM_TOLERANCE_PX = 48
+const THINKTANK_STREAM_ANNOUNCEMENT_THROTTLE_MS = 1000
 
 type WorkflowCatalogStatus = 'loading' | 'ready' | 'error'
 type SessionMessagesStatus = 'idle' | 'loading' | 'ready' | 'error'
+type MessageStreamingStatus = 'idle' | 'submitting' | 'streaming' | 'completing' | 'error'
 
 const shellGridVariants = cva(
   'grid h-[calc(100vh-var(--advisory-nav-height)-48px)] min-h-[560px] grid-cols-[var(--advisory-sidebar-width)_minmax(var(--advisory-chat-min-width),1fr)_var(--advisory-document-rail-width)] overflow-hidden rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] shadow-sm transition-[font-size]',
@@ -102,6 +110,14 @@ const activePromptSurfaceVariants = cva(
 
 function readWorkflowErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.trim() ? error.message : fallback
+}
+
+function readMessageSubmitErrorMessage(error: unknown): string {
+  const message = readWorkflowErrorMessage(error, THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
+
+  return message === THINKTANK_STREAM_ERROR_MESSAGE
+    ? THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE
+    : message
 }
 
 function buildDraftStorageKey(userIdentity: string | null, sessionId: string): string {
@@ -307,11 +323,22 @@ export default function AdvisoryWorkspaceShell() {
   const [messageError, setMessageError] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [isSubmittingMessage, setIsSubmittingMessage] = useState(false)
+  const [messageStreamingStatus, setMessageStreamingStatus] =
+    useState<MessageStreamingStatus>('idle')
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
+  const [streamAnnouncement, setStreamAnnouncement] = useState('')
+  const [hasUnreadStreamContent, setHasUnreadStreamContent] = useState(false)
+  const [showAllMessages, setShowAllMessages] = useState(false)
   const [selectedDecisionLabel, setSelectedDecisionLabel] = useState<string | null>(null)
   const launchInFlightRef = useRef(false)
   const activeLaunchRef = useRef<ThinkTankWorkflowLaunchResult | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const conversationFocusRef = useRef<HTMLDivElement>(null)
+  const conversationScrollRef = useRef<HTMLDivElement>(null)
+  const streamAbortRef = useRef<AbortController | null>(null)
+  const messageSubmitInFlightRef = useRef(false)
+  const lastStreamAnnouncementAtRef = useRef(0)
+  const pendingStreamAnnouncementRef = useRef<number | null>(null)
 
   useEffect(() => {
     setReadingDensity(readAdvisoryPreferences(userPreferenceIdentity).readingDensity)
@@ -364,6 +391,11 @@ export default function AdvisoryWorkspaceShell() {
       setSessionMessages([])
       setSessionMessagesStatus('loading')
       setMessageError(null)
+      setMessageStreamingStatus('idle')
+      setStreamingMessageId(null)
+      setStreamAnnouncement('')
+      setHasUnreadStreamContent(false)
+      setShowAllMessages(false)
       setSelectedDecisionLabel(null)
       setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
       setActiveLaunch(launch)
@@ -390,6 +422,8 @@ export default function AdvisoryWorkspaceShell() {
       .then((result) => {
         if (isCancelled) return
         setSessionMessages(result.messages)
+        setShowAllMessages(false)
+        setHasUnreadStreamContent(false)
         setSessionMessagesStatus('ready')
       })
       .catch((error) => {
@@ -410,6 +444,17 @@ export default function AdvisoryWorkspaceShell() {
   }, [activeLaunch, draft, userPreferenceIdentity])
 
   useEffect(() => {
+    return () => {
+      streamAbortRef.current?.abort()
+      streamAbortRef.current = null
+      if (pendingStreamAnnouncementRef.current) {
+        window.clearTimeout(pendingStreamAnnouncementRef.current)
+        pendingStreamAnnouncementRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     const textarea = textareaRef.current
     if (!textarea) return
 
@@ -417,8 +462,74 @@ export default function AdvisoryWorkspaceShell() {
     textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`
   }, [activeLaunch, draft])
 
+  const isConversationNearBottom = () => {
+    const viewport = conversationScrollRef.current
+    if (!viewport) return true
+
+    return (
+      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <=
+      THINKTANK_SCROLL_BOTTOM_TOLERANCE_PX
+    )
+  }
+
+  const scrollConversationToBottom = () => {
+    const viewport = conversationScrollRef.current
+    if (!viewport) return
+
+    viewport.scrollTop = viewport.scrollHeight
+    setHasUnreadStreamContent(false)
+  }
+
+  const applyStreamingScrollBehavior = (shouldAutoScroll: boolean) => {
+    if (shouldAutoScroll) {
+      const schedule =
+        typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function'
+          ? window.requestAnimationFrame
+          : (callback: FrameRequestCallback) => window.setTimeout(callback, 0)
+      schedule(() => scrollConversationToBottom())
+      return
+    }
+
+    setShowAllMessages(true)
+    setHasUnreadStreamContent(true)
+  }
+
+  const announceStreamStatus = (message: string, options: { immediate?: boolean } = {}) => {
+    const announce = () => {
+      if (pendingStreamAnnouncementRef.current) {
+        window.clearTimeout(pendingStreamAnnouncementRef.current)
+        pendingStreamAnnouncementRef.current = null
+      }
+      lastStreamAnnouncementAtRef.current = Date.now()
+      setStreamAnnouncement(message)
+    }
+
+    if (options.immediate) {
+      announce()
+      return
+    }
+
+    const elapsed = Date.now() - lastStreamAnnouncementAtRef.current
+    if (elapsed >= THINKTANK_STREAM_ANNOUNCEMENT_THROTTLE_MS) {
+      announce()
+      return
+    }
+
+    if (!pendingStreamAnnouncementRef.current) {
+      pendingStreamAnnouncementRef.current = window.setTimeout(
+        announce,
+        THINKTANK_STREAM_ANNOUNCEMENT_THROTTLE_MS - elapsed
+      )
+    }
+  }
+
   const handleSubmitMessage = async () => {
-    if (!activeLaunch || isSubmittingMessage) {
+    if (
+      !activeLaunch ||
+      sessionMessagesStatus !== 'ready' ||
+      isSubmittingMessage ||
+      messageSubmitInFlightRef.current
+    ) {
       return
     }
 
@@ -439,32 +550,142 @@ export default function AdvisoryWorkspaceShell() {
       workflowKey: activeLaunch.workflow.key,
       stepIndex: activeLaunch.currentStep.index,
     }
+    const assistantMessageId = `local-assistant-${Date.now()}`
+    const pendingAssistantMessage: ThinkTankConversationMessage = {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      workflowKey: activeLaunch.workflow.key,
+      stepIndex: activeLaunch.currentStep.index,
+      decisionOptions: [],
+      metadata: { streaming: true },
+    }
+    const abortController = new AbortController()
+    let receivedDeltaCount = 0
+    let streamEndedWithTerminalEvent = false
+    const shouldAutoScrollOnSubmit = isConversationNearBottom()
 
+    messageSubmitInFlightRef.current = true
+    streamAbortRef.current?.abort()
+    streamAbortRef.current = abortController
     setMessageError(null)
     setSelectedDecisionLabel(null)
     setIsSubmittingMessage(true)
+    setMessageStreamingStatus('submitting')
+    setStreamingMessageId(assistantMessageId)
+    announceStreamStatus('ThinkTank 顾问正在准备回复。', { immediate: true })
+    setHasUnreadStreamContent(false)
     setDraft('')
-    setSessionMessages((currentMessages) => [...currentMessages, userMessage])
+    setSessionMessages((currentMessages) => [
+      ...currentMessages,
+      userMessage,
+      pendingAssistantMessage,
+    ])
+    applyStreamingScrollBehavior(shouldAutoScrollOnSubmit)
 
     try {
-      const result = await sendThinkTankSessionMessage(activeLaunch.sessionId, { content })
-      setSessionMessages((currentMessages) => {
-        if (Array.isArray(result.messages) && result.messages.length > 0) {
-          return result.messages
+      for await (const event of streamThinkTankSessionMessage(
+        activeLaunch.sessionId,
+        { content },
+        { signal: abortController.signal }
+      )) {
+        const shouldAutoScroll = isConversationNearBottom()
+
+        if (event.event === 'message.started') {
+          setMessageStreamingStatus('streaming')
+          announceStreamStatus('正在生成顾问回复。', { immediate: true })
+          continue
         }
 
-        return [...currentMessages, result.assistantMessage]
-      })
+        if (event.event === 'message.delta') {
+          receivedDeltaCount += 1
+          setMessageStreamingStatus('streaming')
+          setSessionMessages((currentMessages) =>
+            currentMessages.map((message) =>
+              message.id === assistantMessageId
+                ? { ...message, content: `${message.content}${event.data.delta}` }
+                : message
+            )
+          )
+          announceStreamStatus(`正在生成顾问回复。已收到 ${receivedDeltaCount} 段内容。`)
+          applyStreamingScrollBehavior(shouldAutoScroll)
+          continue
+        }
+
+        if (event.event === 'message.error') {
+          streamEndedWithTerminalEvent = true
+          setMessageStreamingStatus('error')
+          setMessageError(event.data.message)
+          announceStreamStatus('顾问回复生成失败。', { immediate: true })
+          setSessionMessages((currentMessages) => [
+            ...currentMessages.filter((message) => message.id !== assistantMessageId),
+            {
+              id: `stream-error-${Date.now()}`,
+              role: 'system',
+              content: event.data.message,
+              workflowKey: activeLaunch.workflow.key,
+              stepIndex: activeLaunch.currentStep.index,
+            },
+          ])
+          applyStreamingScrollBehavior(shouldAutoScroll)
+          return
+        }
+
+        if (event.event === 'message.completed') {
+          streamEndedWithTerminalEvent = true
+          setMessageStreamingStatus('completing')
+          setSessionMessages((currentMessages) => {
+            const foundPendingMessage = currentMessages.some(
+              (message) => message.id === assistantMessageId
+            )
+            if (!foundPendingMessage) {
+              return [...currentMessages, event.data.assistantMessage]
+            }
+
+            return currentMessages.map((message) =>
+              message.id === assistantMessageId ? event.data.assistantMessage : message
+            )
+          })
+          announceStreamStatus('顾问回复已完成。', { immediate: true })
+          setStreamingMessageId(null)
+          applyStreamingScrollBehavior(shouldAutoScroll)
+        }
+      }
+      if (!streamEndedWithTerminalEvent) {
+        setDraft(content)
+        setMessageStreamingStatus('error')
+        announceStreamStatus('顾问回复生成失败。', { immediate: true })
+        setMessageError(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
+        setSessionMessages((currentMessages) =>
+          currentMessages.filter(
+            (message) => message.id !== userMessage.id && message.id !== assistantMessageId
+          )
+        )
+        return
+      }
       setSessionMessagesStatus('ready')
       conversationFocusRef.current?.focus({ preventScroll: true })
     } catch (error) {
       setDraft(content)
-      setMessageError(readWorkflowErrorMessage(error, THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE))
+      setMessageStreamingStatus('error')
+      announceStreamStatus('顾问回复生成失败。', { immediate: true })
+      setMessageError(readMessageSubmitErrorMessage(error))
       setSessionMessages((currentMessages) =>
-        currentMessages.filter((message) => message.id !== userMessage.id)
+        currentMessages.filter(
+          (message) => message.id !== userMessage.id && message.id !== assistantMessageId
+        )
       )
     } finally {
-      setIsSubmittingMessage(false)
+      const isCurrentStream = streamAbortRef.current === abortController
+      if (isCurrentStream) {
+        streamAbortRef.current = null
+        setIsSubmittingMessage(false)
+        setMessageStreamingStatus((current) => (current === 'error' ? 'error' : 'idle'))
+        setStreamingMessageId(null)
+      }
+      if (isCurrentStream || abortController.signal.aborted) {
+        messageSubmitInFlightRef.current = false
+      }
     }
   }
 
@@ -520,6 +741,19 @@ export default function AdvisoryWorkspaceShell() {
       : workflowCatalogStatus === 'error'
         ? '工作流目录加载失败。'
         : `已加载 ${workflows.length} 个工作流。`
+  const lazyHiddenMessageCount = Math.max(
+    0,
+    sessionMessages.length - THINKTANK_MESSAGE_LAZY_RENDER_THRESHOLD
+  )
+  const visibleSessionMessages =
+    lazyHiddenMessageCount > 0 && !showAllMessages
+      ? sessionMessages.slice(-THINKTANK_MESSAGE_LAZY_RENDER_THRESHOLD)
+      : sessionMessages
+  const isStreamingActive =
+    messageStreamingStatus === 'submitting' ||
+    messageStreamingStatus === 'streaming' ||
+    messageStreamingStatus === 'completing'
+  const canSubmitMessage = sessionMessagesStatus === 'ready' && !isSubmittingMessage
 
   if (isDesktop === null) {
     return <ViewportCheckingState />
@@ -548,6 +782,14 @@ export default function AdvisoryWorkspaceShell() {
         {launchError ? '工作流启动失败。' : ''}
         阅读密度：
         {readingDensityLabel}。
+      </p>
+      <p
+        role="status"
+        aria-live="polite"
+        aria-label="ThinkTank streaming status"
+        className="sr-only"
+      >
+        {streamAnnouncement}
       </p>
       <div className={shellGridVariants({ density: readingDensity })}>
         <aside
@@ -666,7 +908,17 @@ export default function AdvisoryWorkspaceShell() {
 
           {activeLaunch ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto p-6">
+              <div
+                ref={conversationScrollRef}
+                role="region"
+                aria-label="咨询消息列表"
+                className="flex-1 overflow-y-auto p-6"
+                onScroll={() => {
+                  if (isConversationNearBottom()) {
+                    setHasUnreadStreamContent(false)
+                  }
+                }}
+              >
                 <div
                   ref={conversationFocusRef}
                   tabIndex={-1}
@@ -730,69 +982,45 @@ export default function AdvisoryWorkspaceShell() {
                       </p>
                     )}
 
-                    {sessionMessages.map((message) => {
-                      const isUserMessage = message.role === 'user'
-                      const messageLabel = isUserMessage ? '你的回答' : 'ThinkTank 顾问回复'
-
-                      return (
-                        <article
-                          key={message.id}
-                          aria-label={messageLabel}
-                          className={cn(
-                            'rounded-sm border p-4',
-                            isUserMessage
-                              ? 'border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))]'
-                              : 'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
-                          )}
+                    {lazyHiddenMessageCount > 0 && !showAllMessages && (
+                      <div className="flex justify-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          aria-label={`显示较早 ${lazyHiddenMessageCount} 条消息`}
+                          onClick={() => setShowAllMessages(true)}
+                          className="h-8 rounded-sm px-3 text-xs"
                         >
-                          <div className="mb-2 flex items-center justify-between gap-3">
-                            <p className="text-xs font-semibold text-[hsl(var(--advisory-muted-foreground))]">
-                              {messageLabel}
-                            </p>
-                            {message.stepIndex && (
-                              <p className="text-xs text-[hsl(var(--advisory-muted-foreground))]">
-                                Step {message.stepIndex}
-                              </p>
-                            )}
-                          </div>
-                          <div className="whitespace-pre-wrap text-[length:inherit] leading-[inherit] text-[hsl(var(--advisory-foreground))]">
-                            {message.content}
-                          </div>
-                          {!isUserMessage && message.decisionOptions?.length ? (
-                            <div aria-label="顾问决策选项" className="mt-4 flex flex-wrap gap-2">
-                              {message.decisionOptions.map((option) => {
-                                const shortcutHint = option.shortcut
-                                  ? `快捷键 ${option.shortcut}`
-                                  : '无快捷键'
+                          显示较早 {lazyHiddenMessageCount} 条消息
+                        </Button>
+                      </div>
+                    )}
 
-                                return (
-                                  <Button
-                                    key={`${message.id}-${option.action}`}
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={!option.enabled}
-                                    aria-label={`${option.label}，${shortcutHint}`}
-                                    title={`${option.label}，${shortcutHint}`}
-                                    onClick={() => handleDecisionOption(option)}
-                                    className="h-8 rounded-sm px-2 text-xs"
-                                  >
-                                    <span>{option.label}</span>
-                                    {option.shortcut && (
-                                      <span className="ml-2 rounded-sm border border-current px-1 text-[10px] leading-4">
-                                        {option.shortcut}
-                                      </span>
-                                    )}
-                                  </Button>
-                                )
-                              })}
-                            </div>
-                          ) : null}
-                        </article>
-                      )
-                    })}
+                    {visibleSessionMessages.map((message) => (
+                      <AdvisoryChatMessage
+                        key={message.id}
+                        message={message}
+                        isStreaming={isStreamingActive && message.id === streamingMessageId}
+                        onDecisionOption={handleDecisionOption}
+                      />
+                    ))}
                   </div>
                 </div>
+                {hasUnreadStreamContent && (
+                  <div className="sticky bottom-3 flex justify-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-label="查看新回复"
+                      onClick={scrollConversationToBottom}
+                      className="h-8 rounded-sm bg-[hsl(var(--advisory-panel))] px-3 text-xs shadow-sm"
+                    >
+                      查看新回复
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <form
@@ -823,7 +1051,7 @@ export default function AdvisoryWorkspaceShell() {
                     />
                     <Button
                       type="submit"
-                      disabled={isSubmittingMessage || draft.trim().length === 0}
+                      disabled={!canSubmitMessage || draft.trim().length === 0}
                       title="提交回答"
                       className="h-[52px] shrink-0 rounded-sm px-4"
                     >

@@ -81,7 +81,10 @@ export class ThinkTankProviderGatewayService {
     }
   }
 
-  async complete(input: ThinkTankProviderRequest): Promise<ThinkTankProviderResponse> {
+  async complete(
+    input: ThinkTankProviderRequest,
+    signal?: AbortSignal,
+  ): Promise<ThinkTankProviderResponse> {
     const context = this.buildCallContext(input)
     const startedAt = Date.now()
 
@@ -98,9 +101,12 @@ export class ThinkTankProviderGatewayService {
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const attemptStartedAt = Date.now()
+      let cleanupAbortListener = () => undefined
 
       try {
-        const abortController = new AbortController()
+        const { abortController, cleanup } = this.createAbortController(signal)
+        cleanupAbortListener = cleanup
+        this.throwIfAborted(context.provider, signal)
         const response = await this.withTimeout(
           context.adapter.complete(context.request, abortController.signal),
           context.provider,
@@ -129,6 +135,8 @@ export class ThinkTankProviderGatewayService {
 
         await this.emitFailedTelemetry(context, normalized, latencyMs)
         throw normalized
+      } finally {
+        cleanupAbortListener()
       }
     }
 
@@ -146,7 +154,10 @@ export class ThinkTankProviderGatewayService {
     throw fallbackError
   }
 
-  async *stream(input: ThinkTankProviderRequest): AsyncIterable<ThinkTankProviderStreamChunk> {
+  async *stream(
+    input: ThinkTankProviderRequest,
+    signal?: AbortSignal,
+  ): AsyncIterable<ThinkTankProviderStreamChunk> {
     const context = this.buildCallContext({ ...input, stream: true })
     const startedAt = Date.now()
 
@@ -159,7 +170,7 @@ export class ThinkTankProviderGatewayService {
     }
 
     if (!context.adapter.stream) {
-      const response = await this.complete(context.request)
+      const response = await this.complete(context.request, signal)
       yield {
         index: 0,
         delta: response.content,
@@ -180,7 +191,7 @@ export class ThinkTankProviderGatewayService {
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const attemptStartedAt = Date.now()
-      const abortController = new AbortController()
+      const { abortController, cleanup } = this.createAbortController(signal)
       let yieldedAnyChunk = false
       let index = 0
       let content = ''
@@ -190,12 +201,15 @@ export class ThinkTankProviderGatewayService {
       let model = context.request.model ?? this.defaultModel
 
       try {
+        this.throwIfAborted(context.provider, signal)
         const iterator = context.adapter
           .stream(context.request, abortController.signal)
           [Symbol.asyncIterator]()
 
         while (true) {
+          this.throwIfAborted(context.provider, signal)
           const next = await this.withTimeout(iterator.next(), context.provider, abortController)
+          this.throwIfAborted(context.provider, signal)
           if (next.done) break
 
           const chunk = next.value
@@ -243,6 +257,8 @@ export class ThinkTankProviderGatewayService {
 
         await this.emitFailedTelemetry(context, normalized, latencyMs)
         throw normalized
+      } finally {
+        cleanup()
       }
     }
 
@@ -342,6 +358,43 @@ export class ThinkTankProviderGatewayService {
     }
   }
 
+  private createAbortController(signal?: AbortSignal): {
+    abortController: AbortController
+    cleanup: () => void
+  } {
+    const abortController = new AbortController()
+
+    if (!signal) {
+      return { abortController, cleanup: () => undefined }
+    }
+
+    const abort = () => abortController.abort()
+    if (signal.aborted) {
+      abortController.abort()
+      return { abortController, cleanup: () => undefined }
+    }
+
+    signal.addEventListener('abort', abort, { once: true })
+
+    return {
+      abortController,
+      cleanup: () => signal.removeEventListener('abort', abort),
+    }
+  }
+
+  private throwIfAborted(provider: ThinkTankProviderType, signal?: AbortSignal): void {
+    if (!signal?.aborted) return
+
+    throw new ThinkTankProviderGatewayError({
+      code: 'THINKTANK_PROVIDER_ABORTED',
+      category: 'provider',
+      provider,
+      status: 'failed',
+      retryable: false,
+      message: 'Provider stream was aborted',
+    })
+  }
+
   private async withTimeout<T>(
     promise: Promise<T>,
     provider: ThinkTankProviderType,
@@ -379,6 +432,20 @@ export class ThinkTankProviderGatewayService {
   ): ThinkTankProviderGatewayError {
     if (error instanceof ThinkTankProviderGatewayError) {
       return error
+    }
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      return new ThinkTankProviderGatewayError(
+        {
+          code: 'THINKTANK_PROVIDER_ABORTED',
+          category: 'provider',
+          provider,
+          status: 'failed',
+          retryable: false,
+          message: 'Provider stream was aborted',
+        },
+        { cause: error },
+      )
     }
 
     const message = error instanceof Error ? error.message : 'Provider call failed'

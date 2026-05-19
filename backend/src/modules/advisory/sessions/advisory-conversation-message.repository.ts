@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { DeepPartial, FindOptionsWhere, Repository } from 'typeorm'
+import { DeepPartial, EntityManager, FindOptionsWhere, Repository } from 'typeorm'
 import { AdvisoryConversationMessage } from '../../../database/entities/advisory-conversation-message.entity'
 import { BaseRepository } from '../../../database/repositories/base.repository'
 
@@ -18,6 +18,32 @@ export class AdvisoryConversationMessageRepository extends BaseRepository<Adviso
     data: DeepPartial<AdvisoryConversationMessage>,
   ): Promise<AdvisoryConversationMessage> {
     return this.create(tenantId, data)
+  }
+
+  async createMessageWithNextSequence(
+    tenantId: string,
+    sessionId: string,
+    data: DeepPartial<AdvisoryConversationMessage>,
+  ): Promise<AdvisoryConversationMessage> {
+    this.assertScopeValue(tenantId, 'tenantId')
+    this.assertScopeValue(sessionId, 'id')
+
+    return this.repository.manager.transaction(async (manager) => {
+      await this.lockSessionSequence(manager, tenantId, sessionId)
+      const scopedRepository = manager.getRepository(AdvisoryConversationMessage)
+      const maxSequence = await scopedRepository.maximum('sequence', {
+        tenantId,
+        sessionId,
+      })
+      const entity = scopedRepository.create({
+        ...this.stripTenantId(data),
+        tenantId,
+        sessionId,
+        sequence: (maxSequence ?? 0) + 1,
+      } as DeepPartial<AdvisoryConversationMessage>)
+
+      return scopedRepository.save(entity)
+    })
   }
 
   async findMessageById(
@@ -74,5 +100,15 @@ export class AdvisoryConversationMessageRepository extends BaseRepository<Adviso
 
   async deleteMessage(tenantId: string, messageId: string): Promise<boolean> {
     return this.delete(tenantId, messageId)
+  }
+
+  private async lockSessionSequence(
+    manager: EntityManager,
+    tenantId: string,
+    sessionId: string,
+  ): Promise<void> {
+    await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      `conversation_messages:${tenantId}:${sessionId}`,
+    ])
   }
 }

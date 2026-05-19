@@ -28,7 +28,9 @@ export type AdvisoryConversationProviderMetadata = Record<string, string | numbe
 @Entity('conversation_messages')
 @Index('idx_conversation_messages_tenant_id', ['tenantId'])
 @Index('idx_conversation_messages_session_id', ['sessionId'])
-@Index('idx_conversation_messages_tenant_session_sequence', ['tenantId', 'sessionId', 'sequence'])
+@Index('idx_conversation_messages_tenant_session_sequence', ['tenantId', 'sessionId', 'sequence'], {
+  unique: true,
+})
 @Index('idx_conversation_messages_tenant_session_created', ['tenantId', 'sessionId', 'createdAt'])
 @Index('idx_conversation_messages_workflow_step', ['tenantId', 'workflowKey', 'stepIndex'])
 export class AdvisoryConversationMessage implements TenantEntity {

@@ -1,0 +1,101 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-20T07:25:00+08:00",
+  "source": "_bmad-output/test-artifacts/traceability-story-2-7-streaming-message-experience-phase1.json",
+  "story_id": "2.7",
+  "story_key": "2-7-streaming-message-experience",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "summary": "AI responses stream through SSE with incremental rendering, clear streaming state, and polite live-region updates.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/sessions/advisory-session.messages.controller.spec.ts",
+        "backend/src/modules/advisory/sessions/advisory-session.messages.spec.ts",
+        "frontend/app/api/advisory/sessions/[sessionId]/messages/stream/route.test.ts",
+        "frontend/lib/advisory/streaming.test.ts",
+        "frontend/app/advisory/__tests__/page.test.tsx"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "summary": "User scroll position remains stable during streaming unless the conversation viewport is already near the bottom.",
+      "coverage": "FULL",
+      "tests": ["frontend/app/advisory/__tests__/page.test.tsx"],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_coverage": "not_applicable",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P0",
+      "summary": "Markdown/code render safely and user, AI, system, and expert identities are distinguishable without relying on color alone.",
+      "coverage": "FULL",
+      "tests": ["frontend/app/advisory/__tests__/page.test.tsx"],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_coverage": "not_applicable",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC4",
+      "priority": "P1",
+      "summary": "Long conversations use lazy rendering beyond the performance threshold while keeping scrolling, selection, streaming, and screen-reader behavior usable.",
+      "coverage": "FULL",
+      "tests": ["frontend/app/advisory/__tests__/page.test.tsx"],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_coverage": "not_applicable",
+        "error_path_coverage": "present"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 4,
+    "fully_covered": 4,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 3, "covered": 3, "percentage": 100 },
+      "P1": { "total": 1, "covered": 1, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Split the aggregated advisory route test suite later if subsequent Epic 2 stories make it difficult to maintain.",
+      "requirements": ["AC1", "AC2", "AC3", "AC4"]
+    }
+  ]
+}

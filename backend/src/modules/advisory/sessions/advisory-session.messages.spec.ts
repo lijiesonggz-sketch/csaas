@@ -48,7 +48,7 @@ describe('AdvisorySessionService guided messages', () => {
   let messageRepository: jest.Mocked<
     Pick<
       AdvisoryConversationMessageRepository,
-      'findMessagesBySession' | 'createMessage' | 'nextSequenceForSession'
+      'findMessagesBySession' | 'createMessageWithNextSequence'
     >
   >
   let providerGateway: jest.Mocked<Pick<ThinkTankProviderGatewayService, 'stream'>>
@@ -65,9 +65,8 @@ describe('AdvisorySessionService guided messages', () => {
     }
     messageRepository = {
       findMessagesBySession: jest.fn().mockResolvedValue([]),
-      nextSequenceForSession: jest.fn().mockResolvedValue(1),
-      createMessage: jest.fn(
-        async (_tenantId, input) =>
+      createMessageWithNextSequence: jest.fn(
+        async (_tenantId, _sessionId, input) =>
           ({
             id:
               input.role === AdvisoryConversationMessageRole.User
@@ -78,7 +77,7 @@ describe('AdvisorySessionService guided messages', () => {
             actorId: input.actorId,
             role: input.role,
             content: input.content,
-            sequence: input.sequence,
+            sequence: input.role === AdvisoryConversationMessageRole.User ? 1 : 2,
             workflowKey: input.workflowKey,
             stepIndex: input.stepIndex,
             decisionOptions: (input.decisionOptions ?? []) as never,
@@ -145,15 +144,15 @@ describe('AdvisorySessionService guided messages', () => {
 
     expect(accessService.assertThinkTankModuleAvailable).toHaveBeenCalledWith(user, tenantId)
     expect(sessionRepository.findSessionById).toHaveBeenCalledWith(tenantId, sessionId)
-    expect(messageRepository.createMessage).toHaveBeenNthCalledWith(
+    expect(messageRepository.createMessageWithNextSequence).toHaveBeenNthCalledWith(
       1,
       tenantId,
+      sessionId,
       expect.objectContaining({
         sessionId,
         actorId,
         role: AdvisoryConversationMessageRole.User,
         content: 'Retention drops after the second session.',
-        sequence: 1,
         workflowKey: 'problem-solving',
         stepIndex: 1,
       }),
@@ -180,14 +179,14 @@ describe('AdvisorySessionService guided messages', () => {
     const providerMetadata = JSON.stringify(providerGateway.stream.mock.calls[0][0].metadata)
     expect(providerMetadata).not.toContain('Retention drops after the second session')
     expect(providerMetadata).not.toMatch(/prompt|content|conversation|report|document/i)
-    expect(messageRepository.createMessage).toHaveBeenNthCalledWith(
+    expect(messageRepository.createMessageWithNextSequence).toHaveBeenNthCalledWith(
       2,
       tenantId,
+      sessionId,
       expect.objectContaining({
         role: AdvisoryConversationMessageRole.Assistant,
         content:
           'Summary: retention is likely blocked by onboarding friction. Next options: continue, deepen, revise.',
-        sequence: 2,
         workflowKey: 'problem-solving',
         stepIndex: 1,
         decisionOptions: expect.arrayContaining([
@@ -265,7 +264,7 @@ describe('AdvisorySessionService guided messages', () => {
     ).rejects.toThrow(NotFoundException)
 
     expect(providerGateway.stream).not.toHaveBeenCalled()
-    expect(messageRepository.createMessage).not.toHaveBeenCalled()
+    expect(messageRepository.createMessageWithNextSequence).not.toHaveBeenCalled()
   })
 
   test('[P0] does not advance workflow currentStep until the user confirms continuation', async () => {
@@ -281,6 +280,182 @@ describe('AdvisorySessionService guided messages', () => {
       sessionId,
       expect.objectContaining({
         currentStep: expect.objectContaining({ index: 2 }),
+      }),
+    )
+  })
+
+  test('[P0] streams started, ordered deltas, and completed events while persisting the final assistant message', async () => {
+    const events = []
+
+    for await (const event of service.streamMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: 'Stream this answer incrementally.',
+    })) {
+      events.push(event)
+    }
+
+    expect(events.map((event) => event.event)).toEqual([
+      'message.started',
+      'message.delta',
+      'message.delta',
+      'message.completed',
+    ])
+    expect(events[0]).toEqual({
+      event: 'message.started',
+      data: {
+        sessionId,
+        currentStep: activeSession.currentStep,
+      },
+    })
+    expect(events[1]).toEqual({
+      event: 'message.delta',
+      data: {
+        index: 0,
+        delta: 'Summary: retention is likely blocked by onboarding friction.',
+      },
+    })
+    expect(events[3]).toEqual({
+      event: 'message.completed',
+      data: expect.objectContaining({
+        sessionId,
+        currentStep: activeSession.currentStep,
+        assistantMessage: expect.objectContaining({
+          id: 'message-assistant-1',
+          role: AdvisoryConversationMessageRole.Assistant,
+          content:
+            'Summary: retention is likely blocked by onboarding friction. Next options: continue, deepen, revise.',
+        }),
+        decisionOptions: expect.arrayContaining([
+          expect.objectContaining({ action: 'continue', shortcut: 'C' }),
+        ]),
+      }),
+    })
+    expect(messageRepository.createMessageWithNextSequence).toHaveBeenNthCalledWith(
+      1,
+      tenantId,
+      sessionId,
+      expect.objectContaining({
+        role: AdvisoryConversationMessageRole.User,
+        content: 'Stream this answer incrementally.',
+      }),
+    )
+    expect(messageRepository.createMessageWithNextSequence).toHaveBeenNthCalledWith(
+      2,
+      tenantId,
+      sessionId,
+      expect.objectContaining({
+        role: AdvisoryConversationMessageRole.Assistant,
+      }),
+    )
+  })
+
+  test('[P0] emits a stream error instead of completing when the provider returns no content', async () => {
+    providerGateway.stream.mockImplementationOnce(async function* () {
+      // empty provider stream
+    })
+
+    const events = []
+    for await (const event of service.streamMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: 'Trigger empty provider output.',
+    })) {
+      events.push(event)
+    }
+
+    expect(events.map((event) => event.event)).toEqual(['message.started', 'message.error'])
+    expect(messageRepository.createMessageWithNextSequence).toHaveBeenCalledTimes(1)
+    expect(messageRepository.createMessageWithNextSequence).toHaveBeenCalledWith(
+      tenantId,
+      sessionId,
+      expect.objectContaining({
+        role: AdvisoryConversationMessageRole.User,
+        content: 'Trigger empty provider output.',
+      }),
+    )
+  })
+
+  test('[P1] passes abort signals to the provider stream and stops without storing assistant content', async () => {
+    const abortController = new AbortController()
+    providerGateway.stream.mockImplementationOnce(async function* (_input, signal?: AbortSignal) {
+      expect(signal).toBe(abortController.signal)
+      yield {
+        index: 0,
+        delta: 'Partial response before abort.',
+        done: false,
+        provider: 'fake',
+        model: 'fake-thinktank-model',
+      }
+      abortController.abort()
+      yield {
+        index: 1,
+        delta: 'Should not be consumed.',
+        done: true,
+        provider: 'fake',
+        model: 'fake-thinktank-model',
+      }
+    })
+
+    const events = []
+    for await (const event of service.streamMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: 'Abort while streaming.',
+      signal: abortController.signal,
+    })) {
+      events.push(event)
+    }
+
+    expect(events.map((event) => event.event)).toEqual(['message.started', 'message.delta'])
+    expect(messageRepository.createMessageWithNextSequence).toHaveBeenCalledTimes(1)
+  })
+
+  test('[P0] emits a recoverable stream error event without storing a corrupted assistant message', async () => {
+    providerGateway.stream.mockImplementationOnce(async function* () {
+      yield {
+        index: 0,
+        delta: 'Partial unsafe response',
+        done: false,
+        provider: 'fake',
+        model: 'fake-thinktank-model',
+      }
+      throw new Error('Provider disconnected')
+    })
+
+    const events = []
+    for await (const event of service.streamMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: 'Trigger provider failure.',
+    })) {
+      events.push(event)
+    }
+
+    expect(events.map((event) => event.event)).toEqual([
+      'message.started',
+      'message.delta',
+      'message.error',
+    ])
+    expect(events.at(-1)).toEqual({
+      event: 'message.error',
+      data: {
+        code: 'THINKTANK_STREAM_FAILED',
+        message: '暂时无法生成 ThinkTank 顾问回复，请稍后重试。',
+        retryable: true,
+      },
+    })
+    expect(messageRepository.createMessageWithNextSequence).toHaveBeenCalledTimes(1)
+    expect(messageRepository.createMessageWithNextSequence).toHaveBeenCalledWith(
+      tenantId,
+      sessionId,
+      expect.objectContaining({
+        role: AdvisoryConversationMessageRole.User,
+        content: 'Trigger provider failure.',
       }),
     )
   })

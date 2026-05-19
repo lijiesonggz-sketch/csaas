@@ -58,7 +58,7 @@ export interface ThinkTankDecisionOption {
 
 export interface ThinkTankConversationMessage {
   id: string
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system' | 'expert'
   content: string
   sequence?: number
   workflowKey?: string

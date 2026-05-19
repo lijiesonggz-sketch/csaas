@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { axe, toHaveNoViolations } from 'jest-axe'
 import { useSession } from 'next-auth/react'
@@ -12,6 +12,7 @@ import {
   launchThinkTankWorkflow,
   sendThinkTankSessionMessage,
 } from '@/lib/advisory/workflows'
+import { streamThinkTankSessionMessage } from '@/lib/advisory/streaming'
 import { useRadarUnreadCount } from '@/lib/hooks/useRadarUnreadCount'
 
 expect.extend(toHaveNoViolations)
@@ -23,10 +24,21 @@ jest.mock('@/lib/advisory/access', () => ({
 }))
 
 jest.mock('@/lib/advisory/workflows', () => ({
+  THINKTANK_EMPTY_MESSAGE_MESSAGE: '请输入你的回答后再提交。',
+  THINKTANK_MESSAGE_MAX_LENGTH: 5000,
+  THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE: '暂时无法生成 ThinkTank 顾问回复，请稍后重试。',
+  THINKTANK_MESSAGE_TOO_LONG_MESSAGE: '内容过长，请精简到 5000 字符以内。',
+  THINKTANK_WORKFLOW_START_FAILED_MESSAGE:
+    '暂时无法启动该 ThinkTank 工作流，请稍后重试或选择其他工作流。',
   fetchThinkTankWorkflows: jest.fn(),
   fetchThinkTankSessionMessages: jest.fn(),
   launchThinkTankWorkflow: jest.fn(),
   sendThinkTankSessionMessage: jest.fn(),
+}))
+
+jest.mock('@/lib/advisory/streaming', () => ({
+  THINKTANK_STREAM_ERROR_MESSAGE: 'ThinkTank streaming response was malformed. Please retry.',
+  streamThinkTankSessionMessage: jest.fn(),
 }))
 
 jest.mock('next-auth/react', () => ({
@@ -56,6 +68,53 @@ function renderAdvisoryRoute() {
   )
 }
 
+function createControlledStream() {
+  const queue: Array<
+    | {
+        done: false
+        value: Awaited<ReturnType<typeof streamThinkTankSessionMessage>> extends AsyncIterable<
+          infer T
+        >
+          ? T
+          : never
+      }
+    | { done: true }
+  > = []
+  const waiters: Array<() => void> = []
+
+  const notify = () => {
+    waiters.shift()?.()
+  }
+
+  return {
+    async *iterator() {
+      while (true) {
+        if (queue.length === 0) {
+          await new Promise<void>((resolve) => waiters.push(resolve))
+        }
+        const item = queue.shift()
+        if (!item) continue
+        if (item.done) return
+        yield item.value
+      }
+    },
+    push(
+      value: Awaited<ReturnType<typeof streamThinkTankSessionMessage>> extends AsyncIterable<
+        infer T
+      >
+        ? T
+        : never
+    ) {
+      queue.push({ done: false, value })
+      notify()
+    },
+    close() {
+      queue.push({ done: true })
+      notify()
+    },
+  }
+}
+
 describe('AdvisoryPage', () => {
   const mockFetchThinkTankAccess = fetchThinkTankAccess as jest.MockedFunction<
     typeof fetchThinkTankAccess
@@ -71,6 +130,9 @@ describe('AdvisoryPage', () => {
   >
   const mockSendThinkTankSessionMessage = sendThinkTankSessionMessage as jest.MockedFunction<
     typeof sendThinkTankSessionMessage
+  >
+  const mockStreamThinkTankSessionMessage = streamThinkTankSessionMessage as jest.MockedFunction<
+    typeof streamThinkTankSessionMessage
   >
   const mockUseSession = useSession as jest.Mock
   const mockUseRadarUnreadCount = useRadarUnreadCount as jest.MockedFunction<
@@ -233,6 +295,54 @@ describe('AdvisoryPage', () => {
         { action: 'revise', label: '修订', shortcut: 'R', enabled: true },
         { action: 'party-mode', label: 'Party Mode', shortcut: 'P', enabled: false },
       ],
+    })
+    mockStreamThinkTankSessionMessage.mockImplementation(async function* () {
+      yield {
+        event: 'message.started',
+        data: {
+          sessionId: 'session-brainstorming',
+          currentStep: {
+            index: 1,
+            label: '当前步骤',
+            sourceRef: '_bmad/core/skills/bmad-brainstorming/steps/step-01-session-setup.md',
+          },
+        },
+      }
+      yield {
+        event: 'message.delta',
+        data: {
+          index: 0,
+          delta: 'Here is the advisor summary.',
+        },
+      }
+      yield {
+        event: 'message.completed',
+        data: {
+          sessionId: 'session-brainstorming',
+          currentStep: {
+            index: 1,
+            label: '当前步骤',
+            sourceRef: '_bmad/core/skills/bmad-brainstorming/steps/step-01-session-setup.md',
+          },
+          assistantMessage: {
+            id: 'assistant-message-1',
+            role: 'assistant',
+            content: 'Here is the advisor summary.',
+            decisionOptions: [
+              { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+              { action: 'deepen', label: '深入', shortcut: 'A', enabled: true },
+              { action: 'revise', label: '修订', shortcut: 'R', enabled: true },
+              { action: 'party-mode', label: 'Party Mode', shortcut: 'P', enabled: false },
+            ],
+          },
+          decisionOptions: [
+            { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+            { action: 'deepen', label: '深入', shortcut: 'A', enabled: true },
+            { action: 'revise', label: '修订', shortcut: 'R', enabled: true },
+            { action: 'party-mode', label: 'Party Mode', shortcut: 'P', enabled: false },
+          ],
+        },
+      }
     })
   })
 
@@ -554,15 +664,248 @@ describe('AdvisoryPage', () => {
     await user.type(input, 'We lose users after onboarding.')
     await user.keyboard('{Enter}')
 
-    expect(mockSendThinkTankSessionMessage).toHaveBeenCalledWith('session-brainstorming', {
-      content: 'We lose users after onboarding.',
-    })
+    expect(mockStreamThinkTankSessionMessage).toHaveBeenCalledWith(
+      'session-brainstorming',
+      {
+        content: 'We lose users after onboarding.',
+      },
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
     expect(await screen.findByText('We lose users after onboarding.')).toBeInTheDocument()
     expect(await screen.findByText('Here is the advisor summary.')).toBeInTheDocument()
     const stepper = screen.getByRole('list', { name: '工作流当前步骤' })
     expect(within(stepper).getByText('当前步骤')).toBeInTheDocument()
     expect(within(stepper).getAllByRole('listitem')).toHaveLength(1)
     expect(screen.queryByText('下一步骤')).not.toBeInTheDocument()
+  })
+
+  test('[P0] renders streamed advisor deltas incrementally and removes the streaming cursor after completion', async () => {
+    const user = userEvent.setup()
+    const controlledStream = createControlledStream()
+    mockStreamThinkTankSessionMessage.mockImplementation(() => controlledStream.iterator())
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+    await user.type(await screen.findByRole('textbox', { name: '输入你的回答' }), 'Stream it.')
+    await user.keyboard('{Enter}')
+
+    act(() => {
+      controlledStream.push({
+        event: 'message.started',
+        data: { sessionId: 'session-brainstorming' },
+      })
+      controlledStream.push({
+        event: 'message.delta',
+        data: { index: 0, delta: 'First streamed chunk' },
+      })
+    })
+
+    expect(await screen.findByText('First streamed chunk')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'ThinkTank streaming status' })).toHaveTextContent(
+      '正在生成顾问回复'
+    )
+    expect(screen.getByText('▌')).toHaveAttribute('aria-hidden', 'true')
+
+    await act(async () => {
+      controlledStream.push({
+        event: 'message.completed',
+        data: {
+          assistantMessage: {
+            id: 'assistant-streamed',
+            role: 'assistant',
+            content: 'First streamed chunk completed.',
+            decisionOptions: [],
+          },
+          decisionOptions: [],
+        },
+      })
+      controlledStream.close()
+      await Promise.resolve()
+    })
+
+    expect(await screen.findByText('First streamed chunk completed.')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByText('▌')).not.toBeInTheDocument()
+    })
+  })
+
+  test('[P0] treats a stream ending without completion or error as recoverable failure', async () => {
+    const user = userEvent.setup()
+    let endMalformedStream!: () => void
+    mockStreamThinkTankSessionMessage.mockImplementation(async function* () {
+      yield {
+        event: 'message.started',
+        data: { sessionId: 'session-brainstorming' },
+      }
+      yield {
+        event: 'message.delta',
+        data: { index: 0, delta: 'Partial chunk' },
+      }
+      await new Promise<void>((resolve) => {
+        endMalformedStream = resolve
+      })
+      throw new Error('ThinkTank streaming response was malformed. Please retry.')
+    })
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('status', { name: 'ThinkTank 会话消息加载状态' })
+      ).not.toBeInTheDocument()
+    })
+    const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+    await user.type(input, 'Drop connection.')
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: '发送' })).toBeEnabled()
+    })
+    fireEvent.submit(screen.getByRole('form', { name: '发送 ThinkTank 回答' }))
+    await waitFor(() => {
+      expect(mockStreamThinkTankSessionMessage).toHaveBeenCalled()
+    })
+
+    expect(await screen.findByText('Partial chunk')).toBeInTheDocument()
+
+    await act(async () => {
+      endMalformedStream()
+      await Promise.resolve()
+    })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '暂时无法生成 ThinkTank 顾问回复，请稍后重试。'
+    )
+    expect(screen.getByRole('textbox', { name: '输入你的回答' })).toHaveValue('Drop connection.')
+    expect(screen.queryByText('Partial chunk')).not.toBeInTheDocument()
+  })
+
+  test('[P0] keeps historical content stable when the user scrolls upward during streaming', async () => {
+    const user = userEvent.setup()
+    const controlledStream = createControlledStream()
+    mockStreamThinkTankSessionMessage.mockImplementation(() => controlledStream.iterator())
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+    const messageRegion = await screen.findByRole('region', { name: '咨询消息列表' })
+    Object.defineProperty(messageRegion, 'scrollHeight', { configurable: true, value: 1200 })
+    Object.defineProperty(messageRegion, 'clientHeight', { configurable: true, value: 300 })
+    Object.defineProperty(messageRegion, 'scrollTop', {
+      configurable: true,
+      writable: true,
+      value: 0,
+    })
+    fireEvent.scroll(messageRegion)
+
+    await user.type(await screen.findByRole('textbox', { name: '输入你的回答' }), 'Keep my place.')
+    await user.keyboard('{Enter}')
+
+    act(() => {
+      controlledStream.push({
+        event: 'message.delta',
+        data: { index: 0, delta: 'New streamed content' },
+      })
+    })
+
+    expect(await screen.findByText('New streamed content')).toBeInTheDocument()
+    expect(messageRegion.scrollTop).toBe(0)
+    expect(screen.getByRole('button', { name: '查看新回复' })).toBeInTheDocument()
+  })
+
+  test('[P0] renders Markdown, fenced code, and non-color-only identities safely', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockFetchThinkTankSessionMessages.mockResolvedValueOnce({
+      sessionId: 'session-brainstorming',
+      currentStep: { index: 1, label: '当前步骤' },
+      messages: [
+        {
+          id: 'system-1',
+          role: 'system',
+          content: 'System recovery note.',
+        },
+        {
+          id: 'expert-1',
+          role: 'expert',
+          content: 'Expert perspective.',
+          metadata: { expert_name: 'Market Expert' },
+        },
+        {
+          id: 'assistant-md',
+          role: 'assistant',
+          content:
+            '## Plan\n- Inspect onboarding\n\n```tsx\nconst node = <div>safe</div>\ntype Result = Promise<string>\n```\n<script>alert("x")</script>',
+          decisionOptions: [],
+        },
+      ],
+    } as never)
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+
+    expect(await screen.findByRole('article', { name: '系统消息' })).toHaveTextContent(
+      'System recovery note.'
+    )
+    expect(screen.getByRole('article', { name: '专家消息：Market Expert' })).toHaveTextContent(
+      'Expert perspective.'
+    )
+    expect(screen.getByRole('heading', { name: 'Plan' })).toBeInTheDocument()
+    expect(screen.getByText('Inspect onboarding')).toBeInTheDocument()
+    expect(document.querySelector('pre code')).toHaveTextContent('const node = <div>safe</div>')
+    expect(document.querySelector('pre code')).toHaveTextContent('type Result = Promise<string>')
+    expect(screen.queryByText('alert("x")')).not.toBeInTheDocument()
+  })
+
+  test('[P1] lazy-renders older messages after the long conversation threshold', async () => {
+    const user = userEvent.setup()
+    const manyMessages = Array.from({ length: 90 }, (_, index) => ({
+      id: `message-${index + 1}`,
+      role: index % 2 === 0 ? 'user' : 'assistant',
+      content: `Conversation message ${index + 1}`,
+      decisionOptions: [],
+    }))
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockFetchThinkTankSessionMessages.mockResolvedValueOnce({
+      sessionId: 'session-brainstorming',
+      currentStep: { index: 1, label: '当前步骤' },
+      messages: manyMessages,
+    } as never)
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+
+    expect(await screen.findByRole('button', { name: '显示较早 10 条消息' })).toBeInTheDocument()
+    expect(screen.queryByText('Conversation message 1')).not.toBeInTheDocument()
+    expect(screen.getByText('Conversation message 90')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '显示较早 10 条消息' }))
+    expect(screen.getByText('Conversation message 1')).toBeInTheDocument()
   })
 
   test('[P0] preserves Shift+Enter newline, prevents empty submit, and autosaves the active draft', async () => {

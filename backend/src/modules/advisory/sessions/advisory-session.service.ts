@@ -103,6 +103,40 @@ export interface AdvisoryConversationSubmitResult extends AdvisoryConversationMe
   decisionOptions: AdvisoryConversationDecisionOption[]
 }
 
+export type AdvisoryConversationStreamingEvent =
+  | {
+      event: 'message.started'
+      data: {
+        sessionId: string
+        currentStep: AdvisoryWorkflowSessionCurrentStep
+      }
+    }
+  | {
+      event: 'message.delta'
+      data: {
+        index: number
+        delta: string
+      }
+    }
+  | {
+      event: 'message.completed'
+      data: {
+        sessionId: string
+        currentStep: AdvisoryWorkflowSessionCurrentStep
+        assistantMessage: AdvisoryConversationMessage
+        decisionOptions: AdvisoryConversationDecisionOption[]
+        usage?: ThinkTankProviderStreamChunk['usage']
+      }
+    }
+  | {
+      event: 'message.error'
+      data: {
+        code: string
+        message: string
+        retryable: boolean
+      }
+    }
+
 interface AdvisorySessionContext {
   user: AdvisoryAccessUser
   tenantId: string
@@ -119,6 +153,7 @@ interface AdvisorySessionMessageContext extends AdvisorySessionContext {
 interface AdvisorySubmitMessageContext extends AdvisorySessionMessageContext {
   content: string
   decisionAction?: string
+  signal?: AbortSignal
 }
 
 @Injectable()
@@ -256,24 +291,23 @@ export class AdvisorySessionService {
     const messageRepository = this.requireMessageRepository()
     const providerGateway = this.requireProviderGateway()
     const history = await messageRepository.findMessagesBySession(context.tenantId, session.id)
-    const nextSequence = await messageRepository.nextSequenceForSession(
+    const userMessage = await messageRepository.createMessageWithNextSequence(
       context.tenantId,
       session.id,
+      {
+        sessionId: session.id,
+        actorId: context.user.id,
+        role: AdvisoryConversationMessageRole.User,
+        content,
+        workflowKey: session.workflowKey,
+        stepIndex: session.currentStep.index,
+        decisionOptions: [],
+        metadata: this.createMessageMetadata(session.workflowKey, session.currentStep.index, {
+          decision_action: context.decisionAction ?? null,
+        }),
+        providerMetadata: {},
+      },
     )
-    const userMessage = await messageRepository.createMessage(context.tenantId, {
-      sessionId: session.id,
-      actorId: context.user.id,
-      role: AdvisoryConversationMessageRole.User,
-      content,
-      sequence: nextSequence,
-      workflowKey: session.workflowKey,
-      stepIndex: session.currentStep.index,
-      decisionOptions: [],
-      metadata: this.createMessageMetadata(session.workflowKey, session.currentStep.index, {
-        decision_action: context.decisionAction ?? null,
-      }),
-      providerMetadata: {},
-    })
     const providerMessages = this.toProviderMessages([...history, userMessage])
     const providerChunks: ThinkTankProviderStreamChunk[] = []
     let assistantContent = ''
@@ -300,31 +334,38 @@ export class AdvisorySessionService {
       throw this.toMessageSubmitException(error)
     }
 
+    if (!assistantContent.trim()) {
+      throw new ServiceUnavailableException(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
+    }
+
     const decisionOptions = this.createDecisionOptions()
     const lastChunk = providerChunks.at(-1)
-    const assistantMessage = await messageRepository.createMessage(context.tenantId, {
-      sessionId: session.id,
-      actorId: context.user.id,
-      role: AdvisoryConversationMessageRole.Assistant,
-      content: assistantContent.trim() || THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE,
-      sequence: nextSequence + 1,
-      workflowKey: session.workflowKey,
-      stepIndex: session.currentStep.index,
-      decisionOptions,
-      metadata: this.createMessageMetadata(session.workflowKey, session.currentStep.index, {
-        ai_generated: true,
-        finish_reason: lastChunk?.finishReason ?? null,
-      }),
-      providerMetadata: {
-        provider: lastChunk?.provider ?? null,
-        model: lastChunk?.model ?? null,
-        latency_ms: lastChunk?.latencyMs ?? null,
-        estimated_cost: lastChunk?.estimatedCost ?? null,
-        input_tokens: lastChunk?.usage?.inputTokens ?? null,
-        output_tokens: lastChunk?.usage?.outputTokens ?? null,
-        total_tokens: lastChunk?.usage?.totalTokens ?? null,
+    const assistantMessage = await messageRepository.createMessageWithNextSequence(
+      context.tenantId,
+      session.id,
+      {
+        sessionId: session.id,
+        actorId: context.user.id,
+        role: AdvisoryConversationMessageRole.Assistant,
+        content: assistantContent.trim(),
+        workflowKey: session.workflowKey,
+        stepIndex: session.currentStep.index,
+        decisionOptions,
+        metadata: this.createMessageMetadata(session.workflowKey, session.currentStep.index, {
+          ai_generated: true,
+          finish_reason: lastChunk?.finishReason ?? null,
+        }),
+        providerMetadata: {
+          provider: lastChunk?.provider ?? null,
+          model: lastChunk?.model ?? null,
+          latency_ms: lastChunk?.latencyMs ?? null,
+          estimated_cost: lastChunk?.estimatedCost ?? null,
+          input_tokens: lastChunk?.usage?.inputTokens ?? null,
+          output_tokens: lastChunk?.usage?.outputTokens ?? null,
+          total_tokens: lastChunk?.usage?.totalTokens ?? null,
+        },
       },
-    })
+    )
 
     return {
       sessionId: session.id,
@@ -341,6 +382,152 @@ export class AdvisorySessionService {
         finishReason: chunk.finishReason,
       })),
       decisionOptions,
+    }
+  }
+
+  async *streamMessage(
+    context: AdvisorySubmitMessageContext,
+  ): AsyncIterable<AdvisoryConversationStreamingEvent> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const content = this.normalizeMessageContent(context.content)
+    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+
+    if (session.status !== AdvisoryWorkflowSessionStatus.Active) {
+      throw new NotFoundException('ThinkTank session not found')
+    }
+
+    const messageRepository = this.requireMessageRepository()
+    const providerGateway = this.requireProviderGateway()
+    const history = await messageRepository.findMessagesBySession(context.tenantId, session.id)
+    const userMessage = await messageRepository.createMessageWithNextSequence(
+      context.tenantId,
+      session.id,
+      {
+        sessionId: session.id,
+        actorId: context.user.id,
+        role: AdvisoryConversationMessageRole.User,
+        content,
+        workflowKey: session.workflowKey,
+        stepIndex: session.currentStep.index,
+        decisionOptions: [],
+        metadata: this.createMessageMetadata(session.workflowKey, session.currentStep.index, {
+          decision_action: context.decisionAction ?? null,
+        }),
+        providerMetadata: {},
+      },
+    )
+    const providerMessages = this.toProviderMessages([...history, userMessage])
+    const providerChunks: ThinkTankProviderStreamChunk[] = []
+    let assistantContent = ''
+
+    yield {
+      event: 'message.started',
+      data: {
+        sessionId: session.id,
+        currentStep: session.currentStep,
+      },
+    }
+
+    try {
+      for await (const chunk of providerGateway.stream(
+        {
+          tenantId: context.tenantId,
+          actorId: context.user.id,
+          subjectId: session.id,
+          stream: true,
+          system: this.createProviderSystemPrompt(session.workflowKey, session.currentStep),
+          messages: providerMessages,
+          metadata: {
+            workflow_key: session.workflowKey,
+            step_index: session.currentStep.index,
+            message_count: providerMessages.length,
+            decision_action: context.decisionAction ?? null,
+          },
+        },
+        context.signal,
+      )) {
+        if (context.signal?.aborted) {
+          return
+        }
+        providerChunks.push(chunk)
+        assistantContent += chunk.delta
+        yield {
+          event: 'message.delta',
+          data: {
+            index: chunk.index,
+            delta: chunk.delta,
+          },
+        }
+      }
+    } catch {
+      if (context.signal?.aborted) {
+        return
+      }
+      yield {
+        event: 'message.error',
+        data: {
+          code: 'THINKTANK_STREAM_FAILED',
+          message: THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE,
+          retryable: true,
+        },
+      }
+      return
+    }
+
+    if (context.signal?.aborted) {
+      return
+    }
+
+    if (!assistantContent.trim()) {
+      yield {
+        event: 'message.error',
+        data: {
+          code: 'THINKTANK_STREAM_FAILED',
+          message: THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE,
+          retryable: true,
+        },
+      }
+      return
+    }
+
+    const decisionOptions = this.createDecisionOptions()
+    const lastChunk = providerChunks.at(-1)
+    const assistantMessage = await messageRepository.createMessageWithNextSequence(
+      context.tenantId,
+      session.id,
+      {
+        sessionId: session.id,
+        actorId: context.user.id,
+        role: AdvisoryConversationMessageRole.Assistant,
+        content: assistantContent.trim(),
+        workflowKey: session.workflowKey,
+        stepIndex: session.currentStep.index,
+        decisionOptions,
+        metadata: this.createMessageMetadata(session.workflowKey, session.currentStep.index, {
+          ai_generated: true,
+          finish_reason: lastChunk?.finishReason ?? null,
+        }),
+        providerMetadata: {
+          provider: lastChunk?.provider ?? null,
+          model: lastChunk?.model ?? null,
+          latency_ms: lastChunk?.latencyMs ?? null,
+          estimated_cost: lastChunk?.estimatedCost ?? null,
+          input_tokens: lastChunk?.usage?.inputTokens ?? null,
+          output_tokens: lastChunk?.usage?.outputTokens ?? null,
+          total_tokens: lastChunk?.usage?.totalTokens ?? null,
+        },
+      },
+    )
+
+    yield {
+      event: 'message.completed',
+      data: {
+        sessionId: session.id,
+        currentStep: session.currentStep,
+        assistantMessage,
+        decisionOptions,
+        ...(lastChunk?.usage ? { usage: lastChunk.usage } : {}),
+      },
     }
   }
 
