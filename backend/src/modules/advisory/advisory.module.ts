@@ -18,6 +18,11 @@ import {
 import { ThinkTankProviderGatewayService } from './provider-gateway/thinktank-provider-gateway.service'
 import { AnthropicGlmProviderAdapter } from './provider-gateway/providers/anthropic-glm-provider.adapter'
 import { FakeThinkTankProviderAdapter } from './provider-gateway/providers/fake-thinktank-provider.adapter'
+import { ThinkTankBrandMapperService } from './runtime/brand-mapper.service'
+import { ThinkTankPromptAssemblerService } from './runtime/prompt-assembler.service'
+import { ThinkTankRuntimeFileProviderService } from './runtime/runtime-file-provider.service'
+import { ThinkTankWorkflowParserService } from './runtime/workflow-parser.service'
+import { ThinkTankWorkflowRegistryService } from './runtime/workflow-registry.service'
 
 @Module({
   imports: [
@@ -47,12 +52,22 @@ import { FakeThinkTankProviderAdapter } from './provider-gateway/providers/fake-
       ],
     },
     ThinkTankProviderGatewayService,
+    ThinkTankRuntimeFileProviderService,
+    ThinkTankBrandMapperService,
+    ThinkTankWorkflowParserService,
+    ThinkTankWorkflowRegistryService,
+    ThinkTankPromptAssemblerService,
   ],
   exports: [
     AdvisoryAccessService,
     AdvisoryAdminService,
     AdvisoryEventService,
     ThinkTankProviderGatewayService,
+    ThinkTankRuntimeFileProviderService,
+    ThinkTankBrandMapperService,
+    ThinkTankWorkflowParserService,
+    ThinkTankWorkflowRegistryService,
+    ThinkTankPromptAssemblerService,
   ],
 })
 export class AdvisoryModule {}

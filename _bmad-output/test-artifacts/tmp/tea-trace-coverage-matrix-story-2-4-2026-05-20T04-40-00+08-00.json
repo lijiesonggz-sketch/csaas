@@ -1,0 +1,274 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-20T04:40:00+08:00",
+  "story_id": "2-4-runtime-file-loading-and-brand-mapping",
+  "story_title": "Runtime File Loading and Brand Mapping",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "description": "Runtime loads workflow, step, agent, and method-library files through an approved file provider; missing or malformed files fail closed with clear operational errors.",
+      "coverage": "FULL",
+      "test_level": "Unit/Integration",
+      "tests": [
+        {
+          "id": "2.4-UNIT-AC1-001",
+          "file": "backend/src/modules/advisory/runtime/runtime-file-provider.service.spec.ts",
+          "line": 20,
+          "name": "loads approved BMAD runtime files as typed descriptors with stable hashes"
+        },
+        {
+          "id": "2.4-UNIT-AC1-002",
+          "file": "backend/src/modules/advisory/runtime/runtime-file-provider.service.spec.ts",
+          "line": 39,
+          "name": "fails closed when a relative path escapes approved roots"
+        },
+        {
+          "id": "2.4-UNIT-AC1-003",
+          "file": "backend/src/modules/advisory/runtime/runtime-file-provider.service.spec.ts",
+          "line": 53,
+          "name": "fails closed when CSV listing roots normalize outside approved roots"
+        },
+        {
+          "id": "2.4-UNIT-AC1-004",
+          "file": "backend/src/modules/advisory/runtime/runtime-file-provider.service.spec.ts",
+          "line": 63,
+          "name": "fails closed when an approved path resolves through a symlink outside approved roots"
+        },
+        {
+          "id": "2.4-UNIT-AC1-005",
+          "file": "backend/src/modules/advisory/runtime/runtime-file-provider.service.spec.ts",
+          "line": 89,
+          "name": "returns stable operational errors for missing, unsupported, and empty files"
+        },
+        {
+          "id": "2.4-UNIT-AC1-006",
+          "file": "backend/src/modules/advisory/runtime/runtime-file-provider.service.spec.ts",
+          "line": 109,
+          "name": "does not expose raw filesystem causes on operational errors"
+        },
+        {
+          "id": "2.4-INT-AC1-007",
+          "file": "backend/src/modules/advisory/runtime/prompt-assembler.service.spec.ts",
+          "line": 112,
+          "name": "rejects malformed method-library CSV files before assembling partial guidance"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "N/A - no API endpoint in Story 2.4",
+        "auth_negative_path": "N/A - no auth surface in Story 2.4",
+        "error_path": "Covered by missing, unsupported, empty, outside-root, symlink, malformed CSV, and invalid key tests"
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "description": "User-visible BMAD-origin identifiers are mapped to ThinkTank while paths, logs, code references, and diagnostic metadata are preserved.",
+      "coverage": "FULL",
+      "test_level": "Unit/Integration",
+      "tests": [
+        {
+          "id": "2.4-UNIT-AC2-001",
+          "file": "backend/src/modules/advisory/runtime/brand-mapper.service.spec.ts",
+          "line": 4,
+          "name": "maps BMAD-origin visible labels to ThinkTank terminology"
+        },
+        {
+          "id": "2.4-UNIT-AC2-002",
+          "file": "backend/src/modules/advisory/runtime/brand-mapper.service.spec.ts",
+          "line": 18,
+          "name": "preserves markdown code spans, fenced code blocks, paths, and diagnostic tokens"
+        },
+        {
+          "id": "2.4-UNIT-AC2-003",
+          "file": "backend/src/modules/advisory/runtime/brand-mapper.service.spec.ts",
+          "line": 40,
+          "name": "preserves diagnostic log lines where origin labels are technical evidence"
+        },
+        {
+          "id": "2.4-UNIT-AC2-004",
+          "file": "backend/src/modules/advisory/runtime/brand-mapper.service.spec.ts",
+          "line": 57,
+          "name": "preserves multi-backtick code spans and long fenced code blocks"
+        },
+        {
+          "id": "2.4-UNIT-AC2-005",
+          "file": "backend/src/modules/advisory/runtime/brand-mapper.service.spec.ts",
+          "line": 77,
+          "name": "does not close fenced code blocks when a fence-like line has trailing text"
+        },
+        {
+          "id": "2.4-UNIT-AC2-006",
+          "file": "backend/src/modules/advisory/runtime/brand-mapper.service.spec.ts",
+          "line": 93,
+          "name": "does not close fenced code blocks with four-space-indented fence markers"
+        },
+        {
+          "id": "2.4-UNIT-AC2-007",
+          "file": "backend/src/modules/advisory/runtime/brand-mapper.service.spec.ts",
+          "line": 109,
+          "name": "is idempotent across repeated mapping passes"
+        },
+        {
+          "id": "2.4-INT-AC2-008",
+          "file": "backend/src/modules/advisory/runtime/prompt-assembler.service.spec.ts",
+          "line": 36,
+          "name": "assembles workflow and method-library content while preserving technical source refs"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "N/A - no API endpoint in Story 2.4",
+        "auth_negative_path": "N/A - no auth surface in Story 2.4",
+        "error_path": "Covered through visible/technical text preservation and prompt assembly assertions"
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P1",
+      "description": "A new supported workflow definition can be discovered through the runtime registry without hardcoding a new business flow.",
+      "coverage": "FULL",
+      "test_level": "Integration",
+      "tests": [
+        {
+          "id": "2.4-INT-AC3-001",
+          "file": "backend/src/modules/advisory/runtime/workflow-registry.service.spec.ts",
+          "line": 22,
+          "name": "discovers the eight MVP ThinkTank workflows from runtime source assets"
+        },
+        {
+          "id": "2.4-INT-AC3-002",
+          "file": "backend/src/modules/advisory/runtime/workflow-registry.service.spec.ts",
+          "line": 69,
+          "name": "discovers a configured workflow fixture without workflow-specific branching"
+        },
+        {
+          "id": "2.4-INT-AC3-003",
+          "file": "backend/src/modules/advisory/runtime/workflow-registry.service.spec.ts",
+          "line": 154,
+          "name": "parses YAML workflow definitions through the parser boundary"
+        },
+        {
+          "id": "2.4-INT-AC3-004",
+          "file": "backend/src/modules/advisory/runtime/workflow-registry.service.spec.ts",
+          "line": 189,
+          "name": "parses CSV workflow definitions through the parser boundary"
+        },
+        {
+          "id": "2.4-INT-AC3-005",
+          "file": "backend/src/modules/advisory/runtime/workflow-registry.service.spec.ts",
+          "line": 242,
+          "name": "discovers runtime catalog rows without code-level workflow overrides"
+        },
+        {
+          "id": "2.4-INT-AC3-006",
+          "file": "backend/src/modules/advisory/runtime/workflow-registry.service.spec.ts",
+          "line": 318,
+          "name": "rejects malformed runtime manifest headers and rows"
+        },
+        {
+          "id": "2.4-INT-AC3-007",
+          "file": "backend/src/modules/advisory/runtime/workflow-registry.service.spec.ts",
+          "line": 336,
+          "name": "rejects malformed workflow frontmatter and YAML definitions"
+        },
+        {
+          "id": "2.4-INT-AC3-008",
+          "file": "backend/src/modules/advisory/runtime/prompt-assembler.service.spec.ts",
+          "line": 81,
+          "name": "deduplicates equivalent source paths after file-provider canonicalization"
+        },
+        {
+          "id": "2.4-UNIT-AC3-009",
+          "file": "backend/src/modules/advisory/runtime/advisory-runtime.module.spec.ts",
+          "line": 11,
+          "name": "registers and exports runtime services from the existing AdvisoryModule"
+        },
+        {
+          "id": "2.4-UNIT-AC3-010",
+          "file": "backend/src/modules/advisory/runtime/advisory-runtime.module.spec.ts",
+          "line": 28,
+          "name": "compiles the runtime provider graph and resolves each runtime service"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "N/A - no API endpoint in Story 2.4",
+        "auth_negative_path": "N/A - no auth surface in Story 2.4",
+        "error_path": "Covered by malformed manifest, malformed workflow, duplicate key, unknown key, and invalid key tests"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 3,
+    "fully_covered": 3,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": {
+        "total": 2,
+        "covered": 2,
+        "percentage": 100
+      },
+      "P1": {
+        "total": 1,
+        "covered": 1,
+        "percentage": 100
+      },
+      "P2": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P3": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "No blocking coverage gaps. Re-run focused runtime Jest and TypeScript validation when Story 2.5 wires runtime launch behavior.",
+      "requirements": []
+    }
+  ],
+  "test_execution": {
+    "focused_runtime": {
+      "command": "cd backend && npm run test -- src/modules/advisory/runtime --runInBand",
+      "suites": 5,
+      "tests": 30,
+      "failed": 0,
+      "status": "passed"
+    },
+    "typescript": {
+      "command": "cd backend && npx tsc --noEmit",
+      "status": "passed"
+    },
+    "advisory_regression": {
+      "command": "cd backend && npm run test -- src/modules/advisory --runInBand",
+      "suites": 17,
+      "tests": 96,
+      "failed": 0,
+      "status": "passed"
+    }
+  }
+}

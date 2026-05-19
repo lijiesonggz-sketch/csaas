@@ -1,0 +1,32 @@
+story_id: 2-4-runtime-file-loading-and-brand-mapping
+story_title: Runtime File Loading and Brand Mapping
+decision: PASS
+gate_type: story
+decision_mode: deterministic
+decision_date: '2026-05-20T04:40:00+08:00'
+evaluator: Codex
+criteria:
+  p0_coverage: 100
+  p0_pass_rate: 100
+  p1_coverage: 100
+  p1_pass_rate: 100
+  overall_pass_rate: 100
+  overall_coverage: 100
+  security_issues: 0
+  critical_nfrs_fail: 0
+  flaky_tests: 0
+thresholds:
+  min_p0_coverage: 100
+  min_p0_pass_rate: 100
+  min_p1_coverage_pass: 90
+  min_p1_coverage_fail: 80
+  min_overall_coverage: 80
+evidence:
+  traceability: _bmad-output/test-artifacts/traceability-report-story-2-4-runtime-file-loading-and-brand-mapping.md
+  coverage_matrix: _bmad-output/test-artifacts/tmp/tea-trace-coverage-matrix-story-2-4-2026-05-20T04-40-00+08-00.json
+  atdd: _bmad-output/test-artifacts/atdd-checklist-2-4-runtime-file-loading-and-brand-mapping.md
+  test_results:
+    - cd backend && npm run test -- src/modules/advisory/runtime --runInBand
+    - cd backend && npx tsc --noEmit
+    - cd backend && npm run test -- src/modules/advisory --runInBand
+next_steps: Proceed to mark Story 2.4 done after status/documentation updates and commit.
