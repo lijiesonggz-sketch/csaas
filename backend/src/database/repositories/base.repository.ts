@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common'
 import { DeepPartial, FindManyOptions, FindOneOptions, FindOptionsWhere, Repository } from 'typeorm'
 import { TenantEntity } from '../interfaces/tenant-entity.interface'
 
@@ -28,6 +29,19 @@ import { TenantEntity } from '../interfaces/tenant-entity.interface'
 export abstract class BaseRepository<T extends TenantEntity> {
   constructor(protected readonly repository: Repository<T>) {}
 
+  protected assertScopeValue(
+    value: unknown,
+    fieldName: 'tenantId' | 'id',
+  ): asserts value is string {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      throw new BadRequestException(`${fieldName} is required for tenant-scoped repository access`)
+    }
+  }
+
+  protected isEmptyWhereArray(where?: FindOptionsWhere<T> | FindOptionsWhere<T>[]): boolean {
+    return Array.isArray(where) && where.length === 0
+  }
+
   protected addTenantFilter(
     tenantId: string,
     where?: FindOptionsWhere<T> | FindOptionsWhere<T>[],
@@ -52,7 +66,16 @@ export abstract class BaseRepository<T extends TenantEntity> {
   }
 
   protected stripTenantId(data: DeepPartial<T>): DeepPartial<T> {
-    const { tenantId: _ignoredTenantId, ...safeData } = (data ?? {}) as Record<string, unknown>
+    const safeData = { ...((data ?? {}) as Record<string, unknown>) }
+    delete safeData.tenantId
+    return safeData as DeepPartial<T>
+  }
+
+  protected stripImmutableUpdateFields(data: DeepPartial<T>): DeepPartial<T> {
+    const safeData = { ...((data ?? {}) as Record<string, unknown>) }
+    delete safeData.id
+    delete safeData.tenantId
+    delete safeData.createdAt
     return safeData as DeepPartial<T>
   }
 
@@ -61,6 +84,12 @@ export abstract class BaseRepository<T extends TenantEntity> {
     where: FindOptionsWhere<T>,
     options?: FindOneOptions<T>,
   ): Promise<T | null> {
+    this.assertScopeValue(tenantId, 'tenantId')
+
+    if (this.isEmptyWhereArray(options?.where as any)) {
+      return null
+    }
+
     return this.repository.findOne({
       ...options,
       where: this.addTenantFilter(tenantId, where) as any,
@@ -75,6 +104,12 @@ export abstract class BaseRepository<T extends TenantEntity> {
    * @returns Array of entities belonging to the tenant
    */
   async findAll(tenantId: string, options?: FindManyOptions<T>): Promise<T[]> {
+    this.assertScopeValue(tenantId, 'tenantId')
+
+    if (this.isEmptyWhereArray(options?.where as any)) {
+      return []
+    }
+
     return this.repository.find({
       ...options,
       where: this.addTenantFilter(tenantId, options?.where as any) as any,
@@ -90,6 +125,13 @@ export abstract class BaseRepository<T extends TenantEntity> {
    * @returns Entity if found, null otherwise
    */
   async findOne(tenantId: string, id: string, options?: FindOneOptions<T>): Promise<T | null> {
+    this.assertScopeValue(tenantId, 'tenantId')
+    this.assertScopeValue(id, 'id')
+
+    if (this.isEmptyWhereArray(options?.where as any)) {
+      return null
+    }
+
     return this.repository.findOne({
       ...options,
       where: this.addTenantFilter(
@@ -108,6 +150,8 @@ export abstract class BaseRepository<T extends TenantEntity> {
    * @returns Created entity
    */
   async create(tenantId: string, data: DeepPartial<T>): Promise<T> {
+    this.assertScopeValue(tenantId, 'tenantId')
+
     const entity = this.repository.create({
       ...this.stripTenantId(data),
       tenantId,
@@ -125,7 +169,10 @@ export abstract class BaseRepository<T extends TenantEntity> {
    * @returns Updated entity, or null if not found
    */
   async update(tenantId: string, id: string, data: DeepPartial<T>): Promise<T | null> {
-    const safeData = this.stripTenantId(data)
+    this.assertScopeValue(tenantId, 'tenantId')
+    this.assertScopeValue(id, 'id')
+
+    const safeData = this.stripImmutableUpdateFields(data)
 
     if (Object.keys(safeData as object).length > 0) {
       await this.repository.update({ id, tenantId } as any, safeData as any)
@@ -140,8 +187,12 @@ export abstract class BaseRepository<T extends TenantEntity> {
    * @param tenantId - Tenant ID to filter by
    * @param id - Entity ID
    */
-  async delete(tenantId: string, id: string): Promise<void> {
-    await this.repository.delete({ id, tenantId } as any)
+  async delete(tenantId: string, id: string): Promise<boolean> {
+    this.assertScopeValue(tenantId, 'tenantId')
+    this.assertScopeValue(id, 'id')
+
+    const result = await this.repository.delete({ id, tenantId } as any)
+    return (result.affected ?? 0) > 0
   }
 
   /**
@@ -152,6 +203,12 @@ export abstract class BaseRepository<T extends TenantEntity> {
    * @returns Count of entities
    */
   async count(tenantId: string, options?: FindManyOptions<T>): Promise<number> {
+    this.assertScopeValue(tenantId, 'tenantId')
+
+    if (this.isEmptyWhereArray(options?.where as any)) {
+      return 0
+    }
+
     return this.repository.count({
       ...options,
       where: this.addTenantFilter(tenantId, options?.where as any) as any,

@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Project } from '../entities/project.entity';
-import { BaseTenantRepository } from './base-tenant.repository';
+import { Injectable } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { IsNull, Repository } from 'typeorm'
+import { Project } from '../entities/project.entity'
+import { BaseTenantRepository } from './base-tenant.repository'
 
 /**
  * ProjectRepository
@@ -18,7 +18,7 @@ export class ProjectRepository extends BaseTenantRepository<Project> {
     @InjectRepository(Project)
     repository: Repository<Project>,
   ) {
-    super(repository, 'Project');
+    super(repository, 'Project')
   }
 
   /**
@@ -28,14 +28,14 @@ export class ProjectRepository extends BaseTenantRepository<Project> {
     return this.find(tenantId, {
       where: { organizationId },
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   /**
    * 根据名称查找项目
    */
   async findByName(tenantId: string, name: string): Promise<Project | null> {
-    return this.findOne(tenantId, { where: { name } });
+    return this.findOne(tenantId, { where: { name } })
   }
 
   /**
@@ -43,23 +43,20 @@ export class ProjectRepository extends BaseTenantRepository<Project> {
    */
   async findActive(tenantId: string): Promise<Project[]> {
     return this.find(tenantId, {
-      where: { deletedAt: null } as any,
+      where: { deletedAt: IsNull() } as any,
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   /**
    * 查找指定组织的激活项目
    */
-  async findActiveByOrganization(
-    tenantId: string,
-    organizationId: string,
-  ): Promise<Project[]> {
-    const qb = this.createQueryBuilder(tenantId, 'project');
+  async findActiveByOrganization(tenantId: string, organizationId: string): Promise<Project[]> {
+    const qb = this.createQueryBuilder(tenantId, 'project')
     return qb
       .where('project.organizationId = :organizationId', { organizationId })
       .andWhere('project.deletedAt IS NULL')
       .orderBy('project.createdAt', 'DESC')
-      .getMany();
+      .getMany()
   }
 }

@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { WatchedTopic } from '../entities/watched-topic.entity';
-import { BaseTenantRepository } from './base-tenant.repository';
+import { Injectable } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { IsNull, Repository } from 'typeorm'
+import { WatchedTopic } from '../entities/watched-topic.entity'
+import { BaseTenantRepository } from './base-tenant.repository'
 
 /**
  * WatchedTopicRepository
@@ -18,7 +18,7 @@ export class WatchedTopicRepository extends BaseTenantRepository<WatchedTopic> {
     @InjectRepository(WatchedTopic)
     repository: Repository<WatchedTopic>,
   ) {
-    super(repository, 'WatchedTopic');
+    super(repository, 'WatchedTopic')
   }
 
   /**
@@ -28,7 +28,7 @@ export class WatchedTopicRepository extends BaseTenantRepository<WatchedTopic> {
     return this.find(tenantId, {
       where: { organizationId },
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   /**
@@ -38,7 +38,7 @@ export class WatchedTopicRepository extends BaseTenantRepository<WatchedTopic> {
     return this.find(tenantId, {
       where: { topicType } as any,
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   /**
@@ -46,9 +46,9 @@ export class WatchedTopicRepository extends BaseTenantRepository<WatchedTopic> {
    */
   async findActive(tenantId: string): Promise<WatchedTopic[]> {
     return this.find(tenantId, {
-      where: { deletedAt: null } as any,
+      where: { deletedAt: IsNull() } as any,
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   /**
@@ -62,7 +62,7 @@ export class WatchedTopicRepository extends BaseTenantRepository<WatchedTopic> {
     return this.find(tenantId, {
       where: { organizationId, topicType } as any,
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   /**
@@ -72,11 +72,11 @@ export class WatchedTopicRepository extends BaseTenantRepository<WatchedTopic> {
     tenantId: string,
     organizationId: string,
   ): Promise<WatchedTopic[]> {
-    const qb = this.createQueryBuilder(tenantId, 'topic');
+    const qb = this.createQueryBuilder(tenantId, 'topic')
     return qb
       .where('topic.organizationId = :organizationId', { organizationId })
       .andWhere('topic.deletedAt IS NULL')
       .orderBy('topic.createdAt', 'DESC')
-      .getMany();
+      .getMany()
   }
 }

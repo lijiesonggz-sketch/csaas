@@ -73,14 +73,14 @@ This story is a shared tenant-isolation infrastructure and evidence story. It mu
 
 Do not create these future advisory tables in Story 1.3:
 
-| Entity | First-use story |
-| --- | --- |
-| `workflow_sessions` | Story 2.5 |
-| `conversation_messages` | Story 2.6 |
-| `workflow_outputs` | Story 2.8 |
-| `workflow_checkpoints` | Story 4.1 |
-| `output_ratings` | Story 4.4 |
-| `organization_context` | Story 3.6 |
+| Entity                  | First-use story |
+| ----------------------- | --------------- |
+| `workflow_sessions`     | Story 2.5       |
+| `conversation_messages` | Story 2.6       |
+| `workflow_outputs`      | Story 2.8       |
+| `workflow_checkpoints`  | Story 4.1       |
+| `output_ratings`        | Story 4.4       |
+| `organization_context`  | Story 3.6       |
 
 The only tenant-scoped advisory table currently introduced by Epic 1 is `advisory_module_configs` from Story 1.2. Story 1.3 should harden that surface and the shared repository base so later first-use stories can reuse the same contract.
 
@@ -167,6 +167,9 @@ GPT-5 Codex
 - 2026-05-19: Verification commands run: `npm run test -- base.repository advisory-module-config.repository advisory-admin.service --runInBand` (initial RED failed as expected, later passed), `npm run test -- base.repository advisory --runInBand`, `npm run orm:entities:parity`, `npx tsc --noEmit`, and `npm test -- --runInBand`.
 - 2026-05-19: Code review found one PATCH finding for empty TypeORM array `where` preserving tenant scope; fixed and re-verified.
 - 2026-05-19: Traceability matrix and quality gate generated for the current ThinkTank Story 1.3; gate decision PASS.
+- 2026-05-20: Reran `bmad-code-review` with subagents. Fixed runtime empty scope rejection, empty `where: []` no-match semantics, immutable update payload stripping, delete affected reporting, TypeORM null/undefined where guard, cross-tenant delete miss coverage, and first-use unique conflict recovery.
+- 2026-05-20: Post-fix review found that global TypeORM null where guards required existing intentional SQL NULL predicates to use `IsNull()`. Updated active soft-delete repository queries plus radar peer relevance lookup and added regression coverage.
+- 2026-05-20: Verification commands passed after review fixes: `npm --workspace backend run test -- base.repository advisory-module-config.repository advisory-admin.service --runInBand`, `npm --workspace backend run test -- soft-delete-null.repository peer-relevance.service base.repository advisory --runInBand`, `npm --workspace backend exec -- tsc --noEmit`, and `npm --workspace backend run orm:entities:parity`.
 
 ### Implementation Plan
 
@@ -186,8 +189,10 @@ GPT-5 Codex
 - Verified `advisory_module_configs` tenant lookup support through existing entity metadata coverage for `idx_advisory_module_configs_tenant_id` and unique `(tenantId, moduleKey)`. No session-history partition work is required before session tables exist.
 - Frontend tests were not run because Story 1.3 changed backend/security-infrastructure code only and no frontend advisory behavior changed.
 - Broader backend regression remains blocked by unrelated existing taxonomy-domain-gate failures: `taxonomy-domain-gate.automation.spec.ts` tests `[P0][6.5-AUTO-003]` and `[P0][6.5-AUTO-007]` expect `decision.allowed === true` but receive `false`; `taxonomy-domain-gate.atdd-8-2.spec.ts` test `[8.2-SVC-003][P1]` expects benchmarkGate PASS with tier/source details but receives FAIL/null values.
-- Code review PATCH finding resolved: empty TypeORM array `where` now collapses to a scoped tenant predicate for `findAll`, `findOne`, and `count`; focused advisory tests now cover 47 passing cases.
+- Code review PATCH finding resolved: empty TypeORM array `where` is tenant-safe and, after the 2026-05-20 rerun, now short-circuits to no matches for `findAll`, `findOne`, and `count` instead of broadening to tenant-wide results.
 - Traceability gate decision: PASS. P0 coverage 100%, P1 coverage 100%, overall coverage 100%; no Story 1.3 coverage gaps remain.
+- 2026-05-20 review rerun resolved additional tenant-isolation hardening issues: empty `where: []` now returns no matches instead of tenant-wide results; empty tenant/id scope is rejected before TypeORM criteria are built; TypeORM runtime and CLI configs throw on null/undefined where values; update payloads cannot mutate `id`, `tenantId`, or `createdAt`; delete methods return scoped affected status; advisory config delete tests prove cross-tenant miss behavior; first-use create races recover from PostgreSQL unique violation by reloading the tenant config.
+- Existing soft-delete active queries and radar peer relevance lookup now use `IsNull()` instead of `deletedAt: null`, keeping TypeORM null guards enabled without breaking intended SQL NULL matching.
 
 ### File List
 
@@ -207,6 +212,15 @@ GPT-5 Codex
 - `_bmad-output/test-artifacts/tmp/tea-trace-coverage-matrix-story-1-3-2026-05-19T04-05-02+08-00.json`
 - `backend/src/database/repositories/base.repository.ts`
 - `backend/src/database/repositories/base.repository.spec.ts`
+- `backend/src/config/database.config.ts`
+- `backend/src/config/typeorm.config.ts`
+- `backend/src/database/repositories/organization.repository.ts`
+- `backend/src/database/repositories/project.repository.ts`
+- `backend/src/database/repositories/watched-peer.repository.ts`
+- `backend/src/database/repositories/watched-topic.repository.ts`
+- `backend/src/database/repositories/soft-delete-null.repository.spec.ts`
+- `backend/src/modules/radar/services/peer-relevance.service.ts`
+- `backend/src/modules/radar/services/peer-relevance.service.spec.ts`
 - `backend/src/modules/advisory/advisory.module.ts`
 - `backend/src/modules/advisory/admin/advisory-admin.service.ts`
 - `backend/src/modules/advisory/admin/advisory-admin.service.spec.ts`
@@ -219,3 +233,4 @@ GPT-5 Codex
 - 2026-05-19: Implemented tenant isolation foundation, advisory module config repository wrapper, cross-tenant tests, security evidence, and verification notes.
 - 2026-05-19: Addressed code review empty-array tenant filtering finding and recorded Story 1.3 review artifact.
 - 2026-05-19: Generated Story 1.3 traceability matrix and PASS gate decision; marked story done.
+- 2026-05-20: Reran code review with subagents, fixed additional HIGH/MEDIUM tenant-isolation findings plus post-fix `IsNull()` regression, and recorded rerun evidence.

@@ -115,12 +115,23 @@ describe('AdvisoryModuleConfigRepository', () => {
     )
   })
 
-  it('deletes config only with scoped tenant ownership criteria', async () => {
+  it('deletes config only with scoped tenant ownership criteria and reports success', async () => {
     const config = createConfig()
     typeormRepository.delete.mockResolvedValue({ affected: 1 } as any)
 
-    await repository.deleteForTenant(tenantId, config.id)
+    const result = await repository.deleteForTenant(tenantId, config.id)
 
+    expect(result).toBe(true)
+    expect(typeormRepository.delete).toHaveBeenCalledWith({ id: config.id, tenantId })
+  })
+
+  it('reports false when a scoped delete targets another tenant row', async () => {
+    const config = createConfig({ tenantId: secondaryTenantId })
+    typeormRepository.delete.mockResolvedValue({ affected: 0 } as any)
+
+    const result = await repository.deleteForTenant(tenantId, config.id)
+
+    expect(result).toBe(false)
     expect(typeormRepository.delete).toHaveBeenCalledWith({ id: config.id, tenantId })
   })
 })

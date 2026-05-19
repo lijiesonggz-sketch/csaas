@@ -1,11 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
-import {
-  PeerRelevanceService,
-  RelevanceScoreParams,
-  OrganizationRelevanceResult,
-} from './peer-relevance.service'
+import { IsNull, Repository } from 'typeorm'
+import { PeerRelevanceService, RelevanceScoreParams } from './peer-relevance.service'
 import { WatchedPeer } from '../../../database/entities/watched-peer.entity'
 import { WatchedTopic } from '../../../database/entities/watched-topic.entity'
 import { WeaknessSnapshot } from '../../../database/entities/weakness-snapshot.entity'
@@ -225,9 +221,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -249,9 +245,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -275,6 +271,13 @@ describe('PeerRelevanceService', () => {
       expect(results[0].relevanceScore).toBe(0.8) // peer (0.6) + tech (0.2)
       expect(results[0].priorityLevel).toBe('medium') // 0.8 >= 0.7
       expect(results[0].matchedTopics).toContain('云原生')
+      expect(watchedTopicRepo.find).toHaveBeenCalledWith({
+        where: {
+          organizationId: mockOrganizationId,
+          tenantId: mockTenantId,
+          deletedAt: IsNull(),
+        },
+      })
     })
 
     it('should include weakness match when categories match', async () => {
@@ -283,9 +286,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -308,7 +311,9 @@ describe('PeerRelevanceService', () => {
         categories: ['cloud_native', 'Kubernetes'], // Include the category name
       }
 
-      const results = await service.calculatePeerRelevance(contentWithCloudNative as AnalyzedContent)
+      const results = await service.calculatePeerRelevance(
+        contentWithCloudNative as AnalyzedContent,
+      )
 
       expect(results).toHaveLength(1)
       expect(results[0].relevanceScore).toBe(0.8) // peer (0.6) + weakness (0.2)
@@ -322,9 +327,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -368,9 +373,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -436,9 +441,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -466,9 +471,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -498,9 +503,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -537,9 +542,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -559,9 +564,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -590,9 +595,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -614,7 +619,9 @@ describe('PeerRelevanceService', () => {
         keyTechnologies: [],
       }
 
-      const results = await service.calculatePeerRelevance(contentWithEmptyArrays as AnalyzedContent)
+      const results = await service.calculatePeerRelevance(
+        contentWithEmptyArrays as AnalyzedContent,
+      )
 
       // No tech match because arrays are empty
       expect(results).toHaveLength(0)
@@ -626,9 +633,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -656,9 +663,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -678,7 +685,9 @@ describe('PeerRelevanceService', () => {
         practiceDescription: 'improving data security',
       }
 
-      const results = await service.calculatePeerRelevance(contentWithReadableFormat as AnalyzedContent)
+      const results = await service.calculatePeerRelevance(
+        contentWithReadableFormat as AnalyzedContent,
+      )
 
       expect(results).toHaveLength(1)
       expect(results[0].matchedWeaknesses).toContain('data_security')
@@ -690,9 +699,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -719,9 +728,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -757,9 +766,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -784,7 +793,9 @@ describe('PeerRelevanceService', () => {
         categories: ['cloud_native', 'data_security'],
       }
 
-      const results = await service.calculatePeerRelevance(contentWithMultipleWeaknesses as AnalyzedContent)
+      const results = await service.calculatePeerRelevance(
+        contentWithMultipleWeaknesses as AnalyzedContent,
+      )
 
       expect(results).toHaveLength(1)
       expect(results[0].matchedWeaknesses).toHaveLength(2)
@@ -798,9 +809,9 @@ describe('PeerRelevanceService', () => {
         andWhere: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         distinct: jest.fn().mockReturnThis(),
-        getMany: jest.fn().mockResolvedValue([
-          { organizationId: mockOrganizationId, tenantId: mockTenantId },
-        ]),
+        getMany: jest
+          .fn()
+          .mockResolvedValue([{ organizationId: mockOrganizationId, tenantId: mockTenantId }]),
       }
       jest.spyOn(watchedPeerRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any)
 
@@ -872,7 +883,9 @@ describe('PeerRelevanceService', () => {
 
       await service.calculatePeerRelevance(mockAnalyzedContent as AnalyzedContent)
 
-      expect(loggerLogSpy).toHaveBeenCalledWith(`Found 2 organizations watching peer: ${mockPeerName}`)
+      expect(loggerLogSpy).toHaveBeenCalledWith(
+        `Found 2 organizations watching peer: ${mockPeerName}`,
+      )
     })
 
     it('should log warning when content has no peerName', async () => {
@@ -881,7 +894,9 @@ describe('PeerRelevanceService', () => {
 
       await service.calculatePeerRelevance(contentWithoutPeer as AnalyzedContent)
 
-      expect(loggerWarnSpy).toHaveBeenCalledWith('AnalyzedContent has no peerName, skipping relevance calculation')
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        'AnalyzedContent has no peerName, skipping relevance calculation',
+      )
     })
   })
 })

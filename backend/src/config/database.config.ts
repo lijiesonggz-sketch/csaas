@@ -14,6 +14,10 @@ export const databaseConfig = (): TypeOrmModuleOptions => ({
   synchronize: false, // Use migrations for schema changes
   logging: process.env.NODE_ENV === 'development',
   logger: new CustomTypeORMLogger(), // 使用自定义日志器，将 UTC 时间显示为北京时间
+  invalidWhereValuesBehavior: {
+    null: 'throw',
+    undefined: 'throw',
+  },
   extra: {
     // 设置时区为中国时区
     options: '--timezone=Asia/Shanghai',

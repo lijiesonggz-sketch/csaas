@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Organization } from '../entities/organization.entity';
-import { BaseTenantRepository } from './base-tenant.repository';
+import { Injectable } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { IsNull, Repository } from 'typeorm'
+import { Organization } from '../entities/organization.entity'
+import { BaseTenantRepository } from './base-tenant.repository'
 
 /**
  * OrganizationRepository
@@ -18,14 +18,14 @@ export class OrganizationRepository extends BaseTenantRepository<Organization> {
     @InjectRepository(Organization)
     repository: Repository<Organization>,
   ) {
-    super(repository, 'Organization');
+    super(repository, 'Organization')
   }
 
   /**
    * 根据名称查找组织
    */
   async findByName(tenantId: string, name: string): Promise<Organization | null> {
-    return this.findOne(tenantId, { where: { name } });
+    return this.findOne(tenantId, { where: { name } })
   }
 
   /**
@@ -33,9 +33,9 @@ export class OrganizationRepository extends BaseTenantRepository<Organization> {
    */
   async findActive(tenantId: string): Promise<Organization[]> {
     return this.find(tenantId, {
-      where: { deletedAt: null } as any,
+      where: { deletedAt: IsNull() } as any,
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   /**
@@ -45,7 +45,7 @@ export class OrganizationRepository extends BaseTenantRepository<Organization> {
     return this.find(tenantId, {
       where: { industryType },
       order: { name: 'ASC' },
-    });
+    })
   }
 
   /**
@@ -55,7 +55,7 @@ export class OrganizationRepository extends BaseTenantRepository<Organization> {
     return this.find(tenantId, {
       where: { radarActivated: true },
       order: { name: 'ASC' },
-    });
+    })
   }
 
   /**
@@ -63,13 +63,13 @@ export class OrganizationRepository extends BaseTenantRepository<Organization> {
    * For admin operations that need to see all clients
    */
   async findAllPlatform(options?: { select?: string[] }): Promise<Organization[]> {
-    const qb = this.getRawRepository().createQueryBuilder('org');
+    const qb = this.getRawRepository().createQueryBuilder('org')
 
     if (options?.select) {
-      qb.select(options.select.map(field => `org.${field}`));
+      qb.select(options.select.map((field) => `org.${field}`))
     }
 
-    return qb.getMany();
+    return qb.getMany()
   }
 
   /**
@@ -78,13 +78,13 @@ export class OrganizationRepository extends BaseTenantRepository<Organization> {
   async findByIdPlatform(id: string): Promise<Organization | null> {
     return this.getRawRepository().findOne({
       where: { id },
-    });
+    })
   }
 
   /**
    * Update organization (platform-level, no tenant filter)
    */
   async updatePlatform(id: string, data: Partial<Organization>): Promise<void> {
-    await this.getRawRepository().update(id, data);
+    await this.getRawRepository().update(id, data)
   }
 }

@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { WatchedPeer } from '../entities/watched-peer.entity';
-import { BaseTenantRepository } from './base-tenant.repository';
+import { Injectable } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { IsNull, Repository } from 'typeorm'
+import { WatchedPeer } from '../entities/watched-peer.entity'
+import { BaseTenantRepository } from './base-tenant.repository'
 
 /**
  * WatchedPeerRepository
@@ -18,7 +18,7 @@ export class WatchedPeerRepository extends BaseTenantRepository<WatchedPeer> {
     @InjectRepository(WatchedPeer)
     repository: Repository<WatchedPeer>,
   ) {
-    super(repository, 'WatchedPeer');
+    super(repository, 'WatchedPeer')
   }
 
   /**
@@ -28,7 +28,7 @@ export class WatchedPeerRepository extends BaseTenantRepository<WatchedPeer> {
     return this.find(tenantId, {
       where: { organizationId },
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   /**
@@ -38,7 +38,7 @@ export class WatchedPeerRepository extends BaseTenantRepository<WatchedPeer> {
     return this.find(tenantId, {
       where: { peerType } as any,
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   /**
@@ -46,30 +46,27 @@ export class WatchedPeerRepository extends BaseTenantRepository<WatchedPeer> {
    */
   async findActive(tenantId: string): Promise<WatchedPeer[]> {
     return this.find(tenantId, {
-      where: { deletedAt: null } as any,
+      where: { deletedAt: IsNull() } as any,
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   /**
    * 根据同业名称查找
    */
   async findByPeerName(tenantId: string, peerName: string): Promise<WatchedPeer | null> {
-    return this.findOne(tenantId, { where: { peerName } as any });
+    return this.findOne(tenantId, { where: { peerName } as any })
   }
 
   /**
    * 查找指定组织的未删除同业
    */
-  async findActiveByOrganization(
-    tenantId: string,
-    organizationId: string,
-  ): Promise<WatchedPeer[]> {
-    const qb = this.createQueryBuilder(tenantId, 'peer');
+  async findActiveByOrganization(tenantId: string, organizationId: string): Promise<WatchedPeer[]> {
+    const qb = this.createQueryBuilder(tenantId, 'peer')
     return qb
       .where('peer.organizationId = :organizationId', { organizationId })
       .andWhere('peer.deletedAt IS NULL')
       .orderBy('peer.createdAt', 'DESC')
-      .getMany();
+      .getMany()
   }
 }

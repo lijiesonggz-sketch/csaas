@@ -133,6 +133,18 @@ describe('AdvisoryAdminService', () => {
     )
   })
 
+  it('recovers from first-use create race by loading the config created by the concurrent request', async () => {
+    const racedConfig = createConfig({ enabled: false })
+    repository.findByModuleKey.mockResolvedValueOnce(null).mockResolvedValueOnce(racedConfig)
+    repository.createForTenant.mockRejectedValueOnce({ code: '23505' })
+
+    const response = await service.getModuleConfig(tenantId)
+
+    expect(response.id).toBe(racedConfig.id)
+    expect(repository.createForTenant).toHaveBeenCalledTimes(1)
+    expect(repository.findByModuleKey).toHaveBeenNthCalledWith(2, tenantId, THINKTANK_MODULE_KEY)
+  })
+
   it('enables ThinkTank and emits thinktank.module.enabled with changed setting details', async () => {
     repository = createConfigRepository([createConfig({ enabled: false, allowedRoles: [] })])
     service = new AdvisoryAdminService(

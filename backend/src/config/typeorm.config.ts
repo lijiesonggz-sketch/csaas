@@ -18,6 +18,10 @@ export const AppDataSource = new DataSource({
   synchronize: false, // Migrations will handle schema changes
   logging: true,
   logger: new CustomTypeORMLogger(), // 使用自定义日志器，将 UTC 时间显示为北京时间
+  invalidWhereValuesBehavior: {
+    null: 'throw',
+    undefined: 'throw',
+  },
   extra: {
     // 解决Windows PostgreSQL连接ECONNRESET问题
     max: 10, // 最大连接数

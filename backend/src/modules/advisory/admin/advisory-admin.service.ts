@@ -169,16 +169,34 @@ export class AdvisoryAdminService {
 
     if (existing) return existing
 
-    return this.configRepository.createForTenant(tenantId, {
-      moduleKey: THINKTANK_MODULE_KEY,
-      enabled: false,
-      allowedRoles: [],
-      dataRetentionDays: DEFAULT_RETENTION_DAYS,
-      privacyConfirmedAt: null,
-      privacyConfirmedBy: null,
-      createdBy: null,
-      updatedBy: null,
-    })
+    try {
+      return await this.configRepository.createForTenant(tenantId, {
+        moduleKey: THINKTANK_MODULE_KEY,
+        enabled: false,
+        allowedRoles: [],
+        dataRetentionDays: DEFAULT_RETENTION_DAYS,
+        privacyConfirmedAt: null,
+        privacyConfirmedBy: null,
+        createdBy: null,
+        updatedBy: null,
+      })
+    } catch (error) {
+      if (!this.isUniqueConstraintViolation(error)) {
+        throw error
+      }
+
+      const racedConfig = await this.configRepository.findByModuleKey(
+        tenantId,
+        THINKTANK_MODULE_KEY,
+      )
+      if (racedConfig) return racedConfig
+
+      throw error
+    }
+  }
+
+  private isUniqueConstraintViolation(error: unknown): boolean {
+    return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505'
   }
 
   private normalizeAllowedRoles(roles: unknown): UserRole[] {

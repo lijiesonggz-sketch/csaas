@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common'
 import { Repository } from 'typeorm'
 import { BaseRepository } from './base.repository'
 import { TenantEntity } from '../interfaces/tenant-entity.interface'
@@ -83,18 +84,20 @@ describe('BaseRepository', () => {
       })
     })
 
-    it('should preserve tenant filtering when an empty array where is supplied', async () => {
+    it('should treat an empty array where as no matches', async () => {
       const tenantId = 'tenant-123'
 
-      repository.find.mockResolvedValue([])
-
-      await baseRepository.findAll(tenantId, {
+      const result = await baseRepository.findAll(tenantId, {
         where: [] as any,
       })
 
-      expect(repository.find).toHaveBeenCalledWith({
-        where: { tenantId },
-      })
+      expect(result).toEqual([])
+      expect(repository.find).not.toHaveBeenCalled()
+    })
+
+    it('should reject an empty tenant scope before querying', async () => {
+      await expect(baseRepository.findAll('')).rejects.toThrow(BadRequestException)
+      expect(repository.find).not.toHaveBeenCalled()
     })
   })
 
@@ -140,19 +143,22 @@ describe('BaseRepository', () => {
       })
     })
 
-    it('should preserve id and tenant filtering when an empty array where is supplied', async () => {
+    it('should treat an empty array where as no matches for id lookup', async () => {
       const tenantId = 'tenant-123'
       const entityId = 'entity-456'
 
-      repository.findOne.mockResolvedValue(null)
-
-      await baseRepository.findOne(tenantId, entityId, {
+      const result = await baseRepository.findOne(tenantId, entityId, {
         where: [] as any,
       })
 
-      expect(repository.findOne).toHaveBeenCalledWith({
-        where: { id: entityId, tenantId },
-      })
+      expect(result).toBeNull()
+      expect(repository.findOne).not.toHaveBeenCalled()
+    })
+
+    it('should reject empty tenant or entity id scope before querying', async () => {
+      await expect(baseRepository.findOne('', 'entity-456')).rejects.toThrow(BadRequestException)
+      await expect(baseRepository.findOne('tenant-123', '')).rejects.toThrow(BadRequestException)
+      expect(repository.findOne).not.toHaveBeenCalled()
     })
   })
 
@@ -193,6 +199,14 @@ describe('BaseRepository', () => {
         tenantId,
       })
     })
+
+    it('should reject an empty tenant scope before creating', async () => {
+      await expect(baseRepository.create('', { name: 'New Entity' })).rejects.toThrow(
+        BadRequestException,
+      )
+      expect(repository.create).not.toHaveBeenCalled()
+      expect(repository.save).not.toHaveBeenCalled()
+    })
   })
 
   describe('update', () => {
@@ -231,6 +245,38 @@ describe('BaseRepository', () => {
       )
     })
 
+    it('should strip immutable id and createdAt from update payload', async () => {
+      const tenantId = 'tenant-123'
+      const entityId = 'entity-456'
+      const maliciousId = 'entity-999'
+      const updatedEntity = { id: entityId, tenantId, name: 'Updated Name' }
+
+      repository.update.mockResolvedValue({ affected: 1 } as any)
+      repository.findOne.mockResolvedValue(updatedEntity as any)
+
+      await baseRepository.update(tenantId, entityId, {
+        id: maliciousId,
+        createdAt: new Date('2026-05-19T00:00:00.000Z'),
+        name: 'Updated Name',
+      } as any)
+
+      expect(repository.update).toHaveBeenCalledWith(
+        { id: entityId, tenantId },
+        { name: 'Updated Name' },
+      )
+    })
+
+    it('should reject empty tenant or entity id scope before updating', async () => {
+      await expect(baseRepository.update('', 'entity-456', { name: 'Test' })).rejects.toThrow(
+        BadRequestException,
+      )
+      await expect(baseRepository.update('tenant-123', '', { name: 'Test' })).rejects.toThrow(
+        BadRequestException,
+      )
+      expect(repository.update).not.toHaveBeenCalled()
+      expect(repository.findOne).not.toHaveBeenCalled()
+    })
+
     it('should return null if entity not found after update', async () => {
       repository.update.mockResolvedValue({ affected: 0 } as any)
       repository.findOne.mockResolvedValue(null)
@@ -242,15 +288,31 @@ describe('BaseRepository', () => {
   })
 
   describe('delete', () => {
-    it('should delete entity with tenantId filter', async () => {
+    it('should delete entity with tenantId filter and report success', async () => {
       const tenantId = 'tenant-123'
       const entityId = 'entity-456'
 
       repository.delete.mockResolvedValue({ affected: 1 } as any)
 
-      await baseRepository.delete(tenantId, entityId)
+      const result = await baseRepository.delete(tenantId, entityId)
 
+      expect(result).toBe(true)
       expect(repository.delete).toHaveBeenCalledWith({ id: entityId, tenantId })
+    })
+
+    it('should report false when scoped delete misses another tenant row', async () => {
+      repository.delete.mockResolvedValue({ affected: 0 } as any)
+
+      const result = await baseRepository.delete('tenant-123', 'entity-456')
+
+      expect(result).toBe(false)
+      expect(repository.delete).toHaveBeenCalledWith({ id: 'entity-456', tenantId: 'tenant-123' })
+    })
+
+    it('should reject empty tenant or entity id scope before deleting', async () => {
+      await expect(baseRepository.delete('', 'entity-456')).rejects.toThrow(BadRequestException)
+      await expect(baseRepository.delete('tenant-123', '')).rejects.toThrow(BadRequestException)
+      expect(repository.delete).not.toHaveBeenCalled()
     })
   })
 
@@ -285,18 +347,20 @@ describe('BaseRepository', () => {
       })
     })
 
-    it('should preserve tenant filtering when counting with an empty array where', async () => {
+    it('should treat an empty array where as zero count', async () => {
       const tenantId = 'tenant-123'
 
-      repository.count.mockResolvedValue(0)
-
-      await baseRepository.count(tenantId, {
+      const result = await baseRepository.count(tenantId, {
         where: [] as any,
       })
 
-      expect(repository.count).toHaveBeenCalledWith({
-        where: { tenantId },
-      })
+      expect(result).toBe(0)
+      expect(repository.count).not.toHaveBeenCalled()
+    })
+
+    it('should reject an empty tenant scope before counting', async () => {
+      await expect(baseRepository.count('')).rejects.toThrow(BadRequestException)
+      expect(repository.count).not.toHaveBeenCalled()
     })
   })
 })

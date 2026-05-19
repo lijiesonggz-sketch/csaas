@@ -32,7 +32,7 @@ export class AdvisoryModuleConfigRepository extends BaseRepository<AdvisoryModul
     return this.update(tenantId, id, data)
   }
 
-  async deleteForTenant(tenantId: string, id: string): Promise<void> {
-    await this.delete(tenantId, id)
+  async deleteForTenant(tenantId: string, id: string): Promise<boolean> {
+    return this.delete(tenantId, id)
   }
 }

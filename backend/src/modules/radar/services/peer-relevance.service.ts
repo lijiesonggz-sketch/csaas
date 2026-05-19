@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { IsNull, Repository } from 'typeorm'
 import { WatchedPeer } from '../../../database/entities/watched-peer.entity'
 import { WatchedTopic } from '../../../database/entities/watched-topic.entity'
 import { WeaknessSnapshot } from '../../../database/entities/weakness-snapshot.entity'
@@ -56,9 +56,9 @@ export class PeerRelevanceService {
 
   // 优先级阈值
   private readonly THRESHOLDS = {
-    high: 0.9,    // ≥ 0.9: 高优先级
-    medium: 0.7,  // ≥ 0.7: 中优先级
-    low: 0,       // < 0.7: 低优先级 (不创建推送)
+    high: 0.9, // ≥ 0.9: 高优先级
+    medium: 0.7, // ≥ 0.7: 中优先级
+    low: 0, // < 0.7: 低优先级 (不创建推送)
   }
 
   constructor(
@@ -151,7 +151,9 @@ export class PeerRelevanceService {
       return []
     }
 
-    this.logger.log(`Found ${watchingOrganizations.length} organizations watching peer: ${peerName}`)
+    this.logger.log(
+      `Found ${watchingOrganizations.length} organizations watching peer: ${peerName}`,
+    )
 
     // 2. 为每个组织计算相关性
     const results: OrganizationRelevanceResult[] = []
@@ -265,7 +267,7 @@ export class PeerRelevanceService {
       where: {
         organizationId,
         tenantId,
-        deletedAt: null,
+        deletedAt: IsNull(),
       },
     })
 
