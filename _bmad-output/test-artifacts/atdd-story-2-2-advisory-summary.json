@@ -1,0 +1,19 @@
+{
+  "tdd_phase": "RED",
+  "story_id": "2-2-advisory-ui-state-and-accessibility-baseline",
+  "total_tests": 6,
+  "api_tests": 0,
+  "frontend_tests": 6,
+  "all_tests_skipped": true,
+  "expected_to_fail": true,
+  "subagent_execution": "API worker completed; frontend worker timed out and Step 4B was rerun sequentially in the current agent.",
+  "acceptance_criteria_covered": [
+    "AC1 semantic landmarks, focus states, skip behavior, ARIA labels, and accessible state patterns",
+    "AC2 automated axe checks, keyboard smoke coverage, and documented manual accessibility evidence"
+  ],
+  "generated_files": [
+    "_bmad-output/test-artifacts/atdd-story-2-2-advisory-frontend-red.spec.tsx",
+    "_bmad-output/test-artifacts/atdd-story-2-2-advisory-fixtures.ts",
+    "_bmad-output/test-artifacts/atdd-checklist-2-2-advisory-ui-state-and-accessibility-baseline.md"
+  ]
+}

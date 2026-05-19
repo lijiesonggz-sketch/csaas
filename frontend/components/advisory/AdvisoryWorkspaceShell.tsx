@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   BrainCircuit,
   FileText,
@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 
 const DESKTOP_QUERY = '(min-width: 1024px)'
+const ADVISORY_STATE_SUMMARY_ID = 'advisory-state-summary'
+const DOCUMENT_DRAWER_DESCRIPTION_ID = 'advisory-document-drawer-disabled-description'
 
 function useDesktopViewport() {
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null)
@@ -47,7 +49,12 @@ function useDesktopViewport() {
 function ViewportCheckingState() {
   return (
     <section className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-[#FEFDFB] px-6 py-10">
-      <div role="status" className="text-sm font-medium text-[#1E3A5F]">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label="ThinkTank 工作区准备状态"
+        className="text-sm font-medium text-[#1E3A5F]"
+      >
         正在准备 ThinkTank 工作区
       </div>
     </section>
@@ -55,9 +62,22 @@ function ViewportCheckingState() {
 }
 
 function DesktopRequiredState() {
+  const statusRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    statusRef.current?.focus()
+  }, [])
+
   return (
     <section className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-[#FEFDFB] px-6 py-10">
-      <div className="max-w-xl rounded-sm border border-[#E2E8F0] bg-white p-6 shadow-sm">
+      <div
+        ref={statusRef}
+        role="status"
+        aria-live="polite"
+        aria-label="ThinkTank 桌面端要求"
+        tabIndex={-1}
+        className="max-w-xl rounded-sm border border-[#E2E8F0] bg-white p-6 shadow-sm"
+      >
         <div className="flex items-start gap-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-sm bg-[#EEF4F9]">
             <BrainCircuit className="h-5 w-5 text-[#1E3A5F]" />
@@ -89,6 +109,15 @@ export default function AdvisoryWorkspaceShell() {
 
   return (
     <section className="min-h-[calc(100vh-64px)] bg-[#FEFDFB] p-4 lg:p-6">
+      <p
+        id={ADVISORY_STATE_SUMMARY_ID}
+        role="status"
+        aria-live="polite"
+        aria-label="ThinkTank 工作台状态"
+        className="sr-only"
+      >
+        ThinkTank 已启用。暂无活动会话。等待开始咨询。咨询文档抽屉为空。
+      </p>
       <div className="grid h-[calc(100vh-112px)] min-h-[560px] grid-cols-[260px_minmax(0,1fr)_64px] overflow-hidden rounded-sm border border-[#E2E8F0] bg-white shadow-sm">
         <aside
           aria-label="咨询工作流导航"
@@ -115,10 +144,11 @@ export default function AdvisoryWorkspaceShell() {
               {['结构化咨询', '研究分析', '问题解决'].map((label) => (
                 <li
                   key={label}
+                  aria-label={`${label} 待接入`}
                   className="flex h-10 items-center justify-between rounded-sm border border-[#E2E8F0] bg-white px-3 text-sm text-[#1E3A5F]"
                 >
                   <span>{label}</span>
-                  <span className="text-xs text-[#94A3B8]">待接入</span>
+                  <span className="text-xs text-[#64748B]">待接入</span>
                 </li>
               ))}
             </ul>
@@ -155,7 +185,7 @@ export default function AdvisoryWorkspaceShell() {
                 选择一个工作流后，对话将在这里开始。
               </p>
               <Separator className="my-5" />
-              <p className="text-xs leading-5 text-[#94A3B8]">
+              <p className="text-xs leading-5 text-[#64748B]">
                 工作流选择、AI 引导、流式响应和报告生成将在后续 Story 中接入。
               </p>
             </div>
@@ -164,14 +194,19 @@ export default function AdvisoryWorkspaceShell() {
 
         <aside
           aria-label="咨询文档抽屉"
-          className="flex min-w-0 flex-col items-center border-l border-[#E2E8F0] bg-[#F8FAFC] py-4"
+          aria-describedby={DOCUMENT_DRAWER_DESCRIPTION_ID}
+          className="flex min-w-0 flex-col items-center border-l border-[#E2E8F0] bg-[#F8FAFC] px-2 py-4"
         >
+          <p id={DOCUMENT_DRAWER_DESCRIPTION_ID} className="sr-only">
+            文档抽屉将在报告草稿接入后开放
+          </p>
           <Button
             type="button"
             variant="ghost"
             size="icon"
             aria-label="展开咨询文档抽屉"
-            title="展开咨询文档抽屉"
+            aria-describedby={DOCUMENT_DRAWER_DESCRIPTION_ID}
+            title="文档抽屉将在报告草稿接入后开放"
             className="text-[#1E3A5F]"
             disabled
           >
@@ -180,7 +215,12 @@ export default function AdvisoryWorkspaceShell() {
           <div className="mt-4 flex flex-col items-center gap-2 text-[#64748B]">
             <FileText className="h-4 w-4" />
             <span className="text-xs font-medium [writing-mode:vertical-rl]">文档</span>
+            <span className="text-xs font-medium [writing-mode:vertical-rl]">暂无文档</span>
+            <span className="sr-only">文档抽屉将在报告草稿接入后开放</span>
           </div>
+          <p className="mt-4 max-w-11 text-center text-[10px] leading-4 text-[#64748B]">
+            报告草稿接入后开放
+          </p>
         </aside>
       </div>
     </section>

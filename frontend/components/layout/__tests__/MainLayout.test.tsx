@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import MainLayout from '../MainLayout'
@@ -58,9 +58,9 @@ describe('MainLayout', () => {
       </MainLayout>
     )
 
-    // Loader2 icon is displayed, not a progressbar role element
-    const loader = document.querySelector('.animate-spin')
-    expect(loader).toBeInTheDocument()
+    const status = screen.getByRole('status', { name: '应用会话加载状态' })
+    expect(status).toHaveTextContent('正在加载应用会话')
+    expect(document.querySelector('.animate-spin')).toBeInTheDocument()
     expect(screen.queryByTestId('child-content')).not.toBeInTheDocument()
   })
 

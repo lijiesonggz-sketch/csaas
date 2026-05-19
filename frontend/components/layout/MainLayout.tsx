@@ -2,7 +2,7 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type MouseEvent, type ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
 import Header from './Header'
 import Sidebar from './Sidebar'
@@ -11,7 +11,7 @@ export const SIDEBAR_WIDTH = 200
 export const SIDEBAR_COLLAPSED_WIDTH = 64
 
 interface MainLayoutProps {
-  children: React.ReactNode
+  children: ReactNode
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
@@ -42,8 +42,13 @@ export default function MainLayout({ children }: MainLayoutProps) {
     }
 
     updateLayoutMode()
-    mediaQuery.addEventListener?.('change', updateLayoutMode)
-    return () => mediaQuery.removeEventListener?.('change', updateLayoutMode)
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', updateLayoutMode)
+      return () => mediaQuery.removeEventListener?.('change', updateLayoutMode)
+    }
+
+    mediaQuery.addListener?.(updateLayoutMode)
+    return () => mediaQuery.removeListener?.(updateLayoutMode)
   }, [])
 
   useEffect(() => {
@@ -54,14 +59,25 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   if (status === 'loading') {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#FEFDFB]">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label="应用会话加载状态"
+        className="flex items-center justify-center h-screen bg-[#FEFDFB]"
+      >
         <Loader2 className="w-8 h-8 text-[#1E3A5F] animate-spin" />
+        <span className="sr-only">正在加载应用会话</span>
       </div>
     )
   }
 
   if (!session) {
     return null
+  }
+
+  const handleSkipToMain = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault()
+    document.getElementById('main-content')?.focus()
   }
 
   const currentSidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH
@@ -71,7 +87,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
     <div className="flex min-h-screen bg-[#FEFDFB]">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-sm focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-[#1E3A5F] focus:shadow"
+        onClick={handleSkipToMain}
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-sm focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-[#1E3A5F] focus:shadow focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#047857]"
       >
         跳到主内容
       </a>
@@ -96,6 +113,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       )}
       <main
         id="main-content"
+        tabIndex={-1}
         className="mt-16 min-h-[calc(100vh-64px)] w-full min-w-0 flex-1 overflow-x-hidden transition-all duration-200"
         style={{ marginLeft: `${mainMarginLeft}px` }}
       >

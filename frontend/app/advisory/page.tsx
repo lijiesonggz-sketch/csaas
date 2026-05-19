@@ -53,6 +53,8 @@ export default function AdvisoryPage() {
         <section className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-[#FEFDFB] px-6">
           <div
             role="status"
+            aria-live="polite"
+            aria-label="ThinkTank 访问验证状态"
             className="flex items-center gap-3 text-sm font-medium text-[#1E3A5F]"
           >
             <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
@@ -70,7 +72,7 @@ export default function AdvisoryPage() {
           <div className="mx-auto max-w-5xl">
             <Card variant="outlined" className="border-amber-200 bg-white">
               <CardContent className="p-6">
-                <div role="alert" className="flex items-start gap-4">
+                <div role="alert" aria-live="assertive" className="flex items-start gap-4">
                   <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
                   <div>
                     <h1 className="text-xl font-semibold text-[#1E3A5F]">ThinkTank</h1>
