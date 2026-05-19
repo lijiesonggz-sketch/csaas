@@ -1,0 +1,129 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-20T06:18:22+08:00",
+  "story_id": "2.6",
+  "story_key": "2-6-guided-step-conversation-and-decision-controls",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "summary": "User answers are sent through the governed AI gateway stream path and advisor responses include step-specific decision options.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/sessions/advisory-session.messages.spec.ts:133",
+        "backend/src/modules/advisory/sessions/advisory-session.messages.controller.spec.ts:73",
+        "frontend/lib/advisory/messages.test.ts:60",
+        "frontend/app/api/advisory/sessions/[sessionId]/messages/route.test.ts:75",
+        "frontend/app/advisory/__tests__/page.test.tsx:541"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "summary": "conversation_messages is tenant scoped and raw message content is not copied into telemetry payloads.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/sessions/advisory-conversation-message.repository.spec.ts:57",
+        "backend/src/modules/advisory/sessions/advisory-conversation-message.repository.spec.ts:88",
+        "backend/src/modules/advisory/sessions/advisory-conversation-message.repository.spec.ts:115",
+        "backend/src/modules/advisory/sessions/advisory-conversation-message.repository.spec.ts:125",
+        "backend/src/modules/advisory/sessions/advisory-conversation-message.repository.spec.ts:150",
+        "backend/src/modules/advisory/sessions/advisory-session.messages.spec.ts:133",
+        "backend/src/modules/advisory/sessions/advisory-session.messages.spec.ts:216",
+        "backend/src/modules/advisory/sessions/advisory-session.messages.spec.ts:248"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P0",
+      "summary": "Workflow currentStep does not advance automatically before explicit user confirmation.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/sessions/advisory-session.messages.spec.ts:264",
+        "frontend/app/advisory/__tests__/page.test.tsx:541",
+        "frontend/app/advisory/__tests__/page.test.tsx:601"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_coverage": "not_applicable",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC4",
+      "priority": "P1",
+      "summary": "Enter, Shift+Enter, Escape, Ctrl+D, and decision shortcuts behave correctly with focus and discoverable hints.",
+      "coverage": "FULL",
+      "tests": [
+        "frontend/app/advisory/__tests__/page.test.tsx:568",
+        "frontend/app/advisory/__tests__/page.test.tsx:601",
+        "frontend/app/advisory/__tests__/page.test.tsx:630"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_coverage": "not_applicable",
+        "error_path_coverage": "present"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 4,
+    "fully_covered": 4,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 3, "covered": 3, "percentage": 100 },
+      "P1": { "total": 1, "covered": 1, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "quality": {
+    "blocker_issues": [],
+    "warning_issues": [
+      {
+        "file": "frontend/app/advisory/__tests__/page.test.tsx",
+        "issue": "Aggregated advisory route test file is over 300 lines.",
+        "classification": "maintainability-warning",
+        "gate_blocking": false
+      }
+    ],
+    "info_issues": []
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Split the aggregated advisory route test suite later if future Epic 2 stories make it harder to maintain.",
+      "requirements": ["AC1", "AC3", "AC4"]
+    }
+  ]
+}

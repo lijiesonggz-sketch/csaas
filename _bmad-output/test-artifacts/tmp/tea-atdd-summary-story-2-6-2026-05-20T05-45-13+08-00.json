@@ -1,0 +1,27 @@
+{
+  "tdd_phase": "RED",
+  "total_tests": 20,
+  "api_tests": 10,
+  "e2e_tests": 10,
+  "all_tests_skipped": true,
+  "expected_to_fail": true,
+  "fixtures_created": 0,
+  "acceptance_criteria_covered": [
+    "AC1 governed provider gateway stream path and advisor options",
+    "AC2 conversation_messages persistence, tenant isolation, telemetry privacy",
+    "AC3 no automatic workflow step advance without explicit confirmation",
+    "AC4 Enter, Shift+Enter, Escape, Ctrl+D, and active decision keys"
+  ],
+  "knowledge_fragments_used": [
+    "data-factories",
+    "component-tdd",
+    "test-quality",
+    "test-healing-patterns",
+    "selector-resilience",
+    "network-first",
+    "test-levels-framework",
+    "test-priorities-matrix"
+  ],
+  "subagent_execution": "SEQUENTIAL with one available planning subagent",
+  "performance_gain": "baseline"
+}

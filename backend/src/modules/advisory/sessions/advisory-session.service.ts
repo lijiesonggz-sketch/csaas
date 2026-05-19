@@ -7,6 +7,11 @@ import {
 } from '@nestjs/common'
 import { AuditAction } from '../../../database/entities/audit-log.entity'
 import {
+  AdvisoryConversationDecisionOption,
+  AdvisoryConversationMessage,
+  AdvisoryConversationMessageRole,
+} from '../../../database/entities/advisory-conversation-message.entity'
+import {
   AdvisoryWorkflowSessionCurrentStep,
   AdvisoryWorkflowSessionStatus,
 } from '../../../database/entities/advisory-workflow-session.entity'
@@ -18,16 +23,27 @@ import {
   ThinkTankPrivacyClassification,
   ThinkTankSubjectType,
 } from '../events/thinktank-event-contract'
+import { ThinkTankProviderGatewayService } from '../provider-gateway/thinktank-provider-gateway.service'
+import {
+  ThinkTankProviderMessage,
+  ThinkTankProviderStreamChunk,
+} from '../provider-gateway/thinktank-provider-gateway.types'
 import { ThinkTankPromptAssemblerService } from '../runtime/prompt-assembler.service'
 import { ThinkTankRuntimeError, ThinkTankRuntimeErrorCode } from '../runtime/runtime.errors'
 import { ThinkTankAssembledPrompt, ThinkTankWorkflowMetadata } from '../runtime/runtime.types'
 import { ThinkTankWorkflowRegistryService } from '../runtime/workflow-registry.service'
+import { AdvisoryConversationMessageRepository } from './advisory-conversation-message.repository'
 import { AdvisorySessionRepository } from './advisory-session.repository'
+import { THINKTANK_MESSAGE_MAX_LENGTH } from './dto/submit-advisory-message.dto'
 
 export const THINKTANK_WORKFLOW_START_FAILED_MESSAGE =
   '暂时无法启动该 ThinkTank 工作流，请稍后重试或选择其他工作流。'
 export const THINKTANK_WORKFLOW_ALREADY_ACTIVE_MESSAGE =
   '已有活动 ThinkTank 会话，请先完成或退出当前会话后再启动新的工作流。'
+export const THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE =
+  '暂时无法生成 ThinkTank 顾问回复，请稍后重试。'
+export const THINKTANK_EMPTY_MESSAGE_MESSAGE = '请输入你的回答后再提交。'
+export const THINKTANK_MESSAGE_TOO_LONG_MESSAGE = '内容过长，请精简到 5000 字符以内。'
 const THINKTANK_WORKFLOW_CATALOG_UNAVAILABLE_MESSAGE =
   '暂时无法加载 ThinkTank 工作流目录，请稍后重试。'
 const SAFE_CURRENT_STEP_REF = 'current-step:1'
@@ -65,6 +81,28 @@ export interface AdvisoryWorkflowLaunchResult {
   currentStep: AdvisoryWorkflowSessionCurrentStep
 }
 
+export interface AdvisoryConversationStreamChunk {
+  index: number
+  delta: string
+  done: boolean
+  provider?: string
+  model?: string
+  latencyMs?: number
+  finishReason?: string
+}
+
+export interface AdvisoryConversationMessagesResult {
+  sessionId: string
+  currentStep: AdvisoryWorkflowSessionCurrentStep
+  messages: AdvisoryConversationMessage[]
+}
+
+export interface AdvisoryConversationSubmitResult extends AdvisoryConversationMessagesResult {
+  assistantMessage: AdvisoryConversationMessage
+  stream: AdvisoryConversationStreamChunk[]
+  decisionOptions: AdvisoryConversationDecisionOption[]
+}
+
 interface AdvisorySessionContext {
   user: AdvisoryAccessUser
   tenantId: string
@@ -72,6 +110,15 @@ interface AdvisorySessionContext {
 
 interface AdvisoryWorkflowLaunchContext extends AdvisorySessionContext {
   workflowKey: string
+}
+
+interface AdvisorySessionMessageContext extends AdvisorySessionContext {
+  sessionId: string
+}
+
+interface AdvisorySubmitMessageContext extends AdvisorySessionMessageContext {
+  content: string
+  decisionAction?: string
 }
 
 @Injectable()
@@ -82,6 +129,8 @@ export class AdvisorySessionService {
     private readonly promptAssembler: ThinkTankPromptAssemblerService,
     private readonly sessionRepository: AdvisorySessionRepository,
     private readonly eventService: AdvisoryEventService,
+    private readonly messageRepository?: AdvisoryConversationMessageRepository,
+    private readonly providerGateway?: ThinkTankProviderGatewayService,
   ) {}
 
   async listWorkflows(context: AdvisorySessionContext): Promise<AdvisoryWorkflowCatalogResult> {
@@ -176,6 +225,125 @@ export class AdvisorySessionService {
     }
   }
 
+  async listMessages(
+    context: AdvisorySessionMessageContext,
+  ): Promise<AdvisoryConversationMessagesResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+    const messages = await this.requireMessageRepository().findMessagesBySession(
+      context.tenantId,
+      session.id,
+    )
+
+    return {
+      sessionId: session.id,
+      currentStep: session.currentStep,
+      messages,
+    }
+  }
+
+  async submitMessage(
+    context: AdvisorySubmitMessageContext,
+  ): Promise<AdvisoryConversationSubmitResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const content = this.normalizeMessageContent(context.content)
+    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+
+    if (session.status !== AdvisoryWorkflowSessionStatus.Active) {
+      throw new NotFoundException('ThinkTank session not found')
+    }
+
+    const messageRepository = this.requireMessageRepository()
+    const providerGateway = this.requireProviderGateway()
+    const history = await messageRepository.findMessagesBySession(context.tenantId, session.id)
+    const nextSequence = await messageRepository.nextSequenceForSession(
+      context.tenantId,
+      session.id,
+    )
+    const userMessage = await messageRepository.createMessage(context.tenantId, {
+      sessionId: session.id,
+      actorId: context.user.id,
+      role: AdvisoryConversationMessageRole.User,
+      content,
+      sequence: nextSequence,
+      workflowKey: session.workflowKey,
+      stepIndex: session.currentStep.index,
+      decisionOptions: [],
+      metadata: this.createMessageMetadata(session.workflowKey, session.currentStep.index, {
+        decision_action: context.decisionAction ?? null,
+      }),
+      providerMetadata: {},
+    })
+    const providerMessages = this.toProviderMessages([...history, userMessage])
+    const providerChunks: ThinkTankProviderStreamChunk[] = []
+    let assistantContent = ''
+
+    try {
+      for await (const chunk of providerGateway.stream({
+        tenantId: context.tenantId,
+        actorId: context.user.id,
+        subjectId: session.id,
+        stream: true,
+        system: this.createProviderSystemPrompt(session.workflowKey, session.currentStep),
+        messages: providerMessages,
+        metadata: {
+          workflow_key: session.workflowKey,
+          step_index: session.currentStep.index,
+          message_count: providerMessages.length,
+          decision_action: context.decisionAction ?? null,
+        },
+      })) {
+        providerChunks.push(chunk)
+        assistantContent += chunk.delta
+      }
+    } catch (error) {
+      throw this.toMessageSubmitException(error)
+    }
+
+    const decisionOptions = this.createDecisionOptions()
+    const lastChunk = providerChunks.at(-1)
+    const assistantMessage = await messageRepository.createMessage(context.tenantId, {
+      sessionId: session.id,
+      actorId: context.user.id,
+      role: AdvisoryConversationMessageRole.Assistant,
+      content: assistantContent.trim() || THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE,
+      sequence: nextSequence + 1,
+      workflowKey: session.workflowKey,
+      stepIndex: session.currentStep.index,
+      decisionOptions,
+      metadata: this.createMessageMetadata(session.workflowKey, session.currentStep.index, {
+        ai_generated: true,
+        finish_reason: lastChunk?.finishReason ?? null,
+      }),
+      providerMetadata: {
+        provider: lastChunk?.provider ?? null,
+        model: lastChunk?.model ?? null,
+        latency_ms: lastChunk?.latencyMs ?? null,
+        estimated_cost: lastChunk?.estimatedCost ?? null,
+        input_tokens: lastChunk?.usage?.inputTokens ?? null,
+        output_tokens: lastChunk?.usage?.outputTokens ?? null,
+        total_tokens: lastChunk?.usage?.totalTokens ?? null,
+      },
+    })
+
+    return {
+      sessionId: session.id,
+      currentStep: session.currentStep,
+      messages: [...history, userMessage, assistantMessage],
+      assistantMessage,
+      stream: providerChunks.map((chunk) => ({
+        index: chunk.index,
+        delta: chunk.delta,
+        done: chunk.done,
+        provider: chunk.provider,
+        model: chunk.model,
+        latencyMs: chunk.latencyMs,
+        finishReason: chunk.finishReason,
+      })),
+      decisionOptions,
+    }
+  }
+
   private assertCompleteWorkflowCatalog(workflows: ThinkTankWorkflowMetadata[]): void {
     const keys = new Set(workflows.map((workflow) => workflow.key))
     const complete =
@@ -185,6 +353,125 @@ export class AdvisorySessionService {
     if (!complete) {
       throw new ServiceUnavailableException(THINKTANK_WORKFLOW_CATALOG_UNAVAILABLE_MESSAGE)
     }
+  }
+
+  private async getTenantSession(tenantId: string, sessionId: string) {
+    const session = await this.sessionRepository.findSessionById(tenantId, sessionId)
+
+    if (!session) {
+      throw new NotFoundException('ThinkTank session not found')
+    }
+
+    return session
+  }
+
+  private requireMessageRepository(): AdvisoryConversationMessageRepository {
+    if (!this.messageRepository) {
+      throw new ServiceUnavailableException(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
+    }
+
+    return this.messageRepository
+  }
+
+  private requireProviderGateway(): ThinkTankProviderGatewayService {
+    if (!this.providerGateway) {
+      throw new ServiceUnavailableException(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
+    }
+
+    return this.providerGateway
+  }
+
+  private normalizeMessageContent(content: string): string {
+    if (typeof content !== 'string' || content.trim().length === 0) {
+      throw new BadRequestException(THINKTANK_EMPTY_MESSAGE_MESSAGE)
+    }
+
+    const normalized = content.trim()
+    if (normalized.length > THINKTANK_MESSAGE_MAX_LENGTH) {
+      throw new BadRequestException(THINKTANK_MESSAGE_TOO_LONG_MESSAGE)
+    }
+
+    return normalized
+  }
+
+  private createProviderSystemPrompt(
+    workflowKey: string,
+    currentStep: AdvisoryWorkflowSessionCurrentStep,
+  ): string {
+    return [
+      'You are the governed ThinkTank advisor for the active CSAAS workflow.',
+      `Workflow key: ${workflowKey}.`,
+      `Current step index: ${currentStep.index}.`,
+      'Guide the user with concise questions, a summary, and explicit continuation choices.',
+      'Do not advance workflow steps unless the user explicitly confirms continuation.',
+    ].join('\n')
+  }
+
+  private toProviderMessages(messages: AdvisoryConversationMessage[]): ThinkTankProviderMessage[] {
+    return messages.map((message) => ({
+      role:
+        message.role === AdvisoryConversationMessageRole.Assistant
+          ? AdvisoryConversationMessageRole.Assistant
+          : AdvisoryConversationMessageRole.User,
+      content: message.content,
+    }))
+  }
+
+  private createMessageMetadata(
+    workflowKey: string,
+    stepIndex: number,
+    extra: Record<string, string | number | boolean | null>,
+  ) {
+    return {
+      workflow_key: workflowKey,
+      step_index: stepIndex,
+      ...extra,
+    }
+  }
+
+  private createDecisionOptions(): AdvisoryConversationDecisionOption[] {
+    return [
+      {
+        key: 'continue',
+        action: 'continue',
+        label: '继续',
+        shortcut: 'C',
+        enabled: true,
+        description: '确认当前步骤并继续',
+      },
+      {
+        key: 'deepen',
+        action: 'deepen',
+        label: '深入',
+        shortcut: 'A',
+        enabled: true,
+        description: '围绕当前步骤继续追问',
+      },
+      {
+        key: 'revise',
+        action: 'revise',
+        label: '修订',
+        shortcut: 'R',
+        enabled: true,
+        description: '修订当前回答或方向',
+      },
+      {
+        key: 'party-mode',
+        action: 'party-mode',
+        label: 'Party Mode',
+        shortcut: 'P',
+        enabled: false,
+        description: 'Party Mode 专家讨论由后续 Epic 5 接入',
+      },
+    ]
+  }
+
+  private toMessageSubmitException(error: unknown) {
+    if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      return error
+    }
+
+    return new ServiceUnavailableException(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
   }
 
   private toCatalogItem(workflow: ThinkTankWorkflowMetadata): AdvisoryWorkflowCatalogItem {

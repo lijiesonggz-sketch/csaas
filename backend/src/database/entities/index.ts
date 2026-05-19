@@ -25,6 +25,10 @@ export {
   AdvisoryWorkflowSessionStatus,
 } from './advisory-workflow-session.entity'
 export {
+  AdvisoryConversationMessage,
+  AdvisoryConversationMessageRole,
+} from './advisory-conversation-message.entity'
+export {
   AIGenerationResult,
   ReviewStatus,
   ConfidenceLevel,

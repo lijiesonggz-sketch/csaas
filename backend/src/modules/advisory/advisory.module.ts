@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { AdvisoryModuleConfig } from '../../database/entities/advisory-module-config.entity'
+import { AdvisoryConversationMessage } from '../../database/entities/advisory-conversation-message.entity'
 import { AdvisoryWorkflowSession } from '../../database/entities/advisory-workflow-session.entity'
 import { AuditModule } from '../audit/audit.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
@@ -25,6 +26,7 @@ import { ThinkTankRuntimeFileProviderService } from './runtime/runtime-file-prov
 import { ThinkTankWorkflowParserService } from './runtime/workflow-parser.service'
 import { ThinkTankWorkflowRegistryService } from './runtime/workflow-registry.service'
 import { AdvisorySessionController } from './sessions/advisory-session.controller'
+import { AdvisoryConversationMessageRepository } from './sessions/advisory-conversation-message.repository'
 import { AdvisorySessionRepository } from './sessions/advisory-session.repository'
 import { AdvisorySessionService } from './sessions/advisory-session.service'
 
@@ -33,13 +35,18 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     ConfigModule,
     AuditModule,
     OrganizationsModule,
-    TypeOrmModule.forFeature([AdvisoryModuleConfig, AdvisoryWorkflowSession]),
+    TypeOrmModule.forFeature([
+      AdvisoryModuleConfig,
+      AdvisoryConversationMessage,
+      AdvisoryWorkflowSession,
+    ]),
   ],
   controllers: [AdvisoryAccessController, AdvisoryAdminController, AdvisorySessionController],
   providers: [
     AdvisoryAccessService,
     AdvisoryAdminService,
     AdvisoryModuleConfigRepository,
+    AdvisoryConversationMessageRepository,
     AdvisorySessionRepository,
     AdvisorySessionService,
     AdvisoryEventService,
@@ -68,6 +75,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryAccessService,
     AdvisoryAdminService,
     AdvisoryEventService,
+    AdvisoryConversationMessageRepository,
     AdvisorySessionService,
     AdvisorySessionRepository,
     ThinkTankProviderGatewayService,

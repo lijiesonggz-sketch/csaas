@@ -3,6 +3,11 @@ import { readAdvisoryMessage, unwrapAdvisoryEnvelope } from './envelope'
 
 export const THINKTANK_WORKFLOW_START_FAILED_MESSAGE =
   '暂时无法启动该 ThinkTank 工作流，请稍后重试或选择其他工作流。'
+export const THINKTANK_EMPTY_MESSAGE_MESSAGE = '请输入你的回答后再提交。'
+export const THINKTANK_MESSAGE_TOO_LONG_MESSAGE = '内容过长，请精简到 5000 字符以内。'
+export const THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE =
+  '暂时无法生成 ThinkTank 顾问回复，请稍后重试。'
+export const THINKTANK_MESSAGE_MAX_LENGTH = 5000
 const EXPECTED_THINKTANK_WORKFLOW_KEYS = [
   'brainstorming',
   'domain-research',
@@ -40,6 +45,54 @@ export interface ThinkTankWorkflowLaunchResult {
   sourceRefs: string[]
   firstPrompt: string
   currentStep: ThinkTankWorkflowCurrentStep
+}
+
+export interface ThinkTankDecisionOption {
+  key?: string
+  action: string
+  label: string
+  shortcut?: string
+  enabled: boolean
+  description?: string
+}
+
+export interface ThinkTankConversationMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  sequence?: number
+  workflowKey?: string
+  stepIndex?: number
+  decisionOptions?: ThinkTankDecisionOption[]
+  metadata?: Record<string, unknown>
+  providerMetadata?: Record<string, unknown>
+}
+
+export interface ThinkTankSessionMessagesResult {
+  sessionId: string
+  currentStep: ThinkTankWorkflowCurrentStep
+  messages: ThinkTankConversationMessage[]
+}
+
+export interface ThinkTankSessionMessageStreamChunk {
+  index: number
+  delta: string
+  done: boolean
+  provider?: string
+  model?: string
+  latencyMs?: number
+  finishReason?: string
+}
+
+export interface ThinkTankSessionMessageSubmitInput {
+  content: string
+  decisionAction?: string
+}
+
+export interface ThinkTankSessionMessageSubmitResult extends ThinkTankSessionMessagesResult {
+  assistantMessage: ThinkTankConversationMessage
+  stream: ThinkTankSessionMessageStreamChunk[]
+  decisionOptions: ThinkTankDecisionOption[]
 }
 
 export async function fetchThinkTankWorkflows(): Promise<ThinkTankWorkflowCatalogResult> {
@@ -92,6 +145,60 @@ export async function launchThinkTankWorkflow(
   return data
 }
 
+export async function fetchThinkTankSessionMessages(
+  sessionId: string
+): Promise<ThinkTankSessionMessagesResult> {
+  const headers = await getAuthHeadersAsync()
+  const response = await fetch(`/api/advisory/sessions/${encodeURIComponent(sessionId)}/messages`, {
+    headers,
+    cache: 'no-store',
+  })
+  const body = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new Error(readAdvisoryMessage(body) ?? '暂时无法加载 ThinkTank 会话消息，请稍后重试。')
+  }
+
+  const data = unwrapAdvisoryEnvelope<ThinkTankSessionMessagesResult>(body)
+  if (!data?.sessionId || !data.currentStep || !Array.isArray(data.messages)) {
+    throw new Error('暂时无法加载 ThinkTank 会话消息，请稍后重试。')
+  }
+
+  return data
+}
+
+export async function sendThinkTankSessionMessage(
+  sessionId: string,
+  input: ThinkTankSessionMessageSubmitInput
+): Promise<ThinkTankSessionMessageSubmitResult> {
+  const content = normalizeThinkTankMessageContent(input.content)
+  const headers = await getAuthHeadersAsync()
+  const response = await fetch(`/api/advisory/sessions/${encodeURIComponent(sessionId)}/messages`, {
+    method: 'POST',
+    headers: {
+      ...headers,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      content,
+      decisionAction: input.decisionAction,
+    }),
+    cache: 'no-store',
+  })
+  const body = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new Error(readAdvisoryMessage(body) ?? THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
+  }
+
+  const data = unwrapAdvisoryEnvelope<ThinkTankSessionMessageSubmitResult>(body)
+  if (!data?.sessionId || !data.assistantMessage || !Array.isArray(data.stream)) {
+    throw new Error(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
+  }
+
+  return data
+}
+
 function normalizeWorkflow(workflow: ThinkTankWorkflowCatalogItem): ThinkTankWorkflowCatalogItem {
   return {
     key: workflow.key,
@@ -110,4 +217,17 @@ function hasCompleteWorkflowCatalog(workflows: ThinkTankWorkflowCatalogItem[]): 
     workflows.length === EXPECTED_THINKTANK_WORKFLOW_KEYS.length &&
     EXPECTED_THINKTANK_WORKFLOW_KEYS.every((key) => keys.has(key))
   )
+}
+
+function normalizeThinkTankMessageContent(content: string): string {
+  if (typeof content !== 'string' || content.trim().length === 0) {
+    throw new Error(THINKTANK_EMPTY_MESSAGE_MESSAGE)
+  }
+
+  const normalized = content.trim()
+  if (normalized.length > THINKTANK_MESSAGE_MAX_LENGTH) {
+    throw new Error(THINKTANK_MESSAGE_TOO_LONG_MESSAGE)
+  }
+
+  return normalized
 }

@@ -1,0 +1,67 @@
+{
+  "success": true,
+  "subagent": "atdd-api-tests",
+  "tests": [
+    {
+      "file": "backend/src/modules/advisory/sessions/advisory-conversation-message.repository.spec.ts",
+      "description": "RED repository tests for tenant-scoped conversation_messages persistence",
+      "expected_to_fail": true,
+      "acceptance_criteria_covered": [
+        "AC2 conversation_messages persistence and tenant isolation"
+      ],
+      "priority_coverage": {
+        "P0": 4,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0
+      }
+    },
+    {
+      "file": "backend/src/modules/advisory/sessions/advisory-session.messages.spec.ts",
+      "description": "RED service tests for guided message submission, provider streaming, privacy metadata, and no auto-advance",
+      "expected_to_fail": true,
+      "acceptance_criteria_covered": [
+        "AC1 governed provider stream path",
+        "AC2 message persistence and telemetry privacy",
+        "AC3 no automatic workflow advance"
+      ],
+      "priority_coverage": {
+        "P0": 4,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0
+      }
+    },
+    {
+      "file": "backend/src/modules/advisory/sessions/advisory-session.messages.controller.spec.ts",
+      "description": "RED controller tests for GET/POST session message endpoint contracts",
+      "expected_to_fail": true,
+      "acceptance_criteria_covered": [
+        "AC1 message submission API",
+        "AC2 tenant context isolation"
+      ],
+      "priority_coverage": {
+        "P0": 2,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0
+      }
+    }
+  ],
+  "fixture_needs": [
+    "activeThinkTankSession",
+    "conversationMessageFactory",
+    "deterministicProviderStream"
+  ],
+  "knowledge_fragments_used": [
+    "data-factories",
+    "test-quality",
+    "test-levels-framework",
+    "test-priorities-matrix",
+    "contract-testing"
+  ],
+  "test_count": 10,
+  "tdd_phase": "RED",
+  "provider_scrutiny": "completed",
+  "summary": "Generated backend RED tests for Story 2.6 guided conversation APIs and persistence."
+}

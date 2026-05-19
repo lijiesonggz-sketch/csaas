@@ -1,5 +1,5 @@
 # generated: 2026-05-18T21:27:35+08:00
-# last_updated: 2026-05-20T05:30:24+08:00
+# last_updated: 2026-05-20T06:18:22+08:00
 # project: Csaas
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: '2026-05-18T21:27:35+08:00'
-last_updated: '2026-05-20T05:30:24+08:00'
+last_updated: '2026-05-20T06:18:22+08:00'
 project: Csaas
 project_key: NOKEY
 tracking_system: file-system
@@ -56,7 +56,7 @@ development_status:
   2-3-theme-density-and-compatibility-baseline: done
   2-4-runtime-file-loading-and-brand-mapping: done
   2-5-workflow-selection-and-launch: done
-  2-6-guided-step-conversation-and-decision-controls: backlog
+  2-6-guided-step-conversation-and-decision-controls: done
   2-7-streaming-message-experience: backlog
   2-8-live-document-drawer-and-ai-labeled-report-draft: backlog
   2-9-report-viewing-and-export: backlog

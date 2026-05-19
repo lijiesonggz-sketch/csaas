@@ -6,7 +6,12 @@ import AdvisoryLayout from '../layout'
 import AdvisoryPage from '../page'
 import { ADVISORY_LAYOUT } from '@/lib/advisory/layout'
 import { fetchThinkTankAccess } from '@/lib/advisory/access'
-import { fetchThinkTankWorkflows, launchThinkTankWorkflow } from '@/lib/advisory/workflows'
+import {
+  fetchThinkTankWorkflows,
+  fetchThinkTankSessionMessages,
+  launchThinkTankWorkflow,
+  sendThinkTankSessionMessage,
+} from '@/lib/advisory/workflows'
 import { useRadarUnreadCount } from '@/lib/hooks/useRadarUnreadCount'
 
 expect.extend(toHaveNoViolations)
@@ -19,7 +24,9 @@ jest.mock('@/lib/advisory/access', () => ({
 
 jest.mock('@/lib/advisory/workflows', () => ({
   fetchThinkTankWorkflows: jest.fn(),
+  fetchThinkTankSessionMessages: jest.fn(),
   launchThinkTankWorkflow: jest.fn(),
+  sendThinkTankSessionMessage: jest.fn(),
 }))
 
 jest.mock('next-auth/react', () => ({
@@ -56,8 +63,14 @@ describe('AdvisoryPage', () => {
   const mockFetchThinkTankWorkflows = fetchThinkTankWorkflows as jest.MockedFunction<
     typeof fetchThinkTankWorkflows
   >
+  const mockFetchThinkTankSessionMessages = fetchThinkTankSessionMessages as jest.MockedFunction<
+    typeof fetchThinkTankSessionMessages
+  >
   const mockLaunchThinkTankWorkflow = launchThinkTankWorkflow as jest.MockedFunction<
     typeof launchThinkTankWorkflow
+  >
+  const mockSendThinkTankSessionMessage = sendThinkTankSessionMessage as jest.MockedFunction<
+    typeof sendThinkTankSessionMessage
   >
   const mockUseSession = useSession as jest.Mock
   const mockUseRadarUnreadCount = useRadarUnreadCount as jest.MockedFunction<
@@ -171,6 +184,15 @@ describe('AdvisoryPage', () => {
     })
     mockUseRadarUnreadCount.mockReturnValue({ unreadCount: 0 })
     mockFetchThinkTankWorkflows.mockResolvedValue({ workflows: workflowCatalog })
+    mockFetchThinkTankSessionMessages.mockResolvedValue({
+      sessionId: 'session-brainstorming',
+      currentStep: {
+        index: 1,
+        label: '当前步骤',
+        sourceRef: '_bmad/core/skills/bmad-brainstorming/steps/step-01-session-setup.md',
+      },
+      messages: [],
+    })
     mockLaunchThinkTankWorkflow.mockResolvedValue({
       sessionId: 'session-brainstorming',
       status: 'active',
@@ -185,6 +207,32 @@ describe('AdvisoryPage', () => {
         label: '当前步骤',
         sourceRef: '_bmad/core/skills/bmad-brainstorming/steps/step-01-session-setup.md',
       },
+    })
+    mockSendThinkTankSessionMessage.mockResolvedValue({
+      sessionId: 'session-brainstorming',
+      currentStep: {
+        index: 1,
+        label: '当前步骤',
+        sourceRef: '_bmad/core/skills/bmad-brainstorming/steps/step-01-session-setup.md',
+      },
+      assistantMessage: {
+        id: 'assistant-message-1',
+        role: 'assistant',
+        content: 'Here is the advisor summary.',
+        decisionOptions: [
+          { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+          { action: 'deepen', label: '深入', shortcut: 'A', enabled: true },
+          { action: 'revise', label: '修订', shortcut: 'R', enabled: true },
+          { action: 'party-mode', label: 'Party Mode', shortcut: 'P', enabled: false },
+        ],
+      },
+      stream: [{ index: 0, delta: 'Here is the advisor summary.', done: true }],
+      decisionOptions: [
+        { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+        { action: 'deepen', label: '深入', shortcut: 'A', enabled: true },
+        { action: 'revise', label: '修订', shortcut: 'R', enabled: true },
+        { action: 'party-mode', label: 'Party Mode', shortcut: 'P', enabled: false },
+      ],
     })
   })
 
@@ -488,6 +536,120 @@ describe('AdvisoryPage', () => {
     within(workflowNav)
       .getAllByRole('button', { name: /启动 / })
       .forEach((button) => expect(button).toBeDisabled())
+  })
+
+  test('[P0] submits an answer with Enter, renders user and advisor messages, and keeps current step unchanged', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+    const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+
+    await user.type(input, 'We lose users after onboarding.')
+    await user.keyboard('{Enter}')
+
+    expect(mockSendThinkTankSessionMessage).toHaveBeenCalledWith('session-brainstorming', {
+      content: 'We lose users after onboarding.',
+    })
+    expect(await screen.findByText('We lose users after onboarding.')).toBeInTheDocument()
+    expect(await screen.findByText('Here is the advisor summary.')).toBeInTheDocument()
+    const stepper = screen.getByRole('list', { name: '工作流当前步骤' })
+    expect(within(stepper).getByText('当前步骤')).toBeInTheDocument()
+    expect(within(stepper).getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.queryByText('下一步骤')).not.toBeInTheDocument()
+  })
+
+  test('[P0] preserves Shift+Enter newline, prevents empty submit, and autosaves the active draft', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    const firstRender = renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+    const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+
+    await user.keyboard('{Enter}')
+    expect(mockSendThinkTankSessionMessage).not.toHaveBeenCalled()
+
+    await user.type(input, 'First line')
+    await user.keyboard('{Shift>}{Enter}{/Shift}')
+    await user.type(input, 'Second line')
+    expect(input).toHaveValue('First line\nSecond line')
+
+    firstRender.unmount()
+    renderAdvisoryRoute()
+    const restoredWorkflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(
+      await within(restoredWorkflowNav).findByRole('button', { name: /启动 Brainstorming/ })
+    )
+
+    expect(await screen.findByRole('textbox', { name: '输入你的回答' })).toHaveValue(
+      'First line\nSecond line'
+    )
+  })
+
+  test('[P0] exposes in-message decision controls with keyboard shortcuts and disabled Party Mode', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+    await user.type(await screen.findByRole('textbox', { name: '输入你的回答' }), 'Need guidance.')
+    await user.keyboard('{Enter}')
+
+    const continueButton = await screen.findByRole('button', { name: /继续.*快捷键 C/ })
+    const deepenButton = screen.getByRole('button', { name: /深入.*快捷键 A/ })
+    const partyModeButton = screen.getByRole('button', { name: /Party Mode.*快捷键 P/ })
+
+    expect(continueButton).toHaveAttribute('title', expect.stringContaining('C'))
+    expect(deepenButton).toBeEnabled()
+    expect(partyModeButton).toBeDisabled()
+
+    document.body.focus()
+    await user.keyboard('c')
+    expect(screen.getByRole('status', { name: 'ThinkTank 工作台状态' })).toHaveTextContent(
+      '已选择：继续'
+    )
+  })
+
+  test('[P1] honors Escape and Ctrl+D shortcuts without losing focus or draft text', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+    const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+    await user.type(input, 'Keep this draft.')
+
+    await user.keyboard('{Control>}d{/Control}')
+    expect(screen.getByRole('button', { name: '展开咨询文档抽屉' })).toHaveAccessibleDescription(
+      '文档抽屉将在报告草稿接入后开放'
+    )
+    expect(input).toHaveValue('Keep this draft.')
+
+    await user.keyboard('{Escape}')
+    expect(input).toHaveValue('Keep this draft.')
+    expect(screen.getByText('快捷键：Enter 提交，Shift+Enter 换行')).toBeInTheDocument()
   })
 
   it('prevents duplicate launch requests while a launch request is pending', async () => {
