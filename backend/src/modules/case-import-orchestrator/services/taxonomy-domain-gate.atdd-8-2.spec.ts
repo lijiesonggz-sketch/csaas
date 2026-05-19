@@ -4,8 +4,13 @@ import { TaxonomyDomainGateService } from './taxonomy-domain-gate.service'
 import { TAXONOMY_ROLLOUT_POLICY_ATDD_MACHINE_SUMMARY } from '../testing/taxonomy-rollout-policy.atdd.fixtures'
 
 describe('Story 8.2 - taxonomy domain gate service guardrails', () => {
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-04-25T16:00:00+08:00'))
+  })
+
   afterEach(() => {
     jest.restoreAllMocks()
+    jest.useRealTimers()
   })
 
   test('[8.2-SVC-001][P1] should persist a bootstrap policy row before first operator-side gate/transition access', async () => {

@@ -7,21 +7,24 @@ import {
 } from '../testing/taxonomy-rollout-policy-automate.fixtures'
 
 describe('TaxonomyDomainGateService automation regression', () => {
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-04-25T16:00:00+08:00'))
+  })
+
   afterEach(() => {
     jest.restoreAllMocks()
+    jest.useRealTimers()
   })
 
   it('[P0][6.5-AUTO-003] should ignore newer non-taxonomy or non-compare artifacts and keep searching for the latest valid domain summary', async () => {
     jest.spyOn(fs, 'existsSync').mockReturnValue(true)
     jest
       .spyOn(fs, 'readdirSync')
-      .mockReturnValue(
-        [
-          'zzz-invalid-report-summary.json',
-          'yyy-invalid-mode-summary.json',
-          'aaa-valid-taxonomy-summary.json',
-        ] as never,
-      )
+      .mockReturnValue([
+        'zzz-invalid-report-summary.json',
+        'yyy-invalid-mode-summary.json',
+        'aaa-valid-taxonomy-summary.json',
+      ] as never)
     jest.spyOn(fs, 'statSync').mockImplementation(((target: string) => {
       const name = String(target)
       if (name.includes('zzz-invalid-report')) {
@@ -35,14 +38,10 @@ describe('TaxonomyDomainGateService automation regression', () => {
     jest.spyOn(fs, 'readFileSync').mockImplementation(((target: string) => {
       const name = String(target)
       if (name.includes('zzz-invalid-report')) {
-        return JSON.stringify(
-          TAXONOMY_ROLLOUT_POLICY_AUTOMATE_INVALID_REPORT_SUMMARY,
-        )
+        return JSON.stringify(TAXONOMY_ROLLOUT_POLICY_AUTOMATE_INVALID_REPORT_SUMMARY)
       }
       if (name.includes('yyy-invalid-mode')) {
-        return JSON.stringify(
-          TAXONOMY_ROLLOUT_POLICY_AUTOMATE_INVALID_MODE_SUMMARY,
-        )
+        return JSON.stringify(TAXONOMY_ROLLOUT_POLICY_AUTOMATE_INVALID_MODE_SUMMARY)
       }
       return JSON.stringify(TAXONOMY_ROLLOUT_POLICY_AUTOMATE_VALID_SUMMARY)
     }) as never)
@@ -73,9 +72,11 @@ describe('TaxonomyDomainGateService automation regression', () => {
       }),
     }
     const classificationRunRepository = {
-      find: jest.fn().mockResolvedValue([
-        { caseId: 'case-1', pathDecision: 'PRIMARY_CHAIN', createdAt: new Date() },
-      ]),
+      find: jest
+        .fn()
+        .mockResolvedValue([
+          { caseId: 'case-1', pathDecision: 'PRIMARY_CHAIN', createdAt: new Date() },
+        ]),
     }
     const complianceCaseRepository = {
       count: jest.fn().mockResolvedValue(0),
@@ -156,13 +157,11 @@ describe('TaxonomyDomainGateService automation regression', () => {
     jest.spyOn(fs, 'existsSync').mockReturnValue(true)
     jest
       .spyOn(fs, 'readdirSync')
-      .mockReturnValue(
-        [
-          'zzz-mismatched-version-summary.json',
-          'yyy-stale-summary.json',
-          'aaa-valid-taxonomy-summary.json',
-        ] as never,
-      )
+      .mockReturnValue([
+        'zzz-mismatched-version-summary.json',
+        'yyy-stale-summary.json',
+        'aaa-valid-taxonomy-summary.json',
+      ] as never)
     jest.spyOn(fs, 'statSync').mockImplementation(((target: string) => {
       const name = String(target)
       if (name.includes('zzz-mismatched-version')) {
@@ -221,9 +220,11 @@ describe('TaxonomyDomainGateService automation regression', () => {
       }),
     }
     const classificationRunRepository = {
-      find: jest.fn().mockResolvedValue([
-        { caseId: 'case-1', pathDecision: 'PRIMARY_CHAIN', createdAt: new Date() },
-      ]),
+      find: jest
+        .fn()
+        .mockResolvedValue([
+          { caseId: 'case-1', pathDecision: 'PRIMARY_CHAIN', createdAt: new Date() },
+        ]),
     }
     const complianceCaseRepository = {
       count: jest.fn().mockResolvedValue(0),
