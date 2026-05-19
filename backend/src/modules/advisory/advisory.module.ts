@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { AdvisoryModuleConfig } from '../../database/entities/advisory-module-config.entity'
 import { AuditModule } from '../audit/audit.module'
+import { OrganizationsModule } from '../organizations/organizations.module'
 import { AdvisoryAccessController } from './access/advisory-access.controller'
 import { AdvisoryAccessService } from './access/advisory-access.service'
 import { AdvisoryModuleConfigRepository } from './admin/advisory-module-config.repository'
@@ -19,7 +20,12 @@ import { AnthropicGlmProviderAdapter } from './provider-gateway/providers/anthro
 import { FakeThinkTankProviderAdapter } from './provider-gateway/providers/fake-thinktank-provider.adapter'
 
 @Module({
-  imports: [ConfigModule, AuditModule, TypeOrmModule.forFeature([AdvisoryModuleConfig])],
+  imports: [
+    ConfigModule,
+    AuditModule,
+    OrganizationsModule,
+    TypeOrmModule.forFeature([AdvisoryModuleConfig]),
+  ],
   controllers: [AdvisoryAccessController, AdvisoryAdminController],
   providers: [
     AdvisoryAccessService,

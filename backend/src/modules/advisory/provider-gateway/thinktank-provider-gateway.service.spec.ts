@@ -2,6 +2,7 @@ import 'reflect-metadata'
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { AdvisoryModule } from '../advisory.module'
+import { OrganizationsModule } from '../../organizations/organizations.module'
 import { AdvisoryEventService } from '../events/advisory-event.service'
 import { ThinkTankProviderGatewayService } from './thinktank-provider-gateway.service'
 import {
@@ -282,6 +283,7 @@ describe('ThinkTankProviderGatewayService', () => {
 
     expect(providers).toEqual(expect.arrayContaining([ThinkTankProviderGatewayService]))
     expect(exports).toEqual(expect.arrayContaining([ThinkTankProviderGatewayService]))
+    expect(imports).toEqual(expect.arrayContaining([OrganizationsModule]))
     expect(imports.map((entry: { name?: string }) => entry?.name)).not.toContain(
       'ThinkTankWorkflowRuntimeModule',
     )
