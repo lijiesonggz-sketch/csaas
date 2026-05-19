@@ -26,6 +26,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
       return
     }
 
+    if (typeof window.matchMedia !== 'function') {
+      setIsMobile(false)
+      setMobileSidebarOpen(false)
+      return
+    }
+
     const mediaQuery = window.matchMedia('(max-width: 767px)')
     const updateLayoutMode = (event?: MediaQueryListEvent) => {
       const mobile = event?.matches ?? mediaQuery.matches

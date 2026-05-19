@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import {
   BrainCircuit,
-  ChevronRight,
   FileText,
   MessageSquareText,
   PanelRightOpen,
@@ -14,19 +13,16 @@ import { Separator } from '@/components/ui/separator'
 
 const DESKTOP_QUERY = '(min-width: 1024px)'
 
-function readDesktopViewport() {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return true
-  }
-
-  return window.matchMedia(DESKTOP_QUERY).matches
-}
-
 function useDesktopViewport() {
-  const [isDesktop, setIsDesktop] = useState(readDesktopViewport)
+  const [isDesktop, setIsDesktop] = useState<boolean | null>(null)
 
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    if (typeof window === 'undefined') {
+      return undefined
+    }
+
+    if (typeof window.matchMedia !== 'function') {
+      setIsDesktop(false)
       return undefined
     }
 
@@ -36,11 +32,26 @@ function useDesktopViewport() {
     }
 
     update()
-    mediaQuery.addEventListener?.('change', update)
-    return () => mediaQuery.removeEventListener?.('change', update)
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', update)
+      return () => mediaQuery.removeEventListener?.('change', update)
+    }
+
+    mediaQuery.addListener?.(update)
+    return () => mediaQuery.removeListener?.(update)
   }, [])
 
   return isDesktop
+}
+
+function ViewportCheckingState() {
+  return (
+    <section className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-[#FEFDFB] px-6 py-10">
+      <div role="status" className="text-sm font-medium text-[#1E3A5F]">
+        正在准备 ThinkTank 工作区
+      </div>
+    </section>
+  )
 }
 
 function DesktopRequiredState() {
@@ -68,16 +79,20 @@ function DesktopRequiredState() {
 export default function AdvisoryWorkspaceShell() {
   const isDesktop = useDesktopViewport()
 
+  if (isDesktop === null) {
+    return <ViewportCheckingState />
+  }
+
   if (!isDesktop) {
     return <DesktopRequiredState />
   }
 
   return (
     <section className="min-h-[calc(100vh-64px)] bg-[#FEFDFB] p-4 lg:p-6">
-      <div className="grid min-h-[calc(100vh-112px)] grid-cols-[260px_minmax(0,1fr)_64px] overflow-hidden rounded-sm border border-[#E2E8F0] bg-white shadow-sm">
+      <div className="grid h-[calc(100vh-112px)] min-h-[560px] grid-cols-[260px_minmax(0,1fr)_64px] overflow-hidden rounded-sm border border-[#E2E8F0] bg-white shadow-sm">
         <aside
           aria-label="咨询工作流导航"
-          className="flex min-w-0 flex-col border-r border-[#E2E8F0] bg-[#F8FAFC]"
+          className="flex min-w-0 flex-col overflow-y-auto border-r border-[#E2E8F0] bg-[#F8FAFC]"
         >
           <div className="border-b border-[#E2E8F0] p-4">
             <div className="flex items-center gap-3">
@@ -91,30 +106,33 @@ export default function AdvisoryWorkspaceShell() {
             </div>
           </div>
 
-          <div className="flex-1 p-4">
+          <nav aria-label="咨询工作流" className="flex-1 p-4">
             <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase text-[#64748B]">
               <Workflow className="h-4 w-4" />
               工作流
             </div>
-            <div className="space-y-2">
+            <ul className="space-y-2">
               {['结构化咨询', '研究分析', '问题解决'].map((label) => (
-                <div
+                <li
                   key={label}
                   className="flex h-10 items-center justify-between rounded-sm border border-[#E2E8F0] bg-white px-3 text-sm text-[#1E3A5F]"
                 >
                   <span>{label}</span>
-                  <ChevronRight className="h-4 w-4 text-[#94A3B8]" />
-                </div>
+                  <span className="text-xs text-[#94A3B8]">待接入</span>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </nav>
 
           <div className="border-t border-[#E2E8F0] p-4 text-xs leading-5 text-[#64748B]">
             暂无活动会话
           </div>
         </aside>
 
-        <section aria-label="咨询对话工作区" className="flex min-w-0 flex-col bg-white">
+        <section
+          aria-label="咨询对话工作区"
+          className="flex min-w-0 flex-col overflow-hidden bg-white"
+        >
           <div className="border-b border-[#E2E8F0] px-6 py-4">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
@@ -127,7 +145,7 @@ export default function AdvisoryWorkspaceShell() {
             </div>
           </div>
 
-          <div className="flex flex-1 items-center justify-center p-6">
+          <div className="flex flex-1 items-center justify-center overflow-y-auto p-6">
             <div className="max-w-lg text-center">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-sm bg-[#EEF4F9]">
                 <MessageSquareText className="h-6 w-6 text-[#1E3A5F]" />
@@ -155,6 +173,7 @@ export default function AdvisoryWorkspaceShell() {
             aria-label="展开咨询文档抽屉"
             title="展开咨询文档抽屉"
             className="text-[#1E3A5F]"
+            disabled
           >
             <PanelRightOpen className="h-5 w-5" />
           </Button>

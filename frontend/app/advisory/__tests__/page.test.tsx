@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { useSession } from 'next-auth/react'
 import AdvisoryPage from '../page'
 import { fetchThinkTankAccess } from '@/lib/advisory/access'
@@ -39,19 +39,46 @@ describe('AdvisoryPage', () => {
   >
 
   const installMatchMedia = (desktop: boolean) => {
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: jest.fn().mockImplementation((query: string) => ({
-        matches: query.includes('1024px') ? desktop : false,
-        media: query,
-        onchange: null,
-        addListener: jest.fn(),
-        removeListener: jest.fn(),
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-        dispatchEvent: jest.fn(),
-      })),
-    })
+    let matchesDesktop = desktop
+    const listeners = new Map<string, Set<(event: MediaQueryListEvent) => void>>()
+    const getListeners = (query: string) => {
+      if (!listeners.has(query)) {
+        listeners.set(query, new Set())
+      }
+      return listeners.get(query)!
+    }
+    const readMatches = (query: string) => {
+      if (query.includes('1024px')) return matchesDesktop
+      return false
+    }
+
+    window.matchMedia = jest.fn().mockImplementation((query: string) => ({
+      get matches() {
+        return readMatches(query)
+      },
+      media: query,
+      onchange: null,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      addEventListener: jest.fn((event: string, listener: (event: MediaQueryListEvent) => void) => {
+        if (event === 'change') getListeners(query).add(listener)
+      }),
+      removeEventListener: jest.fn(
+        (event: string, listener: (event: MediaQueryListEvent) => void) => {
+          if (event === 'change') getListeners(query).delete(listener)
+        }
+      ),
+      dispatchEvent: jest.fn(),
+    }))
+
+    return {
+      setDesktop(next: boolean) {
+        matchesDesktop = next
+        getListeners('(min-width: 1024px)').forEach((listener) => {
+          listener({ matches: next, media: '(min-width: 1024px)' } as MediaQueryListEvent)
+        })
+      },
+    }
   }
 
   beforeEach(() => {
@@ -103,7 +130,7 @@ describe('AdvisoryPage', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('region', { name: '咨询对话工作区' })).toBeInTheDocument()
     expect(screen.getByRole('complementary', { name: '咨询文档抽屉' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '展开咨询文档抽屉' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '展开咨询文档抽屉' })).toBeDisabled()
     expect(screen.getByText('选择一个工作流后，对话将在这里开始。')).toBeInTheDocument()
     expect(screen.getByText('文档')).toBeInTheDocument()
     expect(screen.queryByText('咨询工作台暂未开放')).not.toBeInTheDocument()
@@ -133,6 +160,41 @@ describe('AdvisoryPage', () => {
     expect(
       screen.queryByRole('complementary', { name: '咨询工作流导航' })
     ).not.toBeInTheDocument()
+  })
+
+  it('updates the desktop gate when the 1024px media query changes', async () => {
+    const media = installMatchMedia(true)
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    render(<AdvisoryPage />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('region', { name: '咨询对话工作区' })).toBeInTheDocument()
+    })
+
+    act(() => {
+      media.setDesktop(false)
+    })
+
+    expect(screen.getByText('ThinkTank MVP 当前需要桌面端宽屏使用')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: '咨询对话工作区' })).not.toBeInTheDocument()
+  })
+
+  it('falls back to the desktop-required state when matchMedia is unavailable', async () => {
+    window.matchMedia = undefined as unknown as typeof window.matchMedia
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    render(<AdvisoryPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('ThinkTank MVP 当前需要桌面端宽屏使用')).toBeInTheDocument()
+    })
   })
 
   it('renders a friendly authorization denied state', async () => {

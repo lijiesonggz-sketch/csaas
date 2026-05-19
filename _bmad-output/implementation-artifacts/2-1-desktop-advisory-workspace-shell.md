@@ -165,6 +165,8 @@ GPT-5 Codex
 - 2026-05-19: Code review found one patch-level test coverage gap for the right document drawer landmark; added the missing smoke assertion and re-ran focused test plus TypeScript.
 - 2026-05-19: Traceability gate generated with PASS decision and 100% P0/P1/overall coverage for Story 2.1.
 - 2026-05-19: Final validation passed: full frontend Jest, Next build, and serial `npx tsc --noEmit`. A prior parallel `tsc` run failed because `npm run build` cleaned `.next` while TypeScript was reading generated `.next/types`; the serial rerun passed.
+- 2026-05-19: Re-ran `$bmad-code-review` with three subagents after user approval. Resolved HIGH/MEDIUM patch findings for hydration-safe viewport gating, `matchMedia` unavailable/legacy listener handling, disabled drawer affordance, non-interactive workflow placeholders, nested workflow `nav`, and internal shell scrolling.
+- 2026-05-19: Review-fix validation passed for advisory/MainLayout focused tests, TypeScript, and `git diff --check`. Latest Next build retry is blocked by external Google Fonts `ECONNRESET` in `app/layout.tsx` before application compilation; full Jest still shows an unrelated order-dependent `app/admin/failure-modes/page.test.tsx` failure, while that file passes in isolation.
 
 ### Implementation Plan
 
@@ -180,6 +182,7 @@ GPT-5 Codex
 - Updated advisory page tests to cover authorized desktop shell rendering, narrow viewport gating, preserved access-denied and disabled tenant behavior, and smoke-level shell landmark/label expectations.
 - Removed the previous "workspace not open" placeholder copy and avoided workflow runtime, provider calls, report generation, launch behavior, celebratory UI, or new backend persistence.
 - Code review patch resolved: right document drawer complementary landmark is now explicitly covered by the route smoke test.
+- Code review rerun fixes resolved: viewport gate no longer risks SSR/client hydration mismatch, runtime media query changes are covered, missing `matchMedia` falls back safely, unsupported drawer expansion is disabled, workflow placeholders no longer present as fake controls, and columns have internal overflow handling.
 
 ### File List
 
@@ -194,6 +197,7 @@ GPT-5 Codex
 - `frontend/app/advisory/__tests__/page.test.tsx`
 - `frontend/app/advisory/page.tsx`
 - `frontend/components/advisory/AdvisoryWorkspaceShell.tsx`
+- `frontend/components/layout/MainLayout.tsx`
 - `_bmad-output/test-artifacts/code-review-story-2-1.md`
 - `_bmad-output/test-artifacts/tmp/tea-trace-coverage-matrix-story-2-1-2026-05-19T08-26-15+08-00.json`
 - `_bmad-output/test-artifacts/traceability-report-story-2-1.md`
@@ -207,3 +211,4 @@ GPT-5 Codex
 - 2026-05-19: Implemented desktop advisory workspace shell, 1024px gate, preserved access states, focused tests, and frontend validation.
 - 2026-05-19: Completed code review follow-up by adding drawer landmark smoke coverage.
 - 2026-05-19: Completed traceability gate, final validation, and marked Story 2.1 done.
+- 2026-05-19: Re-ran code review with subagents and resolved review findings for viewport, accessibility, and false-affordance edge cases.
