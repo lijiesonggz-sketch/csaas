@@ -1,0 +1,144 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-19T08:26:15+08:00",
+  "story": {
+    "id": "2.1",
+    "key": "2-1-desktop-advisory-workspace-shell",
+    "title": "Desktop Advisory Workspace Shell",
+    "spec_file": "_bmad-output/implementation-artifacts/2-1-desktop-advisory-workspace-shell.md"
+  },
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "requirement": "Authorized desktop users see the CSAAS top navigation, global left navigation, advisory left sidebar, central conversation area, and collapsed right document drawer using existing shadcn/ui and CSAAS tokens.",
+      "coverage": "FULL",
+      "test_level": "Frontend route/component",
+      "tests": [
+        {
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "name": "renders the authorized desktop advisory workspace shell inside the CSAAS frame",
+          "signals": [
+            "CSAAS banner and global navigation present",
+            "left advisory sidebar complementary landmark present",
+            "central conversation region present",
+            "right document drawer complementary landmark and collapsed button present",
+            "professional empty state and old placeholder removal asserted"
+          ]
+        },
+        {
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "name": "renders a loading state while access is being verified",
+          "signals": ["preserves Story 1.1 loading behavior while access is pending"]
+        },
+        {
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "name": "renders a friendly authorization denied state",
+          "signals": ["denied authz path renders alert and does not leak workspace region"]
+        },
+        {
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "name": "renders a clear disabled tenant state",
+          "signals": ["disabled tenant path renders alert and does not leak drawer control"]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "N/A - no new endpoint introduced; existing access client coverage remains in frontend/lib/advisory/access.test.ts",
+        "authz_coverage": "positive authorized path plus denied and disabled tenant negative paths covered",
+        "error_path_coverage": "access loading and negative authz states covered; transient fetch exception fallback is pre-existing and outside Story 2.1 AC"
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "requirement": "Viewports below 1024px show a clear desktop-required/recommended state and do not render a squeezed three-column shell.",
+      "coverage": "FULL",
+      "test_level": "Frontend route/component",
+      "tests": [
+        {
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "name": "shows a desktop-required state below 1024px without rendering broken shell columns",
+          "signals": [
+            "matchMedia below desktop threshold returns false",
+            "desktop-required copy renders",
+            "central conversation region absent",
+            "left advisory sidebar absent"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "N/A",
+        "authz_coverage": "gate executes only after authorized access state",
+        "error_path_coverage": "boundary below 1024px covered; 1024px inclusive path covered by desktop-positive test"
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P1",
+      "requirement": "MVP shell copy and empty/completion-ready states remain concise and professional, with no gamification, heavy celebration, decorative AI visuals, or old unavailable-placeholder behavior.",
+      "coverage": "FULL",
+      "test_level": "Frontend route/component plus static review",
+      "tests": [
+        {
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "name": "renders the authorized desktop advisory workspace shell inside the CSAAS frame",
+          "signals": [
+            "professional empty copy renders",
+            "old disabled button copy is absent",
+            "old 'workspace will open later' placeholder is absent"
+          ]
+        },
+        {
+          "file": "_bmad-output/test-artifacts/code-review-story-2-1.md",
+          "name": "Acceptance Auditor review",
+          "signals": [
+            "no gamification, celebratory UI, decorative AI hero, provider calls, workflow runtime, or report generation found"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "N/A",
+        "authz_coverage": "N/A",
+        "error_path_coverage": "N/A - visual tone constraint validated by smoke assertions and code review"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 3,
+    "fully_covered": 3,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 2, "covered": 2, "percentage": 100 },
+      "P1": { "total": 1, "covered": 1, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Run bmad-testarch-test-review if the team wants a separate test-quality audit for the advisory page suite.",
+      "requirements": []
+    }
+  ]
+}

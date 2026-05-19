@@ -1,0 +1,38 @@
+{
+  "success": true,
+  "subagent": "atdd-e2e-tests",
+  "tests": [
+    {
+      "file": "_bmad-output/test-artifacts/atdd-story-2-1-frontend-red.spec.tsx",
+      "description": "ATDD frontend shell tests for Story 2.1 desktop advisory workspace shell (RED PHASE)",
+      "expected_to_fail": true,
+      "acceptance_criteria_covered": [
+        "AC1: authorized desktop route upgrades from placeholder into full advisory workspace shell",
+        "AC2: viewports below 1024px show desktop-required state instead of broken mobile layout",
+        "AC3: shell uses professional concise states and avoids unavailable placeholder/gamification"
+      ],
+      "priority_coverage": {
+        "P0": 2,
+        "P1": 1,
+        "P2": 0,
+        "P3": 0
+      }
+    }
+  ],
+  "fixture_needs": [
+    "story21MatchMedia",
+    "story21AccessFixtures",
+    "story21AuthenticatedSession"
+  ],
+  "knowledge_fragments_used": [
+    "component-tdd",
+    "fixture-architecture",
+    "selector-resilience",
+    "test-quality",
+    "timing-debugging"
+  ],
+  "test_count": 3,
+  "tdd_phase": "RED",
+  "summary": "Generated 3 skipped RED frontend acceptance tests for Story 2.1."
+}
+

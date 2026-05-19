@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "subagent": "atdd-api-tests",
+  "tests": [],
+  "fixture_needs": [],
+  "knowledge_fragments_used": [
+    "data-factories",
+    "test-quality",
+    "test-levels-framework"
+  ],
+  "test_count": 0,
+  "tdd_phase": "RED",
+  "provider_scrutiny": "not_applicable",
+  "summary": "Story 2.1 introduces no API endpoint or backend provider contract. API RED generation is intentionally not applicable."
+}
+
