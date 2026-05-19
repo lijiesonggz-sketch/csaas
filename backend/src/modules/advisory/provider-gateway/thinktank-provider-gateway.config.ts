@@ -28,7 +28,8 @@ export function resolveThinkTankProviderGatewayConfig(
 ): ThinkTankProviderGatewayConfig {
   const requestedMode = readString(source, 'THINKTANK_PROVIDER_MODE')
   const providerMode: ThinkTankProviderType = requestedMode === 'glm' ? 'glm' : 'fake'
-  const apiKey = readString(source, 'GLM_API_KEY') ?? readString(source, 'ANTHROPIC_API_KEY')
+  const apiKey = readString(source, 'GLM_API_KEY')
+  const baseUrl = readString(source, 'GLM_BASE_URL')
   const timeoutMs = readPositiveInteger(source, 'THINKTANK_PROVIDER_TIMEOUT_MS', 30000)
   const maxAttempts = readPositiveInteger(source, 'THINKTANK_PROVIDER_RETRY_ATTEMPTS', 2)
   const delayMs = readNonNegativeInteger(source, 'THINKTANK_PROVIDER_RETRY_DELAY_MS', 100)
@@ -37,15 +38,14 @@ export function resolveThinkTankProviderGatewayConfig(
     providerMode,
     model: readString(source, 'GLM_MODEL') ?? THINKTANK_PROVIDER_GATEWAY_DEFAULT_MODEL,
     apiKey: apiKey ?? undefined,
-    baseUrl:
-      readString(source, 'GLM_BASE_URL') ?? readString(source, 'ANTHROPIC_BASE_URL') ?? undefined,
+    baseUrl: baseUrl ?? undefined,
     timeoutMs,
     retry: {
       maxAttempts,
       delayMs,
       backoffMultiplier: 2,
     },
-    liveProviderEnabled: providerMode === 'glm' && Boolean(apiKey),
+    liveProviderEnabled: providerMode === 'glm' && Boolean(apiKey && baseUrl),
   }
 }
 

@@ -100,8 +100,14 @@ export class ThinkTankProviderGatewayError extends Error implements ThinkTankPro
 
 export interface ThinkTankProviderAdapter {
   readonly provider: ThinkTankProviderType
-  complete(request: ThinkTankProviderRequest): Promise<ThinkTankProviderResponse>
-  stream?(request: ThinkTankProviderRequest): AsyncIterable<ThinkTankProviderStreamChunk>
+  complete(
+    request: ThinkTankProviderRequest,
+    signal?: AbortSignal,
+  ): Promise<ThinkTankProviderResponse>
+  stream?(
+    request: ThinkTankProviderRequest,
+    signal?: AbortSignal,
+  ): AsyncIterable<ThinkTankProviderStreamChunk>
 }
 
 export type ThinkTankProviderSleeper = (delayMs: number) => Promise<void>

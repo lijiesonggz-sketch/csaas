@@ -235,6 +235,7 @@ GPT-5 Codex
 - 2026-05-19: Story context created from Epic 1 Story 1.5, PRD FR40/FR45 and NFR17/NFR18, architecture Anthropic SDK clarification, existing AI client patterns, and Story 1.4 event contract learnings.
 - 2026-05-19: ATDD RED artifacts refreshed for governed provider gateway; stale resolve-controls Story 1.5 artifacts replaced.
 - 2026-05-19: Code review fixed one Medium finding: fake streaming now carries deterministic token/cost metadata instead of gateway-only estimation.
+- 2026-05-20: Re-review fixed all HIGH/MEDIUM provider gateway governance findings: streaming retry/timeout, abort signaling, best-effort telemetry, validation classification, failed/retried token metadata, GLM live config safety, safe GLM error messages, and explicit non-streaming live fallback.
 
 ### Implementation Plan
 
@@ -253,6 +254,7 @@ GPT-5 Codex
 - Full backend regression run completed with the same unrelated taxonomy-domain-gate failures recorded before Story 1.5: `[P0][6.5-AUTO-003]`, `[P0][6.5-AUTO-007]`, `[8.2-SVC-003][P1]`.
 - No frontend/E2E tests were added because Story 1.5 introduces no UI behavior or browser-visible route.
 - Code review passed after fixing the streaming fake metadata finding.
+- Re-review passed after fixing provider gateway governance findings; focused tests now cover streaming retry, abort-on-timeout, telemetry persistence failure isolation, validation edge cases, and GLM config safety.
 - Traceability and gate completed with PASS: 5/5 acceptance criteria fully covered; no Story 1.5 blocking gaps.
 
 ### File List
@@ -287,3 +289,4 @@ GPT-5 Codex
 - 2026-05-19: Implemented governed provider gateway, fake/live adapters, telemetry emission, retry/timeout/error handling, config, module wiring, and backend test coverage.
 - 2026-05-19: Completed code review and fixed streaming token/cost metadata coverage.
 - 2026-05-19: Completed traceability and PASS gate for Story 1.5.
+- 2026-05-20: Completed automatic code-review fix pass for Story 1.5 provider gateway hardening.

@@ -5,7 +5,6 @@ import {
   ThinkTankProviderGatewayError,
   ThinkTankProviderRequest,
   ThinkTankProviderResponse,
-  ThinkTankProviderStreamChunk,
 } from '../thinktank-provider-gateway.types'
 
 export class AnthropicGlmProviderAdapter implements ThinkTankProviderAdapter {
@@ -13,17 +12,21 @@ export class AnthropicGlmProviderAdapter implements ThinkTankProviderAdapter {
   private readonly client: Anthropic | null
 
   constructor(private readonly config: ThinkTankProviderGatewayConfig) {
-    this.client = config.apiKey
-      ? new Anthropic({
-          apiKey: config.apiKey,
-          baseURL: config.baseUrl,
-          timeout: config.timeoutMs,
-          maxRetries: 0,
-        })
-      : null
+    this.client =
+      config.liveProviderEnabled && config.apiKey && config.baseUrl
+        ? new Anthropic({
+            apiKey: config.apiKey,
+            baseURL: config.baseUrl,
+            timeout: config.timeoutMs,
+            maxRetries: 0,
+          })
+        : null
   }
 
-  async complete(request: ThinkTankProviderRequest): Promise<ThinkTankProviderResponse> {
+  async complete(
+    request: ThinkTankProviderRequest,
+    signal?: AbortSignal,
+  ): Promise<ThinkTankProviderResponse> {
     if (!this.client) {
       throw new ThinkTankProviderGatewayError({
         code: 'THINKTANK_PROVIDER_NOT_CONFIGURED',
@@ -36,16 +39,19 @@ export class AnthropicGlmProviderAdapter implements ThinkTankProviderAdapter {
     }
 
     try {
-      const response = await this.client.messages.create({
-        model: request.model ?? this.config.model,
-        max_tokens: request.maxTokens ?? 2000,
-        temperature: request.temperature ?? 0.7,
-        system: request.system,
-        messages: request.messages.map((message) => ({
-          role: message.role,
-          content: message.content,
-        })),
-      } as never)
+      const response = await this.client.messages.create(
+        {
+          model: request.model ?? this.config.model,
+          max_tokens: request.maxTokens ?? 2000,
+          temperature: request.temperature ?? 0.7,
+          system: request.system,
+          messages: request.messages.map((message) => ({
+            role: message.role,
+            content: message.content,
+          })),
+        } as never,
+        { signal },
+      )
       const normalized = response as {
         id?: string
         model?: string
@@ -57,6 +63,16 @@ export class AnthropicGlmProviderAdapter implements ThinkTankProviderAdapter {
         normalized.content?.find((content) => content.type === 'text')?.text ??
         normalized.content?.[0]?.text ??
         ''
+      if (!textContent.trim()) {
+        throw new ThinkTankProviderGatewayError({
+          code: 'GLM_PROVIDER_EMPTY_RESPONSE',
+          category: 'provider',
+          provider: 'glm',
+          status: 'failed',
+          retryable: false,
+          message: 'GLM provider returned an empty text response',
+        })
+      }
       const inputTokens = normalized.usage?.input_tokens ?? 0
       const outputTokens = normalized.usage?.output_tokens ?? 0
 
@@ -79,23 +95,6 @@ export class AnthropicGlmProviderAdapter implements ThinkTankProviderAdapter {
       throw normalizeAnthropicGlmError(error)
     }
   }
-
-  async *stream(request: ThinkTankProviderRequest): AsyncIterable<ThinkTankProviderStreamChunk> {
-    const response = await this.complete(request)
-
-    yield {
-      index: 0,
-      delta: response.content,
-      done: true,
-      id: response.id,
-      provider: response.provider,
-      model: response.model,
-      usage: response.usage,
-      estimatedCost: response.estimatedCost,
-      latencyMs: response.latencyMs,
-      finishReason: response.finishReason,
-    }
-  }
 }
 
 function normalizeAnthropicGlmError(error: unknown): ThinkTankProviderGatewayError {
@@ -104,7 +103,7 @@ function normalizeAnthropicGlmError(error: unknown): ThinkTankProviderGatewayErr
   }
 
   const status = readNumber(error, 'status') ?? readNumber(error, 'statusCode')
-  const message = error instanceof Error ? error.message : 'GLM provider call failed'
+  const message = 'GLM provider call failed'
   const retryable = status === 408 || status === 429 || (status !== undefined && status >= 500)
 
   return new ThinkTankProviderGatewayError(

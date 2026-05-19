@@ -1,7 +1,6 @@
 import {
   ThinkTankProviderAdapter,
   ThinkTankProviderGatewayError,
-  ThinkTankProviderRequest,
   ThinkTankProviderResponse,
   ThinkTankProviderStreamChunk,
 } from '../thinktank-provider-gateway.types'
@@ -49,7 +48,7 @@ export class FakeThinkTankProviderAdapter implements ThinkTankProviderAdapter {
     this.script = options.script?.length ? [...options.script] : ['success']
   }
 
-  async complete(_request: ThinkTankProviderRequest): Promise<ThinkTankProviderResponse> {
+  async complete(): Promise<ThinkTankProviderResponse> {
     const step = this.nextStep()
 
     if (step === 'retryable_failure') {
@@ -101,7 +100,42 @@ export class FakeThinkTankProviderAdapter implements ThinkTankProviderAdapter {
     }
   }
 
-  async *stream(_request: ThinkTankProviderRequest): AsyncIterable<ThinkTankProviderStreamChunk> {
+  async *stream(): AsyncIterable<ThinkTankProviderStreamChunk> {
+    const step = this.nextStep()
+
+    if (step === 'retryable_failure') {
+      throw new ThinkTankProviderGatewayError({
+        code: 'FAKE_RATE_LIMIT',
+        category: 'provider',
+        provider: 'fake',
+        status: 'failed',
+        retryable: true,
+        message: 'Fake provider retryable failure',
+      })
+    }
+
+    if (step === 'failure') {
+      throw new ThinkTankProviderGatewayError({
+        code: 'FAKE_PROVIDER_FAILURE',
+        category: 'provider',
+        provider: 'fake',
+        status: 'failed',
+        retryable: false,
+        message: 'Fake provider scripted failure',
+      })
+    }
+
+    if (step === 'timeout') {
+      throw new ThinkTankProviderGatewayError({
+        code: 'THINKTANK_PROVIDER_TIMEOUT',
+        category: 'timeout',
+        provider: 'fake',
+        status: 'timeout',
+        retryable: true,
+        message: 'Provider call timed out',
+      })
+    }
+
     for (const chunk of DEFAULT_STREAM_CHUNKS) {
       yield { ...chunk }
     }

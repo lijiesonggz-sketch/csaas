@@ -6,6 +6,7 @@ import { OrganizationsModule } from '../../organizations/organizations.module'
 import { AdvisoryEventService } from '../events/advisory-event.service'
 import { ThinkTankProviderGatewayService } from './thinktank-provider-gateway.service'
 import {
+  ThinkTankProviderAdapter,
   ThinkTankProviderGatewayError,
   ThinkTankProviderRequest,
 } from './thinktank-provider-gateway.types'
@@ -39,7 +40,7 @@ const request: ThinkTankProviderRequest = {
 }
 
 const createGateway = (
-  adapter: FakeThinkTankProviderAdapter,
+  adapter: ThinkTankProviderAdapter,
   overrides: Partial<ConstructorParameters<typeof ThinkTankProviderGatewayService>[0]> = {},
 ) => {
   const eventService = {
@@ -140,6 +141,16 @@ describe('ThinkTankProviderGatewayService', () => {
     )
   })
 
+  it('keeps successful provider responses when telemetry persistence fails', async () => {
+    const { gateway, eventService } = createGateway(new FakeThinkTankProviderAdapter())
+    eventService.emitTelemetry.mockRejectedValueOnce(new Error('audit store unavailable'))
+
+    await expect(gateway.complete(request)).resolves.toMatchObject({
+      status: 'completed',
+      content: 'ThinkTank fake provider smoke response.',
+    })
+  })
+
   it('streams deterministic fake chunks through the same gateway contract', async () => {
     const { gateway, eventService } = createGateway(new FakeThinkTankProviderAdapter())
 
@@ -203,6 +214,8 @@ describe('ThinkTankProviderGatewayService', () => {
         optional: expect.objectContaining({
           provider: 'fake',
           errorCategory: 'provider',
+          estimatedTokens: 0,
+          estimatedCost: 0,
         }),
         metadata: expect.objectContaining({
           retry_attempt: 1,
@@ -212,6 +225,73 @@ describe('ThinkTankProviderGatewayService', () => {
         }),
       }),
     )
+  })
+
+  it('applies retry telemetry to scripted streaming failures before yielding chunks', async () => {
+    const retrySleeper = jest.fn().mockResolvedValue(undefined)
+    const { gateway, eventService } = createGateway(
+      new FakeThinkTankProviderAdapter({ script: ['retryable_failure', 'success'] }),
+      {
+        retry: {
+          maxAttempts: 2,
+          delayMs: 0,
+          sleeper: retrySleeper,
+        },
+      },
+    )
+
+    const chunks = []
+    for await (const chunk of gateway.stream({ ...request, stream: true })) {
+      chunks.push(chunk)
+    }
+
+    expect(chunks).toHaveLength(3)
+    expect(retrySleeper).toHaveBeenCalledWith(0)
+    expect(eventService.emitTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventName: 'thinktank.provider.call_retried',
+        optional: expect.objectContaining({
+          provider: 'fake',
+          errorCategory: 'provider',
+          estimatedTokens: 0,
+          estimatedCost: 0,
+        }),
+      }),
+    )
+    expect(eventService.emitTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventName: 'thinktank.provider.call_completed',
+        optional: expect.objectContaining({
+          estimatedTokens: 19,
+          estimatedCost: 0,
+        }),
+      }),
+    )
+  })
+
+  it('aborts timed out provider calls before retrying', async () => {
+    const observedSignals: AbortSignal[] = []
+    const neverSettlesAdapter: ThinkTankProviderAdapter = {
+      provider: 'fake',
+      complete: jest.fn((_request, signal) => {
+        if (signal) observedSignals.push(signal)
+        return new Promise(() => undefined)
+      }),
+    }
+    const { gateway } = createGateway(neverSettlesAdapter, {
+      timeoutMs: 1,
+      retry: {
+        maxAttempts: 1,
+        delayMs: 0,
+        sleeper: jest.fn().mockResolvedValue(undefined),
+      },
+    })
+
+    await expect(gateway.complete(request)).rejects.toMatchObject({
+      code: 'THINKTANK_PROVIDER_TIMEOUT',
+      category: 'timeout',
+    })
+    expect(observedSignals[0]?.aborted).toBe(true)
   })
 
   it('normalizes timeout failures and emits failed telemetry without raw content', async () => {
@@ -240,6 +320,7 @@ describe('ThinkTankProviderGatewayService', () => {
         optional: expect.objectContaining({
           provider: 'fake',
           errorCategory: 'timeout',
+          estimatedTokens: 0,
           estimatedCost: 0,
         }),
         metadata: expect.objectContaining({
@@ -273,6 +354,28 @@ describe('ThinkTankProviderGatewayService', () => {
       provider: 'fake',
       status: 'failed',
       retryable: false,
+    })
+
+    await expect(gateway.complete({ ...request, tenantId: '' })).rejects.toMatchObject({
+      code: 'THINKTANK_PROVIDER_INVALID_REQUEST',
+      category: 'validation',
+    })
+    await expect(
+      gateway.complete({
+        ...request,
+        messages: [{ role: 'user', content: '' }],
+      }),
+    ).rejects.toMatchObject({
+      code: 'THINKTANK_PROVIDER_INVALID_REQUEST',
+      category: 'validation',
+    })
+    await expect(gateway.complete({ ...request, maxTokens: 0 })).rejects.toMatchObject({
+      code: 'THINKTANK_PROVIDER_INVALID_REQUEST',
+      category: 'validation',
+    })
+    await expect(gateway.complete({ ...request, temperature: 2 })).rejects.toMatchObject({
+      code: 'THINKTANK_PROVIDER_INVALID_REQUEST',
+      category: 'validation',
     })
   })
 

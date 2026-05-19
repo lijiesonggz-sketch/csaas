@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { Inject, Injectable, Optional } from '@nestjs/common'
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common'
 import {
-  ThinkTankErrorCategory,
   ThinkTankEventName,
   ThinkTankEventOutcome,
   ThinkTankPrivacyClassification,
@@ -35,6 +34,7 @@ const DEFAULT_RETRY: ThinkTankProviderRetryOptions = {
 
 @Injectable()
 export class ThinkTankProviderGatewayService {
+  private readonly logger = new Logger(ThinkTankProviderGatewayService.name)
   private readonly adapters: Map<ThinkTankProviderType, ThinkTankProviderAdapter>
   private readonly eventService: AdvisoryEventService
   private readonly defaultProvider: ThinkTankProviderType
@@ -100,9 +100,11 @@ export class ThinkTankProviderGatewayService {
       const attemptStartedAt = Date.now()
 
       try {
+        const abortController = new AbortController()
         const response = await this.withTimeout(
-          context.adapter.complete(context.request),
+          context.adapter.complete(context.request, abortController.signal),
           context.provider,
+          abortController,
         )
         const completedResponse = {
           ...response,
@@ -150,63 +152,112 @@ export class ThinkTankProviderGatewayService {
 
     try {
       this.validateRequest(context.request)
+    } catch (error) {
+      const normalized = this.normalizeError(error, context.provider)
+      await this.emitFailedTelemetry(context, normalized, Date.now() - startedAt)
+      throw normalized
+    }
 
-      if (!context.adapter.stream) {
-        const response = await this.complete(context.request)
-        yield {
-          index: 0,
-          delta: response.content,
-          done: true,
-          id: response.id,
-          provider: response.provider,
-          model: response.model,
-          usage: response.usage,
-          estimatedCost: response.estimatedCost,
-          latencyMs: response.latencyMs,
-          finishReason: response.finishReason,
-        }
-        return
+    if (!context.adapter.stream) {
+      const response = await this.complete(context.request)
+      yield {
+        index: 0,
+        delta: response.content,
+        done: true,
+        id: response.id,
+        provider: response.provider,
+        model: response.model,
+        usage: response.usage,
+        estimatedCost: response.estimatedCost,
+        latencyMs: response.latencyMs,
+        finishReason: response.finishReason,
       }
+      return
+    }
 
+    let lastError: ThinkTankProviderGatewayError | null = null
+    const maxAttempts = Math.max(1, this.retry.maxAttempts)
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const attemptStartedAt = Date.now()
+      const abortController = new AbortController()
+      let yieldedAnyChunk = false
       let index = 0
       let content = ''
       let usage: ThinkTankProviderResponse['usage'] | null = null
       let estimatedCost = 0
       let finishReason: string | undefined
       let model = context.request.model ?? this.defaultModel
-      for await (const chunk of context.adapter.stream(context.request)) {
-        content += chunk.delta
-        usage = chunk.usage ?? usage
-        estimatedCost = chunk.estimatedCost ?? estimatedCost
-        finishReason = chunk.finishReason ?? finishReason
-        model = chunk.model ?? model
-        yield {
-          ...chunk,
-          index: chunk.index ?? index,
-        }
-        index += 1
-      }
 
-      await this.emitCompletedTelemetry(context, {
-        id: context.subjectId,
-        provider: context.provider,
-        model,
-        content,
-        status: 'completed',
-        latencyMs: Date.now() - startedAt,
-        usage: usage ?? {
-          inputTokens: 0,
-          outputTokens: estimateTokens(content),
-          totalTokens: estimateTokens(content),
-        },
-        estimatedCost,
-        finishReason: finishReason ?? 'stop',
-      })
-    } catch (error) {
-      const normalized = this.normalizeError(error, context.provider)
-      await this.emitFailedTelemetry(context, normalized, Date.now() - startedAt)
-      throw normalized
+      try {
+        const iterator = context.adapter
+          .stream(context.request, abortController.signal)
+          [Symbol.asyncIterator]()
+
+        while (true) {
+          const next = await this.withTimeout(iterator.next(), context.provider, abortController)
+          if (next.done) break
+
+          const chunk = next.value
+          yieldedAnyChunk = true
+          content += chunk.delta
+          usage = chunk.usage ?? usage
+          estimatedCost = chunk.estimatedCost ?? estimatedCost
+          finishReason = chunk.finishReason ?? finishReason
+          model = chunk.model ?? model
+          yield {
+            ...chunk,
+            index: chunk.index ?? index,
+          }
+          index += 1
+        }
+
+        const estimatedOutputTokens = estimateTokens(content)
+        await this.emitCompletedTelemetry(context, {
+          id: context.subjectId,
+          provider: context.provider,
+          model,
+          content,
+          status: 'completed',
+          latencyMs: Date.now() - attemptStartedAt,
+          usage: usage ?? {
+            inputTokens: 0,
+            outputTokens: estimatedOutputTokens,
+            totalTokens: estimatedOutputTokens,
+          },
+          estimatedCost,
+          finishReason: finishReason ?? 'stop',
+        })
+        return
+      } catch (error) {
+        abortController.abort()
+        const normalized = this.normalizeError(error, context.provider)
+        lastError = normalized
+        const latencyMs = Date.now() - attemptStartedAt
+
+        if (normalized.retryable && !yieldedAnyChunk && attempt < maxAttempts) {
+          await this.emitRetriedTelemetry(context, normalized, attempt, maxAttempts, latencyMs)
+          await this.retry.sleeper?.(this.retryDelay(attempt))
+          continue
+        }
+
+        await this.emitFailedTelemetry(context, normalized, latencyMs)
+        throw normalized
+      }
     }
+
+    const fallbackError =
+      lastError ??
+      new ThinkTankProviderGatewayError({
+        code: 'THINKTANK_PROVIDER_UNKNOWN_FAILURE',
+        category: 'unknown',
+        provider: context.provider,
+        status: 'failed',
+        retryable: false,
+        message: 'Provider stream failed',
+      })
+    await this.emitFailedTelemetry(context, fallbackError, Date.now() - startedAt)
+    throw fallbackError
   }
 
   private buildCallContext(input: ThinkTankProviderRequest) {
@@ -243,14 +294,33 @@ export class ThinkTankProviderGatewayService {
   }
 
   private validateRequest(request: ThinkTankProviderRequest): void {
-    requireText(request.tenantId, 'tenantId')
-    requireText(request.actorId, 'actorId')
+    const provider = request.provider ?? this.defaultProvider
+    requireText(request.tenantId, 'tenantId', provider)
+    requireText(request.actorId, 'actorId', provider)
+    requireText(request.model, 'model', provider)
+
+    if (
+      request.maxTokens !== undefined &&
+      (!Number.isInteger(request.maxTokens) || request.maxTokens <= 0)
+    ) {
+      throwInvalidRequest(provider, 'Provider request maxTokens must be a positive integer')
+    }
+
+    if (
+      request.temperature !== undefined &&
+      (typeof request.temperature !== 'number' ||
+        !Number.isFinite(request.temperature) ||
+        request.temperature < 0 ||
+        request.temperature > 1)
+    ) {
+      throwInvalidRequest(provider, 'Provider request temperature must be between 0 and 1')
+    }
 
     if (!Array.isArray(request.messages) || request.messages.length === 0) {
       throw new ThinkTankProviderGatewayError({
         code: 'THINKTANK_PROVIDER_INVALID_REQUEST',
         category: 'validation',
-        provider: request.provider ?? this.defaultProvider,
+        provider,
         status: 'failed',
         retryable: false,
         message: 'Provider request requires at least one message',
@@ -262,20 +332,25 @@ export class ThinkTankProviderGatewayService {
         throw new ThinkTankProviderGatewayError({
           code: 'THINKTANK_PROVIDER_INVALID_REQUEST',
           category: 'validation',
-          provider: request.provider ?? this.defaultProvider,
+          provider,
           status: 'failed',
           retryable: false,
           message: `Unsupported provider message role: ${String(message.role)}`,
         })
       }
-      requireText(message.content, 'message.content')
+      requireText(message.content, 'message.content', provider)
     }
   }
 
-  private async withTimeout<T>(promise: Promise<T>, provider: ThinkTankProviderType): Promise<T> {
+  private async withTimeout<T>(
+    promise: Promise<T>,
+    provider: ThinkTankProviderType,
+    abortController?: AbortController,
+  ): Promise<T> {
     let timer: NodeJS.Timeout | undefined
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
+        abortController?.abort()
         reject(
           new ThinkTankProviderGatewayError({
             code: 'THINKTANK_PROVIDER_TIMEOUT',
@@ -327,7 +402,7 @@ export class ThinkTankProviderGatewayService {
     context: ReturnType<ThinkTankProviderGatewayService['buildCallContext']>,
     response: ThinkTankProviderResponse,
   ): Promise<void> {
-    await this.eventService.emitTelemetry({
+    await this.emitTelemetryBestEffort({
       eventName: ThinkTankEventName.ProviderCallCompleted,
       tenantId: context.request.tenantId,
       actorId: context.request.actorId,
@@ -360,7 +435,7 @@ export class ThinkTankProviderGatewayService {
     maxAttempts: number,
     latencyMs: number,
   ): Promise<void> {
-    await this.eventService.emitTelemetry({
+    await this.emitTelemetryBestEffort({
       eventName: ThinkTankEventName.ProviderCallRetried,
       tenantId: context.request.tenantId,
       actorId: context.request.actorId,
@@ -372,6 +447,7 @@ export class ThinkTankProviderGatewayService {
       optional: {
         provider: error.provider,
         latencyMs,
+        estimatedTokens: 0,
         estimatedCost: 0,
         errorCategory: error.category,
       },
@@ -390,7 +466,7 @@ export class ThinkTankProviderGatewayService {
     error: ThinkTankProviderGatewayError,
     latencyMs: number,
   ): Promise<void> {
-    await this.eventService.emitTelemetry({
+    await this.emitTelemetryBestEffort({
       eventName: ThinkTankEventName.ProviderCallFailed,
       tenantId: context.request.tenantId,
       actorId: context.request.actorId,
@@ -402,6 +478,7 @@ export class ThinkTankProviderGatewayService {
       optional: {
         provider: error.provider,
         latencyMs,
+        estimatedTokens: 0,
         estimatedCost: 0,
         errorCategory: error.category,
       },
@@ -413,16 +490,41 @@ export class ThinkTankProviderGatewayService {
     })
   }
 
+  private async emitTelemetryBestEffort(
+    input: Parameters<AdvisoryEventService['emitTelemetry']>[0],
+  ): Promise<void> {
+    try {
+      await this.eventService.emitTelemetry(input)
+    } catch (error) {
+      this.logger.error('Failed to emit ThinkTank provider telemetry', error)
+    }
+  }
+
   private retryDelay(attempt: number): number {
     const multiplier = this.retry.backoffMultiplier ?? DEFAULT_RETRY.backoffMultiplier
     return Math.max(0, this.retry.delayMs) * Math.pow(multiplier, Math.max(0, attempt - 1))
   }
 }
 
-function requireText(value: string | undefined, fieldName: string): void {
+function requireText(
+  value: string | undefined,
+  fieldName: string,
+  provider: ThinkTankProviderType,
+): void {
   if (typeof value !== 'string' || !value.trim()) {
-    throw new Error(`ThinkTank provider request requires ${fieldName}`)
+    throwInvalidRequest(provider, `ThinkTank provider request requires ${fieldName}`)
   }
+}
+
+function throwInvalidRequest(provider: ThinkTankProviderType, message: string): never {
+  throw new ThinkTankProviderGatewayError({
+    code: 'THINKTANK_PROVIDER_INVALID_REQUEST',
+    category: 'validation',
+    provider,
+    status: 'failed',
+    retryable: false,
+    message,
+  })
 }
 
 function readNumber(value: unknown, key: string): number | undefined {

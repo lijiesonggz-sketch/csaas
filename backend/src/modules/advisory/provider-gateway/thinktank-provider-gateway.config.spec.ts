@@ -50,4 +50,31 @@ describe('ThinkTank provider gateway config', () => {
       },
     })
   })
+
+  it('does not fall back to Anthropic defaults for GLM live mode', () => {
+    const anthropicOnly = resolveThinkTankProviderGatewayConfig({
+      THINKTANK_PROVIDER_MODE: 'glm',
+      ANTHROPIC_API_KEY: 'anthropic-key',
+      ANTHROPIC_BASE_URL: 'https://api.anthropic.com',
+    })
+
+    expect(anthropicOnly).toMatchObject({
+      providerMode: 'glm',
+      apiKey: undefined,
+      baseUrl: undefined,
+      liveProviderEnabled: false,
+    })
+
+    const missingBaseUrl = resolveThinkTankProviderGatewayConfig({
+      THINKTANK_PROVIDER_MODE: 'glm',
+      GLM_API_KEY: 'glm-key',
+    })
+
+    expect(missingBaseUrl).toMatchObject({
+      providerMode: 'glm',
+      apiKey: 'glm-key',
+      baseUrl: undefined,
+      liveProviderEnabled: false,
+    })
+  })
 })
