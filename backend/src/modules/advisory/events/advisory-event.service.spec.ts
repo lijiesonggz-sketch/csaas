@@ -114,9 +114,54 @@ describe('AdvisoryEventService', () => {
     expect(auditLogService.log).not.toHaveBeenCalled()
   })
 
-  it('rejects telemetry names in audit persistence', async () => {
+  it('rejects strict audit changes that contain raw sensitive keys before persistence', async () => {
+    await expect(
+      service.emitAuditStrict({
+        eventName: 'thinktank.module.enabled',
+        tenantId,
+        actorId,
+        subjectType: 'module_config',
+        subjectId: '550e8400-e29b-41d4-a716-446655440014',
+        outcome: 'success',
+        privacyClassification: 'operational',
+        audit: {
+          action: AuditAction.UPDATE,
+          entityType: 'ThinkTankModuleConfig',
+          entityId: '550e8400-e29b-41d4-a716-446655440014',
+        },
+        changes: {
+          prompt: 'raw user prompt',
+        },
+      }),
+    ).rejects.toThrow(/raw sensitive/i)
+
+    expect(auditLogService.logStrict).not.toHaveBeenCalled()
+  })
+
+  it('keeps fail-safe audit events from interrupting callers when contract normalization fails', async () => {
     await expect(
       service.emitAudit({
+        eventName: 'thinktank.access.opened',
+        tenantId,
+        actorId,
+        subjectType: 'unknown_subject',
+        subjectId: 'thinktank',
+        outcome: 'success',
+        privacyClassification: 'operational',
+        audit: {
+          action: AuditAction.READ,
+          entityType: 'ThinkTankAccess',
+          entityId: null,
+        },
+      }),
+    ).resolves.toBeUndefined()
+
+    expect(auditLogService.log).not.toHaveBeenCalled()
+  })
+
+  it('rejects telemetry names in strict audit persistence', async () => {
+    await expect(
+      service.emitAuditStrict({
         eventName: 'thinktank.provider.call_completed',
         tenantId,
         actorId,

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { AuditAction, AuditLog } from '../../../database/entities/audit-log.entity'
 import { AuditLogService } from '../../audit/audit-log.service'
 import {
@@ -6,6 +6,7 @@ import {
   ThinkTankEventName,
   ThinkTankEventOutcome,
   ThinkTankPrivacyClassification,
+  assertNoRawSensitiveThinkTankKeys,
   normalizeThinkTankEvent,
 } from './thinktank-event-contract'
 
@@ -46,10 +47,16 @@ export interface AdvisoryTelemetryEventInput extends Omit<
 
 @Injectable()
 export class AdvisoryEventService {
+  private readonly logger = new Logger(AdvisoryEventService.name)
+
   constructor(private readonly auditLogService: AuditLogService) {}
 
   async emitAudit(input: AdvisoryAuditEventInput): Promise<void> {
-    await this.auditLogService.log(this.toAuditLogInput(input))
+    try {
+      await this.auditLogService.log(this.toAuditLogInput(input))
+    } catch (error) {
+      this.logger.error('Failed to prepare ThinkTank audit event', error)
+    }
   }
 
   async emitAuditStrict(input: AdvisoryAuditEventInput): Promise<AuditLog> {
@@ -77,6 +84,8 @@ export class AdvisoryEventService {
   }
 
   private toAuditLogInput(input: AdvisoryAuditEventInput): Partial<AuditLog> {
+    assertNoRawSensitiveThinkTankKeys(input.changes ?? {})
+
     const details = normalizeThinkTankEvent({
       ...input,
       eventKind: 'audit',

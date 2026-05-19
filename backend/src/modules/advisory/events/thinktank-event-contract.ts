@@ -116,6 +116,7 @@ export interface NormalizedThinkTankEvent extends Record<string, unknown> {
 }
 
 const OUTCOME_VALUES = new Set<string>(Object.values(ThinkTankEventOutcome))
+const SUBJECT_TYPE_VALUES = new Set<string>(Object.values(ThinkTankSubjectType))
 const PRIVACY_VALUES = new Set<string>(Object.values(ThinkTankPrivacyClassification))
 const CACHE_VALUES = new Set<string>(Object.values(ThinkTankCacheStatus))
 const ERROR_CATEGORY_VALUES = new Set<string>(Object.values(ThinkTankErrorCategory))
@@ -157,9 +158,10 @@ const RESERVED_METADATA_KEYS = new Set([
 
 export function normalizeThinkTankEvent(input: ThinkTankEventInput): NormalizedThinkTankEvent {
   assertThinkTankEventRegistered(input.eventName, input.eventKind)
-  assertNoRawSensitiveKeys(input.metadata ?? {})
+  assertNoRawSensitiveThinkTankKeys(input.metadata ?? {})
 
   const outcome = requireEnumValue(input.outcome, OUTCOME_VALUES, 'outcome')
+  const subjectType = requireEnumValue(input.subjectType, SUBJECT_TYPE_VALUES, 'subject_type')
   const privacyClassification = requireEnumValue(
     input.privacyClassification,
     PRIVACY_VALUES,
@@ -173,7 +175,7 @@ export function normalizeThinkTankEvent(input: ThinkTankEventInput): NormalizedT
     event_version: THINKTANK_EVENT_VERSION,
     tenant_id: requireText(input.tenantId, 'tenant_id'),
     actor_id: requireText(input.actorId, 'actor_id'),
-    subject_type: requireText(input.subjectType, 'subject_type'),
+    subject_type: subjectType,
     subject_id: requireText(input.subjectId, 'subject_id'),
     outcome,
     occurred_at: normalizeOccurredAt(input.occurredAt),
@@ -191,9 +193,27 @@ function normalizeOptionalFields(optional: ThinkTankEventOptionalInput): Record<
   assignIfDefined(normalized, 'output_id', optional.outputId)
   assignIfDefined(normalized, 'workflow_type', optional.workflowType)
   assignIfDefined(normalized, 'provider', optional.provider)
-  assignIfDefined(normalized, 'latency_ms', optional.latencyMs)
-  assignIfDefined(normalized, 'estimated_tokens', optional.estimatedTokens)
-  assignIfDefined(normalized, 'estimated_cost', optional.estimatedCost)
+  assignIfDefined(
+    normalized,
+    'latency_ms',
+    optional.latencyMs === undefined
+      ? undefined
+      : requireNonNegativeFiniteNumber(optional.latencyMs, 'latency_ms'),
+  )
+  assignIfDefined(
+    normalized,
+    'estimated_tokens',
+    optional.estimatedTokens === undefined
+      ? undefined
+      : requireNonNegativeInteger(optional.estimatedTokens, 'estimated_tokens'),
+  )
+  assignIfDefined(
+    normalized,
+    'estimated_cost',
+    optional.estimatedCost === undefined
+      ? undefined
+      : requireNonNegativeFiniteNumber(optional.estimatedCost, 'estimated_cost'),
+  )
 
   if (optional.cacheStatus !== undefined) {
     normalized.cache_status = requireEnumValue(optional.cacheStatus, CACHE_VALUES, 'cache_status')
@@ -226,7 +246,7 @@ function normalizeMetadata(metadata: Record<string, unknown>): Record<string, un
   )
 }
 
-function assertNoRawSensitiveKeys(value: unknown, path: string[] = []): void {
+export function assertNoRawSensitiveThinkTankKeys(value: unknown, path: string[] = []): void {
   if (!value || typeof value !== 'object') return
 
   for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
@@ -236,7 +256,7 @@ function assertNoRawSensitiveKeys(value: unknown, path: string[] = []): void {
         `Raw sensitive ThinkTank event payload key is not allowed: ${[...path, key].join('.')}`,
       )
     }
-    assertNoRawSensitiveKeys(child, [...path, key])
+    assertNoRawSensitiveThinkTankKeys(child, [...path, key])
   }
 }
 
@@ -269,6 +289,20 @@ function requireEnumValue(value: unknown, allowedValues: Set<string>, fieldName:
     throw new Error(`Invalid ThinkTank event ${fieldName}: ${String(value)}`)
   }
   return value
+}
+
+function requireNonNegativeFiniteNumber(value: unknown, fieldName: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new Error(`Invalid ThinkTank event ${fieldName}: ${String(value)}`)
+  }
+  return value
+}
+
+function requireNonNegativeInteger(value: unknown, fieldName: string): number {
+  if (!Number.isInteger(value) || (value as number) < 0) {
+    throw new Error(`Invalid ThinkTank event ${fieldName}: ${String(value)}`)
+  }
+  return value as number
 }
 
 function assignIfDefined(target: Record<string, unknown>, key: string, value: unknown): void {

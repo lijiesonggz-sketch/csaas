@@ -183,6 +183,8 @@ GPT-5 Codex
 - 2026-05-19: Code review found and fixed metadata reserved-field override risk; added subject-type enum coverage and regression test.
 - 2026-05-19: Full backend regression run completed after review fix with unrelated existing taxonomy-domain-gate failures only: `[P0][6.5-AUTO-003]`, `[P0][6.5-AUTO-007]`, `[8.2-SVC-003][P1]`.
 - 2026-05-19: Traceability matrix generated with 100% AC coverage and PASS gate decision; sprint/story status updated to done.
+- 2026-05-20: Reran `bmad-code-review story 1.4` with Blind Hunter, Edge Case Hunter, and Acceptance Auditor subagents. Fixed raw sensitive `changes` bypass, fail-safe audit preparation behavior, `subject_type` enum validation, and telemetry numeric validation.
+- 2026-05-20: Post-fix verification passed: `npm --workspace backend run test -- advisory-event thinktank-event thinktank-audit-retention advisory-access advisory-admin audit-log --runInBand`, `npm --workspace backend exec -- tsc --noEmit`, and focused ESLint for changed advisory event files.
 
 ### Implementation Plan
 
@@ -199,6 +201,9 @@ GPT-5 Codex
 - Added ThinkTank audit retention helper/default at 365 days with a hard lower bound of 180 days; cleanup continues through existing PostgreSQL audit storage and introduces no cross-region or external telemetry sink.
 - Updated audit summary/query compatibility to read canonical `event_name`/snake_case fields first while preserving legacy `eventName` rows.
 - Hardened event metadata so callers cannot override reserved canonical contract fields such as `tenant_id`, `actor_id`, `event_name`, or `privacy_classification`.
+- Hardened audit `changes` so raw ThinkTank sensitive keys cannot bypass the contract by being written outside `details`.
+- Non-strict `emitAudit()` now remains fail-safe even when event normalization fails before persistence; strict module configuration audit still propagates failures.
+- `subject_type` and telemetry numeric fields are now contract-validated before persistence.
 - Frontend/E2E tests were not added because this story changes backend event infrastructure only and introduces no UI flow.
 
 ### File List
@@ -239,3 +244,4 @@ GPT-5 Codex
 - 2026-05-19: Generated Story 1.4 ATDD RED coverage artifacts.
 - 2026-05-19: Implemented ThinkTank event contract/registry/emitter, retrofitted current access/admin audit events, added retention guardrails, and completed backend verification.
 - 2026-05-19: Completed code review remediation, traceability PASS gate, and story pipeline post-processing.
+- 2026-05-20: Completed code review rerun remediation for event privacy and contract validation gaps.

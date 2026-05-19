@@ -131,6 +131,55 @@ describe('ThinkTank event contract', () => {
     ).toThrow(/raw sensitive/i)
   })
 
+  it('rejects unknown subject types', () => {
+    expect(() =>
+      normalizeThinkTankEvent({
+        eventName: ThinkTankEventName.AccessOpened,
+        eventKind: 'audit',
+        tenantId,
+        actorId,
+        subjectType: 'unknown_subject',
+        subjectId: 'thinktank',
+        outcome: ThinkTankEventOutcome.Success,
+        privacyClassification: ThinkTankPrivacyClassification.Operational,
+      }),
+    ).toThrow(/subject_type/i)
+  })
+
+  it('rejects invalid telemetry numeric fields', () => {
+    expect(() =>
+      normalizeThinkTankEvent({
+        eventName: ThinkTankEventName.ProviderCallCompleted,
+        eventKind: 'telemetry',
+        tenantId,
+        actorId,
+        subjectType: ThinkTankSubjectType.ProviderCall,
+        subjectId: 'call-1',
+        outcome: ThinkTankEventOutcome.Success,
+        privacyClassification: ThinkTankPrivacyClassification.Operational,
+        optional: {
+          latencyMs: -1,
+        },
+      }),
+    ).toThrow(/latency_ms/i)
+
+    expect(() =>
+      normalizeThinkTankEvent({
+        eventName: ThinkTankEventName.ProviderCallCompleted,
+        eventKind: 'telemetry',
+        tenantId,
+        actorId,
+        subjectType: ThinkTankSubjectType.ProviderCall,
+        subjectId: 'call-1',
+        outcome: ThinkTankEventOutcome.Success,
+        privacyClassification: ThinkTankPrivacyClassification.Operational,
+        optional: {
+          estimatedTokens: 1.5,
+        },
+      }),
+    ).toThrow(/estimated_tokens/i)
+  })
+
   it('rejects metadata that attempts to override reserved contract fields', () => {
     expect(() =>
       normalizeThinkTankEvent({
