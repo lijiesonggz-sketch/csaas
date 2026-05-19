@@ -334,14 +334,11 @@ describe('FailureModeAdminPage', () => {
     await waitFor(() =>
       expect(mockCreateTaxonomyMap).toHaveBeenCalledWith('fm-1', { l2Code: 'IT04-01' })
     )
-    let deleteTaxonomyButton: HTMLButtonElement | null = null
-    await waitFor(() => {
-      deleteTaxonomyButton = document.querySelector(
-        'button[aria-label="删除 IT 分类映射 IT04-01"]'
-      ) as HTMLButtonElement | null
-      expect(deleteTaxonomyButton).toBeTruthy()
+    const deleteTaxonomyButton = await screen.findByRole('button', {
+      name: '删除 IT 分类映射 IT04-01',
     })
-    fireEvent.click(deleteTaxonomyButton!)
+    expect(deleteTaxonomyButton).toBeEnabled()
+    fireEvent.click(deleteTaxonomyButton)
     await waitFor(() => expect(mockDeleteTaxonomyMap).toHaveBeenCalledWith('fm-1', 'map-1'))
   })
 
