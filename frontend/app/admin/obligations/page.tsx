@@ -102,7 +102,7 @@ export default function ObligationAdminPage() {
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
   const canAccess = Boolean(session?.user && ALLOWED_ROLES.includes(session.user.role))
-  const deepLinkedObligationId = searchParams.get('obligationId')
+  const deepLinkedObligationId = searchParams?.get('obligationId') ?? null
   const appliedDeepLinkId = useRef<string | null>(null)
   const itemsRef = useRef<ObligationSummary[]>([])
 

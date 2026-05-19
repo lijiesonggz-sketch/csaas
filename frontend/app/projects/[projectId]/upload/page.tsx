@@ -2,13 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import {
-  ArrowLeft,
-  UploadCloud,
-  FileText,
-  CheckCircle,
-  Trash2,
-} from 'lucide-react'
+import { ArrowLeft, UploadCloud, FileText, CheckCircle, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -59,9 +53,9 @@ interface UploadedDocument {
 }
 
 export default function UploadPage() {
-  const params = useParams()
+  const params = useParams<{ projectId: string }>()
   const router = useRouter()
-  const projectId = params.projectId as string
+  const projectId = params?.projectId ?? ''
 
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -73,13 +67,10 @@ export default function UploadPage() {
   const loadDocuments = useCallback(async () => {
     try {
       const headers = await getAuthHeadersAsync()
-      const response = await fetch(
-        `${API_BASE_URL}/files/projects/${projectId}/documents/list`,
-        {
-          method: 'POST',
-          headers,
-        }
-      )
+      const response = await fetch(`${API_BASE_URL}/files/projects/${projectId}/documents/list`, {
+        method: 'POST',
+        headers,
+      })
 
       if (response.ok) {
         const result = await response.json()
@@ -134,9 +125,7 @@ export default function UploadPage() {
       const uploadPromise = new Promise((resolve, reject) => {
         xhr.upload.addEventListener('progress', (event) => {
           if (event.lengthComputable) {
-            const percentComplete = Math.round(
-              (event.loaded / event.total) * 100
-            )
+            const percentComplete = Math.round((event.loaded / event.total) * 100)
             setProgress(percentComplete)
           }
         })
@@ -162,10 +151,7 @@ export default function UploadPage() {
           reject(new Error('上传已取消'))
         })
 
-        xhr.open(
-          'POST',
-          `${API_BASE_URL}/files/projects/${projectId}/documents`
-        )
+        xhr.open('POST', `${API_BASE_URL}/files/projects/${projectId}/documents`)
 
         // 只添加认证头，不设置 Content-Type（浏览器自动设置 multipart/form-data）
         if (userId) {
@@ -178,12 +164,10 @@ export default function UploadPage() {
         xhr.send(formData)
       })
 
-      const result = await uploadPromise as { success: boolean; data?: any; message?: string }
+      const result = (await uploadPromise) as { success: boolean; data?: any; message?: string }
 
       if (result.success) {
-        message.success(
-          `文件 "${file.name}" 上传成功！共 ${result.data?.charCount || 0} 字符`
-        )
+        message.success(`文件 "${file.name}" 上传成功！共 ${result.data?.charCount || 0} 字符`)
         setUploadedDocs((prev) => [result.data, ...prev])
         setCurrentFile(null)
       } else {
@@ -311,9 +295,7 @@ export default function UploadPage() {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             className={`border-2 border-dashed rounded-sm p-12 text-center transition-all duration-200 ${
-              dragOver
-                ? 'border-[#1E3A5F] bg-slate-50'
-                : 'border-[#E2E8F0] bg-white'
+              dragOver ? 'border-[#1E3A5F] bg-slate-50' : 'border-[#E2E8F0] bg-white'
             }`}
           >
             <input
@@ -337,20 +319,14 @@ export default function UploadPage() {
               </Button>
             </label>
 
-            <p className="text-sm text-[#94A3B8] mt-2">
-              支持 PDF、TXT、MD、DOCX 格式，最大 10MB
-            </p>
+            <p className="text-sm text-[#94A3B8] mt-2">支持 PDF、TXT、MD、DOCX 格式，最大 10MB</p>
 
             {uploading && currentFile && (
               <div className="mt-6 max-w-md mx-auto">
                 <div className="flex items-center mb-2">
                   <FileText className="w-4 h-4 text-[#1E3A5F] mr-2" />
-                  <span className="text-sm text-[#1E3A5F] flex-1 truncate">
-                    {currentFile.name}
-                  </span>
-                  <span className="text-xs text-[#94A3B8]">
-                    {formatFileSize(currentFile.size)}
-                  </span>
+                  <span className="text-sm text-[#1E3A5F] flex-1 truncate">{currentFile.name}</span>
+                  <span className="text-xs text-[#94A3B8]">{formatFileSize(currentFile.size)}</span>
                 </div>
                 <Progress value={progress} className="h-2" />
                 <p className="text-xs text-[#94A3B8] mt-1">{progress}%</p>
@@ -361,7 +337,8 @@ export default function UploadPage() {
           <Alert className="mt-4">
             <AlertTitle>提示</AlertTitle>
             <AlertDescription>
-              上传的文档将用于AI分析和文档处理。建议上传完整的IT标准文档（如ISO 27001、COBIT等），文档长度建议在1000-10000字之间。
+              上传的文档将用于AI分析和文档处理。建议上传完整的IT标准文档（如ISO
+              27001、COBIT等），文档长度建议在1000-10000字之间。
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -382,16 +359,17 @@ export default function UploadPage() {
                 >
                   <FileText className="w-5 h-5 text-[#1E3A5F] mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-[#1E3A5F] truncate">
-                      {doc.filename}
-                    </p>
+                    <p className="font-medium text-[#1E3A5F] truncate">{doc.filename}</p>
                     <p className="text-xs text-[#94A3B8]">
-                      文档名: {doc.name} · {formatFileSize(doc.size)} ·{' '}
-                      {doc.charCount} 字符 · 上传于 {formatDate(doc.createdAt)}
+                      文档名: {doc.name} · {formatFileSize(doc.size)} · {doc.charCount} 字符 ·
+                      上传于 {formatDate(doc.createdAt)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge variant="outline" className="text-[#059669] border-[#059669] bg-green-50 rounded-sm">
+                    <Badge
+                      variant="outline"
+                      className="text-[#059669] border-[#059669] bg-green-50 rounded-sm"
+                    >
                       <CheckCircle className="w-3 h-3 mr-1" />
                       上传成功
                     </Badge>

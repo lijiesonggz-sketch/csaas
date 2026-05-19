@@ -17,10 +17,10 @@ import type { GenerationResult } from '@/lib/types/ai-generation'
 import { Progress } from '@/components/ui/progress'
 
 export default function MatrixPage() {
-  const params = useParams()
+  const params = useParams<{ projectId: string }>()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const projectId = params.projectId as string
+  const projectId = params?.projectId ?? ''
   const clusteringTaskId = searchParams?.get('clusteringTaskId') || null
 
   const [currentTask, setCurrentTask] = useState<AITask | null>(null)
@@ -32,7 +32,12 @@ export default function MatrixPage() {
 
   const cache = useAITaskCache()
 
-  const { progress, message: progressMessage, isCompleted, isFailed } = useTaskProgress(currentTask?.id || null)
+  const {
+    progress,
+    message: progressMessage,
+    isCompleted,
+    isFailed,
+  } = useTaskProgress(currentTask?.id || null)
 
   useEffect(() => {
     loadExistingTasks()
@@ -54,8 +59,10 @@ export default function MatrixPage() {
 
       const tasks = await AITasksAPI.getTasksByProject(projectId)
       const matrixTask = tasks
-        .filter(t => t.type === 'matrix' && t.status === 'completed')
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0]
+        .filter((t) => t.type === 'matrix' && t.status === 'completed')
+        .sort(
+          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        )[0]
 
       if (matrixTask && matrixTask.result) {
         setCurrentTask(matrixTask)
@@ -72,8 +79,10 @@ export default function MatrixPage() {
     try {
       const tasks = await AITasksAPI.getTasksByProject(projectId)
       const clusteringTask = tasks
-        .filter(t => t.type === 'clustering' && t.status === 'completed')
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0]
+        .filter((t) => t.type === 'clustering' && t.status === 'completed')
+        .sort(
+          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        )[0]
 
       if (!clusteringTask) {
         alert('请先完成聚类分析，然后再生成成熟度矩阵')
@@ -87,28 +96,31 @@ export default function MatrixPage() {
     }
   }, [projectId])
 
-  const handleGenerateMatrix = useCallback(async (clusteringTaskIdParam: string | null) => {
-    try {
-      setLoading(true)
-      setError(null)
+  const handleGenerateMatrix = useCallback(
+    async (clusteringTaskIdParam: string | null) => {
+      try {
+        setLoading(true)
+        setError(null)
 
-      const input: any = {}
-      if (clusteringTaskIdParam) {
-        input.clusteringTaskId = clusteringTaskIdParam
+        const input: any = {}
+        if (clusteringTaskIdParam) {
+          input.clusteringTaskId = clusteringTaskIdParam
+        }
+
+        const newTask = await AITasksAPI.createTask({
+          projectId,
+          type: 'matrix',
+          input,
+        })
+
+        setCurrentTask(newTask)
+      } catch (err: any) {
+        setError(err.message || '生成失败')
+        setLoading(false)
       }
-
-      const newTask = await AITasksAPI.createTask({
-        projectId,
-        type: 'matrix',
-        input,
-      })
-
-      setCurrentTask(newTask)
-    } catch (err: any) {
-      setError(err.message || '生成失败')
-      setLoading(false)
-    }
-  }, [projectId])
+    },
+    [projectId]
+  )
 
   useEffect(() => {
     if (isCompleted && currentTask?.id) {
@@ -124,18 +136,21 @@ export default function MatrixPage() {
     }
   }, [isFailed, progressMessage])
 
-  const loadTaskResult = useCallback(async (taskId: string) => {
-    try {
-      const task = await AITasksAPI.getTask(taskId)
-      if (task.result) {
-        const result = TaskAdapter.toGenerationResult(task)
-        setGenerationResult(result)
-        cache.set(projectId, 'matrix', taskId, result)
+  const loadTaskResult = useCallback(
+    async (taskId: string) => {
+      try {
+        const task = await AITasksAPI.getTask(taskId)
+        if (task.result) {
+          const result = TaskAdapter.toGenerationResult(task)
+          setGenerationResult(result)
+          cache.set(projectId, 'matrix', taskId, result)
+        }
+      } catch (err: any) {
+        console.error('Failed to load task result:', err)
       }
-    } catch (err: any) {
-      console.error('Failed to load task result:', err)
-    }
-  }, [projectId, cache])
+    },
+    [projectId, cache]
+  )
 
   const handleRerunComplete = useCallback(() => {
     setCurrentTask(null)

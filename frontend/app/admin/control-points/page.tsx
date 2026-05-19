@@ -452,7 +452,7 @@ export default function ControlPointAdminPage() {
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
   const canAccess = Boolean(session?.user && ALLOWED_ROLES.includes(session.user.role))
-  const deepLinkedControlId = searchParams.get('controlId')
+  const deepLinkedControlId = searchParams?.get('controlId') ?? null
   const appliedDeepLinkId = useRef<string | null>(null)
   const itemsRef = useRef<ControlPointRecord[]>([])
   const preferredSelectedControlId = useRef<string | null>(null)

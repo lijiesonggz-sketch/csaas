@@ -26,9 +26,9 @@ interface QuickGapAnalysisResult {
 }
 
 export default function QuickGapAnalysisPage() {
-  const params = useParams()
+  const params = useParams<{ projectId: string }>()
   const router = useRouter()
-  const projectId = params.projectId as string
+  const projectId = params?.projectId ?? ''
 
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -77,17 +77,9 @@ export default function QuickGapAnalysisPage() {
       case 'HIGH':
         return <Badge variant="destructive">HIGH</Badge>
       case 'MEDIUM':
-        return (
-          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
-            MEDIUM
-          </Badge>
-        )
+        return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">MEDIUM</Badge>
       case 'LOW':
-        return (
-          <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-            LOW
-          </Badge>
-        )
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">LOW</Badge>
       default:
         return <Badge variant="secondary">{severity}</Badge>
     }
@@ -108,9 +100,7 @@ export default function QuickGapAnalysisPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white mb-1">快速差距分析</h1>
-              <p className="text-sm text-white/80">
-                输入您的现状描述，快速获取差距分析结果
-              </p>
+              <p className="text-sm text-white/80">输入您的现状描述，快速获取差距分析结果</p>
             </div>
           </div>
 
@@ -147,9 +137,7 @@ export default function QuickGapAnalysisPage() {
             {loading && (
               <div className="mt-4">
                 <Progress value={undefined} className="h-2" />
-                <p className="text-sm text-[#94A3B8] mt-2 text-center">
-                  正在分析您的现状...
-                </p>
+                <p className="text-sm text-[#94A3B8] mt-2 text-center">正在分析您的现状...</p>
               </div>
             )}
           </CardContent>
@@ -198,14 +186,9 @@ export default function QuickGapAnalysisPage() {
             </CardHeader>
             <CardContent>
               {result.gap_analysis.gaps.map((gap, index) => (
-                <div
-                  key={index}
-                  className="mb-4 pb-4 border-b border-slate-100 last:border-0"
-                >
+                <div key={index} className="mb-4 pb-4 border-b border-slate-100 last:border-0">
                   <div className="flex items-center gap-2 mb-2">
-                    <h3 className="text-lg font-semibold text-[#1E3A5F]">
-                      {gap.requirement}
-                    </h3>
+                    <h3 className="text-lg font-semibold text-[#1E3A5F]">{gap.requirement}</h3>
                     {getSeverityBadge(gap.severity)}
                   </div>
                   <p className="text-sm text-[#94A3B8]">{gap.recommendation}</p>

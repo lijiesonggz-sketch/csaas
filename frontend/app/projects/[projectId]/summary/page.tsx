@@ -15,9 +15,9 @@ import { Progress } from '@/components/ui/progress'
 import { AITasksAPI, type AITask } from '@/lib/api/ai-tasks'
 
 export default function SummaryPage() {
-  const params = useParams()
+  const params = useParams<{ projectId: string }>()
   const router = useRouter()
-  const projectId = params.projectId as string
+  const projectId = params?.projectId ?? ''
 
   const [taskId, setTaskId] = useState<string | null>(null)
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null)
@@ -61,7 +61,7 @@ export default function SummaryPage() {
         coverageReport: undefined,
       }
     },
-    [projectId],
+    [projectId]
   )
 
   const hydrateSummaryResult = useCallback(
@@ -78,7 +78,7 @@ export default function SummaryPage() {
       setError(null)
       return displayResult
     },
-    [buildDisplayResult],
+    [buildDisplayResult]
   )
 
   const { progress } = useTaskProgressPolling({
@@ -169,9 +169,9 @@ export default function SummaryPage() {
         }
       }
 
-      const documentsText = documents.map((doc: any) =>
-        `=== ${doc.name} ===\n\n${doc.content}`
-      ).join('\n\n')
+      const documentsText = documents
+        .map((doc: any) => `=== ${doc.name} ===\n\n${doc.content}`)
+        .join('\n\n')
 
       if (!documentsText || documentsText.length < 100) {
         setError('请先上传至少100字符的文档内容')
@@ -237,9 +237,7 @@ export default function SummaryPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white mb-1">综述生成</h1>
-              <p className="text-sm text-white/80">
-                基于标准文档生成数据安全成熟度评估综述
-              </p>
+              <p className="text-sm text-white/80">基于标准文档生成数据安全成熟度评估综述</p>
             </div>
           </div>
 
@@ -297,9 +295,7 @@ export default function SummaryPage() {
                   <span className="font-semibold">{progress.percentage || 0}%</span>
                 </div>
                 <Progress value={progress.percentage || 0} className="h-2" />
-                {progress.stage && (
-                  <p className="text-xs text-[#94A3B8] mt-2">{progress.stage}</p>
-                )}
+                {progress.stage && <p className="text-xs text-[#94A3B8] mt-2">{progress.stage}</p>}
               </div>
             )}
           </CardContent>

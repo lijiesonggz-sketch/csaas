@@ -3,14 +3,30 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
-import { BookOpen, ArrowLeft, AlertCircle, Loader2, FileText, ChevronDown, Lightbulb, CheckCircle, AlertTriangle, GraduationCap } from 'lucide-react'
+import {
+  BookOpen,
+  ArrowLeft,
+  AlertCircle,
+  Loader2,
+  FileText,
+  ChevronDown,
+  Lightbulb,
+  CheckCircle,
+  AlertTriangle,
+  GraduationCap,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 import { message } from '@/lib/message'
 import { AITasksAPI } from '@/lib/api/ai-tasks'
 import { apiFetch } from '@/lib/utils/api'
@@ -53,10 +69,10 @@ interface InterpretationResult {
 }
 
 export default function StandardInterpretationPage() {
-  const params = useParams()
+  const params = useParams<{ projectId: string }>()
   const router = useRouter()
   const { status } = useSession()
-  const projectId = params.projectId as string
+  const projectId = params?.projectId ?? ''
 
   const [loading, setLoading] = useState(false)
   const [initializing, setInitializing] = useState(true)
@@ -80,9 +96,10 @@ export default function StandardInterpretationPage() {
             let interpretationResult: InterpretationResult
             if (task.result.content) {
               try {
-                interpretationResult = typeof task.result.content === 'string'
-                  ? JSON.parse(task.result.content)
-                  : task.result.content
+                interpretationResult =
+                  typeof task.result.content === 'string'
+                    ? JSON.parse(task.result.content)
+                    : task.result.content
               } catch (e) {
                 console.error('Failed to parse result:', e)
                 interpretationResult = task.result.content
@@ -152,9 +169,10 @@ export default function StandardInterpretationPage() {
           if (task && task.status === 'completed' && task.result) {
             let interpretationResult: InterpretationResult
             if (task.result.content) {
-              interpretationResult = typeof task.result.content === 'string'
-                ? JSON.parse(task.result.content)
-                : task.result.content
+              interpretationResult =
+                typeof task.result.content === 'string'
+                  ? JSON.parse(task.result.content)
+                  : task.result.content
             } else if (task.result.gpt4 || task.result.claude || task.result.domestic) {
               interpretationResult = task.result.gpt4 || task.result.claude || task.result.domestic
             } else {
@@ -200,9 +218,9 @@ export default function StandardInterpretationPage() {
       }
 
       // 合并所有文档内容
-      const documentsText = uploadedDocs.map((doc: any) =>
-        `=== ${doc.name} ===\n\n${doc.content}`
-      ).join('\n\n')
+      const documentsText = uploadedDocs
+        .map((doc: any) => `=== ${doc.name} ===\n\n${doc.content}`)
+        .join('\n\n')
 
       if (!documentsText || documentsText.length < 100) {
         setError('文档内容太短，无法进行分析')
@@ -303,7 +321,9 @@ export default function StandardInterpretationPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold font-[var(--font-plus-jakarta)]">标准解读</h1>
-                <p className="text-sm text-white/80 font-[var(--font-inter)]">基于上传的标准文档，AI智能解读条款要求</p>
+                <p className="text-sm text-white/80 font-[var(--font-inter)]">
+                  基于上传的标准文档，AI智能解读条款要求
+                </p>
               </div>
             </div>
           </div>
@@ -340,7 +360,9 @@ export default function StandardInterpretationPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold font-[var(--font-plus-jakarta)]">标准解读</h1>
-              <p className="text-sm text-white/80 font-[var(--font-inter)]">基于上传的标准文档，AI智能解读条款要求</p>
+              <p className="text-sm text-white/80 font-[var(--font-inter)]">
+                基于上传的标准文档，AI智能解读条款要求
+              </p>
             </div>
           </div>
 
@@ -379,9 +401,7 @@ export default function StandardInterpretationPage() {
                   <h3 className="text-lg font-semibold text-[#1E3A5F] mb-2">
                     已准备好 {documents.length} 个文档
                   </h3>
-                  <p className="text-sm text-[#94A3B8]">
-                    文档已就绪，点击下方按钮开始AI智能解读
-                  </p>
+                  <p className="text-sm text-[#94A3B8]">文档已就绪，点击下方按钮开始AI智能解读</p>
                 </div>
               )}
 
@@ -486,7 +506,9 @@ export default function StandardInterpretationPage() {
                     <h3 className="text-lg font-medium text-[#1E3A5F] mb-2">核心目标</h3>
                     <ul className="list-disc list-inside space-y-1">
                       {result.overview?.core_objectives?.map((obj, idx) => (
-                        <li key={idx} className="text-[#64748B]">{obj}</li>
+                        <li key={idx} className="text-[#64748B]">
+                          {obj}
+                        </li>
                       )) || <li className="text-[#94A3B8]">暂无信息</li>}
                     </ul>
                   </div>
@@ -495,7 +517,9 @@ export default function StandardInterpretationPage() {
                     <h3 className="text-lg font-medium text-[#1E3A5F] mb-2">目标受众</h3>
                     <ul className="list-disc list-inside space-y-1">
                       {result.overview?.target_audience?.map((aud, idx) => (
-                        <li key={idx} className="text-[#64748B]">{aud}</li>
+                        <li key={idx} className="text-[#64748B]">
+                          {aud}
+                        </li>
                       )) || <li className="text-[#94A3B8]">暂无信息</li>}
                     </ul>
                   </div>
@@ -526,7 +550,9 @@ export default function StandardInterpretationPage() {
                               <h4 className="text-sm font-medium text-[#64748B] mb-1">示例</h4>
                               <ul className="list-disc list-inside space-y-1">
                                 {term.examples.map((ex, i) => (
-                                  <li key={i} className="text-sm text-[#94A3B8]">{ex}</li>
+                                  <li key={i} className="text-sm text-[#94A3B8]">
+                                    {ex}
+                                  </li>
                                 ))}
                               </ul>
                             </div>
@@ -564,7 +590,9 @@ export default function StandardInterpretationPage() {
                           )}
                           <div>
                             <h4 className="text-sm font-medium text-[#64748B] mb-1">条款内容</h4>
-                            <p className="text-sm text-[#94A3B8]">{req.clause_full_text || req.clause_text}</p>
+                            <p className="text-sm text-[#94A3B8]">
+                              {req.clause_full_text || req.clause_text}
+                            </p>
                           </div>
                           <div>
                             <h4 className="text-sm font-medium text-[#64748B] mb-1">AI解读</h4>
@@ -577,12 +605,15 @@ export default function StandardInterpretationPage() {
                           <div>
                             <h4 className="text-sm font-medium text-[#64748B] mb-1">合规要求</h4>
                             <ul className="list-disc list-inside space-y-1">
-                              {Array.isArray(req.compliance_criteria)
-                                ? req.compliance_criteria.map((criteria, i) => (
-                                    <li key={i} className="text-sm text-[#94A3B8]">{criteria}</li>
-                                  ))
-                                : <li className="text-sm text-[#94A3B8]">暂无具体要求</li>
-                              }
+                              {Array.isArray(req.compliance_criteria) ? (
+                                req.compliance_criteria.map((criteria, i) => (
+                                  <li key={i} className="text-sm text-[#94A3B8]">
+                                    {criteria}
+                                  </li>
+                                ))
+                              ) : (
+                                <li className="text-sm text-[#94A3B8]">暂无具体要求</li>
+                              )}
                             </ul>
                           </div>
                         </div>
@@ -601,7 +632,9 @@ export default function StandardInterpretationPage() {
                     <h3 className="text-lg font-medium text-[#1E3A5F] mb-3">准备工作</h3>
                     <ul className="list-disc list-inside space-y-1">
                       {result.implementation_guidance?.preparation?.map((item, idx) => (
-                        <li key={idx} className="text-[#64748B]">{item}</li>
+                        <li key={idx} className="text-[#64748B]">
+                          {item}
+                        </li>
                       )) || <li className="text-[#94A3B8]">暂无信息</li>}
                     </ul>
                   </div>
@@ -617,7 +650,9 @@ export default function StandardInterpretationPage() {
                           <AccordionContent>
                             <ol className="list-decimal list-inside space-y-1 pt-2">
                               {step.steps?.map((s, i) => (
-                                <li key={i} className="text-sm text-[#94A3B8]">{s}</li>
+                                <li key={i} className="text-sm text-[#94A3B8]">
+                                  {s}
+                                </li>
                               ))}
                             </ol>
                           </AccordionContent>
@@ -630,7 +665,9 @@ export default function StandardInterpretationPage() {
                     <h3 className="text-lg font-medium text-[#1E3A5F] mb-3">最佳实践</h3>
                     <ul className="list-disc list-inside space-y-1">
                       {result.implementation_guidance?.best_practices?.map((item, idx) => (
-                        <li key={idx} className="text-[#64748B]">{item}</li>
+                        <li key={idx} className="text-[#64748B]">
+                          {item}
+                        </li>
                       )) || <li className="text-[#94A3B8]">暂无信息</li>}
                     </ul>
                   </div>
@@ -642,7 +679,9 @@ export default function StandardInterpretationPage() {
                       <AlertDescription>
                         <ul className="list-disc list-inside space-y-1 mt-2">
                           {result.implementation_guidance?.common_pitfalls?.map((item, idx) => (
-                            <li key={idx} className="text-sm text-[#64748B]">{item}</li>
+                            <li key={idx} className="text-sm text-[#64748B]">
+                              {item}
+                            </li>
                           )) || <li className="text-sm text-[#94A3B8]">暂无信息</li>}
                         </ul>
                       </AlertDescription>

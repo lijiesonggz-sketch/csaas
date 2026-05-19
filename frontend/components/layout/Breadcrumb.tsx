@@ -23,12 +23,10 @@ export default function Breadcrumb({ organizationName }: BreadcrumbProps) {
 
   // 解析路径为面包屑
   const breadcrumbs = React.useMemo(() => {
-    const pathSegments = pathname.split('/').filter(Boolean)
+    const pathSegments = (pathname ?? '').split('/').filter(Boolean)
 
     // 构建面包屑数组
-    const crumbs = [
-      { label: '首页', path: '/' },
-    ]
+    const crumbs = [{ label: '首页', path: '/' }]
 
     let currentPath = ''
 

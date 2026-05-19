@@ -3,28 +3,25 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { AITasksAPI, AITask } from '@/lib/api/ai-tasks'
-import {
-  getRemediationPriorityList,
-  type RemediationPriorityItem,
-} from '@/lib/api/report-center'
-import {
-  ProjectQuestionnaireFreshnessResponse,
-  SurveyAPI,
-} from '@/lib/api/survey'
+import { getRemediationPriorityList, type RemediationPriorityItem } from '@/lib/api/report-center'
+import { ProjectQuestionnaireFreshnessResponse, SurveyAPI } from '@/lib/api/survey'
 import { useTaskProgress } from '@/lib/hooks/useTaskProgress'
 import ActionPlanResultDisplay from '@/components/features/ActionPlanResultDisplay'
 import { RemediationPriorityList } from '@/components/compliance/RemediationPriorityList'
 import RollbackButton from '@/components/projects/RollbackButton'
-import MaturityRadarChart, { MaturityRadarData, RADAR_DIMENSIONS } from '@/components/features/MaturityRadarChart'
+import MaturityRadarChart, {
+  MaturityRadarData,
+  RADAR_DIMENSIONS,
+} from '@/components/features/MaturityRadarChart'
 import { ListTodo, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { TaskAdapter } from '@/lib/adapters/task-adapter'
 import type { GenerationResult } from '@/lib/types/ai-generation'
 
 export default function ActionPlanPage() {
-  const params = useParams()
+  const params = useParams<{ projectId: string }>()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const projectId = params.projectId as string
+  const projectId = params?.projectId ?? ''
 
   const [currentTask, setCurrentTask] = useState<AITask | null>(null)
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null)
@@ -40,7 +37,12 @@ export default function ActionPlanPage() {
   const [freshness, setFreshness] = useState<ProjectQuestionnaireFreshnessResponse | null>(null)
 
   // 实时进度跟踪
-  const { progress, message: progressMessage, isCompleted, isFailed } = useTaskProgress(currentTask?.id || null)
+  const {
+    progress,
+    message: progressMessage,
+    isCompleted,
+    isFailed,
+  } = useTaskProgress(currentTask?.id || null)
 
   // 加载现有任务
   useEffect(() => {
@@ -50,8 +52,8 @@ export default function ActionPlanPage() {
     }
 
     // 检查URL参数，如果有surveyResponseId和targetMaturity，说明是从差距分析页面跳转过来
-    const urlSurveyResponseId = searchParams.get('surveyResponseId')
-    const urlTargetMaturity = searchParams.get('targetMaturity')
+    const urlSurveyResponseId = searchParams?.get('surveyResponseId')
+    const urlTargetMaturity = searchParams?.get('targetMaturity')
 
     if (urlSurveyResponseId && urlTargetMaturity) {
       void loadRemediationPriorities(urlSurveyResponseId)
@@ -79,15 +81,18 @@ export default function ActionPlanPage() {
       setError(null)
 
       // 调用后端API生成改进措施
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/survey/${surveyResponseId}/action-plan`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          targetMaturity: targetMaturityValue,
-        }),
-      })
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/survey/${surveyResponseId}/action-plan`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            targetMaturity: targetMaturityValue,
+          }),
+        }
+      )
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -123,7 +128,7 @@ export default function ActionPlanPage() {
   }
 
   const loadFreshness = async (
-    surveyResponseId: string,
+    surveyResponseId: string
   ): Promise<ProjectQuestionnaireFreshnessResponse | null> => {
     try {
       const response = await SurveyAPI.getQuestionnaireFreshness(surveyResponseId)
@@ -144,7 +149,7 @@ export default function ActionPlanPage() {
     try {
       const tasks = await AITasksAPI.getTasksByProject(projectId)
       const latestQuestionnaireTask = tasks
-        .filter(t => t.type === 'questionnaire' && t.status === 'completed')
+        .filter((t) => t.type === 'questionnaire' && t.status === 'completed')
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
       const latestSurveyResponseId = latestQuestionnaireTask?.result?.surveyResponseId
 
@@ -153,19 +158,25 @@ export default function ActionPlanPage() {
         void loadFreshness(latestSurveyResponseId)
       }
 
-      const actionPlanTasks = tasks.filter(t => t.type === 'action_plan')
+      const actionPlanTasks = tasks.filter((t) => t.type === 'action_plan')
 
       // 先筛选已完成的任务，再按时间排序取最新的
-      const completedTasks = actionPlanTasks.filter(t => t.status === 'completed' && t.result)
-      const actionPlanTask = completedTasks.length > 0
-        ? completedTasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
-        : actionPlanTasks[0] // 如果没有完成的任务，取最新的任务（可能正在处理或失败）
+      const completedTasks = actionPlanTasks.filter((t) => t.status === 'completed' && t.result)
+      const actionPlanTask =
+        completedTasks.length > 0
+          ? completedTasks.sort(
+              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            )[0]
+          : actionPlanTasks[0] // 如果没有完成的任务，取最新的任务（可能正在处理或失败）
 
       if (actionPlanTask && actionPlanTask.status === 'completed' && actionPlanTask.result) {
         setCurrentTask(actionPlanTask)
         const actionPlanSurveyResponseId =
           actionPlanTask.input?.survey_response_id ?? actionPlanTask.input?.surveyResponseId
-        if (typeof actionPlanSurveyResponseId === 'string' && actionPlanSurveyResponseId.length > 0) {
+        if (
+          typeof actionPlanSurveyResponseId === 'string' &&
+          actionPlanSurveyResponseId.length > 0
+        ) {
           void loadFreshness(actionPlanSurveyResponseId)
         }
 
@@ -181,9 +192,9 @@ export default function ActionPlanPage() {
           result: {
             ...actionPlanTask.result,
             content: {
-              measures: measures
-            }
-          }
+              measures: measures,
+            },
+          },
         }
 
         const result = TaskAdapter.toGenerationResult(taskWithMeasures)
@@ -215,7 +226,7 @@ export default function ActionPlanPage() {
       // 1. 查找最新的问卷任务
       const tasks = await AITasksAPI.getTasksByProject(projectId)
       const questionnaireTask = tasks
-        .filter(t => t.type === 'questionnaire' && t.status === 'completed')
+        .filter((t) => t.type === 'questionnaire' && t.status === 'completed')
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
 
       if (!questionnaireTask) {
@@ -237,15 +248,18 @@ export default function ActionPlanPage() {
       await loadRemediationPriorities(surveyResponseId)
 
       // 3. 调用后端API生成改进措施（使用 /survey 接口）
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/survey/${surveyResponseId}/action-plan`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          targetMaturity,
-        }),
-      })
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/survey/${surveyResponseId}/action-plan`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            targetMaturity,
+          }),
+        }
+      )
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -451,7 +465,9 @@ export default function ActionPlanPage() {
         <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
             <CheckCircle2 className="w-6 h-6 text-green-500" strokeWidth={2} />
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">改进措施生成完成</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              改进措施生成完成
+            </h2>
           </div>
 
           {/* 成熟度对比雷达图 */}
@@ -486,7 +502,10 @@ export default function ActionPlanPage() {
 
           {/* 目标成熟度选择 */}
           <div className="max-w-md mx-auto mb-8 p-6 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-            <label htmlFor="targetMaturity" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="targetMaturity"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               目标成熟度级别 (1.0 - 5.0)
             </label>
             <div className="flex items-center gap-4">
@@ -568,15 +587,14 @@ export default function ActionPlanPage() {
         <section className="text-center py-16 px-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
           <div className="flex justify-center mb-6">
             <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-full">
-              <Sparkles className="w-12 h-12 text-gray-400 dark:text-gray-500 animate-pulse" strokeWidth={2} />
+              <Sparkles
+                className="w-12 h-12 text-gray-400 dark:text-gray-500 animate-pulse"
+                strokeWidth={2}
+              />
             </div>
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-            加载中...
-          </h2>
-          <p className="text-gray-500 dark:text-gray-400">
-            正在加载改进措施数据
-          </p>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">加载中...</h2>
+          <p className="text-gray-500 dark:text-gray-400">正在加载改进措施数据</p>
         </section>
       )}
     </main>

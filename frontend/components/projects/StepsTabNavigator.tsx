@@ -31,35 +31,46 @@ interface StepsTabNavigatorProps {
   currentStep?: string
 }
 
-export default function StepsTabNavigator({ projectId, steps, currentStep }: StepsTabNavigatorProps) {
+export default function StepsTabNavigator({
+  projectId,
+  steps,
+  currentStep,
+}: StepsTabNavigatorProps) {
   const router = useRouter()
   const pathname = usePathname()
   const [isNavigating, setIsNavigating] = useState(false)
 
   const currentStepValue = useMemo(() => {
     if (currentStep) return currentStep
-    const pathSegment = pathname.split('/').pop()
-    const validStepIds = steps.map(s => s.id)
+    const pathSegment = (pathname ?? '').split('/').pop()
+    const validStepIds = steps.map((s) => s.id)
     return validStepIds.includes(pathSegment || '') ? pathSegment : 'upload'
   }, [currentStep, pathname, steps])
 
-  const handleChange = useCallback((stepId: string) => {
-    if (isNavigating || stepId === currentStepValue) return
+  const handleChange = useCallback(
+    (stepId: string) => {
+      if (isNavigating || stepId === currentStepValue) return
 
-    const step = steps.find((s) => s.id === stepId)
-    if (step) {
-      setIsNavigating(true)
-      router.push(step.route)
-      setTimeout(() => setIsNavigating(false), 300)
-    }
-  }, [steps, currentStepValue, isNavigating, router])
+      const step = steps.find((s) => s.id === stepId)
+      if (step) {
+        setIsNavigating(true)
+        router.push(step.route)
+        setTimeout(() => setIsNavigating(false), 300)
+      }
+    },
+    [steps, currentStepValue, isNavigating, router]
+  )
 
   const getStatusIcon = (status: Step['status']) => {
     switch (status) {
-      case 'completed': return <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-      case 'processing': return <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />
-      case 'failed': return <X className="w-3.5 h-3.5 text-red-500" />
-      default: return null
+      case 'completed':
+        return <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+      case 'processing':
+        return <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin" />
+      case 'failed':
+        return <X className="w-3.5 h-3.5 text-red-500" />
+      default:
+        return null
     }
   }
 

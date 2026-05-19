@@ -358,10 +358,10 @@ const REVIEW_STAGE_OPTIONS: Array<{ value: FilterValue<ProjectReviewStage>; labe
 ]
 
 export default function ProjectReviewPage() {
-  const params = useParams()
+  const params = useParams<{ projectId: string }>()
   const router = useRouter()
   const { data: session } = useSession()
-  const projectId = params.projectId as string
+  const projectId = params?.projectId ?? ''
   const reviewerId = session?.user?.id || ''
   const currentOrganization = useOrganizationStore((state) => state.currentOrganization)
   const organizationId = currentOrganization?.id

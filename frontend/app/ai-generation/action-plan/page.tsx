@@ -34,7 +34,13 @@ import {
 } from 'lucide-react'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 
@@ -101,8 +107,8 @@ const steps = [
 export default function ActionPlanPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const surveyId = searchParams.get('surveyId')
-  const targetMaturity = parseFloat(searchParams.get('targetMaturity') || '0')
+  const surveyId = searchParams?.get('surveyId') ?? null
+  const targetMaturity = parseFloat(searchParams?.get('targetMaturity') || '0')
 
   const [taskId, setTaskId] = useState<string | null>(null)
   const [taskStatus, setTaskStatus] = useState<TaskStatus | null>(null)
@@ -167,7 +173,7 @@ export default function ActionPlanPage() {
 
     try {
       const response = await fetch(
-        `http://localhost:3000/survey/${surveyId}/action-plan/task/${taskId}`,
+        `http://localhost:3000/survey/${surveyId}/action-plan/task/${taskId}`
       )
       const data = await response.json()
 
@@ -223,23 +229,23 @@ export default function ActionPlanPage() {
   }
 
   // 按聚类分组措施
-  const groupedMeasures = taskStatus?.measures.reduce((acc, measure) => {
-    if (!acc[measure.clusterName]) {
-      acc[measure.clusterName] = []
-    }
-    acc[measure.clusterName].push(measure)
-    return acc
-  }, {} as Record<string, ActionPlanMeasure[]>) || {}
+  const groupedMeasures =
+    taskStatus?.measures.reduce(
+      (acc, measure) => {
+        if (!acc[measure.clusterName]) {
+          acc[measure.clusterName] = []
+        }
+        acc[measure.clusterName].push(measure)
+        return acc
+      },
+      {} as Record<string, ActionPlanMeasure[]>
+    ) || {}
 
   return (
     <div className="p-6 bg-[#FEFDFB] min-h-screen max-w-[1400px] mx-auto">
       {/* 顶部导航 */}
       <div className="mb-6">
-        <Button
-          variant="outline"
-          onClick={() => router.back()}
-          className="rounded-sm"
-        >
+        <Button variant="outline" onClick={() => router.back()} className="rounded-sm">
           <ArrowLeft className="w-4 h-4 mr-2" />
           返回成熟度分析
         </Button>
@@ -294,9 +300,7 @@ export default function ActionPlanPage() {
               <div key={index} className="flex-1 flex flex-col items-center">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                    currentStep >= index
-                      ? 'bg-[#1E3A5F] text-white'
-                      : 'bg-[#94A3B8] text-white'
+                    currentStep >= index ? 'bg-[#1E3A5F] text-white' : 'bg-[#94A3B8] text-white'
                   }`}
                 >
                   {index + 1}
@@ -319,10 +323,7 @@ export default function ActionPlanPage() {
                 <h3 className="text-lg font-semibold text-[#1E3A5F]">
                   {taskStatus?.status === 'processing' ? '正在生成改进措施...' : '初始化任务...'}
                 </h3>
-                <Progress
-                  value={taskStatus?.progress || 0}
-                  className="w-[300px] mt-2 h-2"
-                />
+                <Progress value={taskStatus?.progress || 0} className="w-[300px] mt-2 h-2" />
                 <p className="text-sm text-[#94A3B8] mt-2">
                   AI正在基于您的成熟度分析结果,生成针对性的改进措施
                 </p>
@@ -337,9 +338,7 @@ export default function ActionPlanPage() {
         <Card className="mb-6 border-[#E2E8F0] rounded-sm shadow-sm text-center">
           <CardContent className="p-6">
             <AlertCircle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-            <h3 className="text-lg font-semibold text-red-600 mb-2">
-              生成失败
-            </h3>
+            <h3 className="text-lg font-semibold text-red-600 mb-2">生成失败</h3>
             <p className="text-red-600 mb-4">{taskStatus.errorMessage}</p>
             <Button
               onClick={startGeneration}
@@ -359,9 +358,7 @@ export default function ActionPlanPage() {
             <CardContent className="p-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div className="text-center">
-                  <p className="text-4xl font-bold text-[#1E3A5F]">
-                    {taskStatus.measures.length}
-                  </p>
+                  <p className="text-4xl font-bold text-[#1E3A5F]">{taskStatus.measures.length}</p>
                   <p className="text-sm text-[#94A3B8]">总计措施数量</p>
                 </div>
                 <div className="text-center">
@@ -403,7 +400,8 @@ export default function ActionPlanPage() {
                       <Shield className="w-5 h-5 text-[#1E3A5F]" />
                       <h2 className="text-lg font-semibold text-[#1E3A5F]">{clusterName}</h2>
                       <Badge variant="destructive" className="rounded-sm">
-                        当前 {clusterCurrent.toFixed(2)} → 目标 {clusterTarget.toFixed(1)} (差距 {clusterGap.toFixed(2)})
+                        当前 {clusterCurrent.toFixed(2)} → 目标 {clusterTarget.toFixed(1)} (差距{' '}
+                        {clusterGap.toFixed(2)})
                       </Badge>
                     </div>
                     <Badge className="bg-[#1E3A5F] text-white rounded-sm">
@@ -416,17 +414,26 @@ export default function ActionPlanPage() {
                     {measures
                       .sort((a, b) => a.sortOrder - b.sortOrder)
                       .map((measure, index) => (
-                        <Card key={measure.id} className="border border-[#E2E8F0] rounded-sm shadow-sm">
+                        <Card
+                          key={measure.id}
+                          className="border border-[#E2E8F0] rounded-sm shadow-sm"
+                        >
                           <CardContent className="p-4">
                             {/* 措施标题和标签 */}
                             <div className="flex items-center gap-2 mb-3 flex-wrap">
-                              <Badge variant={getPriorityVariant(measure.priority)} className="rounded-sm">
+                              <Badge
+                                variant={getPriorityVariant(measure.priority)}
+                                className="rounded-sm"
+                              >
                                 {getPriorityText(measure.priority)}
                               </Badge>
                               <h3 className="text-base font-semibold text-[#1E3A5F] flex-1">
                                 {index + 1}. {measure.title}
                               </h3>
-                              <Badge variant="outline" className="rounded-sm border-[#059669] text-[#059669]">
+                              <Badge
+                                variant="outline"
+                                className="rounded-sm border-[#059669] text-[#059669]"
+                              >
                                 <TrendingUp className="w-3 h-3 mr-1" />
                                 预期提升: +{measure.expectedImprovement.toFixed(1)}分
                               </Badge>
@@ -472,24 +479,29 @@ export default function ActionPlanPage() {
                                     </p>
                                   </div>
                                 )}
-                                {measure.resourcesNeeded.personnel && measure.resourcesNeeded.personnel.length > 0 && (
-                                  <div className="flex items-center gap-2">
-                                    <Users className="w-4 h-4 text-[#1E3A5F]" />
-                                    <p className="text-sm">
-                                      <strong>人员:</strong> {measure.resourcesNeeded.personnel.join(', ')}
-                                    </p>
-                                  </div>
-                                )}
-                                {measure.resourcesNeeded.technology && measure.resourcesNeeded.technology.length > 0 && (
-                                  <div className="md:col-span-2">
-                                    <p className="text-sm font-semibold mb-1">技术/工具:</p>
-                                    <div className="flex flex-wrap gap-1">
-                                      {measure.resourcesNeeded.technology.map((tech, i) => (
-                                        <Badge key={i} variant="outline" className="rounded-sm">{tech}</Badge>
-                                      ))}
+                                {measure.resourcesNeeded.personnel &&
+                                  measure.resourcesNeeded.personnel.length > 0 && (
+                                    <div className="flex items-center gap-2">
+                                      <Users className="w-4 h-4 text-[#1E3A5F]" />
+                                      <p className="text-sm">
+                                        <strong>人员:</strong>{' '}
+                                        {measure.resourcesNeeded.personnel.join(', ')}
+                                      </p>
                                     </div>
-                                  </div>
-                                )}
+                                  )}
+                                {measure.resourcesNeeded.technology &&
+                                  measure.resourcesNeeded.technology.length > 0 && (
+                                    <div className="md:col-span-2">
+                                      <p className="text-sm font-semibold mb-1">技术/工具:</p>
+                                      <div className="flex flex-wrap gap-1">
+                                        {measure.resourcesNeeded.technology.map((tech, i) => (
+                                          <Badge key={i} variant="outline" className="rounded-sm">
+                                            {tech}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                 <div className="md:col-span-2">
                                   <p className="text-sm">
                                     <strong>负责部门:</strong> {measure.responsibleDepartment}
@@ -523,11 +535,17 @@ export default function ActionPlanPage() {
                                 <h4 className="font-semibold text-[#1E3A5F] mb-2">📊 KPI指标</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   {measure.kpiMetrics.map((kpi, i) => (
-                                    <Card key={i} className="border border-[#E2E8F0] bg-[#F0FDF4] rounded-sm">
+                                    <Card
+                                      key={i}
+                                      className="border border-[#E2E8F0] bg-[#F0FDF4] rounded-sm"
+                                    >
                                       <CardContent className="p-3">
                                         <p className="text-sm font-semibold mb-1">{kpi.metric}</p>
                                         <p className="text-sm">
-                                          目标值: <Badge className="bg-[#059669] text-white rounded-sm text-xs">{kpi.target}</Badge>
+                                          目标值:{' '}
+                                          <Badge className="bg-[#059669] text-white rounded-sm text-xs">
+                                            {kpi.target}
+                                          </Badge>
                                         </p>
                                         <p className="text-xs text-[#94A3B8] mt-1">
                                           测量方法: {kpi.measurementMethod}

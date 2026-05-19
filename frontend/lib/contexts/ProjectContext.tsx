@@ -15,8 +15,8 @@ interface ProjectContextType {
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined)
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
-  const params = useParams()
-  const projectId = params.projectId as string
+  const params = useParams<{ projectId: string }>()
+  const projectId = params?.projectId ?? ''
 
   const [project, setProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)

@@ -64,7 +64,11 @@ import {
   updatePushPreference,
   UpdatePushPreferenceDto,
 } from '@/lib/api/radar'
-import { INSTITUTION_PRESETS, INDUSTRY_LABELS, IndustryKey } from '@/lib/constants/institution-presets'
+import {
+  INSTITUTION_PRESETS,
+  INDUSTRY_LABELS,
+  IndustryKey,
+} from '@/lib/constants/institution-presets'
 import { message } from '@/lib/message'
 import { cn } from '@/lib/utils'
 
@@ -105,8 +109,16 @@ export default function RadarSettingsPage() {
   // Story 5.3: PushPreference state
   const [preferenceLoading, setPreferenceLoading] = useState(true)
   const [preferenceSaving, setPreferenceSaving] = useState(false)
-  const [deleteTopicDialog, setDeleteTopicDialog] = useState<{ open: boolean; topicId: string; topicName: string }>({ open: false, topicId: '', topicName: '' })
-  const [deletePeerDialog, setDeletePeerDialog] = useState<{ open: boolean; peerId: string; peerName: string }>({ open: false, peerId: '', peerName: '' })
+  const [deleteTopicDialog, setDeleteTopicDialog] = useState<{
+    open: boolean
+    topicId: string
+    topicName: string
+  }>({ open: false, topicId: '', topicName: '' })
+  const [deletePeerDialog, setDeletePeerDialog] = useState<{
+    open: boolean
+    peerId: string
+    peerName: string
+  }>({ open: false, peerId: '', peerName: '' })
   const [pushStartTime, setPushStartTime] = useState('09:00')
   const [pushEndTime, setPushEndTime] = useState('18:00')
   const [dailyPushLimit, setDailyPushLimit] = useState<number>(5)
@@ -116,7 +128,7 @@ export default function RadarSettingsPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       // 优先从 URL 参数获取
-      const urlOrgId = searchParams.get('orgId')
+      const urlOrgId = searchParams?.get('orgId')
       if (urlOrgId) {
         setOrganizationId(urlOrgId)
         // 同时保存到 localStorage 以便后续使用
@@ -409,7 +421,9 @@ export default function RadarSettingsPage() {
           <ol className="flex items-center gap-2 text-[#94A3B8]">
             <li>
               <button
-                onClick={() => router.push(`/radar${organizationId ? `?orgId=${organizationId}` : ''}`)}
+                onClick={() =>
+                  router.push(`/radar${organizationId ? `?orgId=${organizationId}` : ''}`)
+                }
                 className="hover:text-[#1E3A5F] transition-colors"
               >
                 雷达首页
@@ -532,9 +546,7 @@ export default function RadarSettingsPage() {
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
-                    <p className="text-sm text-[#94A3B8]">
-                      添加时间: {formatDate(peer.createdAt)}
-                    </p>
+                    <p className="text-sm text-[#94A3B8]">添加时间: {formatDate(peer.createdAt)}</p>
                     {peer.relatedPushCount !== undefined && peer.relatedPushCount > 0 && (
                       <p className="text-xs text-[#059669] mt-2">
                         已推送 {peer.relatedPushCount} 条相关内容
@@ -631,7 +643,9 @@ export default function RadarSettingsPage() {
                         name="relevance"
                         value="high_only"
                         checked={relevanceFilter === 'high_only'}
-                        onChange={(e) => setRelevanceFilter(e.target.value as 'high_only' | 'high_medium')}
+                        onChange={(e) =>
+                          setRelevanceFilter(e.target.value as 'high_only' | 'high_medium')
+                        }
                         className="mt-1"
                       />
                       <div>
@@ -645,7 +659,9 @@ export default function RadarSettingsPage() {
                         name="relevance"
                         value="high_medium"
                         checked={relevanceFilter === 'high_medium'}
-                        onChange={(e) => setRelevanceFilter(e.target.value as 'high_only' | 'high_medium')}
+                        onChange={(e) =>
+                          setRelevanceFilter(e.target.value as 'high_only' | 'high_medium')
+                        }
                         className="mt-1"
                       />
                       <div>
@@ -661,7 +677,10 @@ export default function RadarSettingsPage() {
         </Card>
 
         {/* 添加关注领域弹窗 */}
-        <Dialog open={addModalVisible} onOpenChange={(open) => !submitting && setAddModalVisible(open)}>
+        <Dialog
+          open={addModalVisible}
+          onOpenChange={(open) => !submitting && setAddModalVisible(open)}
+        >
           <DialogContent className="rounded-sm max-w-lg">
             <DialogHeader>
               <DialogTitle>添加关注领域</DialogTitle>
@@ -673,10 +692,10 @@ export default function RadarSettingsPage() {
                 <label
                   key={topic.name}
                   className={cn(
-                    "flex items-start gap-3 p-3 border rounded-sm cursor-pointer transition-colors",
+                    'flex items-start gap-3 p-3 border rounded-sm cursor-pointer transition-colors',
                     selectedTopic === topic.name
-                      ? "border-[#059669] bg-green-50"
-                      : "border-[#E2E8F0] hover:bg-slate-50"
+                      ? 'border-[#059669] bg-green-50'
+                      : 'border-[#E2E8F0] hover:bg-slate-50'
                   )}
                 >
                   <input
@@ -741,7 +760,10 @@ export default function RadarSettingsPage() {
         </Dialog>
 
         {/* Story 5.2: 添加关注同业弹窗 */}
-        <Dialog open={addPeerModalVisible} onOpenChange={(open) => !peerSubmitting && setAddPeerModalVisible(open)}>
+        <Dialog
+          open={addPeerModalVisible}
+          onOpenChange={(open) => !peerSubmitting && setAddPeerModalVisible(open)}
+        >
           <DialogContent className="rounded-sm max-w-lg">
             <DialogHeader>
               <DialogTitle>添加关注同业</DialogTitle>
@@ -765,7 +787,9 @@ export default function RadarSettingsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(INDUSTRY_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                      <SelectItem key={key} value={key}>
+                        {label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -777,10 +801,10 @@ export default function RadarSettingsPage() {
                   <label
                     key={peer.name}
                     className={cn(
-                      "flex items-start gap-3 p-3 border rounded-sm cursor-pointer transition-colors",
+                      'flex items-start gap-3 p-3 border rounded-sm cursor-pointer transition-colors',
                       selectedPeer === peer.name
-                        ? "border-[#059669] bg-green-50"
-                        : "border-[#E2E8F0] hover:bg-slate-50"
+                        ? 'border-[#059669] bg-green-50'
+                        : 'border-[#E2E8F0] hover:bg-slate-50'
                     )}
                   >
                     <input
@@ -797,7 +821,9 @@ export default function RadarSettingsPage() {
                     />
                     <div>
                       <p className="font-medium text-[#1E3A5F]">{peer.name}</p>
-                      <p className="text-sm text-[#94A3B8]">{peer.type} - {peer.desc}</p>
+                      <p className="text-sm text-[#94A3B8]">
+                        {peer.type} - {peer.desc}
+                      </p>
                     </div>
                   </label>
                 ))}

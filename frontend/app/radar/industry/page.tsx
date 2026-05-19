@@ -40,13 +40,13 @@ export default function IndustryRadarPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [filter, setFilter] = useState(searchParams.get('filter') || 'all')
+  const [filter, setFilter] = useState(searchParams?.get('filter') || 'all')
   const [peerFilter, setPeerFilter] = useState<'all' | 'watched' | 'specific-peer'>(
-    (searchParams.get('peerFilter') as 'all' | 'watched' | 'specific-peer') || 'all'
+    (searchParams?.get('peerFilter') as 'all' | 'watched' | 'specific-peer') || 'all'
   )
-  const [selectedPeer, setSelectedPeer] = useState<string>(searchParams.get('selectedPeer') || '')
+  const [selectedPeer, setSelectedPeer] = useState<string>(searchParams?.get('selectedPeer') || '')
   const [activeTab, setActiveTab] = useState<'industry' | 'peer-monitoring'>(
-    (searchParams.get('tab') as 'industry' | 'peer-monitoring') || 'industry'
+    (searchParams?.get('tab') as 'industry' | 'peer-monitoring') || 'industry'
   )
 
   const currentOrganization = useOrganizationStore((state) => state.currentOrganization)
@@ -73,8 +73,8 @@ export default function IndustryRadarPage() {
 
       let filteredPushes = response.data
       if (filter === 'watched' && watchedPeerNames.length > 0) {
-        filteredPushes = response.data.filter((push) =>
-          push.peerName && watchedPeerNames.includes(push.peerName)
+        filteredPushes = response.data.filter(
+          (push) => push.peerName && watchedPeerNames.includes(push.peerName)
         )
       }
 
@@ -116,9 +116,7 @@ export default function IndustryRadarPage() {
     try {
       await markPeerMonitoringPushAsRead(pushId)
       setPeerPushes((prev) =>
-        prev.map((push) =>
-          push.id === pushId ? { ...push, isRead: true } : push
-        )
+        prev.map((push) => (push.id === pushId ? { ...push, isRead: true } : push))
       )
     } catch (err) {
       console.error('Failed to mark peer push as read:', err)
@@ -130,9 +128,7 @@ export default function IndustryRadarPage() {
       setActionError(null)
       await bookmarkPeerMonitoringPush(pushId, bookmark)
       setPeerPushes((prev) =>
-        prev.map((push) =>
-          push.id === pushId ? { ...push, isBookmarked: bookmark } : push
-        )
+        prev.map((push) => (push.id === pushId ? { ...push, isBookmarked: bookmark } : push))
       )
       if (selectedPeerPush && selectedPeerPush.id === pushId) {
         setSelectedPeerPush({ ...selectedPeerPush, isBookmarked: bookmark })
@@ -228,28 +224,28 @@ export default function IndustryRadarPage() {
 
   const handleFilterChange = (newFilter: string) => {
     setFilter(newFilter)
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(searchParams?.toString())
     params.set('filter', newFilter)
     router.push(`/radar/industry?${params.toString()}`)
   }
 
   const handlePeerFilterChange = (newFilter: 'all' | 'watched' | 'specific-peer') => {
     setPeerFilter(newFilter)
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(searchParams?.toString())
     params.set('peerFilter', newFilter)
     router.push(`/radar/industry?${params.toString()}`)
   }
 
   const handlePeerChange = (peer: string) => {
     setSelectedPeer(peer)
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(searchParams?.toString())
     params.set('selectedPeer', peer)
     router.push(`/radar/industry?${params.toString()}`)
   }
 
   const handleTabChange = (tab: 'industry' | 'peer-monitoring') => {
     setActiveTab(tab)
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(searchParams?.toString())
     params.set('tab', tab)
     router.push(`/radar/industry?${params.toString()}`)
   }
@@ -282,7 +278,9 @@ export default function IndustryRadarPage() {
                 <Building2 className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold font-[var(--font-plus-jakarta)]">行业雷达 - 同业标杆学习</h1>
+                <h1 className="text-xl sm:text-2xl font-bold font-[var(--font-plus-jakarta)]">
+                  行业雷达 - 同业标杆学习
+                </h1>
                 <p className="text-sm text-white/80 mt-1 font-[var(--font-inter)]">
                   学习标杆机构的实践经验，洞察同业技术趋势
                 </p>
@@ -323,7 +321,7 @@ export default function IndustryRadarPage() {
           <div className="flex items-center justify-center gap-2">
             {[
               { id: 'industry', label: '行业动态' },
-              { id: 'peer-monitoring', label: '同业动态' }
+              { id: 'peer-monitoring', label: '同业动态' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -357,9 +355,13 @@ export default function IndustryRadarPage() {
                     : 'bg-white border border-[#E2E8F0] text-[#94A3B8] hover:border-[#1E3A5F] hover:text-[#1E3A5F]'
                 )}
               >
-                {filterOption === 'all' ? '全部' :
-                  filterOption === 'watched' ? '我关注的同业' :
-                    filterOption === 'same-scale' ? '同规模机构' : '同地区机构'}
+                {filterOption === 'all'
+                  ? '全部'
+                  : filterOption === 'watched'
+                    ? '我关注的同业'
+                    : filterOption === 'same-scale'
+                      ? '同规模机构'
+                      : '同地区机构'}
               </button>
             ))}
           </div>
@@ -443,9 +445,7 @@ export default function IndustryRadarPage() {
           <p className="text-sm text-muted-foreground mb-4">
             系统会根据您关注的同业机构自动推送相关实践案例
           </p>
-          <Button onClick={() => router.push('/radar/settings')}>
-            前往配置
-          </Button>
+          <Button onClick={() => router.push('/radar/settings')}>前往配置</Button>
         </Card>
       )}
 
@@ -458,9 +458,7 @@ export default function IndustryRadarPage() {
           <p className="text-sm text-muted-foreground mb-4">
             系统会实时监控您关注的同业机构动态并推送相关信息
           </p>
-          <Button onClick={() => router.push('/radar/settings')}>
-            前往配置
-          </Button>
+          <Button onClick={() => router.push('/radar/settings')}>前往配置</Button>
         </Card>
       )}
 
@@ -481,7 +479,9 @@ export default function IndustryRadarPage() {
             isBookmarked: selectedPeerPush.isBookmarked || false,
           }}
           onClose={() => setSelectedPeerPush(null)}
-          onBookmark={() => handleBookmarkPeerPush(selectedPeerPush.id, !selectedPeerPush.isBookmarked)}
+          onBookmark={() =>
+            handleBookmarkPeerPush(selectedPeerPush.id, !selectedPeerPush.isBookmarked)
+          }
           onMarkAsRead={() => handleMarkPeerPushAsRead(selectedPeerPush.id)}
         />
       )}

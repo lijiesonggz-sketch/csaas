@@ -256,7 +256,7 @@ export default function TaxonomyRolloutRecoveryPage() {
         if (cancelled) return
 
         setPolicies(data)
-        const requested = searchParams.get('l1Code')?.trim().toUpperCase()
+        const requested = searchParams?.get('l1Code')?.trim().toUpperCase()
         const nextSelectedL1Code =
           requested && data.some((policy) => policy.l1Code === requested)
             ? requested

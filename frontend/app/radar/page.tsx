@@ -32,7 +32,7 @@ import { cn } from '@/lib/utils'
 function RadarDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const orgId = searchParams.get('orgId')
+  const orgId = searchParams?.get('orgId') ?? null
 
   const { isOnboarded, radarActivated, isLoading, refetch } = useOnboarding(orgId)
   const [showOnboarding, setShowOnboarding] = useState(false)

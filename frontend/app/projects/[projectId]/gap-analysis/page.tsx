@@ -44,10 +44,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import {
-  ProjectQuestionnaireFreshnessResponse,
-  SurveyAPI,
-} from '@/lib/api/survey'
+import { ProjectQuestionnaireFreshnessResponse, SurveyAPI } from '@/lib/api/survey'
 import * as XLSX from 'xlsx'
 import MaturityRadarChart, { mapToRadarData } from '@/components/features/MaturityRadarChart'
 import { GapAnalysisReport, GapAnalysisReportData } from '@/components/features/GapAnalysisReport'
@@ -170,10 +167,10 @@ interface UploadFile {
 }
 
 export default function GapAnalysisPage() {
-  const params = useParams()
+  const params = useParams<{ projectId: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const projectId = params.projectId as string
+  const projectId = params?.projectId ?? ''
 
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -361,7 +358,9 @@ export default function GapAnalysisPage() {
           const questionnaireData = convertToQuestionnaireData(jsonData)
           resolve(questionnaireData)
         } catch (error) {
-          reject(new Error('文件解析失败：' + (error instanceof Error ? error.message : '未知错误')))
+          reject(
+            new Error('文件解析失败：' + (error instanceof Error ? error.message : '未知错误'))
+          )
         }
       }
 
@@ -379,13 +378,32 @@ export default function GapAnalysisPage() {
     let maxScore = 0
 
     const firstRow = jsonData[0] || {}
-    const questionIdKeys = ['Question ID', 'question_id', 'questionId', '问题ID', '题目ID', 'ID', 'id']
-    const selectedOptionKeys = ['Selected Option', 'selected_option', 'selectedOption', 'Option ID', 'option_id', '选择的选项', '选项ID', '选项', 'Answer', 'answer']
+    const questionIdKeys = [
+      'Question ID',
+      'question_id',
+      'questionId',
+      '问题ID',
+      '题目ID',
+      'ID',
+      'id',
+    ]
+    const selectedOptionKeys = [
+      'Selected Option',
+      'selected_option',
+      'selectedOption',
+      'Option ID',
+      'option_id',
+      '选择的选项',
+      '选项ID',
+      '选项',
+      'Answer',
+      'answer',
+    ]
     const scoreKeys = ['Score', 'score', '得分', '分数', '分值']
 
-    const questionIdKey = questionIdKeys.find(key => key in firstRow)
-    const selectedOptionKey = selectedOptionKeys.find(key => key in firstRow)
-    const scoreKey = scoreKeys.find(key => key in firstRow)
+    const questionIdKey = questionIdKeys.find((key) => key in firstRow)
+    const selectedOptionKey = selectedOptionKeys.find((key) => key in firstRow)
+    const scoreKey = scoreKeys.find((key) => key in firstRow)
 
     if (!questionIdKey || !selectedOptionKey) {
       throw new Error('CSV格式不正确，必须包含问题ID和选项列。请检查文件格式。')
@@ -393,12 +411,20 @@ export default function GapAnalysisPage() {
 
     const calculateScoreFromOption = (optionId: string): { score: number; options: string[] } => {
       const optionScores: Record<string, number> = {
-        'A': 5, 'B': 4, 'C': 3, 'D': 2, 'E': 1,
-        'a': 5, 'b': 4, 'c': 3, 'd': 2, 'e': 1,
+        A: 5,
+        B: 4,
+        C: 3,
+        D: 2,
+        E: 1,
+        a: 5,
+        b: 4,
+        c: 3,
+        d: 2,
+        e: 1,
       }
 
       if (optionId.includes('、') || optionId.includes(',') || optionId.includes(' ')) {
-        const options = optionId.split(/[、, ]+/).filter(o => o.trim())
+        const options = optionId.split(/[、, ]+/).filter((o) => o.trim())
         const sum = options.reduce((acc, opt) => acc + (optionScores[opt.trim()] || 0), 0)
         const score = Math.round(sum / options.length)
         return { score, options }
@@ -502,11 +528,15 @@ export default function GapAnalysisPage() {
     if (!analysis) return
 
     if (targetMaturity <= analysis.overall.maturityLevel) {
-      message.warning(`目标成熟度（${targetMaturity.toFixed(1)}）应高于当前成熟度（${analysis.overall.maturityLevel.toFixed(2)}）`)
+      message.warning(
+        `目标成熟度（${targetMaturity.toFixed(1)}）应高于当前成熟度（${analysis.overall.maturityLevel.toFixed(2)}）`
+      )
       return
     }
 
-    router.push(`/projects/${projectId}/action-plan?surveyResponseId=${analysis.surveyResponseId}&targetMaturity=${targetMaturity}`)
+    router.push(
+      `/projects/${projectId}/action-plan?surveyResponseId=${analysis.surveyResponseId}&targetMaturity=${targetMaturity}`
+    )
     setModalVisible(false)
   }
 
@@ -642,7 +672,8 @@ export default function GapAnalysisPage() {
               <Alert className="mb-4 border-emerald-500 bg-emerald-50">
                 <CheckCircle className="w-4 h-4 text-emerald-600" />
                 <AlertDescription className="text-emerald-800">
-                  文件已就绪 - 已解析 {Object.keys(parsedData.answers || {}).length} 个问题答案，总分：{parsedData.totalScore || 0} / {parsedData.maxScore || 0}
+                  文件已就绪 - 已解析 {Object.keys(parsedData.answers || {}).length}{' '}
+                  个问题答案，总分：{parsedData.totalScore || 0} / {parsedData.maxScore || 0}
                 </AlertDescription>
               </Alert>
             )}
@@ -651,7 +682,8 @@ export default function GapAnalysisPage() {
               <Info className="w-4 h-4" />
               <AlertTitle>文件格式说明</AlertTitle>
               <AlertDescription>
-                CSV/Excel文件应包含以下列：Question ID（问题ID）、Selected Option（选择的选项ID）、Score（该选项的得分，可选）
+                CSV/Excel文件应包含以下列：Question ID（问题ID）、Selected
+                Option（选择的选项ID）、Score（该选项的得分，可选）
               </AlertDescription>
             </Alert>
           </CardContent>
@@ -670,7 +702,11 @@ export default function GapAnalysisPage() {
       {analysis && !loading && (
         <>
           <Alert
-            variant={analysis.conflicts.hasConflict ? getSeverityType(analysis.conflicts.severity) : 'default'}
+            variant={
+              analysis.conflicts.hasConflict
+                ? getSeverityType(analysis.conflicts.severity)
+                : 'default'
+            }
             className={`mb-6 ${analysis.conflicts.hasConflict ? getSeverityClassName(analysis.conflicts.severity) : 'border-emerald-500 bg-emerald-50 text-emerald-800'}`}
           >
             <AlertDescription>
@@ -695,7 +731,9 @@ export default function GapAnalysisPage() {
                     </div>
                     <div>
                       <p className="text-xs text-[#94A3B8]">姓名</p>
-                      <p className="text-sm font-medium text-[#1E3A5F]">{analysis.respondentInfo.name || '未填写'}</p>
+                      <p className="text-sm font-medium text-[#1E3A5F]">
+                        {analysis.respondentInfo.name || '未填写'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
@@ -704,7 +742,9 @@ export default function GapAnalysisPage() {
                     </div>
                     <div>
                       <p className="text-xs text-[#94A3B8]">部门</p>
-                      <p className="text-sm font-medium text-[#1E3A5F]">{analysis.respondentInfo.department || '未填写'}</p>
+                      <p className="text-sm font-medium text-[#1E3A5F]">
+                        {analysis.respondentInfo.department || '未填写'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
@@ -713,7 +753,9 @@ export default function GapAnalysisPage() {
                     </div>
                     <div>
                       <p className="text-xs text-[#94A3B8]">职位</p>
-                      <p className="text-sm font-medium text-[#1E3A5F]">{analysis.respondentInfo.position || '未填写'}</p>
+                      <p className="text-sm font-medium text-[#1E3A5F]">
+                        {analysis.respondentInfo.position || '未填写'}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
@@ -748,20 +790,30 @@ export default function GapAnalysisPage() {
                   <Badge className={getGradeClassName(analysis.overall.grade)}>
                     {analysis.overall.grade}
                   </Badge>
-                  <p className="text-sm text-[#94A3B8] mt-2">
-                    {analysis.overall.description}
-                  </p>
+                  <p className="text-sm text-[#94A3B8] mt-2">{analysis.overall.description}</p>
                 </div>
                 <div className="md:col-span-2 space-y-3">
                   <div>
                     <p className="text-sm text-[#94A3B8] mb-1">计算公式</p>
-                    <code className="text-sm bg-slate-100 px-2 py-1 rounded">{analysis.overall.calculation.formula}</code>
+                    <code className="text-sm bg-slate-100 px-2 py-1 rounded">
+                      {analysis.overall.calculation.formula}
+                    </code>
                   </div>
                   <div>
-                    <p className="text-sm text-[#94A3B8]">总得分: <strong className="text-[#1E3A5F]">{analysis.overall.calculation.totalScore}</strong></p>
+                    <p className="text-sm text-[#94A3B8]">
+                      总得分:{' '}
+                      <strong className="text-[#1E3A5F]">
+                        {analysis.overall.calculation.totalScore}
+                      </strong>
+                    </p>
                   </div>
                   <div>
-                    <p className="text-sm text-[#94A3B8]">满分: <strong className="text-[#1E3A5F]">{analysis.overall.calculation.maxScore}</strong></p>
+                    <p className="text-sm text-[#94A3B8]">
+                      满分:{' '}
+                      <strong className="text-[#1E3A5F]">
+                        {analysis.overall.calculation.maxScore}
+                      </strong>
+                    </p>
                   </div>
                   <Progress
                     value={getMaturityProgress(analysis.overall.maturityLevel)}
@@ -782,11 +834,41 @@ export default function GapAnalysisPage() {
               <CardContent>
                 <div className="space-y-4">
                   {[
-                    { level: 5, label: '卓越级 (Level 5)', count: analysis.distribution.level_5, color: 'bg-purple-500', textColor: 'text-purple-600' },
-                    { level: 4, label: '系统优化级 (Level 4)', count: analysis.distribution.level_4, color: 'bg-blue-500', textColor: 'text-blue-600' },
-                    { level: 3, label: '充分规范级 (Level 3)', count: analysis.distribution.level_3, color: 'bg-emerald-500', textColor: 'text-emerald-600' },
-                    { level: 2, label: '初步规范级 (Level 2)', count: analysis.distribution.level_2, color: 'bg-amber-500', textColor: 'text-amber-600' },
-                    { level: 1, label: '初始级 (Level 1)', count: analysis.distribution.level_1, color: 'bg-red-500', textColor: 'text-red-600' },
+                    {
+                      level: 5,
+                      label: '卓越级 (Level 5)',
+                      count: analysis.distribution.level_5,
+                      color: 'bg-purple-500',
+                      textColor: 'text-purple-600',
+                    },
+                    {
+                      level: 4,
+                      label: '系统优化级 (Level 4)',
+                      count: analysis.distribution.level_4,
+                      color: 'bg-blue-500',
+                      textColor: 'text-blue-600',
+                    },
+                    {
+                      level: 3,
+                      label: '充分规范级 (Level 3)',
+                      count: analysis.distribution.level_3,
+                      color: 'bg-emerald-500',
+                      textColor: 'text-emerald-600',
+                    },
+                    {
+                      level: 2,
+                      label: '初步规范级 (Level 2)',
+                      count: analysis.distribution.level_2,
+                      color: 'bg-amber-500',
+                      textColor: 'text-amber-600',
+                    },
+                    {
+                      level: 1,
+                      label: '初始级 (Level 1)',
+                      count: analysis.distribution.level_1,
+                      color: 'bg-red-500',
+                      textColor: 'text-red-600',
+                    },
                   ].map((item) => {
                     const total = analysis.statistics.totalQuestions || 1
                     const percentage = total > 0 ? (item.count / total) * 100 : 0
@@ -816,11 +898,10 @@ export default function GapAnalysisPage() {
                 <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm text-[#94A3B8]">
                   <span>总题数: {analysis.statistics.totalQuestions}题</span>
                   <span>
-                    主要集中: Level {
-                      Object.entries(analysis.distribution)
-                        .sort(([,a], [,b]) => (b as number) - (a as number))[0][0]
-                        .replace('level_', '')
-                    }
+                    主要集中: Level{' '}
+                    {Object.entries(analysis.distribution)
+                      .sort(([, a], [, b]) => (b as number) - (a as number))[0][0]
+                      .replace('level_', '')}
                   </span>
                 </div>
               </CardContent>
@@ -842,7 +923,10 @@ export default function GapAnalysisPage() {
               </CardHeader>
               <CardContent>
                 {analysis.topShortcomings.map((item) => (
-                  <div key={item.rank} className="mb-3 pb-3 border-b border-slate-100 last:border-0">
+                  <div
+                    key={item.rank}
+                    className="mb-3 pb-3 border-b border-slate-100 last:border-0"
+                  >
                     <div className="flex items-center gap-2">
                       <Badge variant="destructive">{item.rank}</Badge>
                       <div>
@@ -863,13 +947,19 @@ export default function GapAnalysisPage() {
               </CardHeader>
               <CardContent>
                 {analysis.topStrengths.map((item) => (
-                  <div key={item.rank} className="mb-3 pb-3 border-b border-slate-100 last:border-0">
+                  <div
+                    key={item.rank}
+                    className="mb-3 pb-3 border-b border-slate-100 last:border-0"
+                  >
                     <div className="flex items-center gap-2">
-                      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">{item.rank}</Badge>
+                      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                        {item.rank}
+                      </Badge>
                       <div>
                         <p className="font-semibold text-[#1E3A5F]">{item.cluster_name}</p>
                         <p className="text-xs text-[#94A3B8]">
-                          成熟度: {item.maturityLevel.toFixed(2)} (优势: {item.advantage.toFixed(2)})
+                          成熟度: {item.maturityLevel.toFixed(2)} (优势: {item.advantage.toFixed(2)}
+                          )
                         </p>
                       </div>
                     </div>
@@ -888,19 +978,27 @@ export default function GapAnalysisPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <p className="text-sm text-[#94A3B8]">总问题数</p>
-                  <p className="text-xl font-semibold text-[#1E3A5F]">{analysis.statistics.totalQuestions}</p>
+                  <p className="text-xl font-semibold text-[#1E3A5F]">
+                    {analysis.statistics.totalQuestions}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-[#94A3B8]">总聚类数</p>
-                  <p className="text-xl font-semibold text-[#1E3A5F]">{analysis.statistics.totalClusters}</p>
+                  <p className="text-xl font-semibold text-[#1E3A5F]">
+                    {analysis.statistics.totalClusters}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-[#94A3B8]">平均聚类成熟度</p>
-                  <p className="text-xl font-semibold text-[#1E3A5F]">{analysis.statistics.averageClusterMaturity.toFixed(2)}</p>
+                  <p className="text-xl font-semibold text-[#1E3A5F]">
+                    {analysis.statistics.averageClusterMaturity.toFixed(2)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-[#94A3B8]">成熟度标准差</p>
-                  <p className="text-xl font-semibold text-[#1E3A5F]">{analysis.statistics.clusterMaturityStdDev.toFixed(2)}</p>
+                  <p className="text-xl font-semibold text-[#1E3A5F]">
+                    {analysis.statistics.clusterMaturityStdDev.toFixed(2)}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -918,12 +1016,17 @@ export default function GapAnalysisPage() {
                     <AccordionTrigger className="hover:no-underline">
                       <div className="flex items-center justify-between w-full pr-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-[#1E3A5F]">{cluster.cluster_name}</span>
-                          <Badge className={getGradeClassName(cluster.grade)}>{cluster.grade}</Badge>
+                          <span className="font-semibold text-[#1E3A5F]">
+                            {cluster.cluster_name}
+                          </span>
+                          <Badge className={getGradeClassName(cluster.grade)}>
+                            {cluster.grade}
+                          </Badge>
                           {cluster.isShortcoming && <Badge variant="destructive">短板</Badge>}
                         </div>
                         <span className="text-xs text-[#94A3B8]">
-                          成熟度: {cluster.maturityLevel.toFixed(2)} | 维度: {cluster.dimension} | 问题数: {cluster.questionsCount}
+                          成熟度: {cluster.maturityLevel.toFixed(2)} | 维度: {cluster.dimension} |
+                          问题数: {cluster.questionsCount}
                         </span>
                       </div>
                     </AccordionTrigger>
@@ -987,7 +1090,8 @@ export default function GapAnalysisPage() {
               <div className="space-y-4">
                 <Alert>
                   <AlertDescription>
-                    总体成熟度: {analysis?.overall.maturityLevel.toFixed(2)} ({analysis?.overall.grade})
+                    总体成熟度: {analysis?.overall.maturityLevel.toFixed(2)} (
+                    {analysis?.overall.grade})
                   </AlertDescription>
                 </Alert>
 
@@ -1011,9 +1115,16 @@ export default function GapAnalysisPage() {
                             id={`level-${level}`}
                             disabled={disabled}
                           />
-                          <Label htmlFor={`level-${level}`} className={disabled ? 'text-slate-400' : ''}>
+                          <Label
+                            htmlFor={`level-${level}`}
+                            className={disabled ? 'text-slate-400' : ''}
+                          >
                             Level {level} - {levelNames[level]}
-                            {disabled && <Badge variant="secondary" className="ml-2">已达成</Badge>}
+                            {disabled && (
+                              <Badge variant="secondary" className="ml-2">
+                                已达成
+                              </Badge>
+                            )}
                           </Label>
                         </div>
                       )
@@ -1038,9 +1149,7 @@ export default function GapAnalysisPage() {
                 <Button variant="outline" onClick={() => setModalVisible(false)}>
                   取消
                 </Button>
-                <Button onClick={handleConfirmTarget}>
-                  开始生成
-                </Button>
+                <Button onClick={handleConfirmTarget}>开始生成</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

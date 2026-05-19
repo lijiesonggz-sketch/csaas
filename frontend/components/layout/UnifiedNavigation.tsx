@@ -31,16 +31,17 @@ export default function UnifiedNavigation({ organizationId }: UnifiedNavigationP
 
   // 确定当前激活的标签
   const getActiveTab = () => {
+    const currentPathname = pathname ?? ''
     // Radar子页面都应该激活Radar标签
-    if (pathname.startsWith('/radar')) {
+    if (currentPathname.startsWith('/radar')) {
       return 2 // Radar Service的索引
     }
     // 项目子页面应该激活标准评估标签
-    if (pathname.startsWith('/projects')) {
+    if (currentPathname.startsWith('/projects')) {
       return 1 // 标准评估的索引
     }
     // Dashboard或根路径
-    if (pathname === '/' || pathname === '') {
+    if (currentPathname === '/' || currentPathname === '') {
       return 0 // Dashboard的索引
     }
     return 0
@@ -60,7 +61,8 @@ export default function UnifiedNavigation({ organizationId }: UnifiedNavigationP
       <div className="max-w-[1400px] mx-auto px-2">
         <div className="flex items-center h-16">
           {navItems.map((item) => {
-            const isActive = getActiveTab() === navItems.findIndex(nav => nav.value === item.value)
+            const isActive =
+              getActiveTab() === navItems.findIndex((nav) => nav.value === item.value)
             const Icon = item.icon
 
             return (

@@ -86,7 +86,7 @@ export default function FailureModeAdminPage() {
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
   const canAccess = Boolean(session?.user && ALLOWED_ROLES.includes(session.user.role))
-  const deepLinkedFailureModeId = searchParams.get('failureModeId')
+  const deepLinkedFailureModeId = searchParams?.get('failureModeId') ?? null
   const appliedDeepLinkId = useRef<string | null>(null)
 
   const [filters, setFilters] = useState({

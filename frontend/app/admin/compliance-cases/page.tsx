@@ -171,7 +171,7 @@ export default function ComplianceCasesAdminPage() {
   const searchParams = useSearchParams()
   const { data: session, status } = useSession()
   const canAccess = Boolean(session?.user && ALLOWED_ROLES.includes(session.user.role))
-  const deepLinkedCaseId = searchParams.get('caseId')
+  const deepLinkedCaseId = searchParams?.get('caseId') ?? null
   const pendingDeepLinkCaseId = useRef<string | null>(null)
 
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)

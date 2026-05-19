@@ -21,9 +21,9 @@ interface UploadedDocument {
 }
 
 export default function ClusteringPage() {
-  const params = useParams()
+  const params = useParams<{ projectId: string }>()
   const router = useRouter()
-  const projectId = params.projectId as string
+  const projectId = params?.projectId ?? ''
   const { project } = useProject()
 
   const [taskId, setTaskId] = useState<string | null>(null)
@@ -71,7 +71,10 @@ export default function ClusteringPage() {
       const uploadedDocuments = project.metadata?.uploadedDocuments
       const docs: UploadedDocument[] = Array.isArray(uploadedDocuments)
         ? uploadedDocuments
-            .filter((doc): doc is { id: string; name?: string; content?: string } => typeof doc?.id === 'string')
+            .filter(
+              (doc): doc is { id: string; name?: string; content?: string } =>
+                typeof doc?.id === 'string'
+            )
             .map((doc) => ({
               id: doc.id,
               name: doc.name ?? '',
@@ -170,7 +173,10 @@ export default function ClusteringPage() {
       const uploadedDocuments = project.metadata?.uploadedDocuments
       const documents: UploadedDocument[] = Array.isArray(uploadedDocuments)
         ? uploadedDocuments
-            .filter((doc): doc is { id: string; name?: string; content?: string } => typeof doc?.id === 'string')
+            .filter(
+              (doc): doc is { id: string; name?: string; content?: string } =>
+                typeof doc?.id === 'string'
+            )
             .map((doc) => ({
               id: doc.id,
               name: doc.name ?? '',
@@ -204,7 +210,6 @@ export default function ClusteringPage() {
           },
         }),
       })
-
     } catch (err) {
       console.error('❌ [Clustering] 生成失败:', err)
       setError(err instanceof Error ? err.message : '生成失败')
@@ -381,7 +386,9 @@ export default function ClusteringPage() {
                         />
                         <span className="text-sm font-medium">GPT-4</span>
                       </div>
-                      <span className="text-sm text-[#94A3B8]">{progress.progress.gpt4.message}</span>
+                      <span className="text-sm text-[#94A3B8]">
+                        {progress.progress.gpt4.message}
+                      </span>
                     </div>
                   )}
 
@@ -401,7 +408,9 @@ export default function ClusteringPage() {
                         />
                         <span className="text-sm font-medium">Claude</span>
                       </div>
-                      <span className="text-sm text-[#94A3B8]">{progress.progress.claude.message}</span>
+                      <span className="text-sm text-[#94A3B8]">
+                        {progress.progress.claude.message}
+                      </span>
                     </div>
                   )}
 
@@ -421,7 +430,9 @@ export default function ClusteringPage() {
                         />
                         <span className="text-sm font-medium">国内模型</span>
                       </div>
-                      <span className="text-sm text-[#94A3B8]">{progress.progress.domestic.message}</span>
+                      <span className="text-sm text-[#94A3B8]">
+                        {progress.progress.domestic.message}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -430,7 +441,8 @@ export default function ClusteringPage() {
 
             <div className="mt-4 p-3 bg-blue-50 rounded-lg">
               <p className="text-sm text-blue-700">
-                💡 提示：您可以切换到其他标签页，任务将继续在后台运行。回到此页面时会自动显示最新进度。
+                💡
+                提示：您可以切换到其他标签页，任务将继续在后台运行。回到此页面时会自动显示最新进度。
               </p>
             </div>
           </CardContent>

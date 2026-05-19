@@ -167,7 +167,7 @@ export default function TaxonomyRolloutGatesPage() {
         if (cancelled) return
 
         setPolicies(data)
-        const nextSelected = searchParams.get('l1Code')?.trim().toUpperCase()
+        const nextSelected = searchParams?.get('l1Code')?.trim().toUpperCase()
         setSelectedL1Code(
           nextSelected && data.some((policy) => policy.l1Code === nextSelected)
             ? nextSelected
@@ -199,7 +199,7 @@ export default function TaxonomyRolloutGatesPage() {
     }
 
     const nextTarget = getNextTargetState(selectedPolicy.rolloutState)
-    const requestedTarget = searchParams.get(
+    const requestedTarget = searchParams?.get(
       'targetState'
     ) as TaxonomyRolloutMutableTargetState | null
 

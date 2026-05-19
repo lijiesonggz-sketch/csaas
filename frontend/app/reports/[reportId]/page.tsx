@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { AlertCircle, ChevronRight, Download, FileText, LoaderCircle, ShieldAlert } from 'lucide-react'
+import {
+  AlertCircle,
+  ChevronRight,
+  Download,
+  FileText,
+  LoaderCircle,
+  ShieldAlert,
+} from 'lucide-react'
 import { ControlDetailDrawer } from '@/components/compliance/ControlDetailDrawer'
 import {
   createReportPdfJob,
@@ -20,16 +27,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { RemediationPriorityList } from '@/components/compliance/RemediationPriorityList'
-import type {
-  ControlReportSectionDto,
-  ControlReportControlNodeDto,
-} from '@/lib/types/report'
+import type { ControlReportSectionDto, ControlReportControlNodeDto } from '@/lib/types/report'
 
 type ReportControlDetailEntry = ControlReportControlNodeDto & {
   controlId: string
 }
 
-function canOpenControlDetail(control: ControlReportControlNodeDto): control is ReportControlDetailEntry {
+function canOpenControlDetail(
+  control: ControlReportControlNodeDto
+): control is ReportControlDetailEntry {
   return (
     typeof control.controlId === 'string' &&
     control.controlId.trim().length > 0 &&
@@ -44,8 +50,8 @@ function canOpenControlDetail(control: ControlReportControlNodeDto): control is 
 }
 
 export default function ControlReportPage() {
-  const params = useParams()
-  const reportId = params.reportId as string
+  const params = useParams<{ reportId: string }>()
+  const reportId = params?.reportId ?? ''
 
   const [sections, setSections] = useState<ControlReportSectionDto[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -302,11 +308,7 @@ export default function ControlReportPage() {
             <div className="flex flex-wrap items-center gap-2">
               {pdfJob?.status === 'ready' ? (
                 <>
-                  <Button
-                    variant="outline"
-                    onClick={handleDownloadPdf}
-                    disabled={isDownloadingPdf}
-                  >
+                  <Button variant="outline" onClick={handleDownloadPdf} disabled={isDownloadingPdf}>
                     {isDownloadingPdf ? (
                       <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
@@ -332,7 +334,9 @@ export default function ControlReportPage() {
                     pdfJob?.status === 'rendering'
                   }
                 >
-                  {isSubmittingPdfJob || pdfJob?.status === 'queued' || pdfJob?.status === 'rendering' ? (
+                  {isSubmittingPdfJob ||
+                  pdfJob?.status === 'queued' ||
+                  pdfJob?.status === 'rendering' ? (
                     <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Download className="mr-2 h-4 w-4" />
@@ -388,7 +392,10 @@ export default function ControlReportPage() {
               </CardHeader>
               <CardContent>
                 {section.l2Sections.map((l2Section) => (
-                  <div key={l2Section.l2Code} className="mb-6 rounded-sm border border-[#E2E8F0] p-4">
+                  <div
+                    key={l2Section.l2Code}
+                    className="mb-6 rounded-sm border border-[#E2E8F0] p-4"
+                  >
                     <div className="mb-4 flex items-center gap-2">
                       <ChevronRight className="h-4 w-4 text-slate-400" />
                       <Badge variant="outline">{l2Section.l2Code}</Badge>
@@ -443,7 +450,9 @@ export default function ControlReportPage() {
                                           className="rounded-lg border border-slate-200 bg-white p-3"
                                         >
                                           <div className="flex flex-wrap items-center gap-2">
-                                            <Badge variant="outline">{recommendation.actionCode}</Badge>
+                                            <Badge variant="outline">
+                                              {recommendation.actionCode}
+                                            </Badge>
                                             {recommendation.priority ? (
                                               <Badge variant="secondary">
                                                 {recommendation.priority}
