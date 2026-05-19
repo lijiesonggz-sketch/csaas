@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { AdvisoryModuleConfig } from '../../database/entities/advisory-module-config.entity'
+import { AdvisoryWorkflowSession } from '../../database/entities/advisory-workflow-session.entity'
 import { AuditModule } from '../audit/audit.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
 import { AdvisoryAccessController } from './access/advisory-access.controller'
@@ -23,19 +24,24 @@ import { ThinkTankPromptAssemblerService } from './runtime/prompt-assembler.serv
 import { ThinkTankRuntimeFileProviderService } from './runtime/runtime-file-provider.service'
 import { ThinkTankWorkflowParserService } from './runtime/workflow-parser.service'
 import { ThinkTankWorkflowRegistryService } from './runtime/workflow-registry.service'
+import { AdvisorySessionController } from './sessions/advisory-session.controller'
+import { AdvisorySessionRepository } from './sessions/advisory-session.repository'
+import { AdvisorySessionService } from './sessions/advisory-session.service'
 
 @Module({
   imports: [
     ConfigModule,
     AuditModule,
     OrganizationsModule,
-    TypeOrmModule.forFeature([AdvisoryModuleConfig]),
+    TypeOrmModule.forFeature([AdvisoryModuleConfig, AdvisoryWorkflowSession]),
   ],
-  controllers: [AdvisoryAccessController, AdvisoryAdminController],
+  controllers: [AdvisoryAccessController, AdvisoryAdminController, AdvisorySessionController],
   providers: [
     AdvisoryAccessService,
     AdvisoryAdminService,
     AdvisoryModuleConfigRepository,
+    AdvisorySessionRepository,
+    AdvisorySessionService,
     AdvisoryEventService,
     {
       provide: THINKTANK_PROVIDER_GATEWAY_CONFIG,
@@ -62,6 +68,8 @@ import { ThinkTankWorkflowRegistryService } from './runtime/workflow-registry.se
     AdvisoryAccessService,
     AdvisoryAdminService,
     AdvisoryEventService,
+    AdvisorySessionService,
+    AdvisorySessionRepository,
     ThinkTankProviderGatewayService,
     ThinkTankRuntimeFileProviderService,
     ThinkTankBrandMapperService,

@@ -1,0 +1,48 @@
+{
+  "success": true,
+  "subagent": "atdd-api-tests",
+  "tests": [
+    {
+      "file": "backend/src/modules/advisory/sessions/advisory-session.service.spec.ts",
+      "description": "RED service tests for eight-workflow catalog, shared launch path, success audit, and failure audit/no corrupted session",
+      "expected_to_fail": true,
+      "acceptance_criteria_covered": ["AC1", "AC2", "AC3", "AC5"],
+      "priority_coverage": {
+        "P0": 5,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0
+      }
+    },
+    {
+      "file": "backend/src/modules/advisory/sessions/advisory-session.repository.spec.ts",
+      "description": "RED repository tests for BaseRepository tenant isolation and immutable field stripping",
+      "expected_to_fail": true,
+      "acceptance_criteria_covered": ["AC4"],
+      "priority_coverage": {
+        "P0": 4,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0
+      }
+    },
+    {
+      "file": "backend/src/modules/advisory/sessions/advisory-session.controller.spec.ts",
+      "description": "RED controller tests for catalog and launch advisory envelopes using tenant context",
+      "expected_to_fail": true,
+      "acceptance_criteria_covered": ["AC1", "AC2", "AC4"],
+      "priority_coverage": {
+        "P0": 2,
+        "P1": 0,
+        "P2": 0,
+        "P3": 0
+      }
+    }
+  ],
+  "fixture_needs": ["mockAdvisoryAccess", "mockRuntimeRegistry", "mockPromptAssembler", "mockAdvisoryEventService", "mockTenantScopedRepository"],
+  "knowledge_fragments_used": ["data-factories", "fixture-architecture", "test-quality", "test-levels-framework", "test-priorities-matrix"],
+  "test_count": 11,
+  "tdd_phase": "RED",
+  "provider_scrutiny": "completed",
+  "summary": "Generated RED backend Jest coverage for Story 2.5 workflow catalog, launch, audit, and tenant-scoped session persistence."
+}

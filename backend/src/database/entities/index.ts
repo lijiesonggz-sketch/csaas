@@ -21,6 +21,10 @@ export { AICostTracking } from './ai-cost-tracking.entity'
 export { AuditLog, AuditAction } from './audit-log.entity'
 export { AdvisoryModuleConfig } from './advisory-module-config.entity'
 export {
+  AdvisoryWorkflowSession,
+  AdvisoryWorkflowSessionStatus,
+} from './advisory-workflow-session.entity'
+export {
   AIGenerationResult,
   ReviewStatus,
   ConfidenceLevel,

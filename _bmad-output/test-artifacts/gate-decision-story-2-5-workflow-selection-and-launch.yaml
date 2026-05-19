@@ -1,0 +1,48 @@
+schema: 1
+story_id: "2.5"
+story_key: "2-5-workflow-selection-and-launch"
+story_title: "Workflow Selection and Launch"
+gate_type: "story"
+decision: "PASS"
+decision_mode: "deterministic"
+decision_date: "2026-05-20T05:30:24+08:00"
+evaluator: "TEA Trace Workflow"
+rationale: "P0 coverage is 100%, overall requirements coverage is 100%, all Story 2.5 acceptance criteria have direct automated evidence, and no critical coverage gaps remain after code review fixes."
+criteria:
+  p0_coverage_required: 100
+  p0_coverage_actual: 100
+  p0_status: "MET"
+  p1_coverage_target_pass: 90
+  p1_coverage_minimum: 80
+  p1_coverage_actual: 100
+  p1_status: "MET"
+  overall_coverage_minimum: 80
+  overall_coverage_actual: 100
+  overall_status: "MET"
+  critical_gaps: 0
+  high_gaps: 0
+  security_issues: 0
+  critical_nfr_failures: 0
+  known_flaky_tests: 0
+evidence:
+  traceability_report: "_bmad-output/test-artifacts/traceability-report-story-2-5.md"
+  phase1_matrix: "_bmad-output/test-artifacts/traceability-story-2-5-workflow-selection-and-launch-phase1.json"
+  atdd: "_bmad-output/test-artifacts/atdd-checklist-2-5-workflow-selection-and-launch.md"
+  code_review: "_bmad-output/test-artifacts/code-review-story-2-5.md"
+  local_test_results:
+    - "cd backend && npm run test -- src/modules/advisory/sessions --runInBand: PASS (21 tests)"
+    - "cd backend && npm run test -- src/modules/advisory/runtime src/modules/advisory/sessions --runInBand: PASS (51 tests)"
+    - "cd backend && npm run test -- src/modules/advisory --runInBand: PASS (117 tests)"
+    - "cd backend && npx tsc --noEmit: PASS"
+    - "cd backend && npm run orm:entities:parity: PASS"
+    - "cd backend && npm run orm:metadata:check: PASS"
+    - "cd frontend && npm run test -- app/advisory/__tests__/page.test.tsx app/api/advisory/workflows --runInBand: PASS (23 tests)"
+    - "cd frontend && npm run test -- app/advisory app/api/advisory lib/advisory --runInBand: PASS (40 tests)"
+    - "cd frontend && npx tsc --noEmit: PASS"
+residual_risks:
+  - severity: "LOW"
+    description: "frontend/app/advisory/__tests__/page.test.tsx is an aggregated route test suite over 300 lines; current Story 2.5 assertions are focused, so this is a maintainability warning only."
+next_steps:
+  - "Mark Story 2.5 and sprint status as done."
+  - "Run pre-commit-equivalent checks on staged files."
+  - "Commit Story 2.5 before continuing to Story 2.6."

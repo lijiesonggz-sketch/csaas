@@ -22,10 +22,20 @@ import {
   readAdvisoryPreferences,
   writeAdvisoryPreferences,
 } from '@/lib/advisory/preferences'
+import {
+  THINKTANK_WORKFLOW_START_FAILED_MESSAGE,
+  fetchThinkTankWorkflows,
+  launchThinkTankWorkflow,
+  type ThinkTankWorkflowCatalogItem,
+  type ThinkTankWorkflowLaunchResult,
+} from '@/lib/advisory/workflows'
 import { cn } from '@/lib/utils'
 
 const ADVISORY_STATE_SUMMARY_ID = 'advisory-state-summary'
 const DOCUMENT_DRAWER_DESCRIPTION_ID = 'advisory-document-drawer-disabled-description'
+const WORKFLOW_CATALOG_ERROR_MESSAGE = '暂时无法加载 ThinkTank 工作流目录，请刷新页面后重试。'
+
+type WorkflowCatalogStatus = 'loading' | 'ready' | 'error'
 
 const shellGridVariants = cva(
   'grid h-[calc(100vh-var(--advisory-nav-height)-48px)] min-h-[560px] grid-cols-[var(--advisory-sidebar-width)_minmax(var(--advisory-chat-min-width),1fr)_var(--advisory-document-rail-width)] overflow-hidden rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] shadow-sm transition-[font-size]',
@@ -55,6 +65,26 @@ const readingSurfaceVariants = cva('mx-auto text-center transition-[font-size,li
     density: DEFAULT_ADVISORY_READING_DENSITY,
   },
 })
+
+const activePromptSurfaceVariants = cva(
+  'mx-auto w-full text-left transition-[font-size,line-height]',
+  {
+    variants: {
+      density: {
+        compact: 'max-w-3xl text-[13px] leading-5',
+        default: 'max-w-4xl text-sm leading-6',
+        comfortable: 'max-w-5xl text-base leading-7',
+      },
+    },
+    defaultVariants: {
+      density: DEFAULT_ADVISORY_READING_DENSITY,
+    },
+  }
+)
+
+function readWorkflowErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message.trim() ? error.message : fallback
+}
 
 function useDesktopViewport() {
   const [isDesktop, setIsDesktop] = useState<boolean | null>(null)
@@ -206,6 +236,15 @@ export default function AdvisoryWorkspaceShell() {
   const [readingDensity, setReadingDensity] = useState<AdvisoryReadingDensity>(
     DEFAULT_ADVISORY_READING_DENSITY
   )
+  const [workflowCatalogStatus, setWorkflowCatalogStatus] =
+    useState<WorkflowCatalogStatus>('loading')
+  const [workflows, setWorkflows] = useState<ThinkTankWorkflowCatalogItem[]>([])
+  const [catalogError, setCatalogError] = useState<string | null>(null)
+  const [launchingWorkflowKey, setLaunchingWorkflowKey] = useState<string | null>(null)
+  const [launchError, setLaunchError] = useState<string | null>(null)
+  const [activeLaunch, setActiveLaunch] = useState<ThinkTankWorkflowLaunchResult | null>(null)
+  const launchInFlightRef = useRef(false)
+  const activeLaunchRef = useRef<ThinkTankWorkflowLaunchResult | null>(null)
 
   useEffect(() => {
     setReadingDensity(readAdvisoryPreferences(userPreferenceIdentity).readingDensity)
@@ -216,7 +255,65 @@ export default function AdvisoryWorkspaceShell() {
     writeAdvisoryPreferences(userPreferenceIdentity, { readingDensity: nextDensity })
   }
 
+  useEffect(() => {
+    if (isDesktop !== true) {
+      return undefined
+    }
+
+    let isCancelled = false
+    setWorkflowCatalogStatus('loading')
+    setCatalogError(null)
+
+    fetchThinkTankWorkflows()
+      .then((catalog) => {
+        if (isCancelled) return
+        setWorkflows(catalog.workflows)
+        setWorkflowCatalogStatus('ready')
+      })
+      .catch((error) => {
+        if (isCancelled) return
+        setWorkflows([])
+        setCatalogError(readWorkflowErrorMessage(error, WORKFLOW_CATALOG_ERROR_MESSAGE))
+        setWorkflowCatalogStatus('error')
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [isDesktop])
+
+  const handleLaunchWorkflow = async (workflowKey: string) => {
+    if (launchInFlightRef.current || activeLaunchRef.current) {
+      return
+    }
+
+    launchInFlightRef.current = true
+    setLaunchError(null)
+    setLaunchingWorkflowKey(workflowKey)
+
+    try {
+      const launch = await launchThinkTankWorkflow(workflowKey)
+      activeLaunchRef.current = launch
+      setActiveLaunch(launch)
+    } catch (error) {
+      setLaunchError(readWorkflowErrorMessage(error, THINKTANK_WORKFLOW_START_FAILED_MESSAGE))
+    } finally {
+      launchInFlightRef.current = false
+      setLaunchingWorkflowKey(null)
+    }
+  }
+
   const readingDensityLabel = getAdvisoryReadingDensityLabel(readingDensity)
+  const activeWorkflowName = activeLaunch?.workflow.displayName ?? null
+  const advisoryStateSummary = activeLaunch
+    ? `ThinkTank 已启用。活动会话：${activeWorkflowName}。当前步骤：${activeLaunch.currentStep.label}。咨询文档抽屉为空。`
+    : 'ThinkTank 已启用。暂无活动会话。等待开始咨询。咨询文档抽屉为空。'
+  const workflowStatusSummary =
+    workflowCatalogStatus === 'loading'
+      ? '正在加载工作流目录。'
+      : workflowCatalogStatus === 'error'
+        ? '工作流目录加载失败。'
+        : `已加载 ${workflows.length} 个工作流。`
 
   if (isDesktop === null) {
     return <ViewportCheckingState />
@@ -238,7 +335,11 @@ export default function AdvisoryWorkspaceShell() {
         aria-label="ThinkTank 工作台状态"
         className="sr-only"
       >
-        ThinkTank 已启用。暂无活动会话。等待开始咨询。咨询文档抽屉为空。阅读密度：
+        {advisoryStateSummary}
+        {workflowStatusSummary}
+        {launchingWorkflowKey ? '正在启动工作流。' : ''}
+        {launchError ? '工作流启动失败。' : ''}
+        阅读密度：
         {readingDensityLabel}。
       </p>
       <div className={shellGridVariants({ density: readingDensity })}>
@@ -265,24 +366,67 @@ export default function AdvisoryWorkspaceShell() {
               <Workflow className="h-4 w-4" />
               工作流
             </div>
-            <ul className="space-y-2">
-              {['结构化咨询', '研究分析', '问题解决'].map((label) => (
-                <li
-                  key={label}
-                  aria-label={`${label} 待接入`}
-                  className="flex h-10 items-center justify-between rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 text-sm text-[hsl(var(--advisory-foreground))]"
-                >
-                  <span>{label}</span>
-                  <span className="text-xs text-[hsl(var(--advisory-muted-foreground))]">
-                    待接入
-                  </span>
-                </li>
-              ))}
-            </ul>
+            {workflowCatalogStatus === 'loading' && (
+              <div className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-4 text-sm leading-6 text-[hsl(var(--advisory-muted-foreground))]">
+                正在加载工作流目录
+              </div>
+            )}
+            {workflowCatalogStatus === 'error' && (
+              <div
+                role="alert"
+                className="rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-4 text-sm leading-6 text-[hsl(var(--destructive))]"
+              >
+                {catalogError ?? WORKFLOW_CATALOG_ERROR_MESSAGE}
+              </div>
+            )}
+            {workflowCatalogStatus === 'ready' && (
+              <ul className="space-y-2">
+                {workflows.map((workflow) => {
+                  const isActive = activeLaunch?.workflow.key === workflow.key
+                  const isLaunching = launchingWorkflowKey === workflow.key
+                  const isDisabled = Boolean(launchingWorkflowKey) || Boolean(activeLaunch)
+
+                  return (
+                    <li key={workflow.key}>
+                      <button
+                        type="button"
+                        aria-label={`启动 ${workflow.displayName}（${workflow.scenarioLabel}）`}
+                        aria-pressed={isActive}
+                        disabled={isDisabled}
+                        onClick={() => handleLaunchWorkflow(workflow.key)}
+                        className={cn(
+                          'flex min-h-16 w-full items-start justify-between gap-3 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-left text-sm text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-60',
+                          isActive &&
+                            'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
+                        )}
+                      >
+                        <span className="min-w-0">
+                          <span className="block font-medium">{workflow.displayName}</span>
+                          <span className="mt-1 block text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]">
+                            {workflow.scenarioLabel}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-xs font-medium text-[hsl(var(--advisory-muted-foreground))]">
+                          {isLaunching ? '启动中' : '启动'}
+                        </span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+            {launchError && (
+              <p
+                role="alert"
+                className="mt-3 rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
+              >
+                {launchError}
+              </p>
+            )}
           </nav>
 
           <div className="border-t border-[hsl(var(--advisory-border))] p-4 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]">
-            暂无活动会话
+            {activeLaunch ? `活动会话：${activeLaunch.workflow.displayName}` : '暂无活动会话'}
           </div>
         </aside>
 
@@ -313,23 +457,63 @@ export default function AdvisoryWorkspaceShell() {
             </div>
           </div>
 
-          <div className="flex flex-1 items-center justify-center overflow-y-auto p-6">
-            <div className={cn(readingSurfaceVariants({ density: readingDensity }))}>
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-sm bg-[hsl(var(--advisory-icon-bg))]">
-                <MessageSquareText className="h-6 w-6 text-[hsl(var(--advisory-foreground))]" />
+          {activeLaunch ? (
+            <div className="flex flex-1 overflow-y-auto p-6">
+              <div className={cn(activePromptSurfaceVariants({ density: readingDensity }))}>
+                <ol
+                  role="list"
+                  aria-label="工作流当前步骤"
+                  className="mb-5 flex items-center gap-2"
+                >
+                  <li className="flex min-h-9 items-center gap-2 rounded-sm border border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))] px-3 text-xs font-medium text-[hsl(var(--advisory-success-foreground))]">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[hsl(var(--advisory-success-foreground))] text-[10px] text-[hsl(var(--advisory-success-bg))]">
+                      {activeLaunch.currentStep.index}
+                    </span>
+                    <span>{activeLaunch.currentStep.label}</span>
+                  </li>
+                </ol>
+                <article
+                  aria-label={`${activeLaunch.workflow.displayName} 首个提示`}
+                  className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-muted-bg))] p-5"
+                >
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-sm bg-[hsl(var(--advisory-icon-bg))]">
+                      <MessageSquareText className="h-5 w-5 text-[hsl(var(--advisory-foreground))]" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-semibold text-[hsl(var(--advisory-foreground))]">
+                        {activeLaunch.workflow.displayName}
+                      </h2>
+                      <p className="text-xs text-[hsl(var(--advisory-muted-foreground))]">
+                        {activeLaunch.workflow.scenarioLabel}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="whitespace-pre-wrap text-[length:inherit] leading-[inherit] text-[hsl(var(--advisory-foreground))]">
+                    {activeLaunch.firstPrompt}
+                  </div>
+                </article>
               </div>
-              <h2 className="mt-4 text-lg font-semibold text-[hsl(var(--advisory-foreground))]">
-                等待开始咨询
-              </h2>
-              <p className="mt-2 text-[length:inherit] leading-[inherit] text-[hsl(var(--advisory-muted-foreground))]">
-                选择一个工作流后，对话将在这里开始。
-              </p>
-              <Separator className="my-5" />
-              <p className="text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]">
-                工作流选择、AI 引导、流式响应和报告生成将在后续 Story 中接入。
-              </p>
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-1 items-center justify-center overflow-y-auto p-6">
+              <div className={cn(readingSurfaceVariants({ density: readingDensity }))}>
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-sm bg-[hsl(var(--advisory-icon-bg))]">
+                  <MessageSquareText className="h-6 w-6 text-[hsl(var(--advisory-foreground))]" />
+                </div>
+                <h2 className="mt-4 text-lg font-semibold text-[hsl(var(--advisory-foreground))]">
+                  等待开始咨询
+                </h2>
+                <p className="mt-2 text-[length:inherit] leading-[inherit] text-[hsl(var(--advisory-muted-foreground))]">
+                  选择一个工作流后，对话将在这里开始。
+                </p>
+                <Separator className="my-5" />
+                <p className="text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]">
+                  暂无咨询内容。
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
         <aside

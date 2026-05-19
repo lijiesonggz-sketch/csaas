@@ -6,90 +6,161 @@ stepsCompleted:
   - step-04-analyze-gaps
   - step-05-gate-decision
 lastStep: step-05-gate-decision
-lastSaved: '2026-04-14T03:12:00+08:00'
+lastSaved: '2026-05-20T05:30:24+08:00'
 workflowType: testarch-trace
 storyId: '2.5'
-storyTitle: 'IT04 Benchmark 验证'
+storyKey: 2-5-workflow-selection-and-launch
+storyTitle: Workflow Selection and Launch
+inputDocuments:
+  - _bmad-output/implementation-artifacts/2-5-workflow-selection-and-launch.md
+  - _bmad-output/test-artifacts/atdd-checklist-2-5-workflow-selection-and-launch.md
+  - _bmad-output/test-artifacts/code-review-story-2-5.md
+  - _bmad/tea/config.yaml
+  - _bmad/tea/testarch/tea-index.csv
+  - _bmad/tea/testarch/knowledge/test-priorities-matrix.md
+  - _bmad/tea/testarch/knowledge/risk-governance.md
+  - _bmad/tea/testarch/knowledge/probability-impact.md
+  - _bmad/tea/testarch/knowledge/test-quality.md
+  - _bmad/tea/testarch/knowledge/selective-testing.md
 ---
 
-# Traceability Report - Story 2.5: IT04 Benchmark 验证
+# Traceability Matrix & Gate Decision - Story 2.5
 
-## Gate Decision: PASS
+**Story:** Workflow Selection and Launch
+**Date:** 2026-05-20
+**Evaluator:** TEA Trace Workflow
 
-**Rationale:** 30 个 benchmark case 已构建并执行，`25/30` case 完整命中，超过故事门槛 `>=10`。未命中均为 taxonomy heuristic miss；failure mode / control / evidence 三层无额外缺口。
+Note: This trace replaces the previous `traceability-report-story-2-5.md`, which belonged to an older KG story and was not valid evidence for the current ThinkTank Epic 2 Story 2.5.
 
 ## Step 1: Context Summary
 
-- **Story ID:** STORY-KG2-2.5
-- **Title:** IT04 Benchmark 验证
-- **Status:** done
-- **Scope:** Backend benchmark runner + KG formal seed correction + fresh DB gate
-- **Core Change:** 用真实 KG seed 数据、真实 query services 和 30-case fixture 证明 IT04 新链路可运行，并补齐 benchmark 暴露的 taxonomy/evidence 缺口
+- Story file loaded: `_bmad-output/implementation-artifacts/2-5-workflow-selection-and-launch.md`
+- ATDD artifact loaded: `_bmad-output/test-artifacts/atdd-checklist-2-5-workflow-selection-and-launch.md`
+- Code review artifact loaded: `_bmad-output/test-artifacts/code-review-story-2-5.md`
+- Knowledge fragments loaded: test priorities, risk governance, probability-impact, test quality, selective testing.
+- Acceptance criteria extracted: 5 ACs covering eight-workflow catalog, shared runtime launch, first prompt/current step UI, launch audit, tenant-scoped `workflow_sessions`, and recoverable start failures.
 
-## Acceptance Criteria
+## Step 2: Test Discovery
 
-| AC | Requirement | Priority |
+### Relevant Test Catalog
+
+| Test File | Level | Relevant Coverage |
 | --- | --- | --- |
-| AC1 | 30 个标注案例完成结构化标注 | P0 |
-| AC2 | 对每个案例执行 taxonomy -> failure_mode -> control_point -> evidence 链路验证 | P0 |
-| AC3 | 至少 10 个案例完整命中，并输出缺口分析报告 | P0 |
-| AC4 | 给出旧 `case-theme.utils.ts` 是否可废弃的判断依据 | P1 |
+| `backend/src/modules/advisory/sessions/advisory-session.service.spec.ts` | Unit / integration boundary | Workflow catalog, eight-key parameterized launch, shared assembler/session path, audit success/failure, duplicate active launch, no corrupted failed session |
+| `backend/src/modules/advisory/sessions/advisory-session.repository.spec.ts` | Unit | Tenant-scoped create/read/update/delete and create-only field stripping |
+| `backend/src/modules/advisory/sessions/advisory-session.controller.spec.ts` | API/controller | Guarded controller envelope and route-param launch contract |
+| `backend/src/modules/advisory/runtime/workflow-registry.service.spec.ts` | Unit / runtime integration | Eight MVP workflows discovered from runtime assets, runtime catalog rows without workflow-specific overrides |
+| `backend/src/modules/advisory/runtime/prompt-assembler.service.spec.ts` | Unit / runtime integration | Provider/parser/assembler path, invalid workflow key, malformed method library handling |
+| `backend/src/modules/advisory/runtime/runtime-file-provider.service.spec.ts` | Unit | Approved-root file provider, missing/unsupported/empty file operational errors |
+| `frontend/app/advisory/__tests__/page.test.tsx` | Component / RTL | Catalog UI, accessible launch controls, pending duplicate guard, first prompt rendering, current-step-only stepper, failure recovery |
+| `frontend/app/api/advisory/workflows/route.test.ts` | API proxy | NextAuth session-token boundary for catalog proxy |
+| `frontend/app/api/advisory/workflows/[workflowKey]/launch/route.test.ts` | API proxy | NextAuth session-token boundary for launch proxy |
 
-## Production Code & Artifacts
+### Coverage Heuristics Inventory
 
-| File | Type | Key Role |
-| --- | --- | --- |
-| `it04-benchmark.runner.ts` | NEW | 分类、链路执行、聚合、报告生成 |
-| `run-it04-benchmark.ts` | NEW | 真实 DB benchmark CLI |
-| `validate-it04-benchmark.js` | NEW | fresh DB benchmark gate |
-| `it04-benchmark-cases.fixture.json` | NEW | 30 个 IT04 标注案例 |
-| `taxonomy.seed.json` | MODIFIED | 补齐 IT04 L2 主数据 |
-| `taxonomy-fm-map.seed.json` | MODIFIED | 修正 IT04 failure mode -> taxonomy 映射 |
-| `evidence-type.seed.json` | NEW | IT04 hard control evidence 主数据 |
-| `control-evidence-map.seed.json` | NEW | IT04 hard control evidence 映射 |
-| `kg-seed-data.ts` / `kg-seed.service.ts` | MODIFIED | 读取、校验、seed formal evidence |
-| `failure-mode.service.ts` | MODIFIED | 修复真实 DB QueryBuilder 排序 bug |
-| `control-point.service.ts` | MODIFIED | 修复真实 DB full-chain query alias bug |
+- **Endpoints referenced:** `GET /advisory/workflows`, `POST /advisory/workflows/:workflowKey/launch`, frontend proxies under `/api/advisory/workflows`.
+- **Endpoint coverage:** controller specs cover backend route contracts; proxy route tests cover NextAuth token forwarding; service specs cover business behavior under the endpoints.
+- **Auth/authz coverage:** backend controller uses `JwtAuthGuard` and `TenantGuard`; frontend proxy tests verify caller-only `Authorization` headers are rejected without a NextAuth session token.
+- **Tenant isolation coverage:** repository tests verify tenant id injection and scoped read/update/delete without cross-tenant inference.
+- **Error-path coverage:** incomplete catalog, blank/malformed workflow key, runtime assembly failure, audit-store failure after successful launch, duplicate active launch, frontend launch failure, and proxy unauthenticated paths are covered.
 
-## Test & Verification Evidence
+## Step 3: Criteria-To-Test Mapping
 
-| Evidence | Result |
-| --- | --- |
-| `it04-benchmark.runner.spec.ts` | PASS |
-| `kg-seed-data.spec.ts` | PASS |
-| `kg-seed.service.spec.ts` | PASS |
-| `case-clustering-chain.service.spec.ts` | PASS |
-| `failure-mode.service.spec.ts` | PASS |
-| `control-point.service.spec.ts` | PASS |
-| `benchmark:it04:fresh` | PASS (`25/30` full-chain hits) |
+| AC | Requirement Summary | Priority | Tests / Evidence | Coverage | Rationale |
+| --- | --- | --- | --- | --- | --- |
+| AC1 | Advisory workspace lists all eight MVP workflows by scenario label and canonical name, using the shared file-driven runtime launch path without workflow-specific branching. | P0 | `advisory-session.service.spec.ts:156`, `advisory-session.service.spec.ts:172`, `workflow-registry.service.spec.ts:22`, `workflow-registry.service.spec.ts:242`, `frontend/app/advisory/__tests__/page.test.tsx:435` | FULL | Backend rejects partial catalog and runtime registry proves eight keys from source assets; UI renders eight launch controls with display/scenario labels and removes legacy placeholders. |
+| AC2 | Launch shows first runtime prompt, horizontal current-step-only stepper, and emits `thinktank.workflow.started` with tenant/actor/session/workflow/outcome. | P0 | `advisory-session.service.spec.ts:180`, `advisory-session.service.spec.ts:211`, `advisory-session.service.spec.ts:257`, `frontend/app/advisory/__tests__/page.test.tsx:467` | FULL | Parameterized launch validates session creation, safe first prompt, safe source refs, success audit metadata, best-effort audit behavior, UI first prompt, and one-step stepper. |
+| AC3 | Parameterized tests prove each of the eight workflows uses the same file provider, parser/assembler, brand mapper, session creation, and launch path. | P0 | `advisory-session.service.spec.ts:180`, `prompt-assembler.service.spec.ts`, `runtime-file-provider.service.spec.ts`, `workflow-registry.service.spec.ts:22`, `workflow-registry.service.spec.ts:242` | FULL | `it.each(workflowKeys)` launches all eight keys through the same service dependencies, while runtime tests validate file provider, registry, parser/assembler, and no code-level workflow overrides. |
+| AC4 | `workflow_sessions` records are tenant-scoped through shared tenant context/BaseRepository; tenant A cannot read/update/delete/infer tenant B records. | P0 | `advisory-session.repository.spec.ts:59`, `advisory-session.repository.spec.ts:85`, `advisory-session.repository.spec.ts:97`, `advisory-session.repository.spec.ts:113`, `advisory-session.repository.spec.ts:141`, `1772000000030-CreateAdvisoryWorkflowSessions.ts` | FULL | Repository tests prove tenant id stripping, tenant-scoped reads/active lookup/update/delete, and cross-tenant not-found behavior; migration/entity require `tenant_id` and add active-session indexes. |
+| AC5 | Runtime/provider unavailable or malformed launch returns a clear recovery message, emits `thinktank.workflow.start_failed`, and creates no corrupted session. | P0 | `advisory-session.service.spec.ts:298`, `advisory-session.service.spec.ts:337`, `runtime-file-provider.service.spec.ts:87`, `prompt-assembler.service.spec.ts:58`, `prompt-assembler.service.spec.ts:113`, `frontend/app/advisory/__tests__/page.test.tsx:541` | FULL | Service tests cover runtime assembly failure and blank key failure with start_failed audit and no session creation; runtime tests cover provider/assembler failure modes; UI shows retryable alert without fake active prompt. |
 
-## Traceability Matrix
+## Step 4: Gap Analysis
 
-| AC | Requirement | Test / Artifact | Coverage | Status |
-| --- | --- | --- | --- | --- |
-| AC1 | 30 个标注案例存在且字段完整 | `it04-benchmark-cases.fixture.json`, `atdd-checklist-kg2-5.md` | FULL | PASS |
-| AC2 | 分类 -> FM -> Control -> Evidence 全链路执行 | `it04-benchmark.runner.ts`, `benchmark:it04:fresh`, `case-clustering-chain.service.spec.ts`, `failure-mode.service.spec.ts`, `control-point.service.spec.ts` | FULL | PASS |
-| AC3 | 至少 10 个 case full-chain 命中，并输出缺口报告 | `it04-benchmark-report-2026-04-13_19-01-53.md`, `it04-benchmark-report-2026-04-13_19-01-53.json` | FULL | PASS |
-| AC4 | 给出旧链路废弃判断 | `benchmark-analysis-story-2-5.md` | FULL | PASS |
+### Coverage Statistics
 
-## Gap Analysis
+| Priority | Total Criteria | FULL Coverage | Coverage % | Status |
+| --- | ---: | ---: | ---: | --- |
+| P0 | 5 | 5 | 100% | PASS |
+| P1 | 0 | 0 | 100% | PASS |
+| P2 | 0 | 0 | 100% | PASS |
+| P3 | 0 | 0 | 100% | PASS |
+| **Total** | **5** | **5** | **100%** | **PASS** |
 
-- **Critical gaps (P0):** 0
-- **High gaps (P1):** 0
-- **Observed misses:** 5 taxonomy misses
-- **Miss root cause:** benchmark-local taxonomy heuristic 分类不稳定，而不是 KG chain 数据缺口
+### Gap Counts
 
-## Final Gate Decision
+- Critical gaps (P0): 0
+- High gaps (P1): 0
+- Medium gaps (P2): 0
+- Low gaps (P3): 0
+- Endpoint coverage gaps: 0
+- Auth/authz negative-path gaps: 0
+- Happy-path-only criteria: 0
 
-### Criteria Evaluation
+### Quality Assessment
 
-| Criterion | Required | Actual | Status |
+- BLOCKER issues: 0
+- WARNING issues: 1
+  - `frontend/app/advisory/__tests__/page.test.tsx` is an aggregated advisory route suite over 300 lines. The Story 2.5 assertions are focused and deterministic, so this is a maintainability warning rather than a gate blocker. Split the broader advisory route suite later if it continues to grow.
+- INFO issues: 0
+
+### Duplicate Coverage Analysis
+
+- AC1/AC3 intentionally have backend runtime/service and frontend component overlap. This is acceptable defense-in-depth because backend validates registry/runtime behavior while frontend validates user-visible catalog and controls.
+- AC5 intentionally has runtime unit, service error, and UI recovery overlap. This is acceptable because provider failure, audit behavior, and user recovery message are separate failure surfaces.
+
+### Phase 1 Summary
+
+- Total Requirements: 5
+- Fully Covered: 5 (100%)
+- Partially Covered: 0
+- Uncovered: 0
+- Recommendations: no blocking test additions required before marking Story 2.5 done.
+
+Phase 1 coverage matrix saved to `_bmad-output/test-artifacts/traceability-story-2-5-workflow-selection-and-launch-phase1.json`.
+
+## Step 5: Gate Decision
+
+### Decision Criteria Evaluation
+
+| Criterion | Threshold | Actual | Status |
 | --- | --- | --- | --- |
-| Dataset size | 30 | 30 | MET |
-| Full-chain hits | >= 10 | 25 | MET |
-| Missing-case analysis | Required | Delivered | MET |
-| Old-chain retirement judgment | Required | Delivered | MET |
+| P0 Coverage | 100% | 100% | MET |
+| P0 Test Pass Rate | 100% | 100% | MET |
+| P1 Coverage | >=90% for PASS | 100% effective; no P1 ACs | MET |
+| Overall Coverage | >=80% | 100% | MET |
+| Security Issues | 0 unresolved | 0 | MET |
+| Critical NFR Failures | 0 unresolved | 0 | MET |
+| Flaky Tests | 0 known | 0 known | MET |
 
-### Decision: PASS
+### Evidence Summary
 
-故事目标已满足，可标记完成。旧链路仍建议保持 `@deprecated` 而非本故事直接删除。
+Local verification evidence recorded in the code review artifact:
+
+- `cd backend && npm run test -- src/modules/advisory/sessions --runInBand` - 21 tests passed.
+- `cd backend && npm run test -- src/modules/advisory/runtime src/modules/advisory/sessions --runInBand` - 51 tests passed.
+- `cd backend && npm run test -- src/modules/advisory --runInBand` - 117 tests passed.
+- `cd backend && npx tsc --noEmit` - passed.
+- `cd backend && npm run orm:entities:parity` - passed.
+- `cd backend && npm run orm:metadata:check` - passed.
+- `cd frontend && npm run test -- app/advisory/__tests__/page.test.tsx app/api/advisory/workflows --runInBand` - 23 tests passed.
+- `cd frontend && npm run test -- app/advisory app/api/advisory lib/advisory --runInBand` - 40 tests passed.
+- `cd frontend && npx tsc --noEmit` - passed.
+
+### GATE DECISION: PASS
+
+**Rationale:** P0 coverage is 100%, overall requirements coverage is 100%, all Story 2.5 ACs have direct backend and/or frontend automated evidence, no critical gaps remain after code review fixes, and the recorded regression/type/ORM checks are green.
+
+### Gate Recommendations
+
+1. Mark Story 2.5 as `done` after updating sprint/story status.
+2. Keep the frontend route test file-size warning as non-blocking technical debt; split only if future advisory UI work makes the suite harder to maintain.
+3. Continue Epic 2 with Story 2.6 after committing Story 2.5.
+
+## Sign-Off
+
+- Phase 1 - Traceability Assessment: PASS
+- Phase 2 - Gate Decision: PASS
+- Overall Status: PASS
+
+Generated: 2026-05-20T05:30:24+08:00
+Workflow: bmad-testarch-trace

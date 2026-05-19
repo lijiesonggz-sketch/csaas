@@ -1,73 +1,89 @@
 ---
 workflowType: code-review
 storyId: '2.5'
-storyKey: 'kg2-5-it04-benchmark-validation'
+storyKey: '2-5-workflow-selection-and-launch'
 reviewMode: full
-reviewDate: '2026-04-14T03:10:00+08:00'
+reviewDate: '2026-05-20T05:28:00+08:00'
 reviewLayers:
   - blind
   - edge
   - auditor
-executionNote: '按 bmad-code-review 的三层视角在当前代理内顺序执行；本轮未启用子代理。'
+executionNote: 'Blind Hunter and Edge Case Hunter ran in subagents; Acceptance Auditor ran in the main agent against the Story 2.5 spec.'
 ---
 
 # Code Review - Story 2.5
 
 ## Scope
 
-- `backend/package.json`
-- `backend/scripts/run-it04-benchmark.ts`
-- `backend/scripts/validate-it04-benchmark.js`
-- `backend/src/modules/case-import-orchestrator/services/it04-benchmark.runner.ts`
-- `backend/src/modules/case-import-orchestrator/services/it04-benchmark.runner.spec.ts`
-- `backend/src/modules/case-import-orchestrator/testing/it04-benchmark-cases.fixture.json`
-- `backend/src/modules/applicability-engine/seeds/data/taxonomy.seed.json`
-- `backend/src/modules/applicability-engine/seeds/data/taxonomy-fm-map.seed.json`
-- `backend/src/modules/applicability-engine/seeds/data/evidence-type.seed.json`
-- `backend/src/modules/applicability-engine/seeds/data/control-evidence-map.seed.json`
-- `backend/src/modules/applicability-engine/seeds/kg-seed-data.ts`
-- `backend/src/modules/applicability-engine/seeds/kg-seed.service.ts`
-- `backend/src/modules/knowledge-graph/services/failure-mode.service.ts`
-- `backend/src/modules/knowledge-graph/services/control-point.service.ts`
+- Backend workflow session entity, migration, repository, service, controller, and tests.
+- Frontend advisory workflow client, Next proxy routes, workspace launch UI, and tests.
+- Story and sprint status artifacts for Story 2.5.
 
-## Layer Notes
+## Findings Raised And Resolved
 
-### Blind Hunter
+### Patch Findings
 
-- 关注点：是否为了 benchmark 通过而硬改生产逻辑、是否重新造第二套 KG 链路、是否把 2.5 膨胀成 unrelated feature。
-- 结论：本次改动集中在 formal seed 修正、benchmark runner、真实 DB gate、以及暴露出的两个真实 query bug 修复，没有重写业务链路。
+1. **Runtime prompt/source leakage in launch response**
+   - Source: Blind Hunter.
+   - Location: `backend/src/modules/advisory/sessions/advisory-session.service.ts`.
+   - Resolution: launch still validates the full runtime assembly path, but the API now returns only the first prompt source content plus safe source refs (`workflow:{key}`, `current-step:1`). Tests assert no `## Source`, `_bmad`, or internal agent content leaks in the response.
 
-### Edge Case Hunter
+2. **Success audit failure could be reported as workflow launch failure**
+   - Source: Blind Hunter.
+   - Location: `backend/src/modules/advisory/sessions/advisory-session.service.ts`.
+   - Resolution: success audit emission is best-effort after session creation and no longer falls into the workflow start failure path. A regression test covers audit-store failure after a successful launch.
 
-- 关注点：taxonomy seed 缺口、IT04 多 L2 映射、evidence seed 缺失、fresh DB 下 query-builder 真实执行。
-- 结论：fresh gate 已验证 migration + seed + benchmark 可跑；`FailureModeService` 和 `ControlPointService` 的真实 SQL 问题已修复。
+3. **Duplicate active workflow launches**
+   - Source: Blind Hunter + Edge Case Hunter.
+   - Location: `backend/src/modules/advisory/sessions/advisory-session.repository.ts`, `backend/src/database/migrations/1772000000030-CreateAdvisoryWorkflowSessions.ts`, `frontend/components/advisory/AdvisoryWorkspaceShell.tsx`.
+   - Resolution: backend checks for an active tenant/actor session before assembly, the migration/entity add a partial unique active-session index, and the frontend uses a synchronous in-flight ref plus active-session disable state.
 
-### Acceptance Auditor
+4. **Existing session UI could be cleared by a later launch failure**
+   - Source: Blind Hunter.
+   - Location: `frontend/components/advisory/AdvisoryWorkspaceShell.tsx`.
+   - Resolution: launch failure no longer clears `activeLaunch`; after an active launch, controls remain disabled for Story 2.5’s one-active-workflow boundary.
 
-- 对照故事 AC：
-  - 30 case 标注集存在
-  - full-chain benchmark 自动化存在
-  - fresh DB gate 存在
-  - benchmark analysis 给出旧链路废弃判断
-- 结论：故事边界内的交付项齐全，且 benchmark gate `25/30` 命中超过 `>=10` 门槛。
+5. **Workflow proxy routes relayed arbitrary Authorization headers without a NextAuth session**
+   - Source: Blind Hunter.
+   - Location: `frontend/app/api/advisory/workflows/route.ts`, `frontend/app/api/advisory/workflows/[workflowKey]/launch/route.ts`.
+   - Resolution: workflow proxy routes now require `getServerSession(...).accessToken`; tests assert caller-only Authorization headers return 401.
 
-## Findings
+6. **Session update allowed create-only ownership fields**
+   - Source: Blind Hunter.
+   - Location: `backend/src/modules/advisory/sessions/advisory-session.repository.ts`.
+   - Resolution: repository strips `actorId`, `workflowKey`, `workflowDisplayName`, and `scenarioLabel` on update; tests codify the create-only behavior.
 
-本轮 review 未保留 blocking findings。
+7. **Partial workflow catalog could silently render**
+   - Source: Edge Case Hunter.
+   - Location: `backend/src/modules/advisory/sessions/advisory-session.service.ts`, `frontend/lib/advisory/workflows.ts`.
+   - Resolution: backend and frontend both validate that all eight MVP workflow keys are present before returning/rendering a ready catalog.
 
-- `intent_gap`: 0
-- `bad_spec`: 0
-- `patch`: 0
-- `defer`: 0
-- `reject/noise`: 0
+8. **Malformed workflow key handling was outside failure audit path**
+   - Source: Edge Case Hunter.
+   - Location: `backend/src/modules/advisory/sessions/advisory-session.service.ts`.
+   - Resolution: workflow key validation now emits `thinktank.workflow.start_failed` with a safe `invalid-workflow` subject and returns a `BadRequestException` for malformed keys.
 
-## Residual Risk
+## Acceptance Auditor
 
-1. 当前 benchmark 的 taxonomy 命中依赖 `semantic mapping CSV heuristic`，不是外部生产分类器本体，所以 `5` 个 miss 仍然集中在 taxonomy 入口。
-2. `benchmark:it04:fresh` 依赖 Docker。本地/CI 若无 Docker，可运行 unit/regression，但无法完成同等级 gate。
+No remaining acceptance blockers were found after the fixes:
+
+- AC1/AC3: eight workflows are validated by catalog tests and parameterized backend launch tests.
+- AC2: launch persists an active session, emits success audit best-effort, and returns the current first prompt plus current-step-only UI state.
+- AC4: tenant scoping is enforced through `BaseRepository` patterns and repository tests.
+- AC5: runtime failures emit `thinktank.workflow.start_failed` and do not create corrupted sessions.
+
+## Verification After Fixes
+
+- `cd backend && npm run test -- src/modules/advisory/sessions --runInBand` — 21 tests passed.
+- `cd backend && npm run test -- src/modules/advisory/runtime src/modules/advisory/sessions --runInBand` — 51 tests passed.
+- `cd backend && npm run test -- src/modules/advisory --runInBand` — 117 tests passed.
+- `cd backend && npx tsc --noEmit` — passed.
+- `cd backend && npm run orm:entities:parity` — passed.
+- `cd backend && npm run orm:metadata:check` — passed.
+- `cd frontend && npm run test -- app/advisory/__tests__/page.test.tsx app/api/advisory/workflows --runInBand` — 23 tests passed.
+- `cd frontend && npm run test -- app/advisory app/api/advisory lib/advisory --runInBand` — 40 tests passed.
+- `cd frontend && npx tsc --noEmit` — passed.
 
 ## Conclusion
 
-结论：**Clean review**
-
-2.5 的实现没有发现需要继续回修的 blocker。可以进入 traceability / status 收口阶段。
+Code review initially found blocking issues, all were fixed and reverified. Current conclusion: **Pass / no remaining blocking findings**.

@@ -1,0 +1,25 @@
+{
+  "tdd_phase": "RED",
+  "total_tests": 14,
+  "api_tests": 11,
+  "frontend_tests": 3,
+  "all_tests_expected_to_fail_before_implementation": true,
+  "fixtures_created": 0,
+  "acceptance_criteria_covered": ["AC1", "AC2", "AC3", "AC4", "AC5", "UX-DR5", "UX-DR9"],
+  "knowledge_fragments_used": [
+    "data-factories",
+    "fixture-architecture",
+    "network-first",
+    "component-tdd",
+    "selector-resilience",
+    "test-quality",
+    "test-levels-framework",
+    "test-priorities-matrix"
+  ],
+  "subagent_execution": "SEQUENTIAL (repo-native Jest/RTL)",
+  "performance_gain": "baseline",
+  "red_evidence": [
+    "backend Jest failed with missing advisory sessions modules and workflow session entity",
+    "frontend Jest failed with missing @/lib/advisory/workflows module"
+  ]
+}

@@ -6,6 +6,7 @@ import AdvisoryLayout from '../layout'
 import AdvisoryPage from '../page'
 import { ADVISORY_LAYOUT } from '@/lib/advisory/layout'
 import { fetchThinkTankAccess } from '@/lib/advisory/access'
+import { fetchThinkTankWorkflows, launchThinkTankWorkflow } from '@/lib/advisory/workflows'
 import { useRadarUnreadCount } from '@/lib/hooks/useRadarUnreadCount'
 
 expect.extend(toHaveNoViolations)
@@ -14,6 +15,11 @@ jest.mock('@/lib/advisory/access', () => ({
   canAccessThinkTank: jest.fn(() => true),
   fetchThinkTankAccess: jest.fn(),
   THINKTANK_ACCESS_DENIED_MESSAGE: '当前账号暂无 ThinkTank 访问权限，请联系管理员开通。',
+}))
+
+jest.mock('@/lib/advisory/workflows', () => ({
+  fetchThinkTankWorkflows: jest.fn(),
+  launchThinkTankWorkflow: jest.fn(),
 }))
 
 jest.mock('next-auth/react', () => ({
@@ -47,10 +53,34 @@ describe('AdvisoryPage', () => {
   const mockFetchThinkTankAccess = fetchThinkTankAccess as jest.MockedFunction<
     typeof fetchThinkTankAccess
   >
+  const mockFetchThinkTankWorkflows = fetchThinkTankWorkflows as jest.MockedFunction<
+    typeof fetchThinkTankWorkflows
+  >
+  const mockLaunchThinkTankWorkflow = launchThinkTankWorkflow as jest.MockedFunction<
+    typeof launchThinkTankWorkflow
+  >
   const mockUseSession = useSession as jest.Mock
   const mockUseRadarUnreadCount = useRadarUnreadCount as jest.MockedFunction<
     typeof useRadarUnreadCount
   >
+
+  const workflowCatalog = [
+    ['brainstorming', 'Brainstorming', 'Creative ideation and divergent thinking'],
+    ['domain-research', 'Domain Research', 'Domain and industry research'],
+    ['market-research', 'Market Research', 'Market, competitor, and customer research'],
+    ['product-brief', 'Product Brief', 'Product opportunity framing'],
+    ['prd', 'PRD', 'Product requirements definition'],
+    ['problem-solving', 'Problem Solving', 'Systematic diagnosis and solution design'],
+    ['design-thinking', 'Design Thinking', 'Human-centered discovery and solution framing'],
+    ['storytelling', 'Storytelling', 'Narrative framing and communication'],
+  ].map(([key, displayName, scenarioLabel]) => ({
+    key,
+    displayName,
+    canonicalName: displayName,
+    scenarioLabel,
+    description: `${displayName} workflow`,
+    sourcePath: `_bmad/runtime/${key}/workflow.md`,
+  }))
 
   const installMatchMedia = (viewport: boolean | number) => {
     let viewportWidth = typeof viewport === 'number' ? viewport : viewport ? 1440 : 900
@@ -140,6 +170,22 @@ describe('AdvisoryPage', () => {
       status: 'authenticated',
     })
     mockUseRadarUnreadCount.mockReturnValue({ unreadCount: 0 })
+    mockFetchThinkTankWorkflows.mockResolvedValue({ workflows: workflowCatalog })
+    mockLaunchThinkTankWorkflow.mockResolvedValue({
+      sessionId: 'session-brainstorming',
+      status: 'active',
+      workflow: workflowCatalog[0],
+      firstPrompt: '# ThinkTank Runtime Workflow: Brainstorming\n\nStart with the first prompt.',
+      sourceRefs: [
+        '_bmad/core/skills/bmad-brainstorming/workflow.md',
+        '_bmad/core/skills/bmad-brainstorming/steps/step-01-session-setup.md',
+      ],
+      currentStep: {
+        index: 1,
+        label: '当前步骤',
+        sourceRef: '_bmad/core/skills/bmad-brainstorming/steps/step-01-session-setup.md',
+      },
+    })
   })
 
   it('renders a loading state while access is being verified', () => {
@@ -386,7 +432,7 @@ describe('AdvisoryPage', () => {
     expect(main).toHaveFocus()
   })
 
-  it('does not expose unavailable workflow placeholders or the disabled document drawer as fake interactions', async () => {
+  it('loads eight runtime workflows and exposes launch controls without legacy placeholders', async () => {
     mockFetchThinkTankAccess.mockResolvedValue({
       allowed: true,
       module: 'thinktank',
@@ -395,17 +441,123 @@ describe('AdvisoryPage', () => {
     renderAdvisoryRoute()
 
     const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
-
-    ;['结构化咨询', '研究分析', '问题解决'].forEach((label) => {
-      expect(within(workflowNav).queryByRole('button', { name: new RegExp(label) })).toBeNull()
-      expect(within(workflowNav).queryByRole('link', { name: new RegExp(label) })).toBeNull()
-      expect(screen.getByText(label).closest('li')).not.toHaveAttribute('tabindex')
+    await waitFor(() => {
+      expect(within(workflowNav).getAllByRole('button', { name: /启动 / })).toHaveLength(8)
     })
+
+    workflowCatalog.forEach((workflow) => {
+      expect(within(workflowNav).getByText(workflow.displayName)).toBeInTheDocument()
+      expect(within(workflowNav).getByText(workflow.scenarioLabel)).toBeInTheDocument()
+      expect(
+        within(workflowNav).getByRole('button', {
+          name: new RegExp(`启动 ${workflow.displayName}`),
+        })
+      ).toBeEnabled()
+    })
+    expect(within(workflowNav).getAllByRole('button', { name: /启动 / })).toHaveLength(8)
+    expect(screen.queryByText('待接入')).not.toBeInTheDocument()
+    expect(screen.queryByText('结构化咨询')).not.toBeInTheDocument()
 
     const drawerButton = screen.getByRole('button', { name: '展开咨询文档抽屉' })
     expect(drawerButton).toHaveAttribute('aria-disabled', 'true')
     expect(drawerButton).toHaveAccessibleDescription('文档抽屉将在报告草稿接入后开放')
     expect(drawerButton).toHaveAttribute('title', '文档抽屉将在报告草稿接入后开放')
+  })
+
+  it('launches one selected workflow, renders the first prompt, and shows only the current step', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+
+    expect(mockLaunchThinkTankWorkflow).toHaveBeenCalledWith('brainstorming')
+    expect(await screen.findByText(/Start with the first prompt/)).toBeInTheDocument()
+    const stepper = screen.getByRole('list', { name: '工作流当前步骤' })
+    expect(within(stepper).getByText('当前步骤')).toBeInTheDocument()
+    expect(within(stepper).getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.queryByText('下一步骤')).not.toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'ThinkTank 工作台状态' })).toHaveTextContent(
+      '活动会话：Brainstorming'
+    )
+    within(workflowNav)
+      .getAllByRole('button', { name: /启动 / })
+      .forEach((button) => expect(button).toBeDisabled())
+  })
+
+  it('prevents duplicate launch requests while a launch request is pending', async () => {
+    const user = userEvent.setup()
+    let resolveLaunch:
+      | ((value: Awaited<ReturnType<typeof launchThinkTankWorkflow>>) => void)
+      | undefined
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockLaunchThinkTankWorkflow.mockReturnValue(
+      new Promise((resolve) => {
+        resolveLaunch = resolve
+      })
+    )
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    const launchButton = await within(workflowNav).findByRole('button', {
+      name: /启动 Brainstorming/,
+    })
+    await user.dblClick(launchButton)
+
+    await waitFor(() => {
+      within(workflowNav)
+        .getAllByRole('button', { name: /启动 / })
+        .forEach((button) => expect(button).toBeDisabled())
+    })
+    expect(mockLaunchThinkTankWorkflow).toHaveBeenCalledTimes(1)
+
+    resolveLaunch?.({
+      sessionId: 'session-brainstorming',
+      status: 'active',
+      workflow: workflowCatalog[0],
+      firstPrompt: '# ThinkTank Runtime Workflow: Brainstorming\n\nStart with the first prompt.',
+      sourceRefs: [
+        '_bmad/core/skills/bmad-brainstorming/workflow.md',
+        '_bmad/core/skills/bmad-brainstorming/steps/step-01-session-setup.md',
+      ],
+      currentStep: {
+        index: 1,
+        label: '当前步骤',
+        sourceRef: '_bmad/core/skills/bmad-brainstorming/steps/step-01-session-setup.md',
+      },
+    })
+    expect(await screen.findByText(/Start with the first prompt/)).toBeInTheDocument()
+  })
+
+  it('announces launch failure with a retryable recovery message and keeps the empty conversation state', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockLaunchThinkTankWorkflow.mockRejectedValueOnce(
+      new Error('暂时无法启动该 ThinkTank 工作流，请稍后重试或选择其他工作流。')
+    )
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '暂时无法启动该 ThinkTank 工作流，请稍后重试或选择其他工作流。'
+    )
+    expect(screen.getByText('等待开始咨询')).toBeInTheDocument()
+    expect(screen.queryByText(/Start with the first prompt/)).not.toBeInTheDocument()
   })
 
   it('shows a desktop-required state below the advisory layout minimum without rendering broken shell columns', async () => {
