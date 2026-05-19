@@ -89,3 +89,23 @@ Status: fixed.
 ## Review Decision
 
 PASS after fixes. No blocking Story 1.2 code-review findings remain.
+
+---
+
+## 2026-05-20 Rerun - Access Proxy and Audit Regression Review
+
+Scope: Story 1.2 advisory access changes in the current working tree.
+
+Findings:
+
+- HIGH: access opened/denied audit had been switched to strict audit, which could turn normal allowed/denied access checks into 500 responses if audit persistence failed. Fixed by keeping access audit on fail-safe `emitAudit`; strict audit remains reserved for control-plane module config changes.
+- MEDIUM: `/api/advisory/access` had removed request `Authorization` fallback and diverged from the existing advisory admin proxy token pattern. Fixed by preserving the existing route behavior and adding focused route tests for request-token proxying, session-token fallback, no-token 401, and backend denial propagation.
+
+Verification:
+
+- PASS `npm run test -- app/api/advisory/access/route.test.ts --runInBand` in `frontend` (4 tests).
+- PASS `npm run test -- advisory-access --runInBand` in `backend` (10 tests).
+- PASS `npx tsc --noEmit` in `frontend`.
+- PASS `npx tsc --noEmit` in `backend`.
+
+Decision: PASS after fixes.
