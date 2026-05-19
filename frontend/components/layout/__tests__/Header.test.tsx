@@ -232,7 +232,7 @@ describe('Header', () => {
 
     const header = screen.getByRole('banner')
     expect(header).toBeInTheDocument()
-    expect(header).toHaveClass('h-16')
+    expect(header).toHaveClass('h-14')
   })
 
   it('shows radar history entry with unread badge and navigates on click', () => {

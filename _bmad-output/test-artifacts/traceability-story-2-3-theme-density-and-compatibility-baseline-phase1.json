@@ -1,0 +1,322 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-19T18:47:05+08:00",
+  "story": {
+    "id": "2.3",
+    "key": "2-3-theme-density-and-compatibility-baseline",
+    "title": "Theme, Density, and Compatibility Baseline",
+    "file": "_bmad-output/implementation-artifacts/2-3-theme-density-and-compatibility-baseline.md"
+  },
+  "execution_mode": "sequential",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "description": "Custom advisory components follow repo-local advisory conventions, shadcn/Radix foundations, Tailwind, TypeScript, variant patterns, and existing CSAAS theme behavior including dark mode where available.",
+      "coverage": "FULL",
+      "test_level": ["Component", "E2E", "Artifact"],
+      "tests": [
+        {
+          "id": "2.3-COMP-AC1-DARK-AXE",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "line": 570,
+          "name": "authorized shell under .dark root has no axe violations and exposes tokenized shell/frame classes",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-E2E-003",
+          "file": "frontend/e2e/advisory-theme-density-baseline.spec.ts",
+          "line": 218,
+          "name": "AC1/AC3 - advisory shell remains readable when hosted under the CSAAS dark class",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-ARTIFACT-COMPATIBILITY-EVIDENCE",
+          "file": "_bmad-output/test-artifacts/compatibility-evidence-story-2-3-theme-density-and-compatibility-baseline.md",
+          "line": 19,
+          "name": "Automated Jest/RTL, axe, contrast, lint, build, and browser-smoke evidence",
+          "priority": "P0"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_authz_coverage": "not_applicable",
+        "error_path_coverage": "present_for_dark_mode_and_accessibility_smoke"
+      },
+      "gaps": []
+    },
+    {
+      "id": "AC2.1",
+      "priority": "P0",
+      "description": "Compact, default, and comfortable reading density modes are keyboard-operable and persisted per signed-in user without cross-user leakage.",
+      "coverage": "FULL",
+      "test_level": ["Component", "Unit", "E2E"],
+      "tests": [
+        {
+          "id": "2.3-COMP-DENSITY-KEYBOARD",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "line": 199,
+          "name": "exposes keyboard-operable reading density modes and updates advisory reading state",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-COMP-DENSITY-CLASSES",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "line": 231,
+          "name": "applies stable reading surface classes for every density mode",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-COMP-DENSITY-PERSISTENCE",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "line": 264,
+          "name": "persists advisory density per signed-in user without leaking across users",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-UNIT-PREFERENCES",
+          "file": "frontend/lib/advisory/preferences.test.ts",
+          "line": 29,
+          "name": "preference key normalization, invalid fallback, per-user persistence, and no persistence without stable identity",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-E2E-001",
+          "file": "frontend/e2e/advisory-theme-density-baseline.spec.ts",
+          "line": 166,
+          "name": "AC2 - reading density control is keyboard-operable and updates advisory reading state",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-E2E-002",
+          "file": "frontend/e2e/advisory-theme-density-baseline.spec.ts",
+          "line": 186,
+          "name": "AC2 - reading density persists per signed-in user and does not leak between users",
+          "priority": "P0"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_authz_coverage": "not_applicable",
+        "error_path_coverage": "present_for_invalid_density_and_missing_identity"
+      },
+      "gaps": []
+    },
+    {
+      "id": "AC2.2",
+      "priority": "P0",
+      "description": "The advisory shell keeps nav height, sidebar width, chat minimum width, document rail/drawer bounds, input max height, and desktop-required fallback within UX-defined constraints.",
+      "coverage": "FULL",
+      "test_level": ["Component", "Unit", "E2E"],
+      "tests": [
+        {
+          "id": "2.3-COMP-LAYOUT-CSS-VARS",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "line": 326,
+          "name": "codifies advisory desktop layout constraints as stable CSS variables",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-COMP-DESKTOP-REQUIRED",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "line": 413,
+          "name": "shows desktop-required state below advisory layout minimum",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-COMP-MEDIA-QUERY-CHANGE",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "line": 438,
+          "name": "updates the desktop gate when the advisory layout media query changes",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-COMP-MATCHMEDIA-FALLBACK",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "line": 468,
+          "name": "falls back to desktop-required state when matchMedia is unavailable",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-UNIT-001",
+          "file": "frontend/lib/advisory/layout.test.ts",
+          "line": 8,
+          "name": "codifies the complete Story 2.3 desktop layout contract",
+          "priority": "P1"
+        },
+        {
+          "id": "2.3-UNIT-002",
+          "file": "frontend/lib/advisory/layout.test.ts",
+          "line": 25,
+          "name": "exposes advisory layout constraints as stable CSS variables",
+          "priority": "P1"
+        },
+        {
+          "id": "2.3-E2E-004",
+          "file": "frontend/e2e/advisory-theme-density-baseline.spec.ts",
+          "line": 239,
+          "name": "AC2 - desktop layout constraints keep shell regions stable and non-overlapping",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-E2E-005",
+          "file": "frontend/e2e/advisory-theme-density-baseline.spec.ts",
+          "line": 261,
+          "name": "AC2/AC3 - preference hydration keeps loading denied desktop-required and authorized states stable",
+          "priority": "P0"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_authz_coverage": "denied_state_covered_as_frontend_access_state",
+        "error_path_coverage": "present_for_desktop_gate_matchMedia_fallback_and_denied_states"
+      },
+      "gaps": []
+    },
+    {
+      "id": "AC3.1",
+      "priority": "P0",
+      "description": "Axe-core, keyboard navigation, contrast, and screen-reader proxy checks pass for the advisory shell and custom components.",
+      "coverage": "FULL",
+      "test_level": ["Component", "E2E", "Artifact"],
+      "tests": [
+        {
+          "id": "2.3-COMP-AXE-STATES",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "line": 521,
+          "name": "has no automated axe violations for loading, denied, desktop-required, authorized, and dark-authorized states",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-COMP-SKIP-LINK",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "line": 367,
+          "name": "keeps the skip link keyboard reachable and moves focus to the only main landmark",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-COMP-ARIA-DISABLED",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "line": 391,
+          "name": "does not expose unavailable workflow placeholders or disabled document drawer as fake interactions",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-E2E-003",
+          "file": "frontend/e2e/advisory-theme-density-baseline.spec.ts",
+          "line": 218,
+          "name": "dark-class smoke includes computed contrast ratio >= 4.5",
+          "priority": "P0"
+        },
+        {
+          "id": "2.3-ARTIFACT-SR-CONTRAST",
+          "file": "_bmad-output/test-artifacts/compatibility-evidence-story-2-3-theme-density-and-compatibility-baseline.md",
+          "line": 76,
+          "name": "accessibility, contrast, and screen-reader semantics evidence",
+          "priority": "P0"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_authz_coverage": "denied_and_tenant_disabled_states_covered",
+        "error_path_coverage": "present_for_loading_denied_desktop_required_and_disabled_affordance_states"
+      },
+      "gaps": []
+    },
+    {
+      "id": "AC3.2",
+      "priority": "P1",
+      "description": "Compatibility checks keep current and previous two versions of Chrome, Firefox, Safari, and Edge in scope and provide executable desktop browser evidence.",
+      "coverage": "FULL",
+      "test_level": ["E2E", "Artifact"],
+      "tests": [
+        {
+          "id": "2.3-E2E-006",
+          "file": "frontend/e2e/advisory-theme-density-baseline.spec.ts",
+          "line": 306,
+          "name": "AC3 - configured desktop browser projects smoke-test the advisory shell baseline",
+          "priority": "P2"
+        },
+        {
+          "id": "2.3-ARTIFACT-BROWSER-MATRIX",
+          "file": "_bmad-output/test-artifacts/compatibility-evidence-story-2-3-theme-density-and-compatibility-baseline.md",
+          "line": 9,
+          "name": "browser support matrix and version-slot policy",
+          "priority": "P1"
+        },
+        {
+          "id": "2.3-BRANDED-CHROME-EDGE",
+          "file": "frontend/playwright.story-2-3-branded.config.ts",
+          "line": 6,
+          "name": "local branded Chrome stable and Edge stable Story 2.3 smoke",
+          "priority": "P1"
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_authz_coverage": "not_applicable",
+        "error_path_coverage": "not_applicable"
+      },
+      "gaps": []
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 5,
+    "fully_covered": 5,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": {
+        "total": 4,
+        "covered": 4,
+        "percentage": 100
+      },
+      "P1": {
+        "total": 1,
+        "covered": 1,
+        "percentage": 100
+      },
+      "P2": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P3": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Run macOS Safari branded checks and stable-1/stable-2 browser-lab slots during release certification when those channels are available.",
+      "requirements": ["AC3.2"]
+    },
+    {
+      "priority": "LOW",
+      "action": "Run /bmad:tea:test-review if Story 2.3 enters release hardening.",
+      "requirements": []
+    }
+  ]
+}

@@ -267,17 +267,22 @@ export default function Sidebar({
   }
 
   const isSelected = (key: string) => {
+    const currentPathname = pathname ?? ''
     if (key === '/organizations/profile') {
-      return pathname.startsWith('/organizations/') && pathname.endsWith('/profile')
+      return currentPathname.startsWith('/organizations/') && currentPathname.endsWith('/profile')
     }
     if (key === '/organizations/applicable-controls') {
-      return pathname.startsWith('/organizations/') && pathname.endsWith('/applicable-controls')
+      return (
+        currentPathname.startsWith('/organizations/') &&
+        currentPathname.endsWith('/applicable-controls')
+      )
     }
-    return pathname === key || pathname.startsWith(`${key}/`)
+    return currentPathname === key || currentPathname.startsWith(`${key}/`)
   }
 
   const isChildSelected = (key: string) => {
-    return pathname === key || pathname.startsWith(`${key}/`)
+    const currentPathname = pathname ?? ''
+    return currentPathname === key || currentPathname.startsWith(`${key}/`)
   }
 
   const currentWidth = isMobile ? width : collapsed ? collapsedWidth : width
@@ -285,7 +290,7 @@ export default function Sidebar({
   return (
     <nav
       aria-label="主导航"
-      className={`fixed left-0 top-16 bottom-0 bg-[#1E3A5F] text-white transition-all duration-200 overflow-x-hidden overflow-y-auto z-40 ${
+      className={`fixed bottom-0 left-0 top-14 z-40 overflow-x-hidden overflow-y-auto bg-[#1E3A5F] text-white transition-all duration-200 dark:bg-slate-950 dark:text-slate-100 ${
         isMobile ? (mobileOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'
       }`}
       style={{ width: `${currentWidth}px` }}

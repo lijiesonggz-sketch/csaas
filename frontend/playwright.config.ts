@@ -32,7 +32,7 @@ export default defineConfig({
   // 全局配置
   use: {
     // 基础 URL - 前端运行在 3001 端口
-    baseURL: 'http://localhost:3001',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001',
 
     // 操作超时时间
     actionTimeout: 15000,

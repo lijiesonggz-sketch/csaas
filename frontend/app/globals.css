@@ -4,6 +4,11 @@
 
 :root {
   --foreground-rgb: 0, 0, 0;
+  --font-inter:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-plus-jakarta:
+    'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
   /* 柔和的浅灰色背景，不刺眼 */
   --background-start-rgb: 248, 249, 250;
   --background-end-rgb: 240, 242, 245;
@@ -20,6 +25,7 @@
 
 body {
   min-height: 100vh;
+  font-family: var(--font-inter);
 }
 
 @layer utilities {
@@ -40,8 +46,8 @@ body {
   .ant-layout-header,
   aside.sidebar,
   .navigation,
-  [class*="layout-sider"],
-  [class*="layout-header"],
+  [class*='layout-sider'],
+  [class*='layout-header'],
   .report-preview-modal .ant-modal-footer,
   .report-preview-modal .ant-modal-close {
     display: none !important;
@@ -55,8 +61,8 @@ body {
   /* 隐藏打印按钮 */
   button,
   .ant-btn,
-  [class*="btn"],
-  [class*="button"] {
+  [class*='btn'],
+  [class*='button'] {
     display: none !important;
   }
 
@@ -64,7 +70,7 @@ body {
   .ant-layout,
   .ant-layout-content,
   main,
-  [class*="layout"] {
+  [class*='layout'] {
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
@@ -108,7 +114,7 @@ body {
     }
 
     @bottom-center {
-      content: "第 " counter(page) " 页";
+      content: '第 ' counter(page) ' 页';
       font-size: 10pt;
       color: #666;
     }
@@ -135,7 +141,8 @@ body {
     border-collapse: collapse;
   }
 
-  th, td {
+  th,
+  td {
     border: 1px solid #ddd;
     padding: 8px;
   }
@@ -445,6 +452,19 @@ body {
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 4px;
+    --advisory-shell-bg: 40 33% 99%;
+    --advisory-panel: 0 0% 100%;
+    --advisory-muted-bg: 210 20% 98%;
+    --advisory-border: 215 14% 89%;
+    --advisory-foreground: 213 47% 24%;
+    --advisory-muted-foreground: 215 16% 47%;
+    --advisory-accent: 160 84% 39%;
+    --advisory-icon-bg: 205 45% 95%;
+    --advisory-success-bg: 151 81% 96%;
+    --advisory-success-border: 152 76% 90%;
+    --advisory-success-foreground: 164 86% 26%;
+    --advisory-warning-border: 45 93% 83%;
+    --advisory-warning-foreground: 32 95% 44%;
   }
   .dark {
     --background: 222.2 84% 4.9%;
@@ -471,6 +491,19 @@ body {
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+    --advisory-shell-bg: 222 47% 8%;
+    --advisory-panel: 222 47% 11%;
+    --advisory-muted-bg: 217 33% 17%;
+    --advisory-border: 215 25% 27%;
+    --advisory-foreground: 210 40% 98%;
+    --advisory-muted-foreground: 215 20% 72%;
+    --advisory-accent: 160 84% 45%;
+    --advisory-icon-bg: 217 33% 20%;
+    --advisory-success-bg: 164 72% 12%;
+    --advisory-success-border: 164 70% 22%;
+    --advisory-success-foreground: 152 76% 80%;
+    --advisory-warning-border: 32 72% 34%;
+    --advisory-warning-foreground: 43 96% 74%;
   }
 }
 

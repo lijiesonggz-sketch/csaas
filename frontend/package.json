@@ -7,7 +7,7 @@
     "predev": "npm run clean:next",
     "dev": "next dev -p 3001",
     "prebuild": "npm run clean:next",
-    "build": "next build",
+    "build": "node -r ./scripts/windows-symlink-fallback.js ./node_modules/next/dist/bin/next build",
     "start": "node scripts/start-standalone.js",
     "lint": "next lint",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",

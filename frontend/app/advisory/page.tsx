@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { Loader2, ShieldAlert } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import AdvisoryWorkspaceShell from '@/components/advisory/AdvisoryWorkspaceShell'
-import MainLayout from '@/components/layout/MainLayout'
 import {
   THINKTANK_ACCESS_DENIED_MESSAGE,
   ThinkTankAccessResult,
@@ -49,47 +48,46 @@ export default function AdvisoryPage() {
 
   if (accessState.status === 'loading') {
     return (
-      <MainLayout>
-        <section className="flex min-h-[calc(100vh-64px)] items-center justify-center bg-[#FEFDFB] px-6">
-          <div
-            role="status"
-            aria-live="polite"
-            aria-label="ThinkTank 访问验证状态"
-            className="flex items-center gap-3 text-sm font-medium text-[#1E3A5F]"
-          >
-            <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
-            <span>正在验证 ThinkTank 访问权限</span>
-          </div>
-        </section>
-      </MainLayout>
+      <section className="flex min-h-[calc(100vh-56px)] items-center justify-center bg-[hsl(var(--advisory-shell-bg))] px-6">
+        <div
+          role="status"
+          aria-live="polite"
+          aria-label="ThinkTank 访问验证状态"
+          className="flex items-center gap-3 text-sm font-medium text-[hsl(var(--advisory-foreground))]"
+        >
+          <Loader2 className="h-5 w-5 animate-spin text-[hsl(var(--advisory-accent))]" />
+          <span>正在验证 ThinkTank 访问权限</span>
+        </div>
+      </section>
     )
   }
 
   if (accessState.status === 'denied') {
     return (
-      <MainLayout>
-        <section className="bg-[#FEFDFB] px-6 py-8">
-          <div className="mx-auto max-w-5xl">
-            <Card variant="outlined" className="border-amber-200 bg-white">
-              <CardContent className="p-6">
-                <div role="alert" aria-live="assertive" className="flex items-start gap-4">
-                  <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-                  <div>
-                    <h1 className="text-xl font-semibold text-[#1E3A5F]">ThinkTank</h1>
-                    <p className="mt-2 text-sm text-[#475569]">{accessState.message}</p>
-                  </div>
+      <section className="bg-[hsl(var(--advisory-shell-bg))] px-6 py-8">
+        <div className="mx-auto max-w-5xl">
+          <Card
+            variant="outlined"
+            className="border-[hsl(var(--advisory-warning-border))] bg-[hsl(var(--advisory-panel))]"
+          >
+            <CardContent className="p-6">
+              <div role="alert" aria-live="assertive" className="flex items-start gap-4">
+                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[hsl(var(--advisory-warning-foreground))]" />
+                <div>
+                  <h1 className="text-xl font-semibold text-[hsl(var(--advisory-foreground))]">
+                    ThinkTank
+                  </h1>
+                  <p className="mt-2 text-sm text-[hsl(var(--advisory-muted-foreground))]">
+                    {accessState.message}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-      </MainLayout>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
     )
   }
 
-  return (
-    <MainLayout>
-      <AdvisoryWorkspaceShell />
-    </MainLayout>
-  )
+  return <AdvisoryWorkspaceShell />
 }
