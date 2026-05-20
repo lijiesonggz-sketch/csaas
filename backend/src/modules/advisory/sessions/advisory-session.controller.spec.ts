@@ -83,7 +83,17 @@ describe('AdvisorySessionController', () => {
     const user = { id: 'user-1', organizationId: 'org-1' }
 
     await expect(
-      controller.launchWorkflow('brainstorming', user as never, 'tenant-1'),
+      controller.launchWorkflow(
+        'brainstorming',
+        {
+          tenantId: 'attacker-tenant',
+          quickConsultContextId: ' quick-consult-1 ',
+          acceptedRecommendationId: ' recommendation-1 ',
+          acceptedRecommendation: true,
+        } as never,
+        user as never,
+        'tenant-1',
+      ),
     ).resolves.toEqual({
       data: expect.objectContaining({
         sessionId: 'session-1',
@@ -95,6 +105,45 @@ describe('AdvisorySessionController', () => {
       user,
       tenantId: 'tenant-1',
       workflowKey: 'brainstorming',
+      quickConsultContextId: 'quick-consult-1',
+      acceptedRecommendationId: 'recommendation-1',
+      acceptedRecommendation: true,
+      manualChoice: false,
+      manualChoiceKind: undefined,
+      manualChoiceId: undefined,
+      manualChoiceLabel: undefined,
+    })
+  })
+
+  it('passes manual launch metadata through the existing launch path and suppresses accepted fields', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await controller.launchWorkflow(
+      'design-thinking',
+      {
+        quickConsultContextId: ' quick-consult-34 ',
+        acceptedRecommendationId: 'recommendation-should-not-forward',
+        acceptedRecommendation: true,
+        manualChoice: true,
+        manualChoiceKind: 'method',
+        manualChoiceId: ' method:design-thinking:empathy-map ',
+        manualChoiceLabel: ' Empathy Map ',
+      } as never,
+      user as never,
+      'tenant-1',
+    )
+
+    expect(service.launchWorkflow).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      workflowKey: 'design-thinking',
+      quickConsultContextId: 'quick-consult-34',
+      acceptedRecommendationId: undefined,
+      acceptedRecommendation: false,
+      manualChoice: true,
+      manualChoiceKind: 'method',
+      manualChoiceId: 'method:design-thinking:empathy-map',
+      manualChoiceLabel: 'Empathy Map',
     })
   })
 })

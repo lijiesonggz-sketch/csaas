@@ -58,6 +58,7 @@ export class ThinkTankWorkflowParserService {
     return {
       headers,
       rowCount: parsed.data.length,
+      rows: parsed.data,
     }
   }
 

@@ -25,6 +25,16 @@ interface CompleteOutputBody {
   outcome?: unknown
 }
 
+interface LaunchWorkflowBody {
+  quickConsultContextId?: unknown
+  acceptedRecommendationId?: unknown
+  acceptedRecommendation?: unknown
+  manualChoice?: unknown
+  manualChoiceKind?: unknown
+  manualChoiceId?: unknown
+  manualChoiceLabel?: unknown
+}
+
 export function formatSseEvent(event: AdvisoryConversationStreamingEvent): string {
   return `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`
 }
@@ -79,6 +89,7 @@ export class AdvisorySessionController {
   @Post('workflows/:workflowKey/launch')
   async launchWorkflow(
     @Param('workflowKey') workflowKey: string,
+    @Body() body: LaunchWorkflowBody,
     @CurrentUser() user: AdvisoryAccessUser,
     @CurrentTenant() tenantId: string,
   ) {
@@ -86,6 +97,17 @@ export class AdvisorySessionController {
       user,
       tenantId,
       workflowKey,
+      quickConsultContextId: this.toOptionalText(body?.quickConsultContextId),
+      acceptedRecommendationId:
+        body?.manualChoice === true
+          ? undefined
+          : this.toOptionalText(body?.acceptedRecommendationId),
+      acceptedRecommendation:
+        body?.manualChoice === true ? false : body?.acceptedRecommendation === true,
+      manualChoice: body?.manualChoice === true,
+      manualChoiceKind: this.toManualChoiceKind(body?.manualChoiceKind),
+      manualChoiceId: this.toOptionalText(body?.manualChoiceId),
+      manualChoiceLabel: this.toOptionalText(body?.manualChoiceLabel),
     })
 
     return { data: launch }
@@ -314,6 +336,14 @@ export class AdvisorySessionController {
     copyNumber('cacheEligibleInputTokens')
 
     return safe
+  }
+
+  private toOptionalText(value: unknown): string | undefined {
+    return typeof value === 'string' && value.trim() ? value.trim() : undefined
+  }
+
+  private toManualChoiceKind(value: unknown): 'workflow' | 'method' | undefined {
+    return value === 'workflow' || value === 'method' ? value : undefined
   }
 
   private requireOutputExportService(): AdvisoryOutputExportService {

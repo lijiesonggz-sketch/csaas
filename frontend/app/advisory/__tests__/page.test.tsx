@@ -7,11 +7,18 @@ import AdvisoryPage from '../page'
 import { ADVISORY_LAYOUT } from '@/lib/advisory/layout'
 import { fetchThinkTankAccess } from '@/lib/advisory/access'
 import {
+  fetchThinkTankManualBrowseCatalog,
   fetchThinkTankWorkflows,
   fetchThinkTankSessionMessages,
   launchThinkTankWorkflow,
   sendThinkTankSessionMessage,
 } from '@/lib/advisory/workflows'
+import {
+  readQuickConsultDraft,
+  saveQuickConsultDraft,
+  startQuickConsult,
+  submitQuickConsultRecommendationFeedback,
+} from '@/lib/advisory/quick-consult'
 import { streamThinkTankSessionMessage } from '@/lib/advisory/streaming'
 import { useRadarUnreadCount } from '@/lib/hooks/useRadarUnreadCount'
 
@@ -31,6 +38,7 @@ jest.mock('@/lib/advisory/workflows', () => ({
   THINKTANK_WORKFLOW_START_FAILED_MESSAGE:
     '暂时无法启动该 ThinkTank 工作流，请稍后重试或选择其他工作流。',
   fetchThinkTankWorkflows: jest.fn(),
+  fetchThinkTankManualBrowseCatalog: jest.fn(),
   fetchThinkTankSessionMessages: jest.fn(),
   launchThinkTankWorkflow: jest.fn(),
   sendThinkTankSessionMessage: jest.fn(),
@@ -39,6 +47,17 @@ jest.mock('@/lib/advisory/workflows', () => ({
 jest.mock('@/lib/advisory/streaming', () => ({
   THINKTANK_STREAM_ERROR_MESSAGE: 'ThinkTank streaming response was malformed. Please retry.',
   streamThinkTankSessionMessage: jest.fn(),
+}))
+
+jest.mock('@/lib/advisory/quick-consult', () => ({
+  QUICK_CONSULT_PROBLEM_MAX_LENGTH: 5000,
+  QUICK_CONSULT_EMPTY_PROBLEM_MESSAGE: '请先描述你要咨询的问题。',
+  QUICK_CONSULT_PROBLEM_TOO_LONG_MESSAGE: '问题描述过长，请精简到 5000 字以内。',
+  QUICK_CONSULT_START_FAILED_MESSAGE: '暂时无法启动 Quick Consult，请稍后重试。',
+  readQuickConsultDraft: jest.fn(),
+  saveQuickConsultDraft: jest.fn(),
+  startQuickConsult: jest.fn(),
+  submitQuickConsultRecommendationFeedback: jest.fn(),
 }))
 
 const mockToastSuccess = jest.fn()
@@ -226,6 +245,10 @@ describe('AdvisoryPage', () => {
   const mockFetchThinkTankWorkflows = fetchThinkTankWorkflows as jest.MockedFunction<
     typeof fetchThinkTankWorkflows
   >
+  const mockFetchThinkTankManualBrowseCatalog =
+    fetchThinkTankManualBrowseCatalog as jest.MockedFunction<
+      typeof fetchThinkTankManualBrowseCatalog
+    >
   const mockFetchThinkTankSessionMessages = fetchThinkTankSessionMessages as jest.MockedFunction<
     typeof fetchThinkTankSessionMessages
   >
@@ -238,6 +261,17 @@ describe('AdvisoryPage', () => {
   const mockStreamThinkTankSessionMessage = streamThinkTankSessionMessage as jest.MockedFunction<
     typeof streamThinkTankSessionMessage
   >
+  const mockReadQuickConsultDraft = readQuickConsultDraft as jest.MockedFunction<
+    typeof readQuickConsultDraft
+  >
+  const mockSaveQuickConsultDraft = saveQuickConsultDraft as jest.MockedFunction<
+    typeof saveQuickConsultDraft
+  >
+  const mockStartQuickConsult = startQuickConsult as jest.MockedFunction<typeof startQuickConsult>
+  const mockSubmitQuickConsultRecommendationFeedback =
+    submitQuickConsultRecommendationFeedback as jest.MockedFunction<
+      typeof submitQuickConsultRecommendationFeedback
+    >
   const mockUseSession = useSession as jest.Mock
   const mockUseRadarUnreadCount = useRadarUnreadCount as jest.MockedFunction<
     typeof useRadarUnreadCount
@@ -327,6 +361,27 @@ describe('AdvisoryPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    let quickConsultDraft = ''
+    mockReadQuickConsultDraft.mockImplementation(() => quickConsultDraft)
+    mockSaveQuickConsultDraft.mockImplementation(({ problem }) => {
+      quickConsultDraft = problem
+    })
+    mockStartQuickConsult.mockReset()
+    mockSubmitQuickConsultRecommendationFeedback.mockReset()
+    mockSubmitQuickConsultRecommendationFeedback.mockResolvedValue({
+      id: 'recommendation-feedback-35',
+      quickConsultContextId: 'quick-consult-feedback-context-35',
+      rating: 5,
+    })
+    mockStartQuickConsult.mockResolvedValue({
+      contextId: 'quick-consult-1',
+      consultId: 'quick-consult-1',
+      status: 'clarification_required',
+      originalProblem: 'We need AI strategy help.',
+      clarificationQuestions: ['What business outcome matters most?'],
+      providerStatus: 'fake',
+      operationalStatus: 'Provider connected. Clarification is ready.',
+    })
     mockPush.mockReset()
     mockFetchThinkTankWorkflowOutput.mockResolvedValue({
       output: createStory28PageOutput([]),
@@ -365,6 +420,26 @@ describe('AdvisoryPage', () => {
     })
     mockUseRadarUnreadCount.mockReturnValue({ unreadCount: 0 })
     mockFetchThinkTankWorkflows.mockResolvedValue({ workflows: workflowCatalog })
+    mockFetchThinkTankManualBrowseCatalog.mockResolvedValue({
+      workflows: workflowCatalog.map((workflow) => ({
+        workflowKey: workflow.key,
+        displayName: workflow.displayName,
+        scenarioLabel: workflow.scenarioLabel,
+        description: workflow.description,
+        expectedDuration: '30-45 minutes',
+        sourceRefs: [`workflow:${workflow.key}`],
+      })),
+      methodChoices: [
+        {
+          id: 'method:problem-solving:root-cause-tree-1',
+          workflowKey: 'problem-solving',
+          methodName: 'Root Cause Tree',
+          category: 'diagnosis',
+          description: 'Trace causal branches before choosing a fix.',
+        },
+      ],
+      methodCatalogStatus: 'available',
+    })
     mockFetchThinkTankSessionMessages.mockResolvedValue({
       sessionId: 'session-brainstorming',
       currentStep: {
@@ -465,6 +540,65 @@ describe('AdvisoryPage', () => {
     })
   })
 
+  function createRecommendationFeedbackResult(contextId = 'quick-consult-feedback-context-35') {
+    return {
+      contextId,
+      consultId: contextId,
+      status: 'analysis_started',
+      originalProblem: 'ACME raw problem should stay local.',
+      providerStatus: 'fake',
+      classification: {
+        confidence: 0.89,
+        confidenceLevel: 'high',
+        primaryProblemType: 'budget',
+        problemTypes: [
+          {
+            id: 'budget',
+            label: '预算约束',
+            confidence: 0.91,
+            scenarioLanguage: '预算被砍，需要重新排优先级',
+          },
+        ],
+        scenarioLanguage: {
+          label: '预算被砍，需要重新排优先级',
+          summary: '当前问题更像是在预算收紧后重新判断优先级。',
+          guidance: '先明确必须保留的业务目标，再比较路线取舍。',
+        },
+      },
+      recommendations: [
+        {
+          id: `${contextId}:product-brief:1`,
+          recommendationId: `${contextId}:product-brief:1`,
+          workflowKey: 'product-brief',
+          methodName: 'Product Brief',
+          rank: 1,
+          rationale: '预算约束需要先框定产品方向。',
+          primaryRationale: '预算约束需要先框定产品方向。',
+          fitScenario: '预算被砍，需要重新排优先级',
+          expectedDuration: '45 minutes',
+          expectedOutput: 'A product framing brief.',
+          classificationRefs: ['budget'],
+          sourceRefs: ['workflow:product-brief'],
+        },
+        {
+          id: `${contextId}:problem-solving:2`,
+          recommendationId: `${contextId}:problem-solving:2`,
+          workflowKey: 'problem-solving',
+          methodName: 'Problem Solving',
+          rank: 2,
+          rationale: '预算约束需要先定位根因。',
+          primaryRationale: '预算约束需要先定位根因。',
+          fitScenario: '拆解预算、风险和根因。',
+          expectedDuration: '35 minutes',
+          expectedOutput: 'Root causes and prioritized options.',
+          classificationRefs: ['budget'],
+          sourceRefs: ['workflow:problem-solving'],
+        },
+      ],
+      recommendationConfidence: 'confident',
+    } as any
+  }
+
   it('renders a loading state while access is being verified', () => {
     mockFetchThinkTankAccess.mockReturnValue(new Promise(() => {}))
 
@@ -501,6 +635,937 @@ describe('AdvisoryPage', () => {
     expect(
       screen.queryByText('ThinkTank 模块已启用入口，完整咨询工作台将在后续版本开放。')
     ).not.toBeInTheDocument()
+  })
+
+  it('renders Quick Consult as the first-screen intake path and validates empty or over-limit submissions', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    renderAdvisoryRoute()
+
+    const quickConsult = await screen.findByRole('region', { name: 'Quick Consult' })
+    expect(within(quickConsult).getByRole('heading', { name: 'Quick Consult' })).toBeVisible()
+    const input = within(quickConsult).getByRole('textbox', { name: 'Describe the problem' })
+    expect(input).toHaveAttribute('aria-multiline', 'true')
+
+    await user.click(within(quickConsult).getByRole('button', { name: 'Start quick consult' }))
+    expect(within(quickConsult).getByRole('alert')).toHaveTextContent('请先描述你要咨询的问题。')
+    expect(mockStartQuickConsult).not.toHaveBeenCalled()
+
+    fireEvent.change(input, { target: { value: 'x'.repeat(5001) } })
+    await user.click(within(quickConsult).getByRole('button', { name: 'Start quick consult' }))
+
+    expect(within(quickConsult).getByRole('alert')).toHaveTextContent(
+      '问题描述过长，请精简到 5000 字以内。'
+    )
+    expect(mockStartQuickConsult).not.toHaveBeenCalled()
+  })
+
+  it('preserves the Quick Consult draft when switching between Quick Consult and an active workflow', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    renderAdvisoryRoute()
+
+    const input = await screen.findByRole('textbox', { name: 'Describe the problem' })
+    await user.type(input, 'Our compliance workflow is too slow for enterprise sales.')
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+    await screen.findByRole('textbox', { name: '输入你的回答' })
+
+    await user.click(screen.getByRole('button', { name: 'Quick Consult' }))
+
+    expect(screen.getByRole('button', { name: 'Quick Consult' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(within(workflowNav).getByRole('button', { name: /查看 Brainstorming/ })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    )
+    expect(screen.getByRole('textbox', { name: 'Describe the problem' })).toHaveValue(
+      'Our compliance workflow is too slow for enterprise sales.'
+    )
+    expect(mockSaveQuickConsultDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        problem: 'Our compliance workflow is too slow for enterprise sales.',
+      })
+    )
+  })
+
+  it('renders clarification questions for vague Quick Consult input without losing the original problem', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockStartQuickConsult.mockResolvedValueOnce({
+      contextId: 'quick-consult-clarifying',
+      consultId: 'quick-consult-clarifying',
+      status: 'clarification_required',
+      originalProblem: 'Help me with AI.',
+      clarificationQuestions: [
+        'What business decision are you trying to make?',
+        'Who will use it?',
+      ],
+      providerStatus: 'fake',
+      operationalStatus: 'Provider connected. Clarification is ready.',
+    })
+    mockStartQuickConsult.mockResolvedValueOnce({
+      contextId: 'quick-consult-analysis',
+      consultId: 'quick-consult-analysis',
+      status: 'analysis_started',
+      originalProblem: 'Help me with AI.',
+      clarificationAnswers: [
+        {
+          question: 'What business decision are you trying to make?',
+          answer: 'Prioritize enterprise compliance onboarding.',
+        },
+        {
+          question: 'Who will use it?',
+          answer: 'Customer success and implementation teams.',
+        },
+      ],
+      providerStatus: 'fake',
+      operationalStatus: 'Fake provider ready. 5-minute analysis path started.',
+    })
+
+    renderAdvisoryRoute()
+
+    const quickConsult = await screen.findByRole('region', { name: 'Quick Consult' })
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Describe the problem' }),
+      'Help me with AI.'
+    )
+    await user.click(screen.getByRole('button', { name: 'Start quick consult' }))
+
+    const clarification = await screen.findByRole('region', {
+      name: 'Quick Consult clarification questions',
+    })
+    expect(within(clarification).getByText('Original problem: Help me with AI.')).toBeVisible()
+    expect(within(clarification).getAllByRole('listitem')).toHaveLength(2)
+    await user.type(
+      within(clarification).getByRole('textbox', { name: 'Answer clarification 1' }),
+      'Prioritize enterprise compliance onboarding.'
+    )
+    await user.click(within(clarification).getByRole('button', { name: 'Continue quick consult' }))
+    expect(within(quickConsult).getByRole('alert')).toHaveTextContent('请先回答澄清问题后再继续。')
+    expect(screen.getByRole('status', { name: 'Quick Consult status' })).toHaveTextContent(
+      'Quick Consult needs attention'
+    )
+    await user.type(
+      within(clarification).getByRole('textbox', { name: 'Answer clarification 2' }),
+      'Customer success and implementation teams.'
+    )
+    expect(screen.getByRole('status', { name: 'Quick Consult status' })).toHaveTextContent(
+      'Clarification questions ready'
+    )
+    await user.click(within(clarification).getByRole('button', { name: 'Continue quick consult' }))
+
+    await waitFor(() => {
+      expect(mockStartQuickConsult).toHaveBeenLastCalledWith({
+        problem: 'Help me with AI.',
+        contextId: 'quick-consult-clarifying',
+        originalProblem: 'Help me with AI.',
+        clarificationAnswers: [
+          {
+            question: 'What business decision are you trying to make?',
+            answer: 'Prioritize enterprise compliance onboarding.',
+          },
+          {
+            question: 'Who will use it?',
+            answer: 'Customer success and implementation teams.',
+          },
+        ],
+      })
+    })
+    expect(screen.getByRole('status', { name: 'Quick Consult status' })).toHaveTextContent(
+      '5-minute analysis started'
+    )
+  })
+
+  it('starts the 5-minute analysis path for clear Quick Consult input', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockStartQuickConsult.mockResolvedValueOnce({
+      contextId: 'quick-consult-analysis',
+      consultId: 'quick-consult-analysis',
+      status: 'analysis_started',
+      originalProblem:
+        'Assess whether we should launch an ISO 27001 readiness package for Series B SaaS companies.',
+      analysisWindowMinutes: 5,
+      provider: 'openai',
+      providerStatus: 'available',
+      operationalStatus:
+        'OpenAI connected. Analysis can take up to 5 minutes; you can keep working.',
+    })
+
+    renderAdvisoryRoute()
+
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Describe the problem' }),
+      'Assess whether we should launch an ISO 27001 readiness package for Series B SaaS companies.'
+    )
+    await user.click(screen.getByRole('button', { name: 'Start quick consult' }))
+
+    await waitFor(() => {
+      expect(mockStartQuickConsult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          problem:
+            'Assess whether we should launch an ISO 27001 readiness package for Series B SaaS companies.',
+        })
+      )
+    })
+    expect(screen.getByRole('status', { name: 'Quick Consult status' })).toHaveTextContent(
+      '5-minute analysis started'
+    )
+    expect(screen.getByText(/OpenAI connected/)).toBeVisible()
+    expect(screen.getByText(/up to 5 minutes/)).toBeVisible()
+  })
+
+  it('renders Story 3.2 problem-type classifications with user-facing scenario language', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockStartQuickConsult.mockResolvedValueOnce({
+      contextId: 'quick-consult-analysis',
+      consultId: 'quick-consult-analysis',
+      status: 'analysis_started',
+      originalProblem: '预算被砍后，我们需要重新排优先级并调整数据平台架构路线。',
+      analysisWindowMinutes: 5,
+      providerStatus: 'fake',
+      operationalStatus: 'Fake provider ready. 5-minute analysis path started.',
+      classification: {
+        confidence: 0.9,
+        confidenceLevel: 'high',
+        primaryProblemType: 'budget',
+        problemTypes: [
+          {
+            id: 'budget',
+            label: '预算约束',
+            confidence: 0.92,
+            scenarioLanguage: '预算被砍，需要重新排优先级',
+          },
+          {
+            id: 'architecture',
+            label: '架构取舍',
+            confidence: 0.86,
+            scenarioLanguage: '技术路线需要在成本和长期能力之间取舍',
+          },
+        ],
+        scenarioLanguage: {
+          label: '预算被砍，需要重新排优先级',
+          summary: '当前问题更像是在预算收紧后重新判断优先级和架构取舍。',
+          guidance: '先明确必须保留的业务目标，再比较架构路线的成本、风险和交付窗口。',
+        },
+        manualBrowseHint: '也可以手动浏览工作流，直接选择更熟悉的分析路径。',
+      },
+    } as any)
+
+    renderAdvisoryRoute()
+
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Describe the problem' }),
+      '预算被砍后，我们需要重新排优先级并调整数据平台架构路线。'
+    )
+    await user.click(screen.getByRole('button', { name: 'Start quick consult' }))
+
+    const problemTypes = await screen.findByRole('region', {
+      name: 'Quick Consult problem types',
+    })
+    expect(within(problemTypes).getByRole('heading', { name: '问题类型识别' })).toBeVisible()
+    expect(within(problemTypes).getAllByRole('listitem')).toHaveLength(2)
+    expect(within(problemTypes).getByText('预算约束')).toBeVisible()
+    expect(within(problemTypes).getByText('架构取舍')).toBeVisible()
+    expect(within(problemTypes).getByText('预算被砍，需要重新排优先级')).toBeVisible()
+    expect(within(problemTypes).getByText(/预算收紧后重新判断优先级/)).toBeVisible()
+    expect(screen.queryByRole('button', { name: /接受推荐/ })).not.toBeInTheDocument()
+  })
+
+  it('shows low-confidence Quick Consult guidance with clarification and manual browsing alternatives', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockStartQuickConsult.mockResolvedValueOnce({
+      contextId: 'quick-consult-clarifying',
+      consultId: 'quick-consult-clarifying',
+      status: 'clarification_required',
+      originalProblem: '帮我看看增长和组织问题怎么办',
+      clarificationQuestions: ['你最想优先解决的是增长、效率，还是风险？'],
+      providerStatus: 'not_called',
+      classification: {
+        confidence: 0.42,
+        confidenceLevel: 'low',
+        primaryProblemType: 'strategy',
+        problemTypes: [
+          {
+            id: 'strategy',
+            label: '战略取舍',
+            confidence: 0.46,
+            scenarioLanguage: '目标方向还不够清楚，需要先收敛决策边界',
+          },
+        ],
+        scenarioLanguage: {
+          label: '问题边界还不够清楚',
+          summary: '当前描述还不足以给出确定路径，需要先补充目标、团队或风险边界。',
+          guidance: '先回答澄清问题；如果你已经知道要用哪类方法，也可以手动浏览工作流。',
+        },
+        manualBrowseHint: '你也可以先手动浏览工作流，不必等待系统给出确定推荐。',
+      },
+    } as any)
+
+    renderAdvisoryRoute()
+
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Describe the problem' }),
+      '帮我看看增长和组织问题怎么办'
+    )
+    await user.click(screen.getByRole('button', { name: 'Start quick consult' }))
+
+    const problemTypes = await screen.findByRole('region', {
+      name: 'Quick Consult problem types',
+    })
+    expect(within(problemTypes).getByText('置信度较低')).toBeVisible()
+    expect(within(problemTypes).getByText(/不足以给出确定路径/)).toBeVisible()
+    await user.click(within(problemTypes).getByRole('button', { name: '浏览工作流' }))
+    await waitFor(() =>
+      expect(
+        screen.getByRole('region', { name: 'Quick Consult manual method browser' })
+      ).toHaveFocus()
+    )
+    expect(
+      screen.getByRole('region', { name: 'Quick Consult clarification questions' })
+    ).toBeVisible()
+    expect(screen.queryByText(/最适合的推荐方法|接受推荐/)).not.toBeInTheDocument()
+  })
+
+  it('keeps workflow launch available when manual method library browsing is degraded', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockStartQuickConsult.mockResolvedValueOnce({
+      contextId: 'quick-consult-degraded-manual-browse',
+      consultId: 'quick-consult-degraded-manual-browse',
+      status: 'clarification_required',
+      originalProblem: '我已经知道要先做产品机会判断。',
+      clarificationQuestions: ['你最想优先判断哪个机会？'],
+      providerStatus: 'not_called',
+      classification: {
+        confidence: 0.42,
+        confidenceLevel: 'low',
+        primaryProblemType: 'strategy',
+        problemTypes: [
+          {
+            id: 'strategy',
+            label: '战略取舍',
+            confidence: 0.46,
+            scenarioLanguage: '目标方向还不够清楚，需要先收敛决策边界',
+          },
+        ],
+        scenarioLanguage: {
+          label: '问题边界还不够清楚',
+          summary: '当前描述还不足以给出确定路径。',
+          guidance: '可以先回答澄清问题，也可以手动浏览工作流。',
+        },
+        manualBrowseHint: '也可以先手动浏览工作流。',
+      },
+    } as any)
+    mockFetchThinkTankManualBrowseCatalog.mockResolvedValueOnce({
+      workflows: workflowCatalog.map((workflow) => ({
+        workflowKey: workflow.key,
+        displayName: workflow.displayName,
+        scenarioLabel: workflow.scenarioLabel,
+        description: workflow.description,
+        sourceRefs: [`workflow:${workflow.key}`],
+      })),
+      methodChoices: [],
+      methodCatalogStatus: 'degraded',
+      recoverableMessage: '方法库暂时不可用，仍可直接启动工作流。',
+    })
+
+    renderAdvisoryRoute()
+
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Describe the problem' }),
+      '我已经知道要先做产品机会判断。'
+    )
+    await user.click(screen.getByRole('button', { name: 'Start quick consult' }))
+    const problemTypes = await screen.findByRole('region', {
+      name: 'Quick Consult problem types',
+    })
+
+    await user.click(within(problemTypes).getByRole('button', { name: '浏览工作流' }))
+
+    const browser = await screen.findByRole('region', {
+      name: 'Quick Consult manual method browser',
+    })
+    expect(within(browser).getByRole('alert')).toHaveTextContent(
+      '方法库暂时不可用，仍可直接启动工作流。'
+    )
+    expect(within(browser).getAllByRole('article', { name: /workflow option/i })).toHaveLength(8)
+
+    await user.click(within(browser).getByRole('button', { name: 'Launch Product Brief' }))
+
+    await waitFor(() => {
+      expect(mockLaunchThinkTankWorkflow).toHaveBeenCalledWith('product-brief', {
+        quickConsultContextId: 'quick-consult-degraded-manual-browse',
+        manualChoice: true,
+        manualChoiceKind: 'workflow',
+        manualChoiceId: 'workflow:product-brief',
+        manualChoiceLabel: 'Product Brief',
+      })
+    })
+  })
+
+  it('renders Story 3.3 method recommendations, expands rationale, and launches the accepted workflow with consult context', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockStartQuickConsult.mockResolvedValueOnce({
+      contextId: 'quick-consult-recommendations',
+      consultId: 'quick-consult-recommendations',
+      status: 'analysis_started',
+      originalProblem: '预算被砍后，我们需要重新排优先级并调整数据平台架构路线。',
+      analysisWindowMinutes: 5,
+      providerStatus: 'fake',
+      operationalStatus: 'Fake provider ready. 5-minute analysis path started.',
+      classification: {
+        confidence: 0.89,
+        confidenceLevel: 'high',
+        primaryProblemType: 'budget',
+        problemTypes: [
+          {
+            id: 'budget',
+            label: '预算约束',
+            confidence: 0.91,
+            scenarioLanguage: '预算被砍，需要重新排优先级',
+          },
+        ],
+        scenarioLanguage: {
+          label: '预算被砍，需要重新排优先级',
+          summary: '当前问题更像是在预算收紧后重新判断优先级和架构取舍。',
+          guidance: '先明确必须保留的业务目标，再比较架构路线的成本、风险和交付窗口。',
+        },
+      },
+      recommendations: [
+        {
+          id: 'quick-consult:quick-consult-recommendations:product-brief',
+          recommendationId: 'quick-consult-recommendations:product-brief:1',
+          workflowKey: 'product-brief',
+          methodName: 'Product Brief',
+          rank: 1,
+          rationale: '适合先收敛目标、约束和成功标准。',
+          primaryRationale: '适合先收敛目标、约束和成功标准。',
+          expandedRationale:
+            '因为你提到预算收紧和架构路线取舍，Product Brief 可以先把业务目标、约束和成功标准对齐。',
+          fitScenario: '预算收紧后需要重新判断产品机会和资源优先级。',
+          durationMinutes: 45,
+          expectedDuration: '45 minutes',
+          expectedOutput: '一份包含目标、约束、机会和下一步判断的 Product Brief。',
+          classificationRefs: ['budget'],
+          sourceRefs: ['workflow:product-brief', 'method:product-brief:library-1'],
+        },
+        {
+          id: 'quick-consult:quick-consult-recommendations:problem-solving',
+          recommendationId: 'quick-consult:quick-consult-recommendations:problem-solving',
+          workflowKey: 'problem-solving',
+          methodName: 'Problem Solving',
+          rank: 2,
+          rationale: '适合系统梳理成本、风险和交付窗口。',
+          primaryRationale: '适合系统梳理成本、风险和交付窗口。',
+          expandedRationale: 'Problem Solving 会把预算、风险和技术路线拆成可比较的决策因素。',
+          fitScenario: '需要在成本、风险和长期能力之间做架构取舍。',
+          durationMinutes: 60,
+          expectedDuration: '60 minutes',
+          expectedOutput: '一份问题树、备选方案和优先级建议。',
+          classificationRefs: ['budget'],
+          sourceRefs: ['workflow:problem-solving', 'method:problem-solving:library-1'],
+        },
+      ],
+      recommendationConfidence: 'confident',
+    } as any)
+    mockLaunchThinkTankWorkflow.mockResolvedValueOnce({
+      sessionId: 'session-product-brief',
+      status: 'active',
+      workflow: workflowCatalog[3],
+      firstPrompt: '# ThinkTank Runtime Workflow: Product Brief\n\nStart with the first prompt.',
+      sourceRefs: [
+        '_bmad/core/skills/bmad-create-product-brief/workflow.md',
+        '_bmad/core/skills/bmad-create-product-brief/steps/step-01-session-setup.md',
+      ],
+      currentStep: {
+        index: 1,
+        label: '当前步骤',
+        sourceRef: '_bmad/core/skills/bmad-create-product-brief/steps/step-01-session-setup.md',
+      },
+    })
+
+    renderAdvisoryRoute()
+
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Describe the problem' }),
+      '预算被砍后，我们需要重新排优先级并调整数据平台架构路线。'
+    )
+    await user.click(screen.getByRole('button', { name: 'Start quick consult' }))
+
+    const recommendations = await screen.findByRole('region', {
+      name: 'Quick Consult recommendations',
+    })
+    expect(
+      within(recommendations).getByRole('heading', { name: 'Quick Consult recommendations' })
+    ).toBeVisible()
+    expect(within(recommendations).getAllByRole('article')).toHaveLength(2)
+    expect(within(recommendations).getByText('Product Brief')).toBeVisible()
+    expect(within(recommendations).getByText('Problem Solving')).toBeVisible()
+    expect(
+      within(recommendations).getByText('预算收紧后需要重新判断产品机会和资源优先级。')
+    ).toBeVisible()
+    expect(within(recommendations).getByText('45 minutes')).toBeVisible()
+    expect(
+      within(recommendations).getByText('一份包含目标、约束、机会和下一步判断的 Product Brief。')
+    ).toBeVisible()
+    expect(
+      within(recommendations).queryByText(/因为你提到预算收紧和架构路线取舍/)
+    ).not.toBeInTheDocument()
+
+    await user.click(within(recommendations).getAllByRole('button', { name: /why this method/ })[0])
+
+    expect(within(recommendations).getByText(/因为你提到预算收紧和架构路线取舍/)).toBeVisible()
+
+    await user.click(within(recommendations).getByRole('button', { name: 'Accept Product Brief' }))
+
+    await waitFor(() => {
+      expect(mockLaunchThinkTankWorkflow).toHaveBeenCalledWith('product-brief', {
+        quickConsultContextId: 'quick-consult-recommendations',
+        acceptedRecommendationId: 'quick-consult-recommendations:product-brief:1',
+        acceptedRecommendation: true,
+      })
+    })
+    expect(await screen.findByText(/Start with the first prompt/)).toBeInTheDocument()
+  })
+
+  it('shows recommendation feedback only after recommendations are visible without a default rating', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockStartQuickConsult.mockResolvedValueOnce(createRecommendationFeedbackResult())
+
+    renderAdvisoryRoute()
+
+    expect(
+      screen.queryByRole('region', { name: 'Recommendation feedback' })
+    ).not.toBeInTheDocument()
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Describe the problem' }),
+      '预算被砍后如何重新排优先级？'
+    )
+    await user.click(screen.getByRole('button', { name: 'Start quick consult' }))
+
+    const feedback = await screen.findByRole('region', { name: 'Recommendation feedback' })
+    expect(within(feedback).getByText('Rate recommendation quality')).toBeVisible()
+    expect(
+      within(feedback).getByRole('button', { name: 'Submit recommendation feedback' })
+    ).toBeDisabled()
+    for (const rating of ['1', '2', '3', '4', '5']) {
+      expect(within(feedback).getByRole('button', { name: `Rate ${rating}` })).toHaveAttribute(
+        'aria-pressed',
+        'false'
+      )
+    }
+    expect(mockSubmitQuickConsultRecommendationFeedback).not.toHaveBeenCalled()
+  })
+
+  it('submits selected recommendation feedback without sending raw problem content', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockStartQuickConsult.mockResolvedValueOnce(createRecommendationFeedbackResult())
+
+    renderAdvisoryRoute()
+
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Describe the problem' }),
+      'ACME raw problem should stay local.'
+    )
+    await user.click(screen.getByRole('button', { name: 'Start quick consult' }))
+
+    const feedback = await screen.findByRole('region', { name: 'Recommendation feedback' })
+    await user.click(within(feedback).getByRole('button', { name: 'Rate 5' }))
+    await user.type(
+      within(feedback).getByRole('textbox', { name: 'Optional recommendation feedback' }),
+      '推荐方向有帮助，但希望说明取舍原因。'
+    )
+    await user.click(
+      within(feedback).getByRole('button', { name: 'Submit recommendation feedback' })
+    )
+
+    await waitFor(() => {
+      expect(mockSubmitQuickConsultRecommendationFeedback).toHaveBeenCalledWith({
+        quickConsultContextId: 'quick-consult-feedback-context-35',
+        rating: 5,
+        feedbackText: '推荐方向有帮助，但希望说明取舍原因。',
+        recommendationIds: [
+          'quick-consult-feedback-context-35:product-brief:1',
+          'quick-consult-feedback-context-35:problem-solving:2',
+        ],
+      })
+    })
+    expect(JSON.stringify(mockSubmitQuickConsultRecommendationFeedback.mock.calls)).not.toContain(
+      'ACME raw problem'
+    )
+    expect(await within(feedback).findByText('Recommendation feedback saved')).toBeVisible()
+  })
+
+  it('dismisses recommendation feedback without an API call and keeps launch controls usable', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockStartQuickConsult.mockResolvedValueOnce(
+      createRecommendationFeedbackResult('quick-consult-feedback-dismiss-35')
+    )
+
+    renderAdvisoryRoute()
+
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Describe the problem' }),
+      '预算被砍后如何重新排优先级？'
+    )
+    await user.click(screen.getByRole('button', { name: 'Start quick consult' }))
+
+    const feedback = await screen.findByRole('region', { name: 'Recommendation feedback' })
+    await user.click(
+      within(feedback).getByRole('button', { name: 'Dismiss recommendation feedback' })
+    )
+    expect(
+      screen.queryByRole('region', { name: 'Recommendation feedback' })
+    ).not.toBeInTheDocument()
+    expect(mockSubmitQuickConsultRecommendationFeedback).not.toHaveBeenCalled()
+
+    const recommendations = screen.getByRole('region', { name: 'Quick Consult recommendations' })
+    await user.click(within(recommendations).getByRole('button', { name: 'Accept Product Brief' }))
+
+    await waitFor(() => {
+      expect(mockLaunchThinkTankWorkflow).toHaveBeenCalledWith('product-brief', {
+        quickConsultContextId: 'quick-consult-feedback-dismiss-35',
+        acceptedRecommendationId: 'quick-consult-feedback-dismiss-35:product-brief:1',
+        acceptedRecommendation: true,
+      })
+    })
+  })
+
+  it('opens manual method browsing from a recommendation and launches the selected method with manual metadata', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockStartQuickConsult.mockResolvedValueOnce({
+      contextId: 'quick-consult-manual-browse',
+      consultId: 'quick-consult-manual-browse',
+      status: 'analysis_started',
+      originalProblem: '预算被砍后，我们需要重新判断产品机会和交付优先级。',
+      providerStatus: 'fake',
+      classification: {
+        confidence: 0.89,
+        confidenceLevel: 'high',
+        primaryProblemType: 'budget',
+        problemTypes: [
+          {
+            id: 'budget',
+            label: '预算约束',
+            confidence: 0.91,
+            scenarioLanguage: '预算被砍，需要重新排优先级',
+          },
+        ],
+        scenarioLanguage: {
+          label: '预算被砍，需要重新排优先级',
+          summary: '当前问题更像是在预算收紧后重新判断优先级。',
+          guidance: '可以接受推荐，也可以手动浏览熟悉的方法。',
+        },
+      },
+      recommendations: [
+        {
+          id: 'rec-product-brief',
+          recommendationId: 'quick-consult-manual-browse:product-brief:1',
+          workflowKey: 'product-brief',
+          methodName: 'Product Brief',
+          rank: 1,
+          rationale: '适合先收敛目标。',
+          primaryRationale: '适合先收敛目标。',
+          fitScenario: '预算收紧后需要重新判断产品机会。',
+          expectedDuration: '45 minutes',
+          expectedOutput: 'Product direction brief.',
+          classificationRefs: ['budget'],
+          sourceRefs: ['workflow:product-brief', 'method:product-brief:library-1'],
+        },
+        {
+          id: 'rec-problem-solving',
+          recommendationId: 'quick-consult-manual-browse:problem-solving:2',
+          workflowKey: 'problem-solving',
+          methodName: 'Problem Solving',
+          rank: 2,
+          rationale: '适合系统诊断。',
+          primaryRationale: '适合系统诊断。',
+          fitScenario: '拆解预算、风险和根因。',
+          expectedDuration: '60 minutes',
+          expectedOutput: 'Root causes and options.',
+          classificationRefs: ['budget'],
+          sourceRefs: ['workflow:problem-solving', 'method:problem-solving:library-1'],
+        },
+      ],
+      recommendationConfidence: 'confident',
+    } as any)
+    mockLaunchThinkTankWorkflow.mockResolvedValueOnce({
+      sessionId: 'session-problem-solving-manual',
+      status: 'active',
+      workflow: workflowCatalog[5],
+      firstPrompt: 'Using your Quick Consult context, start the selected workflow.',
+      sourceRefs: ['workflow:problem-solving', 'current-step:1'],
+      currentStep: {
+        index: 1,
+        label: '当前步骤',
+        sourceRef: 'current-step:1',
+      },
+    })
+
+    renderAdvisoryRoute()
+
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Describe the problem' }),
+      '预算被砍后，我们需要重新判断产品机会和交付优先级。'
+    )
+    await user.click(screen.getByRole('button', { name: 'Start quick consult' }))
+    const recommendations = await screen.findByRole('region', {
+      name: 'Quick Consult recommendations',
+    })
+
+    await user.click(
+      within(recommendations).getAllByRole('button', { name: /View other methods/ })[0]
+    )
+
+    const browser = await screen.findByRole('region', {
+      name: 'Quick Consult manual method browser',
+    })
+    expect(browser).toHaveFocus()
+    expect(mockFetchThinkTankManualBrowseCatalog).toHaveBeenCalledWith({
+      quickConsultContextId: 'quick-consult-manual-browse',
+    })
+    expect(within(browser).getAllByRole('article', { name: /workflow option/i })).toHaveLength(8)
+    expect(within(browser).getByText('Root Cause Tree')).toBeVisible()
+
+    await user.click(within(browser).getByRole('button', { name: 'Launch Root Cause Tree' }))
+
+    await waitFor(() => {
+      expect(mockLaunchThinkTankWorkflow).toHaveBeenCalledWith('problem-solving', {
+        quickConsultContextId: 'quick-consult-manual-browse',
+        manualChoice: true,
+        manualChoiceKind: 'method',
+        manualChoiceId: 'method:problem-solving:root-cause-tree-1',
+        manualChoiceLabel: 'Root Cause Tree',
+      })
+    })
+    expect(await screen.findByText(/Using your Quick Consult context/)).toBeInTheDocument()
+  })
+
+  it('opens the same manual method browser when a recommendation is rejected', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockStartQuickConsult.mockResolvedValueOnce({
+      contextId: 'quick-consult-reject-manual-browse',
+      consultId: 'quick-consult-reject-manual-browse',
+      status: 'analysis_started',
+      originalProblem: '预算被砍后，我们需要重新判断产品机会和交付优先级。',
+      providerStatus: 'fake',
+      classification: {
+        confidence: 0.89,
+        confidenceLevel: 'high',
+        primaryProblemType: 'budget',
+        problemTypes: [
+          {
+            id: 'budget',
+            label: '预算约束',
+            confidence: 0.91,
+            scenarioLanguage: '预算被砍，需要重新排优先级',
+          },
+        ],
+        scenarioLanguage: {
+          label: '预算被砍，需要重新排优先级',
+          summary: '当前问题更像是在预算收紧后重新判断优先级。',
+          guidance: '可以接受推荐，也可以手动浏览熟悉的方法。',
+        },
+      },
+      recommendations: [
+        {
+          id: 'rec-product-brief',
+          recommendationId: 'quick-consult-reject-manual-browse:product-brief:1',
+          workflowKey: 'product-brief',
+          methodName: 'Product Brief',
+          rank: 1,
+          rationale: '适合先收敛目标。',
+          primaryRationale: '适合先收敛目标。',
+          fitScenario: '预算收紧后需要重新判断产品机会。',
+          expectedDuration: '45 minutes',
+          expectedOutput: 'Product direction brief.',
+          classificationRefs: ['budget'],
+          sourceRefs: ['workflow:product-brief', 'method:product-brief:library-1'],
+        },
+        {
+          id: 'rec-problem-solving',
+          recommendationId: 'quick-consult-reject-manual-browse:problem-solving:2',
+          workflowKey: 'problem-solving',
+          methodName: 'Problem Solving',
+          rank: 2,
+          rationale: '适合系统诊断。',
+          primaryRationale: '适合系统诊断。',
+          fitScenario: '拆解预算、风险和根因。',
+          expectedDuration: '60 minutes',
+          expectedOutput: 'Root causes and options.',
+          classificationRefs: ['budget'],
+          sourceRefs: ['workflow:problem-solving', 'method:problem-solving:library-1'],
+        },
+      ],
+      recommendationConfidence: 'confident',
+    } as any)
+
+    renderAdvisoryRoute()
+
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Describe the problem' }),
+      '预算被砍后，我们需要重新判断产品机会和交付优先级。'
+    )
+    await user.click(screen.getByRole('button', { name: 'Start quick consult' }))
+    const recommendations = await screen.findByRole('region', {
+      name: 'Quick Consult recommendations',
+    })
+
+    await user.click(
+      within(recommendations).getByRole('button', {
+        name: 'Reject Product Brief recommendation',
+      })
+    )
+
+    const browser = await screen.findByRole('region', {
+      name: 'Quick Consult manual method browser',
+    })
+    expect(browser).toHaveFocus()
+    expect(mockFetchThinkTankManualBrowseCatalog).toHaveBeenCalledWith({
+      quickConsultContextId: 'quick-consult-reject-manual-browse',
+    })
+    expect(within(browser).getAllByRole('article', { name: /workflow option/i })).toHaveLength(8)
+    expect(
+      within(browser).getByRole('textbox', { name: 'Search workflows and methods' })
+    ).toBeVisible()
+  })
+
+  it('shows the existing workflow launch recovery message when accepting a recommendation while a workflow is active', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockStartQuickConsult.mockResolvedValueOnce({
+      contextId: 'quick-consult-active-session',
+      consultId: 'quick-consult-active-session',
+      status: 'analysis_started',
+      originalProblem: '预算被砍后，我们需要重新排优先级。',
+      providerStatus: 'fake',
+      classification: {
+        confidence: 0.89,
+        confidenceLevel: 'high',
+        primaryProblemType: 'budget',
+        problemTypes: [
+          {
+            id: 'budget',
+            label: '预算约束',
+            confidence: 0.91,
+            scenarioLanguage: '预算被砍，需要重新排优先级',
+          },
+        ],
+        scenarioLanguage: {
+          label: '预算被砍，需要重新排优先级',
+          summary: '当前问题更像是在预算收紧后重新判断优先级。',
+          guidance: '先明确必须保留的业务目标，再比较路线取舍。',
+        },
+      },
+      recommendations: [
+        {
+          id: 'quick-consult-active-session:product-brief:1',
+          recommendationId: 'quick-consult-active-session:product-brief:1',
+          workflowKey: 'product-brief',
+          methodName: 'Product Brief',
+          rationale: '适合先收敛目标和成功标准。',
+          primaryRationale: '适合先收敛目标和成功标准。',
+          fitScenario: '预算收紧后需要重新判断产品机会和资源优先级。',
+          expectedDuration: '30-40 minutes',
+          expectedOutput: '一份 Product Brief。',
+          classificationRefs: ['budget'],
+          sourceRefs: ['workflow:product-brief'],
+        },
+        {
+          id: 'quick-consult-active-session:problem-solving:2',
+          recommendationId: 'quick-consult-active-session:problem-solving:2',
+          workflowKey: 'problem-solving',
+          methodName: 'Problem Solving',
+          rationale: '适合系统梳理成本、风险和交付窗口。',
+          primaryRationale: '适合系统梳理成本、风险和交付窗口。',
+          fitScenario: '需要在成本、风险和长期能力之间做架构取舍。',
+          expectedDuration: '25-35 minutes',
+          expectedOutput: '一份问题树和优先级建议。',
+          classificationRefs: ['budget'],
+          sourceRefs: ['workflow:problem-solving'],
+        },
+      ],
+      recommendationConfidence: 'confident',
+    } as any)
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+    await screen.findByText(/Start with the first prompt/)
+    await user.click(screen.getByRole('button', { name: 'Quick Consult' }))
+    await user.type(
+      await screen.findByRole('textbox', { name: 'Describe the problem' }),
+      '预算被砍后，我们需要重新排优先级。'
+    )
+    await user.click(screen.getByRole('button', { name: 'Start quick consult' }))
+
+    const recommendations = await screen.findByRole('region', {
+      name: 'Quick Consult recommendations',
+    })
+    await user.click(within(recommendations).getByRole('button', { name: 'Accept Product Brief' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '暂时无法启动该 ThinkTank 工作流，请稍后重试或选择其他工作流。'
+    )
+    expect(mockLaunchThinkTankWorkflow).toHaveBeenCalledTimes(1)
   })
 
   it('renders the real advisory route with one CSAAS frame and one main landmark', async () => {
@@ -559,23 +1624,23 @@ describe('AdvisoryPage', () => {
     renderAdvisoryRoute()
 
     const densityControl = await screen.findByRole('radiogroup', { name: '阅读密度' })
-    const readingSurface = screen.getByRole('heading', { name: '等待开始咨询' }).parentElement
+    const quickConsult = screen.getByRole('region', { name: 'Quick Consult' })
 
-    expect(readingSurface).toHaveClass('max-w-lg', 'text-sm', 'leading-6')
+    expect(quickConsult).toHaveClass('max-w-4xl', 'rounded-sm')
     expect(screen.getByRole('region', { name: '咨询对话工作区' })).toHaveAttribute(
       'data-reading-density',
       'default'
     )
 
     await user.click(within(densityControl).getByRole('radio', { name: '紧凑' }))
-    expect(readingSurface).toHaveClass('max-w-md', 'text-[13px]', 'leading-5')
+    expect(quickConsult).toHaveClass('max-w-4xl', 'rounded-sm')
     expect(screen.getByRole('region', { name: '咨询对话工作区' })).toHaveAttribute(
       'data-reading-density',
       'compact'
     )
 
     await user.click(within(densityControl).getByRole('radio', { name: '舒适' }))
-    expect(readingSurface).toHaveClass('max-w-xl', 'text-base', 'leading-7')
+    expect(quickConsult).toHaveClass('max-w-4xl', 'rounded-sm')
     expect(screen.getByRole('region', { name: '咨询对话工作区' })).toHaveAttribute(
       'data-reading-density',
       'comfortable'
@@ -675,11 +1740,14 @@ describe('AdvisoryPage', () => {
     const stateSummary = await screen.findByRole('status', { name: 'ThinkTank 工作台状态' })
     expect(stateSummary).toHaveAttribute('aria-live', 'polite')
     expect(stateSummary).toHaveTextContent(
-      'ThinkTank 已启用。暂无活动会话。等待开始咨询。咨询文档抽屉为空。'
+      'ThinkTank 已启用。暂无活动会话。Quick Consult 已准备。咨询文档抽屉为空。'
     )
     expect(screen.getByText('已启用')).toBeInTheDocument()
     expect(screen.getByText('暂无活动会话')).toBeInTheDocument()
-    expect(screen.getByText('等待开始咨询')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Quick Consult' })).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Quick Consult status' })).toHaveTextContent(
+      'Quick Consult ready'
+    )
     expect(screen.getByText('暂无文档')).toBeInTheDocument()
     expect(screen.queryByText('报告草稿接入后开放')).not.toBeInTheDocument()
     expect(screen.queryByRole('status', { name: '暂无活动会话' })).not.toBeInTheDocument()
@@ -752,7 +1820,7 @@ describe('AdvisoryPage', () => {
     const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
     await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
 
-    expect(mockLaunchThinkTankWorkflow).toHaveBeenCalledWith('brainstorming')
+    expect(mockLaunchThinkTankWorkflow).toHaveBeenCalledWith('brainstorming', {})
     expect(await screen.findByText(/Start with the first prompt/)).toBeInTheDocument()
     const stepper = screen.getByRole('list', { name: '工作流当前步骤' })
     expect(within(stepper).getByText('当前步骤')).toBeInTheDocument()
@@ -761,8 +1829,10 @@ describe('AdvisoryPage', () => {
     expect(screen.getByRole('status', { name: 'ThinkTank 工作台状态' })).toHaveTextContent(
       '活动会话：Brainstorming'
     )
+    expect(within(workflowNav).getByRole('button', { name: /查看 Brainstorming/ })).toBeEnabled()
     within(workflowNav)
       .getAllByRole('button', { name: /启动 / })
+      .filter((button) => !button.textContent?.includes('Brainstorming'))
       .forEach((button) => expect(button).toBeDisabled())
   })
 
@@ -1180,7 +2250,10 @@ describe('AdvisoryPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '暂时无法启动该 ThinkTank 工作流，请稍后重试或选择其他工作流。'
     )
-    expect(screen.getByText('等待开始咨询')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Quick Consult' })).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Quick Consult status' })).toHaveTextContent(
+      'Quick Consult ready'
+    )
     expect(screen.queryByText(/Start with the first prompt/)).not.toBeInTheDocument()
   })
 

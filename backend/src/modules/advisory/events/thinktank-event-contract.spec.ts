@@ -212,4 +212,97 @@ describe('ThinkTank event contract', () => {
       }),
     ).toThrow(/event kind/i)
   })
+
+  it('normalizes method browse failure audit metadata without allowing raw sensitive fields', () => {
+    const event = normalizeThinkTankEvent({
+      eventName: ThinkTankEventName.MethodBrowseFailed,
+      eventKind: 'audit',
+      tenantId,
+      actorId,
+      subjectType: ThinkTankSubjectType.QuickConsult,
+      subjectId: 'quick-consult-context-34',
+      outcome: ThinkTankEventOutcome.Failure,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      metadata: {
+        failureCategory: 'method_library_parse_failed',
+        workflowKeyCount: 8,
+        methodCount: 0,
+        runtimeStatus: 'degraded',
+      },
+    })
+
+    expect(event).toMatchObject({
+      event_name: 'thinktank.method_browse.failed',
+      failure_category: 'method_library_parse_failed',
+      workflow_key_count: 8,
+      method_count: 0,
+      runtime_status: 'degraded',
+    })
+
+    expect(() =>
+      normalizeThinkTankEvent({
+        eventName: ThinkTankEventName.MethodBrowseFailed,
+        eventKind: 'audit',
+        tenantId,
+        actorId,
+        subjectType: ThinkTankSubjectType.QuickConsult,
+        subjectId: 'quick-consult-context-34',
+        outcome: ThinkTankEventOutcome.Failure,
+        privacyClassification: ThinkTankPrivacyClassification.Operational,
+        metadata: {
+          prompt: 'raw hidden prompt',
+        },
+      }),
+    ).toThrow(/raw sensitive/i)
+  })
+
+  it('normalizes recommendation feedback telemetry without raw problem or feedback text metadata', () => {
+    const event = normalizeThinkTankEvent({
+      eventName: ThinkTankEventName.RecommendationFeedbackSubmitted,
+      eventKind: 'telemetry',
+      tenantId,
+      actorId,
+      subjectType: ThinkTankSubjectType.QuickConsult,
+      subjectId: 'quick-consult-context-35',
+      outcome: ThinkTankEventOutcome.Success,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      metadata: {
+        rating: 4,
+        feedbackTextPresent: true,
+        feedbackTextLength: 18,
+        problemTypeIds: ['budget', 'compliance'],
+        primaryProblemType: 'budget',
+        recommendationIds: ['quick-consult-context-35:problem-solving:1'],
+        recommendationCount: 1,
+        workflowKeys: ['problem-solving'],
+      },
+    })
+
+    expect(event).toMatchObject({
+      event_name: 'thinktank.recommendation.feedback_submitted',
+      rating: 4,
+      feedback_text_present: true,
+      feedback_text_length: 18,
+      primary_problem_type: 'budget',
+      recommendation_count: 1,
+    })
+    expect(JSON.stringify(event)).not.toContain('预算被砍')
+    expect(JSON.stringify(event)).not.toContain('推荐有帮助')
+
+    expect(() =>
+      normalizeThinkTankEvent({
+        eventName: ThinkTankEventName.RecommendationFeedbackSubmitted,
+        eventKind: 'telemetry',
+        tenantId,
+        actorId,
+        subjectType: ThinkTankSubjectType.QuickConsult,
+        subjectId: 'quick-consult-context-35',
+        outcome: ThinkTankEventOutcome.Success,
+        privacyClassification: ThinkTankPrivacyClassification.Operational,
+        metadata: {
+          content: 'raw problem or feedback text',
+        },
+      }),
+    ).toThrow(/raw sensitive/i)
+  })
 })

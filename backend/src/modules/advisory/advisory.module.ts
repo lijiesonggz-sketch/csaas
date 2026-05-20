@@ -3,6 +3,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { AdvisoryModuleConfig } from '../../database/entities/advisory-module-config.entity'
 import { AdvisoryConversationMessage } from '../../database/entities/advisory-conversation-message.entity'
+import { AdvisoryOrganizationContext } from '../../database/entities/advisory-organization-context.entity'
+import { AdvisoryQuickConsultContext } from '../../database/entities/advisory-quick-consult-context.entity'
+import { AdvisoryRecommendationFeedback } from '../../database/entities/advisory-recommendation-feedback.entity'
 import { AdvisoryWorkflowOutput } from '../../database/entities/advisory-workflow-output.entity'
 import { AdvisoryWorkflowSession } from '../../database/entities/advisory-workflow-session.entity'
 import { AuditModule } from '../audit/audit.module'
@@ -13,6 +16,9 @@ import { AdvisoryModuleConfigRepository } from './admin/advisory-module-config.r
 import { AdvisoryAdminController } from './admin/advisory-admin.controller'
 import { AdvisoryAdminService } from './admin/advisory-admin.service'
 import { AdvisoryEventService } from './events/advisory-event.service'
+import { AdvisoryOrganizationContextController } from './org-context/advisory-organization-context.controller'
+import { AdvisoryOrganizationContextRepository } from './org-context/advisory-organization-context.repository'
+import { AdvisoryOrganizationContextService } from './org-context/advisory-organization-context.service'
 import {
   THINKTANK_PROVIDER_GATEWAY_ADAPTERS,
   THINKTANK_PROVIDER_GATEWAY_CONFIG,
@@ -21,6 +27,17 @@ import {
 import { ThinkTankProviderGatewayService } from './provider-gateway/thinktank-provider-gateway.service'
 import { AnthropicGlmProviderAdapter } from './provider-gateway/providers/anthropic-glm-provider.adapter'
 import { FakeThinkTankProviderAdapter } from './provider-gateway/providers/fake-thinktank-provider.adapter'
+import { QuickConsultController } from './quick-consult/quick-consult.controller'
+import { QuickConsultContextRepository } from './quick-consult/quick-consult.repository'
+import {
+  QuickConsultAnalysisRunner,
+  QuickConsultIntakeAnalyzer,
+  QuickConsultService,
+} from './quick-consult/quick-consult.service'
+import { QuickConsultMethodBrowseService } from './quick-consult/quick-consult-method-browse.service'
+import { QuickConsultMethodRecommendationService } from './quick-consult/quick-consult-method-recommendation.service'
+import { QuickConsultRecommendationFeedbackRepository } from './quick-consult/quick-consult-recommendation-feedback.repository'
+import { QuickConsultRecommendationFeedbackService } from './quick-consult/quick-consult-recommendation-feedback.service'
 import { ThinkTankBrandMapperService } from './runtime/brand-mapper.service'
 import { ThinkTankPromptAssemblerService } from './runtime/prompt-assembler.service'
 import { ThinkTankRuntimeFileProviderService } from './runtime/runtime-file-provider.service'
@@ -42,15 +59,26 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     TypeOrmModule.forFeature([
       AdvisoryModuleConfig,
       AdvisoryConversationMessage,
+      AdvisoryOrganizationContext,
+      AdvisoryQuickConsultContext,
+      AdvisoryRecommendationFeedback,
       AdvisoryWorkflowOutput,
       AdvisoryWorkflowSession,
     ]),
   ],
-  controllers: [AdvisoryAccessController, AdvisoryAdminController, AdvisorySessionController],
+  controllers: [
+    AdvisoryAccessController,
+    AdvisoryAdminController,
+    AdvisoryOrganizationContextController,
+    AdvisorySessionController,
+    QuickConsultController,
+  ],
   providers: [
     AdvisoryAccessService,
     AdvisoryAdminService,
     AdvisoryModuleConfigRepository,
+    AdvisoryOrganizationContextRepository,
+    AdvisoryOrganizationContextService,
     AdvisoryConversationMessageRepository,
     AdvisoryWorkflowOutputRepository,
     AdvisoryOutputExportService,
@@ -58,6 +86,14 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisorySessionRepository,
     AdvisorySessionService,
     AdvisoryEventService,
+    QuickConsultContextRepository,
+    QuickConsultRecommendationFeedbackRepository,
+    QuickConsultIntakeAnalyzer,
+    QuickConsultAnalysisRunner,
+    QuickConsultMethodBrowseService,
+    QuickConsultMethodRecommendationService,
+    QuickConsultRecommendationFeedbackService,
+    QuickConsultService,
     {
       provide: THINKTANK_PROVIDER_GATEWAY_CONFIG,
       inject: [ConfigService],
@@ -83,12 +119,20 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryAccessService,
     AdvisoryAdminService,
     AdvisoryEventService,
+    AdvisoryOrganizationContextRepository,
+    AdvisoryOrganizationContextService,
     AdvisoryConversationMessageRepository,
     AdvisoryWorkflowOutputRepository,
     AdvisoryOutputExportService,
     AdvisoryOutputPdfRendererService,
     AdvisorySessionService,
     AdvisorySessionRepository,
+    QuickConsultService,
+    QuickConsultContextRepository,
+    QuickConsultRecommendationFeedbackRepository,
+    QuickConsultMethodBrowseService,
+    QuickConsultMethodRecommendationService,
+    QuickConsultRecommendationFeedbackService,
     ThinkTankProviderGatewayService,
     ThinkTankRuntimeFileProviderService,
     ThinkTankBrandMapperService,

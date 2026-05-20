@@ -18,6 +18,7 @@ describe('ThinkTank event registry', () => {
       'thinktank.quick_consult.started',
       'thinktank.quick_consult.completed',
       'thinktank.quick_consult.failed',
+      'thinktank.method_browse.failed',
       'thinktank.output.exported',
       'thinktank.session.deleted',
       'thinktank.output.deleted',

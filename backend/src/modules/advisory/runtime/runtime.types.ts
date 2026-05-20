@@ -53,6 +53,7 @@ export interface ThinkTankParsedWorkflowDefinition {
 export interface ThinkTankParsedMethodLibrary {
   headers: string[]
   rowCount: number
+  rows: Record<string, string>[]
 }
 
 export type ThinkTankPromptSourceDescriptor = Omit<ThinkTankRuntimeFileDescriptor, 'absolutePath'>

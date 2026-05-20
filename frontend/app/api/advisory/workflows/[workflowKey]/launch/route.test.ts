@@ -20,7 +20,10 @@ jest.mock('@/lib/auth/auth-options', () => ({
 const mockGetServerSession = getServerSession as jest.Mock
 const mockFetch = jest.fn()
 
-function createRequest(headers: Record<string, string | undefined> = {}) {
+function createRequest(
+  headers: Record<string, string | undefined> = {},
+  body: Record<string, unknown> = {}
+) {
   const normalizedHeaders = Object.fromEntries(
     Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value])
   )
@@ -29,6 +32,7 @@ function createRequest(headers: Record<string, string | undefined> = {}) {
     headers: {
       get: (name: string) => normalizedHeaders[name.toLowerCase()] ?? null,
     },
+    json: async () => body,
   }
 }
 
@@ -80,6 +84,87 @@ describe('POST /api/advisory/workflows/:workflowKey/launch', () => {
         },
         cache: 'no-store',
       }
+    )
+  })
+
+  it('proxies accepted Quick Consult recommendation metadata to the backend launch endpoint', async () => {
+    mockGetServerSession.mockResolvedValue({ accessToken: 'session-token' })
+    mockFetch.mockResolvedValue({
+      status: 200,
+      json: async () => ({ data: { sessionId: 'session-1' } }),
+    })
+
+    const { POST } = await import('./route')
+    const response = await POST(
+      createRequest(
+        {},
+        {
+          quickConsultContextId: 'quick-consult-context-33',
+          acceptedRecommendationId: 'quick-consult-context-33:product-brief:1',
+          acceptedRecommendation: true,
+          rawProblem: 'drop me',
+        }
+      ) as never,
+      {
+        params: { workflowKey: 'product-brief' },
+      }
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://backend.test/advisory/workflows/product-brief/launch',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          quickConsultContextId: 'quick-consult-context-33',
+          acceptedRecommendationId: 'quick-consult-context-33:product-brief:1',
+          acceptedRecommendation: true,
+        }),
+      })
+    )
+  })
+
+  it('proxies manual Quick Consult choice metadata while dropping unsafe fields', async () => {
+    mockGetServerSession.mockResolvedValue({ accessToken: 'session-token' })
+    mockFetch.mockResolvedValue({
+      status: 200,
+      json: async () => ({ data: { sessionId: 'session-1' } }),
+    })
+
+    const { POST } = await import('./route')
+    const response = await POST(
+      createRequest(
+        {},
+        {
+          quickConsultContextId: 'quick-consult-context-34',
+          manualChoice: true,
+          manualChoiceKind: 'method',
+          manualChoiceId: 'method:design-thinking:empathy-map',
+          manualChoiceLabel: 'Empathy Map',
+          acceptedRecommendation: true,
+          acceptedRecommendationId: 'drop-me',
+          rawProblem: 'drop me',
+          sourcePath: '_bmad/private.csv',
+        }
+      ) as never,
+      {
+        params: { workflowKey: 'design-thinking' },
+      }
+    )
+
+    expect(response.status).toBe(200)
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://backend.test/advisory/workflows/design-thinking/launch',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          quickConsultContextId: 'quick-consult-context-34',
+          manualChoice: true,
+          manualChoiceKind: 'method',
+          manualChoiceId: 'method:design-thinking:empathy-map',
+          manualChoiceLabel: 'Empathy Map',
+        }),
+      })
     )
   })
 })

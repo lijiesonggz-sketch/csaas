@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { cva } from 'class-variance-authority'
-import { BrainCircuit, MessageSquareText, SendHorizontal, Workflow } from 'lucide-react'
+import { BrainCircuit, MessageSquareText, SendHorizontal, Settings, Workflow } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { AdvisoryChatMessage } from '@/components/advisory/AdvisoryChatMessage'
 import { AdvisoryDocumentDrawer } from '@/components/advisory/AdvisoryDocumentDrawer'
+import { EnterpriseBackgroundDialog } from '@/components/advisory/EnterpriseBackgroundDialog'
+import { QuickConsultProblemIntake } from '@/components/advisory/QuickConsultProblemIntake'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Separator } from '@/components/ui/separator'
@@ -38,6 +40,7 @@ import {
   type ThinkTankDecisionOption,
   type ThinkTankWorkflowCatalogItem,
   type ThinkTankWorkflowLaunchResult,
+  type ThinkTankWorkflowLaunchOptions,
 } from '@/lib/advisory/workflows'
 import {
   THINKTANK_STREAM_ERROR_MESSAGE,
@@ -53,6 +56,18 @@ import {
   type ThinkTankOutputExportFormat,
   type ThinkTankWorkflowOutput,
 } from '@/lib/advisory/outputs'
+import {
+  ORGANIZATION_CONTEXT_LOAD_FAILED_MESSAGE,
+  ORGANIZATION_CONTEXT_SAVE_FAILED_MESSAGE,
+  fetchOrganizationContext,
+  isOrganizationContextUsable,
+  readOrganizationContextSkip,
+  saveOrganizationContext,
+  writeOrganizationContextSkip,
+  type OrganizationContextSaved,
+  type OrganizationContextState,
+  type SaveOrganizationContextInput,
+} from '@/lib/advisory/organization-context'
 import { cn } from '@/lib/utils'
 
 const ADVISORY_STATE_SUMMARY_ID = 'advisory-state-summary'
@@ -66,6 +81,8 @@ const THINKTANK_STREAM_ANNOUNCEMENT_THROTTLE_MS = 1000
 type WorkflowCatalogStatus = 'loading' | 'ready' | 'error'
 type SessionMessagesStatus = 'idle' | 'loading' | 'ready' | 'error'
 type MessageStreamingStatus = 'idle' | 'submitting' | 'streaming' | 'completing' | 'error'
+type WorkspaceMode = 'quick-consult' | 'workflow'
+type OrganizationContextStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'error'
 
 const shellGridVariants = cva(
   'grid h-[calc(100vh-var(--advisory-nav-height)-48px)] min-h-[560px] grid-cols-[var(--advisory-sidebar-width)_minmax(var(--advisory-chat-min-width),1fr)_var(--advisory-document-rail-width)] overflow-hidden rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] shadow-sm transition-[font-size]',
@@ -336,11 +353,20 @@ export default function AdvisoryWorkspaceShell() {
     (session?.user?.organizationId && session.user.email
       ? `${session.user.organizationId}:${session.user.email}`
       : (session?.user?.email ?? null))
+  const organizationContextPreferenceIdentity =
+    [
+      session?.user?.tenantId,
+      session?.user?.organizationId,
+      session?.user?.id ?? session?.user?.email,
+    ]
+      .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      .join(':') || null
   const [readingDensity, setReadingDensity] = useState<AdvisoryReadingDensity>(
     DEFAULT_ADVISORY_READING_DENSITY
   )
   const [workflowCatalogStatus, setWorkflowCatalogStatus] =
     useState<WorkflowCatalogStatus>('loading')
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('quick-consult')
   const [workflows, setWorkflows] = useState<ThinkTankWorkflowCatalogItem[]>([])
   const [catalogError, setCatalogError] = useState<string | null>(null)
   const [launchingWorkflowKey, setLaunchingWorkflowKey] = useState<string | null>(null)
@@ -369,8 +395,22 @@ export default function AdvisoryWorkspaceShell() {
   const [outputExportingFormat, setOutputExportingFormat] =
     useState<ThinkTankOutputExportFormat | null>(null)
   const [outputExportError, setOutputExportError] = useState<string | null>(null)
+  const [organizationContext, setOrganizationContext] = useState<OrganizationContextState | null>(
+    null
+  )
+  const [organizationContextStatus, setOrganizationContextStatus] =
+    useState<OrganizationContextStatus>('idle')
+  const [organizationContextDialogOpen, setOrganizationContextDialogOpen] = useState(false)
+  const [organizationContextDialogMode, setOrganizationContextDialogMode] = useState<
+    'first-use' | 'settings'
+  >('first-use')
+  const [organizationContextError, setOrganizationContextError] = useState<string | null>(null)
+  const [organizationContextErrorSource, setOrganizationContextErrorSource] = useState<
+    'load' | 'save' | null
+  >(null)
   const launchInFlightRef = useRef(false)
   const activeLaunchRef = useRef<ThinkTankWorkflowLaunchResult | null>(null)
+  const organizationContextGateResolversRef = useRef<Array<(allowed: boolean) => void>>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const conversationFocusRef = useRef<HTMLDivElement>(null)
   const conversationScrollRef = useRef<HTMLDivElement>(null)
@@ -418,8 +458,69 @@ export default function AdvisoryWorkspaceShell() {
     }
   }, [isDesktop])
 
-  const handleLaunchWorkflow = async (workflowKey: string) => {
-    if (launchInFlightRef.current || activeLaunchRef.current) {
+  useEffect(() => {
+    if (isDesktop !== true) {
+      return undefined
+    }
+
+    let isCancelled = false
+    setOrganizationContext(null)
+    setOrganizationContextStatus('loading')
+    setOrganizationContextError(null)
+    setOrganizationContextErrorSource(null)
+
+    fetchOrganizationContext()
+      .then((context) => {
+        if (isCancelled) return
+        setOrganizationContext(context)
+        setOrganizationContextStatus('ready')
+        setOrganizationContextErrorSource(null)
+        const hasUsableContext = isOrganizationContextUsable(context)
+        const hasSkippedContext = readOrganizationContextSkip(organizationContextPreferenceIdentity)
+        if (hasUsableContext || hasSkippedContext) {
+          setOrganizationContextDialogOpen(false)
+          resolveOrganizationContextGate(true)
+          return
+        }
+        if (!hasUsableContext && !hasSkippedContext) {
+          setOrganizationContextDialogMode('first-use')
+          setOrganizationContextDialogOpen(true)
+        }
+      })
+      .catch((error) => {
+        if (isCancelled) return
+        setOrganizationContext(null)
+        setOrganizationContextStatus('error')
+        setOrganizationContextErrorSource('load')
+        setOrganizationContextError(
+          readWorkflowErrorMessage(error, ORGANIZATION_CONTEXT_LOAD_FAILED_MESSAGE)
+        )
+        if (organizationContextGateResolversRef.current.length > 0) {
+          setOrganizationContextDialogOpen(false)
+          resolveOrganizationContextGate(true)
+        }
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [isDesktop, organizationContextPreferenceIdentity])
+
+  const executeLaunchWorkflow = async (
+    workflowKey: string,
+    options: ThinkTankWorkflowLaunchOptions = {}
+  ) => {
+    if (launchInFlightRef.current) {
+      return
+    }
+    if (activeLaunchRef.current) {
+      if (
+        options.acceptedRecommendation === true ||
+        options.manualChoice === true ||
+        Boolean(options.quickConsultContextId)
+      ) {
+        throw new Error(THINKTANK_WORKFLOW_START_FAILED_MESSAGE)
+      }
       return
     }
 
@@ -428,7 +529,7 @@ export default function AdvisoryWorkspaceShell() {
     setLaunchingWorkflowKey(workflowKey)
 
     try {
-      const launch = await launchThinkTankWorkflow(workflowKey)
+      const launch = await launchThinkTankWorkflow(workflowKey, options)
       activeLaunchRef.current = launch
       setSessionMessages([])
       setSessionMessagesStatus('loading')
@@ -449,6 +550,7 @@ export default function AdvisoryWorkspaceShell() {
       outputExportRequestIdRef.current += 1
       appendedOutputSourceMessageIdsRef.current.clear()
       setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
+      setWorkspaceMode('workflow')
       setActiveLaunch(launch)
     } catch (error) {
       setLaunchError(readWorkflowErrorMessage(error, THINKTANK_WORKFLOW_START_FAILED_MESSAGE))
@@ -456,6 +558,89 @@ export default function AdvisoryWorkspaceShell() {
       launchInFlightRef.current = false
       setLaunchingWorkflowKey(null)
     }
+  }
+
+  const shouldPromptForOrganizationContext = () =>
+    !(organizationContextStatus === 'error' && organizationContextErrorSource === 'load') &&
+    !isOrganizationContextUsable(organizationContext) &&
+    !readOrganizationContextSkip(organizationContextPreferenceIdentity)
+
+  const resolveOrganizationContextGate = (allowed: boolean) => {
+    const resolvers = organizationContextGateResolversRef.current.splice(0)
+    resolvers.forEach((resolve) => resolve(allowed))
+  }
+
+  const requestOrganizationContextGate = (): Promise<boolean> => {
+    if (!shouldPromptForOrganizationContext()) {
+      return Promise.resolve(true)
+    }
+
+    setOrganizationContextDialogMode('first-use')
+    setOrganizationContextError(null)
+    setOrganizationContextDialogOpen(true)
+
+    return new Promise((resolve) => {
+      organizationContextGateResolversRef.current.push(resolve)
+    })
+  }
+
+  const handleLaunchWorkflow = async (
+    workflowKey: string,
+    options: ThinkTankWorkflowLaunchOptions = {}
+  ) => {
+    const canLaunch = await requestOrganizationContextGate()
+    if (!canLaunch) {
+      return
+    }
+
+    await executeLaunchWorkflow(workflowKey, options)
+  }
+
+  const handleSaveOrganizationContext = async (input: SaveOrganizationContextInput) => {
+    setOrganizationContextStatus('saving')
+    setOrganizationContextError(null)
+    try {
+      const savedContext = await saveOrganizationContext(input)
+      setOrganizationContext(savedContext)
+      setOrganizationContextStatus('ready')
+      setOrganizationContextErrorSource(null)
+      setOrganizationContextDialogOpen(false)
+      resolveOrganizationContextGate(true)
+    } catch (error) {
+      setOrganizationContextStatus('error')
+      setOrganizationContextErrorSource('save')
+      setOrganizationContextError(
+        readWorkflowErrorMessage(error, ORGANIZATION_CONTEXT_SAVE_FAILED_MESSAGE)
+      )
+    }
+  }
+
+  const handleSkipOrganizationContext = () => {
+    writeOrganizationContextSkip(organizationContextPreferenceIdentity)
+    setOrganizationContextDialogOpen(false)
+    setOrganizationContextError(null)
+    setOrganizationContextErrorSource(null)
+    resolveOrganizationContextGate(true)
+  }
+
+  const handleOrganizationContextDialogOpenChange = (nextOpen: boolean) => {
+    setOrganizationContextDialogOpen(nextOpen)
+    if (nextOpen) return
+
+    setOrganizationContextError(null)
+    if (organizationContextErrorSource === 'save') {
+      setOrganizationContextErrorSource(null)
+      setOrganizationContextStatus('ready')
+    }
+    if (organizationContextDialogMode === 'first-use') {
+      resolveOrganizationContextGate(false)
+    }
+  }
+
+  const handleOpenOrganizationSettings = () => {
+    setOrganizationContextDialogMode('settings')
+    setOrganizationContextError(null)
+    setOrganizationContextDialogOpen(true)
   }
 
   useEffect(() => {
@@ -942,6 +1127,8 @@ export default function AdvisoryWorkspaceShell() {
     if (!activeLaunch) return undefined
 
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (workspaceMode !== 'workflow') return
+
       const key = event.key.toLowerCase()
 
       if (event.key === 'Escape') {
@@ -964,7 +1151,7 @@ export default function AdvisoryWorkspaceShell() {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [activeLaunch, sessionMessages])
+  }, [activeLaunch, sessionMessages, workspaceMode])
 
   const readingDensityLabel = getAdvisoryReadingDensityLabel(readingDensity)
   const activeWorkflowName = activeLaunch?.workflow.displayName ?? null
@@ -973,7 +1160,7 @@ export default function AdvisoryWorkspaceShell() {
     : '咨询文档抽屉为空。'
   const advisoryStateSummary = activeLaunch
     ? `ThinkTank 已启用。活动会话：${activeWorkflowName}。当前步骤：${activeLaunch.currentStep.label}。${documentStateSummary}`
-    : 'ThinkTank 已启用。暂无活动会话。等待开始咨询。咨询文档抽屉为空。'
+    : 'ThinkTank 已启用。暂无活动会话。Quick Consult 已准备。咨询文档抽屉为空。'
   const decisionStateSummary = selectedDecisionLabel ? `已选择：${selectedDecisionLabel}。` : ''
   const workflowStatusSummary =
     workflowCatalogStatus === 'loading'
@@ -994,11 +1181,16 @@ export default function AdvisoryWorkspaceShell() {
     messageStreamingStatus === 'streaming' ||
     messageStreamingStatus === 'completing'
   const canSubmitMessage = sessionMessagesStatus === 'ready' && !isSubmittingMessage
+  const showQuickConsult = workspaceMode === 'quick-consult' || !activeLaunch
   const documentColumnWidth = documentDrawerOpen
     ? typeof documentDrawerWidth === 'number'
       ? `${documentDrawerWidth}px`
       : documentDrawerWidth
     : `${ADVISORY_LAYOUT.documentRailWidth}px`
+  const savedOrganizationContext: OrganizationContextSaved | null =
+    organizationContext && isOrganizationContextUsable(organizationContext)
+      ? organizationContext
+      : null
 
   if (isDesktop === null) {
     return <ViewportCheckingState />
@@ -1013,6 +1205,16 @@ export default function AdvisoryWorkspaceShell() {
       className="min-h-[calc(100vh-var(--advisory-nav-height))] bg-[hsl(var(--advisory-shell-bg))] p-4 lg:p-6"
       style={ADVISORY_LAYOUT_STYLE}
     >
+      <EnterpriseBackgroundDialog
+        open={organizationContextDialogOpen}
+        mode={organizationContextDialogMode}
+        initialContext={savedOrganizationContext}
+        saving={organizationContextStatus === 'saving'}
+        error={organizationContextError}
+        onOpenChange={handleOrganizationContextDialogOpenChange}
+        onSave={handleSaveOrganizationContext}
+        onSkip={handleSkipOrganizationContext}
+      />
       <p
         id={ADVISORY_STATE_SUMMARY_ID}
         role="status"
@@ -1069,6 +1271,25 @@ export default function AdvisoryWorkspaceShell() {
           </div>
 
           <nav aria-label="咨询工作流" className="flex-1 p-4">
+            <button
+              type="button"
+              aria-label="Quick Consult"
+              aria-pressed={workspaceMode === 'quick-consult'}
+              onClick={() => setWorkspaceMode('quick-consult')}
+              className={cn(
+                'mb-4 flex min-h-14 w-full items-center gap-3 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-left text-sm text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]',
+                workspaceMode === 'quick-consult' &&
+                  'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
+              )}
+            >
+              <MessageSquareText className="h-4 w-4 shrink-0" />
+              <span className="min-w-0">
+                <span className="block font-medium">Quick Consult</span>
+                <span className="mt-1 block text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]">
+                  Problem intake
+                </span>
+              </span>
+            </button>
             <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase text-[hsl(var(--advisory-muted-foreground))]">
               <Workflow className="h-4 w-4" />
               工作流
@@ -1091,19 +1312,27 @@ export default function AdvisoryWorkspaceShell() {
                 {workflows.map((workflow) => {
                   const isActive = activeLaunch?.workflow.key === workflow.key
                   const isLaunching = launchingWorkflowKey === workflow.key
-                  const isDisabled = Boolean(launchingWorkflowKey) || Boolean(activeLaunch)
+                  const isDisabled =
+                    Boolean(launchingWorkflowKey) || (Boolean(activeLaunch) && !isActive)
 
                   return (
                     <li key={workflow.key}>
                       <button
                         type="button"
-                        aria-label={`启动 ${workflow.displayName}（${workflow.scenarioLabel}）`}
-                        aria-pressed={isActive}
+                        aria-label={`${isActive ? '查看' : '启动'} ${workflow.displayName}（${workflow.scenarioLabel}）`}
+                        aria-pressed={isActive && workspaceMode === 'workflow'}
                         disabled={isDisabled}
-                        onClick={() => handleLaunchWorkflow(workflow.key)}
+                        onClick={() => {
+                          if (isActive) {
+                            setWorkspaceMode('workflow')
+                            return
+                          }
+                          void handleLaunchWorkflow(workflow.key)
+                        }}
                         className={cn(
                           'flex min-h-16 w-full items-start justify-between gap-3 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-left text-sm text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-60',
                           isActive &&
+                            workspaceMode === 'workflow' &&
                             'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
                         )}
                       >
@@ -1114,7 +1343,7 @@ export default function AdvisoryWorkspaceShell() {
                           </span>
                         </span>
                         <span className="shrink-0 text-xs font-medium text-[hsl(var(--advisory-muted-foreground))]">
-                          {isLaunching ? '启动中' : '启动'}
+                          {isLaunching ? '启动中' : isActive ? '查看' : '启动'}
                         </span>
                       </button>
                     </li>
@@ -1153,6 +1382,18 @@ export default function AdvisoryWorkspaceShell() {
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-label="企业背景设置"
+                  title="企业背景设置"
+                  disabled={organizationContextStatus === 'loading'}
+                  onClick={handleOpenOrganizationSettings}
+                  className="h-9 rounded-sm px-3 text-xs"
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  企业背景设置
+                </Button>
                 <ReadingDensityControl
                   value={readingDensity}
                   onChange={handleReadingDensityChange}
@@ -1164,7 +1405,15 @@ export default function AdvisoryWorkspaceShell() {
             </div>
           </div>
 
-          {activeLaunch ? (
+          {showQuickConsult ? (
+            <div className="flex flex-1 items-start justify-center overflow-y-auto p-6">
+              <QuickConsultProblemIntake
+                userIdentity={userPreferenceIdentity}
+                onBeforeStartQuickConsult={requestOrganizationContextGate}
+                onAcceptRecommendation={handleLaunchWorkflow}
+              />
+            </div>
+          ) : activeLaunch ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div
                 ref={conversationScrollRef}

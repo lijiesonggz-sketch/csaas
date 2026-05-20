@@ -21,6 +21,15 @@ export { AICostTracking } from './ai-cost-tracking.entity'
 export { AuditLog, AuditAction } from './audit-log.entity'
 export { AdvisoryModuleConfig } from './advisory-module-config.entity'
 export {
+  ADVISORY_ORGANIZATION_CONTEXT_ENTERPRISE_BACKGROUND,
+  AdvisoryOrganizationContext,
+} from './advisory-organization-context.entity'
+export {
+  AdvisoryQuickConsultContext,
+  AdvisoryQuickConsultContextStatus,
+} from './advisory-quick-consult-context.entity'
+export { AdvisoryRecommendationFeedback } from './advisory-recommendation-feedback.entity'
+export {
   AdvisoryWorkflowSession,
   AdvisoryWorkflowSessionStatus,
 } from './advisory-workflow-session.entity'
