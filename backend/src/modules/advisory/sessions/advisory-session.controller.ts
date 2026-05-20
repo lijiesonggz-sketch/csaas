@@ -12,6 +12,18 @@ import {
 } from './advisory-session.service'
 import { SubmitAdvisoryMessageDto } from './dto/submit-advisory-message.dto'
 
+interface AppendOutputSectionBody {
+  stepIndex?: unknown
+  stepLabel?: unknown
+  contentMarkdown?: unknown
+  sourceMessageId?: unknown
+  providerMetadata?: Record<string, unknown>
+}
+
+interface CompleteOutputBody {
+  outcome?: unknown
+}
+
 export function formatSseEvent(event: AdvisoryConversationStreamingEvent): string {
   return `event: ${event.event}\ndata: ${JSON.stringify(event.data)}\n\n`
 }
@@ -88,6 +100,59 @@ export class AdvisorySessionController {
     })
 
     return { data: messages }
+  }
+
+  @Get('sessions/:sessionId/output')
+  async getOutput(
+    @Param('sessionId') sessionId: string,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const output = await this.advisorySessionService.getSessionOutput({
+      user,
+      tenantId,
+      sessionId,
+    })
+
+    return { data: output }
+  }
+
+  @Post('sessions/:sessionId/output/sections')
+  async appendOutputSection(
+    @Param('sessionId') sessionId: string,
+    @Body() body: AppendOutputSectionBody,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const section = await this.advisorySessionService.appendOutputSection({
+      user,
+      tenantId,
+      sessionId,
+      stepIndex: Number.isInteger(body?.stepIndex) ? (body.stepIndex as number) : 1,
+      stepLabel: typeof body?.stepLabel === 'string' ? body.stepLabel : undefined,
+      contentMarkdown: typeof body?.contentMarkdown === 'string' ? body.contentMarkdown : '',
+      sourceMessageId: typeof body?.sourceMessageId === 'string' ? body.sourceMessageId : undefined,
+      providerMetadata: this.toSafeProviderMetadata(body?.providerMetadata),
+    })
+
+    return { data: section }
+  }
+
+  @Post('sessions/:sessionId/output/complete')
+  async completeOutput(
+    @Param('sessionId') sessionId: string,
+    @Body() body: CompleteOutputBody,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const output = await this.advisorySessionService.completeOutput({
+      user,
+      tenantId,
+      sessionId,
+      outcome: typeof body?.outcome === 'string' ? body.outcome : 'success',
+    })
+
+    return { data: output }
   }
 
   @Post('sessions/:sessionId/messages')
@@ -176,5 +241,36 @@ export class AdvisorySessionController {
         await iterator.return()
       }
     }
+  }
+
+  private toSafeProviderMetadata(metadata: unknown): Record<string, unknown> {
+    if (!metadata || typeof metadata !== 'object') {
+      return {}
+    }
+
+    const source = metadata as Record<string, unknown>
+    const safe: Record<string, unknown> = {}
+    const copyText = (sourceKey: string) => {
+      const value = source[sourceKey]
+      if (typeof value === 'string' && value.trim()) {
+        safe[sourceKey] = value.trim()
+      }
+    }
+    const copyNumber = (sourceKey: string) => {
+      const value = source[sourceKey]
+      if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+        safe[sourceKey] = value
+      }
+    }
+
+    copyText('provider')
+    copyText('model')
+    copyNumber('latencyMs')
+    copyNumber('inputTokens')
+    copyNumber('outputTokens')
+    copyNumber('totalTokens')
+    copyNumber('estimatedCost')
+
+    return safe
   }
 }

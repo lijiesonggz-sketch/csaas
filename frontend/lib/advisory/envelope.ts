@@ -28,5 +28,9 @@ export function readAdvisoryMessage(body: unknown): string | null {
     return typeof first === 'string' ? first : null
   }
 
+  if (isRecord(body.error)) {
+    return readAdvisoryMessage(body.error)
+  }
+
   return readAdvisoryMessage(body.data)
 }

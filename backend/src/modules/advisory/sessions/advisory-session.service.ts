@@ -5,12 +5,18 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common'
+import { randomUUID } from 'crypto'
 import { AuditAction } from '../../../database/entities/audit-log.entity'
 import {
   AdvisoryConversationDecisionOption,
   AdvisoryConversationMessage,
   AdvisoryConversationMessageRole,
 } from '../../../database/entities/advisory-conversation-message.entity'
+import {
+  AdvisoryWorkflowOutput,
+  AdvisoryWorkflowOutputSection,
+  AdvisoryWorkflowOutputStatus,
+} from '../../../database/entities/advisory-workflow-output.entity'
 import {
   AdvisoryWorkflowSessionCurrentStep,
   AdvisoryWorkflowSessionStatus,
@@ -23,6 +29,7 @@ import {
   ThinkTankPrivacyClassification,
   ThinkTankSubjectType,
 } from '../events/thinktank-event-contract'
+import { AdvisoryWorkflowOutputRepository } from '../outputs/advisory-workflow-output.repository'
 import { ThinkTankProviderGatewayService } from '../provider-gateway/thinktank-provider-gateway.service'
 import {
   ThinkTankProviderMessage,
@@ -44,6 +51,18 @@ export const THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE =
   '暂时无法生成 ThinkTank 顾问回复，请稍后重试。'
 export const THINKTANK_EMPTY_MESSAGE_MESSAGE = '请输入你的回答后再提交。'
 export const THINKTANK_MESSAGE_TOO_LONG_MESSAGE = '内容过长，请精简到 5000 字符以内。'
+export const THINKTANK_OUTPUT_SECTION_INVALID_MESSAGE = 'Output section content is required.'
+export const THINKTANK_OUTPUT_NOT_FOUND_MESSAGE = 'ThinkTank output draft not found.'
+export const THINKTANK_OUTPUT_LABEL_MISSING_MESSAGE =
+  'ThinkTank output cannot be completed without AI labeling metadata.'
+export const THINKTANK_OUTPUT_EMPTY_MESSAGE =
+  'ThinkTank output cannot be completed before a report section exists.'
+export const THINKTANK_OUTPUT_SOURCE_MESSAGE_INVALID_MESSAGE =
+  'ThinkTank output source message was not found.'
+export const THINKTANK_OUTPUT_OUTCOME_INVALID_MESSAGE =
+  'ThinkTank output completion outcome must be success or failure.'
+export const THINKTANK_OUTPUT_SECTION_TOO_LONG_MESSAGE = 'Output section content is too long.'
+const THINKTANK_OUTPUT_SECTION_MAX_LENGTH = 20000
 const THINKTANK_WORKFLOW_CATALOG_UNAVAILABLE_MESSAGE =
   '暂时无法加载 ThinkTank 工作流目录，请稍后重试。'
 const SAFE_CURRENT_STEP_REF = 'current-step:1'
@@ -103,6 +122,20 @@ export interface AdvisoryConversationSubmitResult extends AdvisoryConversationMe
   decisionOptions: AdvisoryConversationDecisionOption[]
 }
 
+export interface AdvisorySessionOutputResult {
+  sessionId: string
+  output: AdvisoryWorkflowOutput
+}
+
+export interface AdvisorySessionOutputsResult {
+  sessionId: string
+  outputs: AdvisoryWorkflowOutput[]
+}
+
+export interface AdvisoryOutputAppendResult extends AdvisorySessionOutputResult {
+  section: AdvisoryWorkflowOutputSection
+}
+
 export type AdvisoryConversationStreamingEvent =
   | {
       event: 'message.started'
@@ -156,6 +189,18 @@ interface AdvisorySubmitMessageContext extends AdvisorySessionMessageContext {
   signal?: AbortSignal
 }
 
+interface AdvisoryAppendOutputSectionContext extends AdvisorySessionMessageContext {
+  stepIndex: number
+  stepLabel?: string
+  contentMarkdown: string
+  sourceMessageId?: string
+  providerMetadata?: Record<string, unknown>
+}
+
+interface AdvisoryCompleteOutputContext extends AdvisorySessionMessageContext {
+  outcome: string
+}
+
 @Injectable()
 export class AdvisorySessionService {
   constructor(
@@ -166,6 +211,7 @@ export class AdvisorySessionService {
     private readonly eventService: AdvisoryEventService,
     private readonly messageRepository?: AdvisoryConversationMessageRepository,
     private readonly providerGateway?: ThinkTankProviderGatewayService,
+    private readonly outputRepository?: AdvisoryWorkflowOutputRepository,
   ) {}
 
   async listWorkflows(context: AdvisorySessionContext): Promise<AdvisoryWorkflowCatalogResult> {
@@ -274,6 +320,155 @@ export class AdvisorySessionService {
       sessionId: session.id,
       currentStep: session.currentStep,
       messages,
+    }
+  }
+
+  async getSessionOutput(
+    context: AdvisorySessionMessageContext,
+  ): Promise<AdvisorySessionOutputResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+    const outputRepository = this.requireOutputRepository()
+    const existingDraft = await outputRepository.findActiveDraftForSession(
+      context.tenantId,
+      session.id,
+    )
+    const completedOutput = existingDraft
+      ? null
+      : await outputRepository.findLatestCompletedForSession(context.tenantId, session.id)
+    const output =
+      existingDraft ??
+      completedOutput ??
+      (await this.createActiveDraftForSession(context.tenantId, session))
+
+    return {
+      sessionId: session.id,
+      output,
+    }
+  }
+
+  async listSessionOutputs(
+    context: AdvisorySessionMessageContext,
+  ): Promise<AdvisorySessionOutputsResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+    const outputs = await this.requireOutputRepository().findOutputsBySession(
+      context.tenantId,
+      session.id,
+    )
+
+    return {
+      sessionId: session.id,
+      outputs,
+    }
+  }
+
+  async appendOutputSection(
+    context: AdvisoryAppendOutputSectionContext,
+  ): Promise<AdvisoryOutputAppendResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+    this.assertActiveOutputSession(session)
+    const sourceMessage = await this.resolveOutputSourceMessage(context, session)
+    const contentMarkdown = this.normalizeOutputSectionContent(sourceMessage.content)
+    const outputRepository = this.requireOutputRepository()
+    const draft =
+      (await outputRepository.findActiveDraftForSession(context.tenantId, session.id)) ??
+      (await this.createActiveDraftForSession(context.tenantId, session))
+    const stepIndex = this.normalizeStepIndex(context.stepIndex, session.currentStep.index)
+    const stepLabel = this.normalizeStepLabel(
+      context.stepLabel ?? session.currentStep.label,
+      stepIndex,
+    )
+    const providerMetadata = this.toSafeProviderMetadata(sourceMessage.providerMetadata ?? {})
+    const section: AdvisoryWorkflowOutputSection = {
+      id: randomUUID(),
+      stepIndex,
+      heading: stepLabel,
+      contentMarkdown: `[AI Generated]\n\n${contentMarkdown}`,
+      aiLabel: '[AI Generated]',
+      metadata: {
+        '@context': 'https://schema.org',
+        '@type': 'CreativeWork',
+        ai_generated: true,
+        machine_readable: true,
+        workflow_key: session.workflowKey,
+        source_session_id: session.id,
+        source_message_id: this.optionalText(context.sourceMessageId),
+        step_label: stepLabel,
+        step_index: stepIndex,
+        generated_at: new Date().toISOString(),
+        ...providerMetadata,
+      },
+      createdAt: new Date().toISOString(),
+    }
+    const output = await outputRepository.appendSection(context.tenantId, draft.id, section)
+
+    if (!output) {
+      throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
+    }
+
+    return {
+      sessionId: session.id,
+      output,
+      section,
+    }
+  }
+
+  async completeOutput(
+    context: AdvisoryCompleteOutputContext,
+  ): Promise<AdvisorySessionOutputResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+    this.assertActiveOutputSession(session)
+    const outputRepository = this.requireOutputRepository()
+    const draft = await outputRepository.findActiveDraftForSession(context.tenantId, session.id)
+    const outcome = this.normalizeOutputCompletionOutcome(context.outcome)
+
+    if (!draft) {
+      throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
+    }
+
+    if (!this.hasRequiredAiLabelMetadata(draft)) {
+      throw new BadRequestException(THINKTANK_OUTPUT_LABEL_MISSING_MESSAGE)
+    }
+
+    if (!this.hasReportContent(draft)) {
+      throw new BadRequestException(THINKTANK_OUTPUT_EMPTY_MESSAGE)
+    }
+
+    const completedAt = new Date().toISOString()
+    const output = await outputRepository.completeDraftAndSession(
+      context.tenantId,
+      draft.id,
+      session.id,
+      {
+        outcome,
+        completedAt,
+        sessionMetadata: {
+          ...(session.metadata ?? {}),
+          output_id: draft.id,
+          completed_at: completedAt,
+        },
+      },
+    )
+
+    if (!output) {
+      throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
+    }
+
+    await this.emitWorkflowCompleted({
+      tenantId: context.tenantId,
+      user: context.user,
+      sessionId: session.id,
+      workflowKey: session.workflowKey,
+      output,
+      outcome,
+    })
+
+    return {
+      sessionId: session.id,
+      output,
     }
   }
 
@@ -568,6 +763,85 @@ export class AdvisorySessionService {
     return this.providerGateway
   }
 
+  private requireOutputRepository(): AdvisoryWorkflowOutputRepository {
+    if (!this.outputRepository) {
+      throw new ServiceUnavailableException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
+    }
+
+    return this.outputRepository
+  }
+
+  private assertActiveOutputSession(session: { status: AdvisoryWorkflowSessionStatus }): void {
+    if (session.status !== AdvisoryWorkflowSessionStatus.Active) {
+      throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
+    }
+  }
+
+  private async createActiveDraftForSession(
+    tenantId: string,
+    session: {
+      id: string
+      actorId: string
+      workflowKey: string
+      workflowDisplayName: string
+      status: AdvisoryWorkflowSessionStatus
+    },
+  ): Promise<AdvisoryWorkflowOutput> {
+    this.assertActiveOutputSession(session)
+    const outputRepository = this.requireOutputRepository()
+
+    try {
+      return await outputRepository.createDraft(tenantId, {
+        sessionId: session.id,
+        actorId: session.actorId,
+        workflowKey: session.workflowKey,
+        status: AdvisoryWorkflowOutputStatus.Draft,
+        title: this.createOutputTitle(session.workflowDisplayName),
+        summary: `Live report draft for the ${session.workflowKey} workflow.`,
+        contentMarkdown: '',
+        sections: [],
+        aiLabelMetadata: this.createOutputAiLabelMetadata(session),
+        metadata: {
+          section_count: 0,
+          last_step_index: null,
+        },
+      })
+    } catch (error) {
+      if (!this.isUniqueConstraintViolation(error)) {
+        throw error
+      }
+
+      const existingDraft = await outputRepository.findActiveDraftForSession(tenantId, session.id)
+      if (existingDraft) return existingDraft
+      throw error
+    }
+  }
+
+  private async resolveOutputSourceMessage(
+    context: AdvisoryAppendOutputSectionContext,
+    session: { id: string },
+  ): Promise<AdvisoryConversationMessage> {
+    const sourceMessageId = this.optionalText(context.sourceMessageId)
+    if (!sourceMessageId) {
+      throw new BadRequestException(THINKTANK_OUTPUT_SOURCE_MESSAGE_INVALID_MESSAGE)
+    }
+
+    const sourceMessage = await this.requireMessageRepository().findMessageById(
+      context.tenantId,
+      sourceMessageId,
+    )
+
+    if (
+      !sourceMessage ||
+      sourceMessage.sessionId !== session.id ||
+      sourceMessage.role !== AdvisoryConversationMessageRole.Assistant
+    ) {
+      throw new BadRequestException(THINKTANK_OUTPUT_SOURCE_MESSAGE_INVALID_MESSAGE)
+    }
+
+    return sourceMessage
+  }
+
   private normalizeMessageContent(content: string): string {
     if (typeof content !== 'string' || content.trim().length === 0) {
       throw new BadRequestException(THINKTANK_EMPTY_MESSAGE_MESSAGE)
@@ -579,6 +853,126 @@ export class AdvisorySessionService {
     }
 
     return normalized
+  }
+
+  private normalizeOutputSectionContent(content: string): string {
+    if (typeof content !== 'string' || content.trim().length === 0) {
+      throw new BadRequestException(THINKTANK_OUTPUT_SECTION_INVALID_MESSAGE)
+    }
+
+    const normalized = content.trim()
+    if (normalized.length > THINKTANK_OUTPUT_SECTION_MAX_LENGTH) {
+      throw new BadRequestException(THINKTANK_OUTPUT_SECTION_TOO_LONG_MESSAGE)
+    }
+
+    return normalized
+  }
+
+  private normalizeStepIndex(value: unknown, fallback: number): number {
+    return Number.isInteger(value) && (value as number) > 0 ? (value as number) : fallback
+  }
+
+  private normalizeStepLabel(value: string, stepIndex: number): string {
+    const label = typeof value === 'string' && value.trim() ? value.trim() : `Step ${stepIndex}`
+
+    return label.length > 120 ? label.slice(0, 120) : label
+  }
+
+  private optionalText(value: unknown): string | null {
+    return typeof value === 'string' && value.trim() ? value.trim() : null
+  }
+
+  private normalizeOutputCompletionOutcome(outcome: string): ThinkTankEventOutcome {
+    if (outcome === ThinkTankEventOutcome.Success || outcome === 'success') {
+      return ThinkTankEventOutcome.Success
+    }
+    if (outcome === ThinkTankEventOutcome.Failure || outcome === 'failure') {
+      return ThinkTankEventOutcome.Failure
+    }
+
+    throw new BadRequestException(THINKTANK_OUTPUT_OUTCOME_INVALID_MESSAGE)
+  }
+
+  private isUniqueConstraintViolation(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === '23505'
+    )
+  }
+
+  private createOutputTitle(workflowDisplayName: string): string {
+    return `${workflowDisplayName} Report Draft`
+  }
+
+  private createOutputAiLabelMetadata(session: {
+    id: string
+    workflowKey: string
+  }): Record<string, unknown> {
+    return {
+      visible_label: '[AI Generated]',
+      label: 'AI Generated',
+      ai_generated: true,
+      machine_readable: true,
+      generator: 'ThinkTank',
+      source_session_id: session.id,
+      workflow_key: session.workflowKey,
+      generated_at: new Date().toISOString(),
+    }
+  }
+
+  private toSafeProviderMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
+    const safe: Record<string, unknown> = {}
+    const copyText = (sourceKey: string, targetKey = sourceKey) => {
+      const value = metadata[sourceKey]
+      if (typeof value === 'string' && value.trim()) {
+        safe[targetKey] = value.trim()
+      }
+    }
+    const copyNumber = (sourceKey: string, targetKey = sourceKey) => {
+      const value = metadata[sourceKey]
+      if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+        safe[targetKey] = value
+      }
+    }
+
+    copyText('provider')
+    copyText('model')
+    copyNumber('latencyMs', 'latency_ms')
+    copyNumber('latency_ms', 'latency_ms')
+    copyNumber('inputTokens', 'input_tokens')
+    copyNumber('input_tokens', 'input_tokens')
+    copyNumber('outputTokens', 'output_tokens')
+    copyNumber('output_tokens', 'output_tokens')
+    copyNumber('totalTokens', 'total_tokens')
+    copyNumber('total_tokens', 'total_tokens')
+    copyNumber('estimatedCost', 'estimated_cost')
+    copyNumber('estimated_cost', 'estimated_cost')
+
+    return safe
+  }
+
+  private hasRequiredAiLabelMetadata(output: AdvisoryWorkflowOutput): boolean {
+    const metadata = output.aiLabelMetadata ?? {}
+
+    return (
+      metadata.visible_label === '[AI Generated]' &&
+      metadata.ai_generated === true &&
+      metadata.machine_readable === true
+    )
+  }
+
+  private hasReportContent(output: AdvisoryWorkflowOutput): boolean {
+    return (
+      Array.isArray(output.sections) &&
+      output.sections.some(
+        (section) =>
+          section.aiLabel === '[AI Generated]' &&
+          typeof section.contentMarkdown === 'string' &&
+          section.contentMarkdown.trim().replace('[AI Generated]', '').trim().length > 0,
+      )
+    )
   }
 
   private createProviderSystemPrompt(
@@ -800,6 +1194,44 @@ export class AdvisorySessionService {
       metadata: {
         workflow_key: context.workflowKey,
         runtime_error_code: this.readRuntimeErrorCode(context.error),
+      },
+    })
+  }
+
+  private async emitWorkflowCompleted(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    sessionId: string
+    workflowKey: string
+    output: AdvisoryWorkflowOutput
+    outcome: string
+  }): Promise<void> {
+    await this.eventService.emitAudit({
+      eventName: ThinkTankEventName.WorkflowCompleted,
+      tenantId: context.tenantId,
+      actorId: context.user.id,
+      subjectType: ThinkTankSubjectType.Output,
+      subjectId: context.output.id,
+      outcome:
+        context.outcome === ThinkTankEventOutcome.Failure
+          ? ThinkTankEventOutcome.Failure
+          : ThinkTankEventOutcome.Success,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      optional: {
+        sessionId: context.sessionId,
+        outputId: context.output.id,
+        workflowType: context.workflowKey,
+      },
+      audit: {
+        action: AuditAction.UPDATE,
+        entityType: 'ThinkTankWorkflowOutput',
+        entityId: context.output.id,
+        organizationId: context.user.organizationId ?? null,
+      },
+      metadata: {
+        workflow_key: context.workflowKey,
+        section_count: context.output.sections?.length ?? 0,
+        ai_label_metadata_present: this.hasRequiredAiLabelMetadata(context.output),
       },
     })
   }

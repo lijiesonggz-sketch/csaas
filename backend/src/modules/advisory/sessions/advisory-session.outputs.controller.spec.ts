@@ -1,0 +1,203 @@
+import 'reflect-metadata'
+import { RequestMethod } from '@nestjs/common'
+import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants'
+import { Test, TestingModule } from '@nestjs/testing'
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
+import { TenantGuard } from '../../organizations/guards/tenant.guard'
+import { AdvisorySessionController } from './advisory-session.controller'
+import { AdvisorySessionService } from './advisory-session.service'
+
+const outputDraft = {
+  id: 'output-1',
+  sessionId: 'session-1',
+  workflowKey: 'problem-solving',
+  status: 'draft',
+  title: 'Problem Solving Report Draft',
+  summary: 'Live report draft for the problem-solving workflow.',
+  contentMarkdown: '# Problem Solving Report Draft',
+  sections: [
+    {
+      id: 'section-1',
+      stepIndex: 1,
+      heading: 'Diagnose retention',
+      contentMarkdown: '[AI Generated]\n\nRetention drops after the second session.',
+      aiLabel: '[AI Generated]',
+      metadata: { ai_generated: true },
+    },
+  ],
+  aiLabelMetadata: {
+    visible_label: '[AI Generated]',
+    ai_generated: true,
+    machine_readable: true,
+  },
+  metadata: {
+    section_count: 1,
+    last_step_index: 1,
+  },
+}
+
+describe('AdvisorySessionController workflow outputs (ATDD RED)', () => {
+  let controller: AdvisorySessionController
+  let service: jest.Mocked<
+    Pick<
+      AdvisorySessionService,
+      'getSessionOutput' | 'listSessionOutputs' | 'appendOutputSection' | 'completeOutput'
+    >
+  >
+
+  beforeEach(async () => {
+    service = {
+      getSessionOutput: jest.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        output: outputDraft,
+      }),
+      listSessionOutputs: jest.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        outputs: [outputDraft],
+      }),
+      appendOutputSection: jest.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        output: outputDraft,
+        section: outputDraft.sections[0],
+      }),
+      completeOutput: jest.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        output: { ...outputDraft, status: 'completed' },
+      }),
+    } as never
+
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [AdvisorySessionController],
+      providers: [
+        {
+          provide: AdvisorySessionService,
+          useValue: service,
+        },
+      ],
+    })
+      .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(TenantGuard)
+      .useValue({ canActivate: () => true })
+      .compile()
+
+    controller = module.get<AdvisorySessionController>(AdvisorySessionController)
+  })
+
+  test('[P0] exposes guarded backend output routes under the existing advisory controller', () => {
+    expect(Reflect.getMetadata(PATH_METADATA, AdvisorySessionController)).toBe('advisory')
+    expect(Reflect.getMetadata(GUARDS_METADATA, AdvisorySessionController)).toEqual(
+      expect.arrayContaining([JwtAuthGuard, TenantGuard]),
+    )
+    expect(Reflect.getMetadata(PATH_METADATA, controller.getOutput)).toBe(
+      'sessions/:sessionId/output',
+    )
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.getOutput)).toBe(RequestMethod.GET)
+    expect(Reflect.getMetadata(PATH_METADATA, controller.appendOutputSection)).toBe(
+      'sessions/:sessionId/output/sections',
+    )
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.appendOutputSection)).toBe(
+      RequestMethod.POST,
+    )
+    expect(Reflect.getMetadata(PATH_METADATA, controller.completeOutput)).toBe(
+      'sessions/:sessionId/output/complete',
+    )
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.completeOutput)).toBe(RequestMethod.POST)
+  })
+
+  test('[P0] returns the current session output in a ThinkTank-owned data envelope', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(controller.getOutput('session-1', user as never, 'tenant-1')).resolves.toEqual({
+      data: {
+        sessionId: 'session-1',
+        output: outputDraft,
+      },
+    })
+    expect(service.getSessionOutput).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      sessionId: 'session-1',
+    })
+  })
+
+  test('[P0] appends an output section without accepting tenant or direct output ownership from the request body', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(
+      controller.appendOutputSection(
+        'session-1',
+        {
+          tenantId: 'attacker-tenant',
+          outputId: 'attacker-output',
+          stepIndex: 1,
+          stepLabel: 'Diagnose retention',
+          contentMarkdown: 'Retention drops after the second session.',
+          sourceMessageId: 'assistant-message-1',
+          providerMetadata: {
+            provider: 'fake',
+            model: 'fake-thinktank-model',
+            rawPrompt: 'do not relay',
+          },
+        } as never,
+        user as never,
+        'tenant-1',
+      ),
+    ).resolves.toEqual({
+      data: expect.objectContaining({
+        sessionId: 'session-1',
+        output: expect.objectContaining({
+          sections: [expect.objectContaining({ aiLabel: '[AI Generated]' })],
+        }),
+      }),
+    })
+
+    expect(service.appendOutputSection).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      sessionId: 'session-1',
+      stepIndex: 1,
+      stepLabel: 'Diagnose retention',
+      contentMarkdown: 'Retention drops after the second session.',
+      sourceMessageId: 'assistant-message-1',
+      providerMetadata: {
+        provider: 'fake',
+        model: 'fake-thinktank-model',
+      },
+    })
+  })
+
+  test('[P0] completes the active output draft without relaying raw report content from the request body', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(
+      controller.completeOutput(
+        'session-1',
+        {
+          tenantId: 'attacker-tenant',
+          outputId: 'attacker-output',
+          outcome: 'success',
+          contentMarkdown: 'raw report body should not be accepted here',
+          sections: [{ contentMarkdown: 'raw section should not be accepted here' }],
+        } as never,
+        user as never,
+        'tenant-1',
+      ),
+    ).resolves.toEqual({
+      data: {
+        sessionId: 'session-1',
+        output: expect.objectContaining({ status: 'completed' }),
+      },
+    })
+
+    expect(service.completeOutput).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      sessionId: 'session-1',
+      outcome: 'success',
+    })
+    expect(JSON.stringify(service.completeOutput.mock.calls[0][0])).not.toMatch(
+      /raw report|raw section|attacker-tenant|attacker-output/i,
+    )
+  })
+})

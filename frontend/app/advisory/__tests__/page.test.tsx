@@ -41,6 +41,97 @@ jest.mock('@/lib/advisory/streaming', () => ({
   streamThinkTankSessionMessage: jest.fn(),
 }))
 
+/*
+ * Story 2.8 ATDD RED additions for frontend/app/advisory/__tests__/page.test.tsx.
+ * Place the mock block with the other top-level advisory mocks, then place the
+ * describe block inside the existing describe('AdvisoryPage', () => { ... }) so it can
+ * reuse renderAdvisoryRoute(), workflowCatalog, createControlledStream(), and the
+ * existing mocked workflow/access variables.
+ */
+
+const mockFetchThinkTankWorkflowOutput = jest.fn()
+const mockAppendThinkTankWorkflowOutputSection = jest.fn()
+const mockCompleteThinkTankSessionOutput = jest.fn()
+
+jest.mock(
+  '@/lib/advisory/outputs',
+  () => ({
+    THINKTANK_OUTPUT_APPEND_FAILED_MESSAGE: '暂时无法更新报告草稿，请稍后重试。',
+    fetchThinkTankWorkflowOutput: (...args: unknown[]) => mockFetchThinkTankWorkflowOutput(...args),
+    appendThinkTankWorkflowOutputSection: (...args: unknown[]) =>
+      mockAppendThinkTankWorkflowOutputSection(...args),
+    completeThinkTankSessionOutput: (...args: unknown[]) =>
+      mockCompleteThinkTankSessionOutput(...args),
+  }),
+  { virtual: true }
+)
+
+type Story28PageOutputSection = {
+  id: string
+  stepIndex: number
+  heading: string
+  contentMarkdown: string
+  aiLabel: '[AI Generated]'
+  metadata: {
+    workflowKey: string
+    stepLabel: string
+    provider: string
+    model: string
+    generatedAt: string
+  }
+  createdAt: string
+}
+
+function createStory28PageSection(
+  overrides: Partial<Story28PageOutputSection> = {}
+): Story28PageOutputSection {
+  return {
+    id: 'section-opportunity',
+    stepIndex: 1,
+    heading: '1. 机会梳理',
+    contentMarkdown: '企业客户预算触发点来自合规整改窗口。',
+    aiLabel: '[AI Generated]',
+    metadata: {
+      workflowKey: 'brainstorming',
+      stepLabel: '机会梳理',
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      generatedAt: '2026-05-20T07:44:42+08:00',
+    },
+    createdAt: '2026-05-20T07:44:42+08:00',
+    ...overrides,
+  }
+}
+
+function createStory28PageOutput(sections: Story28PageOutputSection[] = []) {
+  const lastSection = sections[sections.length - 1] ?? createStory28PageSection()
+
+  return {
+    id: 'output-brainstorming',
+    sessionId: 'session-brainstorming',
+    workflowKey: 'brainstorming',
+    status: 'draft',
+    title: 'Brainstorming 决策报告草稿',
+    summary: '已生成阶段性决策草稿。',
+    contentMarkdown: sections.map((section) => section.contentMarkdown).join('\n\n'),
+    sections,
+    aiLabelMetadata: {
+      label: 'AI Generated',
+      visibleLabel: '[AI Generated]',
+      generator: 'ThinkTank',
+      provider: lastSection.metadata.provider,
+      model: lastSection.metadata.model,
+      generatedAt: lastSection.metadata.generatedAt,
+      workflowKey: lastSection.metadata.workflowKey,
+      sessionId: 'session-brainstorming',
+    },
+    metadata: {
+      sectionCount: sections.length,
+      lastStepIndex: lastSection.stepIndex,
+    },
+  }
+}
+
 jest.mock('next-auth/react', () => ({
   useSession: jest.fn(),
   signOut: jest.fn(),
@@ -224,6 +315,16 @@ describe('AdvisoryPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockPush.mockReset()
+    mockFetchThinkTankWorkflowOutput.mockResolvedValue({
+      output: createStory28PageOutput([]),
+    })
+    mockAppendThinkTankWorkflowOutputSection.mockResolvedValue({
+      output: createStory28PageOutput([createStory28PageSection()]),
+      appendedSection: createStory28PageSection(),
+    })
+    mockCompleteThinkTankSessionOutput.mockResolvedValue({
+      output: { ...createStory28PageOutput([createStory28PageSection()]), status: 'completed' },
+    })
     window.localStorage.clear()
     document.documentElement.classList.remove('dark')
     installMatchMedia(true)
@@ -372,9 +473,9 @@ describe('AdvisoryPage', () => {
     expect(screen.getByRole('complementary', { name: '咨询工作流导航' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: '咨询对话工作区' })).toBeInTheDocument()
     expect(screen.getByRole('complementary', { name: '咨询文档抽屉' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '展开咨询文档抽屉' })).toHaveAttribute(
-      'aria-disabled',
-      'true'
+    expect(screen.getByRole('button', { name: '打开咨询文档抽屉' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
     )
     expect(screen.getByText('选择一个工作流后，对话将在这里开始。')).toBeInTheDocument()
     expect(screen.getByText('文档')).toBeInTheDocument()
@@ -562,7 +663,7 @@ describe('AdvisoryPage', () => {
     expect(screen.getByText('暂无活动会话')).toBeInTheDocument()
     expect(screen.getByText('等待开始咨询')).toBeInTheDocument()
     expect(screen.getByText('暂无文档')).toBeInTheDocument()
-    expect(screen.getByText('报告草稿接入后开放')).toBeInTheDocument()
+    expect(screen.queryByText('报告草稿接入后开放')).not.toBeInTheDocument()
     expect(screen.queryByRole('status', { name: '暂无活动会话' })).not.toBeInTheDocument()
   })
 
@@ -616,10 +717,9 @@ describe('AdvisoryPage', () => {
     expect(screen.queryByText('待接入')).not.toBeInTheDocument()
     expect(screen.queryByText('结构化咨询')).not.toBeInTheDocument()
 
-    const drawerButton = screen.getByRole('button', { name: '展开咨询文档抽屉' })
-    expect(drawerButton).toHaveAttribute('aria-disabled', 'true')
-    expect(drawerButton).toHaveAccessibleDescription('文档抽屉将在报告草稿接入后开放')
-    expect(drawerButton).toHaveAttribute('title', '文档抽屉将在报告草稿接入后开放')
+    const drawerButton = screen.getByRole('button', { name: '打开咨询文档抽屉' })
+    expect(drawerButton).toHaveAttribute('aria-expanded', 'false')
+    expect(drawerButton).toHaveAttribute('title', '打开咨询文档抽屉查看报告草稿')
   })
 
   it('launches one selected workflow, renders the first prompt, and shows only the current step', async () => {
@@ -963,8 +1063,7 @@ describe('AdvisoryPage', () => {
     expect(deepenButton).toBeEnabled()
     expect(partyModeButton).toBeDisabled()
 
-    document.body.focus()
-    await user.keyboard('c')
+    fireEvent.keyDown(document.body, { key: 'c' })
     expect(screen.getByRole('status', { name: 'ThinkTank 工作台状态' })).toHaveTextContent(
       '已选择：继续'
     )
@@ -985,13 +1084,15 @@ describe('AdvisoryPage', () => {
     await user.type(input, 'Keep this draft.')
 
     await user.keyboard('{Control>}d{/Control}')
-    expect(screen.getByRole('button', { name: '展开咨询文档抽屉' })).toHaveAccessibleDescription(
-      '文档抽屉将在报告草稿接入后开放'
-    )
+    expect(screen.getByRole('complementary', { name: '咨询文档抽屉' })).toBeVisible()
     expect(input).toHaveValue('Keep this draft.')
 
     await user.keyboard('{Escape}')
     expect(input).toHaveValue('Keep this draft.')
+    expect(screen.getByRole('button', { name: '打开咨询文档抽屉' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
     expect(screen.getByText('快捷键：Enter 提交，Shift+Enter 换行')).toBeInTheDocument()
   })
 
@@ -1164,7 +1265,7 @@ describe('AdvisoryPage', () => {
         'ThinkTank 当前未在本租户启用，请联系管理员开通。'
       )
     })
-    expect(screen.queryByRole('button', { name: '展开咨询文档抽屉' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '打开咨询文档抽屉' })).not.toBeInTheDocument()
   })
 
   it('has no automated axe violations for advisory loading, denied, desktop-required, and authorized states', async () => {
@@ -1232,5 +1333,330 @@ describe('AdvisoryPage', () => {
     expect(screen.getByRole('banner')).toHaveClass('dark:bg-slate-950')
     expect(screen.getByRole('navigation', { name: '主导航' })).toHaveClass('dark:bg-slate-950')
     expect(await axe(darkAuthorized.container)).toHaveNoViolations()
+  })
+  describe('Story 2.8 live document drawer workspace integration (ATDD RED)', () => {
+    beforeEach(() => {
+      mockFetchThinkTankWorkflowOutput.mockReset()
+      mockAppendThinkTankWorkflowOutputSection.mockReset()
+      mockCompleteThinkTankSessionOutput.mockReset()
+      mockFetchThinkTankWorkflowOutput.mockResolvedValue({
+        output: createStory28PageOutput([]),
+      })
+      mockAppendThinkTankWorkflowOutputSection.mockResolvedValue({
+        output: createStory28PageOutput([createStory28PageSection()]),
+        appendedSection: createStory28PageSection(),
+      })
+      mockCompleteThinkTankSessionOutput.mockResolvedValue({
+        output: { ...createStory28PageOutput([createStory28PageSection()]), status: 'completed' },
+      })
+    })
+
+    test('[P0] loads the active report draft after workflow launch and opens the latest generated section from the collapsed trigger', async () => {
+      const user = userEvent.setup()
+      const latestSection = createStory28PageSection({
+        id: 'section-solution',
+        stepIndex: 2,
+        heading: '2. 方案收敛',
+        contentMarkdown: '建议优先验证企业客户的预算触发点。',
+        metadata: {
+          workflowKey: 'brainstorming',
+          stepLabel: '方案收敛',
+          provider: 'openai',
+          model: 'gpt-4o-mini',
+          generatedAt: '2026-05-20T08:00:00+08:00',
+        },
+      })
+      mockFetchThinkTankAccess.mockResolvedValue({ allowed: true, module: 'thinktank' })
+      mockFetchThinkTankWorkflowOutput.mockResolvedValueOnce({
+        output: createStory28PageOutput([createStory28PageSection(), latestSection]),
+      })
+
+      renderAdvisoryRoute()
+
+      const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+      await user.click(
+        await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ })
+      )
+
+      await waitFor(() => {
+        expect(mockFetchThinkTankWorkflowOutput).toHaveBeenCalledWith('session-brainstorming')
+      })
+      const trigger = screen.getByRole('button', { name: '打开咨询文档抽屉' })
+      expect(trigger).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByRole('status', { name: '咨询文档新内容提示' })).not.toBeInTheDocument()
+
+      await user.click(trigger)
+
+      const drawer = screen.getByRole('complementary', { name: '咨询文档抽屉' })
+      expect(
+        within(drawer).getByRole('heading', { name: 'Brainstorming 决策报告草稿' })
+      ).toBeVisible()
+      expect(within(drawer).getByRole('heading', { name: '2. 方案收敛' })).toBeVisible()
+      expect(within(drawer).getByText('建议优先验证企业客户的预算触发点。')).toBeVisible()
+      expect(within(drawer).getAllByText('[AI Generated]').length).toBeGreaterThan(0)
+      expect(within(drawer).getByText(/gpt-4o-mini/)).toBeVisible()
+      expect(within(drawer).getByText(/Step 2|步骤 2/)).toBeVisible()
+      expect(screen.queryByRole('status', { name: '咨询文档新内容提示' })).not.toBeInTheDocument()
+    })
+
+    test('[P0] appends a report section after completed advisor output, shows completion feedback, and returns focus to the input', async () => {
+      const user = userEvent.setup()
+      const controlledStream = createControlledStream()
+      const appendedSection = createStory28PageSection({
+        id: 'section-completed-step',
+        stepIndex: 1,
+        heading: '1. 机会梳理',
+        contentMarkdown: 'Advisor synthesis for the completed step.',
+      })
+      mockStreamThinkTankSessionMessage.mockImplementation(() => controlledStream.iterator())
+      mockFetchThinkTankAccess.mockResolvedValue({ allowed: true, module: 'thinktank' })
+      mockFetchThinkTankWorkflowOutput.mockResolvedValueOnce({
+        output: createStory28PageOutput([]),
+      })
+      mockAppendThinkTankWorkflowOutputSection.mockResolvedValueOnce({
+        output: createStory28PageOutput([appendedSection]),
+        appendedSection,
+      })
+
+      renderAdvisoryRoute()
+
+      const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+      await user.click(
+        await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ })
+      )
+      const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+      await user.type(input, 'Summarize the first step.')
+      await user.keyboard('{Enter}')
+
+      await act(async () => {
+        controlledStream.push({
+          event: 'message.completed',
+          data: {
+            sessionId: 'session-brainstorming',
+            currentStep: { index: 1, label: '当前步骤' },
+            assistantMessage: {
+              id: 'assistant-completed-step',
+              role: 'assistant',
+              content: 'Advisor synthesis for the completed step.',
+              decisionOptions: [
+                { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+              ],
+            },
+            decisionOptions: [{ action: 'continue', label: '继续', shortcut: 'C', enabled: true }],
+          },
+        })
+        controlledStream.close()
+        await Promise.resolve()
+      })
+
+      await user.click(await screen.findByRole('button', { name: /继续.*快捷键 C/ }))
+
+      await waitFor(() => {
+        expect(mockAppendThinkTankWorkflowOutputSection).toHaveBeenCalledWith(
+          'session-brainstorming',
+          expect.objectContaining({
+            stepIndex: 1,
+            contentMarkdown: expect.stringContaining('Advisor synthesis for the completed step.'),
+            aiLabelMetadata: expect.objectContaining({ label: 'AI Generated' }),
+          })
+        )
+      })
+      expect(
+        screen.getByRole('status', { name: 'ThinkTank step completion status' })
+      ).toHaveTextContent('当前步骤已完成，报告草稿已更新。')
+      expect(screen.getByRole('status', { name: 'ThinkTank 工作台状态' })).toHaveTextContent(
+        '报告草稿已更新'
+      )
+      await waitFor(() =>
+        expect(screen.getByRole('textbox', { name: '输入你的回答' })).toHaveFocus()
+      )
+    })
+
+    test('[P0] completes the output when the confirmed step is marked final', async () => {
+      const user = userEvent.setup()
+      const controlledStream = createControlledStream()
+      const appendedSection = createStory28PageSection({
+        id: 'section-final-step',
+        stepIndex: 1,
+        heading: '当前步骤',
+        contentMarkdown: 'Final synthesis for the workflow.',
+      })
+      mockStreamThinkTankSessionMessage.mockImplementation(() => controlledStream.iterator())
+      mockFetchThinkTankAccess.mockResolvedValue({ allowed: true, module: 'thinktank' })
+      mockLaunchThinkTankWorkflow.mockResolvedValueOnce({
+        sessionId: 'session-brainstorming',
+        status: 'active',
+        workflow: workflowCatalog[0],
+        firstPrompt: '# ThinkTank Runtime Workflow: Brainstorming\n\nStart with the first prompt.',
+        sourceRefs: [
+          '_bmad/core/skills/bmad-brainstorming/workflow.md',
+          '_bmad/core/skills/bmad-brainstorming/steps/step-01-session-setup.md',
+        ],
+        currentStep: {
+          index: 1,
+          label: '当前步骤',
+          sourceRef: '_bmad/core/skills/bmad-brainstorming/steps/step-01-session-setup.md',
+          isFinal: true,
+        },
+      })
+      mockFetchThinkTankWorkflowOutput.mockResolvedValueOnce({
+        output: createStory28PageOutput([]),
+      })
+      mockAppendThinkTankWorkflowOutputSection.mockResolvedValueOnce({
+        output: createStory28PageOutput([appendedSection]),
+        appendedSection,
+      })
+      mockCompleteThinkTankSessionOutput.mockResolvedValueOnce({
+        output: {
+          ...createStory28PageOutput([appendedSection]),
+          status: 'completed',
+        },
+      })
+
+      renderAdvisoryRoute()
+
+      const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+      await user.click(
+        await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ })
+      )
+      const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+      await user.type(input, 'Finish the workflow.')
+      await user.keyboard('{Enter}')
+
+      await act(async () => {
+        controlledStream.push({
+          event: 'message.completed',
+          data: {
+            sessionId: 'session-brainstorming',
+            currentStep: { index: 1, label: '当前步骤', isFinal: true },
+            assistantMessage: {
+              id: 'assistant-final-step',
+              role: 'assistant',
+              content: 'Final synthesis for the workflow.',
+              decisionOptions: [
+                { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+              ],
+            },
+            decisionOptions: [{ action: 'continue', label: '继续', shortcut: 'C', enabled: true }],
+          },
+        })
+        controlledStream.close()
+        await Promise.resolve()
+      })
+
+      await user.click(await screen.findByRole('button', { name: /继续.*快捷键 C/ }))
+
+      await waitFor(() => {
+        expect(mockCompleteThinkTankSessionOutput).toHaveBeenCalledWith('session-brainstorming', {
+          outcome: 'success',
+        })
+      })
+      expect(
+        screen.getByRole('status', { name: 'ThinkTank step completion status' })
+      ).toHaveTextContent('工作流已完成，报告草稿已归档。')
+      await waitFor(() => expect(input).toHaveFocus())
+    })
+
+    test('[P0] scrolls the open drawer to newly appended content without moving conversation input focus', async () => {
+      const user = userEvent.setup()
+      const controlledStream = createControlledStream()
+      const firstSection = createStory28PageSection()
+      const appendedSection = createStory28PageSection({
+        id: 'section-solution',
+        stepIndex: 2,
+        heading: '2. 方案收敛',
+        contentMarkdown: '第二步报告内容已经写入草稿。',
+      })
+      const scrollIntoView = jest.fn()
+      const originalScrollIntoView = Element.prototype.scrollIntoView
+      Element.prototype.scrollIntoView =
+        scrollIntoView as unknown as typeof Element.prototype.scrollIntoView
+
+      try {
+        mockStreamThinkTankSessionMessage.mockImplementation(() => controlledStream.iterator())
+        mockFetchThinkTankAccess.mockResolvedValue({ allowed: true, module: 'thinktank' })
+        mockFetchThinkTankWorkflowOutput.mockResolvedValueOnce({
+          output: createStory28PageOutput([firstSection]),
+        })
+        mockAppendThinkTankWorkflowOutputSection.mockResolvedValueOnce({
+          output: createStory28PageOutput([firstSection, appendedSection]),
+          appendedSection,
+        })
+
+        renderAdvisoryRoute()
+
+        const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+        await user.click(
+          await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ })
+        )
+        await user.click(screen.getByRole('button', { name: /打开咨询文档抽屉/ }))
+        const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+        await user.type(input, 'Complete step two.')
+        await user.keyboard('{Enter}')
+
+        await act(async () => {
+          controlledStream.push({
+            event: 'message.completed',
+            data: {
+              sessionId: 'session-brainstorming',
+              currentStep: { index: 2, label: '方案收敛' },
+              assistantMessage: {
+                id: 'assistant-step-two',
+                role: 'assistant',
+                content: '第二步报告内容已经写入草稿。',
+                decisionOptions: [
+                  { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+                ],
+              },
+              decisionOptions: [
+                { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+              ],
+            },
+          })
+          controlledStream.close()
+          await Promise.resolve()
+        })
+
+        await user.click(await screen.findByRole('button', { name: /继续.*快捷键 C/ }))
+
+        await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
+        const drawer = screen.getByRole('complementary', { name: '咨询文档抽屉' })
+        expect(within(drawer).getByRole('heading', { name: '2. 方案收敛' })).toBeVisible()
+        expect(within(drawer).getByText('第二步报告内容已经写入草稿。')).toBeVisible()
+        expect(input).toHaveFocus()
+      } finally {
+        Element.prototype.scrollIntoView = originalScrollIntoView
+      }
+    })
+
+    test('[P1] toggles the drawer with Ctrl+D, closes it with Escape, and preserves the conversation draft', async () => {
+      const user = userEvent.setup()
+      mockFetchThinkTankAccess.mockResolvedValue({ allowed: true, module: 'thinktank' })
+      mockFetchThinkTankWorkflowOutput.mockResolvedValueOnce({
+        output: createStory28PageOutput([createStory28PageSection()]),
+      })
+
+      renderAdvisoryRoute()
+
+      const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+      await user.click(
+        await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ })
+      )
+      const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+      await user.type(input, 'Keep this draft.')
+
+      await user.keyboard('{Control>}d{/Control}')
+      expect(screen.getByRole('complementary', { name: '咨询文档抽屉' })).toBeVisible()
+      expect(input).toHaveFocus()
+      expect(input).toHaveValue('Keep this draft.')
+
+      await user.keyboard('{Escape}')
+      expect(screen.getByRole('button', { name: /打开咨询文档抽屉/ })).toHaveAttribute(
+        'aria-expanded',
+        'false'
+      )
+      expect(input).toHaveFocus()
+      expect(input).toHaveValue('Keep this draft.')
+    })
   })
 })

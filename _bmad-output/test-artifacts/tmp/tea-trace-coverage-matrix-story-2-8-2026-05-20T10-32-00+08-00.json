@@ -1,0 +1,187 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-20T10:32:00+08:00",
+  "story_id": "2.8",
+  "story_key": "2-8-live-document-drawer-and-ai-labeled-report-draft",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "summary": "Completed workflow steps append live report sections with visible AI label and machine-readable metadata.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/outputs/advisory-workflow-output.repository.spec.ts:163",
+        "backend/src/modules/advisory/sessions/advisory-session.outputs.spec.ts:289",
+        "backend/src/modules/advisory/sessions/advisory-session.outputs.controller.spec.ts:124",
+        "frontend/lib/advisory/outputs.test.ts:96",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/sections/route.test.ts:67",
+        "frontend/app/advisory/__tests__/page.test.tsx:1399",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.test.tsx:200"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "summary": "workflow_outputs records stay tenant-scoped and cross-tenant direct-id access leaks no metadata.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/outputs/advisory-workflow-output.repository.spec.ts:86",
+        "backend/src/modules/advisory/outputs/advisory-workflow-output.repository.spec.ts:126",
+        "backend/src/modules/advisory/outputs/advisory-workflow-output.repository.spec.ts:250",
+        "backend/src/modules/advisory/sessions/advisory-session.outputs.spec.ts:253",
+        "backend/src/modules/advisory/sessions/advisory-session.outputs.spec.ts:348",
+        "backend/src/modules/advisory/sessions/advisory-session.outputs.controller.spec.ts:87",
+        "frontend/lib/advisory/outputs.test.ts:63",
+        "frontend/lib/advisory/outputs.test.ts:96",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/route.test.ts:52",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/route.test.ts:63",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/route.test.ts:97",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/sections/route.test.ts:54",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/sections/route.test.ts:67"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "auth_negative_path_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P1",
+      "summary": "Collapsed document trigger shows a new-content hint after appended sections and opens latest section.",
+      "coverage": "FULL",
+      "tests": [
+        "frontend/components/advisory/AdvisoryDocumentDrawer.test.tsx:171",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.test.tsx:200",
+        "frontend/app/advisory/__tests__/page.test.tsx:1355",
+        "frontend/app/advisory/__tests__/page.test.tsx:1399"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_coverage": "not_applicable",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC4",
+      "priority": "P1",
+      "summary": "Open drawer scrolls to appended content, preserves input focus, supports Escape/Ctrl+D, and clamps resize width.",
+      "coverage": "FULL",
+      "tests": [
+        "frontend/components/advisory/AdvisoryDocumentDrawer.test.tsx:232",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.test.tsx:272",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.test.tsx:290",
+        "frontend/app/advisory/__tests__/page.test.tsx:1543",
+        "frontend/app/advisory/__tests__/page.test.tsx:1608"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_coverage": "not_applicable",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC5",
+      "priority": "P1",
+      "summary": "Appended report content and workflow completion feedback restore focus and announce completed steps accessibly.",
+      "coverage": "FULL",
+      "tests": [
+        "frontend/app/advisory/__tests__/page.test.tsx:1399",
+        "frontend/app/advisory/__tests__/page.test.tsx:1464",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.test.tsx:232",
+        "frontend/lib/advisory/outputs.test.ts:190",
+        "frontend/lib/advisory/outputs.test.ts:206"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC6",
+      "priority": "P0",
+      "summary": "Final workflow completion emits privacy-safe thinktank.workflow.completed audit with tenant, actor, session, workflow type, output id, outcome, and AI-label metadata presence.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/outputs/advisory-workflow-output.repository.spec.ts:215",
+        "backend/src/modules/advisory/sessions/advisory-session.outputs.spec.ts:407",
+        "backend/src/modules/advisory/sessions/advisory-session.outputs.spec.ts:481",
+        "backend/src/modules/advisory/sessions/advisory-session.outputs.spec.ts:513",
+        "backend/src/modules/advisory/sessions/advisory-session.outputs.spec.ts:553",
+        "backend/src/modules/advisory/sessions/advisory-session.outputs.controller.spec.ts:170",
+        "frontend/lib/advisory/outputs.test.ts:155",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/complete/route.test.ts:54",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/complete/route.test.ts:67",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/complete/route.test.ts:117",
+        "frontend/app/advisory/__tests__/page.test.tsx:1464"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 6,
+    "fully_covered": 6,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 3, "covered": 3, "percentage": 100 },
+      "P1": { "total": 3, "covered": 3, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "quality": {
+    "blocker_issues": [],
+    "warning_issues": [
+      {
+        "file": "frontend/app/advisory/__tests__/page.test.tsx",
+        "issue": "Aggregated advisory route test file is over 300 lines.",
+        "classification": "maintainability-warning",
+        "gate_blocking": false
+      }
+    ],
+    "info_issues": [
+      {
+        "issue": "Story 2.8 uses deterministic Jest/RTL, controller/service, repository, and proxy tests instead of live LLM or browser E2E.",
+        "gate_blocking": false
+      }
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Split the aggregated advisory route test suite later if subsequent Epic 2 stories make it difficult to maintain.",
+      "requirements": ["AC1", "AC3", "AC4", "AC5"]
+    }
+  ]
+}

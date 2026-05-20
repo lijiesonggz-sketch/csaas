@@ -3,16 +3,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { cva } from 'class-variance-authority'
-import {
-  BrainCircuit,
-  FileText,
-  MessageSquareText,
-  PanelRightOpen,
-  SendHorizontal,
-  Workflow,
-} from 'lucide-react'
+import { BrainCircuit, MessageSquareText, SendHorizontal, Workflow } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AdvisoryChatMessage } from '@/components/advisory/AdvisoryChatMessage'
+import { AdvisoryDocumentDrawer } from '@/components/advisory/AdvisoryDocumentDrawer'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Separator } from '@/components/ui/separator'
@@ -48,10 +42,16 @@ import {
   THINKTANK_STREAM_ERROR_MESSAGE,
   streamThinkTankSessionMessage,
 } from '@/lib/advisory/streaming'
+import {
+  THINKTANK_OUTPUT_APPEND_FAILED_MESSAGE,
+  appendThinkTankWorkflowOutputSection,
+  completeThinkTankSessionOutput,
+  fetchThinkTankWorkflowOutput,
+  type ThinkTankWorkflowOutput,
+} from '@/lib/advisory/outputs'
 import { cn } from '@/lib/utils'
 
 const ADVISORY_STATE_SUMMARY_ID = 'advisory-state-summary'
-const DOCUMENT_DRAWER_DESCRIPTION_ID = 'advisory-document-drawer-disabled-description'
 const WORKFLOW_CATALOG_ERROR_MESSAGE = '暂时无法加载 ThinkTank 工作流目录，请刷新页面后重试。'
 const SESSION_MESSAGES_ERROR_MESSAGE = '暂时无法加载 ThinkTank 会话消息，请刷新页面后重试。'
 const THINKTANK_DRAFT_STORAGE_PREFIX = 'thinktank:session-draft'
@@ -159,6 +159,20 @@ function getLatestDecisionOptions(
   }
 
   return []
+}
+
+function readProviderMetadata(message: ThinkTankConversationMessage): Record<string, unknown> {
+  const metadata = message.providerMetadata ?? {}
+
+  return {
+    provider: metadata.provider,
+    model: metadata.model,
+    latencyMs: metadata.latencyMs ?? metadata.latency_ms,
+    inputTokens: metadata.inputTokens ?? metadata.input_tokens,
+    outputTokens: metadata.outputTokens ?? metadata.output_tokens,
+    totalTokens: metadata.totalTokens ?? metadata.total_tokens,
+    estimatedCost: metadata.estimatedCost ?? metadata.estimated_cost,
+  }
 }
 
 function useDesktopViewport() {
@@ -330,6 +344,14 @@ export default function AdvisoryWorkspaceShell() {
   const [hasUnreadStreamContent, setHasUnreadStreamContent] = useState(false)
   const [showAllMessages, setShowAllMessages] = useState(false)
   const [selectedDecisionLabel, setSelectedDecisionLabel] = useState<string | null>(null)
+  const [documentDrawerOpen, setDocumentDrawerOpen] = useState(false)
+  const [documentDrawerWidth, setDocumentDrawerWidth] = useState<number | string>(
+    ADVISORY_LAYOUT.drawerDefaultWidth
+  )
+  const [workflowOutput, setWorkflowOutput] = useState<ThinkTankWorkflowOutput | null>(null)
+  const [hasUnreadDocumentContent, setHasUnreadDocumentContent] = useState(false)
+  const [outputAnnouncement, setOutputAnnouncement] = useState('')
+  const [outputCompletionFeedback, setOutputCompletionFeedback] = useState<string | undefined>()
   const launchInFlightRef = useRef(false)
   const activeLaunchRef = useRef<ThinkTankWorkflowLaunchResult | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -337,8 +359,10 @@ export default function AdvisoryWorkspaceShell() {
   const conversationScrollRef = useRef<HTMLDivElement>(null)
   const streamAbortRef = useRef<AbortController | null>(null)
   const messageSubmitInFlightRef = useRef(false)
+  const appendedOutputSourceMessageIdsRef = useRef<Set<string>>(new Set())
   const lastStreamAnnouncementAtRef = useRef(0)
   const pendingStreamAnnouncementRef = useRef<number | null>(null)
+  const activeSessionId = activeLaunch?.sessionId ?? null
 
   useEffect(() => {
     setReadingDensity(readAdvisoryPreferences(userPreferenceIdentity).readingDensity)
@@ -397,6 +421,12 @@ export default function AdvisoryWorkspaceShell() {
       setHasUnreadStreamContent(false)
       setShowAllMessages(false)
       setSelectedDecisionLabel(null)
+      setDocumentDrawerOpen(false)
+      setWorkflowOutput(null)
+      setHasUnreadDocumentContent(false)
+      setOutputAnnouncement('')
+      setOutputCompletionFeedback(undefined)
+      appendedOutputSourceMessageIdsRef.current.clear()
       setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
       setActiveLaunch(launch)
     } catch (error) {
@@ -408,9 +438,13 @@ export default function AdvisoryWorkspaceShell() {
   }
 
   useEffect(() => {
-    if (!activeLaunch) {
+    if (!activeSessionId) {
       setSessionMessages([])
       setSessionMessagesStatus('idle')
+      setWorkflowOutput(null)
+      setHasUnreadDocumentContent(false)
+      setOutputCompletionFeedback(undefined)
+      appendedOutputSourceMessageIdsRef.current.clear()
       return undefined
     }
 
@@ -418,7 +452,7 @@ export default function AdvisoryWorkspaceShell() {
     setSessionMessagesStatus('loading')
     setMessageError(null)
 
-    fetchThinkTankSessionMessages(activeLaunch.sessionId)
+    fetchThinkTankSessionMessages(activeSessionId)
       .then((result) => {
         if (isCancelled) return
         setSessionMessages(result.messages)
@@ -435,7 +469,29 @@ export default function AdvisoryWorkspaceShell() {
     return () => {
       isCancelled = true
     }
-  }, [activeLaunch])
+  }, [activeSessionId])
+
+  useEffect(() => {
+    if (!activeSessionId) return undefined
+
+    let isCancelled = false
+
+    fetchThinkTankWorkflowOutput(activeSessionId)
+      .then((result) => {
+        if (isCancelled) return
+        setWorkflowOutput(result.output)
+        setHasUnreadDocumentContent(false)
+      })
+      .catch(() => {
+        if (isCancelled) return
+        setWorkflowOutput(null)
+        setHasUnreadDocumentContent(false)
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [activeSessionId])
 
   useEffect(() => {
     if (!activeLaunch) return
@@ -520,6 +576,46 @@ export default function AdvisoryWorkspaceShell() {
         announce,
         THINKTANK_STREAM_ANNOUNCEMENT_THROTTLE_MS - elapsed
       )
+    }
+  }
+
+  const appendAssistantOutputSection = async (
+    assistantMessage: ThinkTankConversationMessage,
+    currentStep = activeLaunch?.currentStep
+  ): Promise<ThinkTankWorkflowOutput | null> => {
+    if (!activeLaunch || !currentStep || !assistantMessage.content.trim()) return null
+    if (appendedOutputSourceMessageIdsRef.current.has(assistantMessage.id)) {
+      textareaRef.current?.focus({ preventScroll: true })
+      return workflowOutput
+    }
+
+    const stepLabel = currentStep.label || `Step ${currentStep.index}`
+    const feedback = `${stepLabel}已完成，报告草稿已更新。`
+
+    try {
+      const result = await appendThinkTankWorkflowOutputSection(activeLaunch.sessionId, {
+        stepIndex: currentStep.index,
+        stepLabel,
+        contentMarkdown: assistantMessage.content,
+        sourceMessageId: assistantMessage.id,
+        providerMetadata: readProviderMetadata(assistantMessage),
+        aiLabelMetadata: {
+          label: 'AI Generated',
+          visibleLabel: '[AI Generated]',
+        },
+      })
+      appendedOutputSourceMessageIdsRef.current.add(assistantMessage.id)
+      setWorkflowOutput(result.output)
+      setHasUnreadDocumentContent(!documentDrawerOpen)
+      setOutputCompletionFeedback(feedback)
+      setOutputAnnouncement(`已完成：${stepLabel}，报告草稿已更新。`)
+      announceStreamStatus(feedback, { immediate: true })
+      textareaRef.current?.focus({ preventScroll: true })
+      return result.output
+    } catch (error) {
+      setMessageError(readWorkflowErrorMessage(error, THINKTANK_OUTPUT_APPEND_FAILED_MESSAGE))
+      announceStreamStatus('报告草稿更新失败。', { immediate: true })
+      return null
     }
   }
 
@@ -634,18 +730,39 @@ export default function AdvisoryWorkspaceShell() {
         if (event.event === 'message.completed') {
           streamEndedWithTerminalEvent = true
           setMessageStreamingStatus('completing')
+          const completedAssistantMessage = {
+            ...event.data.assistantMessage,
+            decisionOptions:
+              (event.data.assistantMessage.decisionOptions?.length ?? 0) > 0
+                ? event.data.assistantMessage.decisionOptions
+                : (event.data.decisionOptions ?? []),
+          }
           setSessionMessages((currentMessages) => {
             const foundPendingMessage = currentMessages.some(
               (message) => message.id === assistantMessageId
             )
             if (!foundPendingMessage) {
-              return [...currentMessages, event.data.assistantMessage]
+              return [...currentMessages, completedAssistantMessage]
             }
 
             return currentMessages.map((message) =>
-              message.id === assistantMessageId ? event.data.assistantMessage : message
+              message.id === assistantMessageId ? completedAssistantMessage : message
             )
           })
+          if (event.data.currentStep) {
+            setActiveLaunch((currentLaunch) =>
+              currentLaunch
+                ? (() => {
+                    const nextLaunch = {
+                      ...currentLaunch,
+                      currentStep: event.data.currentStep ?? currentLaunch.currentStep,
+                    }
+                    activeLaunchRef.current = nextLaunch
+                    return nextLaunch
+                  })()
+                : currentLaunch
+            )
+          }
           announceStreamStatus('顾问回复已完成。', { immediate: true })
           setStreamingMessageId(null)
           applyStreamingScrollBehavior(shouldAutoScroll)
@@ -664,7 +781,7 @@ export default function AdvisoryWorkspaceShell() {
         return
       }
       setSessionMessagesStatus('ready')
-      conversationFocusRef.current?.focus({ preventScroll: true })
+      textareaRef.current?.focus({ preventScroll: true })
     } catch (error) {
       setDraft(content)
       setMessageStreamingStatus('error')
@@ -689,10 +806,71 @@ export default function AdvisoryWorkspaceShell() {
     }
   }
 
+  const findLatestAssistantMessage = () => {
+    for (let index = sessionMessages.length - 1; index >= 0; index -= 1) {
+      const message = sessionMessages[index]
+      if (message.role === 'assistant') return message
+    }
+
+    return null
+  }
+
+  const isFinalWorkflowStep = (step: ThinkTankWorkflowLaunchResult['currentStep']) => {
+    const metadata = step as typeof step & {
+      isFinal?: boolean
+      isFinalStep?: boolean
+      final?: boolean
+      totalSteps?: number
+    }
+
+    return (
+      metadata.isFinal === true ||
+      metadata.isFinalStep === true ||
+      metadata.final === true ||
+      (typeof metadata.totalSteps === 'number' && metadata.index >= metadata.totalSteps)
+    )
+  }
+
+  const completeFinalWorkflowOutput = async () => {
+    if (!activeLaunch) return
+
+    try {
+      const result = await completeThinkTankSessionOutput(activeLaunch.sessionId, {
+        outcome: 'success',
+      })
+      setWorkflowOutput(result.output)
+      setHasUnreadDocumentContent(!documentDrawerOpen)
+      setOutputCompletionFeedback('工作流已完成，报告草稿已归档。')
+      setOutputAnnouncement('工作流已完成，报告草稿已归档。')
+      announceStreamStatus('工作流已完成，报告草稿已归档。', { immediate: true })
+    } catch (error) {
+      setMessageError(readWorkflowErrorMessage(error, '暂时无法完成报告草稿，请稍后重试。'))
+      announceStreamStatus('报告草稿完成失败。', { immediate: true })
+    } finally {
+      textareaRef.current?.focus({ preventScroll: true })
+    }
+  }
+
   const handleDecisionOption = (option: ThinkTankDecisionOption) => {
     if (!option.enabled) return
 
     setSelectedDecisionLabel(option.label)
+    if (option.action === 'continue') {
+      const latestAssistantMessage = findLatestAssistantMessage()
+      if (latestAssistantMessage) {
+        void appendAssistantOutputSection(latestAssistantMessage, activeLaunch?.currentStep).then(
+          (output) => {
+            if (
+              output &&
+              activeLaunch?.currentStep &&
+              isFinalWorkflowStep(activeLaunch.currentStep)
+            ) {
+              void completeFinalWorkflowOutput()
+            }
+          }
+        )
+      }
+    }
     textareaRef.current?.focus({ preventScroll: true })
   }
 
@@ -701,11 +879,6 @@ export default function AdvisoryWorkspaceShell() {
 
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase()
-
-      if (event.ctrlKey && key === 'd') {
-        event.preventDefault()
-        return
-      }
 
       if (event.key === 'Escape') {
         setMessageError(null)
@@ -731,8 +904,11 @@ export default function AdvisoryWorkspaceShell() {
 
   const readingDensityLabel = getAdvisoryReadingDensityLabel(readingDensity)
   const activeWorkflowName = activeLaunch?.workflow.displayName ?? null
+  const documentStateSummary = workflowOutput
+    ? `报告草稿${workflowOutput.sections.length > 0 ? '已更新' : '已创建'}。`
+    : '咨询文档抽屉为空。'
   const advisoryStateSummary = activeLaunch
-    ? `ThinkTank 已启用。活动会话：${activeWorkflowName}。当前步骤：${activeLaunch.currentStep.label}。咨询文档抽屉为空。`
+    ? `ThinkTank 已启用。活动会话：${activeWorkflowName}。当前步骤：${activeLaunch.currentStep.label}。${documentStateSummary}`
     : 'ThinkTank 已启用。暂无活动会话。等待开始咨询。咨询文档抽屉为空。'
   const decisionStateSummary = selectedDecisionLabel ? `已选择：${selectedDecisionLabel}。` : ''
   const workflowStatusSummary =
@@ -754,6 +930,11 @@ export default function AdvisoryWorkspaceShell() {
     messageStreamingStatus === 'streaming' ||
     messageStreamingStatus === 'completing'
   const canSubmitMessage = sessionMessagesStatus === 'ready' && !isSubmittingMessage
+  const documentColumnWidth = documentDrawerOpen
+    ? typeof documentDrawerWidth === 'number'
+      ? `${documentDrawerWidth}px`
+      : documentDrawerWidth
+    : `${ADVISORY_LAYOUT.documentRailWidth}px`
 
   if (isDesktop === null) {
     return <ViewportCheckingState />
@@ -791,7 +972,20 @@ export default function AdvisoryWorkspaceShell() {
       >
         {streamAnnouncement}
       </p>
-      <div className={shellGridVariants({ density: readingDensity })}>
+      <p
+        role="status"
+        aria-live="polite"
+        aria-label="ThinkTank step completion status"
+        className="sr-only"
+      >
+        {outputCompletionFeedback ?? ''}
+      </p>
+      <div
+        className={shellGridVariants({ density: readingDensity })}
+        style={{
+          gridTemplateColumns: `${ADVISORY_LAYOUT.sidebarWidth}px minmax(${ADVISORY_LAYOUT.chatMinWidth}px, 1fr) ${documentColumnWidth}`,
+        }}
+      >
         <aside
           aria-label="咨询工作流导航"
           className="flex min-w-0 flex-col overflow-y-auto border-r border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-muted-bg))]"
@@ -1097,37 +1291,18 @@ export default function AdvisoryWorkspaceShell() {
           )}
         </section>
 
-        <aside
-          aria-label="咨询文档抽屉"
-          aria-describedby={DOCUMENT_DRAWER_DESCRIPTION_ID}
-          className="flex min-w-0 flex-col items-center border-l border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-muted-bg))] px-2 py-4"
-        >
-          <p id={DOCUMENT_DRAWER_DESCRIPTION_ID} className="sr-only">
-            文档抽屉将在报告草稿接入后开放
-          </p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label="展开咨询文档抽屉"
-            aria-disabled="true"
-            aria-describedby={DOCUMENT_DRAWER_DESCRIPTION_ID}
-            title="文档抽屉将在报告草稿接入后开放"
-            className="text-[hsl(var(--advisory-foreground))] aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
-            onClick={(event) => event.preventDefault()}
-          >
-            <PanelRightOpen className="h-5 w-5" />
-          </Button>
-          <div className="mt-4 flex flex-col items-center gap-2 text-[hsl(var(--advisory-muted-foreground))]">
-            <FileText className="h-4 w-4" />
-            <span className="text-xs font-medium [writing-mode:vertical-rl]">文档</span>
-            <span className="text-xs font-medium [writing-mode:vertical-rl]">暂无文档</span>
-            <span className="sr-only">文档抽屉将在报告草稿接入后开放</span>
-          </div>
-          <p className="mt-4 max-w-11 text-center text-[10px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
-            报告草稿接入后开放
-          </p>
-        </aside>
+        <AdvisoryDocumentDrawer
+          open={documentDrawerOpen}
+          width={documentDrawerWidth}
+          output={workflowOutput}
+          hasNewContent={hasUnreadDocumentContent}
+          completionFeedback={outputCompletionFeedback}
+          liveAnnouncement={outputAnnouncement}
+          conversationInputRef={textareaRef}
+          onOpenChange={setDocumentDrawerOpen}
+          onWidthChange={setDocumentDrawerWidth}
+          onClearNewContent={() => setHasUnreadDocumentContent(false)}
+        />
       </div>
     </section>
   )

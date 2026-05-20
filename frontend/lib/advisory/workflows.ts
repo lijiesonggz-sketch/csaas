@@ -36,6 +36,9 @@ export interface ThinkTankWorkflowCurrentStep {
   index: number
   label: string
   sourceRef?: string
+  isFinal?: boolean
+  isFinalStep?: boolean
+  totalSteps?: number
 }
 
 export interface ThinkTankWorkflowLaunchResult {
