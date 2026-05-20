@@ -19,6 +19,7 @@ export interface ThinkTankProviderGatewayConfig {
     backoffMultiplier: number
   }
   liveProviderEnabled: boolean
+  anthropicExplicitCacheEnabled: boolean
 }
 
 type ConfigSource = ConfigService | Record<string, unknown> | NodeJS.ProcessEnv
@@ -46,6 +47,8 @@ export function resolveThinkTankProviderGatewayConfig(
       backoffMultiplier: 2,
     },
     liveProviderEnabled: providerMode === 'glm' && Boolean(apiKey && baseUrl),
+    anthropicExplicitCacheEnabled:
+      readString(source, 'THINKTANK_ANTHROPIC_EXPLICIT_CACHE_ENABLED') === 'true',
   }
 }
 

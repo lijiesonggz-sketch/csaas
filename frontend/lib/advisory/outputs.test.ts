@@ -152,6 +152,79 @@ describe('ThinkTank workflow output client (ATDD RED)', () => {
     expect(mockFetch.mock.calls[0][1].body).not.toContain('rawPrompt')
   })
 
+  test('[2.10-FE-RED-001][P1] preserves safe prompt-cache provider metadata and strips raw prompt fields when appending sections', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          sessionId: 'session-1',
+          output: createOutputEnvelope(),
+          section: createOutputEnvelope().sections[0],
+        },
+      }),
+    })
+
+    await appendThinkTankOutputSection('session-1', {
+      stepIndex: 1,
+      stepLabel: 'Diagnose retention',
+      contentMarkdown: 'Retention drops after the second session.',
+      sourceMessageId: 'assistant-message-1',
+      providerMetadata: {
+        provider: 'fake',
+        model: 'fake-thinktank-smoke',
+        latencyMs: 14,
+        inputTokens: 120,
+        outputTokens: 20,
+        totalTokens: 140,
+        estimatedCost: 0.003,
+        cacheStatus: 'hit',
+        cacheStrategy: 'provider-auto',
+        cacheKey: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        cacheReadInputTokens: 96,
+        cacheCreationInputTokens: 0,
+        cachedInputTokens: 96,
+        cacheEligibleInputTokens: 120,
+        rawPrompt: 'do not forward',
+        messages: [{ role: 'user', content: 'do not forward' }],
+        content: 'do not forward',
+      },
+    } as never)
+
+    expect(mockFetch).toHaveBeenCalledWith('/api/advisory/sessions/session-1/output/sections', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer session-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        stepIndex: 1,
+        stepLabel: 'Diagnose retention',
+        contentMarkdown: 'Retention drops after the second session.',
+        sourceMessageId: 'assistant-message-1',
+        providerMetadata: {
+          provider: 'fake',
+          model: 'fake-thinktank-smoke',
+          latencyMs: 14,
+          inputTokens: 120,
+          outputTokens: 20,
+          totalTokens: 140,
+          estimatedCost: 0.003,
+          cacheStatus: 'hit',
+          cacheStrategy: 'provider-auto',
+          cacheKey: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          cacheReadInputTokens: 96,
+          cacheCreationInputTokens: 0,
+          cachedInputTokens: 96,
+          cacheEligibleInputTokens: 120,
+        },
+      }),
+      cache: 'no-store',
+    })
+    expect(mockFetch.mock.calls[0][1].body).not.toContain('rawPrompt')
+    expect(mockFetch.mock.calls[0][1].body).not.toContain('messages')
+    expect(mockFetch.mock.calls[0][1].body).not.toContain('do not forward')
+  })
+
   test('[P0] completes a workflow output using only the final outcome contract', async () => {
     mockFetch.mockResolvedValue({
       ok: true,

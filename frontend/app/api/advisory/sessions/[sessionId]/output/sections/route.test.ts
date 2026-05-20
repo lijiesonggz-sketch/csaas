@@ -134,6 +134,86 @@ describe('/api/advisory/sessions/:sessionId/output/sections proxy (ATDD RED)', (
     expect(mockFetch.mock.calls[0][1].body).not.toContain('rawReportContent')
   })
 
+  test('[2.10-FE-RED-002][P1] forwards only safe prompt-cache provider metadata to the backend append endpoint', async () => {
+    mockGetServerSession.mockResolvedValue({ accessToken: 'session-token' })
+    mockFetch.mockResolvedValue({
+      status: 200,
+      json: async () => ({
+        data: {
+          sessionId: 'session-1',
+          output: {
+            id: 'output-1',
+            sections: [{ id: 'section-1', aiLabel: '[AI Generated]' }],
+            aiLabelMetadata: { visible_label: '[AI Generated]' },
+          },
+        },
+      }),
+    })
+
+    const { POST } = await import('./route')
+    await POST(
+      createRequest({
+        stepIndex: 1,
+        stepLabel: 'Diagnose retention',
+        contentMarkdown: 'Retention drops after the second session.',
+        sourceMessageId: 'assistant-message-1',
+        providerMetadata: {
+          provider: 'fake',
+          model: 'fake-thinktank-smoke',
+          latencyMs: 14,
+          inputTokens: 120,
+          outputTokens: 20,
+          totalTokens: 140,
+          estimatedCost: 0.003,
+          cacheStatus: 'hit',
+          cacheStrategy: 'provider-auto',
+          cacheKey: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+          cacheReadInputTokens: 96,
+          cacheCreationInputTokens: 0,
+          cachedInputTokens: 96,
+          cacheEligibleInputTokens: 120,
+          cacheBypassReason: 'unsupported',
+          rawPrompt: 'do not forward',
+          content: 'do not forward',
+          messages: [{ role: 'user', content: 'do not forward' }],
+        },
+      }),
+      { params: { sessionId: 'session-1' } }
+    )
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://backend.test/advisory/sessions/session-1/output/sections',
+      expect.objectContaining({
+        method: 'POST',
+      })
+    )
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+      stepIndex: 1,
+      stepLabel: 'Diagnose retention',
+      contentMarkdown: 'Retention drops after the second session.',
+      sourceMessageId: 'assistant-message-1',
+      providerMetadata: {
+        provider: 'fake',
+        model: 'fake-thinktank-smoke',
+        latencyMs: 14,
+        inputTokens: 120,
+        outputTokens: 20,
+        totalTokens: 140,
+        estimatedCost: 0.003,
+        cacheStatus: 'hit',
+        cacheStrategy: 'provider-auto',
+        cacheKey: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        cacheReadInputTokens: 96,
+        cacheCreationInputTokens: 0,
+        cachedInputTokens: 96,
+        cacheEligibleInputTokens: 120,
+      },
+    })
+    expect(mockFetch.mock.calls[0][1].body).not.toContain('rawPrompt')
+    expect(mockFetch.mock.calls[0][1].body).not.toContain('messages')
+    expect(mockFetch.mock.calls[0][1].body).not.toContain('do not forward')
+  })
+
   test('[P0] forwards backend append validation errors with safe error envelopes', async () => {
     mockGetServerSession.mockResolvedValue({ accessToken: 'session-token' })
     mockFetch.mockResolvedValue({

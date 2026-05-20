@@ -176,9 +176,18 @@ describe('AdvisorySessionService guided messages', () => {
         }),
       }),
     )
-    const providerMetadata = JSON.stringify(providerGateway.stream.mock.calls[0][0].metadata)
-    expect(providerMetadata).not.toContain('Retention drops after the second session')
-    expect(providerMetadata).not.toMatch(/prompt|content|conversation|report|document/i)
+    const providerMetadata = providerGateway.stream.mock.calls[0][0].metadata as Record<
+      string,
+      unknown
+    >
+    expect(JSON.stringify(providerMetadata)).not.toContain(
+      'Retention drops after the second session',
+    )
+    expect(providerMetadata).not.toHaveProperty('prompt')
+    expect(providerMetadata).not.toHaveProperty('content')
+    expect(providerMetadata).not.toHaveProperty('conversation')
+    expect(providerMetadata).not.toHaveProperty('report')
+    expect(providerMetadata).not.toHaveProperty('document')
     expect(messageRepository.createMessageWithNextSequence).toHaveBeenNthCalledWith(
       2,
       tenantId,

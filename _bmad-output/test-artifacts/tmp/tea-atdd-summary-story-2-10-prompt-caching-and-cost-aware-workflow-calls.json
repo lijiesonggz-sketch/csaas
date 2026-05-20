@@ -1,0 +1,36 @@
+{
+  "story_id": "2-10",
+  "story_key": "2-10-prompt-caching-and-cost-aware-workflow-calls",
+  "tdd_phase": "RED",
+  "total_tests": 16,
+  "api_tests": 14,
+  "frontend_metadata_tests": 2,
+  "e2e_tests": 0,
+  "all_tests_skipped": true,
+  "expected_to_fail": true,
+  "fixtures_created": 0,
+  "acceptance_criteria_covered": ["AC1", "AC2", "AC3"],
+  "knowledge_fragments_used": [
+    "data-factories",
+    "test-quality",
+    "test-levels-framework",
+    "test-priorities-matrix",
+    "api-testing-patterns"
+  ],
+  "subagent_execution": "SUBAGENT plus parent aggregation",
+  "performance_gain": "parallel design review; parent wrote final artifacts",
+  "generated_files": [
+    "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.prompt-cache.spec.ts",
+    "backend/src/modules/advisory/provider-gateway/providers/fake-thinktank-provider.prompt-cache.spec.ts",
+    "backend/src/modules/advisory/provider-gateway/providers/anthropic-glm-provider.prompt-cache.spec.ts",
+    "backend/src/modules/advisory/sessions/advisory-session.prompt-cache.spec.ts",
+    "frontend/lib/advisory/outputs.test.ts",
+    "frontend/app/api/advisory/sessions/[sessionId]/output/sections/route.test.ts",
+    "_bmad-output/test-artifacts/atdd-checklist-2-10-prompt-caching-and-cost-aware-workflow-calls.md"
+  ],
+  "notes": [
+    "Browser E2E is not applicable because Story 2.10 changes provider gateway/session metadata behavior rather than UI journeys.",
+    "No live GLM calls are required; provider behavior is fake or mocked.",
+    "Tests use test.skip for ATDD RED phase and should be unskipped during implementation."
+  ]
+}

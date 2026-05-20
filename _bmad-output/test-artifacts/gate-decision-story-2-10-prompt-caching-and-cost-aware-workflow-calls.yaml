@@ -1,0 +1,27 @@
+storyId: '2.10'
+storyKey: 2-10-prompt-caching-and-cost-aware-workflow-calls
+decision: PASS
+decisionDate: '2026-05-20T13:03:29+08:00'
+rationale: 'P0 coverage is 100%, no P1 requirements are present, and overall coverage is 100%. No critical or high coverage gaps remain after code-review fixes.'
+criteria:
+  p0CoverageRequired: '100%'
+  p0CoverageActual: '100%'
+  p0Status: MET
+  p1CoveragePassTarget: '90%'
+  p1CoverageMinimum: '80%'
+  p1CoverageActual: '100%'
+  p1Status: MET
+  overallCoverageMinimum: '80%'
+  overallCoverageActual: '100%'
+  overallStatus: MET
+uncoveredRequirements: []
+recommendations:
+  - priority: LOW
+    action: Split prompt-cache gateway/session specs later if future cache scenarios make the files harder to maintain.
+    requirements:
+      - AC1
+      - AC2
+      - AC3
+  - priority: LOW
+    action: Run bmad-testarch-test-review periodically for expanded cache telemetry suites.
+    requirements: []

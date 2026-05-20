@@ -17,6 +17,7 @@ describe('ThinkTank provider gateway config', () => {
       model: THINKTANK_PROVIDER_GATEWAY_DEFAULT_MODEL,
       timeoutMs: 30000,
       liveProviderEnabled: false,
+      anthropicExplicitCacheEnabled: false,
       retry: {
         maxAttempts: 2,
         delayMs: 100,
@@ -43,6 +44,7 @@ describe('ThinkTank provider gateway config', () => {
       model: 'glm-5.1',
       timeoutMs: 15000,
       liveProviderEnabled: true,
+      anthropicExplicitCacheEnabled: false,
       retry: {
         maxAttempts: 3,
         delayMs: 250,
@@ -63,6 +65,7 @@ describe('ThinkTank provider gateway config', () => {
       apiKey: undefined,
       baseUrl: undefined,
       liveProviderEnabled: false,
+      anthropicExplicitCacheEnabled: false,
     })
 
     const missingBaseUrl = resolveThinkTankProviderGatewayConfig({
@@ -75,6 +78,15 @@ describe('ThinkTank provider gateway config', () => {
       apiKey: 'glm-key',
       baseUrl: undefined,
       liveProviderEnabled: false,
+      anthropicExplicitCacheEnabled: false,
     })
+  })
+
+  it('enables Anthropic explicit cache only through the dedicated flag', () => {
+    const config = resolveThinkTankProviderGatewayConfig({
+      THINKTANK_ANTHROPIC_EXPLICIT_CACHE_ENABLED: 'true',
+    })
+
+    expect(config.anthropicExplicitCacheEnabled).toBe(true)
   })
 })

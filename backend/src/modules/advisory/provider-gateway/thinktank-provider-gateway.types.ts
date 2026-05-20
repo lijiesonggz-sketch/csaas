@@ -3,6 +3,17 @@ export type ThinkTankProviderMessageRole = 'user' | 'assistant'
 export type ThinkTankProviderStatus = 'completed'
 export type ThinkTankProviderFailureStatus = 'failed' | 'timeout'
 export type ThinkTankProviderErrorCategory = 'provider' | 'timeout' | 'validation' | 'unknown'
+export type ThinkTankPromptCacheStatus = 'hit' | 'miss' | 'bypass'
+export type ThinkTankPromptCacheStrategy =
+  | 'provider-auto'
+  | 'anthropic-explicit'
+  | 'disabled'
+  | 'unsupported'
+export type ThinkTankPromptCacheBypassReason =
+  | 'disabled'
+  | 'unsupported'
+  | 'no_static_prompt'
+  | 'provider_metadata_absent'
 
 export interface ThinkTankProviderMessage {
   role: ThinkTankProviderMessageRole
@@ -21,6 +32,7 @@ export interface ThinkTankProviderRequest {
   maxTokens?: number
   temperature?: number
   metadata?: Record<string, unknown>
+  promptCache?: ThinkTankPromptCachePolicy
   stream?: boolean
 }
 
@@ -28,9 +40,29 @@ export interface ThinkTankProviderUsage {
   inputTokens: number
   outputTokens: number
   totalTokens: number
+  cacheReadInputTokens?: number
+  cacheCreationInputTokens?: number
+  cachedInputTokens?: number
+  cacheEligibleInputTokens?: number
 }
 
-export interface ThinkTankProviderResponse {
+export interface ThinkTankPromptCachePolicy {
+  strategy: ThinkTankPromptCacheStrategy
+  cacheKey?: string
+  sourceHashes?: string[]
+  sourceRefs?: string[]
+  cacheEligibleInputTokens?: number
+  bypassReason?: ThinkTankPromptCacheBypassReason
+}
+
+export interface ThinkTankPromptCacheMetadata {
+  cacheStatus?: ThinkTankPromptCacheStatus
+  cacheStrategy?: ThinkTankPromptCacheStrategy
+  cacheKey?: string
+  cacheBypassReason?: ThinkTankPromptCacheBypassReason
+}
+
+export interface ThinkTankProviderResponse extends ThinkTankPromptCacheMetadata {
   id: string
   provider: ThinkTankProviderType
   model: string
@@ -43,7 +75,7 @@ export interface ThinkTankProviderResponse {
   metadata?: Record<string, unknown>
 }
 
-export interface ThinkTankProviderStreamChunk {
+export interface ThinkTankProviderStreamChunk extends ThinkTankPromptCacheMetadata {
   index: number
   delta: string
   done: boolean

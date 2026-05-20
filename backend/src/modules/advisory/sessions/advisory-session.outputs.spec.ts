@@ -307,6 +307,11 @@ describe('AdvisorySessionService workflow outputs (ATDD RED)', () => {
         inputTokens: 10,
         outputTokens: 8,
         totalTokens: 18,
+        cacheStatus: 'hit',
+        cacheStrategy: 'provider-auto',
+        cacheKey: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        cacheBypassReason: 'unsupported',
+        cacheReadInputTokens: 6,
         rawPrompt: 'do not copy this prompt',
       } as never,
     })
@@ -328,6 +333,10 @@ describe('AdvisorySessionService workflow outputs (ATDD RED)', () => {
           source_message_id: 'assistant-message-1',
           provider: 'fake',
           model: 'fake-thinktank-model',
+          cache_status: 'hit',
+          cache_strategy: 'provider-auto',
+          cache_key: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          cache_read_input_tokens: 6,
         }),
       }),
     )
@@ -338,6 +347,7 @@ describe('AdvisorySessionService workflow outputs (ATDD RED)', () => {
     expect(JSON.stringify(section.metadata)).not.toMatch(
       /rawPrompt|system_prompt|prompt|Retention drops after the second session/i,
     )
+    expect(section.metadata).not.toHaveProperty('cache_bypass_reason')
     expect(sessionRepository.updateSession).not.toHaveBeenCalledWith(
       tenantId,
       sessionId,

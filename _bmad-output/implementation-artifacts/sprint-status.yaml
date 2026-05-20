@@ -1,5 +1,5 @@
 # generated: 2026-05-18T21:27:35+08:00
-# last_updated: 2026-05-20T11:20:46+08:00
+# last_updated: 2026-05-20T13:03:29+08:00
 # project: Csaas
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: '2026-05-18T21:27:35+08:00'
-last_updated: '2026-05-20T11:20:46+08:00'
+last_updated: '2026-05-20T13:03:29+08:00'
 project: Csaas
 project_key: NOKEY
 tracking_system: file-system
@@ -50,7 +50,7 @@ development_status:
   1-5-governed-ai-provider-gateway: done
   epic-1-retrospective: optional
 
-  epic-2: in-progress
+  epic-2: done
   2-1-desktop-advisory-workspace-shell: done
   2-2-advisory-ui-state-and-accessibility-baseline: done
   2-3-theme-density-and-compatibility-baseline: done
@@ -60,7 +60,7 @@ development_status:
   2-7-streaming-message-experience: done
   2-8-live-document-drawer-and-ai-labeled-report-draft: done
   2-9-report-viewing-and-export: done
-  2-10-prompt-caching-and-cost-aware-workflow-calls: backlog
+  2-10-prompt-caching-and-cost-aware-workflow-calls: done
   epic-2-retrospective: optional
 
   epic-3: backlog

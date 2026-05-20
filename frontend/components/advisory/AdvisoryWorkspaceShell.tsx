@@ -176,6 +176,16 @@ function readProviderMetadata(message: ThinkTankConversationMessage): Record<str
     outputTokens: metadata.outputTokens ?? metadata.output_tokens,
     totalTokens: metadata.totalTokens ?? metadata.total_tokens,
     estimatedCost: metadata.estimatedCost ?? metadata.estimated_cost,
+    cacheStatus: metadata.cacheStatus ?? metadata.cache_status,
+    cacheStrategy: metadata.cacheStrategy ?? metadata.cache_strategy,
+    cacheKey: metadata.cacheKey ?? metadata.cache_key,
+    cacheBypassReason: metadata.cacheBypassReason ?? metadata.cache_bypass_reason,
+    cacheReadInputTokens: metadata.cacheReadInputTokens ?? metadata.cache_read_input_tokens,
+    cacheCreationInputTokens:
+      metadata.cacheCreationInputTokens ?? metadata.cache_creation_input_tokens,
+    cachedInputTokens: metadata.cachedInputTokens ?? metadata.cached_input_tokens,
+    cacheEligibleInputTokens:
+      metadata.cacheEligibleInputTokens ?? metadata.cache_eligible_input_tokens,
   }
 }
 

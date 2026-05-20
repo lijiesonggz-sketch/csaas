@@ -1,0 +1,182 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-20T13:03:29+08:00",
+  "story_id": "2.10",
+  "story_key": "2-10-prompt-caching-and-cost-aware-workflow-calls",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "summary": "Repeated stable workflow prompt, workflow definition, and persona content use the configured provider-supported prompt-cache strategy, record token/cache/latency/cost metadata, and emit thinktank.prompt_cache.hit on reuse.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.prompt-cache.spec.ts:64",
+        "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.prompt-cache.spec.ts:82",
+        "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.prompt-cache.spec.ts:205",
+        "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.prompt-cache.spec.ts:257",
+        "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.prompt-cache.spec.ts:343",
+        "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.prompt-cache.spec.ts:394",
+        "backend/src/modules/advisory/provider-gateway/providers/anthropic-glm-provider.prompt-cache.spec.ts:65",
+        "backend/src/modules/advisory/provider-gateway/providers/anthropic-glm-provider.prompt-cache.spec.ts:109",
+        "backend/src/modules/advisory/sessions/advisory-session.prompt-cache.spec.ts:183",
+        "backend/src/modules/advisory/sessions/advisory-session.prompt-cache.spec.ts:243",
+        "backend/src/modules/advisory/sessions/advisory-session.outputs.spec.ts:291",
+        "frontend/lib/advisory/outputs.test.ts:155",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/sections/route.test.ts:137"
+      ],
+      "test_levels": [
+        "Unit",
+        "API"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present_for_metadata_forwarding_paths",
+        "auth_coverage": "existing_session_guards_retained_no_new_authz_behavior",
+        "error_path_coverage": "present",
+        "privacy_coverage": "present"
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "summary": "When prompt caching is unavailable or unsupported, workflow calls still complete user-visible actions and thinktank.prompt_cache.miss records missed or bypassed cache status.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.prompt-cache.spec.ts:162",
+        "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.prompt-cache.spec.ts:205",
+        "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.prompt-cache.spec.ts:315",
+        "backend/src/modules/advisory/provider-gateway/providers/fake-thinktank-provider.prompt-cache.spec.ts:67",
+        "backend/src/modules/advisory/provider-gateway/providers/fake-thinktank-provider.prompt-cache.spec.ts:104",
+        "backend/src/modules/advisory/provider-gateway/providers/anthropic-glm-provider.prompt-cache.spec.ts:148",
+        "backend/src/modules/advisory/provider-gateway/providers/anthropic-glm-provider.prompt-cache.spec.ts:174",
+        "backend/src/modules/advisory/sessions/advisory-session.prompt-cache.spec.ts:290",
+        "backend/src/modules/advisory/sessions/advisory-session.prompt-cache.spec.ts:313",
+        "frontend/lib/advisory/outputs.test.ts:155",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/sections/route.test.ts:137"
+      ],
+      "test_levels": [
+        "Unit",
+        "API"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present_for_session_and_output_proxy_paths",
+        "auth_coverage": "existing_session_guards_retained_no_new_authz_behavior",
+        "error_path_coverage": "present",
+        "unsupported_provider_coverage": "present"
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P0",
+      "summary": "Automated tests execute workflow calls through fake provider or mocked adapter responses, assert cache metadata and cost telemetry, and do not depend on live GLM.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/provider-gateway/providers/fake-thinktank-provider.prompt-cache.spec.ts:25",
+        "backend/src/modules/advisory/provider-gateway/providers/fake-thinktank-provider.prompt-cache.spec.ts:67",
+        "backend/src/modules/advisory/provider-gateway/providers/fake-thinktank-provider.prompt-cache.spec.ts:104",
+        "backend/src/modules/advisory/provider-gateway/providers/fake-thinktank-provider.prompt-cache.spec.ts:132",
+        "backend/src/modules/advisory/provider-gateway/providers/anthropic-glm-provider.prompt-cache.spec.ts:6",
+        "backend/src/modules/advisory/provider-gateway/providers/anthropic-glm-provider.prompt-cache.spec.ts:65",
+        "backend/src/modules/advisory/provider-gateway/providers/anthropic-glm-provider.prompt-cache.spec.ts:109",
+        "backend/src/modules/advisory/provider-gateway/providers/anthropic-glm-provider.prompt-cache.spec.ts:148",
+        "backend/src/modules/advisory/provider-gateway/providers/anthropic-glm-provider.prompt-cache.spec.ts:174",
+        "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.config.spec.ts:7",
+        "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.config.spec.ts:85"
+      ],
+      "test_levels": [
+        "Unit"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_coverage": "not_applicable",
+        "error_path_coverage": "present",
+        "live_provider_dependency": "absent"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 3,
+    "fully_covered": 3,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": {
+        "total": 3,
+        "covered": 3,
+        "percentage": 100
+      },
+      "P1": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P2": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P3": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "quality": {
+    "blocker_issues": [],
+    "warning_issues": [
+      {
+        "file": "backend/src/modules/advisory/provider-gateway/thinktank-provider-gateway.prompt-cache.spec.ts",
+        "issue": "Prompt cache gateway spec is 407 lines, above the 300-line maintainability target.",
+        "classification": "maintainability-warning",
+        "gate_blocking": false
+      },
+      {
+        "file": "backend/src/modules/advisory/sessions/advisory-session.prompt-cache.spec.ts",
+        "issue": "Prompt cache session spec is 318 lines, above the 300-line maintainability target.",
+        "classification": "maintainability-warning",
+        "gate_blocking": false
+      }
+    ],
+    "info_issues": [
+      {
+        "issue": "Story 2.10 uses backend provider-gateway, provider-adapter, session service, output metadata, frontend client, and Next proxy tests. GLM adapter behavior is mocked and fake provider behavior is deterministic.",
+        "gate_blocking": false
+      }
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Split prompt-cache gateway/session specs later if future cache scenarios make the files harder to maintain.",
+      "requirements": [
+        "AC1",
+        "AC2",
+        "AC3"
+      ]
+    },
+    {
+      "priority": "LOW",
+      "action": "Run bmad-testarch-test-review periodically for expanded cache telemetry suites.",
+      "requirements": []
+    }
+  ]
+}

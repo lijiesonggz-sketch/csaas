@@ -299,6 +299,19 @@ export class AdvisorySessionController {
     copyNumber('outputTokens')
     copyNumber('totalTokens')
     copyNumber('estimatedCost')
+    const cacheStatus = readCacheStatus(source.cacheStatus)
+    const cacheStrategy = readCacheStrategy(source.cacheStrategy)
+    const cacheKey = readCacheKey(source.cacheKey)
+    const cacheBypassReason =
+      cacheStatus === 'bypass' ? readCacheBypassReason(source.cacheBypassReason) : undefined
+    if (cacheStatus) safe.cacheStatus = cacheStatus
+    if (cacheStrategy) safe.cacheStrategy = cacheStrategy
+    if (cacheKey) safe.cacheKey = cacheKey
+    if (cacheBypassReason) safe.cacheBypassReason = cacheBypassReason
+    copyNumber('cacheReadInputTokens')
+    copyNumber('cacheCreationInputTokens')
+    copyNumber('cachedInputTokens')
+    copyNumber('cacheEligibleInputTokens')
 
     return safe
   }
@@ -314,4 +327,36 @@ export class AdvisorySessionController {
   private toContentDispositionFileName(fileName: string): string {
     return fileName.replace(/[^A-Za-z0-9._-]/g, '-')
   }
+}
+
+function readCacheStatus(value: unknown): 'hit' | 'miss' | 'bypass' | undefined {
+  return value === 'hit' || value === 'miss' || value === 'bypass' ? value : undefined
+}
+
+function readCacheStrategy(
+  value: unknown,
+): 'provider-auto' | 'anthropic-explicit' | 'disabled' | 'unsupported' | undefined {
+  return value === 'provider-auto' ||
+    value === 'anthropic-explicit' ||
+    value === 'disabled' ||
+    value === 'unsupported'
+    ? value
+    : undefined
+}
+
+function readCacheBypassReason(
+  value: unknown,
+): 'disabled' | 'unsupported' | 'no_static_prompt' | 'provider_metadata_absent' | undefined {
+  return value === 'disabled' ||
+    value === 'unsupported' ||
+    value === 'no_static_prompt' ||
+    value === 'provider_metadata_absent'
+    ? value
+    : undefined
+}
+
+function readCacheKey(value: unknown): string | undefined {
+  return typeof value === 'string' && /^[a-f0-9]{32}$/i.test(value.trim())
+    ? value.trim().toLowerCase()
+    : undefined
 }

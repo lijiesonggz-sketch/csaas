@@ -10,6 +10,7 @@ import { AuditAction } from '../../../database/entities/audit-log.entity'
 import {
   AdvisoryConversationDecisionOption,
   AdvisoryConversationMessage,
+  AdvisoryConversationProviderMetadata,
   AdvisoryConversationMessageRole,
 } from '../../../database/entities/advisory-conversation-message.entity'
 import {
@@ -35,6 +36,7 @@ import {
   ThinkTankProviderMessage,
   ThinkTankProviderStreamChunk,
 } from '../provider-gateway/thinktank-provider-gateway.types'
+import { createThinkTankPromptCachePolicy } from '../provider-gateway/thinktank-prompt-cache-policy'
 import { ThinkTankPromptAssemblerService } from '../runtime/prompt-assembler.service'
 import { ThinkTankRuntimeError, ThinkTankRuntimeErrorCode } from '../runtime/runtime.errors'
 import { ThinkTankAssembledPrompt, ThinkTankWorkflowMetadata } from '../runtime/runtime.types'
@@ -380,7 +382,10 @@ export class AdvisorySessionService {
       context.stepLabel ?? session.currentStep.label,
       stepIndex,
     )
-    const providerMetadata = this.toSafeProviderMetadata(sourceMessage.providerMetadata ?? {})
+    const providerMetadata = this.toSafeProviderMetadata({
+      ...(context.providerMetadata ?? {}),
+      ...(sourceMessage.providerMetadata ?? {}),
+    })
     const section: AdvisoryWorkflowOutputSection = {
       id: randomUUID(),
       stepIndex,
@@ -486,6 +491,7 @@ export class AdvisorySessionService {
     const messageRepository = this.requireMessageRepository()
     const providerGateway = this.requireProviderGateway()
     const history = await messageRepository.findMessagesBySession(context.tenantId, session.id)
+    const providerPrompt = await this.createProviderPromptContext(session)
     const userMessage = await messageRepository.createMessageWithNextSequence(
       context.tenantId,
       session.id,
@@ -513,13 +519,15 @@ export class AdvisorySessionService {
         actorId: context.user.id,
         subjectId: session.id,
         stream: true,
-        system: this.createProviderSystemPrompt(session.workflowKey, session.currentStep),
+        system: providerPrompt.system,
         messages: providerMessages,
+        promptCache: providerPrompt.promptCache,
         metadata: {
           workflow_key: session.workflowKey,
           step_index: session.currentStep.index,
           message_count: providerMessages.length,
           decision_action: context.decisionAction ?? null,
+          ...providerPrompt.metadata,
         },
       })) {
         providerChunks.push(chunk)
@@ -550,15 +558,7 @@ export class AdvisorySessionService {
           ai_generated: true,
           finish_reason: lastChunk?.finishReason ?? null,
         }),
-        providerMetadata: {
-          provider: lastChunk?.provider ?? null,
-          model: lastChunk?.model ?? null,
-          latency_ms: lastChunk?.latencyMs ?? null,
-          estimated_cost: lastChunk?.estimatedCost ?? null,
-          input_tokens: lastChunk?.usage?.inputTokens ?? null,
-          output_tokens: lastChunk?.usage?.outputTokens ?? null,
-          total_tokens: lastChunk?.usage?.totalTokens ?? null,
-        },
+        providerMetadata: this.createAssistantProviderMetadata(lastChunk),
       },
     )
 
@@ -594,6 +594,7 @@ export class AdvisorySessionService {
     const messageRepository = this.requireMessageRepository()
     const providerGateway = this.requireProviderGateway()
     const history = await messageRepository.findMessagesBySession(context.tenantId, session.id)
+    const providerPrompt = await this.createProviderPromptContext(session)
     const userMessage = await messageRepository.createMessageWithNextSequence(
       context.tenantId,
       session.id,
@@ -630,13 +631,15 @@ export class AdvisorySessionService {
           actorId: context.user.id,
           subjectId: session.id,
           stream: true,
-          system: this.createProviderSystemPrompt(session.workflowKey, session.currentStep),
+          system: providerPrompt.system,
           messages: providerMessages,
+          promptCache: providerPrompt.promptCache,
           metadata: {
             workflow_key: session.workflowKey,
             step_index: session.currentStep.index,
             message_count: providerMessages.length,
             decision_action: context.decisionAction ?? null,
+            ...providerPrompt.metadata,
           },
         },
         context.signal,
@@ -702,15 +705,7 @@ export class AdvisorySessionService {
           ai_generated: true,
           finish_reason: lastChunk?.finishReason ?? null,
         }),
-        providerMetadata: {
-          provider: lastChunk?.provider ?? null,
-          model: lastChunk?.model ?? null,
-          latency_ms: lastChunk?.latencyMs ?? null,
-          estimated_cost: lastChunk?.estimatedCost ?? null,
-          input_tokens: lastChunk?.usage?.inputTokens ?? null,
-          output_tokens: lastChunk?.usage?.outputTokens ?? null,
-          total_tokens: lastChunk?.usage?.totalTokens ?? null,
-        },
+        providerMetadata: this.createAssistantProviderMetadata(lastChunk),
       },
     )
 
@@ -949,6 +944,25 @@ export class AdvisorySessionService {
     copyNumber('total_tokens', 'total_tokens')
     copyNumber('estimatedCost', 'estimated_cost')
     copyNumber('estimated_cost', 'estimated_cost')
+    const cacheStatus = readCacheStatus(metadata.cacheStatus ?? metadata.cache_status)
+    const cacheStrategy = readCacheStrategy(metadata.cacheStrategy ?? metadata.cache_strategy)
+    const cacheKey = readCacheKey(metadata.cacheKey ?? metadata.cache_key)
+    const cacheBypassReason =
+      cacheStatus === 'bypass'
+        ? readCacheBypassReason(metadata.cacheBypassReason ?? metadata.cache_bypass_reason)
+        : undefined
+    if (cacheStatus) safe.cache_status = cacheStatus
+    if (cacheStrategy) safe.cache_strategy = cacheStrategy
+    if (cacheKey) safe.cache_key = cacheKey
+    if (cacheBypassReason) safe.cache_bypass_reason = cacheBypassReason
+    copyNumber('cacheReadInputTokens', 'cache_read_input_tokens')
+    copyNumber('cache_read_input_tokens', 'cache_read_input_tokens')
+    copyNumber('cacheCreationInputTokens', 'cache_creation_input_tokens')
+    copyNumber('cache_creation_input_tokens', 'cache_creation_input_tokens')
+    copyNumber('cachedInputTokens', 'cached_input_tokens')
+    copyNumber('cached_input_tokens', 'cached_input_tokens')
+    copyNumber('cacheEligibleInputTokens', 'cache_eligible_input_tokens')
+    copyNumber('cache_eligible_input_tokens', 'cache_eligible_input_tokens')
 
     return safe
   }
@@ -975,11 +989,106 @@ export class AdvisorySessionService {
     )
   }
 
+  private async createProviderPromptContext(session: {
+    workflowKey: string
+    currentStep: AdvisoryWorkflowSessionCurrentStep
+  }): Promise<{
+    system: string
+    promptCache?: ReturnType<typeof createThinkTankPromptCachePolicy>
+    metadata: Record<string, unknown>
+  }> {
+    try {
+      const assembledPrompt = await this.promptAssembler.assemblePrompt({
+        workflowKey: session.workflowKey,
+        includeMethodLibraries: true,
+        includeAgentSources: true,
+      })
+
+      if (!assembledPrompt?.visiblePrompt?.trim() || !Array.isArray(assembledPrompt.sources)) {
+        return {
+          system: this.createProviderSystemPrompt(session.workflowKey, session.currentStep),
+          promptCache: this.createDisabledPromptCachePolicy(),
+          metadata: {
+            cache_strategy: 'disabled',
+            cache_bypass_reason: 'no_static_prompt',
+          },
+        }
+      }
+
+      const promptCache = createThinkTankPromptCachePolicy({
+        workflowKey: session.workflowKey,
+        stepIndex: session.currentStep.index,
+        sources: assembledPrompt.sources.map((source) => ({
+          relativePath: source.relativePath,
+          contentHash: source.contentHash,
+        })),
+        cacheEligibleInputTokens: estimateProviderTokens(assembledPrompt.visiblePrompt),
+      })
+
+      return {
+        system: this.createProviderSystemPrompt(
+          session.workflowKey,
+          session.currentStep,
+          assembledPrompt,
+        ),
+        promptCache,
+        metadata: {
+          cache_strategy: promptCache.strategy,
+          cache_key: promptCache.cacheKey,
+          cache_source_ref_count: promptCache.sourceRefs?.length ?? 0,
+          cache_source_hash_count: promptCache.sourceHashes?.length ?? 0,
+        },
+      }
+    } catch {
+      return {
+        system: this.createProviderSystemPrompt(session.workflowKey, session.currentStep),
+        promptCache: this.createDisabledPromptCachePolicy(),
+        metadata: {
+          cache_strategy: 'disabled',
+          cache_bypass_reason: 'no_static_prompt',
+        },
+      }
+    }
+  }
+
+  private createDisabledPromptCachePolicy(): ReturnType<typeof createThinkTankPromptCachePolicy> {
+    return {
+      strategy: 'disabled',
+      bypassReason: 'no_static_prompt',
+    }
+  }
+
+  private createAssistantProviderMetadata(
+    lastChunk: ThinkTankProviderStreamChunk | undefined,
+  ): AdvisoryConversationProviderMetadata {
+    return {
+      provider: lastChunk?.provider ?? null,
+      model: lastChunk?.model ?? null,
+      latency_ms: lastChunk?.latencyMs ?? null,
+      estimated_cost: lastChunk?.estimatedCost ?? null,
+      input_tokens: lastChunk?.usage?.inputTokens ?? null,
+      output_tokens: lastChunk?.usage?.outputTokens ?? null,
+      total_tokens: lastChunk?.usage?.totalTokens ?? null,
+      cache_status: lastChunk?.cacheStatus ?? null,
+      cache_strategy: lastChunk?.cacheStrategy ?? null,
+      cache_key: lastChunk?.cacheKey ?? null,
+      cache_bypass_reason: lastChunk?.cacheBypassReason ?? null,
+      cache_read_input_tokens: lastChunk?.usage?.cacheReadInputTokens ?? null,
+      cache_creation_input_tokens: lastChunk?.usage?.cacheCreationInputTokens ?? null,
+      cached_input_tokens: lastChunk?.usage?.cachedInputTokens ?? null,
+      cache_eligible_input_tokens: lastChunk?.usage?.cacheEligibleInputTokens ?? null,
+    }
+  }
+
   private createProviderSystemPrompt(
     workflowKey: string,
     currentStep: AdvisoryWorkflowSessionCurrentStep,
+    assembledPrompt?: ThinkTankAssembledPrompt,
   ): string {
     return [
+      ...(assembledPrompt?.visiblePrompt?.trim()
+        ? [assembledPrompt.visiblePrompt.trim(), '', '## Active Session Instruction']
+        : []),
       'You are the governed ThinkTank advisor for the active CSAAS workflow.',
       `Workflow key: ${workflowKey}.`,
       `Current step index: ${currentStep.index}.`,
@@ -1261,4 +1370,40 @@ export class AdvisorySessionService {
 
     return new ServiceUnavailableException(THINKTANK_WORKFLOW_START_FAILED_MESSAGE)
   }
+}
+
+function estimateProviderTokens(value: string): number {
+  return value.trim() ? value.trim().split(/\s+/).length : 0
+}
+
+function readCacheStatus(value: unknown): 'hit' | 'miss' | 'bypass' | undefined {
+  return value === 'hit' || value === 'miss' || value === 'bypass' ? value : undefined
+}
+
+function readCacheStrategy(
+  value: unknown,
+): 'provider-auto' | 'anthropic-explicit' | 'disabled' | 'unsupported' | undefined {
+  return value === 'provider-auto' ||
+    value === 'anthropic-explicit' ||
+    value === 'disabled' ||
+    value === 'unsupported'
+    ? value
+    : undefined
+}
+
+function readCacheBypassReason(
+  value: unknown,
+): 'disabled' | 'unsupported' | 'no_static_prompt' | 'provider_metadata_absent' | undefined {
+  return value === 'disabled' ||
+    value === 'unsupported' ||
+    value === 'no_static_prompt' ||
+    value === 'provider_metadata_absent'
+    ? value
+    : undefined
+}
+
+function readCacheKey(value: unknown): string | undefined {
+  return typeof value === 'string' && /^[a-f0-9]{32}$/i.test(value.trim())
+    ? value.trim().toLowerCase()
+    : undefined
 }

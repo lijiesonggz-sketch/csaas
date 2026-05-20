@@ -24,6 +24,12 @@ import {
   ThinkTankProviderStreamChunk,
   ThinkTankProviderType,
 } from './thinktank-provider-gateway.types'
+import {
+  bindThinkTankPromptCachePolicy,
+  inferThinkTankCacheBypassReason,
+  inferThinkTankCacheStatus,
+  isThinkTankPromptCacheKey,
+} from './thinktank-prompt-cache-policy'
 
 const DEFAULT_TIMEOUT_MS = 30000
 const DEFAULT_RETRY: ThinkTankProviderRetryOptions = {
@@ -112,13 +118,13 @@ export class ThinkTankProviderGatewayService {
           context.provider,
           abortController,
         )
-        const completedResponse = {
+        const completedResponse = this.withCacheMetadata(context.request, {
           ...response,
           provider: context.provider,
           model: response.model || context.request.model || this.defaultModel,
           status: 'completed' as const,
           latencyMs: Date.now() - attemptStartedAt,
-        }
+        })
 
         await this.emitCompletedTelemetry(context, completedResponse)
         return completedResponse
@@ -182,6 +188,10 @@ export class ThinkTankProviderGatewayService {
         estimatedCost: response.estimatedCost,
         latencyMs: response.latencyMs,
         finishReason: response.finishReason,
+        cacheStatus: response.cacheStatus,
+        cacheStrategy: response.cacheStrategy,
+        cacheKey: response.cacheKey,
+        cacheBypassReason: response.cacheBypassReason,
       }
       return
     }
@@ -199,6 +209,10 @@ export class ThinkTankProviderGatewayService {
       let estimatedCost = 0
       let finishReason: string | undefined
       let model = context.request.model ?? this.defaultModel
+      let cacheStatus: ThinkTankProviderResponse['cacheStatus']
+      let cacheStrategy: ThinkTankProviderResponse['cacheStrategy']
+      let cacheKey: string | undefined
+      let cacheBypassReason: ThinkTankProviderResponse['cacheBypassReason']
 
       try {
         this.throwIfAborted(context.provider, signal)
@@ -212,13 +226,29 @@ export class ThinkTankProviderGatewayService {
           this.throwIfAborted(context.provider, signal)
           if (next.done) break
 
-          const chunk = next.value
+          let chunk = this.withStreamCacheMetadata(context.request, next.value)
+          if (chunk.done) {
+            chunk = this.withAccumulatedStreamMetadata(context.request, chunk, {
+              usage,
+              estimatedCost,
+              finishReason,
+              model,
+              cacheStatus,
+              cacheStrategy,
+              cacheKey,
+              cacheBypassReason,
+            })
+          }
           yieldedAnyChunk = true
           content += chunk.delta
           usage = chunk.usage ?? usage
           estimatedCost = chunk.estimatedCost ?? estimatedCost
           finishReason = chunk.finishReason ?? finishReason
           model = chunk.model ?? model
+          cacheStatus = chunk.cacheStatus ?? cacheStatus
+          cacheStrategy = chunk.cacheStrategy ?? cacheStrategy
+          cacheKey = chunk.cacheKey ?? cacheKey
+          cacheBypassReason = chunk.cacheBypassReason ?? cacheBypassReason
           yield {
             ...chunk,
             index: chunk.index ?? index,
@@ -227,21 +257,28 @@ export class ThinkTankProviderGatewayService {
         }
 
         const estimatedOutputTokens = estimateTokens(content)
-        await this.emitCompletedTelemetry(context, {
-          id: context.subjectId,
-          provider: context.provider,
-          model,
-          content,
-          status: 'completed',
-          latencyMs: Date.now() - attemptStartedAt,
-          usage: usage ?? {
-            inputTokens: 0,
-            outputTokens: estimatedOutputTokens,
-            totalTokens: estimatedOutputTokens,
-          },
-          estimatedCost,
-          finishReason: finishReason ?? 'stop',
-        })
+        await this.emitCompletedTelemetry(
+          context,
+          this.withCacheMetadata(context.request, {
+            id: context.subjectId,
+            provider: context.provider,
+            model,
+            content,
+            status: 'completed',
+            latencyMs: Date.now() - attemptStartedAt,
+            usage: usage ?? {
+              inputTokens: 0,
+              outputTokens: estimatedOutputTokens,
+              totalTokens: estimatedOutputTokens,
+            },
+            estimatedCost,
+            finishReason: finishReason ?? 'stop',
+            cacheStatus,
+            cacheStrategy,
+            cacheKey,
+            cacheBypassReason,
+          }),
+        )
         return
       } catch (error) {
         abortController.abort()
@@ -293,6 +330,18 @@ export class ThinkTankProviderGatewayService {
 
     const subjectId = input.subjectId?.trim() || randomUUID()
     const correlationId = input.correlationId?.trim() || randomUUID()
+    const model = input.model ?? this.defaultModel
+    const promptCache = input.promptCache
+      ? bindThinkTankPromptCachePolicy(input.promptCache, {
+          workflowKey: readMetadataString(input.metadata, 'workflow_key'),
+          stepIndex: readMetadataNumber(input.metadata, 'step_index'),
+          provider,
+          model,
+        })
+      : undefined
+    const metadata = promptCache?.cacheKey
+      ? { ...(input.metadata ?? {}), cache_key: promptCache.cacheKey }
+      : input.metadata
 
     return {
       provider,
@@ -302,9 +351,11 @@ export class ThinkTankProviderGatewayService {
       request: {
         ...input,
         provider,
-        model: input.model ?? this.defaultModel,
+        model,
         subjectId,
         correlationId,
+        metadata,
+        ...(promptCache ? { promptCache } : {}),
       },
     }
   }
@@ -469,6 +520,7 @@ export class ThinkTankProviderGatewayService {
     context: ReturnType<ThinkTankProviderGatewayService['buildCallContext']>,
     response: ThinkTankProviderResponse,
   ): Promise<void> {
+    const cacheTelemetry = this.toCacheTelemetryFields(context.request, response)
     await this.emitTelemetryBestEffort({
       eventName: ThinkTankEventName.ProviderCallCompleted,
       tenantId: context.request.tenantId,
@@ -483,6 +535,7 @@ export class ThinkTankProviderGatewayService {
         latencyMs: response.latencyMs,
         estimatedTokens: response.usage.totalTokens,
         estimatedCost: response.estimatedCost,
+        ...(response.cacheStatus ? { cacheStatus: response.cacheStatus } : {}),
       },
       metadata: {
         status: response.status,
@@ -491,6 +544,45 @@ export class ThinkTankProviderGatewayService {
         output_tokens: response.usage.outputTokens,
         total_tokens: response.usage.totalTokens,
         finish_reason: response.finishReason,
+        ...cacheTelemetry.metadata,
+      },
+    })
+    await this.emitPromptCacheTelemetry(context, response, cacheTelemetry.metadata)
+  }
+
+  private async emitPromptCacheTelemetry(
+    context: ReturnType<ThinkTankProviderGatewayService['buildCallContext']>,
+    response: ThinkTankProviderResponse,
+    cacheMetadata: Record<string, unknown>,
+  ): Promise<void> {
+    if (!response.cacheStatus) return
+
+    await this.emitTelemetryBestEffort({
+      eventName:
+        response.cacheStatus === 'hit'
+          ? ThinkTankEventName.PromptCacheHit
+          : ThinkTankEventName.PromptCacheMiss,
+      tenantId: context.request.tenantId,
+      actorId: context.request.actorId,
+      subjectType: ThinkTankSubjectType.ProviderCall,
+      subjectId: context.subjectId,
+      outcome: ThinkTankEventOutcome.Success,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      correlationId: context.correlationId,
+      optional: {
+        provider: response.provider,
+        latencyMs: response.latencyMs,
+        estimatedTokens: response.usage.totalTokens,
+        estimatedCost: response.estimatedCost,
+        cacheStatus: response.cacheStatus,
+        ...(readMetadataString(context.request.metadata, 'workflow_key')
+          ? { workflowType: readMetadataString(context.request.metadata, 'workflow_key') }
+          : {}),
+      },
+      metadata: {
+        model: response.model,
+        status: response.status,
+        ...cacheMetadata,
       },
     })
   }
@@ -557,6 +649,175 @@ export class ThinkTankProviderGatewayService {
     })
   }
 
+  private withCacheMetadata<T extends ThinkTankProviderResponse>(
+    request: ThinkTankProviderRequest,
+    response: T,
+  ): T {
+    const strategy = response.cacheStrategy ?? request.promptCache?.strategy
+    const usage = this.withCacheEligibleUsage(request, response.usage)
+    const status = response.cacheStatus ?? inferThinkTankCacheStatus(strategy, usage)
+    const bypassReason =
+      status === 'bypass'
+        ? (response.cacheBypassReason ??
+          request.promptCache?.bypassReason ??
+          inferThinkTankCacheBypassReason(strategy, status))
+        : undefined
+    const cacheKey =
+      readSafeCacheKey(response.cacheKey) ?? readSafeCacheKey(request.promptCache?.cacheKey)
+
+    if (!strategy && !status && usage === response.usage) return response
+
+    return {
+      ...response,
+      usage,
+      ...(status ? { cacheStatus: status } : {}),
+      ...(strategy ? { cacheStrategy: strategy } : {}),
+      ...(cacheKey ? { cacheKey } : {}),
+      ...(bypassReason ? { cacheBypassReason: bypassReason } : {}),
+    }
+  }
+
+  private withStreamCacheMetadata(
+    request: ThinkTankProviderRequest,
+    chunk: ThinkTankProviderStreamChunk,
+  ): ThinkTankProviderStreamChunk {
+    if (!chunk.usage && !chunk.cacheStatus) {
+      return chunk
+    }
+
+    const strategy = chunk.cacheStrategy ?? request.promptCache?.strategy
+    const usage = chunk.usage ? this.withCacheEligibleUsage(request, chunk.usage) : chunk.usage
+    const status = chunk.cacheStatus ?? inferThinkTankCacheStatus(strategy, usage)
+    const bypassReason =
+      status === 'bypass'
+        ? (chunk.cacheBypassReason ??
+          request.promptCache?.bypassReason ??
+          inferThinkTankCacheBypassReason(strategy, status))
+        : undefined
+    const cacheKey =
+      readSafeCacheKey(chunk.cacheKey) ?? readSafeCacheKey(request.promptCache?.cacheKey)
+
+    if (!strategy && !status && usage === chunk.usage) return chunk
+
+    return {
+      ...chunk,
+      ...(usage ? { usage } : {}),
+      ...(status ? { cacheStatus: status } : {}),
+      ...(strategy ? { cacheStrategy: strategy } : {}),
+      ...(cacheKey ? { cacheKey } : {}),
+      ...(bypassReason ? { cacheBypassReason: bypassReason } : {}),
+    }
+  }
+
+  private withAccumulatedStreamMetadata(
+    request: ThinkTankProviderRequest,
+    chunk: ThinkTankProviderStreamChunk,
+    accumulated: {
+      usage: ThinkTankProviderResponse['usage'] | null
+      estimatedCost?: number
+      finishReason?: string
+      model?: string
+      cacheStatus?: ThinkTankProviderResponse['cacheStatus']
+      cacheStrategy?: ThinkTankProviderResponse['cacheStrategy']
+      cacheKey?: string
+      cacheBypassReason?: ThinkTankProviderResponse['cacheBypassReason']
+    },
+  ): ThinkTankProviderStreamChunk {
+    const usage = chunk.usage ?? accumulated.usage ?? undefined
+    const strategy =
+      chunk.cacheStrategy ?? accumulated.cacheStrategy ?? request.promptCache?.strategy
+    const status =
+      chunk.cacheStatus ??
+      accumulated.cacheStatus ??
+      inferThinkTankCacheStatus(
+        strategy,
+        usage ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+      )
+    const bypassReason =
+      status === 'bypass'
+        ? (chunk.cacheBypassReason ??
+          accumulated.cacheBypassReason ??
+          request.promptCache?.bypassReason ??
+          inferThinkTankCacheBypassReason(strategy, status))
+        : undefined
+    const cacheKey =
+      readSafeCacheKey(chunk.cacheKey) ??
+      readSafeCacheKey(accumulated.cacheKey) ??
+      readSafeCacheKey(request.promptCache?.cacheKey)
+
+    return {
+      ...chunk,
+      ...(usage ? { usage } : {}),
+      ...(chunk.estimatedCost !== undefined
+        ? {}
+        : accumulated.estimatedCost !== undefined
+          ? { estimatedCost: accumulated.estimatedCost }
+          : {}),
+      ...(chunk.finishReason
+        ? {}
+        : accumulated.finishReason
+          ? { finishReason: accumulated.finishReason }
+          : {}),
+      ...(chunk.model ? {} : accumulated.model ? { model: accumulated.model } : {}),
+      ...(status ? { cacheStatus: status } : {}),
+      ...(strategy ? { cacheStrategy: strategy } : {}),
+      ...(cacheKey ? { cacheKey } : {}),
+      ...(bypassReason ? { cacheBypassReason: bypassReason } : {}),
+    }
+  }
+
+  private withCacheEligibleUsage(
+    request: ThinkTankProviderRequest,
+    usage: ThinkTankProviderResponse['usage'],
+  ): ThinkTankProviderResponse['usage'] {
+    if (
+      usage.cacheEligibleInputTokens !== undefined ||
+      request.promptCache?.cacheEligibleInputTokens === undefined
+    ) {
+      return usage
+    }
+
+    return {
+      ...usage,
+      cacheEligibleInputTokens: request.promptCache.cacheEligibleInputTokens,
+    }
+  }
+
+  private toCacheTelemetryFields(
+    request: ThinkTankProviderRequest,
+    response: ThinkTankProviderResponse,
+  ): { metadata: Record<string, unknown> } {
+    const metadata: Record<string, unknown> = {}
+    const workflowKey = readMetadataString(request.metadata, 'workflow_key')
+    const stepIndex = readMetadataNumber(request.metadata, 'step_index')
+    const cacheSource =
+      readSafeCacheSource(response.metadata, 'cache_source') ??
+      readSafeCacheSource(response.metadata, 'cacheSource')
+
+    assignIfDefined(metadata, 'workflow_key', workflowKey)
+    assignIfDefined(metadata, 'step_index', stepIndex)
+    assignIfDefined(metadata, 'cache_strategy', response.cacheStrategy)
+    assignIfDefined(metadata, 'cache_key', response.cacheKey)
+    assignIfDefined(metadata, 'cache_bypass_reason', response.cacheBypassReason)
+    assignIfDefined(metadata, 'cache_source', cacheSource)
+    assignIfDefined(metadata, 'cache_read_input_tokens', response.usage.cacheReadInputTokens)
+    assignIfDefined(
+      metadata,
+      'cache_creation_input_tokens',
+      response.usage.cacheCreationInputTokens,
+    )
+    assignIfDefined(metadata, 'cached_input_tokens', response.usage.cachedInputTokens)
+    assignIfDefined(
+      metadata,
+      'cache_eligible_input_tokens',
+      response.usage.cacheEligibleInputTokens,
+    )
+    assignIfDefined(metadata, 'input_tokens', response.usage.inputTokens)
+    assignIfDefined(metadata, 'output_tokens', response.usage.outputTokens)
+    assignIfDefined(metadata, 'total_tokens', response.usage.totalTokens)
+    return { metadata }
+  }
+
   private async emitTelemetryBestEffort(
     input: Parameters<AdvisoryEventService['emitTelemetry']>[0],
   ): Promise<void> {
@@ -598,6 +859,41 @@ function readNumber(value: unknown, key: string): number | undefined {
   if (!value || typeof value !== 'object') return undefined
   const candidate = (value as Record<string, unknown>)[key]
   return typeof candidate === 'number' ? candidate : undefined
+}
+
+function readMetadataString(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+): string | undefined {
+  const value = metadata?.[key]
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function readMetadataNumber(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+): number | undefined {
+  const value = metadata?.[key]
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function readSafeCacheKey(value: unknown): string | undefined {
+  if (!isThinkTankPromptCacheKey(value)) return undefined
+  return value.trim().toLowerCase()
+}
+
+function readSafeCacheSource(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+): string | undefined {
+  const value = readMetadataString(metadata, key)
+  return value === 'anthropic_usage' || value === 'zai_prompt_tokens_details' ? value : undefined
+}
+
+function assignIfDefined(target: Record<string, unknown>, key: string, value: unknown): void {
+  if (value !== undefined) {
+    target[key] = value
+  }
 }
 
 function sleep(delayMs: number): Promise<void> {
