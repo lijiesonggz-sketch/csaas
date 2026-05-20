@@ -1,0 +1,223 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-20T11:39:04+08:00",
+  "story_id": "2.9",
+  "story_key": "2-9-report-viewing-and-export",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "summary": "Document drawer/report view renders the current report as structured Markdown with title, sections, visible AI label, and generation metadata.",
+      "coverage": "FULL",
+      "tests": [
+        "frontend/app/advisory/__tests__/page.test.tsx:1378",
+        "frontend/app/advisory/__tests__/page.test.tsx:1414",
+        "frontend/app/advisory/__tests__/page.test.tsx:1418",
+        "frontend/app/advisory/__tests__/page.test.tsx:1420",
+        "frontend/app/advisory/__tests__/page.test.tsx:1421",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.export.test.tsx:128",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.export.test.tsx:136"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "not_applicable",
+        "auth_coverage": "not_applicable",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "summary": "Export reads the server-side current output snapshot, supports active draft/latest completed output without workflow completion, and rejects empty or unlabeled output.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/outputs/advisory-output-export.service.spec.ts:150",
+        "backend/src/modules/advisory/outputs/advisory-output-export.service.spec.ts:162",
+        "backend/src/modules/advisory/outputs/advisory-output-export.service.spec.ts:189",
+        "backend/src/modules/advisory/outputs/advisory-output-export.service.spec.ts:222",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.export.test.tsx:139"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P0",
+      "summary": "Markdown export preserves visible report structure, AI label, generation metadata, machine-readable JSON-LD metadata, and non-blocking success feedback.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/outputs/advisory-output-export.service.spec.ts:162",
+        "frontend/lib/advisory/outputs.export.test.ts:48",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/export/route.test.ts:95",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.export.test.tsx:155",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.export.test.tsx:177",
+        "frontend/app/advisory/__tests__/page.test.tsx:1686",
+        "frontend/app/advisory/__tests__/page.test.tsx:1701"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC4",
+      "priority": "P0",
+      "summary": "Guarded backend export route, Next proxy, and frontend helper use only session id plus format, preserve download headers, and do not accept or send tenant/output/report/audit body data.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/sessions/advisory-session.output-export.controller.spec.ts:71",
+        "backend/src/modules/advisory/sessions/advisory-session.output-export.controller.spec.ts:84",
+        "backend/src/modules/advisory/sessions/advisory-session.output-export.controller.spec.ts:111",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/export/route.test.ts:78",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/export/route.test.ts:84",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/export/route.test.ts:95",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/export/route.test.ts:128",
+        "frontend/lib/advisory/outputs.export.test.ts:48",
+        "frontend/lib/advisory/outputs.export.test.ts:76",
+        "frontend/lib/advisory/outputs.export.test.ts:95",
+        "frontend/lib/advisory/outputs.export.test.ts:132"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC5",
+      "priority": "P0",
+      "summary": "Successful export emits privacy-safe thinktank.output.exported audit with output id, format, tenant, actor, workflow, section count, and AI-label metadata presence; audit failures fail export.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/outputs/advisory-output-export.service.spec.ts:259",
+        "backend/src/modules/advisory/outputs/advisory-output-export.service.spec.ts:297",
+        "backend/src/modules/advisory/sessions/advisory-session.output-export.controller.spec.ts:111"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC6",
+      "priority": "P0",
+      "summary": "Tenant and actor scoping hide cross-tenant and same-tenant different-actor export attempts without leaking report metadata.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/outputs/advisory-output-export.service.spec.ts:297",
+        "backend/src/modules/advisory/outputs/advisory-output-export.service.spec.ts:313",
+        "backend/src/modules/advisory/sessions/advisory-session.output-export.controller.spec.ts:111",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/export/route.test.ts:84"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "auth_negative_path": "present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC7",
+      "priority": "P1",
+      "summary": "PDF export produces binary PDF with CJK-capable fonts, preserves AI labeling, escapes AI-generated content, and uses resource guards.",
+      "coverage": "FULL",
+      "tests": [
+        "backend/src/modules/advisory/outputs/advisory-output-export.service.spec.ts:236",
+        "backend/src/modules/advisory/sessions/advisory-session.output-export.controller.spec.ts:134",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/export/route.test.ts:128",
+        "frontend/lib/advisory/outputs.export.test.ts:76",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.export.test.tsx:128"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC8",
+      "priority": "P1",
+      "summary": "Export failures surface as persistent recoverable guidance, stale async export results do not affect a new session, and drawer/workflow focus and decision state remain intact.",
+      "coverage": "FULL",
+      "tests": [
+        "frontend/app/api/advisory/sessions/[sessionId]/output/export/route.test.ts:152",
+        "frontend/app/api/advisory/sessions/[sessionId]/output/export/route.test.ts:179",
+        "frontend/lib/advisory/outputs.export.test.ts:111",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.export.test.tsx:155",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.export.test.tsx:168",
+        "frontend/components/advisory/AdvisoryDocumentDrawer.export.test.tsx:177",
+        "frontend/app/advisory/__tests__/page.test.tsx:1686"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 8,
+    "fully_covered": 8,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 6, "covered": 6, "percentage": 100 },
+      "P1": { "total": 2, "covered": 2, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "quality": {
+    "blocker_issues": [],
+    "warning_issues": [
+      {
+        "file": "backend/src/modules/advisory/outputs/advisory-output-export.service.spec.ts",
+        "issue": "Focused export service spec is 335 lines, slightly above the 300-line maintainability target.",
+        "classification": "maintainability-warning",
+        "gate_blocking": false
+      },
+      {
+        "file": "frontend/app/advisory/__tests__/page.test.tsx",
+        "issue": "Aggregated advisory route suite is over 300 lines and continues to carry Epic 2 workflow integration coverage.",
+        "classification": "maintainability-warning",
+        "gate_blocking": false
+      }
+    ],
+    "info_issues": [
+      {
+        "issue": "Story 2.9 uses backend service/controller tests, Next route tests, frontend client tests, drawer component tests, and advisory page integration tests. No live LLM or network dependency is required.",
+        "gate_blocking": false
+      }
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Split the aggregated advisory route suite and export service spec later if subsequent Epic 2 stories make them harder to maintain.",
+      "requirements": ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7", "AC8"]
+    }
+  ]
+}

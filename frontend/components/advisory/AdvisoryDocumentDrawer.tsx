@@ -7,10 +7,11 @@ import {
   useRef,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { FileText, PanelRightClose, PanelRightOpen } from 'lucide-react'
+import { FileDown, FileText, PanelRightClose, PanelRightOpen, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ADVISORY_LAYOUT } from '@/lib/advisory/layout'
 import type {
+  ThinkTankOutputExportFormat,
   ThinkTankWorkflowOutput,
   ThinkTankWorkflowOutputSection,
 } from '@/lib/advisory/outputs'
@@ -23,9 +24,13 @@ interface AdvisoryDocumentDrawerProps {
   completionFeedback?: string
   liveAnnouncement?: string
   conversationInputRef?: RefObject<HTMLTextAreaElement>
+  exportingFormat?: ThinkTankOutputExportFormat | null
+  exportError?: string | null
   onOpenChange: (open: boolean) => void
   onWidthChange?: (width: number) => void
   onClearNewContent?: () => void
+  onExportOutput?: (format: ThinkTankOutputExportFormat) => Promise<void> | void
+  onDismissExportError?: () => void
 }
 
 type MarkdownBlock =
@@ -41,14 +46,20 @@ export function AdvisoryDocumentDrawer({
   completionFeedback,
   liveAnnouncement,
   conversationInputRef,
+  exportingFormat,
+  exportError,
   onOpenChange,
   onWidthChange,
   onClearNewContent,
+  onExportOutput,
+  onDismissExportError,
 }: AdvisoryDocumentDrawerProps) {
   const latestSection = output?.sections?.at(-1) ?? null
   const latestSectionRef = useRef<HTMLElement | null>(null)
   const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null)
   const widthStyle = typeof width === 'number' ? `${width}px` : width
+  const hasExportableSections = Boolean(output?.sections?.length)
+  const exportDisabled = !hasExportableSections || Boolean(exportingFormat)
   const maxWidthPx =
     typeof window === 'undefined'
       ? ADVISORY_LAYOUT.drawerMinWidth
@@ -151,6 +162,14 @@ export function AdvisoryDocumentDrawer({
     event.currentTarget.releasePointerCapture?.(event.pointerId)
   }
 
+  const handleExport = (format: ThinkTankOutputExportFormat) => {
+    if (exportDisabled) return
+
+    Promise.resolve(onExportOutput?.(format)).finally(() => {
+      conversationInputRef?.current?.focus({ preventScroll: true })
+    })
+  }
+
   useEffect(() => {
     return () => {
       resizeStateRef.current = null
@@ -233,20 +252,50 @@ export function AdvisoryDocumentDrawer({
             {output?.title ?? '报告草稿'}
           </h2>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="关闭咨询文档抽屉"
-          title="关闭咨询文档抽屉"
-          onClick={() => {
-            onOpenChange(false)
-            conversationInputRef?.current?.focus({ preventScroll: true })
-          }}
-          className="h-8 w-8 shrink-0"
-        >
-          <PanelRightClose className="h-4 w-4" />
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label="导出 Markdown"
+            aria-busy={exportingFormat === 'markdown' ? 'true' : undefined}
+            title={hasExportableSections ? '导出 Markdown' : '报告至少需要一个章节后才能导出'}
+            disabled={exportDisabled}
+            onClick={() => handleExport('markdown')}
+            className="h-8 gap-1 px-2 text-xs"
+          >
+            <FileText className="h-4 w-4" />
+            <span>MD</span>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label="导出 PDF"
+            aria-busy={exportingFormat === 'pdf' ? 'true' : undefined}
+            title={hasExportableSections ? '导出 PDF' : '报告至少需要一个章节后才能导出'}
+            disabled={exportDisabled}
+            onClick={() => handleExport('pdf')}
+            className="h-8 gap-1 px-2 text-xs"
+          >
+            <FileDown className="h-4 w-4" />
+            <span>PDF</span>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="关闭咨询文档抽屉"
+            title="关闭咨询文档抽屉"
+            onClick={() => {
+              onOpenChange(false)
+              conversationInputRef?.current?.focus({ preventScroll: true })
+            }}
+            className="h-8 w-8 shrink-0"
+          >
+            <PanelRightClose className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <p
@@ -262,6 +311,28 @@ export function AdvisoryDocumentDrawer({
         <p className="mx-4 mt-3 rounded-sm border border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))] px-3 py-2 text-xs leading-5 text-[hsl(var(--advisory-success-foreground))]">
           {completionFeedback}
         </p>
+      )}
+
+      {exportError && (
+        <div
+          role="alert"
+          className="mx-4 mt-3 flex items-start justify-between gap-3 rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
+        >
+          <p>{exportError}</p>
+          {onDismissExportError && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="关闭导出错误"
+              title="关闭导出错误"
+              onClick={onDismissExportError}
+              className="h-6 w-6 shrink-0"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">

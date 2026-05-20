@@ -1,0 +1,36 @@
+{
+  "tdd_phase": "RED",
+  "story_id": "2-9-report-viewing-and-export",
+  "total_tests": 25,
+  "api_tests": 11,
+  "e2e_tests": 14,
+  "all_tests_skipped": true,
+  "expected_to_fail": true,
+  "fixtures_created": 0,
+  "acceptance_criteria_covered": [
+    "AC1: structured report rendering and export before workflow completion",
+    "AC2: Markdown export with success feedback and privacy-safe audit",
+    "AC3: PDF export with CJK fonts, recoverable errors, and privacy-safe audit"
+  ],
+  "knowledge_fragments_used": [
+    "api-request",
+    "data-factories",
+    "contract-testing",
+    "component-tdd",
+    "test-quality",
+    "selector-resilience",
+    "network-first",
+    "auth-session",
+    "file-utils"
+  ],
+  "subagent_execution": "SEQUENTIAL (API -> E2E) after subagent timeout",
+  "performance_gain": "baseline (no parallel speedup)",
+  "generated_files": [
+    "backend/src/modules/advisory/outputs/advisory-output-export.service.spec.ts",
+    "backend/src/modules/advisory/sessions/advisory-session.output-export.controller.spec.ts",
+    "frontend/lib/advisory/outputs.export.test.ts",
+    "frontend/app/api/advisory/sessions/[sessionId]/output/export/route.test.ts",
+    "frontend/components/advisory/AdvisoryDocumentDrawer.export.test.tsx",
+    "_bmad-output/test-artifacts/atdd-checklist-2-9-report-viewing-and-export.md"
+  ]
+}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { cva } from 'class-variance-authority'
 import { BrainCircuit, MessageSquareText, SendHorizontal, Workflow } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { AdvisoryChatMessage } from '@/components/advisory/AdvisoryChatMessage'
 import { AdvisoryDocumentDrawer } from '@/components/advisory/AdvisoryDocumentDrawer'
@@ -44,9 +45,12 @@ import {
 } from '@/lib/advisory/streaming'
 import {
   THINKTANK_OUTPUT_APPEND_FAILED_MESSAGE,
+  THINKTANK_OUTPUT_EXPORT_FAILED_MESSAGE,
   appendThinkTankWorkflowOutputSection,
   completeThinkTankSessionOutput,
+  downloadThinkTankSessionOutput,
   fetchThinkTankWorkflowOutput,
+  type ThinkTankOutputExportFormat,
   type ThinkTankWorkflowOutput,
 } from '@/lib/advisory/outputs'
 import { cn } from '@/lib/utils'
@@ -352,6 +356,9 @@ export default function AdvisoryWorkspaceShell() {
   const [hasUnreadDocumentContent, setHasUnreadDocumentContent] = useState(false)
   const [outputAnnouncement, setOutputAnnouncement] = useState('')
   const [outputCompletionFeedback, setOutputCompletionFeedback] = useState<string | undefined>()
+  const [outputExportingFormat, setOutputExportingFormat] =
+    useState<ThinkTankOutputExportFormat | null>(null)
+  const [outputExportError, setOutputExportError] = useState<string | null>(null)
   const launchInFlightRef = useRef(false)
   const activeLaunchRef = useRef<ThinkTankWorkflowLaunchResult | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -360,6 +367,7 @@ export default function AdvisoryWorkspaceShell() {
   const streamAbortRef = useRef<AbortController | null>(null)
   const messageSubmitInFlightRef = useRef(false)
   const appendedOutputSourceMessageIdsRef = useRef<Set<string>>(new Set())
+  const outputExportRequestIdRef = useRef(0)
   const lastStreamAnnouncementAtRef = useRef(0)
   const pendingStreamAnnouncementRef = useRef<number | null>(null)
   const activeSessionId = activeLaunch?.sessionId ?? null
@@ -426,6 +434,9 @@ export default function AdvisoryWorkspaceShell() {
       setHasUnreadDocumentContent(false)
       setOutputAnnouncement('')
       setOutputCompletionFeedback(undefined)
+      setOutputExportingFormat(null)
+      setOutputExportError(null)
+      outputExportRequestIdRef.current += 1
       appendedOutputSourceMessageIdsRef.current.clear()
       setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
       setActiveLaunch(launch)
@@ -444,6 +455,9 @@ export default function AdvisoryWorkspaceShell() {
       setWorkflowOutput(null)
       setHasUnreadDocumentContent(false)
       setOutputCompletionFeedback(undefined)
+      setOutputExportingFormat(null)
+      setOutputExportError(null)
+      outputExportRequestIdRef.current += 1
       appendedOutputSourceMessageIdsRef.current.clear()
       return undefined
     }
@@ -847,6 +861,46 @@ export default function AdvisoryWorkspaceShell() {
       setMessageError(readWorkflowErrorMessage(error, '暂时无法完成报告草稿，请稍后重试。'))
       announceStreamStatus('报告草稿完成失败。', { immediate: true })
     } finally {
+      textareaRef.current?.focus({ preventScroll: true })
+    }
+  }
+
+  const handleExportOutput = async (format: ThinkTankOutputExportFormat) => {
+    if (!activeSessionId || outputExportingFormat) return
+
+    const exportSessionId = activeSessionId
+    const requestId = outputExportRequestIdRef.current + 1
+    outputExportRequestIdRef.current = requestId
+    setOutputExportingFormat(format)
+    setOutputExportError(null)
+
+    try {
+      const result = await downloadThinkTankSessionOutput(exportSessionId, format)
+      if (
+        activeLaunchRef.current?.sessionId !== exportSessionId ||
+        outputExportRequestIdRef.current !== requestId
+      ) {
+        return
+      }
+      const label = format === 'markdown' ? 'Markdown' : 'PDF'
+
+      toast.success(`${label} 已导出：${result.fileName}`)
+      setOutputAnnouncement(`${label} 报告已导出。`)
+    } catch (error) {
+      if (
+        activeLaunchRef.current?.sessionId !== exportSessionId ||
+        outputExportRequestIdRef.current !== requestId
+      ) {
+        return
+      }
+      setOutputExportError(readWorkflowErrorMessage(error, THINKTANK_OUTPUT_EXPORT_FAILED_MESSAGE))
+    } finally {
+      if (
+        activeLaunchRef.current?.sessionId === exportSessionId &&
+        outputExportRequestIdRef.current === requestId
+      ) {
+        setOutputExportingFormat(null)
+      }
       textareaRef.current?.focus({ preventScroll: true })
     }
   }
@@ -1299,9 +1353,13 @@ export default function AdvisoryWorkspaceShell() {
           completionFeedback={outputCompletionFeedback}
           liveAnnouncement={outputAnnouncement}
           conversationInputRef={textareaRef}
+          exportingFormat={outputExportingFormat}
+          exportError={outputExportError}
           onOpenChange={setDocumentDrawerOpen}
           onWidthChange={setDocumentDrawerWidth}
           onClearNewContent={() => setHasUnreadDocumentContent(false)}
+          onExportOutput={handleExportOutput}
+          onDismissExportError={() => setOutputExportError(null)}
         />
       </div>
     </section>

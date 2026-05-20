@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Param, Post, Res, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Optional, Param, Post, Query, Res, UseGuards } from '@nestjs/common'
 import type { Response } from 'express'
 import { CurrentUser } from '../../auth/decorators/current-user.decorator'
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { CurrentTenant } from '../../organizations/decorators/current-tenant.decorator'
 import { TenantGuard } from '../../organizations/guards/tenant.guard'
 import { AdvisoryAccessUser } from '../access/advisory-access.service'
+import { AdvisoryOutputExportService } from '../outputs/advisory-output-export.service'
 import {
   AdvisoryConversationStreamingEvent,
   AdvisorySessionService,
@@ -63,7 +64,10 @@ async function writeSseEvent(
 @Controller('advisory')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class AdvisorySessionController {
-  constructor(private readonly advisorySessionService: AdvisorySessionService) {}
+  constructor(
+    private readonly advisorySessionService: AdvisorySessionService,
+    @Optional() private readonly outputExportService?: AdvisoryOutputExportService,
+  ) {}
 
   @Get('workflows')
   async getWorkflows(@CurrentUser() user: AdvisoryAccessUser, @CurrentTenant() tenantId: string) {
@@ -153,6 +157,31 @@ export class AdvisorySessionController {
     })
 
     return { data: output }
+  }
+
+  @Get('sessions/:sessionId/output/export')
+  async exportOutput(
+    @Param('sessionId') sessionId: string,
+    @Query('format') format: string | undefined,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+    @Res() response: Response,
+  ) {
+    const exported = await this.requireOutputExportService().exportSessionOutput({
+      user,
+      tenantId,
+      sessionId,
+      format: format ?? '',
+    })
+
+    response.status(200)
+    response.setHeader('Content-Type', exported.contentType)
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${this.toContentDispositionFileName(exported.fileName)}"`,
+    )
+    response.setHeader('Content-Length', String(exported.buffer.length))
+    response.send(exported.buffer)
   }
 
   @Post('sessions/:sessionId/messages')
@@ -272,5 +301,17 @@ export class AdvisorySessionController {
     copyNumber('estimatedCost')
 
     return safe
+  }
+
+  private requireOutputExportService(): AdvisoryOutputExportService {
+    if (!this.outputExportService) {
+      throw new Error('Advisory output export service is not configured.')
+    }
+
+    return this.outputExportService
+  }
+
+  private toContentDispositionFileName(fileName: string): string {
+    return fileName.replace(/[^A-Za-z0-9._-]/g, '-')
   }
 }

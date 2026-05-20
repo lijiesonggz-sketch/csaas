@@ -4,6 +4,16 @@ import { readAdvisoryMessage, unwrapAdvisoryEnvelope } from './envelope'
 export const THINKTANK_OUTPUT_LOAD_FAILED_MESSAGE = '暂时无法加载报告草稿，请稍后重试。'
 export const THINKTANK_OUTPUT_APPEND_FAILED_MESSAGE = '暂时无法更新报告草稿，请稍后重试。'
 export const THINKTANK_OUTPUT_COMPLETE_FAILED_MESSAGE = '暂时无法完成报告草稿，请稍后重试。'
+export const THINKTANK_OUTPUT_EXPORT_FAILED_MESSAGE =
+  '报告导出失败，请重试；如果仍失败，请检查网络或联系管理员。'
+
+export type ThinkTankOutputExportFormat = 'markdown' | 'pdf'
+
+export interface ThinkTankOutputExportDownloadResult {
+  fileName: string
+  format: ThinkTankOutputExportFormat
+  contentType: string
+}
 
 export interface ThinkTankWorkflowOutputSection {
   id: string
@@ -133,6 +143,47 @@ export async function completeThinkTankSessionOutput(
   return normalizeOutputResult(body, THINKTANK_OUTPUT_COMPLETE_FAILED_MESSAGE)
 }
 
+export async function downloadThinkTankSessionOutput(
+  sessionId: string,
+  format: ThinkTankOutputExportFormat
+): Promise<ThinkTankOutputExportDownloadResult> {
+  const headers = await getAuthHeadersAsync()
+  const response = await fetch(
+    `/api/advisory/sessions/${encodeURIComponent(sessionId)}/output/export?format=${format}`,
+    {
+      headers,
+      cache: 'no-store',
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error(
+      (await readExportErrorMessage(response)) ?? THINKTANK_OUTPUT_EXPORT_FAILED_MESSAGE
+    )
+  }
+
+  const blob = await response.blob()
+  const contentType = response.headers.get('Content-Type') ?? blob.type
+  const fileName =
+    readFileNameFromContentDisposition(response.headers.get('Content-Disposition')) ??
+    buildFallbackExportFileName(sessionId, format)
+  const downloadUrl = window.URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+
+  anchor.href = downloadUrl
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 0)
+
+  return {
+    fileName,
+    format,
+    contentType,
+  }
+}
+
 export const fetchThinkTankWorkflowOutput = fetchThinkTankSessionOutput
 export const appendThinkTankWorkflowOutputSection = appendThinkTankOutputSection
 
@@ -226,4 +277,59 @@ function toSafeProviderMetadata(metadata: Record<string, unknown>): Record<strin
   copyNumber('estimatedCost')
 
   return safe
+}
+
+async function readExportErrorMessage(response: Response): Promise<string | null> {
+  const text = await response.text().catch(() => '')
+  if (!text) return null
+
+  try {
+    return readAdvisoryMessage(JSON.parse(text))
+  } catch {
+    return text.trim() || null
+  }
+}
+
+function readFileNameFromContentDisposition(header: string | null): string | null {
+  if (!header) return null
+
+  const encodedMatch = header.match(/filename\*=UTF-8''([^;]+)/i)
+  const quotedMatch = header.match(/filename="([^"]+)"/i)
+  const rawMatch = header.match(/filename=([^;]+)/i)
+  const value =
+    decodeContentDispositionFileName(encodedMatch?.[1]) ?? quotedMatch?.[1] ?? rawMatch?.[1]
+
+  return value ? sanitizeDownloadFileName(value) : null
+}
+
+function decodeContentDispositionFileName(value: string | undefined): string | null {
+  if (!value) return null
+
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return null
+  }
+}
+
+function sanitizeDownloadFileName(value: string): string {
+  const sanitized = value
+    .trim()
+    .replace(/[/\\?%*:|"<>]/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return sanitized || 'thinktank-report'
+}
+
+function buildFallbackExportFileName(
+  sessionId: string,
+  format: ThinkTankOutputExportFormat
+): string {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const extension = format === 'markdown' ? 'md' : 'pdf'
+  const safeSessionId = sanitizeDownloadFileName(sessionId).slice(0, 48) || 'session'
+
+  return `thinktank-report-${safeSessionId}-${timestamp}.${extension}`
 }

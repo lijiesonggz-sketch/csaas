@@ -27,6 +27,8 @@ import { ThinkTankRuntimeFileProviderService } from './runtime/runtime-file-prov
 import { ThinkTankWorkflowParserService } from './runtime/workflow-parser.service'
 import { ThinkTankWorkflowRegistryService } from './runtime/workflow-registry.service'
 import { AdvisorySessionController } from './sessions/advisory-session.controller'
+import { AdvisoryOutputExportService } from './outputs/advisory-output-export.service'
+import { AdvisoryOutputPdfRendererService } from './outputs/advisory-output-pdf-renderer.service'
 import { AdvisoryWorkflowOutputRepository } from './outputs/advisory-workflow-output.repository'
 import { AdvisoryConversationMessageRepository } from './sessions/advisory-conversation-message.repository'
 import { AdvisorySessionRepository } from './sessions/advisory-session.repository'
@@ -51,6 +53,8 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryModuleConfigRepository,
     AdvisoryConversationMessageRepository,
     AdvisoryWorkflowOutputRepository,
+    AdvisoryOutputExportService,
+    AdvisoryOutputPdfRendererService,
     AdvisorySessionRepository,
     AdvisorySessionService,
     AdvisoryEventService,
@@ -81,6 +85,8 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryEventService,
     AdvisoryConversationMessageRepository,
     AdvisoryWorkflowOutputRepository,
+    AdvisoryOutputExportService,
+    AdvisoryOutputPdfRendererService,
     AdvisorySessionService,
     AdvisorySessionRepository,
     ThinkTankProviderGatewayService,

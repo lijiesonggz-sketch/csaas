@@ -41,6 +41,14 @@ jest.mock('@/lib/advisory/streaming', () => ({
   streamThinkTankSessionMessage: jest.fn(),
 }))
 
+const mockToastSuccess = jest.fn()
+
+jest.mock('sonner', () => ({
+  toast: {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+  },
+}))
+
 /*
  * Story 2.8 ATDD RED additions for frontend/app/advisory/__tests__/page.test.tsx.
  * Place the mock block with the other top-level advisory mocks, then place the
@@ -52,16 +60,21 @@ jest.mock('@/lib/advisory/streaming', () => ({
 const mockFetchThinkTankWorkflowOutput = jest.fn()
 const mockAppendThinkTankWorkflowOutputSection = jest.fn()
 const mockCompleteThinkTankSessionOutput = jest.fn()
+const mockDownloadThinkTankSessionOutput = jest.fn()
 
 jest.mock(
   '@/lib/advisory/outputs',
   () => ({
     THINKTANK_OUTPUT_APPEND_FAILED_MESSAGE: '暂时无法更新报告草稿，请稍后重试。',
+    THINKTANK_OUTPUT_EXPORT_FAILED_MESSAGE:
+      '报告导出失败，请重试；如果仍失败，请检查网络或联系管理员。',
     fetchThinkTankWorkflowOutput: (...args: unknown[]) => mockFetchThinkTankWorkflowOutput(...args),
     appendThinkTankWorkflowOutputSection: (...args: unknown[]) =>
       mockAppendThinkTankWorkflowOutputSection(...args),
     completeThinkTankSessionOutput: (...args: unknown[]) =>
       mockCompleteThinkTankSessionOutput(...args),
+    downloadThinkTankSessionOutput: (...args: unknown[]) =>
+      mockDownloadThinkTankSessionOutput(...args),
   }),
   { virtual: true }
 )
@@ -324,6 +337,11 @@ describe('AdvisoryPage', () => {
     })
     mockCompleteThinkTankSessionOutput.mockResolvedValue({
       output: { ...createStory28PageOutput([createStory28PageSection()]), status: 'completed' },
+    })
+    mockDownloadThinkTankSessionOutput.mockResolvedValue({
+      fileName: 'thinktank-report-session-brainstorming.md',
+      format: 'markdown',
+      contentType: 'text/markdown; charset=utf-8',
     })
     window.localStorage.clear()
     document.documentElement.classList.remove('dark')
@@ -1339,6 +1357,7 @@ describe('AdvisoryPage', () => {
       mockFetchThinkTankWorkflowOutput.mockReset()
       mockAppendThinkTankWorkflowOutputSection.mockReset()
       mockCompleteThinkTankSessionOutput.mockReset()
+      mockDownloadThinkTankSessionOutput.mockReset()
       mockFetchThinkTankWorkflowOutput.mockResolvedValue({
         output: createStory28PageOutput([]),
       })
@@ -1348,6 +1367,11 @@ describe('AdvisoryPage', () => {
       })
       mockCompleteThinkTankSessionOutput.mockResolvedValue({
         output: { ...createStory28PageOutput([createStory28PageSection()]), status: 'completed' },
+      })
+      mockDownloadThinkTankSessionOutput.mockResolvedValue({
+        fileName: 'thinktank-report-session-brainstorming.md',
+        format: 'markdown',
+        contentType: 'text/markdown; charset=utf-8',
       })
     })
 
@@ -1657,6 +1681,36 @@ describe('AdvisoryPage', () => {
       )
       expect(input).toHaveFocus()
       expect(input).toHaveValue('Keep this draft.')
+    })
+
+    test('[P0] exports the drawer report with a success toast without closing the workflow', async () => {
+      const user = userEvent.setup()
+      mockFetchThinkTankAccess.mockResolvedValue({ allowed: true, module: 'thinktank' })
+      mockFetchThinkTankWorkflowOutput.mockResolvedValueOnce({
+        output: createStory28PageOutput([createStory28PageSection()]),
+      })
+
+      renderAdvisoryRoute()
+
+      const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+      await user.click(
+        await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ })
+      )
+      const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+      await user.click(screen.getByRole('button', { name: /打开咨询文档抽屉/ }))
+      await user.click(screen.getByRole('button', { name: /导出 Markdown/ }))
+
+      await waitFor(() => {
+        expect(mockDownloadThinkTankSessionOutput).toHaveBeenCalledWith(
+          'session-brainstorming',
+          'markdown'
+        )
+      })
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        'Markdown 已导出：thinktank-report-session-brainstorming.md'
+      )
+      expect(screen.getByRole('complementary', { name: '咨询文档抽屉' })).toBeVisible()
+      await waitFor(() => expect(input).toHaveFocus())
     })
   })
 })
