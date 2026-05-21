@@ -16,6 +16,11 @@ import { AdvisoryModuleConfigRepository } from './admin/advisory-module-config.r
 import { AdvisoryAdminController } from './admin/advisory-admin.controller'
 import { AdvisoryAdminService } from './admin/advisory-admin.service'
 import { AdvisoryEventService } from './events/advisory-event.service'
+import {
+  CSAAS_ENTERPRISE_SIGNALS_ADAPTER,
+  CsaasEnterpriseSignalsService,
+  CsaasNoDataEnterpriseSignalAdapter,
+} from './integration/csaas-enterprise-signals.service'
 import { AdvisoryOrganizationContextController } from './org-context/advisory-organization-context.controller'
 import { AdvisoryOrganizationContextRepository } from './org-context/advisory-organization-context.repository'
 import { AdvisoryOrganizationContextService } from './org-context/advisory-organization-context.service'
@@ -86,6 +91,12 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisorySessionRepository,
     AdvisorySessionService,
     AdvisoryEventService,
+    CsaasNoDataEnterpriseSignalAdapter,
+    {
+      provide: CSAAS_ENTERPRISE_SIGNALS_ADAPTER,
+      useExisting: CsaasNoDataEnterpriseSignalAdapter,
+    },
+    CsaasEnterpriseSignalsService,
     QuickConsultContextRepository,
     QuickConsultRecommendationFeedbackRepository,
     QuickConsultIntakeAnalyzer,
@@ -119,6 +130,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryAccessService,
     AdvisoryAdminService,
     AdvisoryEventService,
+    CsaasEnterpriseSignalsService,
     AdvisoryOrganizationContextRepository,
     AdvisoryOrganizationContextService,
     AdvisoryConversationMessageRepository,

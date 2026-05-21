@@ -9,6 +9,7 @@ import {
   AdvisoryQuickConsultClarificationAnswer,
   AdvisoryQuickConsultContext,
   AdvisoryQuickConsultContextMetadata,
+  AdvisoryQuickConsultContextMetadataValue,
   AdvisoryQuickConsultContextStatus,
 } from '../../../database/entities/advisory-quick-consult-context.entity'
 import { AuditAction } from '../../../database/entities/audit-log.entity'
@@ -24,6 +25,7 @@ import { QUICK_CONSULT_PROBLEM_MAX_LENGTH } from './dto/start-quick-consult.dto'
 import {
   QuickConsultMethodRecommendation,
   QuickConsultMethodRecommendationService,
+  QuickConsultRecommendationContext,
   QuickConsultRecommendationConfidence,
   QuickConsultRecommendationSet,
 } from './quick-consult-method-recommendation.service'
@@ -32,6 +34,10 @@ import {
   AdvisoryOrganizationContextService,
   AdvisoryOrganizationPromptContext,
 } from '../org-context/advisory-organization-context.service'
+import {
+  CsaasEnterpriseSignalsResult,
+  CsaasEnterpriseSignalsService,
+} from '../integration/csaas-enterprise-signals.service'
 
 export const THINKTANK_QUICK_CONSULT_EMPTY_PROBLEM_MESSAGE = '请先描述你要咨询的问题。'
 export const THINKTANK_QUICK_CONSULT_PROBLEM_TOO_LONG_MESSAGE =
@@ -249,6 +255,8 @@ export type QuickConsultStartResult =
       classification: QuickConsultProblemClassificationResult
       recommendations: QuickConsultMethodRecommendation[]
       recommendationConfidence: QuickConsultRecommendationConfidence
+      recommendationContext?: QuickConsultRecommendationContext
+      enterpriseContext?: QuickConsultRecommendationContext
     }
   | {
       status: 'analysis_started'
@@ -269,6 +277,8 @@ export type QuickConsultStartResult =
       classification: QuickConsultProblemClassificationResult
       recommendations: QuickConsultMethodRecommendation[]
       recommendationConfidence: QuickConsultRecommendationConfidence
+      recommendationContext: QuickConsultRecommendationContext
+      enterpriseContext: QuickConsultRecommendationContext
     }
 
 @Injectable()
@@ -348,6 +358,8 @@ export class QuickConsultService {
     private readonly methodRecommendationService: QuickConsultMethodRecommendationService,
     @Optional()
     private readonly organizationContextService?: AdvisoryOrganizationContextService,
+    @Optional()
+    private readonly enterpriseSignalsService?: CsaasEnterpriseSignalsService,
   ) {}
 
   async startQuickConsult(context: QuickConsultStartInput): Promise<QuickConsultStartResult> {
@@ -497,6 +509,10 @@ export class QuickConsultService {
         })
     const quickConsultContext = pendingContext ?? existingContext
     const durableContextId = quickConsultContext?.id ?? `quick-consult-${randomUUID()}`
+    const enterpriseSignals = await this.loadEnterpriseSignals({
+      tenantId: context.tenantId,
+      organizationId: context.user.organizationId ?? null,
+    })
     let recommendationSet: QuickConsultRecommendationSet
     try {
       recommendationSet = await this.generateRecommendations({
@@ -504,7 +520,9 @@ export class QuickConsultService {
         classification: problemClassification,
         providerStatus: effectiveClassification.providerStatus ?? 'fake',
         organizationContext,
+        enterpriseSignals,
       })
+      recommendationSet = this.withRecommendationContext(recommendationSet)
     } catch {
       if (quickConsultContext) {
         await this.contextRepository.updateContext(context.tenantId, quickConsultContext.id, {
@@ -589,6 +607,9 @@ export class QuickConsultService {
         metadata: {
           ...this.buildContextMetadata(problemClassification, organizationContext),
           recommendations: this.buildRecommendationMetadata(recommendationSet),
+          recommendationContext: this.buildRecommendationContextMetadata(
+            this.readRecommendationContext(recommendationSet),
+          ),
         },
       })
     }
@@ -637,6 +658,8 @@ export class QuickConsultService {
       classification: analysis.classification ?? problemClassification,
       recommendations: recommendationSet.recommendations,
       recommendationConfidence: recommendationSet.confidence,
+      recommendationContext: this.readRecommendationContext(recommendationSet),
+      enterpriseContext: this.readRecommendationContext(recommendationSet),
     }
   }
 
@@ -829,6 +852,8 @@ export class QuickConsultService {
     classification: QuickConsultProblemClassificationResult
     recommendationSet: QuickConsultRecommendationSet
   }): Promise<void> {
+    const recommendationContext = this.readRecommendationContext(context.recommendationSet)
+
     await this.eventService.emitAudit({
       eventName: ThinkTankEventName.QuickConsultCompleted,
       tenantId: context.tenantId,
@@ -861,6 +886,14 @@ export class QuickConsultService {
         confidence_level: context.classification.confidenceLevel,
         provider_status: context.providerStatus,
         source_ref_count: context.recommendationSet.sourceRefCount,
+        recommendation_context_mode: recommendationContext.mode,
+        enterprise_signal_status:
+          recommendationContext.mode === 'enterprise' ? 'available' : 'degraded',
+        enterprise_signal_count: recommendationContext.signalsApplied.length,
+        enterprise_signal_source_count: recommendationContext.sources.filter(
+          (source) => source === 'csaas_it_maturity' || source === 'csaas_compliance',
+        ).length,
+        enterprise_signal_fallback_reason: recommendationContext.fallbackReason ?? null,
       },
     })
   }
@@ -905,6 +938,7 @@ export class QuickConsultService {
     classification: QuickConsultProblemClassificationResult
     providerStatus: QuickConsultProviderStatus
     organizationContext?: AdvisoryOrganizationPromptContext | null
+    enterpriseSignals?: CsaasEnterpriseSignalsResult | null
   }): Promise<QuickConsultRecommendationSet> {
     return this.methodRecommendationService.generateRecommendations(context)
   }
@@ -937,6 +971,43 @@ export class QuickConsultService {
       status: 'failed',
       generatedAt: new Date().toISOString(),
       sourceRefCount: 0,
+    }
+  }
+
+  private withRecommendationContext(
+    recommendationSet: QuickConsultRecommendationSet,
+  ): QuickConsultRecommendationSet {
+    return {
+      ...recommendationSet,
+      recommendationContext: this.readRecommendationContext(recommendationSet),
+    }
+  }
+
+  private readRecommendationContext(
+    recommendationSet: QuickConsultRecommendationSet,
+  ): QuickConsultRecommendationContext {
+    return (
+      recommendationSet.recommendationContext ?? {
+        mode: 'generic',
+        signalsApplied: [],
+        sources: [],
+      }
+    )
+  }
+
+  private buildRecommendationContextMetadata(
+    recommendationContext: QuickConsultRecommendationContext,
+  ): AdvisoryQuickConsultContextMetadataValue {
+    return {
+      mode: recommendationContext.mode,
+      enterpriseSignalStatus:
+        recommendationContext.mode === 'enterprise' ? 'available' : 'degraded',
+      enterpriseSignalCount: recommendationContext.signalsApplied.length,
+      sources: recommendationContext.sources.filter(
+        (source) => source === 'csaas_it_maturity' || source === 'csaas_compliance',
+      ),
+      fallbackReason: recommendationContext.fallbackReason ?? null,
+      missingFields: recommendationContext.contextCompletionPrompt?.missingFields ?? [],
     }
   }
 
@@ -986,6 +1057,36 @@ export class QuickConsultService {
       return await this.organizationContextService.getPromptContext(tenantId)
     } catch {
       return null
+    }
+  }
+
+  private async loadEnterpriseSignals(context: {
+    tenantId: string
+    organizationId?: string | null
+  }): Promise<CsaasEnterpriseSignalsResult | null> {
+    if (!this.enterpriseSignalsService) {
+      return null
+    }
+
+    try {
+      return await this.enterpriseSignalsService.loadForQuickConsult({
+        tenantId: context.tenantId,
+        organizationId: context.organizationId ?? null,
+        deadlineMs: 2000,
+      })
+    } catch {
+      return {
+        mode: 'generic',
+        status: 'degraded',
+        fallbackReason: 'error',
+        signalsApplied: [],
+        sources: [],
+        metadata: {
+          signalCount: 0,
+          sourceCount: 0,
+          timeoutMs: 2000,
+        },
+      }
     }
   }
 

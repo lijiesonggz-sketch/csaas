@@ -44,6 +44,7 @@ interface QuickConsultProblemIntakeProps {
   userIdentity: string | null
   className?: string
   onBeforeStartQuickConsult?: () => Promise<boolean> | boolean
+  onOpenEnterpriseBackgroundSettings?: () => void
   onAcceptRecommendation?: (
     workflowKey: string,
     metadata: ThinkTankWorkflowLaunchOptions
@@ -54,6 +55,7 @@ export function QuickConsultProblemIntake({
   userIdentity,
   className,
   onBeforeStartQuickConsult,
+  onOpenEnterpriseBackgroundSettings,
   onAcceptRecommendation,
 }: QuickConsultProblemIntakeProps) {
   const [problem, setProblem] = useState('')
@@ -307,6 +309,8 @@ export function QuickConsultProblemIntake({
     Array.isArray(result.recommendations)
       ? result.recommendations
       : []
+  const recommendationContext = result?.recommendationContext ?? result?.enterpriseContext
+  const contextCompletionPrompt = recommendationContext?.contextCompletionPrompt
   const handleManualBrowse = async () => {
     if (manualBrowseStatus === 'loading') return
 
@@ -584,6 +588,62 @@ export function QuickConsultProblemIntake({
               Quick Consult recommendations
             </h3>
           </div>
+          {recommendationContext?.mode === 'enterprise' && (
+            <div
+              role="status"
+              aria-label="企业上下文 recommendation context"
+              className="rounded-sm border border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))] px-3 py-2 text-sm leading-6 text-[hsl(var(--advisory-success-foreground))]"
+            >
+              <p>
+                正在使用企业上下文：已结合
+                {formatEnterpriseSignalLabels(recommendationContext.signalsApplied)}。
+              </p>
+              {recommendationContext.signalsApplied.length > 0 && (
+                <p className="mt-1 text-xs">
+                  {formatEnterpriseSignalLabels(recommendationContext.signalsApplied)}
+                </p>
+              )}
+            </div>
+          )}
+          {recommendationContext?.mode === 'generic' && (
+            <p
+              role="alert"
+              className="rounded-sm border border-[hsl(var(--advisory-warning-border))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-sm leading-6 text-[hsl(var(--advisory-foreground))]"
+            >
+              当前使用通用推荐模式，企业背景数据暂时不可用
+            </p>
+          )}
+          {contextCompletionPrompt && (
+            <div
+              role="status"
+              aria-live="polite"
+              aria-label="企业背景补全提示"
+              className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-muted-bg))] px-3 py-2 text-sm leading-6 text-[hsl(var(--advisory-foreground))]"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p>{contextCompletionPrompt.message}</p>
+                  {contextCompletionPrompt.missingFields.length > 0 && (
+                    <p className="mt-1 text-xs text-[hsl(var(--advisory-muted-foreground))]">
+                      待补充：{formatContextMissingFields(contextCompletionPrompt.missingFields)}
+                    </p>
+                  )}
+                </div>
+                {contextCompletionPrompt.action === 'open_enterprise_background_settings' &&
+                  onOpenEnterpriseBackgroundSettings && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={onOpenEnterpriseBackgroundSettings}
+                      className="h-8 rounded-sm px-2 text-xs"
+                    >
+                      <ExternalLink className="mr-1 h-3.5 w-3.5" />
+                      完善企业背景
+                    </Button>
+                  )}
+              </div>
+            </div>
+          )}
           <div className="grid gap-3">
             {recommendations.map((recommendation) => {
               const isExpanded = expandedRecommendationIds.has(recommendation.id)
@@ -628,12 +688,12 @@ export function QuickConsultProblemIntake({
                   </dl>
                   {recommendation.sourceRefs.length > 0 && (
                     <ul className="mt-3 flex flex-wrap gap-2 text-xs text-[hsl(var(--advisory-muted-foreground))]">
-                      {recommendation.sourceRefs.map((sourceRef) => (
+                      {recommendation.sourceRefs.map((sourceRef, index) => (
                         <li
-                          key={sourceRef}
+                          key={`${sourceRef}:${index}`}
                           className="rounded-sm border border-[hsl(var(--advisory-border))] px-2 py-1"
                         >
-                          {sourceRef}
+                          {formatRecommendationSourceRef(sourceRef)}
                         </li>
                       ))}
                     </ul>
@@ -1019,6 +1079,37 @@ function matchesManualBrowseQuery(values: Array<string | undefined>, query: stri
   if (!query) return true
 
   return values.some((value) => value?.toLowerCase().includes(query))
+}
+
+function formatContextMissingFields(fields: string[]): string {
+  const labels: Record<string, string> = {
+    organizationName: '企业名称',
+    industry: '行业',
+    size: '规模',
+    complianceOwner: '合规负责人',
+  }
+
+  return fields.map((field) => labels[field] ?? field).join('、')
+}
+
+function formatEnterpriseSignalLabels(signalsApplied: string[]): string {
+  const labels: Record<string, string> = {
+    it_maturity: 'CSAAS IT成熟度',
+    compliance: 'CSAAS合规数据',
+  }
+  const labelsApplied = signalsApplied
+    .map((signal) => labels[signal])
+    .filter((label): label is string => Boolean(label))
+
+  return labelsApplied.length > 0 ? labelsApplied.join('、') : '企业数据'
+}
+
+function formatRecommendationSourceRef(sourceRef: string): string {
+  if (sourceRef === 'csaas:it-maturity') return 'CSAAS IT成熟度'
+  if (sourceRef === 'csaas:compliance') return 'CSAAS合规数据'
+  if (sourceRef.startsWith('workflow:')) return '工作流来源'
+  if (sourceRef.startsWith('method:')) return '方法库来源'
+  return '推荐来源'
 }
 
 function readManualBrowseErrorMessage(error: unknown): string {

@@ -130,6 +130,11 @@ describe('QuickConsultMethodRecommendationService', () => {
       recommendations: [],
       generatedAt: expect.any(String),
       sourceRefCount: 0,
+      recommendationContext: expect.objectContaining({
+        mode: 'generic',
+        signalsApplied: [],
+        sources: [],
+      }),
     })
   })
 

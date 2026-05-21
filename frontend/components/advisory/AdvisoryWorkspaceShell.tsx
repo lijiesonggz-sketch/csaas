@@ -1410,6 +1410,7 @@ export default function AdvisoryWorkspaceShell() {
               <QuickConsultProblemIntake
                 userIdentity={userPreferenceIdentity}
                 onBeforeStartQuickConsult={requestOrganizationContextGate}
+                onOpenEnterpriseBackgroundSettings={handleOpenOrganizationSettings}
                 onAcceptRecommendation={handleLaunchWorkflow}
               />
             </div>

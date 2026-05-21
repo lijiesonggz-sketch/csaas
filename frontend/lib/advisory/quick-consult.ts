@@ -59,6 +59,32 @@ export interface QuickConsultProblemClassificationResult {
 }
 
 export type QuickConsultRecommendationConfidence = 'none' | 'confident'
+export type QuickConsultRecommendationContextMode = 'enterprise' | 'generic'
+export type QuickConsultRecommendationContextSource =
+  | 'organization_context'
+  | 'csaas_it_maturity'
+  | 'csaas_compliance'
+export type QuickConsultRecommendationFallbackReason =
+  | 'no_organization'
+  | 'no_data'
+  | 'timeout'
+  | 'error'
+  | 'malformed'
+  | 'tenant_scope_mismatch'
+
+export interface QuickConsultContextCompletionPrompt {
+  missingFields: string[]
+  message: string
+  action: 'open_enterprise_background_settings'
+}
+
+export interface QuickConsultRecommendationContext {
+  mode: QuickConsultRecommendationContextMode
+  signalsApplied: string[]
+  sources: QuickConsultRecommendationContextSource[]
+  fallbackReason?: QuickConsultRecommendationFallbackReason
+  contextCompletionPrompt?: QuickConsultContextCompletionPrompt
+}
 
 export interface QuickConsultMethodRecommendation {
   id: string
@@ -99,6 +125,8 @@ export interface QuickConsultStartResult {
   classification?: QuickConsultProblemClassificationResult
   recommendations?: QuickConsultMethodRecommendation[]
   recommendationConfidence?: QuickConsultRecommendationConfidence
+  recommendationContext?: QuickConsultRecommendationContext
+  enterpriseContext?: QuickConsultRecommendationContext
 }
 
 export interface QuickConsultClarificationAnswer {
@@ -277,6 +305,9 @@ function normalizeQuickConsultResult(result: QuickConsultStartResult): QuickCons
       ? []
       : normalizeQuickConsultRecommendations(result.recommendations)
   const hasEnoughRecommendations = recommendations.length >= 2
+  const recommendationContext =
+    normalizeRecommendationContext(result.recommendationContext) ??
+    normalizeRecommendationContext(result.enterpriseContext)
 
   return {
     ...result,
@@ -294,6 +325,13 @@ function normalizeQuickConsultResult(result: QuickConsultStartResult): QuickCons
       result.recommendationConfidence,
       hasEnoughRecommendations ? recommendations : []
     ),
+    ...(recommendationContext
+      ? {
+          recommendationContext,
+          enterpriseContext:
+            normalizeRecommendationContext(result.enterpriseContext) ?? recommendationContext,
+        }
+      : {}),
   }
 }
 
@@ -462,9 +500,132 @@ function normalizeRecommendationSourceRefs(value: unknown): string[] {
   return (Array.isArray(value) ? value : [])
     .filter((sourceRef) => typeof sourceRef === 'string' && sourceRef.trim())
     .map((sourceRef) => sourceRef.trim())
-    .filter((sourceRef) => /^(workflow|method):[a-z0-9:-]+$/.test(sourceRef))
+    .filter((sourceRef) => /^(workflow|method|csaas):[a-z0-9:-]+$/.test(sourceRef))
     .filter((sourceRef) => !/[\\/]|_bmad|prompt|content/i.test(sourceRef))
     .slice(0, 4)
+}
+
+function normalizeRecommendationContext(
+  value: unknown
+): QuickConsultRecommendationContext | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const record = value as Record<string, unknown>
+  const mode = normalizeRecommendationContextMode(record.mode)
+  if (!mode) return undefined
+  const signalsApplied =
+    mode === 'enterprise' ? normalizeAppliedSignalLabels(record.signalsApplied) : []
+  const normalizedMode = mode === 'enterprise' && signalsApplied.length === 0 ? 'generic' : mode
+  const sources = normalizeRecommendationContextSources(record.sources).filter((source) =>
+    normalizedMode === 'enterprise' ? true : source === 'organization_context'
+  )
+  const fallbackReason = normalizeRecommendationFallbackReason(record.fallbackReason)
+  const effectiveFallbackReason =
+    fallbackReason ?? (mode === 'enterprise' ? 'malformed' : undefined)
+  const contextCompletionPrompt = normalizeContextCompletionPrompt(record.contextCompletionPrompt)
+
+  return {
+    mode: normalizedMode,
+    signalsApplied: normalizedMode === 'enterprise' ? signalsApplied : [],
+    sources,
+    ...(normalizedMode === 'generic' && effectiveFallbackReason
+      ? { fallbackReason: effectiveFallbackReason }
+      : {}),
+    ...(contextCompletionPrompt ? { contextCompletionPrompt } : {}),
+  }
+}
+
+function normalizeRecommendationContextMode(
+  value: unknown
+): QuickConsultRecommendationContextMode | undefined {
+  return value === 'enterprise' || value === 'generic' ? value : undefined
+}
+
+function normalizeAppliedSignalLabels(value: unknown): string[] {
+  const allowedSignals = new Set(['it_maturity', 'compliance'])
+  const seen = new Set<string>()
+
+  return (Array.isArray(value) ? value : [])
+    .filter((item): item is string => typeof item === 'string' && allowedSignals.has(item))
+    .filter((item) => {
+      if (seen.has(item)) return false
+      seen.add(item)
+      return true
+    })
+    .slice(0, allowedSignals.size)
+}
+
+function normalizeContextMissingFields(value: unknown): string[] {
+  const allowedFields = new Set(['organizationName', 'industry', 'size', 'complianceOwner'])
+  const seen = new Set<string>()
+
+  return (Array.isArray(value) ? value : [])
+    .filter((item): item is string => typeof item === 'string' && allowedFields.has(item))
+    .filter((item) => {
+      if (seen.has(item)) return false
+      seen.add(item)
+      return true
+    })
+    .slice(0, allowedFields.size)
+}
+
+function normalizeRecommendationContextSources(
+  value: unknown
+): QuickConsultRecommendationContextSource[] {
+  const allowedSources = new Set<QuickConsultRecommendationContextSource>([
+    'organization_context',
+    'csaas_it_maturity',
+    'csaas_compliance',
+  ])
+  const seen = new Set<QuickConsultRecommendationContextSource>()
+
+  return (Array.isArray(value) ? value : [])
+    .filter((source): source is QuickConsultRecommendationContextSource =>
+      allowedSources.has(source as QuickConsultRecommendationContextSource)
+    )
+    .filter((source) => {
+      if (seen.has(source)) return false
+      seen.add(source)
+      return true
+    })
+    .slice(0, 3)
+}
+
+function normalizeRecommendationFallbackReason(
+  value: unknown
+): QuickConsultRecommendationFallbackReason | undefined {
+  const allowedReasons = new Set<QuickConsultRecommendationFallbackReason>([
+    'no_organization',
+    'no_data',
+    'timeout',
+    'error',
+    'malformed',
+    'tenant_scope_mismatch',
+  ])
+
+  return allowedReasons.has(value as QuickConsultRecommendationFallbackReason)
+    ? (value as QuickConsultRecommendationFallbackReason)
+    : undefined
+}
+
+function normalizeContextCompletionPrompt(
+  value: unknown
+): QuickConsultContextCompletionPrompt | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const record = value as Record<string, unknown>
+  const missingFields = normalizeContextMissingFields(record.missingFields)
+  const message = normalizeNonEmptyText(record.message)
+  if (
+    record.action !== 'open_enterprise_background_settings' ||
+    (missingFields.length === 0 && !message)
+  ) {
+    return undefined
+  }
+
+  return {
+    missingFields,
+    message: message ?? `补充${missingFields.join('、')}可提升推荐精度。`,
+    action: 'open_enterprise_background_settings',
+  }
 }
 
 function normalizeClassificationRefs(value: unknown): QuickConsultProblemType[] {

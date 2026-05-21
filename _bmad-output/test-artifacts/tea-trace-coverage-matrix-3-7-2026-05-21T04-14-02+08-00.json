@@ -1,0 +1,125 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-21T04:14:02+08:00",
+  "story_id": "3.7",
+  "story_key": "3-7-contextual-recommendations-with-csaas-data-fallback",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "coverage": "FULL",
+      "requirement": "Available CSAAS IT maturity or compliance data is included in recommendation context and visible as enterprise context.",
+      "tests": [
+        "backend/src/modules/advisory/integration/csaas-enterprise-signals.service.spec.ts",
+        "backend/src/modules/advisory/quick-consult/quick-consult.service.contextual-recommendations.spec.ts",
+        "backend/src/modules/advisory/quick-consult/quick-consult-method-recommendation.service.contextual.spec.ts",
+        "frontend/lib/advisory/quick-consult.contextual-recommendations.test.ts",
+        "frontend/app/api/advisory/quick-consult/start/route.contextual-recommendations.test.ts",
+        "frontend/components/advisory/QuickConsultProblemIntake.contextual-recommendations.test.tsx"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_or_trusted_context_coverage": "present",
+        "error_path_coverage": "tenant mismatch and privacy negative paths present"
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "coverage": "FULL",
+      "requirement": "Unavailable, erroring, or timeout CSAAS data falls back to generic mode and the UI warns clearly.",
+      "tests": [
+        "backend/src/modules/advisory/integration/csaas-enterprise-signals.service.spec.ts",
+        "backend/src/modules/advisory/quick-consult/quick-consult.service.contextual-recommendations.spec.ts",
+        "backend/src/modules/advisory/quick-consult/quick-consult-method-recommendation.service.contextual.spec.ts",
+        "frontend/lib/advisory/quick-consult.contextual-recommendations.test.ts",
+        "frontend/app/api/advisory/quick-consult/start/route.contextual-recommendations.test.ts",
+        "frontend/components/advisory/QuickConsultProblemIntake.contextual-recommendations.test.tsx"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_or_trusted_context_coverage": "present",
+        "error_path_coverage": "no data, malformed, error, no organization, timeout, tenant mismatch, and malformed frontend context paths present"
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P1",
+      "coverage": "FULL",
+      "requirement": "Low enterprise background completeness prompts for missing context without blocking continuation.",
+      "tests": [
+        "backend/src/modules/advisory/quick-consult/quick-consult.service.contextual-recommendations.spec.ts",
+        "backend/src/modules/advisory/quick-consult/quick-consult-method-recommendation.service.contextual.spec.ts",
+        "frontend/lib/advisory/quick-consult.contextual-recommendations.test.ts",
+        "frontend/components/advisory/QuickConsultProblemIntake.contextual-recommendations.test.tsx"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present through Quick Consult response contract",
+        "auth_or_trusted_context_coverage": "inherited from Quick Consult start path",
+        "error_path_coverage": "empty missing fields and optional organization context degradation paths present"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 3,
+    "fully_covered": 3,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": {
+        "total": 2,
+        "covered": 2,
+        "percentage": 100
+      },
+      "P1": {
+        "total": 1,
+        "covered": 1,
+        "percentage": 100
+      },
+      "P2": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P3": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Run bmad-testarch-test-review if an additional non-blocking test-quality audit is desired.",
+      "requirements": []
+    },
+    {
+      "priority": "LOW",
+      "action": "When a real CSAAS adapter replaces the deterministic no-data adapter, add adapter-level contract tests for the external integration boundary.",
+      "requirements": [
+        "AC1",
+        "AC2"
+      ]
+    }
+  ]
+}

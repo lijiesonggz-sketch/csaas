@@ -3,6 +3,10 @@ import { ThinkTankWorkflowMetadata } from '../runtime/runtime.types'
 import { ThinkTankWorkflowRegistryService } from '../runtime/workflow-registry.service'
 import type { AdvisoryOrganizationPromptContext } from '../org-context/advisory-organization-context.service'
 import type {
+  CsaasEnterpriseSignalFallbackReason,
+  CsaasEnterpriseSignalsResult,
+} from '../integration/csaas-enterprise-signals.service'
+import type {
   QuickConsultProblemClassificationResult,
   QuickConsultProblemType,
   QuickConsultProviderStatus,
@@ -35,6 +39,7 @@ export interface QuickConsultRecommendationSet {
   recommendations: QuickConsultMethodRecommendation[]
   generatedAt: string
   sourceRefCount: number
+  recommendationContext?: QuickConsultRecommendationContext
 }
 
 export interface QuickConsultRecommendationRequest {
@@ -42,6 +47,27 @@ export interface QuickConsultRecommendationRequest {
   classification: QuickConsultProblemClassificationResult
   providerStatus?: QuickConsultProviderStatus
   organizationContext?: AdvisoryOrganizationPromptContext | null
+  enterpriseSignals?: CsaasEnterpriseSignalsResult | null
+}
+
+export type QuickConsultRecommendationContextMode = 'enterprise' | 'generic'
+export type QuickConsultRecommendationContextSource =
+  | 'organization_context'
+  | 'csaas_it_maturity'
+  | 'csaas_compliance'
+
+export interface QuickConsultContextCompletionPrompt {
+  missingFields: string[]
+  message: string
+  action: 'open_enterprise_background_settings'
+}
+
+export interface QuickConsultRecommendationContext {
+  mode: QuickConsultRecommendationContextMode
+  signalsApplied: string[]
+  sources: QuickConsultRecommendationContextSource[]
+  fallbackReason?: CsaasEnterpriseSignalFallbackReason
+  contextCompletionPrompt?: QuickConsultContextCompletionPrompt
 }
 
 const RECOMMENDATION_WORKFLOW_PREFERENCES: Record<QuickConsultProblemType, string[]> = {
@@ -96,12 +122,14 @@ export class QuickConsultMethodRecommendationService {
     request: QuickConsultRecommendationRequest,
   ): Promise<QuickConsultRecommendationSet> {
     const generatedAt = new Date().toISOString()
+    const recommendationContext = this.buildRecommendationContext(request)
     if (request.classification.confidenceLevel === 'low') {
       return {
         confidence: QuickConsultRecommendationConfidence.None,
         recommendations: [],
         generatedAt,
         sourceRefCount: 0,
+        recommendationContext,
       }
     }
 
@@ -122,6 +150,7 @@ export class QuickConsultMethodRecommendationService {
         problemType,
         classification: request.classification,
         organizationContext: request.organizationContext,
+        enterpriseSignals: request.enterpriseSignals,
       })
     })
 
@@ -136,6 +165,7 @@ export class QuickConsultMethodRecommendationService {
         (count, recommendation) => count + recommendation.sourceRefs.length,
         0,
       ),
+      recommendationContext,
     }
   }
 
@@ -191,6 +221,7 @@ export class QuickConsultMethodRecommendationService {
     problemType: QuickConsultProblemType
     classification: QuickConsultProblemClassificationResult
     organizationContext?: AdvisoryOrganizationPromptContext | null
+    enterpriseSignals?: CsaasEnterpriseSignalsResult | null
   }): QuickConsultMethodRecommendation {
     const problemType = context.classification.problemTypes.find(
       (candidate) => candidate.id === context.problemType,
@@ -202,9 +233,11 @@ export class QuickConsultMethodRecommendationService {
     const durationMinutes = DURATION_BY_WORKFLOW[context.workflow.key] ?? 35
     const expectedDuration = `${Math.max(durationMinutes - 10, 15)}-${durationMinutes} minutes`
     const organizationFit = this.createOrganizationFitSummary(context.organizationContext)
+    const enterpriseFit = this.createEnterpriseFitSummary(context.enterpriseSignals)
     const primaryRationale = [
       `${label}场景需要先围绕“${scenarioLanguage}”选择可执行的分析路径。`,
       ...(organizationFit ? [`已结合企业背景：${organizationFit}。`] : []),
+      ...(enterpriseFit ? [`已结合CSAAS信号：${enterpriseFit}。`] : []),
     ].join(' ')
 
     return {
@@ -226,7 +259,10 @@ export class QuickConsultMethodRecommendationService {
         EXPECTED_OUTPUT_BY_WORKFLOW[context.workflow.key] ??
         'A structured decision artifact and next-step plan.',
       classificationRefs: [context.problemType],
-      sourceRefs: this.toSafeSourceRefs(context.workflow),
+      sourceRefs: [
+        ...this.toSafeSourceRefs(context.workflow),
+        ...this.toEnterpriseSourceRefs(context.enterpriseSignals),
+      ],
     }
   }
 
@@ -250,4 +286,138 @@ export class QuickConsultMethodRecommendationService {
       ...(context.size ? [`规模：${context.size}`] : []),
     ].join('，')
   }
+
+  private createEnterpriseFitSummary(
+    enterpriseSignals?: CsaasEnterpriseSignalsResult | null,
+  ): string | null {
+    if (
+      enterpriseSignals?.mode !== 'enterprise' ||
+      enterpriseSignals.signalsApplied.length === 0 ||
+      !enterpriseSignals.summary
+    ) {
+      return null
+    }
+
+    const summary = enterpriseSignals.summary
+    return [
+      summary.overallMaturity ? `成熟度${summary.overallMaturity}` : null,
+      summary.complianceGapLevel ? `合规缺口${summary.complianceGapLevel}` : null,
+      ...(summary.topShortcomings?.slice(0, 2) ?? []),
+      ...(summary.riskThemes?.slice(0, 2) ?? []),
+    ]
+      .filter((item): item is string => Boolean(item))
+      .join('，')
+  }
+
+  private toEnterpriseSourceRefs(
+    enterpriseSignals?: CsaasEnterpriseSignalsResult | null,
+  ): string[] {
+    if (enterpriseSignals?.mode !== 'enterprise' || enterpriseSignals.signalsApplied.length === 0) {
+      return []
+    }
+
+    return enterpriseSignals.sources.flatMap((source) => {
+      switch (source) {
+        case 'csaas_it_maturity':
+          return ['csaas:it-maturity']
+        case 'csaas_compliance':
+          return ['csaas:compliance']
+        default:
+          return []
+      }
+    })
+  }
+
+  private buildRecommendationContext(
+    request: QuickConsultRecommendationRequest,
+  ): QuickConsultRecommendationContext {
+    const hasEnterpriseSignals =
+      request.enterpriseSignals?.mode === 'enterprise' &&
+      request.enterpriseSignals.signalsApplied.length > 0
+    const sources: QuickConsultRecommendationContextSource[] = []
+    if (request.organizationContext) {
+      sources.push('organization_context')
+    }
+    if (hasEnterpriseSignals) {
+      sources.push(...request.enterpriseSignals.sources)
+    }
+
+    const contextCompletionPrompt = this.createContextCompletionPrompt(request.organizationContext)
+    const mode = hasEnterpriseSignals ? 'enterprise' : 'generic'
+
+    return {
+      mode,
+      signalsApplied:
+        mode === 'enterprise' ? (request.enterpriseSignals?.signalsApplied ?? []) : [],
+      sources,
+      ...(mode === 'generic' && request.enterpriseSignals?.fallbackReason
+        ? { fallbackReason: request.enterpriseSignals.fallbackReason }
+        : {}),
+      ...(contextCompletionPrompt ? { contextCompletionPrompt } : {}),
+    }
+  }
+
+  private createContextCompletionPrompt(
+    organizationContext?: AdvisoryOrganizationPromptContext | null,
+  ): QuickConsultContextCompletionPrompt | undefined {
+    const missingFields = normalizeContextMissingFields(
+      organizationContext?.completeness.missingFields,
+    )
+    const completenessScore =
+      typeof organizationContext?.completenessScore === 'number'
+        ? organizationContext.completenessScore
+        : 0
+    const normalizedMissingFields =
+      missingFields.length > 0 ? missingFields : inferMissingContextFields(organizationContext)
+
+    if (completenessScore >= 70 || normalizedMissingFields.length === 0) return undefined
+
+    return {
+      missingFields: normalizedMissingFields,
+      message: `补充${formatMissingFields(normalizedMissingFields)}可提升推荐精度。`,
+      action: 'open_enterprise_background_settings',
+    }
+  }
+}
+
+const CONTEXT_COMPLETION_FIELD_LABELS: Record<string, string> = {
+  organizationName: '企业名称',
+  industry: '行业',
+  size: '规模',
+}
+const CONTEXT_COMPLETION_FIELDS = Object.keys(CONTEXT_COMPLETION_FIELD_LABELS)
+
+function formatMissingFields(fields: string[]): string {
+  return fields
+    .map((field) => CONTEXT_COMPLETION_FIELD_LABELS[field])
+    .filter(Boolean)
+    .join('、')
+}
+
+function normalizeContextMissingFields(value: unknown): string[] {
+  const allowed = new Set(CONTEXT_COMPLETION_FIELDS)
+  const seen = new Set<string>()
+
+  return (Array.isArray(value) ? value : [])
+    .filter((field): field is string => typeof field === 'string' && allowed.has(field))
+    .filter((field) => {
+      if (seen.has(field)) return false
+      seen.add(field)
+      return true
+    })
+    .slice(0, CONTEXT_COMPLETION_FIELDS.length)
+}
+
+function inferMissingContextFields(
+  organizationContext?: AdvisoryOrganizationPromptContext | null,
+): string[] {
+  if (!organizationContext) return [...CONTEXT_COMPLETION_FIELDS]
+
+  const inferred = [
+    organizationContext.organizationName?.trim() ? null : 'organizationName',
+    organizationContext.industry?.trim() ? null : 'industry',
+    organizationContext.size?.trim() ? null : 'size',
+  ].filter((field): field is string => Boolean(field))
+
+  return inferred.length > 0 ? inferred : [...CONTEXT_COMPLETION_FIELDS]
 }

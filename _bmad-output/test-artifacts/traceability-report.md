@@ -6,159 +6,178 @@ stepsCompleted:
   - step-04-analyze-gaps
   - step-05-gate-decision
 lastStep: step-05-gate-decision
-lastSaved: '2026-05-19T04:39:25+08:00'
+lastSaved: '2026-05-21T04:15:00+08:00'
 workflowType: testarch-trace
-storyId: '1.4'
-storyKey: 1-4-audit-and-telemetry-event-foundation
-storyTitle: Audit and Telemetry Event Foundation
+storyId: '3.7'
+storyKey: 3-7-contextual-recommendations-with-csaas-data-fallback
+storyTitle: Contextual Recommendations with CSAAS Data Fallback
+coverageMatrixFile: _bmad-output/test-artifacts/tea-trace-coverage-matrix-3-7-2026-05-21T04-14-02+08-00.json
 inputDocuments:
-  - _bmad-output/implementation-artifacts/1-4-audit-and-telemetry-event-foundation.md
-  - _bmad-output/test-artifacts/atdd-checklist-1-4.md
-  - _bmad-output/test-artifacts/atdd-story-1-4-backend-red.spec.ts
-  - _bmad-output/test-artifacts/atdd-story-1-4-fixtures.ts
-  - backend/src/modules/advisory/events/thinktank-event-contract.ts
-  - backend/src/modules/advisory/events/thinktank-event-contract.spec.ts
-  - backend/src/modules/advisory/events/thinktank-event-registry.ts
-  - backend/src/modules/advisory/events/thinktank-event-registry.spec.ts
-  - backend/src/modules/advisory/events/advisory-event.service.ts
-  - backend/src/modules/advisory/events/advisory-event.service.spec.ts
-  - backend/src/modules/advisory/events/thinktank-audit-retention.ts
-  - backend/src/modules/advisory/events/thinktank-audit-retention.spec.ts
-  - backend/src/modules/advisory/access/advisory-access.service.ts
-  - backend/src/modules/advisory/access/advisory-access.service.spec.ts
-  - backend/src/modules/advisory/access/advisory-access.controller.spec.ts
-  - backend/src/modules/advisory/admin/advisory-admin.service.ts
-  - backend/src/modules/advisory/admin/advisory-admin.service.spec.ts
-  - backend/src/modules/audit/audit-log.service.ts
-  - backend/src/modules/audit/audit-log.service.spec.ts
+  - .claude/claude.md
+  - _bmad/bmm/config.yaml
+  - _bmad/tea/testarch/tea-index.csv
+  - _bmad-output/implementation-artifacts/3-7-contextual-recommendations-with-csaas-data-fallback.md
+  - _bmad-output/test-artifacts/atdd-checklist-3-7-contextual-recommendations-with-csaas-data-fallback.md
+  - _bmad-output/planning-artifacts/epics.md
+knowledgeFragments:
+  - test-priorities-matrix.md
+  - risk-governance.md
+  - probability-impact.md
+  - test-quality.md
+  - selective-testing.md
 ---
 
-# Traceability Matrix & Gate Decision - Story 1.4
+# Traceability Matrix & Gate Decision - Story 3.7
 
-**Story:** Audit and Telemetry Event Foundation
-**Date:** 2026-05-19
+**Story:** Contextual Recommendations with CSAAS Data Fallback
+**Date:** 2026-05-21
 **Evaluator:** TEA Trace Workflow
 
-Note: Story 1.4 is backend event-governance infrastructure. No frontend E2E flow is required because no UI behavior changed.
+## Step 1: Load Context & Knowledge Base
 
-## Phase 1: Requirements Traceability
+### Acceptance Criteria
 
-### Coverage Summary
+| AC | Requirement |
+| --- | --- |
+| AC1 | Given CSAAS IT maturity or compliance data is available within the response-time threshold, Quick Consult recommendations include available enterprise signals and users can see recommendations are using enterprise context. |
+| AC2 | Given CSAAS data is unavailable, errors, or exceeds 2 seconds, recommendations fall back to generic mode and the UI clearly indicates enterprise data is temporarily unavailable. |
+| AC3 | Given enterprise background completeness is low, recommendations show a non-blocking prompt to add missing context that improves recommendation precision. |
 
-| Priority | Total Criteria | FULL Coverage | Coverage % | Status |
-| --- | ---: | ---: | ---: | --- |
-| P0 | 3 | 3 | 100% | PASS |
-| P1 | 1 | 1 | 100% | PASS |
-| P2 | 0 | 0 | 100% | PASS |
-| P3 | 0 | 0 | 100% | PASS |
-| **Total** | **4** | **4** | **100%** | **PASS** |
+### Context Loaded
 
-### Detailed Mapping
+- Story implementation context with AC1-AC3, tasks, architecture constraints, and verification evidence.
+- ATDD checklist with backend service/integration and frontend client/proxy/component coverage intent.
+- Epic 3 planning excerpt for Story 3.7.
+- TEA knowledge fragments for priority mapping, risk governance, probability-impact scoring, test quality, and selective execution.
 
-#### AC1: Structured versioned ThinkTank events with required fields, optional fields, correlation id, privacy classification, and no raw sensitive content (P0)
+### Testing Strategy Signals
 
-- **Coverage:** FULL
-- **Tests / Evidence:**
-  - `1.4-UNIT-001` - `backend/src/modules/advisory/events/thinktank-event-contract.spec.ts:16`
-    - Normalizes required contract fields and optional camelCase input to canonical snake_case output.
-  - `1.4-UNIT-002` - `backend/src/modules/advisory/events/thinktank-event-contract.spec.ts:69`
-    - Generates a UUID correlation id when none is supplied.
-  - `1.4-UNIT-003` - `backend/src/modules/advisory/events/thinktank-event-contract.spec.ts:86`
-    - Rejects missing required fields and unknown event names.
-  - `1.4-UNIT-004` - `backend/src/modules/advisory/events/thinktank-event-contract.spec.ts:115`
-    - Rejects raw sensitive payload keys by default.
-  - `1.4-UNIT-005` - `backend/src/modules/advisory/events/thinktank-event-contract.spec.ts:133`
-    - Rejects metadata attempts to override reserved contract fields such as tenant/actor/event names.
-  - `1.4-UNIT-006` - `backend/src/modules/advisory/events/thinktank-event-registry.spec.ts:7`
-    - Verifies exact initial audit and telemetry event registries and kind/name pairing validation.
-  - `1.4-INT-001` - `backend/src/modules/advisory/events/advisory-event.service.spec.ts:9`
-    - Persists audit-class events through `AuditLogService` with canonical snake_case `AuditLog.details`.
-  - `1.4-INT-002` - `backend/src/modules/advisory/access/advisory-access.service.spec.ts:100`
-    - Access-opened event includes canonical contract fields and excludes raw advisory content.
-  - `1.4-INT-003` - `backend/src/modules/advisory/access/advisory-access.service.spec.ts:134`
-    - Access-denied event includes denied outcome, tenant scope, reason, correlation id, and privacy classification.
-  - `1.4-INT-004` - `backend/src/modules/advisory/admin/advisory-admin.service.spec.ts:136`
-    - Module-enabled event includes canonical contract fields and config change metadata.
+- P0 coverage is required for tenant scoping, privacy-safe enterprise signal handling, generic fallback, and visible accessible UI warnings.
+- P1 coverage is required for low-completeness prompt quality and non-blocking continuation.
+- Gate criteria: no uncovered P0 ACs, no open score-9 risks, no unresolved HIGH/MEDIUM review findings.
 
-#### AC2: Future advisory backend stories use the shared event contract and verify success/failure emissions (P1)
+## Step 2: Discover & Catalog Tests
 
-- **Coverage:** FULL
-- **Tests / Evidence:**
-  - `1.4-UNIT-007` - `backend/src/modules/advisory/events/thinktank-event-registry.spec.ts:7`
-    - Future audit and telemetry event names are available in the shared registry before first runtime use.
-  - `1.4-UNIT-008` - `backend/src/modules/advisory/events/thinktank-event-contract.spec.ts:152`
-    - Invalid telemetry/audit kind pairings fail closed.
-  - `1.4-INT-005` - `backend/src/modules/advisory/events/advisory-event.service.spec.ts:117`
-    - `AdvisoryEventService.emitAudit()` rejects telemetry event names, preventing future stories from persisting malformed audit events.
-  - `1.4-EVID-001` - `_bmad-output/implementation-artifacts/1-4-audit-and-telemetry-event-foundation.md`
-    - Dev Notes and Completion Notes document first-use story ownership for future workflow/session/output/provider/cache/party-mode runtime emissions.
+### Relevant Test Inventory
 
-#### AC3: Feature stories list owned registry event names and tests verify tenant scoping, correlation id, version, outcome, privacy classification, and no raw content (P0)
+| Level | Test File | Test IDs / Coverage Signals | Priority |
+| --- | --- | --- | --- |
+| Unit/API boundary | `backend/src/modules/advisory/integration/csaas-enterprise-signals.service.spec.ts` | AC1 enterprise signals; AC2 no data/malformed/error/no org/timeout; AC1-AC2 tenant mismatch privacy | P0 |
+| Backend service integration | `backend/src/modules/advisory/quick-consult/quick-consult.service.contextual-recommendations.spec.ts` | AC1 enterprise response context; AC2 generic fallback without failed consult; AC3 low-completeness prompt; AC1-AC2 metadata/audit markers only | P0/P1 |
+| Backend recommendation unit | `backend/src/modules/advisory/quick-consult/quick-consult-method-recommendation.service.contextual.spec.ts` | AC1 safe signal rationale/source refs; AC2 generic fallback and no CSAAS citation when no applied signals; AC3 missing-field prompt and inferred defaults | P0/P1 |
+| Frontend client unit | `frontend/lib/advisory/quick-consult.contextual-recommendations.test.ts` | AC1-AC3 normalize recommendation/enterprise context; AC1-AC2 degrade malformed enterprise context with empty applied signals | P0 |
+| Frontend proxy/API route | `frontend/app/api/advisory/quick-consult/start/route.contextual-recommendations.test.ts` | AC1-AC2 request whitelist; caller-supplied tenant/organization/signal/maturity/compliance fields not forwarded | P0 |
+| Frontend component | `frontend/components/advisory/QuickConsultProblemIntake.contextual-recommendations.test.tsx` | AC1 visible enterprise `role="status"`; AC2 generic `role="alert"` and controls usable; AC3 non-blocking completion prompt and settings action | P0/P1 |
+| Existing regression support | `backend/src/modules/advisory/quick-consult/*.spec.ts`, `frontend/lib/advisory/quick-consult.test.ts`, `frontend/app/api/advisory/quick-consult/start/route.test.ts` | Existing Quick Consult validation, classification, organization-context, proxy whitelist, recommendation cards, feedback, and telemetry regression | P0/P1 |
 
-- **Coverage:** FULL
-- **Tests / Evidence:**
-  - `1.4-UNIT-009` - `backend/src/modules/advisory/events/thinktank-event-registry.spec.ts:7`
-    - Registry contains exactly the audit and telemetry names required by Story 1.4.
-  - `1.4-INT-006` - `backend/src/modules/advisory/access/advisory-access.controller.spec.ts:56`
-    - Authorized ThinkTank access emits `thinktank.access.opened` with tenant/actor/subject/correlation/privacy fields.
-  - `1.4-INT-007` - `backend/src/modules/advisory/access/advisory-access.controller.spec.ts:96`
-    - Role denial emits `thinktank.access.denied` with denied outcome and scoped reason.
-  - `1.4-INT-008` - `backend/src/modules/advisory/access/advisory-access.controller.spec.ts:140`
-    - Disabled module emits denied access with distinct disabled-state reason.
-  - `1.4-INT-009` - `backend/src/modules/advisory/admin/advisory-admin.service.spec.ts:181`
-    - Module-disabled event is emitted through strict audit path with canonical fields.
-  - `1.4-INT-010` - `backend/src/modules/advisory/admin/advisory-admin.service.spec.ts:213`
-    - Role-access update event is emitted with canonical contract fields.
-  - `1.4-INT-011` - `backend/src/modules/advisory/admin/advisory-admin.service.spec.ts:245`
-    - Latest audit summary reads canonical snake_case fields first while preserving legacy camelCase fallback.
-  - `1.4-INT-012` - `backend/src/modules/audit/audit-log.service.spec.ts:192`
-    - `findRecentByEventNames()` queries canonical `event_name` and legacy `eventName` rows.
+### Coverage Heuristics
 
-#### AC4: Audit retention defaults to at least 180 days and storage respects data-localization boundaries (P0)
+- API endpoint inventory: Story exercises `POST /advisory/quick-consult/start` through backend service/controller coverage and frontend proxy route tests.
+- Authentication/authorization inventory: frontend proxy requires NextAuth session token; backend controller/service tests use authenticated `user` and trusted route/current tenant context. Negative request-whitelist cases cover caller-supplied tenant/organization payload injection.
+- Tenant/data privacy inventory: backend service and signal boundary tests prove tenant A does not receive or infer tenant B signal existence; metadata/audit tests assert raw reports, questionnaire answers, prompts, provider output, exception details, and raw problem text are not persisted.
+- Error-path inventory: no data, malformed adapter result, missing organization id, thrown errors, timeout, tenant mismatch, malformed frontend enterprise context, missing/empty low-completeness fields, and unavailable optional organization context have deterministic tests.
+- UI/a11y inventory: enterprise context uses `role="status"`, generic fallback uses `role="alert"`, low-completeness prompt uses a visible non-blocking action, and recommendation/manual browse controls remain enabled.
 
-- **Coverage:** FULL
-- **Tests / Evidence:**
-  - `1.4-UNIT-010` - `backend/src/modules/advisory/events/thinktank-audit-retention.spec.ts:7`
-    - ThinkTank audit retention default is at least 180 days and preserves existing 365-day audit behavior.
-  - `1.4-UNIT-011` - `backend/src/modules/advisory/events/thinktank-audit-retention.spec.ts:13`
-    - Cleanup retention lower than 180 days is rejected.
-  - `1.4-UNIT-012` - `backend/src/modules/advisory/events/thinktank-audit-retention.spec.ts:18`
-    - ThinkTank cleanup delegates to existing `AuditLogService.archiveOldLogs()` and adds no external telemetry sink.
-  - `1.4-EVID-002` - `_bmad-output/implementation-artifacts/1-4-audit-and-telemetry-event-foundation.md`
-    - Completion Notes document reuse of existing CSAAS PostgreSQL audit storage and no cross-region analytics/export sink.
+### Direct Gaps Found In Discovery
 
-## Phase 1 Gap Analysis
+None for AC1-AC3. No E2E/browser test is present, but the behavior is deterministic service/client/component logic with existing Testing Library role/text coverage and no live CSAAS dependency; this is acceptable for this story.
 
-- Critical gaps: 0
-- High gaps: 0
-- Medium gaps: 0
-- Low gaps: 0
-- Endpoint gaps: 0. Story 1.4 adds backend event infrastructure and retrofits existing advisory access/admin services; no new API endpoint contract was introduced.
-- Auth/authz negative-path gaps: 0. Access allowed, role denied, and disabled-module denied paths are covered.
-- Happy-path-only gaps: 0. Unknown event, invalid kind pairing, missing required fields, raw sensitive keys, reserved metadata override, and low retention are covered.
+## Step 3: Criteria-To-Test Traceability Matrix
 
-## Phase 2: Gate Decision
+| AC | Priority | Coverage | Test Mapping | Endpoint/Auth/Error Heuristics |
+| --- | --- | --- | --- | --- |
+| AC1: available CSAAS IT maturity/compliance data is included in recommendation context and visible as enterprise context | P0 | FULL | `csaas-enterprise-signals.service.spec.ts` AC1; `quick-consult.service.contextual-recommendations.spec.ts` AC1; `quick-consult-method-recommendation.service.contextual.spec.ts` AC1; `quick-consult.contextual-recommendations.test.ts` AC1; `route.contextual-recommendations.test.ts` AC1; `QuickConsultProblemIntake.contextual-recommendations.test.tsx` AC1 | Endpoint coverage present through Quick Consult start route/proxy and service orchestration. Auth/trusted context present through route token and server-side tenant/user context tests. Error path not required for happy-path AC, but tenant mismatch/privacy negative tests are present. |
+| AC2: unavailable/error/>2s CSAAS data falls back to generic mode and UI warns clearly | P0 | FULL | `csaas-enterprise-signals.service.spec.ts` AC2; `quick-consult.service.contextual-recommendations.spec.ts` AC2; `quick-consult-method-recommendation.service.contextual.spec.ts` AC2; `quick-consult.contextual-recommendations.test.ts` AC2 malformed frontend context; `route.contextual-recommendations.test.ts` AC2 whitelist; `QuickConsultProblemIntake.contextual-recommendations.test.tsx` AC2 | Endpoint coverage present. Error paths present for no data, malformed, error, no organization, timeout, tenant mismatch, and malformed frontend context. Auth/negative path present through no-session proxy test and caller-supplied tenant/signal stripping. |
+| AC3: low enterprise background completeness prompts for missing context without blocking continuation | P1 | FULL | `quick-consult.service.contextual-recommendations.spec.ts` AC3; `quick-consult-method-recommendation.service.contextual.spec.ts` AC3 including empty missingFields inference; `quick-consult.contextual-recommendations.test.ts` AC3 context prompt normalization; `QuickConsultProblemIntake.contextual-recommendations.test.tsx` AC3 visible prompt/action plus accept/manual browse usability | Endpoint coverage present through Quick Consult response contract. Auth/authz not central to AC3 but inherited from Quick Consult start path. Error-path coverage present for empty missing fields and optional organization context degradation. |
 
-**Gate Decision:** PASS
+### Coverage Logic Validation
 
-**Rationale:** P0 coverage is 100%, P1 coverage is 100%, and overall coverage is 100%. Story-scoped contract, registry, emitter, advisory access/admin, audit compatibility, retention, TypeScript, and ORM parity checks pass. Full backend regression still has the known unrelated taxonomy-domain-gate failures recorded below; they are outside Story 1.4 changed files and do not block this story gate.
+- P0 AC1/AC2 have backend boundary, backend orchestration, frontend client/proxy, and component coverage.
+- P1 AC3 has backend service/recommendation and frontend component coverage, including non-blocking interaction assertions.
+- Duplicate coverage is intentional: backend tests own trusted tenant/fallback/privacy behavior; frontend tests own normalization, proxy whitelist, and visible accessibility states.
+- AC2 is not happy-path-only; timeout/error/no-data/malformed/no-organization/tenant-mismatch paths are covered.
+- API-impacting ACs include endpoint/proxy checks and authenticated session denial for the frontend proxy.
 
-### Verification Evidence
+## Step 4: Coverage Gap Analysis & Matrix Generation
 
-- `PASS cd backend && npm run test -- advisory-event thinktank-event thinktank-audit-retention advisory-access advisory-admin audit-log --runInBand` (11 suites, 57 tests)
-- `PASS cd backend && npx tsc --noEmit`
-- `PASS cd backend && npm run orm:entities:parity` (1 suite, 3 tests)
-- `KNOWN UNRELATED FAILURES cd backend && npm test -- --runInBand`:
-  - `taxonomy-domain-gate.automation.spec.ts` `[P0][6.5-AUTO-003]`
-  - `taxonomy-domain-gate.automation.spec.ts` `[P0][6.5-AUTO-007]`
-  - `taxonomy-domain-gate.atdd-8-2.spec.ts` `[8.2-SVC-003][P1]`
+### Execution Mode
+
+- User permitted subagents for the overall pipeline.
+- Step 4 was executed sequentially because the remaining work was deterministic report synthesis and did not need parallel delegation.
+
+### Gap Analysis
+
+| Gap Category | Count | Requirements |
+| --- | ---: | --- |
+| Critical P0 uncovered | 0 | None |
+| High P1 uncovered | 0 | None |
+| Medium P2 uncovered | 0 | None |
+| Low P3 uncovered | 0 | None |
+| Partial coverage | 0 | None |
+| Unit-only coverage | 0 | None |
+
+### Coverage Heuristics
+
+| Heuristic | Count | Result |
+| --- | ---: | --- |
+| Endpoints without tests | 0 | Quick Consult start route/proxy and backend service paths covered. |
+| Auth negative-path gaps | 0 | Proxy no-session and caller-supplied tenant/signal stripping are covered; backend uses trusted tenant/user context. |
+| Happy-path-only criteria | 0 | AC2 includes no-data, malformed, error, missing organization, timeout, tenant mismatch, and malformed frontend context tests. |
+
+### Coverage Statistics
+
+| Priority | Covered | Total | Coverage |
+| --- | ---: | ---: | ---: |
+| P0 | 2 | 2 | 100% |
+| P1 | 1 | 1 | 100% |
+| P2 | 0 | 0 | 100% |
+| P3 | 0 | 0 | 100% |
+
+Overall coverage: 3/3 fully covered (100%).
 
 ### Recommendations
 
-- Proceed with Story 1.4 completion.
-- Continue tracking the unrelated taxonomy-domain-gate regression failures outside this story.
-- Future first-use stories should use the exported registry/contract and add runtime emission tests for their owned event names.
+- LOW: Run `bmad-testarch-test-review` if an additional non-blocking test-quality audit is desired.
+- LOW: When a real CSAAS adapter replaces the deterministic no-data adapter, add adapter-level contract tests for the external integration boundary.
 
-## Gate Summary
+### Phase 1 Output
 
-✅ GATE: PASS - Story 1.4 coverage meets deterministic gate thresholds.
+Coverage matrix saved to `_bmad-output/test-artifacts/tea-trace-coverage-matrix-3-7-2026-05-21T04-14-02+08-00.json`.
+
+Phase 1 is complete and ready for Step 5 gate decision.
+
+## Step 5: Gate Decision
+
+### Gate Decision: PASS
+
+**Rationale:** P0 coverage is 100%, P1 coverage is 100% (target: 90%), and overall coverage is 100% (minimum: 80%).
+
+### Gate Criteria
+
+| Criterion | Required / Target | Actual | Status |
+| --- | --- | --- | --- |
+| P0 coverage | 100% required | 100% | MET |
+| P1 coverage | 90% pass target, 80% minimum | 100% | MET |
+| Overall coverage | 80% minimum | 100% | MET |
+
+### Coverage Analysis
+
+- Total requirements: 3
+- Fully covered: 3
+- Partially covered: 0
+- Uncovered: 0
+- Critical gaps: 0
+- High gaps: 0
+
+### Uncovered Requirements
+
+None.
+
+### Recommended Actions
+
+- LOW: Run `bmad-testarch-test-review` if an additional non-blocking test-quality audit is desired.
+- LOW: When a real CSAAS adapter replaces the deterministic no-data adapter, add adapter-level contract tests for the external integration boundary.
+
+### Gate Summary
+
+GATE: PASS - Release approved for Story 3.7 traceability. Coverage meets the deterministic TEA criteria with no blocking P0/P1 gaps.
