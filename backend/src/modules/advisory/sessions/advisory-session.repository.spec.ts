@@ -110,6 +110,34 @@ describe('AdvisorySessionRepository', () => {
     })
   })
 
+  it('[P0][4.2-BE-008][AC1] finds unfinished sessions by tenant actor active status and newest activity', async () => {
+    const session = createSession()
+    typeormRepository.find.mockResolvedValue([session])
+
+    const result = await repository.findUnfinishedSessionsForActor(tenantId, session.actorId)
+
+    expect(result).toEqual([session])
+    expect(typeormRepository.find).toHaveBeenCalledWith({
+      where: {
+        tenantId,
+        actorId: session.actorId,
+        status: AdvisoryWorkflowSessionStatus.Active,
+      },
+      order: {
+        updatedAt: 'DESC',
+        createdAt: 'DESC',
+      },
+      take: 10,
+    })
+  })
+
+  it('[P0][4.2-BE-009][AC1] rejects unfinished session lookup without a scoped actor id', async () => {
+    await expect(repository.findUnfinishedSessionsForActor(tenantId, '')).rejects.toThrow(
+      'id is required for tenant-scoped repository access',
+    )
+    expect(typeormRepository.find).not.toHaveBeenCalled()
+  })
+
   it('updates sessions with scoped ownership criteria and strips create-only fields', async () => {
     const session = createSession({ status: AdvisoryWorkflowSessionStatus.Active })
     typeormRepository.update.mockResolvedValue({ affected: 1 } as never)

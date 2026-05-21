@@ -21,6 +21,7 @@ import {
 } from '../../../database/entities/advisory-workflow-output.entity'
 import {
   AdvisoryCheckpointConversationState,
+  AdvisoryCheckpointCurrentStep,
   AdvisoryCheckpointDocumentState,
   AdvisoryCheckpointStateSnapshot,
 } from '../../../database/entities/advisory-workflow-checkpoint.entity'
@@ -31,6 +32,7 @@ import {
 import { AdvisoryAccessService, AdvisoryAccessUser } from '../access/advisory-access.service'
 import {
   AdvisoryCheckpointPersistenceErrorCategory,
+  AdvisoryCheckpointRestoreResult,
   AdvisoryCheckpointSaveInput,
   AdvisoryCheckpointService,
   AdvisoryCheckpointWarning,
@@ -167,6 +169,46 @@ export interface AdvisorySessionCheckpointResult {
   sessionId: string
   source: 'hot' | 'cold' | null
   checkpoint: AdvisoryCheckpointStateSnapshot | null
+  checkpointWarning?: AdvisoryCheckpointWarning
+}
+
+export interface AdvisoryUnfinishedSessionCard {
+  sessionId: string
+  workflowKey: string
+  workflowType: string
+  title: string
+  lastStep: AdvisoryWorkflowSessionCurrentStep
+  status: AdvisoryWorkflowSessionStatus.Active
+  statusSummary: string
+  lastActivityAt: string
+  checkpointSource: 'hot' | 'cold' | 'fallback'
+}
+
+export interface AdvisoryUnfinishedSessionsResult {
+  sessions: AdvisoryUnfinishedSessionCard[]
+}
+
+export interface AdvisoryRecoveryMessage {
+  title: string
+  content: string
+  lastStep: string
+  keyConclusions: string[]
+  actions: Array<{ key: 'continue' | 'review-document'; label: string }>
+}
+
+export interface AdvisoryResumeSessionResult {
+  session: AdvisoryUnfinishedSessionCard
+  messages: AdvisoryConversationMessage[]
+  output: AdvisoryWorkflowOutput | null
+  checkpointSource: 'hot' | 'cold' | 'fallback'
+  recoveryMessage: AdvisoryRecoveryMessage
+  recoveredState: {
+    lastStep: string
+    messageCount: number
+    outputSectionCount: number
+    recoveredFrom: 'checkpoint' | 'persisted-state'
+  }
+  missingState: string[]
   checkpointWarning?: AdvisoryCheckpointWarning
 }
 
@@ -514,6 +556,112 @@ export class AdvisorySessionService {
       sessionId: session.id,
       source: restored.source,
       checkpoint: restored.state,
+      ...(restored.checkpointWarning ? { checkpointWarning: restored.checkpointWarning } : {}),
+    }
+  }
+
+  async listUnfinishedSessions(
+    context: AdvisorySessionContext,
+  ): Promise<AdvisoryUnfinishedSessionsResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const sessions = await this.sessionRepository.findUnfinishedSessionsForActor(
+      context.tenantId,
+      context.user.id,
+    )
+    const scopedSessions = sessions.filter(
+      (session) =>
+        session.actorId === context.user.id &&
+        session.status === AdvisoryWorkflowSessionStatus.Active,
+    )
+    const cards = await Promise.all(
+      scopedSessions.map(async (session) => {
+        const restored = await this.restoreCheckpointForResume(context.tenantId, session.id)
+        const output = await this.findPersistedSessionOutput(context.tenantId, session.id)
+        const messages = this.messageRepository
+          ? await this.messageRepository.findMessagesBySession(context.tenantId, session.id)
+          : []
+
+        return this.createUnfinishedSessionCard({
+          session,
+          checkpoint: restored.state,
+          checkpointSource: restored.source ?? 'fallback',
+          output,
+          messages,
+        })
+      }),
+    )
+
+    return {
+      sessions: cards.sort(
+        (left, right) =>
+          new Date(right.lastActivityAt).getTime() - new Date(left.lastActivityAt).getTime(),
+      ),
+    }
+  }
+
+  async resumeSession(context: AdvisorySessionMessageContext): Promise<AdvisoryResumeSessionResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+    if (
+      session.actorId !== context.user.id ||
+      session.status !== AdvisoryWorkflowSessionStatus.Active
+    ) {
+      throw new NotFoundException('ThinkTank session not found')
+    }
+
+    const restored = await this.restoreCheckpointForResume(context.tenantId, session.id)
+    const messages = await this.requireMessageRepository().findMessagesBySession(
+      context.tenantId,
+      session.id,
+    )
+    const output = await this.findPersistedSessionOutput(context.tenantId, session.id)
+    const checkpointSource = restored.state ? (restored.source ?? 'fallback') : 'fallback'
+    const recoveredFrom = restored.state ? 'checkpoint' : 'persisted-state'
+    const state = restored.state
+    const lastStep = this.resolveResumeCurrentStep({
+      session,
+      checkpoint: state,
+      messages,
+      output,
+    })
+    const outputSectionCount = output
+      ? this.readOutputSectionCount(output)
+      : (state?.documentState.sectionCount ?? 0)
+    const missingState = this.createResumeMissingState({
+      checkpointRecovered: Boolean(restored.state),
+      messageCount: messages.length,
+      output,
+    })
+    const keyConclusions = this.extractRecoveryKeyConclusions(messages, output, state)
+    const card = this.createUnfinishedSessionCard({
+      session,
+      checkpoint: state,
+      checkpointSource,
+      output,
+      messages,
+    })
+    const recoveryMessage = this.createRecoveryMessage({
+      lastStepLabel: lastStep.label,
+      keyConclusions,
+      recoveredFrom,
+      missingState,
+      messageCount: messages.length,
+      outputSectionCount,
+    })
+
+    return {
+      session: card,
+      messages,
+      output,
+      checkpointSource,
+      recoveryMessage,
+      recoveredState: {
+        lastStep: lastStep.label,
+        messageCount: messages.length,
+        outputSectionCount,
+        recoveredFrom,
+      },
+      missingState,
       ...(restored.checkpointWarning ? { checkpointWarning: restored.checkpointWarning } : {}),
     }
   }
@@ -1136,6 +1284,247 @@ export class AdvisorySessionService {
       title: output.title,
       summary: output.summary,
       sectionCount: this.readOutputSectionCount(output),
+    }
+  }
+
+  private async restoreCheckpointForResume(
+    tenantId: string,
+    sessionId: string,
+  ): Promise<AdvisoryCheckpointRestoreResult> {
+    if (!this.checkpointService) {
+      return {
+        source: null,
+        state: null,
+      }
+    }
+
+    try {
+      return await this.checkpointService.restoreCheckpoint({ tenantId, sessionId })
+    } catch {
+      return {
+        source: null,
+        state: null,
+        checkpointWarning: this.createCheckpointPersistenceWarning('corrupted_hot_state'),
+      }
+    }
+  }
+
+  private async findPersistedSessionOutput(
+    tenantId: string,
+    sessionId: string,
+  ): Promise<AdvisoryWorkflowOutput | null> {
+    if (!this.outputRepository) return null
+
+    const activeDraft = await this.outputRepository.findActiveDraftForSession(tenantId, sessionId)
+    if (activeDraft) return activeDraft
+
+    return this.outputRepository.findLatestCompletedForSession(tenantId, sessionId)
+  }
+
+  private createUnfinishedSessionCard(context: {
+    session: {
+      id: string
+      workflowKey: string
+      workflowDisplayName: string
+      status: AdvisoryWorkflowSessionStatus
+      currentStep: AdvisoryWorkflowSessionCurrentStep
+      metadata?: Record<string, unknown>
+      updatedAt: Date
+    }
+    checkpoint?: AdvisoryCheckpointStateSnapshot | null
+    checkpointSource: 'hot' | 'cold' | 'fallback'
+    output?: AdvisoryWorkflowOutput | null
+    messages?: AdvisoryConversationMessage[]
+  }): AdvisoryUnfinishedSessionCard {
+    const lastStep = this.resolveResumeCurrentStep({
+      session: context.session,
+      checkpoint: context.checkpoint,
+      messages: context.messages ?? [],
+      output: context.output ?? null,
+    })
+    const title =
+      this.optionalText(context.output?.title) ??
+      this.optionalText(context.checkpoint?.documentState.title) ??
+      this.optionalText(context.session.metadata?.title) ??
+      `${context.session.workflowDisplayName} 会话`
+    const lastActivityAt =
+      this.optionalText(context.checkpoint?.lastActivityAt) ??
+      context.output?.updatedAt?.toISOString() ??
+      context.session.updatedAt.toISOString()
+
+    return {
+      sessionId: context.session.id,
+      workflowKey: context.session.workflowKey,
+      workflowType: context.checkpoint?.workflowType ?? context.session.workflowDisplayName,
+      title,
+      lastStep,
+      status: AdvisoryWorkflowSessionStatus.Active,
+      statusSummary: `未完成 - ${lastStep.label}`,
+      lastActivityAt,
+      checkpointSource: context.checkpointSource,
+    }
+  }
+
+  private resolveResumeCurrentStep(context: {
+    session: {
+      currentStep: AdvisoryWorkflowSessionCurrentStep
+    }
+    checkpoint?: AdvisoryCheckpointStateSnapshot | null
+    messages: AdvisoryConversationMessage[]
+    output: AdvisoryWorkflowOutput | null
+  }): AdvisoryWorkflowSessionCurrentStep {
+    if (context.checkpoint?.currentStep) {
+      return this.toWorkflowCurrentStep(context.checkpoint.currentStep)
+    }
+
+    const outputStep = this.resolveOutputCurrentStep(context.output)
+    if (outputStep) return outputStep
+
+    const messageStep = this.resolveMessageCurrentStep(
+      context.messages,
+      context.session.currentStep,
+    )
+    if (messageStep) return messageStep
+
+    return this.toWorkflowCurrentStep(context.session.currentStep)
+  }
+
+  private resolveOutputCurrentStep(
+    output: AdvisoryWorkflowOutput | null,
+  ): AdvisoryWorkflowSessionCurrentStep | null {
+    const latestSection = Array.isArray(output?.sections)
+      ? [...output.sections]
+          .reverse()
+          .find((section) => typeof section.stepIndex === 'number' && section.stepIndex >= 0)
+      : null
+    if (latestSection) {
+      return {
+        index: latestSection.stepIndex,
+        label: this.normalizeStepLabel(latestSection.heading, latestSection.stepIndex),
+        sourceRef: `output-section:${latestSection.id}`,
+      }
+    }
+
+    const metadataStepIndex = output?.metadata?.last_step_index
+    if (typeof metadataStepIndex === 'number' && metadataStepIndex >= 0) {
+      return {
+        index: metadataStepIndex,
+        label: `Step ${metadataStepIndex}`,
+        sourceRef: `workflow-output:${output.id}`,
+      }
+    }
+
+    return null
+  }
+
+  private resolveMessageCurrentStep(
+    messages: AdvisoryConversationMessage[],
+    fallbackStep: AdvisoryWorkflowSessionCurrentStep,
+  ): AdvisoryWorkflowSessionCurrentStep | null {
+    const latestMessage = [...messages]
+      .reverse()
+      .find((message) => typeof message.stepIndex === 'number' && message.stepIndex >= 0)
+    if (!latestMessage || typeof latestMessage.stepIndex !== 'number') return null
+
+    const label =
+      this.optionalText(latestMessage.metadata?.stepLabel) ??
+      this.optionalText(latestMessage.metadata?.step_label) ??
+      (latestMessage.stepIndex === fallbackStep.index ? fallbackStep.label : null) ??
+      `Step ${latestMessage.stepIndex}`
+
+    return {
+      index: latestMessage.stepIndex,
+      label: this.normalizeStepLabel(label, latestMessage.stepIndex),
+      sourceRef: `conversation-message:${latestMessage.id}`,
+    }
+  }
+
+  private toWorkflowCurrentStep(
+    value: AdvisoryWorkflowSessionCurrentStep | AdvisoryCheckpointCurrentStep,
+  ): AdvisoryWorkflowSessionCurrentStep {
+    return {
+      index: value.index,
+      label: value.label,
+      ...(value.sourceRef ? { sourceRef: value.sourceRef } : {}),
+    }
+  }
+
+  private createResumeMissingState(context: {
+    checkpointRecovered: boolean
+    messageCount: number
+    output: AdvisoryWorkflowOutput | null
+  }): string[] {
+    const missing: string[] = []
+
+    if (!context.checkpointRecovered) missing.push('checkpoint')
+    if (context.messageCount === 0) missing.push('conversation')
+    if (!context.output) missing.push('document')
+
+    return missing
+  }
+
+  private extractRecoveryKeyConclusions(
+    messages: AdvisoryConversationMessage[],
+    output: AdvisoryWorkflowOutput | null,
+    checkpoint?: AdvisoryCheckpointStateSnapshot | null,
+  ): string[] {
+    const conclusions = messages
+      .filter((message) => message.role === AdvisoryConversationMessageRole.Assistant)
+      .map((message) => this.toRecoveryConclusion(message.content))
+      .filter((message): message is string => Boolean(message))
+      .slice(-3)
+
+    if (conclusions.length > 0) return conclusions
+
+    const outputSummary = this.optionalText(output?.summary)
+    if (outputSummary) return [outputSummary]
+
+    const checkpointSummary = this.optionalText(checkpoint?.documentState.summary)
+    return checkpointSummary ? [checkpointSummary] : []
+  }
+
+  private toRecoveryConclusion(value: string): string | null {
+    const normalized = this.optionalText(value)
+    if (!normalized) return null
+
+    return normalized
+      .replace(/^key conclusion:\s*/i, '')
+      .split(/\n+/)[0]
+      .split(/(?<=[。.!?])\s+/)[0]
+      .trim()
+      .slice(0, 240)
+  }
+
+  private createRecoveryMessage(context: {
+    lastStepLabel: string
+    keyConclusions: string[]
+    recoveredFrom: 'checkpoint' | 'persisted-state'
+    missingState: string[]
+    messageCount: number
+    outputSectionCount: number
+  }): AdvisoryRecoveryMessage {
+    const keyConclusionText =
+      context.keyConclusions.length > 0
+        ? `关键结论：${context.keyConclusions.join('；')}`
+        : '暂未发现可直接提取的关键结论'
+    const sourceText =
+      context.recoveredFrom === 'checkpoint'
+        ? '已从自动检查点恢复'
+        : '已从最近保存的对话和报告草稿恢复'
+    const missingText =
+      context.missingState.length > 0
+        ? `可能需要重新补充：${context.missingState.join('、')}。`
+        : ''
+
+    return {
+      title: '已恢复未完成会话',
+      content: `${sourceText}到「${context.lastStepLabel}」。${keyConclusionText}。已恢复 ${context.messageCount} 条消息和 ${context.outputSectionCount} 个报告章节。${missingText}`,
+      lastStep: context.lastStepLabel,
+      keyConclusions: context.keyConclusions,
+      actions: [
+        { key: 'continue', label: '继续' },
+        { key: 'review-document', label: '先查看文档' },
+      ],
     }
   }
 

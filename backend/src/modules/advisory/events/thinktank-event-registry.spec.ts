@@ -32,6 +32,7 @@ describe('ThinkTank event registry', () => {
       'thinktank.provider.call_retried',
       'thinktank.prompt_cache.hit',
       'thinktank.prompt_cache.miss',
+      'thinktank.checkpoint.persistence_failed',
       'thinktank.recommendation.feedback_submitted',
       'thinktank.output.rating_submitted',
       'thinktank.output.favorite_updated',
@@ -46,6 +47,9 @@ describe('ThinkTank event registry', () => {
     expect(() => assertThinkTankEventRegistered('thinktank.access.opened', 'audit')).not.toThrow()
     expect(() =>
       assertThinkTankEventRegistered('thinktank.provider.call_completed', 'telemetry'),
+    ).not.toThrow()
+    expect(() =>
+      assertThinkTankEventRegistered('thinktank.checkpoint.persistence_failed', 'telemetry'),
     ).not.toThrow()
     expect(() => assertThinkTankEventRegistered('thinktank.access.opened', 'telemetry')).toThrow(
       /event kind/i,

@@ -113,6 +113,34 @@ export class AdvisorySessionController {
     return { data: launch }
   }
 
+  @Get('sessions/unfinished')
+  async listUnfinishedSessions(
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const sessions = await this.advisorySessionService.listUnfinishedSessions({
+      user,
+      tenantId,
+    })
+
+    return { data: sessions }
+  }
+
+  @Post('sessions/:sessionId/resume')
+  async resumeSession(
+    @Param('sessionId') sessionId: string,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const resumed = await this.advisorySessionService.resumeSession({
+      user,
+      tenantId,
+      sessionId,
+    })
+
+    return { data: resumed }
+  }
+
   @Get('sessions/:sessionId/messages')
   async getMessages(
     @Param('sessionId') sessionId: string,

@@ -45,6 +45,25 @@ export class AdvisorySessionRepository extends BaseRepository<AdvisoryWorkflowSe
     } as never)
   }
 
+  async findUnfinishedSessionsForActor(
+    tenantId: string,
+    actorId: string,
+  ): Promise<AdvisoryWorkflowSession[]> {
+    this.assertScopeValue(actorId, 'id')
+
+    return this.findAll(tenantId, {
+      where: {
+        actorId,
+        status: AdvisoryWorkflowSessionStatus.Active,
+      } as never,
+      order: {
+        updatedAt: 'DESC',
+        createdAt: 'DESC',
+      },
+      take: 10,
+    })
+  }
+
   async updateSession(
     tenantId: string,
     sessionId: string,

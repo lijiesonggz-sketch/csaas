@@ -7,7 +7,12 @@ import { AdvisorySessionService } from './advisory-session.service'
 
 describe('AdvisorySessionController', () => {
   let controller: AdvisorySessionController
-  let service: jest.Mocked<Pick<AdvisorySessionService, 'listWorkflows' | 'launchWorkflow'>>
+  let service: jest.Mocked<
+    Pick<
+      AdvisorySessionService,
+      'listWorkflows' | 'launchWorkflow' | 'listUnfinishedSessions' | 'resumeSession'
+    >
+  >
 
   beforeEach(async () => {
     service = {
@@ -37,6 +42,54 @@ describe('AdvisorySessionController', () => {
           label: '当前步骤',
           sourceRef: '_bmad/core/skills/bmad-brainstorming/steps/step-01-session-setup.md',
         },
+      }),
+      listUnfinishedSessions: jest.fn().mockResolvedValue({
+        sessions: [
+          {
+            sessionId: 'session-1',
+            workflowKey: 'problem-solving',
+            workflowType: 'Problem Solving',
+            title: 'Retention Diagnosis',
+            lastStep: { index: 2, label: 'Map constraints' },
+            status: 'active',
+            statusSummary: '未完成 - Map constraints',
+            lastActivityAt: '2026-05-21T01:06:00.000Z',
+            checkpointSource: 'hot',
+          },
+        ],
+      }),
+      resumeSession: jest.fn().mockResolvedValue({
+        session: {
+          sessionId: 'session-1',
+          workflowKey: 'problem-solving',
+          workflowType: 'Problem Solving',
+          title: 'Retention Diagnosis',
+          lastStep: { index: 2, label: 'Map constraints' },
+          status: 'active',
+          statusSummary: '未完成 - Map constraints',
+          lastActivityAt: '2026-05-21T01:06:00.000Z',
+          checkpointSource: 'fallback',
+        },
+        messages: [],
+        output: null,
+        checkpointSource: 'fallback',
+        recoveryMessage: {
+          title: '已恢复未完成会话',
+          content: '已从最近保存的对话和报告草稿恢复。',
+          lastStep: 'Map constraints',
+          keyConclusions: [],
+          actions: [
+            { key: 'continue', label: '继续' },
+            { key: 'review-document', label: '先查看文档' },
+          ],
+        },
+        recoveredState: {
+          lastStep: 'Map constraints',
+          messageCount: 0,
+          outputSectionCount: 0,
+          recoveredFrom: 'persisted-state',
+        },
+        missingState: ['checkpoint', 'conversation', 'document'],
       }),
     }
 
@@ -144,6 +197,49 @@ describe('AdvisorySessionController', () => {
       manualChoiceKind: 'method',
       manualChoiceId: 'method:design-thinking:empathy-map',
       manualChoiceLabel: 'Empathy Map',
+    })
+  })
+
+  it('[P0][4.2-BE-006][AC1] returns unfinished sessions in the standard envelope using tenant context', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(controller.listUnfinishedSessions(user as never, 'tenant-1')).resolves.toEqual({
+      data: {
+        sessions: [
+          expect.objectContaining({
+            sessionId: 'session-1',
+            workflowKey: 'problem-solving',
+            title: 'Retention Diagnosis',
+            checkpointSource: 'hot',
+          }),
+        ],
+      },
+    })
+    expect(service.listUnfinishedSessions).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+    })
+  })
+
+  it('[P0][4.2-BE-007][AC2,AC3] resumes a session from the route param without accepting tenant or actor from the request body', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(controller.resumeSession('session-1', user as never, 'tenant-1')).resolves.toEqual({
+      data: expect.objectContaining({
+        checkpointSource: 'fallback',
+        recoveryMessage: expect.objectContaining({
+          actions: [
+            { key: 'continue', label: '继续' },
+            { key: 'review-document', label: '先查看文档' },
+          ],
+        }),
+        missingState: ['checkpoint', 'conversation', 'document'],
+      }),
+    })
+    expect(service.resumeSession).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      sessionId: 'session-1',
     })
   })
 })

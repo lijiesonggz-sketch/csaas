@@ -6,18 +6,18 @@ stepsCompleted:
   - step-04-analyze-gaps
   - step-05-gate-decision
 lastStep: step-05-gate-decision
-lastSaved: '2026-05-21T10:16:11+08:00'
+lastSaved: '2026-05-21T11:54:02+08:00'
 workflowType: testarch-trace
-storyId: '4.1'
-storyKey: 4-1-automatic-checkpoint-persistence
-storyTitle: Automatic Checkpoint Persistence
-coverageMatrixFile: _bmad-output/test-artifacts/tea-trace-coverage-matrix-4-1-2026-05-21T10-14-58+08-00.json
+storyId: '4.2'
+storyKey: 4-2-resume-interrupted-sessions
+storyTitle: Resume Interrupted Sessions
+coverageMatrixFile: _bmad-output/test-artifacts/tea-trace-coverage-matrix-4-2-2026-05-21T11-54-02+08-00.json
 inputDocuments:
   - .claude/claude.md
   - _bmad/bmm/config.yaml
   - _bmad/tea/testarch/tea-index.csv
-  - _bmad-output/implementation-artifacts/4-1-automatic-checkpoint-persistence.md
-  - _bmad-output/test-artifacts/atdd-checklist-4-1-automatic-checkpoint-persistence.md
+  - _bmad-output/implementation-artifacts/4-2-resume-interrupted-sessions.md
+  - _bmad-output/test-artifacts/atdd-checklist-4-2-resume-interrupted-sessions.md
   - _bmad-output/planning-artifacts/epics.md
 knowledgeFragments:
   - test-priorities-matrix.md
@@ -27,9 +27,9 @@ knowledgeFragments:
   - selective-testing.md
 ---
 
-# Traceability Matrix & Gate Decision - Story 4.1
+# Traceability Matrix & Gate Decision - Story 4.2
 
-**Story:** Automatic Checkpoint Persistence
+**Story:** Resume Interrupted Sessions
 **Date:** 2026-05-21
 **Evaluator:** TEA Trace Workflow
 
@@ -37,149 +37,184 @@ knowledgeFragments:
 
 ### Acceptance Criteria
 
-| AC | Requirement |
-| --- | --- |
-| AC1 | Session manager saves current step, workflow type, conversation summary/history pointer, generated document state, and last activity after step/significant state changes without blocking the user's next interaction. |
-| AC2 | Active-session hot state is stored in Redis using `thinktank:{tenant_id}:session:{session_id}` Hash fields with 4-hour TTL renewal, and checkpoint state is archived to PostgreSQL for cold recovery. |
-| AC3 | `workflow_checkpoints` save/archive/restore/corruption paths prove tenant isolation and never restore another tenant's checkpoint state. |
-| AC4 | Checkpoint persistence failure preserves the user action, shows non-destructive recovery guidance, and records tenant/session/error category telemetry. |
+| AC | Requirement | Priority |
+| --- | --- | --- |
+| AC1 | Returning users see unfinished sessions prioritized in the sidebar, and each card shows workflow type, title, last step, status, and last activity time. | P0 |
+| AC2 | Opening an unfinished session restores checkpoint context, shows a recovery message with last step and key conclusions, and allows continue or document review. | P0 |
+| AC3 | Missing or corrupted checkpoints fall back to latest persisted conversation/report state and explain recovered versus missing state. | P0 |
 
 ### Context Loaded
 
-- Story implementation context with AC1-AC4, task completion, scope boundaries, implementation evidence, and post-review verification logs.
-- ATDD checklist with backend checkpoint service/repository/session tests and frontend warning UI coverage intent.
-- Epic 4 planning source for checkpoint persistence, resume boundary, and follow-on stories 4.2-4.7.
-- TEA knowledge fragments for P0/P1 priority classification, risk scoring, coverage gate rules, deterministic test quality, and selective test execution.
-
-### Testing Strategy Signals
-
-- P0 coverage is required for tenant isolation, Redis key/TTL contract, cold archive integrity, non-blocking user action preservation, and warning/telemetry behavior.
-- P1 coverage is required for corrupted hot-state fallback and checkpoint sanitizer behavior.
-- Gate criteria: no uncovered P0 ACs, no open score-9 risks, no unresolved HIGH/MEDIUM code-review findings, and deterministic tests without live Redis/provider/browser dependency.
+- Story file with AC1-AC3, implementation boundaries, Dev Agent Record, and validation evidence.
+- ATDD checklist defining RED/GREEN coverage intent for backend service, frontend client/proxy, and workspace UI.
+- Epic 4 planning source and Story 4.1 checkpoint foundation.
+- TEA knowledge fragments for P0/P1 priority rules, risk scoring, deterministic test quality, and selective execution.
 
 ## Step 2: Discover & Catalog Tests
 
-### Relevant Test Inventory
+### Relevant Tests
 
-| Level | Test File | Test IDs / Coverage Signals | Priority |
-| --- | --- | --- | --- |
-| Backend unit/service | `backend/src/modules/advisory/checkpoints/advisory-checkpoint.service.spec.ts` | `[P0][4.1-BE-001][AC1,AC2]` hot key, Hash fields, TTL; `[P0][4.1-BE-002][AC2]` cold archive recovery-safe state; `[P0][4.1-BE-003][AC3]` hot tenant/session match; `[P1][4.1-BE-004][AC3]` malformed hot fallback; `[P0][4.1-BE-005][AC4]` warning/telemetry; `[P1][4.1-BE-006][AC1,AC4]` sanitizer; bounded cold archive warning; cold snapshot fallback from columns. | P0/P1 |
-| Backend repository | `backend/src/modules/advisory/checkpoints/advisory-workflow-checkpoint.repository.spec.ts` | `[P0][4.1-BE-002][AC2]` server-side tenant scope; `[P0][4.1-BE-003][AC3]` tenant/session latest lookup; tenant/session ownership rejection; cross-tenant same-session lookup returns null. | P0 |
-| Backend service integration | `backend/src/modules/advisory/sessions/advisory-session.checkpoint.spec.ts` | `[P0][4.1-BE-005][AC1]` launch checkpoint; submit warning metadata; bounded pending checkpoint warning; resolver failure warning without partial write; append output document state; latest checkpoint restore by tenant/session. | P0 |
-| Backend controller/API | `backend/src/modules/advisory/sessions/advisory-session.outputs.controller.spec.ts` | Route metadata for `GET /advisory/sessions/:sessionId/checkpoint`; endpoint delegates trusted `@CurrentTenant()` and does not accept tenant from body. | P0 |
-| Frontend component | `frontend/components/advisory/AdvisoryWorkspaceShell.checkpoint-warning.test.tsx` | `[P0][4.1-FE-001][AC4]` renders non-destructive checkpoint recovery warning via toast and inline `role="status"`. | P0 |
-| Frontend client/unit regression | `frontend/lib/advisory/workflows.test.ts`, `frontend/lib/advisory/streaming.test.ts`, `frontend/lib/advisory/outputs.test.ts` | Existing workflow/message/SSE/output client parsing plus checkpoint warning normalization in touched contracts. | P0/P1 |
+| Test ID | Level | File |
+| --- | --- | --- |
+| 4.2-BE-001 | Unit | `backend/src/modules/advisory/sessions/advisory-session.resume.spec.ts:202` |
+| 4.2-BE-002 | Unit | `backend/src/modules/advisory/sessions/advisory-session.resume.spec.ts:269` |
+| 4.2-BE-003 | Unit | `backend/src/modules/advisory/sessions/advisory-session.resume.spec.ts:301` |
+| 4.2-BE-004 | Unit | `backend/src/modules/advisory/sessions/advisory-session.resume.spec.ts:332` |
+| 4.2-BE-005 | Unit | `backend/src/modules/advisory/sessions/advisory-session.resume.spec.ts:392` |
+| 4.2-BE-006 | API | `backend/src/modules/advisory/sessions/advisory-session.controller.spec.ts:203` |
+| 4.2-BE-007 | API | `backend/src/modules/advisory/sessions/advisory-session.controller.spec.ts:224` |
+| 4.2-BE-008 | Unit | `backend/src/modules/advisory/sessions/advisory-session.repository.spec.ts:113` |
+| 4.2-BE-009 | Unit | `backend/src/modules/advisory/sessions/advisory-session.repository.spec.ts:134` |
+| 4.2-BE-010 | Unit | `backend/src/modules/advisory/sessions/advisory-session.resume.spec.ts:446` |
+| 4.2-BE-011 | Unit | `backend/src/modules/advisory/sessions/advisory-session.resume.spec.ts:459` |
+| 4.2-BE-012 | Unit | `backend/src/modules/advisory/sessions/advisory-session.resume.spec.ts:472` |
+| 4.2-BE-013 | Unit | `backend/src/modules/advisory/sessions/advisory-session.resume.spec.ts:484` |
+| 4.2-BE-014 | Unit | `backend/src/modules/advisory/sessions/advisory-session.resume.spec.ts:509` |
+| 4.2-FE-001 | Unit | `frontend/lib/advisory/sessions.test.ts:23` |
+| 4.2-FE-002 | Unit | `frontend/lib/advisory/sessions.test.ts:88` |
+| 4.2-FE-003 | API | `frontend/app/api/advisory/sessions/unfinished/route.test.ts:35` |
+| 4.2-FE-004 | API | `frontend/app/api/advisory/sessions/unfinished/route.test.ts:47` |
+| 4.2-FE-005 | API | `frontend/app/api/advisory/sessions/[sessionId]/resume/route.test.ts:41` |
+| 4.2-FE-006 | API | `frontend/app/api/advisory/sessions/[sessionId]/resume/route.test.ts:53` |
+| 4.2-FE-007 | Component | `frontend/components/advisory/AdvisoryWorkspaceShell.resume-session.test.tsx:305` |
+| 4.2-FE-008 | Component | `frontend/components/advisory/AdvisoryWorkspaceShell.resume-session.test.tsx:323` |
+| 4.2-FE-009 | Component | `frontend/components/advisory/AdvisoryWorkspaceShell.resume-session.test.tsx:345` |
+| 4.2-FE-010 | Component | `frontend/components/advisory/AdvisoryWorkspaceShell.resume-session.test.tsx:427` |
+| 4.2-FE-011 | API | `frontend/app/api/advisory/sessions/unfinished/route.test.ts:70` |
+| 4.2-FE-012 | API | `frontend/app/api/advisory/sessions/[sessionId]/resume/route.test.ts:80` |
+| 4.2-FE-013 | Component/API | `frontend/components/advisory/AdvisoryWorkspaceShell.resume-session.test.tsx:382`, `frontend/app/api/advisory/sessions/unfinished/route.test.ts:94` |
+| 4.2-FE-014 | API | `frontend/app/api/advisory/sessions/[sessionId]/resume/route.test.ts:105` |
+| 4.2-E2E-001 | E2E | `frontend/e2e/advisory-resume-interrupted-session.spec.ts:191` |
 
-### Coverage Heuristics
+### Coverage Heuristics Inventory
 
-- API endpoint inventory: `GET /advisory/sessions/:sessionId/checkpoint` has controller metadata/delegation coverage; launch/message/stream/output endpoints are exercised through `AdvisorySessionService` checkpoint wiring tests and existing session/controller regressions.
-- Authentication/authorization inventory: controller is guarded by `JwtAuthGuard` and `TenantGuard`; tests assert service/controller use trusted `CurrentTenant`/server-side tenant and do not accept caller-supplied tenant ids. Full auth-negative E2E is not added because Story 4.1 owns checkpoint persistence, not the shared guard implementation.
-- Error-path inventory: hot store failure, cold archive failure, pending/timeout archive, corrupted hot state, incomplete cold snapshot, repository ownership mismatch, resolver failure, and sanitizer rejection of sensitive fields are deterministic tests.
-- UI/a11y inventory: frontend warning uses toast plus inline `role="status"` with `aria-live="polite"` and remains non-blocking.
-- External dependency inventory: no real Redis, live provider, browser, or external network dependency is required by the focused tests; Redis and repositories are mocked at injectable boundaries.
+- API endpoint coverage: present for backend controller/service/repository and frontend proxy routes.
+- Auth/authz coverage: present for NextAuth no-token rejection, server-side tenant/user delegation, service actor/status denial, and backend denial pass-through.
+- Error-path coverage: present for corrupted checkpoint, missing checkpoint, restore exception, empty persisted state, stale resume promise, stream abort, invalid public API URL fallback, invalid client records, and backend denial pass-through.
+- Optional future strengthening: HTTP-level Nest/Supertest guard route coverage. This is not a Story 4.2 gate blocker because equivalent isolation branches are covered at service, controller, and proxy layers.
 
-## Step 3: Criteria-To-Test Traceability Matrix
+## Step 3: Traceability Matrix
 
-| AC | Priority | Coverage | Test Mapping | Endpoint/Auth/Error Heuristics |
-| --- | --- | --- | --- | --- |
-| AC1: automatic checkpoint saves current step, workflow type, conversation pointer/history summary, document state, and last activity without blocking next interaction | P0 | FULL | `advisory-checkpoint.service.spec.ts` hot fields/state snapshot; `advisory-session.checkpoint.spec.ts` launch checkpoint, submit checkpoint with conversation/document state, pending bounded warning, append output checkpoint; `advisory-session.service` existing regression suite for launch/message/stream/output flows | API-impacting flows are covered at service level for launch/message/stream/output. Auth/tenant context is inherited from service trusted `tenantId` and controller guard pattern. Error path covered by pending checkpoint and resolver failure warning; no live IO dependency. |
-| AC2: Redis hot Hash key/fields/4-hour TTL plus PostgreSQL cold archive | P0 | FULL | `advisory-checkpoint.service.spec.ts` exact key `thinktank:{tenant_id}:session:{session_id}`, TTL `14400`, required Hash fields including `checkpoint_id`, `checkpoint_type`, `conversation_state`, `last_activity`, cold archive state fields, bounded cold archive warning; `advisory-workflow-checkpoint.repository.spec.ts` archive creates tenant-scoped row; ORM parity test validates entity registration | Endpoint not required directly for persistence primitive; persistence invoked by API-owning session flows. Error paths include hot failure, immediate cold failure, cold pending/timeout. Database schema includes tenant/session/sequence uniqueness and composite tenant/session FK. |
-| AC3: checkpoint table save/archive/restore/corruption paths cannot cross tenants and recovery never loads another tenant state | P0 | FULL | `advisory-checkpoint.service.spec.ts` hot tenant/session mismatch returns safe warning and cold lookup scoped to tenant; malformed hot falls back to cold; incomplete cold snapshot falls back to canonical columns; `advisory-workflow-checkpoint.repository.spec.ts` tenant-scoped latest lookup, tenant/session ownership rejection, cross-tenant same-session null; `advisory-session.checkpoint.spec.ts` `getSessionCheckpoint` uses tenant-scoped session lookup | API endpoint coverage present for `GET /advisory/sessions/:sessionId/checkpoint`; auth/tenant negative path is covered by repository/service tenant mismatch and trusted `CurrentTenant` usage rather than full guard E2E. Error paths include corrupted hot, incomplete cold snapshot, and cross-tenant lookup. |
-| AC4: checkpoint persistence failure is non-destructive, visible to user, and recorded with tenant/session/error category | P0 | FULL | `advisory-checkpoint.service.spec.ts` hot+cold failure warning and telemetry, cold archive warning, sanitizer excludes raw prompt/report/provider content; `advisory-session.checkpoint.spec.ts` submit success with checkpoint warning, pending bounded warning, resolver failure warning/telemetry; `AdvisoryWorkspaceShell.checkpoint-warning.test.tsx` toast plus inline recovery guidance; frontend workflow/output/streaming tests cover touched response contracts | Endpoint/service flow preserves launch/message/output success. Error-path coverage includes store failure, archive failure, timeout/pending, state resolver failure, and malformed state. UI a11y coverage confirms non-destructive `role="status"` warning. |
+### AC1: Unfinished Sessions Sidebar Priority And Card Fields (P0)
 
-### Coverage Logic Validation
+- **Coverage:** FULL
+- **Tests:** 4.2-BE-001, 4.2-BE-006, 4.2-BE-008, 4.2-BE-009, 4.2-FE-001, 4.2-FE-003, 4.2-FE-004, 4.2-FE-007, 4.2-FE-009, 4.2-FE-011, 4.2-FE-013, 4.2-E2E-001
+- **Heuristics:** endpoint present; auth negative path present; visible last activity time asserted; identity switch clears stale cards/state.
+- **Gaps:** none.
 
-- All four ACs are P0 because failure risks progress loss, tenant data exposure, or invisible recovery degradation.
-- AC1/AC2 are not marked happy-path-only: timeout/pending, hot failure, cold failure, and resolver-failure behavior are covered.
-- AC3 includes both application-layer and database-layer tenant isolation evidence: trusted tenant lookups, repository ownership validation, and composite tenant/session FK in the migration.
-- AC4 includes backend warning/telemetry and frontend visible guidance coverage; raw prompt/report/provider leakage is tested via sanitizer assertions.
-- Duplicate coverage is intentional: backend service tests own persistence/session correctness; controller tests own REST route/trusted-tenant delegation; frontend tests own warning rendering and response normalization.
+### AC2: Checkpoint Resume Recovery Message And Actions (P0)
 
-## Step 4: Coverage Gap Analysis & Matrix Generation
+- **Coverage:** FULL
+- **Tests:** 4.2-BE-002, 4.2-BE-007, 4.2-BE-010, 4.2-BE-011, 4.2-BE-012, 4.2-FE-002, 4.2-FE-005, 4.2-FE-006, 4.2-FE-008, 4.2-FE-010, 4.2-FE-012, 4.2-FE-013, 4.2-FE-014, 4.2-E2E-001
+- **Heuristics:** checkpoint success path present; actor/status denial present; stale resume and stream isolation present; continue and document review actions covered in component and browser tests.
+- **Gaps:** none.
 
-### Execution Mode
+### AC3: Missing Or Corrupted Checkpoint Fallback (P0)
 
-- User explicitly allowed subagents for the overall Epic run.
-- Runtime supports subagents, so Step 4 used `subagent` mode for dependency-safe sections:
-  - Worker A: gap classification.
-  - Worker B: coverage heuristics extraction.
-  - Worker C: coverage statistics.
-- Recommendation synthesis and matrix merge were performed sequentially after worker completion.
+- **Coverage:** FULL
+- **Tests:** 4.2-BE-003, 4.2-BE-004, 4.2-BE-005, 4.2-BE-007, 4.2-BE-013, 4.2-BE-014, 4.2-FE-002, 4.2-FE-006, 4.2-FE-014
+- **Heuristics:** corrupted checkpoint, missing checkpoint, restore exception, stale session step, output-derived step, message-derived step, and empty persisted state are covered.
+- **Gaps:** none.
 
-### Gap Analysis
-
-| Gap Category | Count | Requirements |
-| --- | ---: | --- |
-| Critical P0 uncovered | 0 | None |
-| High P1 uncovered | 0 | None |
-| Medium P2 uncovered | 0 | None |
-| Low P3 uncovered | 0 | None |
-| Partial coverage | 0 | None |
-| Unit-only coverage | 0 | None |
-
-### Coverage Heuristics
-
-| Heuristic | Count | Result |
-| --- | ---: | --- |
-| Endpoints without tests | 0 | Checkpoint endpoint metadata/delegation is covered; launch/message/stream/output checkpoint effects are covered through service-level tests. |
-| Auth negative-path gaps | 0 | No new full guard E2E is counted as a Story 4.1 gap because the story owns checkpoint persistence; trusted tenant delegation, tenant/session mismatch, repository ownership rejection, and composite FK are covered. |
-| Happy-path-only criteria | 0 | AC1-AC4 include negative/error paths for timeout, hot/cold failure, resolver failure, corrupted hot state, incomplete cold snapshot, cross-tenant lookup, sanitizer, and UI warning. |
+## Step 4: Coverage Matrix Generation
 
 ### Coverage Statistics
 
-| Priority | Covered | Total | Coverage |
-| --- | ---: | ---: | ---: |
-| P0 | 4 | 4 | 100% |
-| P1 | 0 | 0 | N/A |
-| P2 | 0 | 0 | N/A |
-| P3 | 0 | 0 | N/A |
+| Priority | Total Criteria | FULL Coverage | Coverage % | Status |
+| --- | ---: | ---: | ---: | --- |
+| P0 | 3 | 3 | 100% | PASS |
+| P1 | 0 | 0 | 100% | PASS |
+| P2 | 0 | 0 | 100% | PASS |
+| P3 | 0 | 0 | 100% | PASS |
+| **Total** | **3** | **3** | **100%** | **PASS** |
 
-Overall coverage: 4/4 fully covered (100%).
+### Gap Analysis
+
+- Critical gaps: 0
+- High gaps: 0
+- Medium gaps: 0
+- Low gaps: 0
+- Endpoint coverage gaps: 0
+- Auth negative-path gaps: 0
+- Happy-path-only criteria: 0
 
 ### Recommendations
 
-- LOW: Run `bmad-testarch-test-review` if an additional non-blocking test-quality audit is desired.
-- LOW: When broader ThinkTank guard E2E coverage is scheduled, include the checkpoint endpoint in the auth-negative route set.
-
-### Phase 1 Output
-
-Coverage matrix saved to `_bmad-output/test-artifacts/tea-trace-coverage-matrix-4-1-2026-05-21T10-14-58+08-00.json`.
-
-Phase 1 is complete and ready for Step 5 gate decision.
+1. Keep `frontend/e2e/advisory-resume-interrupted-session.spec.ts` in the advisory chromium smoke subset for future Story 4.2 regressions.
+2. Consider adding HTTP-level Nest/Supertest guard tests when advisory route integration coverage is expanded.
 
 ## Step 5: Gate Decision
 
 ### Gate Decision: PASS
 
-**Rationale:** P0 coverage is 100% and overall coverage is 100% (minimum: 80%). No P1 requirements are present, so the effective P1 coverage gate is satisfied. No critical or high coverage gaps remain.
+**Rationale:** P0 coverage is 100%, there are no P1 requirements, and overall requirements coverage is 100%. Critical endpoint, auth/authz, identity isolation, stream isolation, and fallback recovery branches are covered by deterministic tests. No unresolved HIGH/MEDIUM code-review findings remain.
 
 ### Gate Criteria
 
-| Criterion | Required / Target | Actual | Status |
+| Criterion | Threshold | Actual | Status |
 | --- | --- | --- | --- |
-| P0 coverage | 100% required | 100% | MET |
-| P1 coverage | 90% pass target, 80% minimum | N/A (no P1 requirements; effective 100%) | MET |
-| Overall coverage | 80% minimum | 100% | MET |
-| Critical gaps | 0 required | 0 | MET |
+| P0 Coverage | 100% | 100% | MET |
+| P1 Coverage | 90% pass target / 80% minimum | 100% effective | MET |
+| Overall Coverage | >=80% | 100% | MET |
+| Critical Gaps | 0 | 0 | MET |
+| Auth Negative-Path Gaps | 0 | 0 | MET |
 
-### Coverage Analysis
+### Evidence Summary
 
-- Total requirements: 4
-- Fully covered: 4
-- Partially covered: 0
-- Uncovered: 0
-- Critical gaps: 0
-- High gaps: 0
+- `cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.controller.spec.ts src/modules/advisory/sessions/advisory-session.repository.spec.ts src/modules/advisory/sessions/advisory-session.resume.spec.ts --runInBand` - PASS, 3 suites / 22 tests.
+- `cd frontend && npm run test -- components/advisory/AdvisoryWorkspaceShell.resume-session.test.tsx lib/advisory/sessions.test.ts app/api/advisory/sessions --runInBand` - PASS, 10 suites / 40 tests.
+- `cd backend && npx tsc --noEmit --pretty false` - PASS.
+- `cd frontend && npx tsc --noEmit --pretty false` - PASS.
+- `cd frontend && npm run test:e2e -- advisory-resume-interrupted-session.spec.ts --project=chromium` - PASS, 1 test.
+- `cd frontend && npm run test:e2e -- advisory-theme-density-baseline.spec.ts --project=chromium` - PASS, 6 tests.
+- `cd backend && npm run test -- --runInBand` - PASS, 310 suites / 2729 tests.
+- `cd frontend && npm run test -- --runInBand` - Story 4.2 suites passed; one unrelated order/pollution failure remains in `app/admin/failure-modes/page.test.tsx`, and that suite passed when rerun directly with `cd frontend && npm run test -- app/admin/failure-modes/page.test.tsx --runInBand`.
 
-### Uncovered Requirements
+### Integrated YAML Snippet
 
-None.
+```yaml
+traceability_and_gate:
+  traceability:
+    story_id: "4.2"
+    coverage:
+      overall: 100
+      p0: 100
+      p1: 100
+      p2: 100
+      p3: 100
+    gaps:
+      critical: 0
+      high: 0
+      medium: 0
+      low: 0
+    quality:
+      blocker_issues: 0
+      warning_issues: 0
+    recommendations:
+      - "Keep Story 4.2 browser smoke in the advisory chromium subset."
+      - "Consider Nest HTTP/Supertest guard coverage in future advisory route integration expansion."
+  gate_decision:
+    decision: "PASS"
+    gate_type: "story"
+    decision_mode: "deterministic"
+    criteria:
+      p0_coverage: 100
+      p1_coverage: 100
+      overall_coverage: 100
+      security_issues: 0
+      critical_nfrs_fail: 0
+      flaky_tests: 0
+    evidence:
+      traceability: "_bmad-output/test-artifacts/traceability-report.md"
+      coverage_matrix: "_bmad-output/test-artifacts/tea-trace-coverage-matrix-4-2-2026-05-21T11-54-02+08-00.json"
+```
 
-### Recommended Actions
+## Sign-Off
 
-- LOW: Run `bmad-testarch-test-review` if an additional non-blocking test-quality audit is desired.
-- LOW: When broader ThinkTank guard E2E coverage is scheduled, include the checkpoint endpoint in the auth-negative route set.
+- **Phase 1 - Traceability Assessment:** 100% overall coverage, 100% P0 coverage, 0 critical gaps.
+- **Phase 2 - Gate Decision:** PASS.
+- **Overall Status:** PASS.
 
-### Gate Summary
+Generated: 2026-05-21T11:54:02+08:00
 
-GATE: PASS - Story 4.1 release is approved by traceability criteria. Coverage meets the deterministic TEA thresholds with no blocking P0/P1 gaps.
+<!-- Powered by BMAD-CORE™ -->

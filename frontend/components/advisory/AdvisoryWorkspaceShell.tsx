@@ -3,7 +3,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { cva } from 'class-variance-authority'
-import { BrainCircuit, MessageSquareText, SendHorizontal, Settings, Workflow } from 'lucide-react'
+import {
+  BrainCircuit,
+  Clock3,
+  MessageSquareText,
+  RotateCcw,
+  SendHorizontal,
+  Settings,
+  Workflow,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { AdvisoryChatMessage } from '@/components/advisory/AdvisoryChatMessage'
@@ -61,6 +69,15 @@ import {
   type ThinkTankWorkflowOutput,
 } from '@/lib/advisory/outputs'
 import {
+  THINKTANK_RESUME_SESSION_FAILED_MESSAGE,
+  THINKTANK_UNFINISHED_SESSIONS_LOAD_FAILED_MESSAGE,
+  fetchThinkTankUnfinishedSessions,
+  resumeThinkTankSession,
+  toWorkflowLaunchFromResume,
+  type ThinkTankRecoveryMessage,
+  type ThinkTankUnfinishedSessionCard,
+} from '@/lib/advisory/sessions'
+import {
   ORGANIZATION_CONTEXT_LOAD_FAILED_MESSAGE,
   ORGANIZATION_CONTEXT_SAVE_FAILED_MESSAGE,
   fetchOrganizationContext,
@@ -87,6 +104,7 @@ type SessionMessagesStatus = 'idle' | 'loading' | 'ready' | 'error'
 type MessageStreamingStatus = 'idle' | 'submitting' | 'streaming' | 'completing' | 'error'
 type WorkspaceMode = 'quick-consult' | 'workflow'
 type OrganizationContextStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'error'
+type UnfinishedSessionsStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 const shellGridVariants = cva(
   'grid h-[calc(100vh-var(--advisory-nav-height)-48px)] min-h-[560px] grid-cols-[var(--advisory-sidebar-width)_minmax(var(--advisory-chat-min-width),1fr)_var(--advisory-document-rail-width)] overflow-hidden rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] shadow-sm transition-[font-size]',
@@ -184,6 +202,18 @@ function getLatestDecisionOptions(
   }
 
   return []
+}
+
+function formatSessionActivityTime(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '最近更新'
+
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function readProviderMetadata(message: ThinkTankConversationMessage): Record<string, unknown> {
@@ -365,6 +395,14 @@ export default function AdvisoryWorkspaceShell() {
     ]
       .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
       .join(':') || null
+  const advisorySessionIdentity =
+    [
+      session?.user?.tenantId,
+      session?.user?.organizationId,
+      session?.user?.id ?? session?.user?.email,
+    ]
+      .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      .join(':') || null
   const [readingDensity, setReadingDensity] = useState<AdvisoryReadingDensity>(
     DEFAULT_ADVISORY_READING_DENSITY
   )
@@ -373,6 +411,15 @@ export default function AdvisoryWorkspaceShell() {
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('quick-consult')
   const [workflows, setWorkflows] = useState<ThinkTankWorkflowCatalogItem[]>([])
   const [catalogError, setCatalogError] = useState<string | null>(null)
+  const [unfinishedSessionsStatus, setUnfinishedSessionsStatus] =
+    useState<UnfinishedSessionsStatus>('idle')
+  const [unfinishedSessions, setUnfinishedSessions] = useState<ThinkTankUnfinishedSessionCard[]>(
+    []
+  )
+  const [unfinishedSessionsError, setUnfinishedSessionsError] = useState<string | null>(null)
+  const [resumingSessionId, setResumingSessionId] = useState<string | null>(null)
+  const [resumeError, setResumeError] = useState<string | null>(null)
+  const [recoveryMessage, setRecoveryMessage] = useState<ThinkTankRecoveryMessage | null>(null)
   const [launchingWorkflowKey, setLaunchingWorkflowKey] = useState<string | null>(null)
   const [launchError, setLaunchError] = useState<string | null>(null)
   const [activeLaunch, setActiveLaunch] = useState<ThinkTankWorkflowLaunchResult | null>(null)
@@ -421,8 +468,12 @@ export default function AdvisoryWorkspaceShell() {
   const conversationScrollRef = useRef<HTMLDivElement>(null)
   const streamAbortRef = useRef<AbortController | null>(null)
   const messageSubmitInFlightRef = useRef(false)
+  const skipNextSessionMessagesLoadRef = useRef<string | null>(null)
+  const skipNextOutputLoadRef = useRef<string | null>(null)
   const appendedOutputSourceMessageIdsRef = useRef<Set<string>>(new Set())
   const outputExportRequestIdRef = useRef(0)
+  const messageStreamRequestIdRef = useRef(0)
+  const resumeRequestIdRef = useRef(0)
   const lastStreamAnnouncementAtRef = useRef(0)
   const pendingStreamAnnouncementRef = useRef<number | null>(null)
   const activeSessionId = activeLaunch?.sessionId ?? null
@@ -462,6 +513,53 @@ export default function AdvisoryWorkspaceShell() {
       isCancelled = true
     }
   }, [isDesktop])
+
+  useEffect(() => {
+    setUnfinishedSessions([])
+    setUnfinishedSessionsError(null)
+    setResumeError(null)
+    setRecoveryMessage(null)
+    setActiveLaunch(null)
+    activeLaunchRef.current = null
+    streamAbortRef.current?.abort()
+    streamAbortRef.current = null
+    messageStreamRequestIdRef.current += 1
+    resumeRequestIdRef.current += 1
+    messageSubmitInFlightRef.current = false
+    setIsSubmittingMessage(false)
+    setMessageStreamingStatus('idle')
+    setStreamingMessageId(null)
+    setResumingSessionId(null)
+    setWorkspaceMode('quick-consult')
+
+    if (isDesktop !== true || !advisorySessionIdentity) {
+      setUnfinishedSessionsStatus('idle')
+      return undefined
+    }
+
+    let isCancelled = false
+    setUnfinishedSessionsStatus('loading')
+    setUnfinishedSessionsError(null)
+
+    fetchThinkTankUnfinishedSessions()
+      .then((result) => {
+        if (isCancelled) return
+        setUnfinishedSessions(result.sessions)
+        setUnfinishedSessionsStatus('ready')
+      })
+      .catch((error) => {
+        if (isCancelled) return
+        setUnfinishedSessions([])
+        setUnfinishedSessionsError(
+          readWorkflowErrorMessage(error, THINKTANK_UNFINISHED_SESSIONS_LOAD_FAILED_MESSAGE)
+        )
+        setUnfinishedSessionsStatus('error')
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [advisorySessionIdentity, isDesktop])
 
   useEffect(() => {
     if (isDesktop !== true) {
@@ -540,6 +638,8 @@ export default function AdvisoryWorkspaceShell() {
       setSessionMessagesStatus('loading')
       setMessageError(null)
       setCheckpointWarningMessage(null)
+      setResumeError(null)
+      setRecoveryMessage(null)
       setMessageStreamingStatus('idle')
       setStreamingMessageId(null)
       setStreamAnnouncement('')
@@ -603,6 +703,61 @@ export default function AdvisoryWorkspaceShell() {
     await executeLaunchWorkflow(workflowKey, options)
   }
 
+  const handleResumeSession = async (sessionId: string) => {
+    streamAbortRef.current?.abort()
+    streamAbortRef.current = null
+    messageStreamRequestIdRef.current += 1
+    const resumeRequestId = resumeRequestIdRef.current + 1
+    resumeRequestIdRef.current = resumeRequestId
+    messageSubmitInFlightRef.current = false
+    setIsSubmittingMessage(false)
+    setMessageStreamingStatus('idle')
+    setStreamingMessageId(null)
+    setResumingSessionId(sessionId)
+    setResumeError(null)
+    setLaunchError(null)
+    setMessageError(null)
+    setCheckpointWarningMessage(null)
+
+    try {
+      const resumed = await resumeThinkTankSession(sessionId)
+      if (resumeRequestIdRef.current !== resumeRequestId) return
+      const launch = toWorkflowLaunchFromResume(resumed)
+
+      activeLaunchRef.current = launch
+      skipNextSessionMessagesLoadRef.current = launch.sessionId
+      skipNextOutputLoadRef.current = launch.sessionId
+      setSessionMessages(resumed.messages)
+      setSessionMessagesStatus('ready')
+      setMessageStreamingStatus('idle')
+      setStreamingMessageId(null)
+      setStreamAnnouncement('')
+      setHasUnreadStreamContent(false)
+      setShowAllMessages(false)
+      setSelectedDecisionLabel(null)
+      setWorkflowOutput(resumed.output)
+      setHasUnreadDocumentContent(false)
+      setOutputAnnouncement('')
+      setOutputCompletionFeedback(undefined)
+      setOutputExportingFormat(null)
+      setOutputExportError(null)
+      setRecoveryMessage(resumed.recoveryMessage)
+      outputExportRequestIdRef.current += 1
+      appendedOutputSourceMessageIdsRef.current.clear()
+      setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
+      setWorkspaceMode('workflow')
+      setActiveLaunch(launch)
+      showCheckpointWarning(resumed.checkpointWarning)
+    } catch (error) {
+      if (resumeRequestIdRef.current !== resumeRequestId) return
+      setResumeError(readWorkflowErrorMessage(error, THINKTANK_RESUME_SESSION_FAILED_MESSAGE))
+    } finally {
+      if (resumeRequestIdRef.current === resumeRequestId) {
+        setResumingSessionId(null)
+      }
+    }
+  }
+
   const handleSaveOrganizationContext = async (input: SaveOrganizationContextInput) => {
     setOrganizationContextStatus('saving')
     setOrganizationContextError(null)
@@ -659,8 +814,14 @@ export default function AdvisoryWorkspaceShell() {
       setOutputCompletionFeedback(undefined)
       setOutputExportingFormat(null)
       setOutputExportError(null)
+      setRecoveryMessage(null)
       outputExportRequestIdRef.current += 1
       appendedOutputSourceMessageIdsRef.current.clear()
+      return undefined
+    }
+
+    if (skipNextSessionMessagesLoadRef.current === activeSessionId) {
+      skipNextSessionMessagesLoadRef.current = null
       return undefined
     }
 
@@ -689,6 +850,11 @@ export default function AdvisoryWorkspaceShell() {
 
   useEffect(() => {
     if (!activeSessionId) return undefined
+
+    if (skipNextOutputLoadRef.current === activeSessionId) {
+      skipNextOutputLoadRef.current = null
+      return undefined
+    }
 
     let isCancelled = false
 
@@ -874,11 +1040,20 @@ export default function AdvisoryWorkspaceShell() {
       metadata: { streaming: true },
     }
     const abortController = new AbortController()
+    const streamSessionId = activeLaunch.sessionId
+    const streamWorkflowKey = activeLaunch.workflow.key
+    const streamStep = activeLaunch.currentStep
+    const streamRequestId = messageStreamRequestIdRef.current + 1
     let receivedDeltaCount = 0
     let streamEndedWithTerminalEvent = false
     const shouldAutoScrollOnSubmit = isConversationNearBottom()
+    const isCurrentMessageStream = () =>
+      streamAbortRef.current === abortController &&
+      messageStreamRequestIdRef.current === streamRequestId &&
+      activeLaunchRef.current?.sessionId === streamSessionId
 
     messageSubmitInFlightRef.current = true
+    messageStreamRequestIdRef.current = streamRequestId
     streamAbortRef.current?.abort()
     streamAbortRef.current = abortController
     setMessageError(null)
@@ -898,10 +1073,11 @@ export default function AdvisoryWorkspaceShell() {
 
     try {
       for await (const event of streamThinkTankSessionMessage(
-        activeLaunch.sessionId,
+        streamSessionId,
         { content },
         { signal: abortController.signal }
       )) {
+        if (!isCurrentMessageStream()) return
         const shouldAutoScroll = isConversationNearBottom()
 
         if (event.event === 'message.started') {
@@ -936,8 +1112,8 @@ export default function AdvisoryWorkspaceShell() {
               id: `stream-error-${Date.now()}`,
               role: 'system',
               content: event.data.message,
-              workflowKey: activeLaunch.workflow.key,
-              stepIndex: activeLaunch.currentStep.index,
+              workflowKey: streamWorkflowKey,
+              stepIndex: streamStep.index,
             },
           ])
           applyStreamingScrollBehavior(shouldAutoScroll)
@@ -987,6 +1163,7 @@ export default function AdvisoryWorkspaceShell() {
         }
       }
       if (!streamEndedWithTerminalEvent) {
+        if (!isCurrentMessageStream()) return
         setDraft(content)
         setMessageStreamingStatus('error')
         announceStreamStatus('顾问回复生成失败。', { immediate: true })
@@ -1001,6 +1178,7 @@ export default function AdvisoryWorkspaceShell() {
       setSessionMessagesStatus('ready')
       textareaRef.current?.focus({ preventScroll: true })
     } catch (error) {
+      if (!isCurrentMessageStream()) return
       setDraft(content)
       setMessageStreamingStatus('error')
       announceStreamStatus('顾问回复生成失败。', { immediate: true })
@@ -1118,6 +1296,15 @@ export default function AdvisoryWorkspaceShell() {
     toast.warning('自动保存检查点暂时不可用', {
       description: message,
     })
+  }
+
+  const handleContinueRecoveredSession = () => {
+    textareaRef.current?.focus({ preventScroll: true })
+  }
+
+  const handleReviewRecoveredDocument = () => {
+    setDocumentDrawerOpen(true)
+    setHasUnreadDocumentContent(false)
   }
 
   const handleDecisionOption = (option: ThinkTankDecisionOption) => {
@@ -1310,6 +1497,90 @@ export default function AdvisoryWorkspaceShell() {
                 </span>
               </span>
             </button>
+            {(unfinishedSessionsStatus === 'loading' || unfinishedSessions.length > 0 || resumeError) && (
+              <div className="mb-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase text-[hsl(var(--advisory-muted-foreground))]">
+                  <RotateCcw className="h-4 w-4" />
+                  未完成会话
+                </div>
+                {unfinishedSessionsStatus === 'loading' && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]"
+                  >
+                    正在加载未完成会话
+                  </div>
+                )}
+                {unfinishedSessionsStatus === 'error' && unfinishedSessionsError && (
+                  <p
+                    role="alert"
+                    className="rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
+                  >
+                    {unfinishedSessionsError}
+                  </p>
+                )}
+                {unfinishedSessions.length > 0 && (
+                  <ul className="space-y-2">
+                    {unfinishedSessions.map((sessionCard) => {
+                      const isResuming = resumingSessionId === sessionCard.sessionId
+                      const isActive = activeLaunch?.sessionId === sessionCard.sessionId
+
+                      return (
+                        <li key={sessionCard.sessionId}>
+                          <button
+                            type="button"
+                            aria-label={`继续 ${sessionCard.title}`}
+                            aria-pressed={isActive && workspaceMode === 'workflow'}
+                            disabled={Boolean(resumingSessionId)}
+                            onClick={() => {
+                              void handleResumeSession(sessionCard.sessionId)
+                            }}
+                            className={cn(
+                              'flex min-h-24 w-full flex-col gap-2 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-left text-xs text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-60',
+                              isActive &&
+                                workspaceMode === 'workflow' &&
+                                'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
+                            )}
+                          >
+                            <span className="flex w-full items-start justify-between gap-2">
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-medium">
+                                  {sessionCard.title}
+                                </span>
+                                <span className="mt-1 block truncate text-[11px] text-[hsl(var(--advisory-muted-foreground))]">
+                                  {sessionCard.workflowType}
+                                </span>
+                              </span>
+                              <span className="shrink-0 text-[11px] font-medium text-[hsl(var(--advisory-muted-foreground))]">
+                                {isResuming ? '恢复中' : isActive ? '已打开' : '继续'}
+                              </span>
+                            </span>
+                            <span className="block text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                              {sessionCard.lastStep.label}
+                            </span>
+                            <span className="flex items-center gap-1 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                              <Clock3 className="h-3 w-3" />
+                              <span>{sessionCard.statusSummary}</span>
+                              <span aria-hidden="true">·</span>
+                              <span>{formatSessionActivityTime(sessionCard.lastActivityAt)}</span>
+                            </span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+                {resumeError && (
+                  <p
+                    role="alert"
+                    className="mt-2 rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
+                  >
+                    {resumeError}
+                  </p>
+                )}
+              </div>
+            )}
             <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase text-[hsl(var(--advisory-muted-foreground))]">
               <Workflow className="h-4 w-4" />
               工作流
@@ -1489,6 +1760,50 @@ export default function AdvisoryWorkspaceShell() {
                         {activeLaunch.firstPrompt}
                       </div>
                     </article>
+
+                    {recoveryMessage && (
+                      <article
+                        aria-label="ThinkTank 会话恢复摘要"
+                        className="rounded-sm border border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))] p-5 text-[hsl(var(--advisory-success-foreground))]"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-[hsl(var(--advisory-panel))] text-[hsl(var(--advisory-foreground))]">
+                            <RotateCcw className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h2 className="text-base font-semibold">{recoveryMessage.title}</h2>
+                            <p className="mt-2 whitespace-pre-wrap text-[length:inherit] leading-[inherit]">
+                              {recoveryMessage.content}
+                            </p>
+                            {recoveryMessage.keyConclusions.length > 0 && (
+                              <ul className="mt-3 list-disc space-y-1 pl-5 text-xs leading-5">
+                                {recoveryMessage.keyConclusions.map((conclusion) => (
+                                  <li key={conclusion}>{conclusion}</li>
+                                ))}
+                              </ul>
+                            )}
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              {recoveryMessage.actions.map((action) => (
+                                <Button
+                                  key={action.key}
+                                  type="button"
+                                  variant={action.key === 'continue' ? 'default' : 'outline'}
+                                  size="sm"
+                                  onClick={
+                                    action.key === 'continue'
+                                      ? handleContinueRecoveredSession
+                                      : handleReviewRecoveredDocument
+                                  }
+                                  className="h-8 rounded-sm px-3 text-xs"
+                                >
+                                  {action.label}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </article>
+                    )}
 
                     {sessionMessagesStatus === 'loading' && (
                       <div

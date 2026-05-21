@@ -192,7 +192,10 @@ test.describe('Story 2.3 - Theme, Density, and Compatibility Baseline', () => {
     await expect(page.getByRole('status', { name: 'ThinkTank 工作台状态' })).toContainText(
       /阅读密度|紧凑/
     )
-    await expect(page.getByRole('region', { name: '咨询对话工作区' })).toContainText('等待开始咨询')
+    await expect(page.getByRole('region', { name: '咨询对话工作区' })).toContainText('Quick Consult')
+    await expect(page.getByRole('region', { name: '咨询对话工作区' })).toContainText(
+      '选择一个工作流后，对话将在这里开始。'
+    )
     await expect(page.getByRole('complementary', { name: '咨询工作流导航' })).toBeVisible()
     await expect(page.getByRole('complementary', { name: '咨询文档抽屉' })).toBeVisible()
   })
@@ -342,12 +345,11 @@ test.describe('Story 2.3 - Theme, Density, and Compatibility Baseline', () => {
       'ThinkTank 已启用'
     )
     await expect(readingDensityControl(page)).toBeVisible()
-    await expect(page.getByRole('button', { name: '展开咨询文档抽屉' })).toHaveAttribute(
-      'aria-disabled',
-      'true'
+    await expect(page.getByRole('button', { name: '打开咨询文档抽屉' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
     )
-    await expect(
-      page.getByText('工作流选择、AI 引导、流式响应和报告生成将在后续 Story 中接入。')
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Quick Consult' })).toBeVisible()
+    await expect(page.getByText('选择一个工作流后，对话将在这里开始。')).toBeVisible()
   })
 })
