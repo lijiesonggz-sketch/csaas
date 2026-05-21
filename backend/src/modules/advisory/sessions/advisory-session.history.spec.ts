@@ -422,14 +422,27 @@ describe('AdvisorySessionService conversation history and search', () => {
     const output = createOutput({ id: '990e8400-e29b-41d4-a716-446655440001' })
     outputRepository.findOutputById.mockResolvedValueOnce(output)
 
-    await expect(
-      service.getSessionOutput({
-        user,
-        tenantId,
-        sessionId,
-        outputId: output.id,
-      }),
-    ).resolves.toEqual({ sessionId, output })
+    const result = await service.getSessionOutput({
+      user,
+      tenantId,
+      sessionId,
+      outputId: output.id,
+    })
+
+    expect(result).toEqual({
+      sessionId,
+      output: expect.objectContaining(output),
+    })
+    expect(result.output.knowledgeBaseAssociation).toEqual({
+      outputId: output.id,
+      status: null,
+      destinationKey: null,
+      externalReferenceId: null,
+      message: null,
+      retryCount: 0,
+      updatedAt: null,
+      associatedAt: null,
+    })
 
     expect(outputRepository.findOutputById).toHaveBeenCalledWith(tenantId, output.id)
     expect(outputRepository.findActiveDraftForSession).not.toHaveBeenCalled()

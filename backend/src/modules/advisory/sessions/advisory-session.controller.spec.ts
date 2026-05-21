@@ -18,6 +18,9 @@ describe('AdvisorySessionController', () => {
       | 'resumeSession'
       | 'listSessionHistory'
       | 'searchSessionHistory'
+      | 'safeExitSession'
+      | 'deleteSession'
+      | 'deleteOutput'
     >
   >
 
@@ -133,6 +136,23 @@ describe('AdvisorySessionController', () => {
           },
         ],
         meta: { page: 1, limit: 20, total: 1 },
+      }),
+      safeExitSession: jest.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        status: 'paused',
+        updatedAt: '2026-05-21T01:10:00.000Z',
+      }),
+      deleteSession: jest.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        status: 'deleted',
+        outputIds: ['output-1'],
+        updatedAt: '2026-05-21T01:11:00.000Z',
+      }),
+      deleteOutput: jest.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        outputId: 'output-1',
+        status: 'deleted',
+        updatedAt: '2026-05-21T01:12:00.000Z',
       }),
     }
 
@@ -397,5 +417,77 @@ describe('AdvisorySessionController', () => {
         status: 'completed',
       },
     })
+  })
+
+  it('[P0][4.7-BE-GREEN-006][AC1] safe-exits a session from route param without accepting body scope', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(controller.safeExitSession('session-1', user as never, 'tenant-1')).resolves.toEqual({
+      data: {
+        sessionId: 'session-1',
+        status: 'paused',
+        updatedAt: '2026-05-21T01:10:00.000Z',
+      },
+    })
+    expect(service.safeExitSession).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      sessionId: 'session-1',
+    })
+  })
+
+  it('[P0][4.7-BE-GREEN-007][AC2,AC3] exposes guarded session and output delete routes with route-owned ids only', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(controller.deleteSession('session-1', user as never, 'tenant-1')).resolves.toEqual({
+      data: {
+        sessionId: 'session-1',
+        status: 'deleted',
+        outputIds: ['output-1'],
+        updatedAt: '2026-05-21T01:11:00.000Z',
+      },
+    })
+    await expect(
+      controller.deleteOutput('session-1', 'output-1', user as never, 'tenant-1'),
+    ).resolves.toEqual({
+      data: {
+        sessionId: 'session-1',
+        outputId: 'output-1',
+        status: 'deleted',
+        updatedAt: '2026-05-21T01:12:00.000Z',
+      },
+    })
+    expect(service.deleteSession).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      sessionId: 'session-1',
+    })
+    expect(service.deleteOutput).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      sessionId: 'session-1',
+      outputId: 'output-1',
+    })
+  })
+
+  it('[P0][4.7-BE-GREEN-008][AC1,AC2] registers lifecycle routes under the guarded advisory controller', () => {
+    expect(Reflect.getMetadata(PATH_METADATA, controller.safeExitSession)).toBe(
+      'sessions/:sessionId/exit',
+    )
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.safeExitSession)).toBe(
+      RequestMethod.POST,
+    )
+    expect(Reflect.getMetadata(PATH_METADATA, controller.deleteSession)).toBe(
+      'sessions/:sessionId',
+    )
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.deleteSession)).toBe(
+      RequestMethod.DELETE,
+    )
+    expect(Reflect.getMetadata(PATH_METADATA, controller.deleteOutput)).toBe(
+      'sessions/:sessionId/output/:outputId',
+    )
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.deleteOutput)).toBe(
+      RequestMethod.DELETE,
+    )
   })
 })

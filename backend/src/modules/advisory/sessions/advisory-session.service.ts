@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   NotFoundException,
   Optional,
@@ -40,6 +41,12 @@ import {
   THINKTANK_CHECKPOINT_IO_TIMEOUT_MS,
   THINKTANK_CHECKPOINT_WARNING_CODE,
 } from '../checkpoints/advisory-checkpoint.service'
+import {
+  ThinkTankContextCompressionMessage,
+  ThinkTankContextCompressionResult,
+  ThinkTankContextCompressionService,
+  estimateThinkTankContextTokens,
+} from '../context-compression/thinktank-context-compression.service'
 import { AdvisoryEventService } from '../events/advisory-event.service'
 import {
   ThinkTankErrorCategory,
@@ -58,6 +65,16 @@ import {
   AdvisoryOutputAssetState,
   AdvisoryOutputRatingRepository,
 } from '../outputs/advisory-output-rating.repository'
+import {
+  AdvisoryOutputKnowledgeBaseAssociationRepository,
+  AdvisoryOutputKnowledgeBaseAssociationState,
+  DEFAULT_KNOWLEDGE_BASE_DESTINATION_KEY,
+} from '../outputs/advisory-output-knowledge-base-association.repository'
+import {
+  KNOWLEDGE_BASE_ASSOCIATION_PORT,
+  KnowledgeBaseAssociationPort,
+  KnowledgeBaseAssociationResult,
+} from '../outputs/knowledge-base-association.port'
 import { createThinkTankPromptCachePolicy } from '../provider-gateway/thinktank-prompt-cache-policy'
 import { ThinkTankPromptAssemblerService } from '../runtime/prompt-assembler.service'
 import { ThinkTankRuntimeError, ThinkTankRuntimeErrorCode } from '../runtime/runtime.errors'
@@ -99,6 +116,11 @@ export const THINKTANK_OUTPUT_FAVORITE_INVALID_MESSAGE =
 export const THINKTANK_OUTPUT_FEEDBACK_TOO_LONG_MESSAGE =
   'ThinkTank output feedback text is too long.'
 export const THINKTANK_OUTPUT_ID_REQUIRED_MESSAGE = 'ThinkTank output id is required.'
+export const THINKTANK_OUTPUT_KNOWLEDGE_BASE_ASSOCIATION_FAILED_MESSAGE =
+  '知识库暂不可用，报告仍保留在 ThinkTank，可稍后重试。'
+export const THINKTANK_SESSION_NOT_FOUND_MESSAGE = 'ThinkTank session not found'
+export const THINKTANK_SESSION_LIFECYCLE_FAILED_MESSAGE = '该会话已不可用，请刷新后重试。'
+export const THINKTANK_OUTPUT_DELETE_FAILED_MESSAGE = '暂时无法删除该报告，请稍后重试。'
 const THINKTANK_OUTPUT_SECTION_MAX_LENGTH = 20000
 const THINKTANK_OUTPUT_FEEDBACK_MAX_LENGTH = 2000
 const THINKTANK_WORKFLOW_CATALOG_UNAVAILABLE_MESSAGE =
@@ -169,7 +191,10 @@ export interface AdvisoryConversationSubmitResult extends AdvisoryConversationMe
 
 export interface AdvisorySessionOutputResult {
   sessionId: string
-  output: AdvisoryWorkflowOutput & { assetState?: AdvisoryOutputAssetState }
+  output: AdvisoryWorkflowOutput & {
+    assetState?: AdvisoryOutputAssetState
+    knowledgeBaseAssociation?: AdvisoryOutputKnowledgeBaseAssociationState
+  }
   checkpointWarning?: AdvisoryCheckpointWarning
 }
 
@@ -178,8 +203,13 @@ export interface AdvisoryOutputAssetStateResult {
   assetState: AdvisoryOutputAssetState
 }
 
+export interface AdvisoryOutputKnowledgeBaseAssociationStateResult {
+  sessionId: string
+  knowledgeBaseAssociation: AdvisoryOutputKnowledgeBaseAssociationState
+}
+
 export type AdvisoryHistoryType = 'all' | 'session' | 'output'
-export type AdvisoryHistoryStatus = 'all' | 'active' | 'completed' | 'draft'
+export type AdvisoryHistoryStatus = 'all' | 'active' | 'paused' | 'completed' | 'draft'
 export type AdvisoryHistoryOpenTarget = 'resume-session' | 'view-session' | 'view-output'
 
 export interface AdvisorySessionHistoryQuery {
@@ -202,11 +232,12 @@ export interface AdvisoryHistoryItem {
   workflowType: string
   title: string
   summary: string
-  status: 'active' | 'completed' | 'draft'
+  status: 'active' | 'paused' | 'completed' | 'draft'
   lastStep?: AdvisoryWorkflowSessionCurrentStep
   timestamp: string
   openTarget: AdvisoryHistoryOpenTarget
   assetState?: AdvisoryOutputAssetState
+  knowledgeBaseAssociation?: AdvisoryOutputKnowledgeBaseAssociationState
 }
 
 export interface AdvisoryHistoryResult {
@@ -230,13 +261,28 @@ export interface AdvisorySessionCheckpointResult {
   checkpointWarning?: AdvisoryCheckpointWarning
 }
 
+export interface AdvisorySessionLifecycleResult {
+  sessionId: string
+  status: AdvisoryWorkflowSessionStatus.Paused | AdvisoryWorkflowSessionStatus.Deleted
+  outputIds?: string[]
+  updatedAt: string
+  checkpointWarning?: AdvisoryCheckpointWarning
+}
+
+export interface AdvisoryOutputLifecycleResult {
+  sessionId: string
+  outputId: string
+  status: AdvisoryWorkflowOutputStatus.Deleted
+  updatedAt: string
+}
+
 export interface AdvisoryUnfinishedSessionCard {
   sessionId: string
   workflowKey: string
   workflowType: string
   title: string
   lastStep: AdvisoryWorkflowSessionCurrentStep
-  status: AdvisoryWorkflowSessionStatus.Active
+  status: AdvisoryWorkflowSessionStatus.Active | AdvisoryWorkflowSessionStatus.Paused
   statusSummary: string
   lastActivityAt: string
   checkpointSource: 'hot' | 'cold' | 'fallback'
@@ -360,6 +406,10 @@ interface AdvisoryUpdateOutputFavoriteContext extends AdvisorySessionMessageCont
   isFavorited: unknown
 }
 
+interface AdvisoryOutputKnowledgeBaseAssociationContext extends AdvisorySessionMessageContext {
+  destinationKey?: unknown
+}
+
 interface AdvisorySessionHistoryContext extends AdvisorySessionContext {
   query?: AdvisorySessionHistoryQuery
 }
@@ -418,6 +468,13 @@ export class AdvisorySessionService {
     private readonly checkpointService?: AdvisoryCheckpointService,
     @Optional()
     private readonly outputRatingRepository?: AdvisoryOutputRatingRepository,
+    @Optional()
+    private readonly outputKnowledgeBaseAssociationRepository?: AdvisoryOutputKnowledgeBaseAssociationRepository,
+    @Optional()
+    @Inject(KNOWLEDGE_BASE_ASSOCIATION_PORT)
+    private readonly knowledgeBaseAssociationPort?: KnowledgeBaseAssociationPort,
+    @Optional()
+    private readonly contextCompressionService?: ThinkTankContextCompressionService,
   ) {}
 
   async listWorkflows(context: AdvisorySessionContext): Promise<AdvisoryWorkflowCatalogResult> {
@@ -614,7 +671,7 @@ export class AdvisorySessionService {
 
     return {
       sessionId: session.id,
-      output: await this.attachOutputAssetState(context.tenantId, context.user.id, output),
+      output: await this.attachOutputState(context.tenantId, context.user.id, output),
     }
   }
 
@@ -633,6 +690,102 @@ export class AdvisorySessionService {
     return {
       sessionId: session.id,
       assetState: await this.loadOutputAssetState(context.tenantId, context.user.id, output.id),
+    }
+  }
+
+  async getOutputKnowledgeBaseAssociationState(
+    context: AdvisorySessionMessageContext,
+  ): Promise<AdvisoryOutputKnowledgeBaseAssociationStateResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const outputId = this.requireOutputId(context.outputId)
+    const { session, output } = await this.resolveAuthorizedSessionOutput(
+      { ...context, outputId },
+      {
+        createIfMissing: false,
+      },
+    )
+
+    return {
+      sessionId: session.id,
+      knowledgeBaseAssociation: await this.loadOutputKnowledgeBaseAssociationState(
+        context.tenantId,
+        output.id,
+      ),
+    }
+  }
+
+  async associateOutputWithKnowledgeBase(
+    context: AdvisoryOutputKnowledgeBaseAssociationContext,
+  ): Promise<AdvisoryOutputKnowledgeBaseAssociationStateResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const outputId = this.requireOutputId(context.outputId)
+    const destinationKey = this.normalizeKnowledgeBaseDestinationKey(context.destinationKey)
+    const associationRepository = this.requireOutputKnowledgeBaseAssociationRepository()
+    const { session, output } = await this.resolveAuthorizedSessionOutput(
+      { ...context, outputId },
+      {
+        createIfMissing: false,
+      },
+    )
+    const existingAssociation = await associationRepository.findStateForOutput(
+      context.tenantId,
+      output.id,
+      destinationKey,
+    )
+    if (existingAssociation.status === 'associated') {
+      return {
+        sessionId: session.id,
+        knowledgeBaseAssociation: existingAssociation,
+      }
+    }
+    this.assertReusableKnowledgeBaseOutput(output)
+    const sourceWorkflow = output.workflowKey
+    const filePath = this.buildKnowledgeBaseArtifactPath(context.tenantId, output.id)
+    const aiMetadata = this.buildKnowledgeBaseAiMetadata(context.tenantId, output, destinationKey)
+    const portResult = await this.invokeKnowledgeBaseAssociationPort({
+      tenantId: context.tenantId,
+      userId: context.user.id,
+      outputId: output.id,
+      title: this.toSafeAssociationTitle(output),
+      summary: this.toSafeAssociationSummary(output),
+      filePath,
+      aiMetadata,
+    })
+    const normalizedPortResult = this.normalizeKnowledgeBasePortResult(portResult)
+    const persisted = await associationRepository.upsertAttempt(context.tenantId, {
+      actorId: context.user.id,
+      sessionId: session.id,
+      outputId: output.id,
+      destinationKey,
+      status: normalizedPortResult.status,
+      title: this.toSafeAssociationTitle(output),
+      summary: this.toSafeAssociationSummary(output),
+      sourceWorkflow,
+      filePath,
+      aiMetadata,
+      externalReferenceId: normalizedPortResult.externalReferenceId ?? null,
+      message: normalizedPortResult.message ?? null,
+      metadata: {
+        workflowKey: output.workflowKey,
+        messageCategory: this.toKnowledgeBaseMessageCategory(normalizedPortResult),
+      },
+    })
+    const knowledgeBaseAssociation = this.toOutputKnowledgeBaseAssociationState(
+      output.id,
+      persisted,
+    )
+
+    await this.emitOutputKnowledgeBaseAssociationRequested({
+      tenantId: context.tenantId,
+      user: context.user,
+      sessionId: session.id,
+      output,
+      knowledgeBaseAssociation,
+    }).catch(() => undefined)
+
+    return {
+      sessionId: session.id,
+      knowledgeBaseAssociation,
     }
   }
 
@@ -766,6 +919,113 @@ export class AdvisorySessionService {
     }
   }
 
+  async safeExitSession(
+    context: AdvisorySessionMessageContext,
+  ): Promise<AdvisorySessionLifecycleResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+    if (
+      session.actorId !== context.user.id ||
+      session.status !== AdvisoryWorkflowSessionStatus.Active
+    ) {
+      throw new NotFoundException(THINKTANK_SESSION_NOT_FOUND_MESSAGE)
+    }
+
+    const exitedAt = new Date().toISOString()
+    const checkpointWarning = await this.saveCheckpointForSession({
+      tenantId: context.tenantId,
+      user: context.user,
+      session,
+      metadata: {
+        checkpoint_reason: 'safe_exit',
+      },
+    })
+    const paused = await this.sessionRepository.pauseActiveSessionForActor(
+      context.tenantId,
+      session.id,
+      context.user.id,
+      {
+        exited_at: exitedAt,
+        exit_reason: 'user_safe_exit',
+      },
+    )
+    if (!paused) {
+      throw new NotFoundException(THINKTANK_SESSION_NOT_FOUND_MESSAGE)
+    }
+
+    return {
+      sessionId: paused.session.id,
+      status: AdvisoryWorkflowSessionStatus.Paused,
+      updatedAt: paused.session.updatedAt.toISOString(),
+      ...(checkpointWarning ? { checkpointWarning } : {}),
+    }
+  }
+
+  async deleteSession(
+    context: AdvisorySessionMessageContext,
+  ): Promise<AdvisorySessionLifecycleResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const deletedAt = new Date().toISOString()
+    const tombstoned = await this.sessionRepository.tombstoneSessionWithOutputs({
+      tenantId: context.tenantId,
+      sessionId: context.sessionId,
+      actorId: context.user.id,
+      deletedAt,
+    })
+    if (!tombstoned) {
+      throw new NotFoundException(THINKTANK_SESSION_NOT_FOUND_MESSAGE)
+    }
+
+    await this.emitSessionDeleted({
+      tenantId: context.tenantId,
+      user: context.user,
+      session: tombstoned.session,
+      previousStatus: tombstoned.previousStatus,
+      deletedOutputCount: tombstoned.deletedOutputCount,
+    }).catch(() => undefined)
+
+    return {
+      sessionId: tombstoned.session.id,
+      status: AdvisoryWorkflowSessionStatus.Deleted,
+      outputIds: tombstoned.outputIds,
+      updatedAt: tombstoned.session.updatedAt.toISOString(),
+    }
+  }
+
+  async deleteOutput(
+    context: AdvisorySessionMessageContext,
+  ): Promise<AdvisoryOutputLifecycleResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const outputId = this.requireOutputId(context.outputId)
+    const session = await this.getTenantActorSession(context)
+    const deletedAt = new Date().toISOString()
+    const tombstoned = await this.requireOutputRepository().tombstoneOutputForSession({
+      tenantId: context.tenantId,
+      actorId: context.user.id,
+      sessionId: session.id,
+      outputId,
+      deletedAt,
+    })
+    if (!tombstoned) {
+      throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
+    }
+
+    await this.emitOutputDeleted({
+      tenantId: context.tenantId,
+      user: context.user,
+      session,
+      output: tombstoned.output,
+      previousStatus: tombstoned.previousStatus,
+    }).catch(() => undefined)
+
+    return {
+      sessionId: session.id,
+      outputId: tombstoned.output.id,
+      status: AdvisoryWorkflowOutputStatus.Deleted,
+      updatedAt: tombstoned.output.updatedAt.toISOString(),
+    }
+  }
+
   async listUnfinishedSessions(
     context: AdvisorySessionContext,
   ): Promise<AdvisoryUnfinishedSessionsResult> {
@@ -777,7 +1037,8 @@ export class AdvisorySessionService {
     const scopedSessions = sessions.filter(
       (session) =>
         session.actorId === context.user.id &&
-        session.status === AdvisoryWorkflowSessionStatus.Active,
+        (session.status === AdvisoryWorkflowSessionStatus.Active ||
+          session.status === AdvisoryWorkflowSessionStatus.Paused),
     )
     const cards = await Promise.all(
       scopedSessions.map(async (session) => {
@@ -786,13 +1047,19 @@ export class AdvisorySessionService {
         const messages = this.messageRepository
           ? await this.messageRepository.findMessagesBySession(context.tenantId, session.id)
           : []
+        const tenantScopedMessages = this.filterTenantSessionMessages(
+          context.tenantId,
+          session.id,
+          session.actorId,
+          messages,
+        )
 
         return this.createUnfinishedSessionCard({
           session,
           checkpoint: restored.state,
           checkpointSource: restored.source ?? 'fallback',
           output,
-          messages,
+          messages: tenantScopedMessages,
         })
       }),
     )
@@ -809,18 +1076,57 @@ export class AdvisorySessionService {
     context: AdvisorySessionMessageContext,
   ): Promise<AdvisoryResumeSessionResult> {
     await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
-    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+    let session = await this.getTenantSession(context.tenantId, context.sessionId)
     if (
       session.actorId !== context.user.id ||
-      session.status !== AdvisoryWorkflowSessionStatus.Active
+      (session.status !== AdvisoryWorkflowSessionStatus.Active &&
+        session.status !== AdvisoryWorkflowSessionStatus.Paused)
     ) {
-      throw new NotFoundException('ThinkTank session not found')
+      throw new NotFoundException(THINKTANK_SESSION_NOT_FOUND_MESSAGE)
+    }
+
+    if (session.status === AdvisoryWorkflowSessionStatus.Paused) {
+      const activeSession = await this.sessionRepository.findActiveSessionForActor(
+        context.tenantId,
+        context.user.id,
+      )
+      if (activeSession && activeSession.id !== session.id) {
+        throw new ConflictException(THINKTANK_WORKFLOW_ALREADY_ACTIVE_MESSAGE)
+      }
+      let reactivated: AdvisoryWorkflowSession | null
+      try {
+        reactivated = await this.sessionRepository.reactivatePausedSessionForActor(
+          context.tenantId,
+          session.id,
+          context.user.id,
+          {
+            ...(session.metadata ?? {}),
+            resumed_at: new Date().toISOString(),
+            resume_source: 'paused_safe_exit',
+          },
+        )
+      } catch (error) {
+        if (this.isUniqueConstraintViolation(error)) {
+          throw new ConflictException(THINKTANK_WORKFLOW_ALREADY_ACTIVE_MESSAGE)
+        }
+        throw error
+      }
+      if (!reactivated) {
+        throw new NotFoundException(THINKTANK_SESSION_NOT_FOUND_MESSAGE)
+      }
+      session = reactivated
     }
 
     const restored = await this.restoreCheckpointForResume(context.tenantId, session.id)
-    const messages = await this.requireMessageRepository().findMessagesBySession(
+    const persistedMessages = await this.requireMessageRepository().findMessagesBySession(
       context.tenantId,
       session.id,
+    )
+    const messages = this.filterTenantSessionMessages(
+      context.tenantId,
+      session.id,
+      session.actorId,
+      persistedMessages,
     )
     const output = await this.findPersistedSessionOutput(context.tenantId, session.id)
     const checkpointSource = restored.state ? (restored.source ?? 'fallback') : 'fallback'
@@ -916,6 +1222,7 @@ export class AdvisorySessionService {
       },
       createdAt: new Date().toISOString(),
     }
+    await this.assertActiveSessionStillCurrent(context.tenantId, session.id, session.actorId)
     const output = await outputRepository.appendSection(context.tenantId, draft.id, section)
 
     if (!output) {
@@ -964,6 +1271,7 @@ export class AdvisorySessionService {
     }
 
     const completedAt = new Date().toISOString()
+    await this.assertActiveSessionStillCurrent(context.tenantId, session.id, session.actorId)
     const output = await outputRepository.completeDraftAndSession(
       context.tenantId,
       draft.id,
@@ -1012,13 +1320,22 @@ export class AdvisorySessionService {
     const content = this.normalizeMessageContent(context.content)
     const session = await this.getTenantSession(context.tenantId, context.sessionId)
 
-    if (session.status !== AdvisoryWorkflowSessionStatus.Active) {
-      throw new NotFoundException('ThinkTank session not found')
+    if (
+      session.actorId !== context.user.id ||
+      session.status !== AdvisoryWorkflowSessionStatus.Active
+    ) {
+      throw new NotFoundException(THINKTANK_SESSION_NOT_FOUND_MESSAGE)
     }
 
     const messageRepository = this.requireMessageRepository()
     const providerGateway = this.requireProviderGateway()
     const history = await messageRepository.findMessagesBySession(context.tenantId, session.id)
+    const tenantScopedHistory = this.filterTenantSessionMessages(
+      context.tenantId,
+      session.id,
+      session.actorId,
+      history,
+    )
     const providerPrompt = await this.createProviderPromptContext(session)
     const userMessage = await messageRepository.createMessageWithNextSequence(
       context.tenantId,
@@ -1037,7 +1354,16 @@ export class AdvisorySessionService {
         providerMetadata: {},
       },
     )
-    const providerMessages = this.toProviderMessages([...history, userMessage])
+    const scopedConversationMessages = [...tenantScopedHistory, userMessage]
+    const baseProviderMessages = this.toProviderMessages(scopedConversationMessages)
+    const contextCompression = await this.evaluateContextCompression({
+      tenantId: context.tenantId,
+      user: context.user,
+      session,
+      providerPrompt,
+      providerMessages: this.toContextCompressionMessages(scopedConversationMessages),
+    })
+    const providerMessages = contextCompression?.providerMessages ?? baseProviderMessages
     const providerChunks: ThinkTankProviderStreamChunk[] = []
     let assistantContent = ''
 
@@ -1056,6 +1382,7 @@ export class AdvisorySessionService {
           message_count: providerMessages.length,
           decision_action: context.decisionAction ?? null,
           ...providerPrompt.metadata,
+          ...this.toContextCompressionProviderMetadata(contextCompression),
         },
       })) {
         providerChunks.push(chunk)
@@ -1094,16 +1421,17 @@ export class AdvisorySessionService {
       user: context.user,
       session,
       conversation: {
-        messageCount: history.length + 2,
+        messageCount: tenantScopedHistory.length + 2,
         lastMessageId: assistantMessage.id,
         historyPointer: `conversation_messages:${session.id}`,
       },
+      metadata: contextCompression?.checkpointMetadata,
     })
 
     return {
       sessionId: session.id,
       currentStep: session.currentStep,
-      messages: [...history, userMessage, assistantMessage],
+      messages: [...tenantScopedHistory, userMessage, assistantMessage],
       assistantMessage,
       stream: providerChunks.map((chunk) => ({
         index: chunk.index,
@@ -1126,13 +1454,22 @@ export class AdvisorySessionService {
     const content = this.normalizeMessageContent(context.content)
     const session = await this.getTenantSession(context.tenantId, context.sessionId)
 
-    if (session.status !== AdvisoryWorkflowSessionStatus.Active) {
-      throw new NotFoundException('ThinkTank session not found')
+    if (
+      session.actorId !== context.user.id ||
+      session.status !== AdvisoryWorkflowSessionStatus.Active
+    ) {
+      throw new NotFoundException(THINKTANK_SESSION_NOT_FOUND_MESSAGE)
     }
 
     const messageRepository = this.requireMessageRepository()
     const providerGateway = this.requireProviderGateway()
     const history = await messageRepository.findMessagesBySession(context.tenantId, session.id)
+    const tenantScopedHistory = this.filterTenantSessionMessages(
+      context.tenantId,
+      session.id,
+      session.actorId,
+      history,
+    )
     const providerPrompt = await this.createProviderPromptContext(session)
     const userMessage = await messageRepository.createMessageWithNextSequence(
       context.tenantId,
@@ -1151,9 +1488,26 @@ export class AdvisorySessionService {
         providerMetadata: {},
       },
     )
-    const providerMessages = this.toProviderMessages([...history, userMessage])
+    const scopedConversationMessages = [...tenantScopedHistory, userMessage]
+    const baseProviderMessages = this.toProviderMessages(scopedConversationMessages)
+    const contextCompression = await this.evaluateContextCompression({
+      tenantId: context.tenantId,
+      user: context.user,
+      session,
+      providerPrompt,
+      providerMessages: this.toContextCompressionMessages(scopedConversationMessages),
+    })
+    const providerMessages = contextCompression?.providerMessages ?? baseProviderMessages
     const providerChunks: ThinkTankProviderStreamChunk[] = []
     let assistantContent = ''
+    const preStreamCheckpointWarning = await this.saveCompressionRecoveryCheckpoint({
+      tenantId: context.tenantId,
+      user: context.user,
+      session,
+      userMessage,
+      messageCount: tenantScopedHistory.length + 1,
+      metadata: contextCompression?.checkpointMetadata,
+    })
 
     yield {
       event: 'message.started',
@@ -1179,6 +1533,7 @@ export class AdvisorySessionService {
             message_count: providerMessages.length,
             decision_action: context.decisionAction ?? null,
             ...providerPrompt.metadata,
+            ...this.toContextCompressionProviderMetadata(contextCompression),
           },
         },
         context.signal,
@@ -1252,11 +1607,13 @@ export class AdvisorySessionService {
       user: context.user,
       session,
       conversation: {
-        messageCount: history.length + 2,
+        messageCount: tenantScopedHistory.length + 2,
         lastMessageId: assistantMessage.id,
         historyPointer: `conversation_messages:${session.id}`,
       },
+      metadata: contextCompression?.checkpointMetadata,
     })
+    const effectiveCheckpointWarning = checkpointWarning ?? preStreamCheckpointWarning
 
     yield {
       event: 'message.completed',
@@ -1266,7 +1623,7 @@ export class AdvisorySessionService {
         assistantMessage,
         decisionOptions,
         ...(lastChunk?.usage ? { usage: lastChunk.usage } : {}),
-        ...(checkpointWarning ? { checkpointWarning } : {}),
+        ...(effectiveCheckpointWarning ? { checkpointWarning: effectiveCheckpointWarning } : {}),
       },
     }
   }
@@ -1288,6 +1645,7 @@ export class AdvisorySessionService {
       historyPointer: string
     }
     documentState?: AdvisoryCheckpointDocumentState
+    metadata?: Record<string, unknown>
   }): Promise<AdvisoryCheckpointWarning | undefined> {
     if (!this.checkpointService) return undefined
 
@@ -1299,6 +1657,39 @@ export class AdvisorySessionService {
     const result = await this.readBoundedCheckpointResult(saveTask, context)
 
     return result?.checkpointWarning
+  }
+
+  private async saveCompressionRecoveryCheckpoint(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: {
+      id: string
+      actorId: string
+      workflowKey: string
+      workflowDisplayName: string
+      currentStep: AdvisoryWorkflowSessionCurrentStep
+      updatedAt?: Date
+    }
+    userMessage: AdvisoryConversationMessage
+    messageCount: number
+    metadata?: Record<string, unknown>
+  }): Promise<AdvisoryCheckpointWarning | undefined> {
+    if (!context.metadata || Object.keys(context.metadata).length === 0) return undefined
+
+    return await this.saveCheckpointForSession({
+      tenantId: context.tenantId,
+      user: context.user,
+      session: context.session,
+      conversation: {
+        messageCount: context.messageCount,
+        lastMessageId: context.userMessage.id,
+        historyPointer: `conversation_messages:${context.session.id}`,
+      },
+      metadata: {
+        ...context.metadata,
+        checkpoint_reason: 'context_compression_ready',
+      },
+    })
   }
 
   private async createCheckpointSaveInput(context: {
@@ -1314,6 +1705,7 @@ export class AdvisorySessionService {
     }
     conversation?: AdvisoryCheckpointConversationState
     documentState?: AdvisoryCheckpointDocumentState
+    metadata?: Record<string, unknown>
   }): Promise<AdvisoryCheckpointSaveInput> {
     const [conversation, documentState] = await Promise.all([
       context.conversation ??
@@ -1337,8 +1729,130 @@ export class AdvisorySessionService {
       lastActivityAt: this.nextCheckpointActivityAt(context.tenantId, context.session.id),
       metadata: {
         checkpoint_source: 'advisory_session_service',
+        ...(context.metadata ?? {}),
       },
     }
+  }
+
+  private async evaluateContextCompression(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: {
+      id: string
+      actorId: string
+      workflowKey: string
+      currentStep: AdvisoryWorkflowSessionCurrentStep
+    }
+    providerPrompt: {
+      system: string
+      metadata: Record<string, unknown>
+    }
+    providerMessages: ThinkTankContextCompressionMessage[]
+  }): Promise<ThinkTankContextCompressionResult | null> {
+    if (!this.contextCompressionService) return null
+
+    const result = this.contextCompressionService.evaluate({
+      tenantId: context.tenantId,
+      actorId: context.session.actorId || context.user.id,
+      sessionId: context.session.id,
+      workflowKey: context.session.workflowKey,
+      currentStep: context.session.currentStep,
+      system: context.providerPrompt.system,
+      messages: context.providerMessages,
+      documentSummary: await this.resolveCompressionDocumentSummary(
+        context.tenantId,
+        context.session.id,
+      ),
+    })
+
+    await this.emitContextCompressionTelemetry({
+      tenantId: context.tenantId,
+      user: context.user,
+      session: context.session,
+      compression: result,
+    }).catch(() => undefined)
+
+    return result
+  }
+
+  private async resolveCompressionDocumentSummary(
+    tenantId: string,
+    sessionId: string,
+  ): Promise<string | null> {
+    if (!this.outputRepository) return null
+
+    try {
+      const activeDraft = await this.outputRepository.findActiveDraftForSession(tenantId, sessionId)
+      const completedOutput = activeDraft
+        ? null
+        : await this.outputRepository.findLatestCompletedForSession(tenantId, sessionId)
+
+      return this.optionalText(activeDraft?.summary ?? completedOutput?.summary)
+    } catch {
+      return null
+    }
+  }
+
+  private toContextCompressionProviderMetadata(
+    compression: ThinkTankContextCompressionResult | null,
+  ): Record<string, unknown> {
+    if (!compression) return {}
+
+    return {
+      context_compression_decision: compression.decision,
+      context_compression_reason: compression.reason,
+      context_compression_estimated_tokens: compression.estimatedTokens,
+      context_compression_threshold_tokens: compression.thresholdTokens,
+      context_compression_compressed_estimated_tokens:
+        compression.metadata.compressedEstimatedTokens,
+      context_compression_summary_present: compression.metadata.summaryPresent,
+      context_compression_summary_length: compression.metadata.summaryLength,
+      context_compression_original_message_count: compression.metadata.originalMessageCount,
+      context_compression_provider_message_count: compression.metadata.providerMessageCount,
+    }
+  }
+
+  private async emitContextCompressionTelemetry(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: {
+      id: string
+      actorId: string
+      workflowKey: string
+    }
+    compression: ThinkTankContextCompressionResult
+  }): Promise<void> {
+    await this.eventService.emitTelemetry({
+      eventName:
+        context.compression.decision === 'execute'
+          ? ThinkTankEventName.ContextCompressionExecuted
+          : ThinkTankEventName.ContextCompressionDeferred,
+      tenantId: context.tenantId,
+      actorId: context.session.actorId || context.user.id,
+      subjectType: ThinkTankSubjectType.Session,
+      subjectId: context.session.id,
+      outcome: ThinkTankEventOutcome.Success,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      optional: {
+        sessionId: context.session.id,
+        workflowType: context.session.workflowKey,
+        estimatedTokens: context.compression.estimatedTokens,
+      },
+      telemetry: {
+        entityType: 'ThinkTankContextCompression',
+        organizationId: context.user.organizationId ?? null,
+      },
+      metadata: {
+        thresholdTokens: context.compression.thresholdTokens,
+        policyDecision: context.compression.decision,
+        reason: context.compression.reason,
+        compressedEstimatedTokens: context.compression.metadata.compressedEstimatedTokens,
+        summaryPresent: context.compression.metadata.summaryPresent,
+        summaryLength: context.compression.metadata.summaryLength,
+        originalMessageCount: context.compression.metadata.originalMessageCount,
+        providerMessageCount: context.compression.metadata.providerMessageCount,
+      },
+    })
   }
 
   private async readBoundedCheckpointResult(
@@ -1546,7 +2060,8 @@ export class AdvisorySessionService {
         !requestedOutput ||
         requestedOutput.tenantId !== context.tenantId ||
         requestedOutput.sessionId !== session.id ||
-        requestedOutput.actorId !== context.user.id
+        requestedOutput.actorId !== context.user.id ||
+        requestedOutput.status === AdvisoryWorkflowOutputStatus.Deleted
       ) {
         throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
       }
@@ -1575,16 +2090,25 @@ export class AdvisorySessionService {
     return { session, output }
   }
 
-  private async attachOutputAssetState(
+  private async attachOutputState(
     tenantId: string,
     actorId: string,
     output: AdvisoryWorkflowOutput,
-  ): Promise<AdvisoryWorkflowOutput & { assetState?: AdvisoryOutputAssetState }> {
-    if (!this.outputRatingRepository) return output
+  ): Promise<
+    AdvisoryWorkflowOutput & {
+      assetState?: AdvisoryOutputAssetState
+      knowledgeBaseAssociation?: AdvisoryOutputKnowledgeBaseAssociationState
+    }
+  > {
+    const [assetState, knowledgeBaseAssociation] = await Promise.all([
+      this.loadOutputAssetState(tenantId, actorId, output.id),
+      this.loadOutputKnowledgeBaseAssociationState(tenantId, output.id),
+    ])
 
     return {
       ...output,
-      assetState: await this.loadOutputAssetState(tenantId, actorId, output.id),
+      assetState,
+      knowledgeBaseAssociation,
     }
   }
 
@@ -1616,6 +2140,40 @@ export class AdvisorySessionService {
     )
     const stateMap = new Map<string, AdvisoryOutputAssetState>(
       uniqueOutputIds.map((outputId) => [outputId, this.toOutputAssetState(outputId, null)]),
+    )
+    states.forEach((state) => stateMap.set(state.outputId, state))
+
+    return stateMap
+  }
+
+  private async loadOutputKnowledgeBaseAssociationState(
+    tenantId: string,
+    outputId: string,
+  ): Promise<AdvisoryOutputKnowledgeBaseAssociationState> {
+    if (!this.outputKnowledgeBaseAssociationRepository) {
+      return this.toOutputKnowledgeBaseAssociationState(outputId, null)
+    }
+
+    return this.outputKnowledgeBaseAssociationRepository.findStateForOutput(tenantId, outputId)
+  }
+
+  private async loadOutputKnowledgeBaseAssociationStateMap(
+    tenantId: string,
+    outputIds: string[],
+  ): Promise<Map<string, AdvisoryOutputKnowledgeBaseAssociationState>> {
+    const uniqueOutputIds = [
+      ...new Set(outputIds.filter((outputId) => this.optionalText(outputId))),
+    ]
+    const stateMap = new Map<string, AdvisoryOutputKnowledgeBaseAssociationState>(
+      uniqueOutputIds.map((outputId) => [
+        outputId,
+        this.toOutputKnowledgeBaseAssociationState(outputId, null),
+      ]),
+    )
+    if (!this.outputKnowledgeBaseAssociationRepository) return stateMap
+    const states = await this.outputKnowledgeBaseAssociationRepository.findStatesForOutputIds(
+      tenantId,
+      uniqueOutputIds,
     )
     states.forEach((state) => stateMap.set(state.outputId, state))
 
@@ -1714,6 +2272,7 @@ export class AdvisorySessionService {
       context.query.type !== 'output' &&
       (context.query.status === 'all' ||
         context.query.status === 'active' ||
+        context.query.status === 'paused' ||
         context.query.status === 'completed')
     const shouldLoadOutputs =
       context.query.type !== 'session' &&
@@ -1749,6 +2308,10 @@ export class AdvisorySessionService {
       context.actorId,
       historyOutputIds,
     )
+    const knowledgeBaseAssociations = await this.loadOutputKnowledgeBaseAssociationStateMap(
+      context.tenantId,
+      historyOutputIds,
+    )
     const sessionItems = await Promise.all(
       sessionHistory.items
         .filter((session) => session.actorId === context.actorId)
@@ -1758,12 +2321,19 @@ export class AdvisorySessionService {
             session,
             output,
             output ? assetStates.get(output.id) : undefined,
+            output ? knowledgeBaseAssociations.get(output.id) : undefined,
           )
         }),
     )
     const outputItems = outputHistory.items
       .filter((output) => output.actorId === context.actorId)
-      .map((output) => this.toHistoryOutputItem(output, assetStates.get(output.id)))
+      .map((output) =>
+        this.toHistoryOutputItem(
+          output,
+          assetStates.get(output.id),
+          knowledgeBaseAssociations.get(output.id),
+        ),
+      )
     const items = [...sessionItems, ...outputItems]
       .filter((item): item is AdvisoryHistoryItem => Boolean(item))
       .sort((left, right) => this.compareHistoryItems(left, right))
@@ -1786,6 +2356,7 @@ export class AdvisorySessionService {
     session: AdvisoryWorkflowSession,
     output?: AdvisoryWorkflowOutput,
     assetState?: AdvisoryOutputAssetState,
+    knowledgeBaseAssociation?: AdvisoryOutputKnowledgeBaseAssociationState,
   ): Promise<AdvisoryHistoryItem | null> {
     const status = this.toHistorySessionStatus(session.status)
     if (!status) return null
@@ -1802,7 +2373,9 @@ export class AdvisorySessionService {
       `${session.workflowDisplayName} 会话`
     const summary =
       this.toSafeHistoryText(safeOutput?.summary) ??
-      (status === 'active' ? `未完成 - ${lastStep.label}` : `已完成 - ${lastStep.label}`)
+      (status === 'active' || status === 'paused'
+        ? `未完成 - ${lastStep.label}`
+        : `已完成 - ${lastStep.label}`)
     const timestamp = (safeOutput?.updatedAt ?? session.updatedAt).toISOString()
 
     return {
@@ -1817,14 +2390,16 @@ export class AdvisorySessionService {
       status,
       lastStep,
       timestamp,
-      openTarget: status === 'active' ? 'resume-session' : 'view-session',
+      openTarget: status === 'active' || status === 'paused' ? 'resume-session' : 'view-session',
       ...(safeOutput && assetState ? { assetState } : {}),
+      ...(safeOutput && knowledgeBaseAssociation ? { knowledgeBaseAssociation } : {}),
     }
   }
 
   private toHistoryOutputItem(
     output: AdvisoryWorkflowOutput,
     assetState?: AdvisoryOutputAssetState,
+    knowledgeBaseAssociation?: AdvisoryOutputKnowledgeBaseAssociationState,
   ): AdvisoryHistoryItem | null {
     const status = this.toHistoryOutputStatus(output.status)
     if (!status) return null
@@ -1844,6 +2419,7 @@ export class AdvisorySessionService {
       timestamp: output.updatedAt.toISOString(),
       openTarget: 'view-output',
       ...(assetState ? { assetState } : {}),
+      ...(knowledgeBaseAssociation ? { knowledgeBaseAssociation } : {}),
     }
   }
 
@@ -1896,7 +2472,13 @@ export class AdvisorySessionService {
 
   private normalizeHistoryStatus(value: unknown): AdvisoryHistoryStatus {
     if (value === undefined || value === null || value === '') return 'all'
-    if (value === 'all' || value === 'active' || value === 'completed' || value === 'draft') {
+    if (
+      value === 'all' ||
+      value === 'active' ||
+      value === 'paused' ||
+      value === 'completed' ||
+      value === 'draft'
+    ) {
       return value
     }
     throw new BadRequestException('History status filter is invalid.')
@@ -1957,6 +2539,7 @@ export class AdvisorySessionService {
     status: AdvisoryWorkflowSessionStatus,
   ): AdvisoryHistoryItem['status'] | null {
     if (status === AdvisoryWorkflowSessionStatus.Active) return 'active'
+    if (status === AdvisoryWorkflowSessionStatus.Paused) return 'paused'
     if (status === AdvisoryWorkflowSessionStatus.Completed) return 'completed'
     return null
   }
@@ -2109,7 +2692,10 @@ export class AdvisorySessionService {
       workflowType: context.checkpoint?.workflowType ?? context.session.workflowDisplayName,
       title,
       lastStep,
-      status: AdvisoryWorkflowSessionStatus.Active,
+      status:
+        context.session.status === AdvisoryWorkflowSessionStatus.Paused
+          ? AdvisoryWorkflowSessionStatus.Paused
+          : AdvisoryWorkflowSessionStatus.Active,
       statusSummary: `未完成 - ${lastStep.label}`,
       lastActivityAt,
       checkpointSource: context.checkpointSource,
@@ -2219,6 +2805,9 @@ export class AdvisorySessionService {
     output: AdvisoryWorkflowOutput | null,
     checkpoint?: AdvisoryCheckpointStateSnapshot | null,
   ): string[] {
+    const compressedConclusions = this.extractCompressedRecoveryConclusions(checkpoint)
+    if (compressedConclusions.length > 0) return compressedConclusions
+
     const conclusions = messages
       .filter((message) => message.role === AdvisoryConversationMessageRole.Assistant)
       .map((message) => this.toRecoveryConclusion(message.content))
@@ -2232,6 +2821,34 @@ export class AdvisorySessionService {
 
     const checkpointSummary = this.optionalText(checkpoint?.documentState.summary)
     return checkpointSummary ? [checkpointSummary] : []
+  }
+
+  private extractCompressedRecoveryConclusions(
+    checkpoint?: AdvisoryCheckpointStateSnapshot | null,
+  ): string[] {
+    const metadata = checkpoint?.metadata?.context_compression
+    if (!metadata || typeof metadata !== 'object') return []
+
+    const compression = metadata as Record<string, unknown>
+    const decisions = this.toSafeStringArray(compression.important_decisions, 3)
+    const openQuestions = this.toSafeStringArray(compression.open_questions, 3).map((question) =>
+      question.startsWith('待确认') ? question : `待确认：${question}`,
+    )
+    const values = [...decisions, ...openQuestions]
+    if (values.length > 0) return values
+
+    const summary = this.optionalText(compression.summary)
+    return summary ? [summary.slice(0, 240)] : []
+  }
+
+  private toSafeStringArray(value: unknown, limit: number): string[] {
+    if (!Array.isArray(value)) return []
+
+    return value
+      .map((item) => this.optionalText(item))
+      .filter((item): item is string => Boolean(item))
+      .map((item) => item.slice(0, 240))
+      .slice(0, limit)
   }
 
   private toRecoveryConclusion(value: string): string | null {
@@ -2300,7 +2917,7 @@ export class AdvisorySessionService {
     const session = await this.sessionRepository.findSessionById(tenantId, sessionId)
 
     if (!session) {
-      throw new NotFoundException('ThinkTank session not found')
+      throw new NotFoundException(THINKTANK_SESSION_NOT_FOUND_MESSAGE)
     }
 
     return session
@@ -2308,8 +2925,11 @@ export class AdvisorySessionService {
 
   private async getTenantActorSession(context: AdvisorySessionMessageContext) {
     const session = await this.getTenantSession(context.tenantId, context.sessionId)
-    if (session.actorId !== context.user.id) {
-      throw new NotFoundException('ThinkTank session not found')
+    if (
+      session.actorId !== context.user.id ||
+      session.status === AdvisoryWorkflowSessionStatus.Deleted
+    ) {
+      throw new NotFoundException(THINKTANK_SESSION_NOT_FOUND_MESSAGE)
     }
 
     return session
@@ -2347,6 +2967,27 @@ export class AdvisorySessionService {
     return this.outputRatingRepository
   }
 
+  private requireOutputKnowledgeBaseAssociationRepository(): AdvisoryOutputKnowledgeBaseAssociationRepository {
+    if (!this.outputKnowledgeBaseAssociationRepository) {
+      throw new ServiceUnavailableException(
+        THINKTANK_OUTPUT_KNOWLEDGE_BASE_ASSOCIATION_FAILED_MESSAGE,
+      )
+    }
+
+    return this.outputKnowledgeBaseAssociationRepository
+  }
+
+  private requireKnowledgeBaseAssociationPort(): KnowledgeBaseAssociationPort {
+    return (
+      this.knowledgeBaseAssociationPort ?? {
+        associateOutput: async () => ({
+          status: 'pending',
+          message: THINKTANK_OUTPUT_KNOWLEDGE_BASE_ASSOCIATION_FAILED_MESSAGE,
+        }),
+      }
+    )
+  }
+
   private requireWorkflowParser(): ThinkTankWorkflowParserService {
     if (!this.workflowParser) {
       throw new ServiceUnavailableException(THINKTANK_WORKFLOW_START_FAILED_MESSAGE)
@@ -2357,6 +2998,21 @@ export class AdvisorySessionService {
 
   private assertActiveOutputSession(session: { status: AdvisoryWorkflowSessionStatus }): void {
     if (session.status !== AdvisoryWorkflowSessionStatus.Active) {
+      throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
+    }
+  }
+
+  private async assertActiveSessionStillCurrent(
+    tenantId: string,
+    sessionId: string,
+    actorId: string,
+  ): Promise<void> {
+    const session = await this.sessionRepository.findSessionById(tenantId, sessionId)
+    if (
+      !session ||
+      session.actorId !== actorId ||
+      session.status !== AdvisoryWorkflowSessionStatus.Active
+    ) {
       throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
     }
   }
@@ -2372,6 +3028,7 @@ export class AdvisorySessionService {
     },
   ): Promise<AdvisoryWorkflowOutput> {
     this.assertActiveOutputSession(session)
+    await this.assertActiveSessionStillCurrent(tenantId, session.id, session.actorId)
     const outputRepository = this.requireOutputRepository()
 
     try {
@@ -2464,6 +3121,161 @@ export class AdvisorySessionService {
 
   private optionalText(value: unknown): string | null {
     return typeof value === 'string' && value.trim() ? value.trim() : null
+  }
+
+  private normalizeKnowledgeBaseDestinationKey(value: unknown): string {
+    const destinationKey = this.optionalText(value) ?? DEFAULT_KNOWLEDGE_BASE_DESTINATION_KEY
+    if (!/^[a-z0-9]+(?:[-_][a-z0-9]+)*$/.test(destinationKey) || destinationKey.length > 128) {
+      throw new BadRequestException('Invalid knowledge-base destination key.')
+    }
+    if (destinationKey !== DEFAULT_KNOWLEDGE_BASE_DESTINATION_KEY) {
+      throw new BadRequestException('Unsupported knowledge-base destination.')
+    }
+
+    return destinationKey
+  }
+
+  private buildKnowledgeBaseArtifactPath(tenantId: string, outputId: string): string {
+    return `thinktank://tenant/${tenantId}/advisory/outputs/${outputId}`
+  }
+
+  private buildKnowledgeBaseAiMetadata(
+    tenantId: string,
+    output: AdvisoryWorkflowOutput,
+    destinationKey: string,
+  ): Record<string, unknown> {
+    return {
+      ...(output.aiLabelMetadata ?? {}),
+      sourceWorkflow: output.workflowKey,
+      outputStatus: output.status,
+      sectionCount: output.sections?.length ?? 0,
+      destinationKey,
+      idempotencyKey: `${tenantId}:${output.id}:${destinationKey}`,
+    }
+  }
+
+  private assertReusableKnowledgeBaseOutput(output: AdvisoryWorkflowOutput): void {
+    if (output.status === AdvisoryWorkflowOutputStatus.Completed) return
+    if (this.hasReusableReportContent(output)) return
+
+    throw new BadRequestException('报告尚无可复用内容，完成至少一个报告章节后再保存到知识库。')
+  }
+
+  private hasReusableReportContent(output: AdvisoryWorkflowOutput): boolean {
+    if (this.optionalText(output.contentMarkdown)) return true
+
+    return (output.sections ?? []).some(
+      (section) => this.optionalText(section.heading) || this.optionalText(section.contentMarkdown),
+    )
+  }
+
+  private toSafeAssociationTitle(output: AdvisoryWorkflowOutput): string {
+    return (
+      this.optionalText(output.title) ?? this.toWorkflowDisplayName(output.workflowKey)
+    ).slice(0, 500)
+  }
+
+  private toSafeAssociationSummary(output: AdvisoryWorkflowOutput): string {
+    return (
+      this.optionalText(output.summary) ??
+      (output.status === AdvisoryWorkflowOutputStatus.Completed
+        ? '报告内容已生成'
+        : '报告草稿已生成')
+    )
+  }
+
+  private async invokeKnowledgeBaseAssociationPort(input: {
+    tenantId: string
+    userId: string
+    outputId: string
+    title: string
+    summary: string
+    filePath: string
+    aiMetadata: Record<string, unknown>
+  }): Promise<KnowledgeBaseAssociationResult> {
+    try {
+      return await this.requireKnowledgeBaseAssociationPort().associateOutput(input)
+    } catch {
+      return {
+        status: 'failed',
+        message: THINKTANK_OUTPUT_KNOWLEDGE_BASE_ASSOCIATION_FAILED_MESSAGE,
+      }
+    }
+  }
+
+  private normalizeKnowledgeBasePortResult(
+    result: KnowledgeBaseAssociationResult,
+  ): KnowledgeBaseAssociationResult {
+    const status =
+      result.status === 'associated' || result.status === 'pending' || result.status === 'failed'
+        ? result.status
+        : 'pending'
+
+    return {
+      status,
+      ...(this.optionalText(result.externalReferenceId)
+        ? { externalReferenceId: this.optionalText(result.externalReferenceId) as string }
+        : {}),
+      ...(status !== 'associated'
+        ? {
+            message: THINKTANK_OUTPUT_KNOWLEDGE_BASE_ASSOCIATION_FAILED_MESSAGE,
+          }
+        : {}),
+    }
+  }
+
+  private toKnowledgeBaseMessageCategory(result: KnowledgeBaseAssociationResult): string {
+    if (result.status === 'associated') return 'associated'
+    if (result.status === 'failed') return 'adapter_failed'
+    return 'adapter_unavailable'
+  }
+
+  private toOutputKnowledgeBaseAssociationState(
+    outputId: string,
+    value:
+      | AdvisoryOutputKnowledgeBaseAssociationState
+      | {
+          status?: 'associated' | 'pending' | 'failed' | null
+          destinationKey?: string | null
+          externalReferenceId?: string | null
+          message?: string | null
+          retryCount?: number
+          updatedAt?: Date | string | null
+          associatedAt?: Date | string | null
+        }
+      | null
+      | undefined,
+  ): AdvisoryOutputKnowledgeBaseAssociationState {
+    if (!value) {
+      return {
+        outputId,
+        status: null,
+        destinationKey: null,
+        externalReferenceId: null,
+        message: null,
+        retryCount: 0,
+        updatedAt: null,
+        associatedAt: null,
+      }
+    }
+
+    return {
+      outputId,
+      status: value.status ?? null,
+      destinationKey: value.destinationKey ?? null,
+      externalReferenceId: value.externalReferenceId ?? null,
+      message: value.message ?? null,
+      retryCount: Number.isInteger(value.retryCount) ? (value.retryCount as number) : 0,
+      updatedAt: this.toIsoStringOrNull(value.updatedAt),
+      associatedAt: this.toIsoStringOrNull(value.associatedAt),
+    }
+  }
+
+  private toIsoStringOrNull(value: Date | string | null | undefined): string | null {
+    if (!value) return null
+    if (value instanceof Date) return value.toISOString()
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
   }
 
   private normalizeOutputCompletionOutcome(outcome: string): ThinkTankEventOutcome {
@@ -2731,6 +3543,35 @@ export class AdvisorySessionService {
           : AdvisoryConversationMessageRole.User,
       content: message.content,
     }))
+  }
+
+  private toContextCompressionMessages(
+    messages: AdvisoryConversationMessage[],
+  ): ThinkTankContextCompressionMessage[] {
+    return messages.map((message) => ({
+      tenantId: message.tenantId,
+      actorId: message.actorId,
+      sessionId: message.sessionId,
+      role:
+        message.role === AdvisoryConversationMessageRole.Assistant
+          ? AdvisoryConversationMessageRole.Assistant
+          : AdvisoryConversationMessageRole.User,
+      content: message.content,
+    }))
+  }
+
+  private filterTenantSessionMessages(
+    tenantId: string,
+    sessionId: string,
+    actorId: string,
+    messages: AdvisoryConversationMessage[],
+  ): AdvisoryConversationMessage[] {
+    return messages.filter(
+      (message) =>
+        message.tenantId === tenantId &&
+        message.sessionId === sessionId &&
+        message.actorId === actorId,
+    )
   }
 
   private async resolveAcceptedQuickConsultContext(context: {
@@ -3423,6 +4264,75 @@ export class AdvisorySessionService {
     })
   }
 
+  private async emitSessionDeleted(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: AdvisoryWorkflowSession
+    previousStatus: AdvisoryWorkflowSessionStatus
+    deletedOutputCount: number
+  }): Promise<void> {
+    await this.eventService.emitAudit({
+      eventName: ThinkTankEventName.SessionDeleted,
+      tenantId: context.tenantId,
+      actorId: context.user.id,
+      subjectType: ThinkTankSubjectType.Session,
+      subjectId: context.session.id,
+      outcome: ThinkTankEventOutcome.Success,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      optional: {
+        sessionId: context.session.id,
+        workflowType: context.session.workflowKey,
+      },
+      audit: {
+        action: AuditAction.DELETE,
+        entityType: 'ThinkTankWorkflowSession',
+        entityId: context.session.id,
+        organizationId: context.user.organizationId ?? null,
+      },
+      metadata: {
+        workflow_key: context.session.workflowKey,
+        previous_status: context.previousStatus,
+        deleted_output_count: context.deletedOutputCount,
+        source: 'user_destructive_action',
+      },
+    })
+  }
+
+  private async emitOutputDeleted(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: AdvisoryWorkflowSession
+    output: AdvisoryWorkflowOutput
+    previousStatus: AdvisoryWorkflowOutputStatus
+  }): Promise<void> {
+    await this.eventService.emitAudit({
+      eventName: ThinkTankEventName.OutputDeleted,
+      tenantId: context.tenantId,
+      actorId: context.user.id,
+      subjectType: ThinkTankSubjectType.Output,
+      subjectId: context.output.id,
+      outcome: ThinkTankEventOutcome.Success,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      optional: {
+        sessionId: context.session.id,
+        outputId: context.output.id,
+        workflowType: context.output.workflowKey,
+      },
+      audit: {
+        action: AuditAction.DELETE,
+        entityType: 'ThinkTankWorkflowOutput',
+        entityId: context.output.id,
+        organizationId: context.user.organizationId ?? null,
+      },
+      metadata: {
+        workflow_key: context.output.workflowKey,
+        previous_status: context.previousStatus,
+        section_count: this.readOutputSectionCount(context.output),
+        source: 'user_destructive_action',
+      },
+    })
+  }
+
   private async emitOutputRatingSubmitted(context: {
     tenantId: string
     user: AdvisoryAccessUser
@@ -3492,6 +4402,51 @@ export class AdvisorySessionService {
     })
   }
 
+  private async emitOutputKnowledgeBaseAssociationRequested(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    sessionId: string
+    output: AdvisoryWorkflowOutput
+    knowledgeBaseAssociation: AdvisoryOutputKnowledgeBaseAssociationState
+  }): Promise<void> {
+    await this.eventService.emitTelemetry({
+      eventName: ThinkTankEventName.OutputKnowledgeBaseAssociationRequested,
+      tenantId: context.tenantId,
+      actorId: context.user.id,
+      subjectType: ThinkTankSubjectType.Output,
+      subjectId: context.output.id,
+      outcome:
+        context.knowledgeBaseAssociation.status === 'associated'
+          ? ThinkTankEventOutcome.Success
+          : context.knowledgeBaseAssociation.status === 'failed'
+            ? ThinkTankEventOutcome.Failure
+            : ThinkTankEventOutcome.Partial,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      optional: {
+        sessionId: context.sessionId,
+        outputId: context.output.id,
+        workflowType: context.output.workflowKey,
+      },
+      telemetry: {
+        entityType: 'ThinkTankOutputKnowledgeBaseAssociation',
+        organizationId: context.user.organizationId ?? null,
+      },
+      metadata: {
+        workflowKey: context.output.workflowKey,
+        destinationKey: context.knowledgeBaseAssociation.destinationKey,
+        status: context.knowledgeBaseAssociation.status,
+        retryCount: context.knowledgeBaseAssociation.retryCount,
+        externalReferencePresent: Boolean(context.knowledgeBaseAssociation.externalReferenceId),
+        messageCategory: context.knowledgeBaseAssociation.message
+          ? this.toKnowledgeBaseMessageCategory({
+              status: context.knowledgeBaseAssociation.status ?? 'pending',
+              message: context.knowledgeBaseAssociation.message,
+            })
+          : 'none',
+      },
+    })
+  }
+
   private readRuntimeErrorCode(error: unknown): string {
     if (error instanceof ThinkTankRuntimeError) {
       return error.code
@@ -3520,7 +4475,7 @@ export class AdvisorySessionService {
 }
 
 function estimateProviderTokens(value: string): number {
-  return value.trim() ? value.trim().split(/\s+/).length : 0
+  return estimateThinkTankContextTokens(value)
 }
 
 function slugifyManualChoiceSegment(value: string): string {

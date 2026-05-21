@@ -223,9 +223,28 @@ describe('AdvisorySessionService workflow outputs (ATDD RED)', () => {
     const createdDraft = createOutput()
     outputRepository.createDraft.mockResolvedValueOnce(createdDraft)
 
-    await expect(service.getSessionOutput({ user, tenantId, sessionId })).resolves.toEqual({
+    const result = await service.getSessionOutput({ user, tenantId, sessionId })
+
+    expect(result).toEqual({
       sessionId,
-      output: createdDraft,
+      output: expect.objectContaining(createdDraft),
+    })
+    expect(result.output.assetState).toEqual({
+      outputId: createdDraft.id,
+      rating: null,
+      feedbackTextPresent: false,
+      isFavorited: false,
+      updatedAt: null,
+    })
+    expect(result.output.knowledgeBaseAssociation).toEqual({
+      outputId: createdDraft.id,
+      status: null,
+      destinationKey: null,
+      externalReferenceId: null,
+      message: null,
+      retryCount: 0,
+      updatedAt: null,
+      associatedAt: null,
     })
 
     expect(accessService.assertThinkTankModuleAvailable).toHaveBeenCalledWith(user, tenantId)
@@ -282,9 +301,21 @@ describe('AdvisorySessionService workflow outputs (ATDD RED)', () => {
     outputRepository.findActiveDraftForSession.mockResolvedValueOnce(null)
     outputRepository.findLatestCompletedForSession.mockResolvedValueOnce(completed)
 
-    await expect(service.getSessionOutput({ user, tenantId, sessionId })).resolves.toEqual({
+    const result = await service.getSessionOutput({ user, tenantId, sessionId })
+
+    expect(result).toEqual({
       sessionId,
-      output: completed,
+      output: expect.objectContaining(completed),
+    })
+    expect(result.output.knowledgeBaseAssociation).toEqual({
+      outputId: completed.id,
+      status: null,
+      destinationKey: null,
+      externalReferenceId: null,
+      message: null,
+      retryCount: 0,
+      updatedAt: null,
+      associatedAt: null,
     })
 
     expect(outputRepository.createDraft).not.toHaveBeenCalled()

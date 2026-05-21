@@ -32,6 +32,8 @@ export enum ThinkTankEventName {
   RecommendationFeedbackSubmitted = 'thinktank.recommendation.feedback_submitted',
   OutputRatingSubmitted = 'thinktank.output.rating_submitted',
   OutputFavoriteUpdated = 'thinktank.output.favorite_updated',
+  OutputKnowledgeBaseAssociationRequested = 'thinktank.output.knowledge_base_association_requested',
+  OutputKnowledgeBaseAssociationUpdated = 'thinktank.output.knowledge_base_association_updated',
   ContextCompressionExecuted = 'thinktank.context_compression.executed',
   ContextCompressionDeferred = 'thinktank.context_compression.deferred',
   PartyModeBudgetExceeded = 'thinktank.party_mode.budget_exceeded',
@@ -144,6 +146,12 @@ const RAW_SENSITIVE_KEYS = new Set([
   'enterprisecontext',
   'enterprise_context',
   'attachments',
+  'compressedsummary',
+  'compressed_summary',
+  'contextsummary',
+  'context_summary',
+  'recoverysummary',
+  'recovery_summary',
 ])
 const RESERVED_METADATA_KEYS = new Set([
   'event_name',

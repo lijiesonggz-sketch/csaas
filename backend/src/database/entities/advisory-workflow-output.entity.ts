@@ -11,6 +11,7 @@ import { TenantEntity } from '../interfaces/tenant-entity.interface'
 export enum AdvisoryWorkflowOutputStatus {
   Draft = 'draft',
   Completed = 'completed',
+  Deleted = 'deleted',
 }
 
 export interface AdvisoryWorkflowOutputSection {

@@ -12,6 +12,8 @@ export enum AdvisoryWorkflowSessionStatus {
   Active = 'active',
   LaunchFailed = 'launch_failed',
   Completed = 'completed',
+  Paused = 'paused',
+  Deleted = 'deleted',
 }
 
 export interface AdvisoryWorkflowSessionCurrentStep {

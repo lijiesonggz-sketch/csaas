@@ -8,15 +8,25 @@ import {
   Clock3,
   FileText,
   History as HistoryIcon,
+  LogOut,
   MessageSquareText,
   RotateCcw,
   Search,
   SendHorizontal,
   Settings,
+  Trash2,
   Workflow,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { AdvisoryChatMessage } from '@/components/advisory/AdvisoryChatMessage'
 import { AdvisoryDocumentDrawer } from '@/components/advisory/AdvisoryDocumentDrawer'
@@ -72,9 +82,12 @@ import {
 } from '@/lib/advisory/checkpoints'
 import {
   THINKTANK_OUTPUT_APPEND_FAILED_MESSAGE,
+  THINKTANK_OUTPUT_DELETE_FAILED_MESSAGE,
   THINKTANK_OUTPUT_EXPORT_FAILED_MESSAGE,
   appendThinkTankWorkflowOutputSection,
+  associateThinkTankOutputWithKnowledgeBase,
   completeThinkTankSessionOutput,
+  deleteThinkTankSessionOutput,
   downloadThinkTankSessionOutput,
   fetchThinkTankWorkflowOutput,
   rateThinkTankSessionOutput,
@@ -82,14 +95,20 @@ import {
   type ThinkTankOutputAssetState,
   type ThinkTankOutputExportFormat,
   type ThinkTankOutputFavoriteInput,
+  type ThinkTankOutputKnowledgeBaseAssociationInput,
+  type ThinkTankOutputKnowledgeBaseAssociationState,
   type ThinkTankOutputRatingInput,
   type ThinkTankWorkflowOutput,
 } from '@/lib/advisory/outputs'
 import {
   THINKTANK_RESUME_SESSION_FAILED_MESSAGE,
+  THINKTANK_SAFE_EXIT_SESSION_FAILED_MESSAGE,
+  THINKTANK_DELETE_SESSION_FAILED_MESSAGE,
   THINKTANK_UNFINISHED_SESSIONS_LOAD_FAILED_MESSAGE,
+  deleteThinkTankSession,
   fetchThinkTankUnfinishedSessions,
   resumeThinkTankSession,
+  safeExitThinkTankSession,
   toWorkflowLaunchFromResume,
   type ThinkTankRecoveryMessage,
   type ThinkTankUnfinishedSessionCard,
@@ -141,6 +160,10 @@ type OrganizationContextStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'erro
 type UnfinishedSessionsStatus = 'idle' | 'loading' | 'ready' | 'error'
 type HistoryLoadStatus = 'idle' | 'loading' | 'ready' | 'error'
 type HistoryTimeFilter = 'all' | '7d' | '30d'
+type LifecycleAction =
+  | { type: 'safe-exit'; sessionId: string; title: string }
+  | { type: 'session-delete'; sessionId: string; title: string }
+  | { type: 'output-delete'; sessionId: string; outputId: string; title: string }
 
 const shellGridVariants = cva(
   'grid h-[calc(100vh-var(--advisory-nav-height)-48px)] min-h-[560px] grid-cols-[var(--advisory-sidebar-width)_minmax(var(--advisory-chat-min-width),1fr)_var(--advisory-document-rail-width)] overflow-hidden rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] shadow-sm transition-[font-size]',
@@ -268,8 +291,36 @@ function getHistoryActionLabel(item: ThinkTankHistoryItem): string {
 
 function getHistoryStatusLabel(status: ThinkTankHistoryItem['status']): string {
   if (status === 'active') return '进行中'
+  if (status === 'paused') return '已暂停'
   if (status === 'completed') return '已完成'
   return '草稿'
+}
+
+function getLifecycleDialogTitle(action: LifecycleAction | null): string {
+  if (action?.type === 'safe-exit') return '退出 ThinkTank 工作流'
+  if (action?.type === 'session-delete') return '删除 ThinkTank 会话'
+  if (action?.type === 'output-delete') return '删除 ThinkTank 报告'
+  return '确认操作'
+}
+
+function getLifecycleDialogDescription(action: LifecycleAction | null): string {
+  if (action?.type === 'safe-exit') {
+    return `当前进度已自动保存。退出后会回到 Quick Consult，你可以稍后从未完成会话继续 ${action.title}。`
+  }
+  if (action?.type === 'session-delete') {
+    return `删除 ${action.title} 会隐藏该会话及关联报告，列表和当前详情会同步移除。此操作难以撤销。`
+  }
+  if (action?.type === 'output-delete') {
+    return `删除 ${action.title} 会从历史和当前预览中移除该报告，但不会删除同一会话的其他记录。此操作难以撤销。`
+  }
+  return ''
+}
+
+function getLifecycleConfirmLabel(action: LifecycleAction | null): string {
+  if (action?.type === 'safe-exit') return '确认退出'
+  if (action?.type === 'session-delete') return '删除会话'
+  if (action?.type === 'output-delete') return '删除报告'
+  return '确认'
 }
 
 function applyOutputAssetState(
@@ -293,6 +344,35 @@ function applyHistoryAssetState(
   return {
     ...item,
     assetState,
+  }
+}
+
+function applyOutputKnowledgeBaseAssociationState(
+  output: ThinkTankWorkflowOutput | null,
+  knowledgeBaseAssociation: ThinkTankOutputKnowledgeBaseAssociationState
+): ThinkTankWorkflowOutput | null {
+  if (!output || output.id !== knowledgeBaseAssociation.outputId) return output
+
+  return {
+    ...output,
+    knowledgeBaseAssociation,
+  }
+}
+
+function applyHistoryKnowledgeBaseAssociationState(
+  item: ThinkTankHistoryItem,
+  knowledgeBaseAssociation: ThinkTankOutputKnowledgeBaseAssociationState
+): ThinkTankHistoryItem {
+  if (
+    item.outputId !== knowledgeBaseAssociation.outputId &&
+    item.id !== knowledgeBaseAssociation.outputId
+  ) {
+    return item
+  }
+
+  return {
+    ...item,
+    knowledgeBaseAssociation,
   }
 }
 
@@ -540,6 +620,9 @@ export default function AdvisoryWorkspaceShell() {
   const [outputExportingFormat, setOutputExportingFormat] =
     useState<ThinkTankOutputExportFormat | null>(null)
   const [outputExportError, setOutputExportError] = useState<string | null>(null)
+  const [pendingLifecycleAction, setPendingLifecycleAction] = useState<LifecycleAction | null>(null)
+  const [lifecycleActionInFlight, setLifecycleActionInFlight] = useState(false)
+  const [lifecycleActionError, setLifecycleActionError] = useState<string | null>(null)
   const [organizationContext, setOrganizationContext] = useState<OrganizationContextState | null>(
     null
   )
@@ -556,6 +639,7 @@ export default function AdvisoryWorkspaceShell() {
   const launchInFlightRef = useRef(false)
   const activeLaunchRef = useRef<ThinkTankWorkflowLaunchResult | null>(null)
   const organizationContextGateResolversRef = useRef<Array<(allowed: boolean) => void>>([])
+  const lifecycleCancelButtonRef = useRef<HTMLButtonElement>(null)
   const quickConsultButtonRef = useRef<HTMLButtonElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const conversationFocusRef = useRef<HTMLDivElement>(null)
@@ -612,7 +696,7 @@ export default function AdvisoryWorkspaceShell() {
       scenarioLabel: item.status === 'active' ? '历史会话' : '历史记录',
       sourcePath: `workflow:${item.workflowKey}`,
     },
-    status: item.status,
+    status: item.status === 'paused' ? 'active' : item.status,
     sourceRefs: [`workflow:${item.workflowKey}`],
     firstPrompt:
       item.openTarget === 'view-output'
@@ -666,6 +750,9 @@ export default function AdvisoryWorkspaceShell() {
     setHistoryError(null)
     setResumeError(null)
     setRecoveryMessage(null)
+    setPendingLifecycleAction(null)
+    setLifecycleActionError(null)
+    setLifecycleActionInFlight(false)
     setActiveLaunch(null)
     activeLaunchRef.current = null
     setHistoryPreviewOutput(null)
@@ -1115,6 +1202,243 @@ export default function AdvisoryWorkspaceShell() {
       if (historyOpenRequestIdRef.current === openRequestId) {
         setOpeningHistoryItemKey(null)
       }
+    }
+  }
+
+  const invalidateWorkflowAsyncWork = () => {
+    streamAbortRef.current?.abort()
+    streamAbortRef.current = null
+    messageStreamRequestIdRef.current += 1
+    resumeRequestIdRef.current += 1
+    historyRequestIdRef.current += 1
+    historyOpenRequestIdRef.current += 1
+    outputExportRequestIdRef.current += 1
+    messageSubmitInFlightRef.current = false
+    setIsSubmittingMessage(false)
+    setMessageStreamingStatus('idle')
+    setStreamingMessageId(null)
+    setOpeningHistoryItemKey(null)
+    setResumingSessionId(null)
+    setOutputExportingFormat(null)
+  }
+
+  const clearActiveWorkflowStateIfSession = (sessionId: string) => {
+    if (activeLaunchRef.current?.sessionId !== sessionId) return
+
+    activeLaunchRef.current = null
+    skipNextSessionMessagesLoadRef.current = null
+    skipNextOutputLoadRef.current = null
+    appendedOutputSourceMessageIdsRef.current.clear()
+    setActiveLaunch(null)
+    setSessionMessages([])
+    setSessionMessagesStatus('idle')
+    setMessageError(null)
+    setCheckpointWarningMessage(null)
+    setDraft('')
+    setMessageStreamingStatus('idle')
+    setStreamingMessageId(null)
+    setStreamAnnouncement('')
+    setHasUnreadStreamContent(false)
+    setShowAllMessages(false)
+    setSelectedDecisionLabel(null)
+    setDocumentDrawerOpen(false)
+    setWorkflowOutput(null)
+    setHistoryPreviewOutput(null)
+    setHasUnreadDocumentContent(false)
+    setOutputAnnouncement('')
+    setOutputCompletionFeedback(undefined)
+    setOutputExportError(null)
+    setRecoveryMessage(null)
+    setWorkspaceMode('quick-consult')
+  }
+
+  const upsertPausedUnfinishedSession = (
+    launch: ThinkTankWorkflowLaunchResult | null,
+    updatedAt: string
+  ) => {
+    if (!launch) return
+
+    setUnfinishedSessions((currentSessions) => {
+      const updated = currentSessions.map((sessionCard) =>
+        sessionCard.sessionId === launch.sessionId
+          ? {
+              ...sessionCard,
+              status: 'paused' as const,
+              statusSummary: '已安全退出 - 可继续',
+              lastActivityAt: updatedAt,
+            }
+          : sessionCard
+      )
+      if (updated.some((sessionCard) => sessionCard.sessionId === launch.sessionId)) {
+        return updated
+      }
+
+      return [
+        {
+          sessionId: launch.sessionId,
+          workflowKey: launch.workflow.key,
+          workflowType: launch.workflow.displayName,
+          title: launch.workflow.displayName,
+          lastStep: launch.currentStep,
+          status: 'paused' as const,
+          statusSummary: '已安全退出 - 可继续',
+          lastActivityAt: updatedAt,
+          checkpointSource: 'fallback' as const,
+        },
+        ...updated,
+      ]
+    })
+    setUnfinishedSessionsStatus('ready')
+  }
+
+  const updateHistorySessionPaused = (sessionId: string, updatedAt: string) => {
+    setHistoryItems((currentItems) =>
+      currentItems.map((item) =>
+        item.sessionId === sessionId && item.resultType === 'session'
+          ? {
+              ...item,
+              status: 'paused' as const,
+              timestamp: updatedAt,
+              summary: item.summary || '已安全退出 - 可继续',
+            }
+          : item
+      )
+    )
+  }
+
+  const refreshActiveSessionMessages = async (sessionId: string) => {
+    if (activeLaunchRef.current?.sessionId !== sessionId) return
+
+    try {
+      const result = await fetchThinkTankSessionMessages(sessionId)
+      if (activeLaunchRef.current?.sessionId !== sessionId) return
+      setSessionMessages(result.messages)
+      setSessionMessagesStatus('ready')
+      setShowAllMessages(false)
+      setHasUnreadStreamContent(false)
+    } catch {
+      if (activeLaunchRef.current?.sessionId !== sessionId) return
+      setSessionMessages((currentMessages) =>
+        currentMessages.filter((message) => message.metadata?.streaming !== true)
+      )
+      setSessionMessagesStatus('ready')
+    }
+  }
+
+  const removeOutputFromVisibleState = (outputId: string, sessionId?: string) => {
+    setHistoryItems((currentItems) =>
+      currentItems.filter(
+        (item) =>
+          item.outputId !== outputId && !(item.resultType === 'output' && item.id === outputId)
+      )
+    )
+    setWorkflowOutput((currentOutput) =>
+      currentOutput?.id === outputId && (!sessionId || currentOutput.sessionId === sessionId)
+        ? null
+        : currentOutput
+    )
+    setHistoryPreviewOutput((currentOutput) =>
+      currentOutput?.id === outputId && (!sessionId || currentOutput.sessionId === sessionId)
+        ? null
+        : currentOutput
+    )
+    if (documentDrawerOutput?.id === outputId) {
+      setDocumentDrawerOpen(false)
+    }
+    setHasUnreadDocumentContent(false)
+    setOutputCompletionFeedback(undefined)
+    setOutputExportError(null)
+  }
+
+  const removeSessionFromVisibleState = (sessionId: string) => {
+    setUnfinishedSessions((currentSessions) =>
+      currentSessions.filter((sessionCard) => sessionCard.sessionId !== sessionId)
+    )
+    setHistoryItems((currentItems) => currentItems.filter((item) => item.sessionId !== sessionId))
+    if (documentDrawerOutput?.sessionId === sessionId) {
+      setDocumentDrawerOpen(false)
+    }
+    clearActiveWorkflowStateIfSession(sessionId)
+    setWorkflowOutput((currentOutput) =>
+      currentOutput?.sessionId === sessionId ? null : currentOutput
+    )
+    setHistoryPreviewOutput((currentOutput) =>
+      currentOutput?.sessionId === sessionId ? null : currentOutput
+    )
+  }
+
+  const openLifecycleDialog = (action: LifecycleAction) => {
+    setLifecycleActionError(null)
+    setPendingLifecycleAction(action)
+  }
+
+  const handleLifecycleDialogOpenChange = (nextOpen: boolean) => {
+    if (nextOpen || lifecycleActionInFlight) return
+
+    setPendingLifecycleAction(null)
+    setLifecycleActionError(null)
+  }
+
+  const handleConfirmLifecycleAction = async () => {
+    if (!pendingLifecycleAction || lifecycleActionInFlight) return
+
+    const action = pendingLifecycleAction
+    const shouldRefreshMessagesAfterFailure =
+      activeLaunchRef.current?.sessionId === action.sessionId &&
+      (Boolean(streamAbortRef.current) || messageSubmitInFlightRef.current)
+    setLifecycleActionInFlight(true)
+    setLifecycleActionError(null)
+
+    try {
+      if (action.type === 'safe-exit') {
+        const launchSnapshot = activeLaunchRef.current
+        invalidateWorkflowAsyncWork()
+        const result = await safeExitThinkTankSession(action.sessionId)
+
+        upsertPausedUnfinishedSession(launchSnapshot, result.updatedAt)
+        updateHistorySessionPaused(result.sessionId, result.updatedAt)
+        clearActiveWorkflowStateIfSession(result.sessionId)
+        showCheckpointWarning(result.checkpointWarning)
+        setOutputAnnouncement('工作流已安全退出，当前进度已自动保存。')
+        toast.success('工作流已安全退出，进度已自动保存。')
+      }
+
+      if (action.type === 'session-delete') {
+        if (activeLaunchRef.current?.sessionId === action.sessionId) {
+          invalidateWorkflowAsyncWork()
+        }
+        const result = await deleteThinkTankSession(action.sessionId)
+
+        removeSessionFromVisibleState(result.sessionId)
+        setOutputAnnouncement('ThinkTank 会话已删除。')
+        toast.success('会话已删除。')
+      }
+
+      if (action.type === 'output-delete') {
+        if (activeLaunchRef.current?.sessionId === action.sessionId) {
+          invalidateWorkflowAsyncWork()
+        }
+        const result = await deleteThinkTankSessionOutput(action.sessionId, action.outputId)
+
+        removeOutputFromVisibleState(result.outputId, result.sessionId)
+        setOutputAnnouncement('ThinkTank 报告已删除。')
+        toast.success('报告已删除。')
+      }
+
+      setPendingLifecycleAction(null)
+    } catch (error) {
+      const fallback =
+        action.type === 'safe-exit'
+          ? THINKTANK_SAFE_EXIT_SESSION_FAILED_MESSAGE
+          : action.type === 'session-delete'
+            ? THINKTANK_DELETE_SESSION_FAILED_MESSAGE
+            : THINKTANK_OUTPUT_DELETE_FAILED_MESSAGE
+      setLifecycleActionError(readWorkflowErrorMessage(error, fallback))
+      if (shouldRefreshMessagesAfterFailure) {
+        void refreshActiveSessionMessages(action.sessionId)
+      }
+    } finally {
+      setLifecycleActionInFlight(false)
     }
   }
 
@@ -1621,6 +1945,22 @@ export default function AdvisoryWorkspaceShell() {
     )
   }
 
+  const syncOutputKnowledgeBaseAssociationState = (
+    knowledgeBaseAssociation: ThinkTankOutputKnowledgeBaseAssociationState
+  ) => {
+    setWorkflowOutput((currentOutput) =>
+      applyOutputKnowledgeBaseAssociationState(currentOutput, knowledgeBaseAssociation)
+    )
+    setHistoryPreviewOutput((currentOutput) =>
+      applyOutputKnowledgeBaseAssociationState(currentOutput, knowledgeBaseAssociation)
+    )
+    setHistoryItems((currentItems) =>
+      currentItems.map((item) =>
+        applyHistoryKnowledgeBaseAssociationState(item, knowledgeBaseAssociation)
+      )
+    )
+  }
+
   const handleSubmitOutputRating = async (input: ThinkTankOutputRatingInput) => {
     const targetSessionId = documentDrawerOutput?.sessionId ?? activeSessionId
     if (!targetSessionId) {
@@ -1641,6 +1981,26 @@ export default function AdvisoryWorkspaceShell() {
     const result = await updateThinkTankOutputFavorite(targetSessionId, input)
     syncOutputAssetState(result.assetState)
     setOutputAnnouncement(result.assetState.isFavorited ? '报告已收藏。' : '报告已取消收藏。')
+  }
+
+  const handleAssociateOutputWithKnowledgeBase = async (
+    input: ThinkTankOutputKnowledgeBaseAssociationInput
+  ) => {
+    const targetSessionId = documentDrawerOutput?.sessionId ?? activeSessionId
+    if (!targetSessionId) {
+      throw new Error('暂时无法确认报告所属会话，请重新打开报告后再试。')
+    }
+
+    const result = await associateThinkTankOutputWithKnowledgeBase(targetSessionId, input)
+    syncOutputKnowledgeBaseAssociationState(result.knowledgeBaseAssociation)
+    const status = result.knowledgeBaseAssociation.status
+    setOutputAnnouncement(
+      status === 'associated'
+        ? '报告已关联知识库。'
+        : status === 'failed'
+          ? '知识库关联失败，报告仍保留在 ThinkTank。'
+          : '报告已进入知识库待同步状态。'
+    )
   }
 
   const handleExportOutput = async (format: ThinkTankOutputExportFormat) => {
@@ -1821,6 +2181,54 @@ export default function AdvisoryWorkspaceShell() {
         onSave={handleSaveOrganizationContext}
         onSkip={handleSkipOrganizationContext}
       />
+      <Dialog open={Boolean(pendingLifecycleAction)} onOpenChange={handleLifecycleDialogOpenChange}>
+        <DialogContent
+          role="alertdialog"
+          className="rounded-sm"
+          onOpenAutoFocus={(event) => {
+            event.preventDefault()
+            lifecycleCancelButtonRef.current?.focus({ preventScroll: true })
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>{getLifecycleDialogTitle(pendingLifecycleAction)}</DialogTitle>
+            <DialogDescription>
+              {getLifecycleDialogDescription(pendingLifecycleAction)}
+            </DialogDescription>
+          </DialogHeader>
+          {lifecycleActionError && (
+            <p
+              role="alert"
+              className="rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-sm leading-6 text-[hsl(var(--destructive))]"
+            >
+              {lifecycleActionError}
+            </p>
+          )}
+          <DialogFooter>
+            <Button
+              ref={lifecycleCancelButtonRef}
+              type="button"
+              variant="outline"
+              disabled={lifecycleActionInFlight}
+              onClick={() => handleLifecycleDialogOpenChange(false)}
+            >
+              继续编辑
+            </Button>
+            <Button
+              type="button"
+              variant={pendingLifecycleAction?.type === 'safe-exit' ? 'default' : 'destructive'}
+              disabled={lifecycleActionInFlight}
+              onClick={() => {
+                void handleConfirmLifecycleAction()
+              }}
+            >
+              {lifecycleActionInFlight
+                ? '处理中'
+                : getLifecycleConfirmLabel(pendingLifecycleAction)}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <p
         id={ADVISORY_STATE_SUMMARY_ID}
         role="status"
@@ -1999,6 +2407,7 @@ export default function AdvisoryWorkspaceShell() {
                       <SelectContent>
                         <SelectItem value="all">全部</SelectItem>
                         <SelectItem value="active">进行中</SelectItem>
+                        <SelectItem value="paused">已暂停</SelectItem>
                         <SelectItem value="completed">已完成</SelectItem>
                         <SelectItem value="draft">草稿</SelectItem>
                       </SelectContent>
@@ -2060,9 +2469,13 @@ export default function AdvisoryWorkspaceShell() {
                       const itemKey = getHistoryItemKey(item)
                       const isOpening = openingHistoryItemKey === itemKey
                       const isActive = activeLaunch?.sessionId === item.sessionId
+                      const canDeleteHistoryItem =
+                        item.resultType === 'output' ||
+                        item.status === 'active' ||
+                        item.status === 'paused'
 
                       return (
-                        <li key={itemKey}>
+                        <li key={itemKey} className="relative">
                           <button
                             type="button"
                             aria-label={getHistoryActionLabel(item)}
@@ -2072,7 +2485,7 @@ export default function AdvisoryWorkspaceShell() {
                               void handleOpenHistoryItem(item)
                             }}
                             className={cn(
-                              'flex min-h-24 w-full flex-col gap-2 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-left text-xs text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-60',
+                              'flex min-h-24 w-full flex-col gap-2 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 pr-11 text-left text-xs text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-60',
                               isActive &&
                                 workspaceMode === 'workflow' &&
                                 'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
@@ -2106,10 +2519,59 @@ export default function AdvisoryWorkspaceShell() {
                                   <span>已收藏</span>
                                 </>
                               )}
+                              {item.knowledgeBaseAssociation?.status && (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <span>
+                                    {item.knowledgeBaseAssociation.status === 'associated'
+                                      ? '已关联知识库'
+                                      : item.knowledgeBaseAssociation.status === 'failed'
+                                        ? '知识库关联失败'
+                                        : '知识库待同步'}
+                                  </span>
+                                </>
+                              )}
                               <span aria-hidden="true">·</span>
                               <span>{isOpening ? '打开中' : isActive ? '已打开' : '打开'}</span>
                             </span>
                           </button>
+                          {canDeleteHistoryItem && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              aria-label={
+                                item.resultType === 'output'
+                                  ? `删除报告 ${item.title}`
+                                  : `删除会话 ${item.title}`
+                              }
+                              title={item.resultType === 'output' ? '删除报告' : '删除会话'}
+                              disabled={
+                                Boolean(openingHistoryItemKey) ||
+                                Boolean(resumingSessionId) ||
+                                lifecycleActionInFlight
+                              }
+                              onClick={() =>
+                                openLifecycleDialog(
+                                  item.resultType === 'output' && item.outputId
+                                    ? {
+                                        type: 'output-delete',
+                                        sessionId: item.sessionId,
+                                        outputId: item.outputId,
+                                        title: item.title,
+                                      }
+                                    : {
+                                        type: 'session-delete',
+                                        sessionId: item.sessionId,
+                                        title: item.title,
+                                      }
+                                )
+                              }
+                              className="absolute right-2 top-2 h-7 w-7 rounded-sm text-[hsl(var(--destructive))]"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </li>
                       )
                     })}
@@ -2163,7 +2625,7 @@ export default function AdvisoryWorkspaceShell() {
                       const isActive = activeLaunch?.sessionId === sessionCard.sessionId
 
                       return (
-                        <li key={sessionCard.sessionId}>
+                        <li key={sessionCard.sessionId} className="relative">
                           <button
                             type="button"
                             aria-label={`继续 ${sessionCard.title}`}
@@ -2173,7 +2635,7 @@ export default function AdvisoryWorkspaceShell() {
                               void handleResumeSession(sessionCard.sessionId)
                             }}
                             className={cn(
-                              'flex min-h-24 w-full flex-col gap-2 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-left text-xs text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-60',
+                              'flex min-h-24 w-full flex-col gap-2 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 pr-11 text-left text-xs text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-60',
                               isActive &&
                                 workspaceMode === 'workflow' &&
                                 'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
@@ -2202,6 +2664,24 @@ export default function AdvisoryWorkspaceShell() {
                               <span>{formatSessionActivityTime(sessionCard.lastActivityAt)}</span>
                             </span>
                           </button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`移除会话 ${sessionCard.title}`}
+                            title="移除会话"
+                            disabled={Boolean(resumingSessionId) || lifecycleActionInFlight}
+                            onClick={() =>
+                              openLifecycleDialog({
+                                type: 'session-delete',
+                                sessionId: sessionCard.sessionId,
+                                title: sessionCard.title,
+                              })
+                            }
+                            className="absolute right-2 top-2 h-7 w-7 rounded-sm text-[hsl(var(--destructive))]"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </li>
                       )
                     })}
@@ -2379,18 +2859,37 @@ export default function AdvisoryWorkspaceShell() {
                       aria-label={`${activeLaunch.workflow.displayName} 首个提示`}
                       className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-muted-bg))] p-5"
                     >
-                      <div className="mb-4 flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-sm bg-[hsl(var(--advisory-icon-bg))]">
-                          <MessageSquareText className="h-5 w-5 text-[hsl(var(--advisory-foreground))]" />
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-sm bg-[hsl(var(--advisory-icon-bg))]">
+                            <MessageSquareText className="h-5 w-5 text-[hsl(var(--advisory-foreground))]" />
+                          </div>
+                          <div className="min-w-0">
+                            <h2 className="truncate text-base font-semibold text-[hsl(var(--advisory-foreground))]">
+                              {activeLaunch.workflow.displayName}
+                            </h2>
+                            <p className="truncate text-xs text-[hsl(var(--advisory-muted-foreground))]">
+                              {activeLaunch.workflow.scenarioLabel}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h2 className="text-base font-semibold text-[hsl(var(--advisory-foreground))]">
-                            {activeLaunch.workflow.displayName}
-                          </h2>
-                          <p className="text-xs text-[hsl(var(--advisory-muted-foreground))]">
-                            {activeLaunch.workflow.scenarioLabel}
-                          </p>
-                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          aria-label="安全退出工作流"
+                          onClick={() =>
+                            openLifecycleDialog({
+                              type: 'safe-exit',
+                              sessionId: activeLaunch.sessionId,
+                              title: activeLaunch.workflow.displayName,
+                            })
+                          }
+                          className="h-8 shrink-0 rounded-sm px-3 text-xs"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          安全退出
+                        </Button>
                       </div>
                       <div className="whitespace-pre-wrap text-[length:inherit] leading-[inherit] text-[hsl(var(--advisory-foreground))]">
                         {activeLaunch.firstPrompt}
@@ -2608,6 +3107,7 @@ export default function AdvisoryWorkspaceShell() {
           onDismissExportError={() => setOutputExportError(null)}
           onSubmitOutputRating={handleSubmitOutputRating}
           onUpdateOutputFavorite={handleUpdateOutputFavorite}
+          onAssociateOutputWithKnowledgeBase={handleAssociateOutputWithKnowledgeBase}
         />
       </div>
     </section>

@@ -31,6 +31,10 @@ export {
 export { AdvisoryRecommendationFeedback } from './advisory-recommendation-feedback.entity'
 export { AdvisoryOutputRating } from './advisory-output-rating.entity'
 export {
+  AdvisoryOutputKnowledgeBaseAssociation,
+  ADVISORY_OUTPUT_KB_ASSOCIATION_STATUSES,
+} from './advisory-output-knowledge-base-association.entity'
+export {
   AdvisoryWorkflowSession,
   AdvisoryWorkflowSessionStatus,
 } from './advisory-workflow-session.entity'

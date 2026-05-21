@@ -80,6 +80,9 @@ const mockFetchThinkTankWorkflowOutput = jest.fn()
 const mockAppendThinkTankWorkflowOutputSection = jest.fn()
 const mockCompleteThinkTankSessionOutput = jest.fn()
 const mockDownloadThinkTankSessionOutput = jest.fn()
+const mockRateThinkTankSessionOutput = jest.fn()
+const mockUpdateThinkTankOutputFavorite = jest.fn()
+const mockAssociateThinkTankOutputWithKnowledgeBase = jest.fn()
 
 jest.mock(
   '@/lib/advisory/outputs',
@@ -94,9 +97,46 @@ jest.mock(
       mockCompleteThinkTankSessionOutput(...args),
     downloadThinkTankSessionOutput: (...args: unknown[]) =>
       mockDownloadThinkTankSessionOutput(...args),
+    rateThinkTankSessionOutput: (...args: unknown[]) => mockRateThinkTankSessionOutput(...args),
+    updateThinkTankOutputFavorite: (...args: unknown[]) =>
+      mockUpdateThinkTankOutputFavorite(...args),
+    associateThinkTankOutputWithKnowledgeBase: (...args: unknown[]) =>
+      mockAssociateThinkTankOutputWithKnowledgeBase(...args),
   }),
   { virtual: true }
 )
+
+jest.mock('@/lib/advisory/history', () => ({
+  THINKTANK_HISTORY_LOAD_FAILED_MESSAGE: '暂时无法加载 ThinkTank 历史记录，请稍后重试。',
+  THINKTANK_HISTORY_SEARCH_FAILED_MESSAGE: '暂时无法搜索 ThinkTank 历史记录，请稍后重试。',
+  fetchThinkTankSessionHistory: jest.fn().mockResolvedValue({
+    items: [],
+    meta: { page: 1, limit: 20, total: 0 },
+  }),
+  searchThinkTankHistory: jest.fn().mockResolvedValue({
+    items: [],
+    meta: { page: 1, limit: 20, total: 0 },
+  }),
+}))
+
+jest.mock('@/lib/advisory/sessions', () => ({
+  THINKTANK_RESUME_SESSION_FAILED_MESSAGE: '暂时无法恢复该 ThinkTank 会话，请稍后重试。',
+  THINKTANK_UNFINISHED_SESSIONS_LOAD_FAILED_MESSAGE:
+    '暂时无法加载未完成的 ThinkTank 会话，请稍后重试。',
+  fetchThinkTankUnfinishedSessions: jest.fn().mockResolvedValue({ sessions: [] }),
+  resumeThinkTankSession: jest.fn(),
+  toWorkflowLaunchFromResume: jest.fn(),
+}))
+
+jest.mock('@/lib/advisory/organization-context', () => ({
+  ORGANIZATION_CONTEXT_LOAD_FAILED_MESSAGE: '暂时无法加载企业背景，请稍后重试。',
+  ORGANIZATION_CONTEXT_SAVE_FAILED_MESSAGE: '暂时无法保存企业背景，请稍后重试。',
+  fetchOrganizationContext: jest.fn().mockResolvedValue(null),
+  saveOrganizationContext: jest.fn(),
+  readOrganizationContextSkip: jest.fn(() => true),
+  writeOrganizationContextSkip: jest.fn(),
+  isOrganizationContextUsable: jest.fn(() => false),
+}))
 
 type Story28PageOutputSection = {
   id: string
@@ -1791,13 +1831,12 @@ describe('AdvisoryPage', () => {
     })
 
     workflowCatalog.forEach((workflow) => {
-      expect(within(workflowNav).getByText(workflow.displayName)).toBeInTheDocument()
-      expect(within(workflowNav).getByText(workflow.scenarioLabel)).toBeInTheDocument()
-      expect(
-        within(workflowNav).getByRole('button', {
-          name: new RegExp(`启动 ${workflow.displayName}`),
-        })
-      ).toBeEnabled()
+      const launchButton = within(workflowNav).getByRole('button', {
+        name: new RegExp(`启动 ${workflow.displayName}`),
+      })
+      expect(launchButton).toHaveTextContent(workflow.displayName)
+      expect(launchButton).toHaveTextContent(workflow.scenarioLabel)
+      expect(launchButton).toBeEnabled()
     })
     expect(within(workflowNav).getAllByRole('button', { name: /启动 / })).toHaveLength(8)
     expect(screen.queryByText('待接入')).not.toBeInTheDocument()

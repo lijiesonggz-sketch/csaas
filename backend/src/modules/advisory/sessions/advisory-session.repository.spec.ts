@@ -1,5 +1,9 @@
 import { Repository } from 'typeorm'
 import {
+  AdvisoryWorkflowOutput,
+  AdvisoryWorkflowOutputStatus,
+} from '../../../database/entities/advisory-workflow-output.entity'
+import {
   AdvisoryWorkflowSession,
   AdvisoryWorkflowSessionStatus,
 } from '../../../database/entities/advisory-workflow-session.entity'
@@ -118,18 +122,25 @@ describe('AdvisorySessionRepository', () => {
     const result = await repository.findUnfinishedSessionsForActor(tenantId, session.actorId)
 
     expect(result).toEqual([session])
+    const findOptions = typeormRepository.find.mock.calls[0][0] as unknown as {
+      where: { status: { _type: string; _value: AdvisoryWorkflowSessionStatus[] } }
+    }
     expect(typeormRepository.find).toHaveBeenCalledWith({
-      where: {
+      where: expect.objectContaining({
         tenantId,
         actorId: session.actorId,
-        status: AdvisoryWorkflowSessionStatus.Active,
-      },
+      }),
       order: {
         updatedAt: 'DESC',
         createdAt: 'DESC',
       },
       take: 10,
     })
+    expect(findOptions.where.status._type).toBe('in')
+    expect(findOptions.where.status._value).toEqual([
+      AdvisoryWorkflowSessionStatus.Active,
+      AdvisoryWorkflowSessionStatus.Paused,
+    ])
   })
 
   it('[P0][4.2-BE-009][AC1] rejects unfinished session lookup without a scoped actor id', async () => {
@@ -164,6 +175,96 @@ describe('AdvisorySessionRepository', () => {
     )
     expect(typeormRepository.findOne).toHaveBeenCalledWith({
       where: { id: session.id, tenantId },
+    })
+  })
+
+  it('[P0][4.7-BE-001][AC1] returns null when safe-exit loses the active-state update race', async () => {
+    const session = createSession({ status: AdvisoryWorkflowSessionStatus.Active })
+    typeormRepository.findOne.mockResolvedValueOnce(session)
+    typeormRepository.update.mockResolvedValueOnce({ affected: 0 } as never)
+
+    await expect(
+      repository.pauseActiveSessionForActor(tenantId, session.id, session.actorId, {
+        exit_reason: 'user_safe_exit',
+      }),
+    ).resolves.toBeNull()
+
+    expect(typeormRepository.update).toHaveBeenCalledWith(
+      {
+        id: session.id,
+        tenantId,
+        actorId: session.actorId,
+        status: AdvisoryWorkflowSessionStatus.Active,
+      },
+      expect.objectContaining({
+        status: AdvisoryWorkflowSessionStatus.Paused,
+      }),
+    )
+    expect(typeormRepository.findOne).toHaveBeenCalledTimes(1)
+  })
+
+  it('[P0][4.7-BE-003][AC3] binds output tombstone metadata parameters inside session delete transactions', async () => {
+    const session = createSession({ status: AdvisoryWorkflowSessionStatus.Paused })
+    const deletedSession = createSession({ status: AdvisoryWorkflowSessionStatus.Deleted })
+    const output = {
+      id: '990e8400-e29b-41d4-a716-446655440000',
+      tenantId,
+      sessionId: session.id,
+      actorId: session.actorId,
+      workflowKey: session.workflowKey,
+      status: AdvisoryWorkflowOutputStatus.Draft,
+      metadata: {},
+    } as AdvisoryWorkflowOutput
+    const deletedAt = '2026-05-21T01:11:00.000Z'
+    const outputQueryBuilder = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      setParameters: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 1 }),
+    }
+    const transactionalSessionRepository = {
+      findOne: jest.fn().mockResolvedValueOnce(session).mockResolvedValueOnce(deletedSession),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+    }
+    const transactionalOutputRepository = {
+      find: jest.fn().mockResolvedValue([output]),
+      createQueryBuilder: jest.fn().mockReturnValue(outputQueryBuilder),
+    }
+    ;(typeormRepository as unknown as { manager: unknown }).manager = {
+      transaction: jest.fn(
+        async (callback: (manager: { getRepository: (entity: unknown) => unknown }) => unknown) =>
+          callback({
+            getRepository: (entity: unknown) =>
+              entity === AdvisoryWorkflowSession
+                ? transactionalSessionRepository
+                : transactionalOutputRepository,
+          }),
+      ),
+    }
+
+    await expect(
+      repository.tombstoneSessionWithOutputs({
+        tenantId,
+        sessionId: session.id,
+        actorId: session.actorId,
+        deletedAt,
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        deletedOutputCount: 1,
+      }),
+    )
+
+    const metadataSql = outputQueryBuilder.set.mock.calls[0][0].metadata()
+    expect(metadataSql).toContain(':deletedAt')
+    expect(metadataSql).toContain(':deletedBy')
+    expect(metadataSql).not.toContain(deletedAt)
+    expect(outputQueryBuilder.setParameters).toHaveBeenCalledWith({
+      deletedAt,
+      deletedBy: session.actorId,
+      deleteSource: 'session_delete',
     })
   })
 

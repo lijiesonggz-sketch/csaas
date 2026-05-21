@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Optional,
   Param,
@@ -45,6 +46,11 @@ interface SubmitOutputRatingBody {
 interface UpdateOutputFavoriteBody {
   outputId?: unknown
   isFavorited?: unknown
+}
+
+interface AssociateOutputKnowledgeBaseBody {
+  outputId?: unknown
+  destinationKey?: unknown
 }
 
 interface LaunchWorkflowBody {
@@ -193,6 +199,36 @@ export class AdvisorySessionController {
     return { data: resumed }
   }
 
+  @Post('sessions/:sessionId/exit')
+  async safeExitSession(
+    @Param('sessionId') sessionId: string,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const exited = await this.advisorySessionService.safeExitSession({
+      user,
+      tenantId,
+      sessionId,
+    })
+
+    return { data: exited }
+  }
+
+  @Delete('sessions/:sessionId')
+  async deleteSession(
+    @Param('sessionId') sessionId: string,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const deleted = await this.advisorySessionService.deleteSession({
+      user,
+      tenantId,
+      sessionId,
+    })
+
+    return { data: deleted }
+  }
+
   @Get('sessions/:sessionId/messages')
   async getMessages(
     @Param('sessionId') sessionId: string,
@@ -223,6 +259,23 @@ export class AdvisorySessionController {
     })
 
     return { data: output }
+  }
+
+  @Delete('sessions/:sessionId/output/:outputId')
+  async deleteOutput(
+    @Param('sessionId') sessionId: string,
+    @Param('outputId') outputId: string,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const deleted = await this.advisorySessionService.deleteOutput({
+      user,
+      tenantId,
+      sessionId,
+      outputId,
+    })
+
+    return { data: deleted }
   }
 
   @Get('sessions/:sessionId/output/state')
@@ -283,6 +336,45 @@ export class AdvisorySessionController {
     })
 
     return { data: favorite }
+  }
+
+  @Get('sessions/:sessionId/output/knowledge-base/state')
+  async getOutputKnowledgeBaseAssociationState(
+    @Param('sessionId') sessionId: string,
+    @Query('outputId') outputId: string | undefined,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const association = await this.advisorySessionService.getOutputKnowledgeBaseAssociationState({
+      user,
+      tenantId,
+      sessionId,
+      ...(this.toOptionalText(outputId) ? { outputId: this.toOptionalText(outputId) } : {}),
+    })
+
+    return { data: association }
+  }
+
+  @Put('sessions/:sessionId/output/knowledge-base')
+  async associateOutputWithKnowledgeBase(
+    @Param('sessionId') sessionId: string,
+    @Body() body: AssociateOutputKnowledgeBaseBody,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const association = await this.advisorySessionService.associateOutputWithKnowledgeBase({
+      user,
+      tenantId,
+      sessionId,
+      ...(this.toOptionalText(body?.outputId)
+        ? { outputId: this.toOptionalText(body?.outputId) }
+        : {}),
+      ...(this.toOptionalText(body?.destinationKey)
+        ? { destinationKey: this.toOptionalText(body?.destinationKey) }
+        : {}),
+    })
+
+    return { data: association }
   }
 
   @Get('sessions/:sessionId/checkpoint')

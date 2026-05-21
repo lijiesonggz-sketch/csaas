@@ -150,15 +150,23 @@ describe('AdvisoryWorkflowOutputRepository (ATDD RED)', () => {
         createdAt: 'DESC',
       },
     })
+    const findOptions = typeormRepository.find.mock.calls[0][0] as unknown as {
+      where: { status: { _type: string; _value: AdvisoryWorkflowOutputStatus[] } }
+    }
     expect(typeormRepository.find).toHaveBeenCalledWith({
-      where: {
+      where: expect.objectContaining({
         tenantId,
         sessionId,
-      },
+      }),
       order: {
         createdAt: 'DESC',
       },
     })
+    expect(findOptions.where.status._type).toBe('in')
+    expect(findOptions.where.status._value).toEqual([
+      AdvisoryWorkflowOutputStatus.Draft,
+      AdvisoryWorkflowOutputStatus.Completed,
+    ])
   })
 
   test('[P0] appends a labeled section by direct output id without accepting nested tenant or output ownership fields', async () => {
@@ -297,6 +305,7 @@ describe('AdvisoryWorkflowOutputRepository (ATDD RED)', () => {
     ).resolves.toEqual({ items: [completed], total: 1 })
 
     expect(typeormRepository.createQueryBuilder).toHaveBeenCalledWith('output')
+    expect(queryBuilder.innerJoin).toHaveBeenCalled()
     expect(queryBuilder.where).toHaveBeenCalledWith('output.tenant_id = :tenantId', {
       tenantId,
     })
@@ -312,6 +321,35 @@ describe('AdvisoryWorkflowOutputRepository (ATDD RED)', () => {
     expect(queryBuilder.take).toHaveBeenCalledWith(20)
     expect(queryBuilder.getManyAndCount).toHaveBeenCalled()
     expect(typeormRepository.find).not.toHaveBeenCalled()
+  })
+
+  test('[P0][4.7-BE-004][AC2,AC3] refuses stale output tombstone updates after a concurrent delete', async () => {
+    const output = createOutput({ status: AdvisoryWorkflowOutputStatus.Completed })
+    typeormRepository.findOne.mockResolvedValueOnce(output)
+    typeormRepository.update.mockResolvedValueOnce({ affected: 0 } as never)
+
+    await expect(
+      repository.tombstoneOutputForSession({
+        tenantId,
+        actorId,
+        sessionId,
+        outputId: output.id,
+        deletedAt: '2026-05-21T01:12:00.000Z',
+      }),
+    ).resolves.toBeNull()
+
+    expect(typeormRepository.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: output.id,
+        tenantId,
+        sessionId,
+        actorId,
+      }),
+      expect.objectContaining({
+        status: AdvisoryWorkflowOutputStatus.Deleted,
+      }),
+    )
+    expect(typeormRepository.findOne).toHaveBeenCalledTimes(1)
   })
 
   test('[P0][4.3-BE-005][AC2] escapes output search wildcards without searching section metadata', async () => {
@@ -367,6 +405,7 @@ describe('AdvisoryWorkflowOutputRepository (ATDD RED)', () => {
 
 function createSelectQueryBuilderMock<T>(items: T[], total: number) {
   return {
+    innerJoin: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),

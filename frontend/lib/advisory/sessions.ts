@@ -12,6 +12,10 @@ export const THINKTANK_UNFINISHED_SESSIONS_LOAD_FAILED_MESSAGE =
   '暂时无法加载未完成的 ThinkTank 会话，请稍后重试。'
 export const THINKTANK_RESUME_SESSION_FAILED_MESSAGE =
   '暂时无法恢复该 ThinkTank 会话，请稍后重试。'
+export const THINKTANK_SAFE_EXIT_SESSION_FAILED_MESSAGE =
+  '暂时无法安全退出该 ThinkTank 会话，请稍后重试。'
+export const THINKTANK_DELETE_SESSION_FAILED_MESSAGE =
+  '暂时无法删除该 ThinkTank 会话，请稍后重试。'
 
 export type ThinkTankResumeCheckpointSource = 'hot' | 'cold' | 'fallback'
 
@@ -21,7 +25,7 @@ export interface ThinkTankUnfinishedSessionCard {
   workflowType: string
   title: string
   lastStep: ThinkTankWorkflowCurrentStep
-  status: 'active'
+  status: 'active' | 'paused'
   statusSummary: string
   lastActivityAt: string
   checkpointSource: ThinkTankResumeCheckpointSource
@@ -55,6 +59,14 @@ export interface ThinkTankResumeSessionResult {
   checkpointWarning?: ThinkTankCheckpointWarning
 }
 
+export interface ThinkTankSessionLifecycleResult {
+  sessionId: string
+  status: 'paused' | 'deleted'
+  outputIds?: string[]
+  updatedAt: string
+  checkpointWarning?: ThinkTankCheckpointWarning
+}
+
 export function toWorkflowLaunchFromResume(
   result: ThinkTankResumeSessionResult
 ): {
@@ -81,6 +93,46 @@ export function toWorkflowLaunchFromResume(
     currentStep: result.session.lastStep,
     ...(result.checkpointWarning ? { checkpointWarning: result.checkpointWarning } : {}),
   }
+}
+
+export async function safeExitThinkTankSession(
+  sessionId: string
+): Promise<ThinkTankSessionLifecycleResult> {
+  const headers = await getAuthHeadersAsync()
+  const response = await fetch(`/api/advisory/sessions/${encodeURIComponent(sessionId)}/exit`, {
+    method: 'POST',
+    headers,
+    cache: 'no-store',
+  })
+  const body = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new Error(readAdvisoryMessage(body) ?? THINKTANK_SAFE_EXIT_SESSION_FAILED_MESSAGE)
+  }
+
+  return normalizeSessionLifecycleResult(body, THINKTANK_SAFE_EXIT_SESSION_FAILED_MESSAGE, [
+    'paused',
+  ])
+}
+
+export async function deleteThinkTankSession(
+  sessionId: string
+): Promise<ThinkTankSessionLifecycleResult> {
+  const headers = await getAuthHeadersAsync()
+  const response = await fetch(`/api/advisory/sessions/${encodeURIComponent(sessionId)}`, {
+    method: 'DELETE',
+    headers,
+    cache: 'no-store',
+  })
+  const body = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new Error(readAdvisoryMessage(body) ?? THINKTANK_DELETE_SESSION_FAILED_MESSAGE)
+  }
+
+  return normalizeSessionLifecycleResult(body, THINKTANK_DELETE_SESSION_FAILED_MESSAGE, [
+    'deleted',
+  ])
 }
 
 export async function fetchThinkTankUnfinishedSessions(): Promise<ThinkTankUnfinishedSessionsResult> {
@@ -146,6 +198,34 @@ export async function resumeThinkTankSession(
   }
 }
 
+function normalizeSessionLifecycleResult(
+  body: unknown,
+  fallbackMessage: string,
+  allowedStatuses: Array<ThinkTankSessionLifecycleResult['status']>
+): ThinkTankSessionLifecycleResult {
+  const data = unwrapAdvisoryEnvelope<Partial<ThinkTankSessionLifecycleResult>>(body)
+  const sessionId = normalizeNonEmptyText(data?.sessionId)
+  const status = allowedStatuses.includes(data?.status as ThinkTankSessionLifecycleResult['status'])
+    ? (data?.status as ThinkTankSessionLifecycleResult['status'])
+    : null
+  const updatedAt = normalizeIsoDate(data?.updatedAt)
+
+  if (!sessionId || !status || !updatedAt) {
+    throw new Error(fallbackMessage)
+  }
+
+  const outputIds = normalizeTextList(data?.outputIds)
+  const checkpointWarning = normalizeThinkTankCheckpointWarning(data?.checkpointWarning)
+
+  return {
+    sessionId,
+    status,
+    updatedAt,
+    ...(outputIds.length > 0 ? { outputIds } : {}),
+    ...(checkpointWarning ? { checkpointWarning } : {}),
+  }
+}
+
 function normalizeUnfinishedSessionCard(value: unknown): ThinkTankUnfinishedSessionCard | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const record = value as Record<string, unknown>
@@ -159,7 +239,7 @@ function normalizeUnfinishedSessionCard(value: unknown): ThinkTankUnfinishedSess
   const lastActivityAt =
     normalizeIsoDate(record.lastActivityAt) ?? normalizeIsoDate(record.lastUpdatedAt)
   const checkpointSource = normalizeCheckpointSource(record.checkpointSource) ?? 'fallback'
-  const status = record.status === 'active' ? 'active' : null
+  const status = record.status === 'active' || record.status === 'paused' ? record.status : null
 
   if (
     !sessionId ||

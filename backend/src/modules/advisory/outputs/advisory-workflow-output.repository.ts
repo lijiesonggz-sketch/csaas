@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { DeepPartial, Repository } from 'typeorm'
+import { DeepPartial, In, Repository } from 'typeorm'
 import {
   AdvisoryWorkflowOutput,
   AdvisoryWorkflowOutputSection,
@@ -15,7 +15,7 @@ import { BaseRepository } from '../../../database/repositories/base.repository'
 export interface AdvisoryOutputHistoryRepositoryQuery {
   q?: string
   workflowKey?: string
-  status?: 'all' | 'active' | 'completed' | 'draft'
+  status?: 'all' | 'active' | 'paused' | 'completed' | 'draft'
   from?: Date
   to?: Date
   skip?: number
@@ -25,6 +25,11 @@ export interface AdvisoryOutputHistoryRepositoryQuery {
 export interface AdvisoryOutputHistoryRepositoryResult {
   items: AdvisoryWorkflowOutput[]
   total: number
+}
+
+export interface AdvisoryOutputTombstoneResult {
+  output: AdvisoryWorkflowOutput
+  previousStatus: AdvisoryWorkflowOutputStatus
 }
 
 @Injectable()
@@ -104,6 +109,7 @@ export class AdvisoryWorkflowOutputRepository extends BaseRepository<AdvisoryWor
     return this.findAll(tenantId, {
       where: {
         sessionId,
+        status: In([AdvisoryWorkflowOutputStatus.Draft, AdvisoryWorkflowOutputStatus.Completed]),
       } as never,
       order: {
         createdAt: 'DESC',
@@ -121,8 +127,16 @@ export class AdvisoryWorkflowOutputRepository extends BaseRepository<AdvisoryWor
 
     const queryBuilder = this.repository
       .createQueryBuilder('output')
+      .innerJoin(
+        AdvisoryWorkflowSession,
+        'session',
+        'session.id = output.session_id AND session.tenant_id = output.tenant_id',
+      )
       .where('output.tenant_id = :tenantId', { tenantId })
       .andWhere('output.actor_id = :actorId', { actorId })
+      .andWhere('session.status <> :deletedSessionStatus', {
+        deletedSessionStatus: AdvisoryWorkflowSessionStatus.Deleted,
+      })
 
     if (query.workflowKey) {
       queryBuilder.andWhere('output.workflow_key = :workflowKey', {
@@ -305,6 +319,15 @@ export class AdvisoryWorkflowOutputRepository extends BaseRepository<AdvisoryWor
         lock: { mode: 'pessimistic_write' },
       })
       if (!output || output.status !== AdvisoryWorkflowOutputStatus.Draft) return null
+      const session = await sessionRepository.findOne({
+        where: {
+          id: sessionId,
+          tenantId,
+          status: AdvisoryWorkflowSessionStatus.Active,
+        } as never,
+        lock: { mode: 'pessimistic_write' },
+      })
+      if (!session) return null
 
       await outputRepository.update(
         { id: output.id, tenantId } as never,
@@ -318,18 +341,81 @@ export class AdvisoryWorkflowOutputRepository extends BaseRepository<AdvisoryWor
           },
         } as never,
       )
-      await sessionRepository.update(
-        { id: sessionId, tenantId } as never,
+      const sessionUpdate = await sessionRepository.update(
+        {
+          id: sessionId,
+          tenantId,
+          status: AdvisoryWorkflowSessionStatus.Active,
+        } as never,
         {
           status: AdvisoryWorkflowSessionStatus.Completed,
           metadata: data.sessionMetadata,
         } as never,
       )
+      if ((sessionUpdate.affected ?? 0) !== 1) return null
 
       return outputRepository.findOne({
         where: { id: output.id, tenantId } as never,
       })
     })
+  }
+
+  async tombstoneOutputForSession(context: {
+    tenantId: string
+    actorId: string
+    sessionId: string
+    outputId: string
+    deletedAt: string
+  }): Promise<AdvisoryOutputTombstoneResult | null> {
+    this.assertScopeValue(context.tenantId, 'tenantId')
+    this.assertScopeValue(context.actorId, 'id')
+    this.assertScopeValue(context.sessionId, 'id')
+    this.assertScopeValue(context.outputId, 'id')
+
+    const output = await this.repository.findOne({
+      where: {
+        id: context.outputId,
+        tenantId: context.tenantId,
+        sessionId: context.sessionId,
+        actorId: context.actorId,
+        status: In([AdvisoryWorkflowOutputStatus.Draft, AdvisoryWorkflowOutputStatus.Completed]),
+      } as never,
+    })
+    if (!output) return null
+
+    const previousStatus = output.status
+    const result = await this.repository.update(
+      {
+        id: output.id,
+        tenantId: context.tenantId,
+        sessionId: context.sessionId,
+        actorId: context.actorId,
+        status: In([AdvisoryWorkflowOutputStatus.Draft, AdvisoryWorkflowOutputStatus.Completed]),
+      } as never,
+      {
+        status: AdvisoryWorkflowOutputStatus.Deleted,
+        metadata: {
+          ...(output.metadata ?? {}),
+          deleted_at: context.deletedAt,
+          deleted_by: context.actorId,
+          delete_source: 'user_destructive_action',
+          previous_status: previousStatus,
+        },
+      } as never,
+    )
+    if ((result.affected ?? 0) !== 1) return null
+
+    const deleted = await this.repository.findOne({
+      where: {
+        id: output.id,
+        tenantId: context.tenantId,
+        sessionId: context.sessionId,
+        actorId: context.actorId,
+        status: AdvisoryWorkflowOutputStatus.Deleted,
+      } as never,
+    })
+
+    return deleted ? { output: deleted, previousStatus } : null
   }
 
   private async appendSectionWithoutTransaction(

@@ -305,4 +305,59 @@ describe('ThinkTank event contract', () => {
       }),
     ).toThrow(/raw sensitive/i)
   })
+
+  it('[P0][4.6-BE-008][AC1][AC2] normalizes safe compression telemetry and rejects raw compressed summaries', () => {
+    const event = normalizeThinkTankEvent({
+      eventName: ThinkTankEventName.ContextCompressionExecuted,
+      eventKind: 'telemetry',
+      tenantId,
+      actorId,
+      subjectType: ThinkTankSubjectType.Session,
+      subjectId: 'session-46',
+      outcome: ThinkTankEventOutcome.Success,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      optional: {
+        sessionId: 'session-46',
+        workflowType: 'problem-solving',
+        estimatedTokens: 18000,
+      },
+      metadata: {
+        thresholdTokens: 12000,
+        policyDecision: 'execute',
+        reason: 'threshold_reached',
+        summaryPresent: true,
+        summaryLength: 96,
+        originalMessageCount: 42,
+        providerMessageCount: 2,
+      },
+    })
+
+    expect(event).toMatchObject({
+      event_name: ThinkTankEventName.ContextCompressionExecuted,
+      estimated_tokens: 18000,
+      threshold_tokens: 12000,
+      policy_decision: 'execute',
+      reason: 'threshold_reached',
+      summary_present: true,
+      summary_length: 96,
+      original_message_count: 42,
+      provider_message_count: 2,
+    })
+
+    expect(() =>
+      normalizeThinkTankEvent({
+        eventName: ThinkTankEventName.ContextCompressionExecuted,
+        eventKind: 'telemetry',
+        tenantId,
+        actorId,
+        subjectType: ThinkTankSubjectType.Session,
+        subjectId: 'session-46',
+        outcome: ThinkTankEventOutcome.Success,
+        privacyClassification: ThinkTankPrivacyClassification.Operational,
+        metadata: {
+          compressedSummary: '关键决策：不要把摘要正文写进 telemetry。',
+        },
+      }),
+    ).toThrow(/raw sensitive/i)
+  })
 })

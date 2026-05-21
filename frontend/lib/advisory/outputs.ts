@@ -12,8 +12,13 @@ export const THINKTANK_OUTPUT_FAVORITE_REQUIRED_MESSAGE = '请选择收藏或取
 export const THINKTANK_OUTPUT_ID_REQUIRED_MESSAGE = '暂时无法确认报告，请重新打开后再试。'
 export const THINKTANK_OUTPUT_RATING_FAILED_MESSAGE = '暂时无法提交报告评分，请稍后重试。'
 export const THINKTANK_OUTPUT_FAVORITE_FAILED_MESSAGE = '暂时无法更新收藏状态，请稍后重试。'
-export const THINKTANK_OUTPUT_STATE_LOAD_FAILED_MESSAGE =
-  '暂时无法加载报告状态，请稍后重试。'
+export const THINKTANK_OUTPUT_STATE_LOAD_FAILED_MESSAGE = '暂时无法加载报告状态，请稍后重试。'
+export const THINKTANK_OUTPUT_KNOWLEDGE_BASE_ASSOCIATION_FAILED_MESSAGE =
+  '暂时无法保存到知识库，请稍后重试。'
+export const THINKTANK_OUTPUT_KNOWLEDGE_BASE_STATE_LOAD_FAILED_MESSAGE =
+  '暂时无法加载知识库关联状态，请稍后重试。'
+export const THINKTANK_OUTPUT_DELETE_FAILED_MESSAGE =
+  '暂时无法删除该 ThinkTank 报告，请稍后重试。'
 
 export type ThinkTankOutputExportFormat = 'markdown' | 'pdf'
 
@@ -45,6 +50,7 @@ export interface ThinkTankWorkflowOutput {
   aiLabelMetadata: Record<string, unknown>
   metadata: Record<string, unknown>
   assetState?: ThinkTankOutputAssetState
+  knowledgeBaseAssociation?: ThinkTankOutputKnowledgeBaseAssociationState
 }
 
 export interface ThinkTankOutputAssetState {
@@ -60,6 +66,24 @@ export interface ThinkTankOutputAssetStateResult {
   assetState: ThinkTankOutputAssetState
 }
 
+export type ThinkTankOutputKnowledgeBaseAssociationStatus = 'associated' | 'pending' | 'failed'
+
+export interface ThinkTankOutputKnowledgeBaseAssociationState {
+  outputId: string
+  status: ThinkTankOutputKnowledgeBaseAssociationStatus | null
+  destinationKey: string | null
+  externalReferenceId: string | null
+  message: string | null
+  retryCount: number
+  updatedAt: string | null
+  associatedAt: string | null
+}
+
+export interface ThinkTankOutputKnowledgeBaseAssociationResult {
+  sessionId: string
+  knowledgeBaseAssociation: ThinkTankOutputKnowledgeBaseAssociationState
+}
+
 export interface ThinkTankOutputRatingInput {
   outputId?: string
   rating: number
@@ -71,10 +95,22 @@ export interface ThinkTankOutputFavoriteInput {
   isFavorited: boolean
 }
 
+export interface ThinkTankOutputKnowledgeBaseAssociationInput {
+  outputId?: string
+  destinationKey?: string
+}
+
 export interface ThinkTankWorkflowOutputResult {
   sessionId: string
   output: ThinkTankWorkflowOutput
   checkpointWarning?: ThinkTankCheckpointWarning
+}
+
+export interface ThinkTankOutputLifecycleResult {
+  sessionId: string
+  outputId: string
+  status: 'deleted'
+  updatedAt: string
 }
 
 export interface ThinkTankWorkflowOutputAppendInput {
@@ -255,6 +291,29 @@ export async function updateThinkTankOutputFavorite(
   return normalizeAssetStateResult(body, THINKTANK_OUTPUT_FAVORITE_FAILED_MESSAGE)
 }
 
+export async function deleteThinkTankSessionOutput(
+  sessionId: string,
+  outputId: string
+): Promise<ThinkTankOutputLifecycleResult> {
+  const normalizedOutputId = normalizeOutputIdInput(outputId)
+  const headers = await getAuthHeadersAsync()
+  const response = await fetch(
+    `/api/advisory/sessions/${encodeURIComponent(sessionId)}/output/${encodeURIComponent(normalizedOutputId)}`,
+    {
+      method: 'DELETE',
+      headers,
+      cache: 'no-store',
+    }
+  )
+  const body = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new Error(readAdvisoryMessage(body) ?? THINKTANK_OUTPUT_DELETE_FAILED_MESSAGE)
+  }
+
+  return normalizeOutputLifecycleResult(body, THINKTANK_OUTPUT_DELETE_FAILED_MESSAGE)
+}
+
 export async function fetchThinkTankOutputAssetState(
   sessionId: string,
   options: { outputId: string }
@@ -275,6 +334,67 @@ export async function fetchThinkTankOutputAssetState(
   }
 
   return normalizeAssetStateResult(body, THINKTANK_OUTPUT_STATE_LOAD_FAILED_MESSAGE)
+}
+
+export async function fetchThinkTankOutputKnowledgeBaseAssociationState(
+  sessionId: string,
+  options: { outputId: string }
+): Promise<ThinkTankOutputKnowledgeBaseAssociationResult> {
+  const outputId = normalizeOutputIdInput(options.outputId)
+  const headers = await getAuthHeadersAsync()
+  const response = await fetch(
+    `/api/advisory/sessions/${encodeURIComponent(sessionId)}/output/knowledge-base?outputId=${encodeURIComponent(outputId)}`,
+    {
+      headers,
+      cache: 'no-store',
+    }
+  )
+  const body = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new Error(
+      readAdvisoryMessage(body) ?? THINKTANK_OUTPUT_KNOWLEDGE_BASE_STATE_LOAD_FAILED_MESSAGE
+    )
+  }
+
+  return normalizeKnowledgeBaseAssociationResult(
+    body,
+    THINKTANK_OUTPUT_KNOWLEDGE_BASE_STATE_LOAD_FAILED_MESSAGE
+  )
+}
+
+export async function associateThinkTankOutputWithKnowledgeBase(
+  sessionId: string,
+  input: ThinkTankOutputKnowledgeBaseAssociationInput
+): Promise<ThinkTankOutputKnowledgeBaseAssociationResult> {
+  const outputId = normalizeOutputIdInput(input.outputId)
+  const headers = await getAuthHeadersAsync()
+  const response = await fetch(
+    `/api/advisory/sessions/${encodeURIComponent(sessionId)}/output/knowledge-base`,
+    {
+      method: 'PUT',
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        outputId,
+      }),
+      cache: 'no-store',
+    }
+  )
+  const body = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new Error(
+      readAdvisoryMessage(body) ?? THINKTANK_OUTPUT_KNOWLEDGE_BASE_ASSOCIATION_FAILED_MESSAGE
+    )
+  }
+
+  return normalizeKnowledgeBaseAssociationResult(
+    body,
+    THINKTANK_OUTPUT_KNOWLEDGE_BASE_ASSOCIATION_FAILED_MESSAGE
+  )
 }
 
 export async function downloadThinkTankSessionOutput(
@@ -339,6 +459,31 @@ function normalizeOutputResult(
   }
 }
 
+function normalizeOutputLifecycleResult(
+  body: unknown,
+  fallbackMessage: string
+): ThinkTankOutputLifecycleResult {
+  const data = unwrapAdvisoryEnvelope<Partial<ThinkTankOutputLifecycleResult>>(body)
+  const sessionId = typeof data?.sessionId === 'string' && data.sessionId.trim()
+    ? data.sessionId.trim()
+    : null
+  const outputId = typeof data?.outputId === 'string' && data.outputId.trim()
+    ? data.outputId.trim()
+    : null
+  const updatedAt = normalizeIsoDate(data?.updatedAt)
+
+  if (!sessionId || !outputId || data?.status !== 'deleted' || !updatedAt) {
+    throw new Error(fallbackMessage)
+  }
+
+  return {
+    sessionId,
+    outputId,
+    status: 'deleted',
+    updatedAt,
+  }
+}
+
 function normalizeOutput(value: unknown): ThinkTankWorkflowOutput | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const output = value as Partial<ThinkTankWorkflowOutput>
@@ -381,6 +526,14 @@ function normalizeOutput(value: unknown): ThinkTankWorkflowOutput | null {
           ) as ThinkTankOutputAssetState,
         }
       : {}),
+    ...(normalizeKnowledgeBaseAssociation(output.knowledgeBaseAssociation, output.id)
+      ? {
+          knowledgeBaseAssociation: normalizeKnowledgeBaseAssociation(
+            output.knowledgeBaseAssociation,
+            output.id
+          ) as ThinkTankOutputKnowledgeBaseAssociationState,
+        }
+      : {}),
   }
 }
 
@@ -398,6 +551,23 @@ function normalizeAssetStateResult(
   return {
     sessionId: data.sessionId,
     assetState,
+  }
+}
+
+function normalizeKnowledgeBaseAssociationResult(
+  body: unknown,
+  fallbackMessage: string
+): ThinkTankOutputKnowledgeBaseAssociationResult {
+  const data = unwrapAdvisoryEnvelope<Partial<ThinkTankOutputKnowledgeBaseAssociationResult>>(body)
+  const association = normalizeKnowledgeBaseAssociation(data?.knowledgeBaseAssociation)
+
+  if (!data?.sessionId || !association) {
+    throw new Error(fallbackMessage)
+  }
+
+  return {
+    sessionId: data.sessionId,
+    knowledgeBaseAssociation: association,
   }
 }
 
@@ -426,6 +596,44 @@ function normalizeAssetState(
     feedbackTextPresent: record.feedbackTextPresent === true,
     isFavorited: record.isFavorited === true,
     updatedAt,
+  }
+}
+
+function normalizeKnowledgeBaseAssociation(
+  value: unknown,
+  fallbackOutputId?: string
+): ThinkTankOutputKnowledgeBaseAssociationState | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const record = value as Partial<ThinkTankOutputKnowledgeBaseAssociationState>
+  const outputId =
+    typeof record.outputId === 'string' && record.outputId.trim()
+      ? record.outputId.trim()
+      : fallbackOutputId
+  if (!outputId) return null
+  const status =
+    record.status === 'associated' || record.status === 'pending' || record.status === 'failed'
+      ? record.status
+      : null
+
+  return {
+    outputId,
+    status,
+    destinationKey:
+      typeof record.destinationKey === 'string' && record.destinationKey.trim()
+        ? record.destinationKey.trim()
+        : null,
+    externalReferenceId:
+      typeof record.externalReferenceId === 'string' && record.externalReferenceId.trim()
+        ? record.externalReferenceId.trim()
+        : null,
+    message:
+      typeof record.message === 'string' && record.message.trim() ? record.message.trim() : null,
+    retryCount:
+      typeof record.retryCount === 'number' && Number.isFinite(record.retryCount)
+        ? Math.max(0, Math.trunc(record.retryCount))
+        : 0,
+    updatedAt: normalizeIsoDate(record.updatedAt),
+    associatedAt: normalizeIsoDate(record.associatedAt),
   }
 }
 

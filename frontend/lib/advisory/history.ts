@@ -1,6 +1,9 @@
 import { getAuthHeadersAsync } from '@/lib/utils/jwt'
 import { readAdvisoryMessage, unwrapAdvisoryEnvelope } from './envelope'
-import type { ThinkTankOutputAssetState } from './outputs'
+import type {
+  ThinkTankOutputAssetState,
+  ThinkTankOutputKnowledgeBaseAssociationState,
+} from './outputs'
 import type { ThinkTankWorkflowCurrentStep } from './workflows'
 
 export const THINKTANK_HISTORY_LOAD_FAILED_MESSAGE = '暂时无法加载 ThinkTank 历史记录，请稍后重试。'
@@ -8,7 +11,7 @@ export const THINKTANK_HISTORY_SEARCH_FAILED_MESSAGE =
   '暂时无法搜索 ThinkTank 历史记录，请稍后重试。'
 
 export type ThinkTankHistoryType = 'all' | 'session' | 'output'
-export type ThinkTankHistoryStatus = 'all' | 'active' | 'completed' | 'draft'
+export type ThinkTankHistoryStatus = 'all' | 'active' | 'paused' | 'completed' | 'draft'
 export type ThinkTankHistoryOpenTarget = 'resume-session' | 'view-session' | 'view-output'
 
 export interface ThinkTankHistoryQuery {
@@ -31,11 +34,12 @@ export interface ThinkTankHistoryItem {
   workflowType: string
   title: string
   summary: string
-  status: 'active' | 'completed' | 'draft'
+  status: 'active' | 'paused' | 'completed' | 'draft'
   lastStep?: ThinkTankWorkflowCurrentStep
   timestamp: string
   openTarget: ThinkTankHistoryOpenTarget
   assetState?: ThinkTankOutputAssetState
+  knowledgeBaseAssociation?: ThinkTankOutputKnowledgeBaseAssociationState
 }
 
 export interface ThinkTankHistoryResult {
@@ -178,6 +182,17 @@ function normalizeHistoryItem(value: unknown): ThinkTankHistoryItem | null {
           ) as ThinkTankOutputAssetState,
         }
       : {}),
+    ...(normalizeKnowledgeBaseAssociation(
+      record.knowledgeBaseAssociation,
+      normalizeNonEmptyText(record.outputId) ?? id
+    )
+      ? {
+          knowledgeBaseAssociation: normalizeKnowledgeBaseAssociation(
+            record.knowledgeBaseAssociation,
+            normalizeNonEmptyText(record.outputId) ?? id
+          ) as ThinkTankOutputKnowledgeBaseAssociationState,
+        }
+      : {}),
   }
 }
 
@@ -202,6 +217,33 @@ function normalizeAssetState(
     feedbackTextPresent: record.feedbackTextPresent === true,
     isFavorited: record.isFavorited === true,
     updatedAt,
+  }
+}
+
+function normalizeKnowledgeBaseAssociation(
+  value: unknown,
+  fallbackOutputId: string
+): ThinkTankOutputKnowledgeBaseAssociationState | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const record = value as Partial<ThinkTankOutputKnowledgeBaseAssociationState>
+  const outputId = normalizeNonEmptyText(record.outputId) ?? fallbackOutputId
+  const status =
+    record.status === 'associated' || record.status === 'pending' || record.status === 'failed'
+      ? record.status
+      : null
+
+  return {
+    outputId,
+    status,
+    destinationKey: normalizeNonEmptyText(record.destinationKey) ?? null,
+    externalReferenceId: normalizeNonEmptyText(record.externalReferenceId) ?? null,
+    message: normalizeNonEmptyText(record.message) ?? null,
+    retryCount:
+      typeof record.retryCount === 'number' && Number.isFinite(record.retryCount)
+        ? Math.max(0, Math.trunc(record.retryCount))
+        : 0,
+    updatedAt: normalizeIsoDate(record.updatedAt),
+    associatedAt: normalizeIsoDate(record.associatedAt),
   }
 }
 
@@ -247,7 +289,9 @@ function normalizeResultType(value: unknown): ThinkTankHistoryItem['resultType']
 }
 
 function normalizeHistoryStatus(value: unknown): ThinkTankHistoryItem['status'] | null {
-  return value === 'active' || value === 'completed' || value === 'draft' ? value : null
+  return value === 'active' || value === 'paused' || value === 'completed' || value === 'draft'
+    ? value
+    : null
 }
 
 function normalizeOpenTarget(value: unknown): ThinkTankHistoryOpenTarget | null {

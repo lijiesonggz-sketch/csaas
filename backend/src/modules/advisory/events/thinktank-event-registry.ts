@@ -28,6 +28,8 @@ export const THINKTANK_TELEMETRY_EVENT_NAMES = [
   'thinktank.recommendation.feedback_submitted',
   'thinktank.output.rating_submitted',
   'thinktank.output.favorite_updated',
+  'thinktank.output.knowledge_base_association_requested',
+  'thinktank.output.knowledge_base_association_updated',
   'thinktank.context_compression.executed',
   'thinktank.context_compression.deferred',
   'thinktank.party_mode.budget_exceeded',

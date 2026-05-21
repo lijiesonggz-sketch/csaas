@@ -7,7 +7,6 @@ import { AdvisoryWorkflowSessionStatus } from '../../../database/entities/adviso
 import { UserRole } from '../../../database/entities/user.entity'
 import { AdvisoryAccessService } from '../access/advisory-access.service'
 import { AdvisoryCheckpointService } from '../checkpoints/advisory-checkpoint.service'
-import { AdvisoryEventService } from '../events/advisory-event.service'
 import { AdvisoryWorkflowOutputRepository } from '../outputs/advisory-workflow-output.repository'
 import { ThinkTankProviderGatewayService } from '../provider-gateway/thinktank-provider-gateway.service'
 import { ThinkTankPromptAssemblerService } from '../runtime/prompt-assembler.service'
@@ -54,7 +53,8 @@ function createOutput(overrides: Partial<AdvisoryWorkflowOutput> = {}): Advisory
     status: AdvisoryWorkflowOutputStatus.Draft,
     title: 'Retention Diagnosis',
     summary: 'Users drop after the second onboarding session.',
-    contentMarkdown: '# Retention Diagnosis\n\n## Map constraints\n\nTrial users lack setup guidance.',
+    contentMarkdown:
+      '# Retention Diagnosis\n\n## Map constraints\n\nTrial users lack setup guidance.',
     sections: [
       {
         id: 'section-1',
@@ -110,9 +110,7 @@ const persistedMessages = [
     sequence: 2,
     workflowKey: 'problem-solving',
     stepIndex: 2,
-    decisionOptions: [
-      { key: 'continue', action: 'continue', label: '继续', enabled: true },
-    ],
+    decisionOptions: [{ key: 'continue', action: 'continue', label: '继续', enabled: true }],
     metadata: { ai_generated: true },
     providerMetadata: {},
     createdAt: new Date('2026-05-21T01:04:00.000Z'),
@@ -123,10 +121,7 @@ const persistedMessages = [
 describe('AdvisorySessionService resume interrupted sessions', () => {
   let accessService: jest.Mocked<Pick<AdvisoryAccessService, 'assertThinkTankModuleAvailable'>>
   let sessionRepository: jest.Mocked<
-    Pick<
-      AdvisorySessionRepository,
-      'findSessionById' | 'findUnfinishedSessionsForActor'
-    >
+    Pick<AdvisorySessionRepository, 'findSessionById' | 'findUnfinishedSessionsForActor'>
   >
   let messageRepository: jest.Mocked<
     Pick<AdvisoryConversationMessageRepository, 'findMessagesBySession'>
@@ -242,10 +237,7 @@ describe('AdvisorySessionService resume interrupted sessions', () => {
 
     const result = await service.listUnfinishedSessions({ user, tenantId })
 
-    expect(sessionRepository.findUnfinishedSessionsForActor).toHaveBeenCalledWith(
-      tenantId,
-      actorId,
-    )
+    expect(sessionRepository.findUnfinishedSessionsForActor).toHaveBeenCalledWith(tenantId, actorId)
     expect(checkpointService.restoreCheckpoint).toHaveBeenCalledTimes(2)
     expect(result.sessions).toHaveLength(2)
     expect(result.sessions.map((session) => session.sessionId)).toEqual([
@@ -280,9 +272,7 @@ describe('AdvisorySessionService resume interrupted sessions', () => {
         output: expect.objectContaining({ title: 'Retention Diagnosis' }),
         recoveryMessage: expect.objectContaining({
           content: expect.stringContaining('Map constraints'),
-          keyConclusions: expect.arrayContaining([
-            expect.stringContaining('setup guidance'),
-          ]),
+          keyConclusions: expect.arrayContaining([expect.stringContaining('setup guidance')]),
           actions: [
             { key: 'continue', label: '继续' },
             { key: 'review-document', label: '先查看文档' },
@@ -327,6 +317,88 @@ describe('AdvisorySessionService resume interrupted sessions', () => {
         errorCategory: 'corrupted_hot_state',
       }),
     )
+  })
+
+  test('[P0][4.6-BE-007][AC3] includes compressed decisions and open questions in recovery summary', async () => {
+    checkpointService.restoreCheckpoint.mockResolvedValueOnce({
+      source: 'cold',
+      state: {
+        tenantId,
+        actorId,
+        sessionId,
+        workflowKey: 'problem-solving',
+        workflowType: 'Problem Solving',
+        currentStep: activeSession.currentStep,
+        conversation: {
+          messageCount: 18,
+          lastMessageId: 'message-assistant-9',
+          historyPointer: `conversation_messages:${sessionId}`,
+        },
+        documentState: {
+          outputId: '990e8400-e29b-41d4-a716-446655440000',
+          status: 'draft',
+          title: 'Retention Diagnosis',
+          summary: '',
+          sectionCount: 1,
+        },
+        lastActivityAt: '2026-05-21T01:06:00.000Z',
+        metadata: {
+          context_compression: {
+            decision: 'execute',
+            reason: 'threshold_reached',
+            estimated_tokens: 18000,
+            threshold_tokens: 12000,
+            summary:
+              '关键决策：继续企业版上线，但先关闭 SOC2 evidence gap。开放问题：谁负责法务确认？',
+            important_decisions: ['继续企业版上线，但先关闭 SOC2 evidence gap'],
+            open_questions: ['谁负责法务确认？'],
+          },
+        },
+      },
+    })
+    messageRepository.findMessagesBySession.mockResolvedValueOnce([])
+    outputRepository.findActiveDraftForSession.mockResolvedValueOnce(null)
+    outputRepository.findLatestCompletedForSession.mockResolvedValueOnce(null)
+
+    const result = await service.resumeSession({ user, tenantId, sessionId })
+
+    expect(result.recoveryMessage.keyConclusions).toEqual(
+      expect.arrayContaining([
+        '继续企业版上线，但先关闭 SOC2 evidence gap',
+        '待确认：谁负责法务确认？',
+      ]),
+    )
+    expect(result.recoveryMessage.content).toContain('SOC2 evidence gap')
+    expect(result.recoveryMessage.content).toContain('谁负责法务确认')
+    expect(JSON.stringify(result.recoveryMessage)).not.toContain('FOREIGN TENANT SECRET')
+  })
+
+  test('[P0][4.6-BE-008][AC3] filters foreign repository messages during resume recovery', async () => {
+    messageRepository.findMessagesBySession.mockResolvedValueOnce([
+      ...persistedMessages,
+      {
+        id: 'message-foreign-1',
+        tenantId: '660e8400-e29b-41d4-a716-446655449999',
+        sessionId,
+        actorId: '770e8400-e29b-41d4-a716-446655449999',
+        role: AdvisoryConversationMessageRole.Assistant,
+        content: 'Key conclusion: FOREIGN TENANT SECRET marker-form conclusion must not leak.',
+        sequence: 3,
+        workflowKey: 'problem-solving',
+        stepIndex: 3,
+        decisionOptions: [],
+        metadata: { ai_generated: true },
+        providerMetadata: {},
+        createdAt: new Date('2026-05-21T01:08:00.000Z'),
+        updatedAt: new Date('2026-05-21T01:08:00.000Z'),
+      },
+    ])
+
+    const result = await service.resumeSession({ user, tenantId, sessionId })
+
+    expect(result.messages).toHaveLength(2)
+    expect(result.recoveredState.messageCount).toBe(2)
+    expect(JSON.stringify(result)).not.toContain('FOREIGN TENANT SECRET')
   })
 
   test('[P0][4.2-BE-004][AC3] derives fallback last step from persisted report output instead of stale session state', async () => {
