@@ -45,7 +45,7 @@ export interface ThinkTankWorkflowCurrentStep {
 export interface ThinkTankWorkflowLaunchResult {
   sessionId: string
   workflow: ThinkTankWorkflowCatalogItem
-  status: 'active'
+  status: 'active' | 'completed' | 'draft'
   sourceRefs: string[]
   firstPrompt: string
   currentStep: ThinkTankWorkflowCurrentStep

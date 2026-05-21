@@ -93,6 +93,32 @@ describe('ThinkTank workflow output client (ATDD RED)', () => {
     })
   })
 
+  test('[P0] fetches a specific output id for history report opens', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          sessionId: 'session-1',
+          output: createOutputEnvelope({ id: 'output-older' }),
+        },
+      }),
+    })
+
+    await expect(
+      fetchThinkTankSessionOutput('session-1', { outputId: ' output-older ' })
+    ).resolves.toEqual({
+      sessionId: 'session-1',
+      output: expect.objectContaining({ id: 'output-older' }),
+    })
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/advisory/sessions/session-1/output?outputId=output-older',
+      {
+        headers: { Authorization: 'Bearer session-token' },
+        cache: 'no-store',
+      }
+    )
+  })
+
   test('[P0] appends a section through the output proxy without relaying tenant or unsafe provider fields', async () => {
     mockFetch.mockResolvedValue({
       ok: true,

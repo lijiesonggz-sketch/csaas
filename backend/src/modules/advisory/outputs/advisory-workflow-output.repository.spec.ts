@@ -78,6 +78,7 @@ describe('AdvisoryWorkflowOutputRepository (ATDD RED)', () => {
       delete: jest.fn(),
       find: jest.fn(),
       count: jest.fn(),
+      createQueryBuilder: jest.fn(),
     } as never
 
     repository = new AdvisoryWorkflowOutputRepository(typeormRepository)
@@ -272,4 +273,106 @@ describe('AdvisoryWorkflowOutputRepository (ATDD RED)', () => {
       expect.anything(),
     )
   })
+
+  test('[P0][4.3-BE-005][AC2] searches output history inside tenant actor scope without unbounded loads', async () => {
+    const completed = createOutput({
+      status: AdvisoryWorkflowOutputStatus.Completed,
+      title: 'Retention Diagnosis',
+      summary: 'Users drop after setup.',
+      contentMarkdown: '# Retention Diagnosis\n\nGuided setup is missing.',
+      updatedAt: new Date('2026-05-21T01:08:00.000Z'),
+    })
+    const queryBuilder = createSelectQueryBuilderMock([completed], 1)
+    typeormRepository.createQueryBuilder.mockReturnValue(queryBuilder as never)
+
+    await expect(
+      repository.findHistoryOutputsForActor(tenantId, actorId, {
+        q: 'setup',
+        workflowKey: 'problem-solving',
+        status: 'completed',
+        from: new Date('2026-05-20T00:00:00.000Z'),
+        to: new Date('2026-05-22T00:00:00.000Z'),
+        take: 20,
+      }),
+    ).resolves.toEqual({ items: [completed], total: 1 })
+
+    expect(typeormRepository.createQueryBuilder).toHaveBeenCalledWith('output')
+    expect(queryBuilder.where).toHaveBeenCalledWith('output.tenant_id = :tenantId', {
+      tenantId,
+    })
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith('output.actor_id = :actorId', {
+      actorId,
+    })
+    const whereCalls = JSON.stringify(queryBuilder.andWhere.mock.calls)
+    expect(whereCalls).toContain('content_markdown')
+    expect(whereCalls).toContain('contentMarkdown')
+    expect(whereCalls).toContain('LOWER')
+    expect(whereCalls).toContain('ESCAPE')
+    expect(whereCalls).not.toContain('sections::text')
+    expect(queryBuilder.take).toHaveBeenCalledWith(20)
+    expect(queryBuilder.getManyAndCount).toHaveBeenCalled()
+    expect(typeormRepository.find).not.toHaveBeenCalled()
+  })
+
+  test('[P0][4.3-BE-005][AC2] escapes output search wildcards without searching section metadata', async () => {
+    const queryBuilder = createSelectQueryBuilderMock([], 0)
+    typeormRepository.createQueryBuilder.mockReturnValue(queryBuilder as never)
+
+    await repository.findHistoryOutputsForActor(tenantId, actorId, {
+      q: '50%_done\\',
+      take: 10,
+    })
+
+    const whereCalls = JSON.stringify(queryBuilder.andWhere.mock.calls)
+    const searchCall = queryBuilder.andWhere.mock.calls.find((call) =>
+      JSON.stringify(call).includes('historySearch'),
+    )
+    expect(searchCall?.[1]).toEqual({ historySearch: '%50\\%\\_done\\\\%' })
+    expect(whereCalls).toContain("history_section.value ->> 'contentMarkdown'")
+    expect(whereCalls).not.toContain('metadata')
+    expect(whereCalls).not.toContain('sections::text')
+  })
+
+  test('[P0][4.3-BE-005][AC1] batches latest persisted outputs for history session cards', async () => {
+    const draft = createOutput({
+      id: '990e8400-e29b-41d4-a716-446655440001',
+      status: AdvisoryWorkflowOutputStatus.Draft,
+      updatedAt: new Date('2026-05-21T01:10:00.000Z'),
+    })
+    const olderCompleted = createOutput({
+      id: '990e8400-e29b-41d4-a716-446655440002',
+      status: AdvisoryWorkflowOutputStatus.Completed,
+      updatedAt: new Date('2026-05-21T01:08:00.000Z'),
+    })
+    const queryBuilder = createSelectQueryBuilderMock([draft, olderCompleted], 2)
+    typeormRepository.createQueryBuilder.mockReturnValue(queryBuilder as never)
+
+    await expect(
+      repository.findLatestPersistedBySessionIds(tenantId, [sessionId, sessionId]),
+    ).resolves.toEqual([draft])
+
+    const whereCalls = JSON.stringify(queryBuilder.andWhere.mock.calls)
+    expect(whereCalls).toContain('session_id IN')
+    expect(whereCalls).toContain('historyStatuses')
+    expect(queryBuilder.getMany).toHaveBeenCalled()
+  })
+
+  test('[P0][4.3-BE-006][AC2] rejects output search without a scoped actor id', async () => {
+    await expect(repository.findHistoryOutputsForActor(tenantId, '', { take: 10 })).rejects.toThrow(
+      'id is required for tenant-scoped repository access',
+    )
+    expect(typeormRepository.createQueryBuilder).not.toHaveBeenCalled()
+  })
 })
+
+function createSelectQueryBuilderMock<T>(items: T[], total: number) {
+  return {
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getManyAndCount: jest.fn().mockResolvedValue([items, total]),
+    getMany: jest.fn().mockResolvedValue(items),
+  }
+}

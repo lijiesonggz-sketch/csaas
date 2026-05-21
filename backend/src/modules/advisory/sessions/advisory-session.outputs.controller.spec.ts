@@ -136,7 +136,9 @@ describe('AdvisorySessionController workflow outputs (ATDD RED)', () => {
   test('[P0] returns the current session output in a ThinkTank-owned data envelope', async () => {
     const user = { id: 'user-1', organizationId: 'org-1' }
 
-    await expect(controller.getOutput('session-1', user as never, 'tenant-1')).resolves.toEqual({
+    await expect(
+      controller.getOutput('session-1', undefined, user as never, 'tenant-1'),
+    ).resolves.toEqual({
       data: {
         sessionId: 'session-1',
         output: outputDraft,
@@ -146,6 +148,25 @@ describe('AdvisorySessionController workflow outputs (ATDD RED)', () => {
       user,
       tenantId: 'tenant-1',
       sessionId: 'session-1',
+    })
+  })
+
+  test('[P0] forwards only the safe outputId query when reading a specific history report', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(
+      controller.getOutput('session-1', ' output-1 ', user as never, 'tenant-1'),
+    ).resolves.toEqual({
+      data: {
+        sessionId: 'session-1',
+        output: outputDraft,
+      },
+    })
+    expect(service.getSessionOutput).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      sessionId: 'session-1',
+      outputId: 'output-1',
     })
   })
 

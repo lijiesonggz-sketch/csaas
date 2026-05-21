@@ -26,6 +26,7 @@ import {
   AdvisoryCheckpointStateSnapshot,
 } from '../../../database/entities/advisory-workflow-checkpoint.entity'
 import {
+  AdvisoryWorkflowSession,
   AdvisoryWorkflowSessionCurrentStep,
   AdvisoryWorkflowSessionStatus,
 } from '../../../database/entities/advisory-workflow-session.entity'
@@ -160,6 +161,45 @@ export interface AdvisorySessionOutputResult {
   checkpointWarning?: AdvisoryCheckpointWarning
 }
 
+export type AdvisoryHistoryType = 'all' | 'session' | 'output'
+export type AdvisoryHistoryStatus = 'all' | 'active' | 'completed' | 'draft'
+export type AdvisoryHistoryOpenTarget = 'resume-session' | 'view-session' | 'view-output'
+
+export interface AdvisorySessionHistoryQuery {
+  q?: string
+  type?: AdvisoryHistoryType
+  workflowKey?: string
+  status?: AdvisoryHistoryStatus
+  from?: string
+  to?: string
+  page?: number | string
+  limit?: number | string
+}
+
+export interface AdvisoryHistoryItem {
+  id: string
+  resultType: 'session' | 'output'
+  sessionId: string
+  outputId?: string
+  workflowKey: string
+  workflowType: string
+  title: string
+  summary: string
+  status: 'active' | 'completed' | 'draft'
+  lastStep?: AdvisoryWorkflowSessionCurrentStep
+  timestamp: string
+  openTarget: AdvisoryHistoryOpenTarget
+}
+
+export interface AdvisoryHistoryResult {
+  items: AdvisoryHistoryItem[]
+  meta: {
+    page: number
+    limit: number
+    total: number
+  }
+}
+
 export interface AdvisorySessionOutputsResult {
   sessionId: string
   outputs: AdvisoryWorkflowOutput[]
@@ -290,6 +330,24 @@ interface ManualQuickConsultChoiceInput {
 
 interface AdvisorySessionMessageContext extends AdvisorySessionContext {
   sessionId: string
+  outputId?: string
+}
+
+interface AdvisorySessionHistoryContext extends AdvisorySessionContext {
+  query?: AdvisorySessionHistoryQuery
+}
+
+interface NormalizedAdvisorySessionHistoryQuery {
+  q?: string
+  type: AdvisoryHistoryType
+  workflowKey?: string
+  status: AdvisoryHistoryStatus
+  from?: Date
+  to?: Date
+  page: number
+  limit: number
+  skip: number
+  take: number
 }
 
 interface AdvisorySubmitMessageContext extends AdvisorySessionMessageContext {
@@ -476,11 +534,35 @@ export class AdvisorySessionService {
     }
   }
 
+  async listSessionHistory(context: AdvisorySessionHistoryContext): Promise<AdvisoryHistoryResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const query = this.normalizeHistoryQuery(context.query)
+
+    return this.loadHistoryItems({
+      tenantId: context.tenantId,
+      actorId: context.user.id,
+      query,
+    })
+  }
+
+  async searchSessionHistory(
+    context: AdvisorySessionHistoryContext,
+  ): Promise<AdvisoryHistoryResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const query = this.normalizeHistoryQuery(context.query, { requireSearch: true })
+
+    return this.loadHistoryItems({
+      tenantId: context.tenantId,
+      actorId: context.user.id,
+      query,
+    })
+  }
+
   async listMessages(
     context: AdvisorySessionMessageContext,
   ): Promise<AdvisoryConversationMessagesResult> {
     await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
-    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+    const session = await this.getTenantActorSession(context)
     const messages = await this.requireMessageRepository().findMessagesBySession(
       context.tenantId,
       session.id,
@@ -497,8 +579,28 @@ export class AdvisorySessionService {
     context: AdvisorySessionMessageContext,
   ): Promise<AdvisorySessionOutputResult> {
     await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
-    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+    const session = await this.getTenantActorSession(context)
     const outputRepository = this.requireOutputRepository()
+    const requestedOutputId = this.optionalText(context.outputId)
+    if (requestedOutputId) {
+      const requestedOutput = await outputRepository.findOutputById(
+        context.tenantId,
+        requestedOutputId,
+      )
+      if (
+        !requestedOutput ||
+        requestedOutput.sessionId !== session.id ||
+        requestedOutput.actorId !== context.user.id
+      ) {
+        throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
+      }
+
+      return {
+        sessionId: session.id,
+        output: requestedOutput,
+      }
+    }
+
     const existingDraft = await outputRepository.findActiveDraftForSession(
       context.tenantId,
       session.id,
@@ -521,7 +623,7 @@ export class AdvisorySessionService {
     context: AdvisorySessionMessageContext,
   ): Promise<AdvisorySessionOutputsResult> {
     await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
-    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+    const session = await this.getTenantActorSession(context)
     const outputs = await this.requireOutputRepository().findOutputsBySession(
       context.tenantId,
       session.id,
@@ -537,7 +639,7 @@ export class AdvisorySessionService {
     context: AdvisorySessionMessageContext,
   ): Promise<AdvisorySessionCheckpointResult> {
     await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
-    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+    const session = await this.getTenantActorSession(context)
 
     if (!this.checkpointService) {
       return {
@@ -599,7 +701,9 @@ export class AdvisorySessionService {
     }
   }
 
-  async resumeSession(context: AdvisorySessionMessageContext): Promise<AdvisoryResumeSessionResult> {
+  async resumeSession(
+    context: AdvisorySessionMessageContext,
+  ): Promise<AdvisoryResumeSessionResult> {
     await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
     const session = await this.getTenantSession(context.tenantId, context.sessionId)
     if (
@@ -1321,6 +1425,359 @@ export class AdvisorySessionService {
     return this.outputRepository.findLatestCompletedForSession(tenantId, sessionId)
   }
 
+  private async loadHistoryItems(context: {
+    tenantId: string
+    actorId: string
+    query: NormalizedAdvisorySessionHistoryQuery
+  }): Promise<AdvisoryHistoryResult> {
+    const query =
+      context.query.type === 'all'
+        ? {
+            ...context.query,
+            skip: 0,
+            take: context.query.skip + context.query.take,
+          }
+        : context.query
+    const shouldLoadSessions =
+      context.query.type !== 'output' &&
+      (context.query.status === 'all' ||
+        context.query.status === 'active' ||
+        context.query.status === 'completed')
+    const shouldLoadOutputs =
+      context.query.type !== 'session' &&
+      (context.query.status === 'all' ||
+        context.query.status === 'completed' ||
+        context.query.status === 'draft')
+    const [sessionHistory, outputHistory] = await Promise.all([
+      shouldLoadSessions
+        ? this.sessionRepository.findHistorySessionsForActor(
+            context.tenantId,
+            context.actorId,
+            query,
+          )
+        : Promise.resolve({ items: [], total: 0 }),
+      shouldLoadOutputs
+        ? this.requireOutputRepository().findHistoryOutputsForActor(
+            context.tenantId,
+            context.actorId,
+            query,
+          )
+        : Promise.resolve({ items: [], total: 0 }),
+    ])
+    const sessionOutputs = await this.loadPersistedHistoryOutputs(
+      context.tenantId,
+      sessionHistory.items.map((session) => session.id),
+    )
+    const sessionItems = await Promise.all(
+      sessionHistory.items
+        .filter((session) => session.actorId === context.actorId)
+        .map((session) => this.toHistorySessionItem(session, sessionOutputs.get(session.id))),
+    )
+    const outputItems = outputHistory.items
+      .filter((output) => output.actorId === context.actorId)
+      .map((output) => this.toHistoryOutputItem(output))
+    const items = [...sessionItems, ...outputItems]
+      .filter((item): item is AdvisoryHistoryItem => Boolean(item))
+      .sort((left, right) => this.compareHistoryItems(left, right))
+    const pageItems =
+      context.query.type === 'all'
+        ? items.slice(context.query.skip, context.query.skip + context.query.take)
+        : items
+
+    return {
+      items: pageItems,
+      meta: {
+        page: context.query.page,
+        limit: context.query.limit,
+        total: sessionHistory.total + outputHistory.total,
+      },
+    }
+  }
+
+  private async toHistorySessionItem(
+    session: AdvisoryWorkflowSession,
+    output?: AdvisoryWorkflowOutput,
+  ): Promise<AdvisoryHistoryItem | null> {
+    const status = this.toHistorySessionStatus(session.status)
+    if (!status) return null
+    const safeOutput = output?.actorId === session.actorId ? output : undefined
+
+    const lastStep = this.toSafeHistoryCurrentStep(
+      safeOutput
+        ? (this.resolveOutputCurrentStep(safeOutput) ?? session.currentStep)
+        : session.currentStep,
+    )
+    const title =
+      this.toSafeHistoryText(safeOutput?.title) ??
+      this.toSafeHistoryText(session.metadata?.title) ??
+      `${session.workflowDisplayName} 会话`
+    const summary =
+      this.toSafeHistoryText(safeOutput?.summary) ??
+      (status === 'active' ? `未完成 - ${lastStep.label}` : `已完成 - ${lastStep.label}`)
+    const timestamp = (safeOutput?.updatedAt ?? session.updatedAt).toISOString()
+
+    return {
+      id: session.id,
+      resultType: 'session',
+      sessionId: session.id,
+      ...(safeOutput ? { outputId: safeOutput.id } : {}),
+      workflowKey: session.workflowKey,
+      workflowType: session.workflowDisplayName,
+      title,
+      summary,
+      status,
+      lastStep,
+      timestamp,
+      openTarget: status === 'active' ? 'resume-session' : 'view-session',
+    }
+  }
+
+  private toHistoryOutputItem(output: AdvisoryWorkflowOutput): AdvisoryHistoryItem | null {
+    const status = this.toHistoryOutputStatus(output.status)
+    if (!status) return null
+    const lastStep = this.resolveOutputCurrentStep(output)
+
+    return {
+      id: output.id,
+      resultType: 'output',
+      sessionId: output.sessionId,
+      outputId: output.id,
+      workflowKey: output.workflowKey,
+      workflowType: this.toWorkflowDisplayName(output.workflowKey),
+      title: this.toSafeHistoryText(output.title) ?? this.toWorkflowDisplayName(output.workflowKey),
+      summary: this.toSafeHistoryText(output.summary) ?? '报告内容已生成',
+      status,
+      ...(lastStep ? { lastStep: this.toSafeHistoryCurrentStep(lastStep) } : {}),
+      timestamp: output.updatedAt.toISOString(),
+      openTarget: 'view-output',
+    }
+  }
+
+  private normalizeHistoryQuery(
+    query: AdvisorySessionHistoryQuery | undefined,
+    options: { requireSearch?: boolean } = {},
+  ): NormalizedAdvisorySessionHistoryQuery {
+    const q = this.normalizeHistorySearchText(query?.q)?.slice(0, 200)
+    if (options.requireSearch && !q) {
+      throw new BadRequestException('Search query is required.')
+    }
+    const type = this.normalizeHistoryType(query?.type)
+    const status = this.normalizeHistoryStatus(query?.status)
+    const workflowKey = query?.workflowKey
+      ? this.normalizeHistoryWorkflowKey(query.workflowKey)
+      : undefined
+    const from = this.normalizeOptionalHistoryDate(query?.from, 'from')
+    const to = this.normalizeOptionalHistoryDate(query?.to, 'to')
+    const page = this.normalizeHistoryPositiveInteger(
+      query?.page,
+      1,
+      type === 'all' ? 25 : 1000,
+      'page',
+    )
+    const limit = this.normalizeHistoryPositiveInteger(query?.limit, 20, 50, 'limit')
+
+    if (from && to && from.getTime() > to.getTime()) {
+      throw new BadRequestException('History from date must be before to date.')
+    }
+
+    return {
+      ...(q ? { q } : {}),
+      type,
+      ...(workflowKey ? { workflowKey } : {}),
+      status,
+      ...(from ? { from } : {}),
+      ...(to ? { to } : {}),
+      page,
+      limit,
+      skip: (page - 1) * limit,
+      take: limit,
+    }
+  }
+
+  private normalizeHistoryType(value: unknown): AdvisoryHistoryType {
+    if (value === undefined || value === null || value === '') return 'all'
+    if (value === 'all' || value === 'session' || value === 'output') return value
+    throw new BadRequestException('History type filter is invalid.')
+  }
+
+  private normalizeHistoryStatus(value: unknown): AdvisoryHistoryStatus {
+    if (value === undefined || value === null || value === '') return 'all'
+    if (value === 'all' || value === 'active' || value === 'completed' || value === 'draft') {
+      return value
+    }
+    throw new BadRequestException('History status filter is invalid.')
+  }
+
+  private normalizeHistorySearchText(value: unknown): string | undefined {
+    const q = this.optionalText(value)
+    if (!q) return undefined
+    if (/(_bmad|sourceRef|rawPrompt|system_prompt|provider_prompt|providerPayload)/i.test(q)) {
+      throw new BadRequestException('History search query is invalid.')
+    }
+
+    return q
+  }
+
+  private normalizeOptionalHistoryDate(value: unknown, fieldName: string): Date | undefined {
+    if (value === undefined || value === null || value === '') return undefined
+    if (typeof value !== 'string') {
+      throw new BadRequestException(`History ${fieldName} date is invalid.`)
+    }
+    const dateOnlyMatch = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    const parsed = dateOnlyMatch
+      ? new Date(
+          Date.UTC(
+            Number(dateOnlyMatch[1]),
+            Number(dateOnlyMatch[2]) - 1,
+            Number(dateOnlyMatch[3]),
+            fieldName === 'to' ? 23 : 0,
+            fieldName === 'to' ? 59 : 0,
+            fieldName === 'to' ? 59 : 0,
+            fieldName === 'to' ? 999 : 0,
+          ),
+        )
+      : new Date(value)
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`History ${fieldName} date is invalid.`)
+    }
+
+    return parsed
+  }
+
+  private normalizeHistoryPositiveInteger(
+    value: unknown,
+    defaultValue: number,
+    maxValue: number,
+    fieldName: string,
+  ): number {
+    if (value === undefined || value === null || value === '') return defaultValue
+    const numeric = typeof value === 'number' ? value : Number(value)
+    if (!Number.isInteger(numeric) || numeric < 1) {
+      throw new BadRequestException(`History ${fieldName} is invalid.`)
+    }
+
+    return Math.min(numeric, maxValue)
+  }
+
+  private toHistorySessionStatus(
+    status: AdvisoryWorkflowSessionStatus,
+  ): AdvisoryHistoryItem['status'] | null {
+    if (status === AdvisoryWorkflowSessionStatus.Active) return 'active'
+    if (status === AdvisoryWorkflowSessionStatus.Completed) return 'completed'
+    return null
+  }
+
+  private toHistoryOutputStatus(
+    status: AdvisoryWorkflowOutputStatus,
+  ): AdvisoryHistoryItem['status'] | null {
+    if (status === AdvisoryWorkflowOutputStatus.Completed) return 'completed'
+    if (status === AdvisoryWorkflowOutputStatus.Draft) return 'draft'
+    return null
+  }
+
+  private toSafeHistoryCurrentStep(
+    step: AdvisoryWorkflowSessionCurrentStep,
+  ): AdvisoryWorkflowSessionCurrentStep {
+    const sourceRef = this.toSafeHistorySourceRef(step.sourceRef)
+    const label = this.toSafeHistoryText(step.label) ?? `步骤 ${step.index}`
+
+    return {
+      index: step.index,
+      label,
+      ...(sourceRef ? { sourceRef } : {}),
+    }
+  }
+
+  private normalizeHistoryWorkflowKey(value: unknown): string {
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new BadRequestException('History workflowKey is invalid.')
+    }
+    const normalizedKey = value
+      .trim()
+      .toLowerCase()
+      .replace(/[_\s]+/g, '-')
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalizedKey)) {
+      throw new BadRequestException('History workflowKey is invalid.')
+    }
+
+    return normalizedKey
+  }
+
+  private toSafeHistoryText(value: unknown): string | undefined {
+    const text = this.optionalText(value)
+    if (!text) return undefined
+    if (
+      /(_bmad|sourceRef|rawPrompt|system_prompt|provider_prompt|content_markdown|[\\/])/i.test(text)
+    ) {
+      return undefined
+    }
+
+    return text
+  }
+
+  private toSafeHistorySourceRef(value: unknown): string | undefined {
+    const sourceRef = this.optionalText(value)
+    if (!sourceRef) return undefined
+    if (/(_bmad|prompt|content|[\\/])/i.test(sourceRef)) return undefined
+    if (
+      !/^(current-step|conversation-message|output-section|workflow-output|workflow):[A-Za-z0-9._:-]+$/.test(
+        sourceRef,
+      )
+    ) {
+      return undefined
+    }
+
+    return sourceRef
+  }
+
+  private compareHistoryItems(left: AdvisoryHistoryItem, right: AdvisoryHistoryItem): number {
+    const timeDelta = new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime()
+    if (timeDelta !== 0) return timeDelta
+    if (left.resultType !== right.resultType) {
+      return left.resultType === 'output' ? -1 : 1
+    }
+
+    return left.id.localeCompare(right.id)
+  }
+
+  private toWorkflowDisplayName(workflowKey: string): string {
+    const labels: Record<string, string> = {
+      brainstorming: 'Brainstorming',
+      'domain-research': 'Domain Research',
+      'market-research': 'Market Research',
+      'product-brief': 'Product Brief',
+      prd: 'PRD',
+      'problem-solving': 'Problem Solving',
+      'design-thinking': 'Design Thinking',
+      storytelling: 'Storytelling',
+    }
+
+    return (
+      labels[workflowKey] ??
+      workflowKey
+        .split('-')
+        .filter(Boolean)
+        .map((segment) => `${segment.charAt(0).toUpperCase()}${segment.slice(1)}`)
+        .join(' ')
+    )
+  }
+
+  private async loadPersistedHistoryOutputs(
+    tenantId: string,
+    sessionIds: string[],
+  ): Promise<Map<string, AdvisoryWorkflowOutput>> {
+    const uniqueSessionIds = [
+      ...new Set(sessionIds.filter((sessionId) => this.optionalText(sessionId))),
+    ]
+    if (uniqueSessionIds.length === 0) return new Map()
+    const outputs = await this.requireOutputRepository().findLatestPersistedBySessionIds(
+      tenantId,
+      uniqueSessionIds,
+    )
+
+    return new Map(outputs.map((output) => [output.sessionId, output]))
+  }
+
   private createUnfinishedSessionCard(context: {
     session: {
       id: string
@@ -1549,6 +2006,15 @@ export class AdvisorySessionService {
     const session = await this.sessionRepository.findSessionById(tenantId, sessionId)
 
     if (!session) {
+      throw new NotFoundException('ThinkTank session not found')
+    }
+
+    return session
+  }
+
+  private async getTenantActorSession(context: AdvisorySessionMessageContext) {
+    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+    if (session.actorId !== context.user.id) {
       throw new NotFoundException('ThinkTank session not found')
     }
 

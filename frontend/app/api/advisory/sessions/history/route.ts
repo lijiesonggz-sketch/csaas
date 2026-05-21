@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth/auth-options'
 
 export const dynamic = 'force-dynamic'
 
+const HISTORY_QUERY_KEYS = ['q', 'type', 'workflowKey', 'status', 'from', 'to', 'page', 'limit']
+
 function readBackendUrl() {
   return process.env.INTERNAL_API_URL || 'http://localhost:3000'
 }
@@ -13,21 +15,21 @@ async function readAuthorization() {
   return session?.accessToken ? `Bearer ${session.accessToken}` : null
 }
 
-function buildBackendUrl(request: Request, sessionId: string) {
+function buildBackendUrl(request: Request) {
   const sourceUrl = new URL(request.url)
-  const targetUrl = new URL(
-    `/advisory/sessions/${encodeURIComponent(sessionId)}/output`,
-    readBackendUrl()
-  )
-  const outputId = sourceUrl.searchParams.get('outputId')
-  if (outputId?.trim()) {
-    targetUrl.searchParams.set('outputId', outputId.trim())
-  }
+  const targetUrl = new URL('/advisory/sessions/history', readBackendUrl())
+
+  HISTORY_QUERY_KEYS.forEach((key) => {
+    const value = sourceUrl.searchParams.get(key)
+    if (value?.trim()) {
+      targetUrl.searchParams.set(key, value.trim())
+    }
+  })
 
   return targetUrl.toString()
 }
 
-export async function GET(request: Request, { params }: { params: { sessionId: string } }) {
+export async function GET(request: Request) {
   try {
     const authorization = await readAuthorization()
 
@@ -35,7 +37,7 @@ export async function GET(request: Request, { params }: { params: { sessionId: s
       return NextResponse.json({ message: 'No access token' }, { status: 401 })
     }
 
-    const response = await fetch(buildBackendUrl(request, params.sessionId), {
+    const response = await fetch(buildBackendUrl(request), {
       headers: {
         Authorization: authorization,
         'Content-Type': 'application/json',
@@ -46,7 +48,7 @@ export async function GET(request: Request, { params }: { params: { sessionId: s
 
     return NextResponse.json(body, { status: response.status })
   } catch (error) {
-    console.error('[API /advisory/sessions/:sessionId/output GET] Error:', error)
+    console.error('[API /advisory/sessions/history] Error:', error)
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 })
   }
 }

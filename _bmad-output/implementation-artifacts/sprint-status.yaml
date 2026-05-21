@@ -1,5 +1,5 @@
 # generated: 2026-05-18T21:27:35+08:00
-# last_updated: 2026-05-21T12:02:47+08:00
+# last_updated: 2026-05-21T14:07:59+08:00
 # project: Csaas
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: '2026-05-18T21:27:35+08:00'
-last_updated: '2026-05-21T12:02:47+08:00'
+last_updated: '2026-05-21T14:07:59+08:00'
 project: Csaas
 project_key: NOKEY
 tracking_system: file-system
@@ -76,7 +76,7 @@ development_status:
   epic-4: in-progress
   4-1-automatic-checkpoint-persistence: done
   4-2-resume-interrupted-sessions: done
-  4-3-conversation-history-and-search: backlog
+  4-3-conversation-history-and-search: done
   4-4-report-rating-favorites-and-asset-state: backlog
   4-5-report-reuse-in-enterprise-knowledge-base: backlog
   4-6-conversation-context-compression-boundary: backlog

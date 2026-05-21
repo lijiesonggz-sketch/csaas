@@ -113,6 +113,28 @@ jest.mock('@/lib/advisory/outputs', () => ({
   fetchThinkTankWorkflowOutput: jest.fn().mockResolvedValue({ output: null }),
 }))
 
+jest.mock('@/lib/advisory/sessions', () => ({
+  THINKTANK_RESUME_SESSION_FAILED_MESSAGE: '暂时无法恢复该 ThinkTank 会话，请稍后重试。',
+  THINKTANK_UNFINISHED_SESSIONS_LOAD_FAILED_MESSAGE:
+    '暂时无法加载未完成的 ThinkTank 会话，请稍后重试。',
+  fetchThinkTankUnfinishedSessions: jest.fn().mockResolvedValue({ sessions: [] }),
+  resumeThinkTankSession: jest.fn(),
+  toWorkflowLaunchFromResume: jest.fn(),
+}))
+
+jest.mock('@/lib/advisory/history', () => ({
+  THINKTANK_HISTORY_LOAD_FAILED_MESSAGE: '暂时无法加载 ThinkTank 历史记录，请稍后重试。',
+  THINKTANK_HISTORY_SEARCH_FAILED_MESSAGE: '暂时无法搜索 ThinkTank 历史记录，请稍后重试。',
+  fetchThinkTankSessionHistory: jest.fn().mockResolvedValue({
+    items: [],
+    meta: { page: 1, limit: 20, total: 0 },
+  }),
+  searchThinkTankHistory: jest.fn().mockResolvedValue({
+    items: [],
+    meta: { page: 1, limit: 20, total: 0 },
+  }),
+}))
+
 const mockLaunchThinkTankWorkflow = launchThinkTankWorkflow as jest.Mock
 const mockToastWarning = toast.warning as jest.Mock
 

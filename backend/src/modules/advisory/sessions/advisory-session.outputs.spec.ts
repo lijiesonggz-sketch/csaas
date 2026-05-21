@@ -92,6 +92,7 @@ describe('AdvisorySessionService workflow outputs (ATDD RED)', () => {
       AdvisoryWorkflowOutputRepository,
       | 'findActiveDraftForSession'
       | 'findLatestCompletedForSession'
+      | 'findOutputById'
       | 'findOutputsBySession'
       | 'createDraft'
       | 'appendSection'
@@ -139,6 +140,7 @@ describe('AdvisorySessionService workflow outputs (ATDD RED)', () => {
     outputRepository = {
       findActiveDraftForSession: jest.fn().mockResolvedValue(createOutput()),
       findLatestCompletedForSession: jest.fn().mockResolvedValue(null),
+      findOutputById: jest.fn().mockResolvedValue(createOutput()),
       findOutputsBySession: jest.fn().mockResolvedValue([createOutput()]),
       createDraft: jest.fn().mockResolvedValue(createOutput()),
       appendSection: jest.fn().mockImplementation(async (_tenantId, _outputId, section) =>

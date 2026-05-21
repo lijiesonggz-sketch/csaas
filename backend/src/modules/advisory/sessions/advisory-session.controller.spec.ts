@@ -1,4 +1,6 @@
 import 'reflect-metadata'
+import { RequestMethod } from '@nestjs/common'
+import { GUARDS_METADATA, METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants'
 import { Test, TestingModule } from '@nestjs/testing'
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
 import { TenantGuard } from '../../organizations/guards/tenant.guard'
@@ -10,7 +12,12 @@ describe('AdvisorySessionController', () => {
   let service: jest.Mocked<
     Pick<
       AdvisorySessionService,
-      'listWorkflows' | 'launchWorkflow' | 'listUnfinishedSessions' | 'resumeSession'
+      | 'listWorkflows'
+      | 'launchWorkflow'
+      | 'listUnfinishedSessions'
+      | 'resumeSession'
+      | 'listSessionHistory'
+      | 'searchSessionHistory'
     >
   >
 
@@ -90,6 +97,42 @@ describe('AdvisorySessionController', () => {
           recoveredFrom: 'persisted-state',
         },
         missingState: ['checkpoint', 'conversation', 'document'],
+      }),
+      listSessionHistory: jest.fn().mockResolvedValue({
+        items: [
+          {
+            id: 'session-1',
+            resultType: 'session',
+            sessionId: 'session-1',
+            workflowKey: 'problem-solving',
+            workflowType: 'Problem Solving',
+            title: 'Retention Diagnosis',
+            summary: '未完成 - Map constraints',
+            status: 'active',
+            lastStep: { index: 2, label: 'Map constraints' },
+            timestamp: '2026-05-21T01:06:00.000Z',
+            openTarget: 'resume-session',
+          },
+        ],
+        meta: { page: 1, limit: 20, total: 1 },
+      }),
+      searchSessionHistory: jest.fn().mockResolvedValue({
+        items: [
+          {
+            id: 'output-1',
+            resultType: 'output',
+            sessionId: 'session-1',
+            outputId: 'output-1',
+            workflowKey: 'problem-solving',
+            workflowType: 'Problem Solving',
+            title: 'Retention Diagnosis',
+            summary: 'Users drop after setup.',
+            status: 'completed',
+            timestamp: '2026-05-21T01:08:00.000Z',
+            openTarget: 'view-output',
+          },
+        ],
+        meta: { page: 1, limit: 20, total: 1 },
       }),
     }
 
@@ -240,6 +283,119 @@ describe('AdvisorySessionController', () => {
       user,
       tenantId: 'tenant-1',
       sessionId: 'session-1',
+    })
+  })
+
+  it('[P0][4.3-BE-001][AC1] lists scoped session history with filters from query only', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(
+      controller.listSessionHistory(
+        {
+          q: 'retention',
+          type: 'all',
+          workflowKey: 'problem-solving',
+          status: 'active',
+          from: '2026-05-20T00:00:00.000Z',
+          to: '2026-05-22T00:00:00.000Z',
+          page: '1',
+          limit: '20',
+          tenantId: 'attacker-tenant',
+          actorId: 'attacker-actor',
+        } as never,
+        user as never,
+        'tenant-1',
+      ),
+    ).resolves.toEqual({
+      data: {
+        items: [
+          expect.objectContaining({
+            resultType: 'session',
+            sessionId: 'session-1',
+            workflowKey: 'problem-solving',
+            status: 'active',
+            openTarget: 'resume-session',
+          }),
+        ],
+        meta: { page: 1, limit: 20, total: 1 },
+      },
+    })
+    expect(service.listSessionHistory).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      query: expect.objectContaining({
+        q: 'retention',
+        type: 'all',
+        workflowKey: 'problem-solving',
+        status: 'active',
+        from: '2026-05-20T00:00:00.000Z',
+        to: '2026-05-22T00:00:00.000Z',
+        page: '1',
+        limit: '20',
+      }),
+    })
+    expect(JSON.stringify(service.listSessionHistory.mock.calls[0][0].query)).not.toContain(
+      'attacker',
+    )
+  })
+
+  it('[P0][4.3-BE-011][AC1,AC2] exposes guarded history and search routes under the advisory controller', () => {
+    expect(Reflect.getMetadata(PATH_METADATA, AdvisorySessionController)).toBe('advisory')
+    expect(Reflect.getMetadata(GUARDS_METADATA, AdvisorySessionController)).toEqual(
+      expect.arrayContaining([JwtAuthGuard, TenantGuard]),
+    )
+    expect(Reflect.getMetadata(PATH_METADATA, controller.listSessionHistory)).toBe(
+      'sessions/history',
+    )
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.listSessionHistory)).toBe(
+      RequestMethod.GET,
+    )
+    expect(Reflect.getMetadata(PATH_METADATA, controller.searchSessionHistory)).toBe(
+      'sessions/search',
+    )
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.searchSessionHistory)).toBe(
+      RequestMethod.GET,
+    )
+  })
+
+  it('[P0][4.3-BE-002][AC2] searches history through the scoped service contract', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(
+      controller.searchSessionHistory(
+        {
+          q: 'setup guidance',
+          type: 'output',
+          status: 'completed',
+          tenantId: 'attacker-tenant',
+          actorId: 'attacker-actor',
+        } as never,
+        user as never,
+        'tenant-1',
+      ),
+    ).resolves.toEqual({
+      data: {
+        items: [
+          expect.objectContaining({
+            resultType: 'output',
+            outputId: 'output-1',
+            title: 'Retention Diagnosis',
+            workflowType: 'Problem Solving',
+            timestamp: '2026-05-21T01:08:00.000Z',
+            openTarget: 'view-output',
+          }),
+        ],
+        meta: { page: 1, limit: 20, total: 1 },
+      },
+    })
+    expect(service.searchSessionHistory).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      query: {
+        q: 'setup guidance',
+        type: 'output',
+        status: 'completed',
+      },
     })
   })
 })

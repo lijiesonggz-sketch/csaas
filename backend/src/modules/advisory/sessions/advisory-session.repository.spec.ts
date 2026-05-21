@@ -51,6 +51,7 @@ describe('AdvisorySessionRepository', () => {
       delete: jest.fn(),
       find: jest.fn(),
       count: jest.fn(),
+      createQueryBuilder: jest.fn(),
     } as never
 
     repository = new AdvisorySessionRepository(typeormRepository)
@@ -185,4 +186,75 @@ describe('AdvisorySessionRepository', () => {
     )
     expect(typeormRepository.delete).toHaveBeenCalledWith({ id: session.id, tenantId })
   })
+
+  it('[P0][4.3-BE-003][AC1] builds tenant actor scoped history queries with filters in SQL', async () => {
+    const session = createSession({
+      metadata: { title: 'Retention Diagnosis' },
+      updatedAt: new Date('2026-05-21T01:06:00.000Z'),
+    })
+    const queryBuilder = createSelectQueryBuilderMock([session], 1)
+    typeormRepository.createQueryBuilder.mockReturnValue(queryBuilder as never)
+
+    await expect(
+      repository.findHistorySessionsForActor(tenantId, session.actorId, {
+        q: 'retention',
+        workflowKey: 'problem-solving',
+        status: 'active',
+        from: new Date('2026-05-20T00:00:00.000Z'),
+        to: new Date('2026-05-22T00:00:00.000Z'),
+        take: 25,
+      }),
+    ).resolves.toEqual({ items: [session], total: 1 })
+
+    expect(typeormRepository.createQueryBuilder).toHaveBeenCalledWith('session')
+    expect(queryBuilder.where).toHaveBeenCalledWith('session.tenant_id = :tenantId', {
+      tenantId,
+    })
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith('session.actor_id = :actorId', {
+      actorId: session.actorId,
+    })
+    expect(JSON.stringify(queryBuilder.andWhere.mock.calls)).toContain('workflow_key')
+    expect(JSON.stringify(queryBuilder.andWhere.mock.calls)).toContain('updated_at')
+    expect(JSON.stringify(queryBuilder.andWhere.mock.calls)).toContain('LOWER')
+    expect(JSON.stringify(queryBuilder.andWhere.mock.calls)).toContain('ESCAPE')
+    expect(queryBuilder.take).toHaveBeenCalledWith(25)
+    expect(queryBuilder.getManyAndCount).toHaveBeenCalled()
+    expect(typeormRepository.find).not.toHaveBeenCalled()
+  })
+
+  it('[P0][4.3-BE-003][AC1] escapes history search wildcards before building LIKE clauses', async () => {
+    const session = createSession()
+    const queryBuilder = createSelectQueryBuilderMock([], 0)
+    typeormRepository.createQueryBuilder.mockReturnValue(queryBuilder as never)
+
+    await repository.findHistorySessionsForActor(tenantId, session.actorId, {
+      q: '50%_done\\',
+      take: 10,
+    })
+
+    const searchCall = queryBuilder.andWhere.mock.calls.find((call) =>
+      JSON.stringify(call).includes('historySearch'),
+    )
+    expect(searchCall?.[1]).toEqual({ historySearch: '%50\\%\\_done\\\\%' })
+  })
+
+  it('[P0][4.3-BE-004][AC1] rejects history lookup without a scoped actor id', async () => {
+    await expect(
+      repository.findHistorySessionsForActor(tenantId, '', { take: 10 }),
+    ).rejects.toThrow('id is required for tenant-scoped repository access')
+    expect(typeormRepository.createQueryBuilder).not.toHaveBeenCalled()
+  })
 })
+
+function createSelectQueryBuilderMock<T>(items: T[], total: number) {
+  const queryBuilder = {
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getManyAndCount: jest.fn().mockResolvedValue([items, total]),
+  }
+
+  return queryBuilder
+}

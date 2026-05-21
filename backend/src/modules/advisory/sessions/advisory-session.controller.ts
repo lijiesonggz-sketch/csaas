@@ -126,6 +126,36 @@ export class AdvisorySessionController {
     return { data: sessions }
   }
 
+  @Get('sessions/history')
+  async listSessionHistory(
+    @Query() query: Record<string, unknown>,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const history = await this.advisorySessionService.listSessionHistory({
+      user,
+      tenantId,
+      query: this.toHistoryQuery(query),
+    })
+
+    return { data: history }
+  }
+
+  @Get('sessions/search')
+  async searchSessionHistory(
+    @Query() query: Record<string, unknown>,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const results = await this.advisorySessionService.searchSessionHistory({
+      user,
+      tenantId,
+      query: this.toHistoryQuery(query),
+    })
+
+    return { data: results }
+  }
+
   @Post('sessions/:sessionId/resume')
   async resumeSession(
     @Param('sessionId') sessionId: string,
@@ -159,6 +189,7 @@ export class AdvisorySessionController {
   @Get('sessions/:sessionId/output')
   async getOutput(
     @Param('sessionId') sessionId: string,
+    @Query('outputId') outputId: string | undefined,
     @CurrentUser() user: AdvisoryAccessUser,
     @CurrentTenant() tenantId: string,
   ) {
@@ -166,6 +197,7 @@ export class AdvisorySessionController {
       user,
       tenantId,
       sessionId,
+      ...(this.toOptionalText(outputId) ? { outputId: this.toOptionalText(outputId) } : {}),
     })
 
     return { data: output }
@@ -383,6 +415,25 @@ export class AdvisorySessionController {
 
   private toOptionalText(value: unknown): string | undefined {
     return typeof value === 'string' && value.trim() ? value.trim() : undefined
+  }
+
+  private toHistoryQuery(query: Record<string, unknown> | undefined) {
+    const safe: Record<string, string> = {}
+    const copy = (key: string) => {
+      const value = this.toOptionalText(query?.[key])
+      if (value) safe[key] = value
+    }
+
+    copy('q')
+    copy('type')
+    copy('workflowKey')
+    copy('status')
+    copy('from')
+    copy('to')
+    copy('page')
+    copy('limit')
+
+    return safe
   }
 
   private toManualChoiceKind(value: unknown): 'workflow' | 'method' | undefined {

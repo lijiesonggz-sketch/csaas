@@ -20,8 +20,8 @@ jest.mock('@/lib/auth/auth-options', () => ({
 const mockGetServerSession = getServerSession as jest.Mock
 const mockFetch = jest.fn()
 
-function createRequest() {
-  return {} as Request
+function createRequest(url = 'http://frontend.test/api/advisory/sessions/session-1/output') {
+  return { url } as Request
 }
 
 /*
@@ -91,6 +91,36 @@ describe('/api/advisory/sessions/:sessionId/output proxy (ATDD RED)', () => {
         },
         cache: 'no-store',
       }
+    )
+  })
+
+  test('[P0] forwards outputId query only and strips browser-owned scope', async () => {
+    mockGetServerSession.mockResolvedValue({ accessToken: 'session-token' })
+    mockFetch.mockResolvedValue({
+      status: 200,
+      json: async () => ({
+        data: {
+          sessionId: 'session-1',
+          output: {
+            id: 'output-1',
+            sections: [],
+            aiLabelMetadata: { visible_label: '[AI Generated]' },
+          },
+        },
+      }),
+    })
+
+    const { GET } = await import('./route')
+    await GET(
+      createRequest(
+        'http://frontend.test/api/advisory/sessions/session-1/output?outputId=output-1&tenantId=evil&actorId=evil'
+      ),
+      { params: { sessionId: 'session-1' } }
+    )
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://backend.test/advisory/sessions/session-1/output?outputId=output-1',
+      expect.anything()
     )
   })
 

@@ -12,6 +12,21 @@ import {
 } from '../../../database/entities/advisory-workflow-session.entity'
 import { BaseRepository } from '../../../database/repositories/base.repository'
 
+export interface AdvisoryOutputHistoryRepositoryQuery {
+  q?: string
+  workflowKey?: string
+  status?: 'all' | 'active' | 'completed' | 'draft'
+  from?: Date
+  to?: Date
+  skip?: number
+  take?: number
+}
+
+export interface AdvisoryOutputHistoryRepositoryResult {
+  items: AdvisoryWorkflowOutput[]
+  total: number
+}
+
 @Injectable()
 export class AdvisoryWorkflowOutputRepository extends BaseRepository<AdvisoryWorkflowOutput> {
   constructor(
@@ -94,6 +109,115 @@ export class AdvisoryWorkflowOutputRepository extends BaseRepository<AdvisoryWor
         createdAt: 'DESC',
       },
     })
+  }
+
+  async findHistoryOutputsForActor(
+    tenantId: string,
+    actorId: string,
+    query: AdvisoryOutputHistoryRepositoryQuery = {},
+  ): Promise<AdvisoryOutputHistoryRepositoryResult> {
+    this.assertScopeValue(tenantId, 'tenantId')
+    this.assertScopeValue(actorId, 'id')
+
+    const queryBuilder = this.repository
+      .createQueryBuilder('output')
+      .where('output.tenant_id = :tenantId', { tenantId })
+      .andWhere('output.actor_id = :actorId', { actorId })
+
+    if (query.workflowKey) {
+      queryBuilder.andWhere('output.workflow_key = :workflowKey', {
+        workflowKey: query.workflowKey,
+      })
+    }
+    if (query.status && query.status !== 'all') {
+      queryBuilder.andWhere('output.status = :status', { status: query.status })
+    } else {
+      queryBuilder.andWhere('output.status IN (:...historyStatuses)', {
+        historyStatuses: [
+          AdvisoryWorkflowOutputStatus.Completed,
+          AdvisoryWorkflowOutputStatus.Draft,
+        ],
+      })
+    }
+    if (query.from) {
+      queryBuilder.andWhere('output.updated_at >= :from', { from: query.from })
+    }
+    if (query.to) {
+      queryBuilder.andWhere('output.updated_at <= :to', { to: query.to })
+    }
+    if (query.q) {
+      const historySearch = `%${this.escapeHistoryLikeTerm(query.q.toLowerCase())}%`
+      queryBuilder.andWhere(
+        [
+          '(',
+          "LOWER(output.title) LIKE :historySearch ESCAPE '\\'",
+          "OR LOWER(output.summary) LIKE :historySearch ESCAPE '\\'",
+          "OR LOWER(output.content_markdown) LIKE :historySearch ESCAPE '\\'",
+          'OR EXISTS (',
+          'SELECT 1',
+          'FROM jsonb_array_elements(output.sections) AS history_section(value)',
+          "WHERE LOWER(COALESCE(history_section.value ->> 'heading', '')) LIKE :historySearch ESCAPE '\\'",
+          "OR LOWER(COALESCE(history_section.value ->> 'contentMarkdown', '')) LIKE :historySearch ESCAPE '\\'",
+          ')',
+          "OR LOWER(output.workflow_key) LIKE :historySearch ESCAPE '\\'",
+          ')',
+        ].join(' '),
+        { historySearch },
+      )
+    }
+
+    queryBuilder
+      .orderBy('output.updated_at', 'DESC')
+      .addOrderBy('output.created_at', 'DESC')
+      .addOrderBy('output.id', 'ASC')
+
+    if (query.skip && query.skip > 0) {
+      queryBuilder.skip(query.skip)
+    }
+    if (query.take && query.take > 0) {
+      queryBuilder.take(query.take)
+    }
+
+    const [items, total] = await queryBuilder.getManyAndCount()
+
+    return { items, total }
+  }
+
+  async findLatestPersistedBySessionIds(
+    tenantId: string,
+    sessionIds: string[],
+  ): Promise<AdvisoryWorkflowOutput[]> {
+    this.assertScopeValue(tenantId, 'tenantId')
+    const safeSessionIds = [...new Set(sessionIds)]
+    safeSessionIds.forEach((sessionId) => this.assertScopeValue(sessionId, 'id'))
+    if (safeSessionIds.length === 0) return []
+
+    const outputs = await this.repository
+      .createQueryBuilder('output')
+      .where('output.tenant_id = :tenantId', { tenantId })
+      .andWhere('output.session_id IN (:...sessionIds)', { sessionIds: safeSessionIds })
+      .andWhere('output.status IN (:...historyStatuses)', {
+        historyStatuses: [
+          AdvisoryWorkflowOutputStatus.Draft,
+          AdvisoryWorkflowOutputStatus.Completed,
+        ],
+      })
+      .orderBy('output.session_id', 'ASC')
+      .addOrderBy("CASE WHEN output.status = 'draft' THEN 0 ELSE 1 END", 'ASC')
+      .addOrderBy('output.updated_at', 'DESC')
+      .getMany()
+    const latestBySession = new Map<string, AdvisoryWorkflowOutput>()
+    outputs.forEach((output) => {
+      if (!latestBySession.has(output.sessionId)) {
+        latestBySession.set(output.sessionId, output)
+      }
+    })
+
+    return [...latestBySession.values()]
+  }
+
+  private escapeHistoryLikeTerm(value: string): string {
+    return value.replace(/[\\%_]/g, (match) => `\\${match}`)
   }
 
   async appendSection(

@@ -63,14 +63,29 @@ export interface ThinkTankWorkflowOutputCompleteInput {
   outcome: string
 }
 
+export interface ThinkTankWorkflowOutputFetchOptions {
+  outputId?: string
+}
+
 export async function fetchThinkTankSessionOutput(
-  sessionId: string
+  sessionId: string,
+  options: ThinkTankWorkflowOutputFetchOptions = {}
 ): Promise<ThinkTankWorkflowOutputResult> {
   const headers = await getAuthHeadersAsync()
-  const response = await fetch(`/api/advisory/sessions/${encodeURIComponent(sessionId)}/output`, {
-    headers,
-    cache: 'no-store',
-  })
+  const params = new URLSearchParams()
+  if (options.outputId?.trim()) {
+    params.set('outputId', options.outputId.trim())
+  }
+  const queryString = params.toString()
+  const response = await fetch(
+    `/api/advisory/sessions/${encodeURIComponent(sessionId)}/output${
+      queryString ? `?${queryString}` : ''
+    }`,
+    {
+      headers,
+      cache: 'no-store',
+    }
+  )
   const body = await response.json().catch(() => null)
 
   if (!response.ok) {

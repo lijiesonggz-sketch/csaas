@@ -6,14 +6,18 @@ import { cva } from 'class-variance-authority'
 import {
   BrainCircuit,
   Clock3,
+  FileText,
+  History as HistoryIcon,
   MessageSquareText,
   RotateCcw,
+  Search,
   SendHorizontal,
   Settings,
   Workflow,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { AdvisoryChatMessage } from '@/components/advisory/AdvisoryChatMessage'
 import { AdvisoryDocumentDrawer } from '@/components/advisory/AdvisoryDocumentDrawer'
 import { EnterpriseBackgroundDialog } from '@/components/advisory/EnterpriseBackgroundDialog'
@@ -21,6 +25,13 @@ import { QuickConsultProblemIntake } from '@/components/advisory/QuickConsultPro
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Separator } from '@/components/ui/separator'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import {
   ADVISORY_DESKTOP_QUERY,
@@ -47,6 +58,7 @@ import {
   type ThinkTankConversationMessage,
   type ThinkTankDecisionOption,
   type ThinkTankWorkflowCatalogItem,
+  type ThinkTankWorkflowCurrentStep,
   type ThinkTankWorkflowLaunchResult,
   type ThinkTankWorkflowLaunchOptions,
 } from '@/lib/advisory/workflows'
@@ -78,6 +90,17 @@ import {
   type ThinkTankUnfinishedSessionCard,
 } from '@/lib/advisory/sessions'
 import {
+  THINKTANK_HISTORY_LOAD_FAILED_MESSAGE,
+  THINKTANK_HISTORY_SEARCH_FAILED_MESSAGE,
+  fetchThinkTankSessionHistory,
+  searchThinkTankHistory,
+  type ThinkTankHistoryItem,
+  type ThinkTankHistoryQuery,
+  type ThinkTankHistoryResult,
+  type ThinkTankHistoryStatus,
+  type ThinkTankHistoryType,
+} from '@/lib/advisory/history'
+import {
   ORGANIZATION_CONTEXT_LOAD_FAILED_MESSAGE,
   ORGANIZATION_CONTEXT_SAVE_FAILED_MESSAGE,
   fetchOrganizationContext,
@@ -96,8 +119,14 @@ const WORKFLOW_CATALOG_ERROR_MESSAGE = '暂时无法加载 ThinkTank 工作流�
 const SESSION_MESSAGES_ERROR_MESSAGE = '暂时无法加载 ThinkTank 会话消息，请刷新页面后重试。'
 const THINKTANK_DRAFT_STORAGE_PREFIX = 'thinktank:session-draft'
 const THINKTANK_MESSAGE_LAZY_RENDER_THRESHOLD = 80
+const THINKTANK_HISTORY_PAGE_SIZE = 20
 const THINKTANK_SCROLL_BOTTOM_TOLERANCE_PX = 48
 const THINKTANK_STREAM_ANNOUNCEMENT_THROTTLE_MS = 1000
+const INITIAL_HISTORY_META: ThinkTankHistoryResult['meta'] = {
+  page: 1,
+  limit: THINKTANK_HISTORY_PAGE_SIZE,
+  total: 0,
+}
 
 type WorkflowCatalogStatus = 'loading' | 'ready' | 'error'
 type SessionMessagesStatus = 'idle' | 'loading' | 'ready' | 'error'
@@ -105,6 +134,8 @@ type MessageStreamingStatus = 'idle' | 'submitting' | 'streaming' | 'completing'
 type WorkspaceMode = 'quick-consult' | 'workflow'
 type OrganizationContextStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'error'
 type UnfinishedSessionsStatus = 'idle' | 'loading' | 'ready' | 'error'
+type HistoryLoadStatus = 'idle' | 'loading' | 'ready' | 'error'
+type HistoryTimeFilter = 'all' | '7d' | '30d'
 
 const shellGridVariants = cva(
   'grid h-[calc(100vh-var(--advisory-nav-height)-48px)] min-h-[560px] grid-cols-[var(--advisory-sidebar-width)_minmax(var(--advisory-chat-min-width),1fr)_var(--advisory-document-rail-width)] overflow-hidden rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] shadow-sm transition-[font-size]',
@@ -214,6 +245,26 @@ function formatSessionActivityTime(value: string): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function getHistoryItemKey(item: ThinkTankHistoryItem): string {
+  return `${item.resultType}:${item.id}`
+}
+
+function getHistoryResultTypeLabel(item: ThinkTankHistoryItem): string {
+  return item.resultType === 'output' ? '报告' : item.status === 'active' ? '会话' : '会话'
+}
+
+function getHistoryActionLabel(item: ThinkTankHistoryItem): string {
+  if (item.openTarget === 'resume-session') return `继续会话 ${item.title}`
+  if (item.openTarget === 'view-output') return `打开报告 ${item.title}`
+  return `打开会话 ${item.title}`
+}
+
+function getHistoryStatusLabel(status: ThinkTankHistoryItem['status']): string {
+  if (status === 'active') return '进行中'
+  if (status === 'completed') return '已完成'
+  return '草稿'
 }
 
 function readProviderMetadata(message: ThinkTankConversationMessage): Record<string, unknown> {
@@ -413,10 +464,20 @@ export default function AdvisoryWorkspaceShell() {
   const [catalogError, setCatalogError] = useState<string | null>(null)
   const [unfinishedSessionsStatus, setUnfinishedSessionsStatus] =
     useState<UnfinishedSessionsStatus>('idle')
-  const [unfinishedSessions, setUnfinishedSessions] = useState<ThinkTankUnfinishedSessionCard[]>(
-    []
-  )
+  const [unfinishedSessions, setUnfinishedSessions] = useState<ThinkTankUnfinishedSessionCard[]>([])
   const [unfinishedSessionsError, setUnfinishedSessionsError] = useState<string | null>(null)
+  const [historyStatus, setHistoryStatus] = useState<HistoryLoadStatus>('idle')
+  const [historyItems, setHistoryItems] = useState<ThinkTankHistoryItem[]>([])
+  const [historyMeta, setHistoryMeta] =
+    useState<ThinkTankHistoryResult['meta']>(INITIAL_HISTORY_META)
+  const [historyLoadingMore, setHistoryLoadingMore] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const [historySearchDraft, setHistorySearchDraft] = useState('')
+  const [historyTypeFilter, setHistoryTypeFilter] = useState<ThinkTankHistoryType>('all')
+  const [historyStatusFilter, setHistoryStatusFilter] = useState<ThinkTankHistoryStatus>('all')
+  const [historyWorkflowFilter, setHistoryWorkflowFilter] = useState('all')
+  const [historyTimeFilter, setHistoryTimeFilter] = useState<HistoryTimeFilter>('all')
+  const [openingHistoryItemKey, setOpeningHistoryItemKey] = useState<string | null>(null)
   const [resumingSessionId, setResumingSessionId] = useState<string | null>(null)
   const [resumeError, setResumeError] = useState<string | null>(null)
   const [recoveryMessage, setRecoveryMessage] = useState<ThinkTankRecoveryMessage | null>(null)
@@ -441,6 +502,9 @@ export default function AdvisoryWorkspaceShell() {
     ADVISORY_LAYOUT.drawerDefaultWidth
   )
   const [workflowOutput, setWorkflowOutput] = useState<ThinkTankWorkflowOutput | null>(null)
+  const [historyPreviewOutput, setHistoryPreviewOutput] = useState<ThinkTankWorkflowOutput | null>(
+    null
+  )
   const [hasUnreadDocumentContent, setHasUnreadDocumentContent] = useState(false)
   const [outputAnnouncement, setOutputAnnouncement] = useState('')
   const [outputCompletionFeedback, setOutputCompletionFeedback] = useState<string | undefined>()
@@ -463,6 +527,7 @@ export default function AdvisoryWorkspaceShell() {
   const launchInFlightRef = useRef(false)
   const activeLaunchRef = useRef<ThinkTankWorkflowLaunchResult | null>(null)
   const organizationContextGateResolversRef = useRef<Array<(allowed: boolean) => void>>([])
+  const quickConsultButtonRef = useRef<HTMLButtonElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const conversationFocusRef = useRef<HTMLDivElement>(null)
   const conversationScrollRef = useRef<HTMLDivElement>(null)
@@ -474,9 +539,58 @@ export default function AdvisoryWorkspaceShell() {
   const outputExportRequestIdRef = useRef(0)
   const messageStreamRequestIdRef = useRef(0)
   const resumeRequestIdRef = useRef(0)
+  const historyRequestIdRef = useRef(0)
+  const historyOpenRequestIdRef = useRef(0)
   const lastStreamAnnouncementAtRef = useRef(0)
   const pendingStreamAnnouncementRef = useRef<number | null>(null)
   const activeSessionId = activeLaunch?.sessionId ?? null
+
+  const createHistoryQuery = (includeSearch: boolean, page = 1): ThinkTankHistoryQuery => {
+    const query: ThinkTankHistoryQuery = {
+      type: historyTypeFilter,
+      status: historyStatusFilter,
+      page,
+      limit: THINKTANK_HISTORY_PAGE_SIZE,
+    }
+    if (historyWorkflowFilter !== 'all') {
+      query.workflowKey = historyWorkflowFilter
+    }
+    if (includeSearch && historySearchDraft.trim()) {
+      query.q = historySearchDraft.trim()
+    }
+    if (historyTimeFilter !== 'all') {
+      const days = historyTimeFilter === '7d' ? 7 : 30
+      query.from = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+    }
+
+    return query
+  }
+
+  const openFirstConsult = () => {
+    setWorkspaceMode('quick-consult')
+    quickConsultButtonRef.current?.focus({ preventScroll: true })
+  }
+
+  const createHistoryWorkflowLaunch = (
+    item: ThinkTankHistoryItem,
+    currentStep?: ThinkTankWorkflowCurrentStep
+  ): ThinkTankWorkflowLaunchResult => ({
+    sessionId: item.sessionId,
+    workflow: {
+      key: item.workflowKey,
+      displayName: item.workflowType,
+      canonicalName: item.workflowType,
+      scenarioLabel: item.status === 'active' ? '历史会话' : '历史记录',
+      sourcePath: `workflow:${item.workflowKey}`,
+    },
+    status: item.status,
+    sourceRefs: [`workflow:${item.workflowKey}`],
+    firstPrompt:
+      item.openTarget === 'view-output'
+        ? `已打开历史报告：${item.title}`
+        : `已打开历史会话：${item.title}`,
+    currentStep: item.lastStep ?? currentStep ?? { index: 1, label: '历史记录' },
+  })
 
   useEffect(() => {
     setReadingDensity(readAdvisoryPreferences(userPreferenceIdentity).readingDensity)
@@ -517,14 +631,21 @@ export default function AdvisoryWorkspaceShell() {
   useEffect(() => {
     setUnfinishedSessions([])
     setUnfinishedSessionsError(null)
+    setHistoryItems([])
+    setHistoryMeta(INITIAL_HISTORY_META)
+    setHistoryLoadingMore(false)
+    setHistoryError(null)
     setResumeError(null)
     setRecoveryMessage(null)
     setActiveLaunch(null)
     activeLaunchRef.current = null
+    setHistoryPreviewOutput(null)
     streamAbortRef.current?.abort()
     streamAbortRef.current = null
     messageStreamRequestIdRef.current += 1
     resumeRequestIdRef.current += 1
+    historyRequestIdRef.current += 1
+    historyOpenRequestIdRef.current += 1
     messageSubmitInFlightRef.current = false
     setIsSubmittingMessage(false)
     setMessageStreamingStatus('idle')
@@ -560,6 +681,56 @@ export default function AdvisoryWorkspaceShell() {
       isCancelled = true
     }
   }, [advisorySessionIdentity, isDesktop])
+
+  useEffect(() => {
+    if (isDesktop !== true || !advisorySessionIdentity) {
+      setHistoryStatus('idle')
+      setHistoryItems([])
+      setHistoryMeta(INITIAL_HISTORY_META)
+      setHistoryLoadingMore(false)
+      setHistoryError(null)
+      return undefined
+    }
+
+    const requestId = historyRequestIdRef.current + 1
+    historyRequestIdRef.current = requestId
+    setHistoryStatus('loading')
+    setHistoryError(null)
+    setHistoryLoadingMore(false)
+
+    const includeSearch = Boolean(historySearchDraft.trim())
+    const request = includeSearch
+      ? searchThinkTankHistory(createHistoryQuery(true))
+      : fetchThinkTankSessionHistory(createHistoryQuery(false))
+
+    request
+      .then((result) => {
+        if (historyRequestIdRef.current !== requestId) return
+        setHistoryItems(result.items)
+        setHistoryMeta(result.meta)
+        setHistoryStatus('ready')
+      })
+      .catch((error) => {
+        if (historyRequestIdRef.current !== requestId) return
+        setHistoryItems([])
+        setHistoryMeta(INITIAL_HISTORY_META)
+        setHistoryError(readWorkflowErrorMessage(error, THINKTANK_HISTORY_LOAD_FAILED_MESSAGE))
+        setHistoryStatus('error')
+      })
+
+    return () => {
+      if (historyRequestIdRef.current === requestId) {
+        historyRequestIdRef.current += 1
+      }
+    }
+  }, [
+    advisorySessionIdentity,
+    isDesktop,
+    historyTypeFilter,
+    historyStatusFilter,
+    historyWorkflowFilter,
+    historyTimeFilter,
+  ])
 
   useEffect(() => {
     if (isDesktop !== true) {
@@ -648,6 +819,7 @@ export default function AdvisoryWorkspaceShell() {
       setSelectedDecisionLabel(null)
       setDocumentDrawerOpen(false)
       setWorkflowOutput(null)
+      setHistoryPreviewOutput(null)
       setHasUnreadDocumentContent(false)
       setOutputAnnouncement('')
       setOutputCompletionFeedback(undefined)
@@ -718,6 +890,7 @@ export default function AdvisoryWorkspaceShell() {
     setLaunchError(null)
     setMessageError(null)
     setCheckpointWarningMessage(null)
+    setHistoryPreviewOutput(null)
 
     try {
       const resumed = await resumeThinkTankSession(sessionId)
@@ -754,6 +927,164 @@ export default function AdvisoryWorkspaceShell() {
     } finally {
       if (resumeRequestIdRef.current === resumeRequestId) {
         setResumingSessionId(null)
+      }
+    }
+  }
+
+  const handleSearchHistory = async () => {
+    const requestId = historyRequestIdRef.current + 1
+    historyRequestIdRef.current = requestId
+    setHistoryStatus('loading')
+    setHistoryError(null)
+    setHistoryLoadingMore(false)
+
+    try {
+      const result = historySearchDraft.trim()
+        ? await searchThinkTankHistory(createHistoryQuery(true))
+        : await fetchThinkTankSessionHistory(createHistoryQuery(false))
+      if (historyRequestIdRef.current !== requestId) return
+      setHistoryItems(result.items)
+      setHistoryMeta(result.meta)
+      setHistoryStatus('ready')
+    } catch (error) {
+      if (historyRequestIdRef.current !== requestId) return
+      setHistoryItems([])
+      setHistoryMeta(INITIAL_HISTORY_META)
+      setHistoryError(
+        readWorkflowErrorMessage(
+          error,
+          historySearchDraft.trim()
+            ? THINKTANK_HISTORY_SEARCH_FAILED_MESSAGE
+            : THINKTANK_HISTORY_LOAD_FAILED_MESSAGE
+        )
+      )
+      setHistoryStatus('error')
+    }
+  }
+
+  const handleLoadMoreHistory = async () => {
+    if (historyLoadingMore || historyStatus !== 'ready') return
+    const nextPage = historyMeta.page + 1
+    const requestId = historyRequestIdRef.current + 1
+    historyRequestIdRef.current = requestId
+    setHistoryLoadingMore(true)
+    setHistoryError(null)
+
+    try {
+      const result = historySearchDraft.trim()
+        ? await searchThinkTankHistory(createHistoryQuery(true, nextPage))
+        : await fetchThinkTankSessionHistory(createHistoryQuery(false, nextPage))
+      if (historyRequestIdRef.current !== requestId) return
+      setHistoryItems((currentItems) => {
+        const existingKeys = new Set(
+          currentItems.map((currentItem) => getHistoryItemKey(currentItem))
+        )
+        const nextItems = result.items.filter(
+          (nextItem) => !existingKeys.has(getHistoryItemKey(nextItem))
+        )
+        return [...currentItems, ...nextItems]
+      })
+      setHistoryMeta(result.meta)
+      setHistoryStatus('ready')
+    } catch (error) {
+      if (historyRequestIdRef.current !== requestId) return
+      setHistoryError(readWorkflowErrorMessage(error, THINKTANK_HISTORY_LOAD_FAILED_MESSAGE))
+    } finally {
+      if (historyRequestIdRef.current === requestId) {
+        setHistoryLoadingMore(false)
+      }
+    }
+  }
+
+  const handleOpenHistoryItem = async (item: ThinkTankHistoryItem) => {
+    if (item.openTarget === 'resume-session') {
+      await handleResumeSession(item.sessionId)
+      return
+    }
+
+    if (item.openTarget === 'view-output') {
+      const openRequestId = historyOpenRequestIdRef.current + 1
+      historyOpenRequestIdRef.current = openRequestId
+      setOpeningHistoryItemKey(getHistoryItemKey(item))
+      setHistoryError(null)
+
+      try {
+        const outputResult = await fetchThinkTankWorkflowOutput(item.sessionId, {
+          outputId: item.outputId,
+        })
+        if (historyOpenRequestIdRef.current !== openRequestId) return
+        setHistoryPreviewOutput(outputResult.output)
+        setDocumentDrawerOpen(true)
+        setHasUnreadDocumentContent(false)
+        setOutputAnnouncement(`已打开历史报告：${item.title}`)
+      } catch (error) {
+        if (historyOpenRequestIdRef.current !== openRequestId) return
+        setHistoryError(readWorkflowErrorMessage(error, THINKTANK_HISTORY_LOAD_FAILED_MESSAGE))
+      } finally {
+        if (historyOpenRequestIdRef.current === openRequestId) {
+          setOpeningHistoryItemKey(null)
+        }
+      }
+      return
+    }
+
+    streamAbortRef.current?.abort()
+    streamAbortRef.current = null
+    messageStreamRequestIdRef.current += 1
+    const openRequestId = historyOpenRequestIdRef.current + 1
+    historyOpenRequestIdRef.current = openRequestId
+    messageSubmitInFlightRef.current = false
+    setIsSubmittingMessage(false)
+    setMessageStreamingStatus('idle')
+    setStreamingMessageId(null)
+    setOpeningHistoryItemKey(getHistoryItemKey(item))
+    setHistoryError(null)
+    setLaunchError(null)
+    setMessageError(null)
+    setCheckpointWarningMessage(null)
+    const isCurrentSession = activeLaunchRef.current?.sessionId === item.sessionId
+
+    try {
+      const [messagesResult, outputResult] = await Promise.all([
+        fetchThinkTankSessionMessages(item.sessionId),
+        fetchThinkTankWorkflowOutput(item.sessionId, { outputId: item.outputId }),
+      ])
+      if (historyOpenRequestIdRef.current !== openRequestId) return
+
+      const launch = createHistoryWorkflowLaunch(item, messagesResult.currentStep)
+      activeLaunchRef.current = launch
+      skipNextSessionMessagesLoadRef.current = launch.sessionId
+      skipNextOutputLoadRef.current = launch.sessionId
+      setSessionMessages(messagesResult.messages)
+      setSessionMessagesStatus('ready')
+      setMessageStreamingStatus('idle')
+      setStreamingMessageId(null)
+      setStreamAnnouncement('')
+      setHasUnreadStreamContent(false)
+      setShowAllMessages(false)
+      setSelectedDecisionLabel(null)
+      setWorkflowOutput(outputResult.output)
+      setHistoryPreviewOutput(null)
+      setHasUnreadDocumentContent(false)
+      setOutputAnnouncement('')
+      setOutputCompletionFeedback(undefined)
+      setOutputExportingFormat(null)
+      setOutputExportError(null)
+      if (!isCurrentSession) {
+        setRecoveryMessage(null)
+      }
+      outputExportRequestIdRef.current += 1
+      appendedOutputSourceMessageIdsRef.current.clear()
+      setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
+      setWorkspaceMode('workflow')
+      setActiveLaunch(launch)
+      setDocumentDrawerOpen(false)
+    } catch (error) {
+      if (historyOpenRequestIdRef.current !== openRequestId) return
+      setHistoryError(readWorkflowErrorMessage(error, THINKTANK_HISTORY_LOAD_FAILED_MESSAGE))
+    } finally {
+      if (historyOpenRequestIdRef.current === openRequestId) {
+        setOpeningHistoryItemKey(null)
       }
     }
   }
@@ -810,6 +1141,7 @@ export default function AdvisoryWorkspaceShell() {
       setSessionMessages([])
       setSessionMessagesStatus('idle')
       setWorkflowOutput(null)
+      setHistoryPreviewOutput(null)
       setHasUnreadDocumentContent(false)
       setOutputCompletionFeedback(undefined)
       setOutputExportingFormat(null)
@@ -862,11 +1194,13 @@ export default function AdvisoryWorkspaceShell() {
       .then((result) => {
         if (isCancelled) return
         setWorkflowOutput(result.output)
+        setHistoryPreviewOutput(null)
         setHasUnreadDocumentContent(false)
       })
       .catch(() => {
         if (isCancelled) return
         setWorkflowOutput(null)
+        setHistoryPreviewOutput(null)
         setHasUnreadDocumentContent(false)
       })
 
@@ -988,6 +1322,7 @@ export default function AdvisoryWorkspaceShell() {
       })
       appendedOutputSourceMessageIdsRef.current.add(assistantMessage.id)
       setWorkflowOutput(result.output)
+      setHistoryPreviewOutput(null)
       setHasUnreadDocumentContent(!documentDrawerOpen)
       setOutputCompletionFeedback(feedback)
       setOutputAnnouncement(`已完成：${stepLabel}，报告草稿已更新。`)
@@ -1235,6 +1570,7 @@ export default function AdvisoryWorkspaceShell() {
         outcome: 'success',
       })
       setWorkflowOutput(result.output)
+      setHistoryPreviewOutput(null)
       setHasUnreadDocumentContent(!documentDrawerOpen)
       setOutputCompletionFeedback('工作流已完成，报告草稿已归档。')
       setOutputAnnouncement('工作流已完成，报告草稿已归档。')
@@ -1387,7 +1723,11 @@ export default function AdvisoryWorkspaceShell() {
     messageStreamingStatus === 'submitting' ||
     messageStreamingStatus === 'streaming' ||
     messageStreamingStatus === 'completing'
-  const canSubmitMessage = sessionMessagesStatus === 'ready' && !isSubmittingMessage
+  const canSubmitMessage =
+    activeLaunch?.status === 'active' && sessionMessagesStatus === 'ready' && !isSubmittingMessage
+  const documentDrawerOutput = historyPreviewOutput ?? workflowOutput
+  const hasHistoryPreviewOutput = Boolean(historyPreviewOutput)
+  const hasMoreHistoryItems = historyItems.length < historyMeta.total
   const showQuickConsult = workspaceMode === 'quick-consult' || !activeLaunch
   const documentColumnWidth = documentDrawerOpen
     ? typeof documentDrawerWidth === 'number'
@@ -1479,6 +1819,7 @@ export default function AdvisoryWorkspaceShell() {
 
           <nav aria-label="咨询工作流" className="flex-1 p-4">
             <button
+              ref={quickConsultButtonRef}
               type="button"
               aria-label="Quick Consult"
               aria-pressed={workspaceMode === 'quick-consult'}
@@ -1497,7 +1838,237 @@ export default function AdvisoryWorkspaceShell() {
                 </span>
               </span>
             </button>
-            {(unfinishedSessionsStatus === 'loading' || unfinishedSessions.length > 0 || resumeError) && (
+            <section
+              role="region"
+              aria-label="历史记录"
+              className="mb-4 border-b border-[hsl(var(--advisory-border))] pb-4"
+            >
+              <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase text-[hsl(var(--advisory-muted-foreground))]">
+                <HistoryIcon className="h-4 w-4" />
+                ThinkTank 历史
+              </div>
+              <form
+                role="search"
+                aria-label="搜索历史记录"
+                className="space-y-2"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  void handleSearchHistory()
+                }}
+              >
+                <Input
+                  type="search"
+                  role="searchbox"
+                  aria-label="搜索历史记录"
+                  value={historySearchDraft}
+                  onChange={(event) => setHistorySearchDraft(event.target.value)}
+                  placeholder="搜索历史"
+                  className="h-8 rounded-sm bg-[hsl(var(--advisory-panel))] text-xs"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Label className="text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                    时间范围
+                    <Select
+                      value={historyTimeFilter}
+                      onValueChange={(value) => setHistoryTimeFilter(value as HistoryTimeFilter)}
+                    >
+                      <SelectTrigger
+                        aria-label="历史时间范围"
+                        className="mt-1 h-8 rounded-sm border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-2 text-xs"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全部</SelectItem>
+                        <SelectItem value="7d">近7天</SelectItem>
+                        <SelectItem value="30d">近30天</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Label>
+                  <Label className="text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                    类型
+                    <Select
+                      value={historyTypeFilter}
+                      onValueChange={(value) => setHistoryTypeFilter(value as ThinkTankHistoryType)}
+                    >
+                      <SelectTrigger
+                        aria-label="历史类型"
+                        className="mt-1 h-8 rounded-sm border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-2 text-xs"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全部</SelectItem>
+                        <SelectItem value="session">会话</SelectItem>
+                        <SelectItem value="output">报告</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Label>
+                  <Label className="text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                    工作流
+                    <Select value={historyWorkflowFilter} onValueChange={setHistoryWorkflowFilter}>
+                      <SelectTrigger
+                        aria-label="历史工作流"
+                        className="mt-1 h-8 rounded-sm border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-2 text-xs"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全部</SelectItem>
+                        {workflows.map((workflow) => (
+                          <SelectItem key={workflow.key} value={workflow.key}>
+                            {workflow.displayName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Label>
+                  <Label className="text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                    状态
+                    <Select
+                      value={historyStatusFilter}
+                      onValueChange={(value) =>
+                        setHistoryStatusFilter(value as ThinkTankHistoryStatus)
+                      }
+                    >
+                      <SelectTrigger
+                        aria-label="历史状态"
+                        className="mt-1 h-8 rounded-sm border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-2 text-xs"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">全部</SelectItem>
+                        <SelectItem value="active">进行中</SelectItem>
+                        <SelectItem value="completed">已完成</SelectItem>
+                        <SelectItem value="draft">草稿</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Label>
+                </div>
+                <Button
+                  type="submit"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-full rounded-sm px-3 text-xs"
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  搜索历史
+                </Button>
+              </form>
+              <div className="mt-3">
+                {historyStatus === 'loading' && (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]"
+                  >
+                    正在加载历史记录
+                  </div>
+                )}
+                {historyStatus === 'error' && historyError && (
+                  <p
+                    role="alert"
+                    className="rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
+                  >
+                    {historyError}
+                  </p>
+                )}
+                {historyStatus === 'ready' && historyItems.length === 0 && (
+                  <div
+                    role="status"
+                    aria-label="ThinkTank 历史空状态"
+                    className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]"
+                  >
+                    <p className="font-medium text-[hsl(var(--advisory-foreground))]">
+                      暂无历史记录
+                    </p>
+                    <p className="mt-1">从 Quick Consult 开始第一次咨询后，历史会显示在这里。</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={openFirstConsult}
+                      className="mt-3 h-8 rounded-sm px-3 text-xs"
+                    >
+                      开始第一次咨询
+                    </Button>
+                  </div>
+                )}
+                {historyItems.length > 0 && (
+                  <ul className="space-y-2">
+                    {historyItems.map((item) => {
+                      const itemKey = getHistoryItemKey(item)
+                      const isOpening = openingHistoryItemKey === itemKey
+                      const isActive = activeLaunch?.sessionId === item.sessionId
+
+                      return (
+                        <li key={itemKey}>
+                          <button
+                            type="button"
+                            aria-label={getHistoryActionLabel(item)}
+                            aria-pressed={isActive && workspaceMode === 'workflow'}
+                            disabled={Boolean(openingHistoryItemKey) || Boolean(resumingSessionId)}
+                            onClick={() => {
+                              void handleOpenHistoryItem(item)
+                            }}
+                            className={cn(
+                              'flex min-h-24 w-full flex-col gap-2 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-left text-xs text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-60',
+                              isActive &&
+                                workspaceMode === 'workflow' &&
+                                'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
+                            )}
+                          >
+                            <span className="flex w-full items-start justify-between gap-2">
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-medium">
+                                  {item.title}
+                                </span>
+                                <span className="mt-1 block truncate text-[11px] text-[hsl(var(--advisory-muted-foreground))]">
+                                  {item.workflowType}
+                                </span>
+                              </span>
+                              <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-[hsl(var(--advisory-muted-foreground))]">
+                                <FileText className="h-3 w-3" />
+                                {getHistoryResultTypeLabel(item)}
+                              </span>
+                            </span>
+                            <span className="line-clamp-2 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                              {item.summary}
+                            </span>
+                            <span className="flex items-center gap-1 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                              <Clock3 className="h-3 w-3" />
+                              <span>{getHistoryStatusLabel(item.status)}</span>
+                              <span aria-hidden="true">·</span>
+                              <span>{formatSessionActivityTime(item.timestamp)}</span>
+                              <span aria-hidden="true">·</span>
+                              <span>{isOpening ? '打开中' : isActive ? '已打开' : '打开'}</span>
+                            </span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+                {hasMoreHistoryItems && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={historyLoadingMore}
+                    onClick={() => {
+                      void handleLoadMoreHistory()
+                    }}
+                    className="mt-2 h-8 w-full rounded-sm px-3 text-xs"
+                  >
+                    {historyLoadingMore ? '加载中' : '加载更多历史'}
+                  </Button>
+                )}
+              </div>
+            </section>
+            {(unfinishedSessionsStatus === 'loading' ||
+              unfinishedSessions.length > 0 ||
+              resumeError) && (
               <div className="mb-4">
                 <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase text-[hsl(var(--advisory-muted-foreground))]">
                   <RotateCcw className="h-4 w-4" />
@@ -1953,17 +2524,22 @@ export default function AdvisoryWorkspaceShell() {
         <AdvisoryDocumentDrawer
           open={documentDrawerOpen}
           width={documentDrawerWidth}
-          output={workflowOutput}
-          hasNewContent={hasUnreadDocumentContent}
-          completionFeedback={outputCompletionFeedback}
+          output={documentDrawerOutput}
+          hasNewContent={hasHistoryPreviewOutput ? false : hasUnreadDocumentContent}
+          completionFeedback={hasHistoryPreviewOutput ? undefined : outputCompletionFeedback}
           liveAnnouncement={outputAnnouncement}
           conversationInputRef={textareaRef}
-          exportingFormat={outputExportingFormat}
-          exportError={outputExportError}
-          onOpenChange={setDocumentDrawerOpen}
+          exportingFormat={hasHistoryPreviewOutput ? null : outputExportingFormat}
+          exportError={hasHistoryPreviewOutput ? null : outputExportError}
+          onOpenChange={(open) => {
+            setDocumentDrawerOpen(open)
+            if (!open) {
+              setHistoryPreviewOutput(null)
+            }
+          }}
           onWidthChange={setDocumentDrawerWidth}
           onClearNewContent={() => setHasUnreadDocumentContent(false)}
-          onExportOutput={handleExportOutput}
+          onExportOutput={hasHistoryPreviewOutput ? undefined : handleExportOutput}
           onDismissExportError={() => setOutputExportError(null)}
         />
       </div>
