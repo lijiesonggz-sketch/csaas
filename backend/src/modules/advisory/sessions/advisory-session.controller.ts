@@ -143,6 +143,21 @@ export class AdvisorySessionController {
     return { data: output }
   }
 
+  @Get('sessions/:sessionId/checkpoint')
+  async getCheckpoint(
+    @Param('sessionId') sessionId: string,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const checkpoint = await this.advisorySessionService.getSessionCheckpoint({
+      user,
+      tenantId,
+      sessionId,
+    })
+
+    return { data: checkpoint }
+  }
+
   @Post('sessions/:sessionId/output/sections')
   async appendOutputSection(
     @Param('sessionId') sessionId: string,

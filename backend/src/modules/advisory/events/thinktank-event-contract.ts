@@ -28,6 +28,7 @@ export enum ThinkTankEventName {
   ProviderCallRetried = 'thinktank.provider.call_retried',
   PromptCacheHit = 'thinktank.prompt_cache.hit',
   PromptCacheMiss = 'thinktank.prompt_cache.miss',
+  CheckpointPersistenceFailed = 'thinktank.checkpoint.persistence_failed',
   RecommendationFeedbackSubmitted = 'thinktank.recommendation.feedback_submitted',
   OutputRatingSubmitted = 'thinktank.output.rating_submitted',
   OutputFavoriteUpdated = 'thinktank.output.favorite_updated',

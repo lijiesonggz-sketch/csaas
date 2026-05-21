@@ -20,12 +20,26 @@ import {
   AdvisoryWorkflowOutputStatus,
 } from '../../../database/entities/advisory-workflow-output.entity'
 import {
+  AdvisoryCheckpointConversationState,
+  AdvisoryCheckpointDocumentState,
+  AdvisoryCheckpointStateSnapshot,
+} from '../../../database/entities/advisory-workflow-checkpoint.entity'
+import {
   AdvisoryWorkflowSessionCurrentStep,
   AdvisoryWorkflowSessionStatus,
 } from '../../../database/entities/advisory-workflow-session.entity'
 import { AdvisoryAccessService, AdvisoryAccessUser } from '../access/advisory-access.service'
+import {
+  AdvisoryCheckpointPersistenceErrorCategory,
+  AdvisoryCheckpointSaveInput,
+  AdvisoryCheckpointService,
+  AdvisoryCheckpointWarning,
+  THINKTANK_CHECKPOINT_IO_TIMEOUT_MS,
+  THINKTANK_CHECKPOINT_WARNING_CODE,
+} from '../checkpoints/advisory-checkpoint.service'
 import { AdvisoryEventService } from '../events/advisory-event.service'
 import {
+  ThinkTankErrorCategory,
   ThinkTankEventName,
   ThinkTankEventOutcome,
   ThinkTankPrivacyClassification,
@@ -78,6 +92,7 @@ const THINKTANK_ACCEPTED_RECOMMENDATION_INVALID_MESSAGE =
   'Quick Consult 推荐上下文不存在或已不可用。'
 const THINKTANK_MANUAL_CHOICE_INVALID_MESSAGE = 'Quick Consult 手动选择信息无效。'
 const THINKTANK_MANUAL_CHOICE_LABEL_MAX_LENGTH = 120
+const THINKTANK_CHECKPOINT_RESPONSE_WAIT_MS = THINKTANK_CHECKPOINT_IO_TIMEOUT_MS + 50
 const SAFE_CURRENT_STEP_REF = 'current-step:1'
 const INVALID_WORKFLOW_AUDIT_KEY = 'invalid-workflow'
 const EXPECTED_THINKTANK_WORKFLOW_KEYS = [
@@ -111,6 +126,7 @@ export interface AdvisoryWorkflowLaunchResult {
   sourceRefs: string[]
   firstPrompt: string
   currentStep: AdvisoryWorkflowSessionCurrentStep
+  checkpointWarning?: AdvisoryCheckpointWarning
 }
 
 export interface AdvisoryConversationStreamChunk {
@@ -133,16 +149,25 @@ export interface AdvisoryConversationSubmitResult extends AdvisoryConversationMe
   assistantMessage: AdvisoryConversationMessage
   stream: AdvisoryConversationStreamChunk[]
   decisionOptions: AdvisoryConversationDecisionOption[]
+  checkpointWarning?: AdvisoryCheckpointWarning
 }
 
 export interface AdvisorySessionOutputResult {
   sessionId: string
   output: AdvisoryWorkflowOutput
+  checkpointWarning?: AdvisoryCheckpointWarning
 }
 
 export interface AdvisorySessionOutputsResult {
   sessionId: string
   outputs: AdvisoryWorkflowOutput[]
+}
+
+export interface AdvisorySessionCheckpointResult {
+  sessionId: string
+  source: 'hot' | 'cold' | null
+  checkpoint: AdvisoryCheckpointStateSnapshot | null
+  checkpointWarning?: AdvisoryCheckpointWarning
 }
 
 export interface AdvisoryOutputAppendResult extends AdvisorySessionOutputResult {
@@ -172,6 +197,7 @@ export type AdvisoryConversationStreamingEvent =
         assistantMessage: AdvisoryConversationMessage
         decisionOptions: AdvisoryConversationDecisionOption[]
         usage?: ThinkTankProviderStreamChunk['usage']
+        checkpointWarning?: AdvisoryCheckpointWarning
       }
     }
   | {
@@ -244,6 +270,8 @@ interface AdvisoryCompleteOutputContext extends AdvisorySessionMessageContext {
 
 @Injectable()
 export class AdvisorySessionService {
+  private readonly checkpointActivityClock = new Map<string, number>()
+
   constructor(
     private readonly accessService: AdvisoryAccessService,
     private readonly workflowRegistry: ThinkTankWorkflowRegistryService,
@@ -259,6 +287,8 @@ export class AdvisorySessionService {
     private readonly workflowParser?: ThinkTankWorkflowParserService,
     @Optional()
     private readonly organizationContextService?: AdvisoryOrganizationContextService,
+    @Optional()
+    private readonly checkpointService?: AdvisoryCheckpointService,
   ) {}
 
   async listWorkflows(context: AdvisorySessionContext): Promise<AdvisoryWorkflowCatalogResult> {
@@ -366,6 +396,18 @@ export class AdvisorySessionService {
         workflowKey: workflow.key,
         sourceRefCount: assembledPrompt.sourceRefs.length,
       }).catch(() => undefined)
+      const checkpointWarning = await this.saveCheckpointForSession({
+        tenantId: context.tenantId,
+        user: context.user,
+        session,
+        conversation: {
+          messageCount: 0,
+          historyPointer: `conversation_messages:${session.id}`,
+        },
+        documentState: {
+          sectionCount: 0,
+        },
+      })
 
       return {
         sessionId: session.id,
@@ -374,6 +416,7 @@ export class AdvisorySessionService {
         sourceRefs: responseSourceRefs,
         firstPrompt,
         currentStep,
+        ...(checkpointWarning ? { checkpointWarning } : {}),
       }
     } catch (error) {
       if (error instanceof ConflictException || error instanceof BadRequestException) {
@@ -448,6 +491,33 @@ export class AdvisorySessionService {
     }
   }
 
+  async getSessionCheckpoint(
+    context: AdvisorySessionMessageContext,
+  ): Promise<AdvisorySessionCheckpointResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const session = await this.getTenantSession(context.tenantId, context.sessionId)
+
+    if (!this.checkpointService) {
+      return {
+        sessionId: session.id,
+        source: null,
+        checkpoint: null,
+      }
+    }
+
+    const restored = await this.checkpointService.restoreCheckpoint({
+      tenantId: context.tenantId,
+      sessionId: session.id,
+    })
+
+    return {
+      sessionId: session.id,
+      source: restored.source,
+      checkpoint: restored.state,
+      ...(restored.checkpointWarning ? { checkpointWarning: restored.checkpointWarning } : {}),
+    }
+  }
+
   async appendOutputSection(
     context: AdvisoryAppendOutputSectionContext,
   ): Promise<AdvisoryOutputAppendResult> {
@@ -495,11 +565,23 @@ export class AdvisorySessionService {
     if (!output) {
       throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
     }
+    const checkpointWarning = await this.saveCheckpointForSession({
+      tenantId: context.tenantId,
+      user: context.user,
+      session,
+      conversation: {
+        messageCount: sourceMessage.sequence,
+        lastMessageId: sourceMessage.id,
+        historyPointer: `conversation_messages:${session.id}`,
+      },
+      documentState: this.toCheckpointDocumentState(output),
+    })
 
     return {
       sessionId: session.id,
       output,
       section,
+      ...(checkpointWarning ? { checkpointWarning } : {}),
     }
   }
 
@@ -553,10 +635,17 @@ export class AdvisorySessionService {
       output,
       outcome,
     })
+    const checkpointWarning = await this.saveCheckpointForSession({
+      tenantId: context.tenantId,
+      user: context.user,
+      session,
+      documentState: this.toCheckpointDocumentState(output),
+    })
 
     return {
       sessionId: session.id,
       output,
+      ...(checkpointWarning ? { checkpointWarning } : {}),
     }
   }
 
@@ -644,6 +733,16 @@ export class AdvisorySessionService {
         providerMetadata: this.createAssistantProviderMetadata(lastChunk),
       },
     )
+    const checkpointWarning = await this.saveCheckpointForSession({
+      tenantId: context.tenantId,
+      user: context.user,
+      session,
+      conversation: {
+        messageCount: history.length + 2,
+        lastMessageId: assistantMessage.id,
+        historyPointer: `conversation_messages:${session.id}`,
+      },
+    })
 
     return {
       sessionId: session.id,
@@ -660,6 +759,7 @@ export class AdvisorySessionService {
         finishReason: chunk.finishReason,
       })),
       decisionOptions,
+      ...(checkpointWarning ? { checkpointWarning } : {}),
     }
   }
 
@@ -791,6 +891,16 @@ export class AdvisorySessionService {
         providerMetadata: this.createAssistantProviderMetadata(lastChunk),
       },
     )
+    const checkpointWarning = await this.saveCheckpointForSession({
+      tenantId: context.tenantId,
+      user: context.user,
+      session,
+      conversation: {
+        messageCount: history.length + 2,
+        lastMessageId: assistantMessage.id,
+        historyPointer: `conversation_messages:${session.id}`,
+      },
+    })
 
     yield {
       event: 'message.completed',
@@ -800,8 +910,239 @@ export class AdvisorySessionService {
         assistantMessage,
         decisionOptions,
         ...(lastChunk?.usage ? { usage: lastChunk.usage } : {}),
+        ...(checkpointWarning ? { checkpointWarning } : {}),
       },
     }
+  }
+
+  private async saveCheckpointForSession(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: {
+      id: string
+      actorId: string
+      workflowKey: string
+      workflowDisplayName: string
+      currentStep: AdvisoryWorkflowSessionCurrentStep
+      updatedAt?: Date
+    }
+    conversation?: {
+      messageCount: number
+      lastMessageId?: string
+      historyPointer: string
+    }
+    documentState?: AdvisoryCheckpointDocumentState
+  }): Promise<AdvisoryCheckpointWarning | undefined> {
+    if (!this.checkpointService) return undefined
+
+    const saveTask = this.createCheckpointSaveInput(context).then((input) =>
+      this.checkpointService?.saveCheckpoint(input),
+    )
+    void saveTask.catch(() => undefined)
+
+    const result = await this.readBoundedCheckpointResult(saveTask, context)
+
+    return result?.checkpointWarning
+  }
+
+  private async createCheckpointSaveInput(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: {
+      id: string
+      actorId: string
+      workflowKey: string
+      workflowDisplayName: string
+      currentStep: AdvisoryWorkflowSessionCurrentStep
+      updatedAt?: Date
+    }
+    conversation?: AdvisoryCheckpointConversationState
+    documentState?: AdvisoryCheckpointDocumentState
+  }): Promise<AdvisoryCheckpointSaveInput> {
+    const [conversation, documentState] = await Promise.all([
+      context.conversation ??
+        this.resolveCheckpointConversationState(context.tenantId, context.session.id),
+      context.documentState ??
+        this.resolveCheckpointDocumentState(context.tenantId, context.session.id),
+    ])
+    if (!conversation || !documentState) {
+      throw new Error('Unable to resolve complete checkpoint state')
+    }
+
+    return {
+      tenantId: context.tenantId,
+      actorId: context.session.actorId || context.user.id,
+      sessionId: context.session.id,
+      workflowKey: context.session.workflowKey,
+      workflowType: context.session.workflowDisplayName,
+      currentStep: context.session.currentStep,
+      conversation,
+      documentState,
+      lastActivityAt: this.nextCheckpointActivityAt(context.tenantId, context.session.id),
+      metadata: {
+        checkpoint_source: 'advisory_session_service',
+      },
+    }
+  }
+
+  private async readBoundedCheckpointResult(
+    saveTask: Promise<{ checkpointWarning?: AdvisoryCheckpointWarning } | undefined>,
+    context: {
+      tenantId: string
+      user: AdvisoryAccessUser
+      session: {
+        id: string
+        actorId: string
+        workflowKey: string
+      }
+    },
+  ): Promise<{ checkpointWarning?: AdvisoryCheckpointWarning } | undefined> {
+    let timer: NodeJS.Timeout | undefined
+
+    try {
+      return await Promise.race([
+        saveTask,
+        new Promise<{ checkpointWarning: AdvisoryCheckpointWarning }>((resolve) => {
+          timer = setTimeout(() => {
+            const checkpointWarning = this.createCheckpointPersistenceWarning(
+              'hot_and_cold_checkpoint_failed',
+            )
+            void this.recordSessionCheckpointFailure(context, checkpointWarning).catch(
+              () => undefined,
+            )
+            resolve({
+              checkpointWarning,
+            })
+          }, THINKTANK_CHECKPOINT_RESPONSE_WAIT_MS)
+        }),
+      ])
+    } catch {
+      const checkpointWarning = this.createCheckpointPersistenceWarning(
+        'hot_and_cold_checkpoint_failed',
+      )
+      await this.recordSessionCheckpointFailure(context, checkpointWarning).catch(() => undefined)
+      return { checkpointWarning }
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+  }
+
+  private nextCheckpointActivityAt(tenantId: string, sessionId: string): string {
+    const key = `${tenantId}:${sessionId}`
+    const now = Date.now()
+    const previous = this.checkpointActivityClock.get(key) ?? 0
+    const next = Math.max(now, previous + 1)
+    this.checkpointActivityClock.set(key, next)
+    return new Date(next).toISOString()
+  }
+
+  private async resolveCheckpointConversationState(
+    tenantId: string,
+    sessionId: string,
+  ): Promise<AdvisoryCheckpointConversationState | null> {
+    try {
+      const messages = await this.requireMessageRepository().findMessagesBySession(
+        tenantId,
+        sessionId,
+      )
+      const lastMessage = messages.at(-1)
+
+      return {
+        messageCount: messages.length,
+        ...(lastMessage ? { lastMessageId: lastMessage.id } : {}),
+        historyPointer: `conversation_messages:${sessionId}`,
+      }
+    } catch {
+      return null
+    }
+  }
+
+  private async resolveCheckpointDocumentState(
+    tenantId: string,
+    sessionId: string,
+  ): Promise<AdvisoryCheckpointDocumentState | null> {
+    try {
+      const outputRepository = this.requireOutputRepository()
+      const activeDraft = await outputRepository.findActiveDraftForSession(tenantId, sessionId)
+      const completedOutput = activeDraft
+        ? null
+        : await outputRepository.findLatestCompletedForSession(tenantId, sessionId)
+
+      return this.toCheckpointDocumentState(activeDraft ?? completedOutput)
+    } catch {
+      return null
+    }
+  }
+
+  private createCheckpointPersistenceWarning(
+    errorCategory: AdvisoryCheckpointPersistenceErrorCategory,
+  ): AdvisoryCheckpointWarning {
+    return {
+      code: THINKTANK_CHECKPOINT_WARNING_CODE,
+      errorCategory,
+      recoveryGuidance:
+        'Your current action succeeded, but workflow progress recovery may be degraded. Continue working; if you leave now, reopen the latest saved session state.',
+    }
+  }
+
+  private async recordSessionCheckpointFailure(
+    context: {
+      tenantId: string
+      user: AdvisoryAccessUser
+      session: {
+        id: string
+        actorId: string
+        workflowKey: string
+      }
+    },
+    warning: AdvisoryCheckpointWarning,
+  ): Promise<void> {
+    await this.eventService.emitTelemetry({
+      eventName: ThinkTankEventName.CheckpointPersistenceFailed,
+      tenantId: context.tenantId,
+      actorId: context.session.actorId || context.user.id,
+      subjectType: ThinkTankSubjectType.Session,
+      subjectId: context.session.id,
+      outcome: ThinkTankEventOutcome.Partial,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      optional: {
+        sessionId: context.session.id,
+        workflowType: context.session.workflowKey,
+        errorCategory: ThinkTankErrorCategory.Unknown,
+      },
+      metadata: {
+        checkpoint_error_category: warning.errorCategory,
+        checkpoint_operation: 'save',
+        recovery_guidance: warning.recoveryGuidance,
+      },
+      telemetry: {
+        entityType: 'ThinkTankWorkflowCheckpoint',
+      },
+    })
+  }
+
+  private toCheckpointDocumentState(
+    output?: AdvisoryWorkflowOutput | null,
+  ): AdvisoryCheckpointDocumentState {
+    if (!output) {
+      return {
+        sectionCount: 0,
+      }
+    }
+
+    return {
+      outputId: output.id,
+      status: output.status,
+      title: output.title,
+      summary: output.summary,
+      sectionCount: this.readOutputSectionCount(output),
+    }
+  }
+
+  private readOutputSectionCount(output: AdvisoryWorkflowOutput): number {
+    if (Array.isArray(output.sections)) return output.sections.length
+    const metadataCount = output.metadata?.section_count
+    return typeof metadataCount === 'number' && metadataCount >= 0 ? metadataCount : 0
   }
 
   private assertCompleteWorkflowCatalog(workflows: ThinkTankWorkflowMetadata[]): void {

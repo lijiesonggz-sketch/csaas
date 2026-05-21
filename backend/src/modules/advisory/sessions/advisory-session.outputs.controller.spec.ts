@@ -41,7 +41,11 @@ describe('AdvisorySessionController workflow outputs (ATDD RED)', () => {
   let service: jest.Mocked<
     Pick<
       AdvisorySessionService,
-      'getSessionOutput' | 'listSessionOutputs' | 'appendOutputSection' | 'completeOutput'
+      | 'getSessionOutput'
+      | 'listSessionOutputs'
+      | 'appendOutputSection'
+      | 'completeOutput'
+      | 'getSessionCheckpoint'
     >
   >
 
@@ -63,6 +67,26 @@ describe('AdvisorySessionController workflow outputs (ATDD RED)', () => {
       completeOutput: jest.fn().mockResolvedValue({
         sessionId: 'session-1',
         output: { ...outputDraft, status: 'completed' },
+      }),
+      getSessionCheckpoint: jest.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        source: 'cold',
+        checkpoint: {
+          sessionId: 'session-1',
+          workflowKey: 'problem-solving',
+          workflowType: 'Problem Solving',
+          currentStep: { index: 1, label: 'Diagnose retention', sourceRef: 'current-step:1' },
+          conversation: {
+            messageCount: 2,
+            historyPointer: 'conversation_messages:session-1',
+          },
+          documentState: {
+            outputId: 'output-1',
+            status: 'draft',
+            sectionCount: 1,
+          },
+          lastActivityAt: '2026-05-21T00:00:00.000Z',
+        },
       }),
     } as never
 
@@ -103,6 +127,10 @@ describe('AdvisorySessionController workflow outputs (ATDD RED)', () => {
       'sessions/:sessionId/output/complete',
     )
     expect(Reflect.getMetadata(METHOD_METADATA, controller.completeOutput)).toBe(RequestMethod.POST)
+    expect(Reflect.getMetadata(PATH_METADATA, controller.getCheckpoint)).toBe(
+      'sessions/:sessionId/checkpoint',
+    )
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.getCheckpoint)).toBe(RequestMethod.GET)
   })
 
   test('[P0] returns the current session output in a ThinkTank-owned data envelope', async () => {
@@ -199,5 +227,31 @@ describe('AdvisorySessionController workflow outputs (ATDD RED)', () => {
     expect(JSON.stringify(service.completeOutput.mock.calls[0][0])).not.toMatch(
       /raw report|raw section|attacker-tenant|attacker-output/i,
     )
+  })
+
+  test('[P0] returns the latest checkpoint summary without accepting tenant from request body', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(controller.getCheckpoint('session-1', user as never, 'tenant-1')).resolves.toEqual(
+      {
+        data: expect.objectContaining({
+          sessionId: 'session-1',
+          source: 'cold',
+          checkpoint: expect.objectContaining({
+            workflowKey: 'problem-solving',
+            documentState: expect.objectContaining({
+              outputId: 'output-1',
+              sectionCount: 1,
+            }),
+          }),
+        }),
+      },
+    )
+
+    expect(service.getSessionCheckpoint).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      sessionId: 'session-1',
+    })
   })
 })

@@ -47,6 +47,10 @@ import {
   streamThinkTankSessionMessage,
 } from '@/lib/advisory/streaming'
 import {
+  readThinkTankCheckpointWarningMessage,
+  type ThinkTankCheckpointWarning,
+} from '@/lib/advisory/checkpoints'
+import {
   THINKTANK_OUTPUT_APPEND_FAILED_MESSAGE,
   THINKTANK_OUTPUT_EXPORT_FAILED_MESSAGE,
   appendThinkTankWorkflowOutputSection,
@@ -375,6 +379,7 @@ export default function AdvisoryWorkspaceShell() {
   const [sessionMessagesStatus, setSessionMessagesStatus] = useState<SessionMessagesStatus>('idle')
   const [sessionMessages, setSessionMessages] = useState<ThinkTankConversationMessage[]>([])
   const [messageError, setMessageError] = useState<string | null>(null)
+  const [checkpointWarningMessage, setCheckpointWarningMessage] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [isSubmittingMessage, setIsSubmittingMessage] = useState(false)
   const [messageStreamingStatus, setMessageStreamingStatus] =
@@ -534,6 +539,7 @@ export default function AdvisoryWorkspaceShell() {
       setSessionMessages([])
       setSessionMessagesStatus('loading')
       setMessageError(null)
+      setCheckpointWarningMessage(null)
       setMessageStreamingStatus('idle')
       setStreamingMessageId(null)
       setStreamAnnouncement('')
@@ -552,6 +558,7 @@ export default function AdvisoryWorkspaceShell() {
       setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
       setWorkspaceMode('workflow')
       setActiveLaunch(launch)
+      showCheckpointWarning(launch.checkpointWarning)
     } catch (error) {
       setLaunchError(readWorkflowErrorMessage(error, THINKTANK_WORKFLOW_START_FAILED_MESSAGE))
     } finally {
@@ -818,6 +825,7 @@ export default function AdvisoryWorkspaceShell() {
       setHasUnreadDocumentContent(!documentDrawerOpen)
       setOutputCompletionFeedback(feedback)
       setOutputAnnouncement(`已完成：${stepLabel}，报告草稿已更新。`)
+      showCheckpointWarning(result.checkpointWarning)
       announceStreamStatus(feedback, { immediate: true })
       textareaRef.current?.focus({ preventScroll: true })
       return result.output
@@ -972,6 +980,7 @@ export default function AdvisoryWorkspaceShell() {
                 : currentLaunch
             )
           }
+          showCheckpointWarning(event.data.checkpointWarning)
           announceStreamStatus('顾问回复已完成。', { immediate: true })
           setStreamingMessageId(null)
           applyStreamingScrollBehavior(shouldAutoScroll)
@@ -1051,6 +1060,7 @@ export default function AdvisoryWorkspaceShell() {
       setHasUnreadDocumentContent(!documentDrawerOpen)
       setOutputCompletionFeedback('工作流已完成，报告草稿已归档。')
       setOutputAnnouncement('工作流已完成，报告草稿已归档。')
+      showCheckpointWarning(result.checkpointWarning)
       announceStreamStatus('工作流已完成，报告草稿已归档。', { immediate: true })
     } catch (error) {
       setMessageError(readWorkflowErrorMessage(error, '暂时无法完成报告草稿，请稍后重试。'))
@@ -1098,6 +1108,16 @@ export default function AdvisoryWorkspaceShell() {
       }
       textareaRef.current?.focus({ preventScroll: true })
     }
+  }
+
+  const showCheckpointWarning = (warning: ThinkTankCheckpointWarning | undefined) => {
+    const message = readThinkTankCheckpointWarningMessage(warning)
+    if (!message) return
+
+    setCheckpointWarningMessage(message)
+    toast.warning('自动保存检查点暂时不可用', {
+      description: message,
+    })
   }
 
   const handleDecisionOption = (option: ThinkTankDecisionOption) => {
@@ -1579,6 +1599,16 @@ export default function AdvisoryWorkspaceShell() {
                       className="mt-2 rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
                     >
                       {messageError}
+                    </p>
+                  )}
+                  {checkpointWarningMessage && (
+                    <p
+                      role="status"
+                      aria-live="polite"
+                      aria-label="ThinkTank checkpoint warning"
+                      className="mt-2 rounded-sm border border-[hsl(var(--advisory-warning-border))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--advisory-foreground))]"
+                    >
+                      {checkpointWarningMessage}
                     </p>
                   )}
                 </div>

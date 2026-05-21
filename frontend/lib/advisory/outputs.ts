@@ -1,4 +1,5 @@
 import { getAuthHeadersAsync } from '@/lib/utils/jwt'
+import { normalizeThinkTankCheckpointWarning, type ThinkTankCheckpointWarning } from './checkpoints'
 import { readAdvisoryMessage, unwrapAdvisoryEnvelope } from './envelope'
 
 export const THINKTANK_OUTPUT_LOAD_FAILED_MESSAGE = '暂时无法加载报告草稿，请稍后重试。'
@@ -41,6 +42,7 @@ export interface ThinkTankWorkflowOutput {
 export interface ThinkTankWorkflowOutputResult {
   sessionId: string
   output: ThinkTankWorkflowOutput
+  checkpointWarning?: ThinkTankCheckpointWarning
 }
 
 export interface ThinkTankWorkflowOutputAppendInput {
@@ -201,6 +203,7 @@ function normalizeOutputResult(
   return {
     sessionId: data.sessionId,
     output,
+    checkpointWarning: normalizeThinkTankCheckpointWarning(data.checkpointWarning),
   }
 }
 

@@ -41,6 +41,7 @@ export {
   AdvisoryWorkflowOutput,
   AdvisoryWorkflowOutputStatus,
 } from './advisory-workflow-output.entity'
+export { AdvisoryWorkflowCheckpoint } from './advisory-workflow-checkpoint.entity'
 export {
   AIGenerationResult,
   ReviewStatus,

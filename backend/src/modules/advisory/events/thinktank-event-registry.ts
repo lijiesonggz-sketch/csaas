@@ -24,6 +24,7 @@ export const THINKTANK_TELEMETRY_EVENT_NAMES = [
   'thinktank.provider.call_retried',
   'thinktank.prompt_cache.hit',
   'thinktank.prompt_cache.miss',
+  'thinktank.checkpoint.persistence_failed',
   'thinktank.recommendation.feedback_submitted',
   'thinktank.output.rating_submitted',
   'thinktank.output.favorite_updated',

@@ -1,4 +1,5 @@
 import { getAuthHeadersAsync } from '@/lib/utils/jwt'
+import type { ThinkTankCheckpointWarning } from './checkpoints'
 import { readAdvisoryMessage } from './envelope'
 import {
   THINKTANK_EMPTY_MESSAGE_MESSAGE,
@@ -41,6 +42,7 @@ export type ThinkTankStreamingEvent =
         currentStep?: ThinkTankWorkflowCurrentStep
         assistantMessage: ThinkTankConversationMessage
         decisionOptions?: ThinkTankDecisionOption[]
+        checkpointWarning?: ThinkTankCheckpointWarning
       }
     }
   | {

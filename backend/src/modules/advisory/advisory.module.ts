@@ -6,6 +6,7 @@ import { AdvisoryConversationMessage } from '../../database/entities/advisory-co
 import { AdvisoryOrganizationContext } from '../../database/entities/advisory-organization-context.entity'
 import { AdvisoryQuickConsultContext } from '../../database/entities/advisory-quick-consult-context.entity'
 import { AdvisoryRecommendationFeedback } from '../../database/entities/advisory-recommendation-feedback.entity'
+import { AdvisoryWorkflowCheckpoint } from '../../database/entities/advisory-workflow-checkpoint.entity'
 import { AdvisoryWorkflowOutput } from '../../database/entities/advisory-workflow-output.entity'
 import { AdvisoryWorkflowSession } from '../../database/entities/advisory-workflow-session.entity'
 import { AuditModule } from '../audit/audit.module'
@@ -15,6 +16,12 @@ import { AdvisoryAccessService } from './access/advisory-access.service'
 import { AdvisoryModuleConfigRepository } from './admin/advisory-module-config.repository'
 import { AdvisoryAdminController } from './admin/advisory-admin.controller'
 import { AdvisoryAdminService } from './admin/advisory-admin.service'
+import {
+  ADVISORY_CHECKPOINT_HOT_STORE,
+  AdvisoryCheckpointService,
+  IORedisAdvisoryCheckpointHotStore,
+} from './checkpoints/advisory-checkpoint.service'
+import { AdvisoryWorkflowCheckpointRepository } from './checkpoints/advisory-workflow-checkpoint.repository'
 import { AdvisoryEventService } from './events/advisory-event.service'
 import {
   CSAAS_ENTERPRISE_SIGNALS_ADAPTER,
@@ -67,6 +74,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
       AdvisoryOrganizationContext,
       AdvisoryQuickConsultContext,
       AdvisoryRecommendationFeedback,
+      AdvisoryWorkflowCheckpoint,
       AdvisoryWorkflowOutput,
       AdvisoryWorkflowSession,
     ]),
@@ -82,6 +90,13 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryAccessService,
     AdvisoryAdminService,
     AdvisoryModuleConfigRepository,
+    AdvisoryWorkflowCheckpointRepository,
+    AdvisoryCheckpointService,
+    IORedisAdvisoryCheckpointHotStore,
+    {
+      provide: ADVISORY_CHECKPOINT_HOT_STORE,
+      useExisting: IORedisAdvisoryCheckpointHotStore,
+    },
     AdvisoryOrganizationContextRepository,
     AdvisoryOrganizationContextService,
     AdvisoryConversationMessageRepository,
@@ -130,6 +145,8 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryAccessService,
     AdvisoryAdminService,
     AdvisoryEventService,
+    AdvisoryWorkflowCheckpointRepository,
+    AdvisoryCheckpointService,
     CsaasEnterpriseSignalsService,
     AdvisoryOrganizationContextRepository,
     AdvisoryOrganizationContextService,

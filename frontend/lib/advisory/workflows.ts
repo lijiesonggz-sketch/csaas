@@ -1,4 +1,5 @@
 import { getAuthHeadersAsync } from '@/lib/utils/jwt'
+import { normalizeThinkTankCheckpointWarning, type ThinkTankCheckpointWarning } from './checkpoints'
 import { readAdvisoryMessage, unwrapAdvisoryEnvelope } from './envelope'
 
 export const THINKTANK_WORKFLOW_START_FAILED_MESSAGE =
@@ -48,6 +49,7 @@ export interface ThinkTankWorkflowLaunchResult {
   sourceRefs: string[]
   firstPrompt: string
   currentStep: ThinkTankWorkflowCurrentStep
+  checkpointWarning?: ThinkTankCheckpointWarning
 }
 
 export interface ThinkTankWorkflowLaunchOptions {
@@ -137,6 +139,7 @@ export interface ThinkTankSessionMessageSubmitResult extends ThinkTankSessionMes
   assistantMessage: ThinkTankConversationMessage
   stream: ThinkTankSessionMessageStreamChunk[]
   decisionOptions: ThinkTankDecisionOption[]
+  checkpointWarning?: ThinkTankCheckpointWarning
 }
 
 export async function fetchThinkTankWorkflows(): Promise<ThinkTankWorkflowCatalogResult> {
@@ -274,7 +277,10 @@ export async function sendThinkTankSessionMessage(
     throw new Error(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
   }
 
-  return data
+  return {
+    ...data,
+    checkpointWarning: normalizeThinkTankCheckpointWarning(data.checkpointWarning),
+  }
 }
 
 function normalizeWorkflow(workflow: ThinkTankWorkflowCatalogItem): ThinkTankWorkflowCatalogItem {

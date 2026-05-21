@@ -27,6 +27,7 @@ export type AdvisoryWorkflowSessionMetadata = Record<string, string | number | b
 @Index('idx_workflow_sessions_actor_id', ['actorId'])
 @Index('idx_workflow_sessions_workflow_key', ['workflowKey'])
 @Index('idx_workflow_sessions_status', ['status'])
+@Index('idx_workflow_sessions_tenant_id_id', ['tenantId', 'id'], { unique: true })
 @Index('idx_workflow_sessions_tenant_workflow_status', ['tenantId', 'workflowKey', 'status'])
 @Index('idx_workflow_sessions_one_active_actor', ['tenantId', 'actorId'], {
   unique: true,
