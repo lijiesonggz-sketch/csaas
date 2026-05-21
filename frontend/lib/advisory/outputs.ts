@@ -7,6 +7,13 @@ export const THINKTANK_OUTPUT_APPEND_FAILED_MESSAGE = '暂时无法更新报告�
 export const THINKTANK_OUTPUT_COMPLETE_FAILED_MESSAGE = '暂时无法完成报告草稿，请稍后重试。'
 export const THINKTANK_OUTPUT_EXPORT_FAILED_MESSAGE =
   '报告导出失败，请重试；如果仍失败，请检查网络或联系管理员。'
+export const THINKTANK_OUTPUT_RATING_REQUIRED_MESSAGE = '请选择 1 到 5 分后再提交。'
+export const THINKTANK_OUTPUT_FAVORITE_REQUIRED_MESSAGE = '请选择收藏或取消收藏后再提交。'
+export const THINKTANK_OUTPUT_ID_REQUIRED_MESSAGE = '暂时无法确认报告，请重新打开后再试。'
+export const THINKTANK_OUTPUT_RATING_FAILED_MESSAGE = '暂时无法提交报告评分，请稍后重试。'
+export const THINKTANK_OUTPUT_FAVORITE_FAILED_MESSAGE = '暂时无法更新收藏状态，请稍后重试。'
+export const THINKTANK_OUTPUT_STATE_LOAD_FAILED_MESSAGE =
+  '暂时无法加载报告状态，请稍后重试。'
 
 export type ThinkTankOutputExportFormat = 'markdown' | 'pdf'
 
@@ -37,6 +44,31 @@ export interface ThinkTankWorkflowOutput {
   sections: ThinkTankWorkflowOutputSection[]
   aiLabelMetadata: Record<string, unknown>
   metadata: Record<string, unknown>
+  assetState?: ThinkTankOutputAssetState
+}
+
+export interface ThinkTankOutputAssetState {
+  outputId: string
+  rating: number | null
+  feedbackTextPresent: boolean
+  isFavorited: boolean
+  updatedAt: string | null
+}
+
+export interface ThinkTankOutputAssetStateResult {
+  sessionId: string
+  assetState: ThinkTankOutputAssetState
+}
+
+export interface ThinkTankOutputRatingInput {
+  outputId?: string
+  rating: number
+  feedbackText?: string
+}
+
+export interface ThinkTankOutputFavoriteInput {
+  outputId?: string
+  isFavorited: boolean
 }
 
 export interface ThinkTankWorkflowOutputResult {
@@ -160,6 +192,91 @@ export async function completeThinkTankSessionOutput(
   return normalizeOutputResult(body, THINKTANK_OUTPUT_COMPLETE_FAILED_MESSAGE)
 }
 
+export async function rateThinkTankSessionOutput(
+  sessionId: string,
+  input: ThinkTankOutputRatingInput
+): Promise<ThinkTankOutputAssetStateResult> {
+  const rating = normalizeRatingInput(input.rating)
+  const outputId = normalizeOutputIdInput(input.outputId)
+  const headers = await getAuthHeadersAsync()
+  const response = await fetch(
+    `/api/advisory/sessions/${encodeURIComponent(sessionId)}/output/rating`,
+    {
+      method: 'PUT',
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        outputId,
+        rating,
+        ...(input.feedbackText?.trim() ? { feedbackText: input.feedbackText.trim() } : {}),
+      }),
+      cache: 'no-store',
+    }
+  )
+  const body = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new Error(readAdvisoryMessage(body) ?? THINKTANK_OUTPUT_RATING_FAILED_MESSAGE)
+  }
+
+  return normalizeAssetStateResult(body, THINKTANK_OUTPUT_RATING_FAILED_MESSAGE)
+}
+
+export async function updateThinkTankOutputFavorite(
+  sessionId: string,
+  input: ThinkTankOutputFavoriteInput
+): Promise<ThinkTankOutputAssetStateResult> {
+  const isFavorited = normalizeFavoriteInput(input.isFavorited)
+  const outputId = normalizeOutputIdInput(input.outputId)
+  const headers = await getAuthHeadersAsync()
+  const response = await fetch(
+    `/api/advisory/sessions/${encodeURIComponent(sessionId)}/output/favorite`,
+    {
+      method: 'PUT',
+      headers: {
+        ...headers,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        outputId,
+        isFavorited,
+      }),
+      cache: 'no-store',
+    }
+  )
+  const body = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new Error(readAdvisoryMessage(body) ?? THINKTANK_OUTPUT_FAVORITE_FAILED_MESSAGE)
+  }
+
+  return normalizeAssetStateResult(body, THINKTANK_OUTPUT_FAVORITE_FAILED_MESSAGE)
+}
+
+export async function fetchThinkTankOutputAssetState(
+  sessionId: string,
+  options: { outputId: string }
+): Promise<ThinkTankOutputAssetStateResult> {
+  const outputId = normalizeOutputIdInput(options.outputId)
+  const headers = await getAuthHeadersAsync()
+  const response = await fetch(
+    `/api/advisory/sessions/${encodeURIComponent(sessionId)}/output/state?outputId=${encodeURIComponent(outputId)}`,
+    {
+      headers,
+      cache: 'no-store',
+    }
+  )
+  const body = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    throw new Error(readAdvisoryMessage(body) ?? THINKTANK_OUTPUT_STATE_LOAD_FAILED_MESSAGE)
+  }
+
+  return normalizeAssetStateResult(body, THINKTANK_OUTPUT_STATE_LOAD_FAILED_MESSAGE)
+}
+
 export async function downloadThinkTankSessionOutput(
   sessionId: string,
   format: ThinkTankOutputExportFormat
@@ -256,7 +373,90 @@ function normalizeOutput(value: unknown): ThinkTankWorkflowOutput | null {
       .filter(Boolean) as ThinkTankWorkflowOutputSection[],
     aiLabelMetadata: output.aiLabelMetadata,
     metadata: output.metadata ?? {},
+    ...(normalizeAssetState(output.assetState, output.id)
+      ? {
+          assetState: normalizeAssetState(
+            output.assetState,
+            output.id
+          ) as ThinkTankOutputAssetState,
+        }
+      : {}),
   }
+}
+
+function normalizeAssetStateResult(
+  body: unknown,
+  fallbackMessage: string
+): ThinkTankOutputAssetStateResult {
+  const data = unwrapAdvisoryEnvelope<Partial<ThinkTankOutputAssetStateResult>>(body)
+  const assetState = normalizeAssetState(data?.assetState)
+
+  if (!data?.sessionId || !assetState) {
+    throw new Error(fallbackMessage)
+  }
+
+  return {
+    sessionId: data.sessionId,
+    assetState,
+  }
+}
+
+function normalizeAssetState(
+  value: unknown,
+  fallbackOutputId?: string
+): ThinkTankOutputAssetState | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const record = value as Partial<ThinkTankOutputAssetState>
+  const outputId =
+    typeof record.outputId === 'string' && record.outputId.trim()
+      ? record.outputId.trim()
+      : fallbackOutputId
+  if (!outputId) return null
+  const rating =
+    Number.isInteger(record.rating) &&
+    (record.rating as number) >= 1 &&
+    (record.rating as number) <= 5
+      ? (record.rating as number)
+      : null
+  const updatedAt = normalizeIsoDate(record.updatedAt)
+
+  return {
+    outputId,
+    rating,
+    feedbackTextPresent: record.feedbackTextPresent === true,
+    isFavorited: record.isFavorited === true,
+    updatedAt,
+  }
+}
+
+function normalizeRatingInput(value: unknown): number {
+  if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > 5) {
+    throw new Error(THINKTANK_OUTPUT_RATING_REQUIRED_MESSAGE)
+  }
+
+  return value as number
+}
+
+function normalizeFavoriteInput(value: unknown): boolean {
+  if (typeof value !== 'boolean') {
+    throw new Error(THINKTANK_OUTPUT_FAVORITE_REQUIRED_MESSAGE)
+  }
+
+  return value
+}
+
+function normalizeOutputIdInput(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(THINKTANK_OUTPUT_ID_REQUIRED_MESSAGE)
+  }
+
+  return value.trim()
+}
+
+function normalizeIsoDate(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
 }
 
 function normalizeSection(value: unknown): ThinkTankWorkflowOutputSection | null {

@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Optional, Param, Post, Query, Res, UseGuards } from '@nestjs/common'
+import {
+  Body,
+  Controller,
+  Get,
+  Optional,
+  Param,
+  Post,
+  Put,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common'
 import type { Response } from 'express'
 import { CurrentUser } from '../../auth/decorators/current-user.decorator'
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
@@ -23,6 +34,17 @@ interface AppendOutputSectionBody {
 
 interface CompleteOutputBody {
   outcome?: unknown
+}
+
+interface SubmitOutputRatingBody {
+  outputId?: unknown
+  rating?: unknown
+  feedbackText?: unknown
+}
+
+interface UpdateOutputFavoriteBody {
+  outputId?: unknown
+  isFavorited?: unknown
 }
 
 interface LaunchWorkflowBody {
@@ -201,6 +223,66 @@ export class AdvisorySessionController {
     })
 
     return { data: output }
+  }
+
+  @Get('sessions/:sessionId/output/state')
+  async getOutputAssetState(
+    @Param('sessionId') sessionId: string,
+    @Query('outputId') outputId: string | undefined,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const assetState = await this.advisorySessionService.getOutputAssetState({
+      user,
+      tenantId,
+      sessionId,
+      ...(this.toOptionalText(outputId) ? { outputId: this.toOptionalText(outputId) } : {}),
+    })
+
+    return { data: assetState }
+  }
+
+  @Put('sessions/:sessionId/output/rating')
+  async submitOutputRating(
+    @Param('sessionId') sessionId: string,
+    @Body() body: SubmitOutputRatingBody,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const rating = await this.advisorySessionService.submitOutputRating({
+      user,
+      tenantId,
+      sessionId,
+      ...(this.toOptionalText(body?.outputId)
+        ? { outputId: this.toOptionalText(body?.outputId) }
+        : {}),
+      rating: body?.rating,
+      ...(this.toOptionalText(body?.feedbackText)
+        ? { feedbackText: this.toOptionalText(body?.feedbackText) }
+        : {}),
+    })
+
+    return { data: rating }
+  }
+
+  @Put('sessions/:sessionId/output/favorite')
+  async updateOutputFavorite(
+    @Param('sessionId') sessionId: string,
+    @Body() body: UpdateOutputFavoriteBody,
+    @CurrentUser() user: AdvisoryAccessUser,
+    @CurrentTenant() tenantId: string,
+  ) {
+    const favorite = await this.advisorySessionService.updateOutputFavorite({
+      user,
+      tenantId,
+      sessionId,
+      ...(this.toOptionalText(body?.outputId)
+        ? { outputId: this.toOptionalText(body?.outputId) }
+        : {}),
+      isFavorited: typeof body?.isFavorited === 'boolean' ? body.isFavorited : undefined,
+    })
+
+    return { data: favorite }
   }
 
   @Get('sessions/:sessionId/checkpoint')

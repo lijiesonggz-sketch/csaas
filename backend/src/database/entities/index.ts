@@ -29,6 +29,7 @@ export {
   AdvisoryQuickConsultContextStatus,
 } from './advisory-quick-consult-context.entity'
 export { AdvisoryRecommendationFeedback } from './advisory-recommendation-feedback.entity'
+export { AdvisoryOutputRating } from './advisory-output-rating.entity'
 export {
   AdvisoryWorkflowSession,
   AdvisoryWorkflowSessionStatus,

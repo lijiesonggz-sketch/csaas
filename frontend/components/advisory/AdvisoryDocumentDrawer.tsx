@@ -5,16 +5,21 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { FileDown, FileText, PanelRightClose, PanelRightOpen, X } from 'lucide-react'
+import { FileDown, FileText, PanelRightClose, PanelRightOpen, Star, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import { ADVISORY_LAYOUT } from '@/lib/advisory/layout'
 import type {
   ThinkTankOutputExportFormat,
+  ThinkTankOutputFavoriteInput,
+  ThinkTankOutputRatingInput,
   ThinkTankWorkflowOutput,
   ThinkTankWorkflowOutputSection,
 } from '@/lib/advisory/outputs'
+import { cn } from '@/lib/utils'
 
 interface AdvisoryDocumentDrawerProps {
   open: boolean
@@ -31,6 +36,8 @@ interface AdvisoryDocumentDrawerProps {
   onClearNewContent?: () => void
   onExportOutput?: (format: ThinkTankOutputExportFormat) => Promise<void> | void
   onDismissExportError?: () => void
+  onSubmitOutputRating?: (input: ThinkTankOutputRatingInput) => Promise<void> | void
+  onUpdateOutputFavorite?: (input: ThinkTankOutputFavoriteInput) => Promise<void> | void
 }
 
 type MarkdownBlock =
@@ -53,13 +60,25 @@ export function AdvisoryDocumentDrawer({
   onClearNewContent,
   onExportOutput,
   onDismissExportError,
+  onSubmitOutputRating,
+  onUpdateOutputFavorite,
 }: AdvisoryDocumentDrawerProps) {
   const latestSection = output?.sections?.at(-1) ?? null
   const latestSectionRef = useRef<HTMLElement | null>(null)
   const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null)
+  const [selectedRating, setSelectedRating] = useState<number | null>(
+    output?.assetState?.rating ?? null
+  )
+  const [feedbackText, setFeedbackText] = useState('')
+  const [assetStatus, setAssetStatus] = useState<string | null>(null)
+  const [assetError, setAssetError] = useState<string | null>(null)
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false)
+  const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false)
   const widthStyle = typeof width === 'number' ? `${width}px` : width
   const hasExportableSections = Boolean(output?.sections?.length)
   const exportDisabled = !hasExportableSections || Boolean(exportingFormat)
+  const isFavorited = output?.assetState?.isFavorited === true
+  const isMutatingAssetState = isSubmittingRating || isUpdatingFavorite
   const maxWidthPx =
     typeof window === 'undefined'
       ? ADVISORY_LAYOUT.drawerMinWidth
@@ -99,7 +118,14 @@ export function AdvisoryDocumentDrawer({
       }
       conversationInputRef?.current?.focus({ preventScroll: true })
     })
-  }, [conversationInputRef, latestSection?.id, open])
+  }, [conversationInputRef, latestSection, open])
+
+  useEffect(() => {
+    setSelectedRating(output?.assetState?.rating ?? null)
+    setFeedbackText('')
+    setAssetStatus(null)
+    setAssetError(null)
+  }, [output?.assetState?.rating, output?.id])
 
   const metadataSummary = useMemo(() => {
     if (!output) return null
@@ -168,6 +194,49 @@ export function AdvisoryDocumentDrawer({
     Promise.resolve(onExportOutput?.(format)).finally(() => {
       conversationInputRef?.current?.focus({ preventScroll: true })
     })
+  }
+
+  const handleSubmitRating = async () => {
+    if (!output || !selectedRating || !onSubmitOutputRating || isSubmittingRating) return
+    setIsSubmittingRating(true)
+    setAssetStatus(null)
+    setAssetError(null)
+
+    try {
+      await onSubmitOutputRating({
+        outputId: output.id,
+        rating: selectedRating,
+        ...(feedbackText.trim() ? { feedbackText: feedbackText.trim() } : {}),
+      })
+      setAssetStatus('评分已提交')
+      setFeedbackText('')
+      conversationInputRef?.current?.focus({ preventScroll: true })
+    } catch (error) {
+      setAssetError(readActionError(error, '评分提交失败，请稍后重试。'))
+    } finally {
+      setIsSubmittingRating(false)
+    }
+  }
+
+  const handleToggleFavorite = async () => {
+    if (!output || !onUpdateOutputFavorite || isUpdatingFavorite) return
+    const nextFavorited = !isFavorited
+    setIsUpdatingFavorite(true)
+    setAssetStatus(null)
+    setAssetError(null)
+
+    try {
+      await onUpdateOutputFavorite({
+        outputId: output.id,
+        isFavorited: nextFavorited,
+      })
+      setAssetStatus(nextFavorited ? '已收藏' : '已取消收藏')
+      conversationInputRef?.current?.focus({ preventScroll: true })
+    } catch (error) {
+      setAssetError(readActionError(error, '收藏状态更新失败，请稍后重试。'))
+    } finally {
+      setIsUpdatingFavorite(false)
+    }
   }
 
   useEffect(() => {
@@ -335,6 +404,86 @@ export function AdvisoryDocumentDrawer({
         </div>
       )}
 
+      {output && (
+        <section
+          aria-label="报告评分与收藏"
+          className="border-b border-[hsl(var(--advisory-border))] px-4 py-3"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div role="group" aria-label="报告评分" className="flex flex-wrap items-center gap-1">
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <Button
+                    key={rating}
+                    type="button"
+                    variant={selectedRating === rating ? 'default' : 'outline'}
+                    size="sm"
+                    aria-label={`评分 ${rating} 分`}
+                    aria-pressed={selectedRating === rating}
+                    disabled={isMutatingAssetState}
+                    onClick={() => setSelectedRating(rating)}
+                    className="h-7 min-w-8 rounded-sm px-2 text-xs"
+                  >
+                    {rating}
+                  </Button>
+                ))}
+                {output.assetState?.feedbackTextPresent && (
+                  <span className="ml-2 text-xs text-[hsl(var(--advisory-muted-foreground))]">
+                    已提交文字反馈
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 flex items-end gap-2">
+                <Textarea
+                  aria-label="评分反馈（可选）"
+                  value={feedbackText}
+                  maxLength={2000}
+                  placeholder="评分反馈（可选）"
+                  onChange={(event) => setFeedbackText(event.target.value)}
+                  className="min-h-9 flex-1 resize-none rounded-sm border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-2 py-1 text-xs leading-5"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  aria-label="提交评分"
+                  disabled={!selectedRating || isMutatingAssetState || !onSubmitOutputRating}
+                  onClick={handleSubmitRating}
+                  className="h-9 shrink-0 rounded-sm px-3 text-xs"
+                >
+                  {isSubmittingRating ? '提交中' : '提交评分'}
+                </Button>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant={isFavorited ? 'default' : 'outline'}
+              size="icon"
+              aria-label={isFavorited ? '取消收藏报告' : '收藏报告'}
+              aria-pressed={isFavorited}
+              disabled={isMutatingAssetState || !onUpdateOutputFavorite}
+              title={isFavorited ? '取消收藏报告' : '收藏报告'}
+              onClick={handleToggleFavorite}
+              className="h-9 w-9 shrink-0 rounded-sm"
+            >
+              <Star className={cn('h-4 w-4', isFavorited && 'fill-current')} />
+            </Button>
+          </div>
+          {(assetStatus || assetError) && (
+            <p
+              role={assetError ? 'alert' : 'status'}
+              className={cn(
+                'mt-2 text-xs leading-5',
+                assetError
+                  ? 'text-[hsl(var(--destructive))]'
+                  : 'text-[hsl(var(--advisory-success-foreground))]'
+              )}
+            >
+              {assetError ?? assetStatus}
+            </p>
+          )}
+        </section>
+      )}
+
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {!output || output.sections.length === 0 ? (
           <div className="flex h-full min-h-64 flex-col items-center justify-center text-center">
@@ -491,6 +640,10 @@ function sanitizeAiMarkdown(content: string): string {
 
 function readText(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function readActionError(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message.trim() ? error.message : fallback
 }
 
 function resolveNumericWidth(width: number | string): number {

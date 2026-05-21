@@ -77,7 +77,12 @@ import {
   completeThinkTankSessionOutput,
   downloadThinkTankSessionOutput,
   fetchThinkTankWorkflowOutput,
+  rateThinkTankSessionOutput,
+  updateThinkTankOutputFavorite,
+  type ThinkTankOutputAssetState,
   type ThinkTankOutputExportFormat,
+  type ThinkTankOutputFavoriteInput,
+  type ThinkTankOutputRatingInput,
   type ThinkTankWorkflowOutput,
 } from '@/lib/advisory/outputs'
 import {
@@ -265,6 +270,30 @@ function getHistoryStatusLabel(status: ThinkTankHistoryItem['status']): string {
   if (status === 'active') return '进行中'
   if (status === 'completed') return '已完成'
   return '草稿'
+}
+
+function applyOutputAssetState(
+  output: ThinkTankWorkflowOutput | null,
+  assetState: ThinkTankOutputAssetState
+): ThinkTankWorkflowOutput | null {
+  if (!output || output.id !== assetState.outputId) return output
+
+  return {
+    ...output,
+    assetState,
+  }
+}
+
+function applyHistoryAssetState(
+  item: ThinkTankHistoryItem,
+  assetState: ThinkTankOutputAssetState
+): ThinkTankHistoryItem {
+  if (item.outputId !== assetState.outputId && item.id !== assetState.outputId) return item
+
+  return {
+    ...item,
+    assetState,
+  }
 }
 
 function readProviderMetadata(message: ThinkTankConversationMessage): Record<string, unknown> {
@@ -1584,6 +1613,36 @@ export default function AdvisoryWorkspaceShell() {
     }
   }
 
+  const syncOutputAssetState = (assetState: ThinkTankOutputAssetState) => {
+    setWorkflowOutput((currentOutput) => applyOutputAssetState(currentOutput, assetState))
+    setHistoryPreviewOutput((currentOutput) => applyOutputAssetState(currentOutput, assetState))
+    setHistoryItems((currentItems) =>
+      currentItems.map((item) => applyHistoryAssetState(item, assetState))
+    )
+  }
+
+  const handleSubmitOutputRating = async (input: ThinkTankOutputRatingInput) => {
+    const targetSessionId = documentDrawerOutput?.sessionId ?? activeSessionId
+    if (!targetSessionId) {
+      throw new Error('暂时无法确认报告所属会话，请重新打开报告后再试。')
+    }
+
+    const result = await rateThinkTankSessionOutput(targetSessionId, input)
+    syncOutputAssetState(result.assetState)
+    setOutputAnnouncement('报告评分已提交。')
+  }
+
+  const handleUpdateOutputFavorite = async (input: ThinkTankOutputFavoriteInput) => {
+    const targetSessionId = documentDrawerOutput?.sessionId ?? activeSessionId
+    if (!targetSessionId) {
+      throw new Error('暂时无法确认报告所属会话，请重新打开报告后再试。')
+    }
+
+    const result = await updateThinkTankOutputFavorite(targetSessionId, input)
+    syncOutputAssetState(result.assetState)
+    setOutputAnnouncement(result.assetState.isFavorited ? '报告已收藏。' : '报告已取消收藏。')
+  }
+
   const handleExportOutput = async (format: ThinkTankOutputExportFormat) => {
     if (!activeSessionId || outputExportingFormat) return
 
@@ -2041,6 +2100,12 @@ export default function AdvisoryWorkspaceShell() {
                               <span>{getHistoryStatusLabel(item.status)}</span>
                               <span aria-hidden="true">·</span>
                               <span>{formatSessionActivityTime(item.timestamp)}</span>
+                              {item.assetState?.isFavorited && (
+                                <>
+                                  <span aria-hidden="true">·</span>
+                                  <span>已收藏</span>
+                                </>
+                              )}
                               <span aria-hidden="true">·</span>
                               <span>{isOpening ? '打开中' : isActive ? '已打开' : '打开'}</span>
                             </span>
@@ -2541,6 +2606,8 @@ export default function AdvisoryWorkspaceShell() {
           onClearNewContent={() => setHasUnreadDocumentContent(false)}
           onExportOutput={hasHistoryPreviewOutput ? undefined : handleExportOutput}
           onDismissExportError={() => setOutputExportError(null)}
+          onSubmitOutputRating={handleSubmitOutputRating}
+          onUpdateOutputFavorite={handleUpdateOutputFavorite}
         />
       </div>
     </section>

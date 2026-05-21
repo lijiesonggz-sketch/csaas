@@ -1,9 +1,9 @@
 import { getAuthHeadersAsync } from '@/lib/utils/jwt'
 import { readAdvisoryMessage, unwrapAdvisoryEnvelope } from './envelope'
+import type { ThinkTankOutputAssetState } from './outputs'
 import type { ThinkTankWorkflowCurrentStep } from './workflows'
 
-export const THINKTANK_HISTORY_LOAD_FAILED_MESSAGE =
-  '暂时无法加载 ThinkTank 历史记录，请稍后重试。'
+export const THINKTANK_HISTORY_LOAD_FAILED_MESSAGE = '暂时无法加载 ThinkTank 历史记录，请稍后重试。'
 export const THINKTANK_HISTORY_SEARCH_FAILED_MESSAGE =
   '暂时无法搜索 ThinkTank 历史记录，请稍后重试。'
 
@@ -35,6 +35,7 @@ export interface ThinkTankHistoryItem {
   lastStep?: ThinkTankWorkflowCurrentStep
   timestamp: string
   openTarget: ThinkTankHistoryOpenTarget
+  assetState?: ThinkTankOutputAssetState
 }
 
 export interface ThinkTankHistoryResult {
@@ -47,26 +48,26 @@ export interface ThinkTankHistoryResult {
 }
 
 export async function fetchThinkTankSessionHistory(
-  query: ThinkTankHistoryQuery = {},
+  query: ThinkTankHistoryQuery = {}
 ): Promise<ThinkTankHistoryResult> {
   return fetchHistoryEndpoint(
     `/api/advisory/sessions/history${buildHistoryQueryString(query)}`,
-    THINKTANK_HISTORY_LOAD_FAILED_MESSAGE,
+    THINKTANK_HISTORY_LOAD_FAILED_MESSAGE
   )
 }
 
 export async function searchThinkTankHistory(
-  query: ThinkTankHistoryQuery,
+  query: ThinkTankHistoryQuery
 ): Promise<ThinkTankHistoryResult> {
   return fetchHistoryEndpoint(
     `/api/advisory/sessions/search${buildHistoryQueryString(query)}`,
-    THINKTANK_HISTORY_SEARCH_FAILED_MESSAGE,
+    THINKTANK_HISTORY_SEARCH_FAILED_MESSAGE
   )
 }
 
 async function fetchHistoryEndpoint(
   url: string,
-  fallbackMessage: string,
+  fallbackMessage: string
 ): Promise<ThinkTankHistoryResult> {
   const headers = await getAuthHeadersAsync()
   const response = await fetch(url, {
@@ -115,9 +116,7 @@ function normalizeHistoryResult(body: unknown, fallbackMessage: string): ThinkTa
   const items = (Array.isArray(data?.items) ? data.items : [])
     .map(normalizeHistoryItem)
     .filter((item): item is ThinkTankHistoryItem => Boolean(item))
-    .sort(
-      (left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime(),
-    )
+    .sort((left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime())
   const meta = normalizeHistoryMeta(data?.meta, items.length)
 
   if (!data || (!Array.isArray(data.items) && !data.meta)) {
@@ -171,6 +170,38 @@ function normalizeHistoryItem(value: unknown): ThinkTankHistoryItem | null {
       : {}),
     timestamp,
     openTarget,
+    ...(normalizeAssetState(record.assetState, normalizeNonEmptyText(record.outputId) ?? id)
+      ? {
+          assetState: normalizeAssetState(
+            record.assetState,
+            normalizeNonEmptyText(record.outputId) ?? id
+          ) as ThinkTankOutputAssetState,
+        }
+      : {}),
+  }
+}
+
+function normalizeAssetState(
+  value: unknown,
+  fallbackOutputId: string
+): ThinkTankOutputAssetState | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const record = value as Partial<ThinkTankOutputAssetState>
+  const outputId = normalizeNonEmptyText(record.outputId) ?? fallbackOutputId
+  const rating =
+    Number.isInteger(record.rating) &&
+    (record.rating as number) >= 1 &&
+    (record.rating as number) <= 5
+      ? (record.rating as number)
+      : null
+  const updatedAt = normalizeIsoDate(record.updatedAt)
+
+  return {
+    outputId,
+    rating,
+    feedbackTextPresent: record.feedbackTextPresent === true,
+    isFavorited: record.isFavorited === true,
+    updatedAt,
   }
 }
 
@@ -197,7 +228,7 @@ function normalizeSafeSourceRef(value: unknown): string | undefined {
 
 function normalizeHistoryMeta(
   value: unknown,
-  fallbackTotal: number,
+  fallbackTotal: number
 ): ThinkTankHistoryResult['meta'] {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { page: 1, limit: 20, total: fallbackTotal }
@@ -243,9 +274,7 @@ function normalizeNonEmptyText(value: unknown): string | undefined {
 }
 
 function normalizePositiveNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
-    ? Math.trunc(value)
-    : null
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.trunc(value) : null
 }
 
 function normalizeNonNegativeNumber(value: unknown): number | null {

@@ -7,6 +7,7 @@ import {
 import { AdvisoryWorkflowSessionStatus } from '../../../database/entities/advisory-workflow-session.entity'
 import { UserRole } from '../../../database/entities/user.entity'
 import { AdvisoryAccessService } from '../access/advisory-access.service'
+import { AdvisoryOutputRatingRepository } from '../outputs/advisory-output-rating.repository'
 import { AdvisoryWorkflowOutputRepository } from '../outputs/advisory-workflow-output.repository'
 import { ThinkTankProviderGatewayService } from '../provider-gateway/thinktank-provider-gateway.service'
 import { ThinkTankPromptAssemblerService } from '../runtime/prompt-assembler.service'
@@ -223,6 +224,67 @@ describe('AdvisorySessionService conversation history and search', () => {
     expect(JSON.stringify(result.items)).not.toContain('_bmad')
   })
 
+  test('[P0][4.4-BE-016][AC2,AC3,AC4] batch-loads history asset state with current tenant actor and authorized outputs only', async () => {
+    const ratingRepository = {
+      findStatesForOutputIds: jest.fn().mockResolvedValue([
+        {
+          outputId,
+          rating: 5,
+          feedbackTextPresent: true,
+          isFavorited: true,
+          updatedAt: '2026-05-21T06:10:00.000Z',
+        },
+        {
+          outputId: 'foreign-output',
+          rating: 1,
+          feedbackTextPresent: false,
+          isFavorited: true,
+          updatedAt: '2026-05-21T06:11:00.000Z',
+        },
+      ]),
+    } as jest.Mocked<Pick<AdvisoryOutputRatingRepository, 'findStatesForOutputIds'>>
+    const serviceWithRatingState = new AdvisorySessionService(
+      accessService as never,
+      {} as jest.Mocked<ThinkTankWorkflowRegistryService>,
+      {} as jest.Mocked<ThinkTankPromptAssemblerService>,
+      sessionRepository as never,
+      { emitAudit: jest.fn(), emitTelemetry: jest.fn() } as never,
+      messageRepository as never,
+      {} as jest.Mocked<ThinkTankProviderGatewayService>,
+      outputRepository as never,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      ratingRepository as never,
+    )
+
+    const result = await serviceWithRatingState.listSessionHistory({
+      user,
+      tenantId,
+      query: { type: 'all', status: 'all' },
+    })
+
+    expect(ratingRepository.findStatesForOutputIds).toHaveBeenCalledWith(tenantId, actorId, [
+      outputId,
+    ])
+    expect(result.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          outputId,
+          assetState: {
+            outputId,
+            rating: 5,
+            feedbackTextPresent: true,
+            isFavorited: true,
+            updatedAt: '2026-05-21T06:10:00.000Z',
+          },
+        }),
+      ]),
+    )
+    expect(JSON.stringify(result.items)).not.toContain('foreign-output')
+  })
+
   test('[P0][4.3-BE-007][AC1] skips entity-incompatible status filters before querying repositories', async () => {
     await service.listSessionHistory({
       user,
@@ -266,7 +328,8 @@ describe('AdvisorySessionService conversation history and search', () => {
     ],
     [
       'rejects unsafe hidden search tokens',
-      () => service.listSessionHistory({ user, tenantId, query: { q: '_bmad/sourceRef/rawPrompt' } }),
+      () =>
+        service.listSessionHistory({ user, tenantId, query: { q: '_bmad/sourceRef/rawPrompt' } }),
       'History search query is invalid.',
     ],
     [

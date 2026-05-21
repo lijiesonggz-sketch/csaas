@@ -54,6 +54,10 @@ import {
   ThinkTankProviderMessage,
   ThinkTankProviderStreamChunk,
 } from '../provider-gateway/thinktank-provider-gateway.types'
+import {
+  AdvisoryOutputAssetState,
+  AdvisoryOutputRatingRepository,
+} from '../outputs/advisory-output-rating.repository'
 import { createThinkTankPromptCachePolicy } from '../provider-gateway/thinktank-prompt-cache-policy'
 import { ThinkTankPromptAssemblerService } from '../runtime/prompt-assembler.service'
 import { ThinkTankRuntimeError, ThinkTankRuntimeErrorCode } from '../runtime/runtime.errors'
@@ -88,7 +92,15 @@ export const THINKTANK_OUTPUT_SOURCE_MESSAGE_INVALID_MESSAGE =
 export const THINKTANK_OUTPUT_OUTCOME_INVALID_MESSAGE =
   'ThinkTank output completion outcome must be success or failure.'
 export const THINKTANK_OUTPUT_SECTION_TOO_LONG_MESSAGE = 'Output section content is too long.'
+export const THINKTANK_OUTPUT_RATING_INVALID_MESSAGE =
+  'ThinkTank output rating must be an integer from 1 to 5.'
+export const THINKTANK_OUTPUT_FAVORITE_INVALID_MESSAGE =
+  'ThinkTank output favorite state must be true or false.'
+export const THINKTANK_OUTPUT_FEEDBACK_TOO_LONG_MESSAGE =
+  'ThinkTank output feedback text is too long.'
+export const THINKTANK_OUTPUT_ID_REQUIRED_MESSAGE = 'ThinkTank output id is required.'
 const THINKTANK_OUTPUT_SECTION_MAX_LENGTH = 20000
+const THINKTANK_OUTPUT_FEEDBACK_MAX_LENGTH = 2000
 const THINKTANK_WORKFLOW_CATALOG_UNAVAILABLE_MESSAGE =
   '暂时无法加载 ThinkTank 工作流目录，请稍后重试。'
 const THINKTANK_ACCEPTED_RECOMMENDATION_INVALID_MESSAGE =
@@ -157,8 +169,13 @@ export interface AdvisoryConversationSubmitResult extends AdvisoryConversationMe
 
 export interface AdvisorySessionOutputResult {
   sessionId: string
-  output: AdvisoryWorkflowOutput
+  output: AdvisoryWorkflowOutput & { assetState?: AdvisoryOutputAssetState }
   checkpointWarning?: AdvisoryCheckpointWarning
+}
+
+export interface AdvisoryOutputAssetStateResult {
+  sessionId: string
+  assetState: AdvisoryOutputAssetState
 }
 
 export type AdvisoryHistoryType = 'all' | 'session' | 'output'
@@ -189,6 +206,7 @@ export interface AdvisoryHistoryItem {
   lastStep?: AdvisoryWorkflowSessionCurrentStep
   timestamp: string
   openTarget: AdvisoryHistoryOpenTarget
+  assetState?: AdvisoryOutputAssetState
 }
 
 export interface AdvisoryHistoryResult {
@@ -333,6 +351,15 @@ interface AdvisorySessionMessageContext extends AdvisorySessionContext {
   outputId?: string
 }
 
+interface AdvisorySubmitOutputRatingContext extends AdvisorySessionMessageContext {
+  rating: unknown
+  feedbackText?: unknown
+}
+
+interface AdvisoryUpdateOutputFavoriteContext extends AdvisorySessionMessageContext {
+  isFavorited: unknown
+}
+
 interface AdvisorySessionHistoryContext extends AdvisorySessionContext {
   query?: AdvisorySessionHistoryQuery
 }
@@ -389,6 +416,8 @@ export class AdvisorySessionService {
     private readonly organizationContextService?: AdvisoryOrganizationContextService,
     @Optional()
     private readonly checkpointService?: AdvisoryCheckpointService,
+    @Optional()
+    private readonly outputRatingRepository?: AdvisoryOutputRatingRepository,
   ) {}
 
   async listWorkflows(context: AdvisorySessionContext): Promise<AdvisoryWorkflowCatalogResult> {
@@ -579,43 +608,118 @@ export class AdvisorySessionService {
     context: AdvisorySessionMessageContext,
   ): Promise<AdvisorySessionOutputResult> {
     await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
-    const session = await this.getTenantActorSession(context)
-    const outputRepository = this.requireOutputRepository()
-    const requestedOutputId = this.optionalText(context.outputId)
-    if (requestedOutputId) {
-      const requestedOutput = await outputRepository.findOutputById(
-        context.tenantId,
-        requestedOutputId,
-      )
-      if (
-        !requestedOutput ||
-        requestedOutput.sessionId !== session.id ||
-        requestedOutput.actorId !== context.user.id
-      ) {
-        throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
-      }
-
-      return {
-        sessionId: session.id,
-        output: requestedOutput,
-      }
-    }
-
-    const existingDraft = await outputRepository.findActiveDraftForSession(
-      context.tenantId,
-      session.id,
-    )
-    const completedOutput = existingDraft
-      ? null
-      : await outputRepository.findLatestCompletedForSession(context.tenantId, session.id)
-    const output =
-      existingDraft ??
-      completedOutput ??
-      (await this.createActiveDraftForSession(context.tenantId, session))
+    const { session, output } = await this.resolveAuthorizedSessionOutput(context, {
+      createIfMissing: true,
+    })
 
     return {
       sessionId: session.id,
+      output: await this.attachOutputAssetState(context.tenantId, context.user.id, output),
+    }
+  }
+
+  async getOutputAssetState(
+    context: AdvisorySessionMessageContext,
+  ): Promise<AdvisoryOutputAssetStateResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const outputId = this.requireOutputId(context.outputId)
+    const { session, output } = await this.resolveAuthorizedSessionOutput(
+      { ...context, outputId },
+      {
+        createIfMissing: false,
+      },
+    )
+
+    return {
+      sessionId: session.id,
+      assetState: await this.loadOutputAssetState(context.tenantId, context.user.id, output.id),
+    }
+  }
+
+  async submitOutputRating(
+    context: AdvisorySubmitOutputRatingContext,
+  ): Promise<AdvisoryOutputAssetStateResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const rating = this.normalizeOutputRating(context.rating)
+    const feedbackTextProvided = context.feedbackText !== undefined
+    const feedbackText = feedbackTextProvided
+      ? this.normalizeOutputFeedbackText(context.feedbackText)
+      : null
+    const outputId = this.requireOutputId(context.outputId)
+    const { session, output } = await this.resolveAuthorizedSessionOutput(
+      { ...context, outputId },
+      {
+        createIfMissing: false,
+      },
+    )
+    const ratingRepository = this.requireOutputRatingRepository()
+    const persisted = await ratingRepository.upsertRating(context.tenantId, {
+      actorId: context.user.id,
+      sessionId: session.id,
+      outputId: output.id,
+      rating,
+      feedbackText,
+      feedbackTextProvided,
+      metadata: {
+        workflowKey: output.workflowKey,
+      },
+    })
+    const assetState = this.toOutputAssetState(output.id, persisted)
+
+    await this.emitOutputRatingSubmitted({
+      tenantId: context.tenantId,
+      user: context.user,
+      sessionId: session.id,
       output,
+      assetState,
+      rating,
+      feedbackTextLength:
+        feedbackTextProvided && feedbackText
+          ? feedbackText.length
+          : (persisted.feedbackText?.length ?? 0),
+    }).catch(() => undefined)
+
+    return {
+      sessionId: session.id,
+      assetState,
+    }
+  }
+
+  async updateOutputFavorite(
+    context: AdvisoryUpdateOutputFavoriteContext,
+  ): Promise<AdvisoryOutputAssetStateResult> {
+    await this.accessService.assertThinkTankModuleAvailable(context.user, context.tenantId)
+    const isFavorited = this.normalizeOutputFavorite(context.isFavorited)
+    const outputId = this.requireOutputId(context.outputId)
+    const { session, output } = await this.resolveAuthorizedSessionOutput(
+      { ...context, outputId },
+      {
+        createIfMissing: false,
+      },
+    )
+    const ratingRepository = this.requireOutputRatingRepository()
+    const persisted = await ratingRepository.upsertFavorite(context.tenantId, {
+      actorId: context.user.id,
+      sessionId: session.id,
+      outputId: output.id,
+      isFavorited,
+      metadata: {
+        workflowKey: output.workflowKey,
+      },
+    })
+    const assetState = this.toOutputAssetState(output.id, persisted)
+
+    await this.emitOutputFavoriteUpdated({
+      tenantId: context.tenantId,
+      user: context.user,
+      sessionId: session.id,
+      output,
+      assetState,
+    }).catch(() => undefined)
+
+    return {
+      sessionId: session.id,
+      assetState,
     }
   }
 
@@ -1425,6 +1529,174 @@ export class AdvisorySessionService {
     return this.outputRepository.findLatestCompletedForSession(tenantId, sessionId)
   }
 
+  private async resolveAuthorizedSessionOutput(
+    context: AdvisorySessionMessageContext,
+    options: { createIfMissing: boolean },
+  ): Promise<{ session: AdvisoryWorkflowSession; output: AdvisoryWorkflowOutput }> {
+    const session = await this.getTenantActorSession(context)
+    const outputRepository = this.requireOutputRepository()
+    const requestedOutputId = this.optionalText(context.outputId)
+
+    if (requestedOutputId) {
+      const requestedOutput = await outputRepository.findOutputById(
+        context.tenantId,
+        requestedOutputId,
+      )
+      if (
+        !requestedOutput ||
+        requestedOutput.tenantId !== context.tenantId ||
+        requestedOutput.sessionId !== session.id ||
+        requestedOutput.actorId !== context.user.id
+      ) {
+        throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
+      }
+
+      return { session, output: requestedOutput }
+    }
+
+    const existingDraft = await outputRepository.findActiveDraftForSession(
+      context.tenantId,
+      session.id,
+    )
+    const completedOutput = existingDraft
+      ? null
+      : await outputRepository.findLatestCompletedForSession(context.tenantId, session.id)
+    const output =
+      existingDraft ??
+      completedOutput ??
+      (options.createIfMissing
+        ? await this.createActiveDraftForSession(context.tenantId, session)
+        : null)
+
+    if (!output || output.actorId !== context.user.id || output.sessionId !== session.id) {
+      throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
+    }
+
+    return { session, output }
+  }
+
+  private async attachOutputAssetState(
+    tenantId: string,
+    actorId: string,
+    output: AdvisoryWorkflowOutput,
+  ): Promise<AdvisoryWorkflowOutput & { assetState?: AdvisoryOutputAssetState }> {
+    if (!this.outputRatingRepository) return output
+
+    return {
+      ...output,
+      assetState: await this.loadOutputAssetState(tenantId, actorId, output.id),
+    }
+  }
+
+  private async loadOutputAssetState(
+    tenantId: string,
+    actorId: string,
+    outputId: string,
+  ): Promise<AdvisoryOutputAssetState> {
+    if (!this.outputRatingRepository) {
+      return this.toOutputAssetState(outputId, null)
+    }
+
+    return this.outputRatingRepository.findStateForOutput(tenantId, actorId, outputId)
+  }
+
+  private async loadOutputAssetStateMap(
+    tenantId: string,
+    actorId: string,
+    outputIds: string[],
+  ): Promise<Map<string, AdvisoryOutputAssetState>> {
+    if (!this.outputRatingRepository) return new Map()
+    const uniqueOutputIds = [
+      ...new Set(outputIds.filter((outputId) => this.optionalText(outputId))),
+    ]
+    const states = await this.outputRatingRepository.findStatesForOutputIds(
+      tenantId,
+      actorId,
+      uniqueOutputIds,
+    )
+    const stateMap = new Map<string, AdvisoryOutputAssetState>(
+      uniqueOutputIds.map((outputId) => [outputId, this.toOutputAssetState(outputId, null)]),
+    )
+    states.forEach((state) => stateMap.set(state.outputId, state))
+
+    return stateMap
+  }
+
+  private normalizeOutputRating(value: unknown): number {
+    if (!Number.isInteger(value) || (value as number) < 1 || (value as number) > 5) {
+      throw new BadRequestException(THINKTANK_OUTPUT_RATING_INVALID_MESSAGE)
+    }
+
+    return value as number
+  }
+
+  private normalizeOutputFavorite(value: unknown): boolean {
+    if (typeof value !== 'boolean') {
+      throw new BadRequestException(THINKTANK_OUTPUT_FAVORITE_INVALID_MESSAGE)
+    }
+
+    return value
+  }
+
+  private requireOutputId(value: unknown): string {
+    const outputId = this.optionalText(value)
+    if (!outputId) {
+      throw new BadRequestException(THINKTANK_OUTPUT_ID_REQUIRED_MESSAGE)
+    }
+
+    return outputId
+  }
+
+  private normalizeOutputFeedbackText(value: unknown): string | null {
+    const feedbackText = this.optionalText(value)
+    if (!feedbackText) return null
+    if (feedbackText.length > THINKTANK_OUTPUT_FEEDBACK_MAX_LENGTH) {
+      throw new BadRequestException(THINKTANK_OUTPUT_FEEDBACK_TOO_LONG_MESSAGE)
+    }
+
+    return feedbackText
+  }
+
+  private toOutputAssetState(
+    outputId: string,
+    value:
+      | AdvisoryOutputAssetState
+      | {
+          rating?: number | null
+          feedbackText?: string | null
+          feedbackTextPresent?: boolean
+          isFavorited?: boolean
+          updatedAt?: Date | string | null
+        }
+      | null
+      | undefined,
+  ): AdvisoryOutputAssetState {
+    if (!value) {
+      return {
+        outputId,
+        rating: null,
+        feedbackTextPresent: false,
+        isFavorited: false,
+        updatedAt: null,
+      }
+    }
+
+    const updatedAt =
+      value.updatedAt instanceof Date ? value.updatedAt.toISOString() : (value.updatedAt ?? null)
+    const feedbackText = 'feedbackText' in value ? value.feedbackText : null
+
+    return {
+      outputId,
+      rating: value.rating ?? null,
+      feedbackTextPresent:
+        typeof value.feedbackTextPresent === 'boolean'
+          ? value.feedbackTextPresent
+          : Boolean(feedbackText?.trim()),
+      isFavorited: value.isFavorited === true,
+      updatedAt,
+    }
+  }
+
   private async loadHistoryItems(context: {
     tenantId: string
     actorId: string
@@ -1468,14 +1740,30 @@ export class AdvisorySessionService {
       context.tenantId,
       sessionHistory.items.map((session) => session.id),
     )
+    const historyOutputIds = [
+      ...sessionOutputs.values(),
+      ...outputHistory.items.filter((output) => output.actorId === context.actorId),
+    ].map((output) => output.id)
+    const assetStates = await this.loadOutputAssetStateMap(
+      context.tenantId,
+      context.actorId,
+      historyOutputIds,
+    )
     const sessionItems = await Promise.all(
       sessionHistory.items
         .filter((session) => session.actorId === context.actorId)
-        .map((session) => this.toHistorySessionItem(session, sessionOutputs.get(session.id))),
+        .map((session) => {
+          const output = sessionOutputs.get(session.id)
+          return this.toHistorySessionItem(
+            session,
+            output,
+            output ? assetStates.get(output.id) : undefined,
+          )
+        }),
     )
     const outputItems = outputHistory.items
       .filter((output) => output.actorId === context.actorId)
-      .map((output) => this.toHistoryOutputItem(output))
+      .map((output) => this.toHistoryOutputItem(output, assetStates.get(output.id)))
     const items = [...sessionItems, ...outputItems]
       .filter((item): item is AdvisoryHistoryItem => Boolean(item))
       .sort((left, right) => this.compareHistoryItems(left, right))
@@ -1497,6 +1785,7 @@ export class AdvisorySessionService {
   private async toHistorySessionItem(
     session: AdvisoryWorkflowSession,
     output?: AdvisoryWorkflowOutput,
+    assetState?: AdvisoryOutputAssetState,
   ): Promise<AdvisoryHistoryItem | null> {
     const status = this.toHistorySessionStatus(session.status)
     if (!status) return null
@@ -1529,10 +1818,14 @@ export class AdvisorySessionService {
       lastStep,
       timestamp,
       openTarget: status === 'active' ? 'resume-session' : 'view-session',
+      ...(safeOutput && assetState ? { assetState } : {}),
     }
   }
 
-  private toHistoryOutputItem(output: AdvisoryWorkflowOutput): AdvisoryHistoryItem | null {
+  private toHistoryOutputItem(
+    output: AdvisoryWorkflowOutput,
+    assetState?: AdvisoryOutputAssetState,
+  ): AdvisoryHistoryItem | null {
     const status = this.toHistoryOutputStatus(output.status)
     if (!status) return null
     const lastStep = this.resolveOutputCurrentStep(output)
@@ -1550,6 +1843,7 @@ export class AdvisorySessionService {
       ...(lastStep ? { lastStep: this.toSafeHistoryCurrentStep(lastStep) } : {}),
       timestamp: output.updatedAt.toISOString(),
       openTarget: 'view-output',
+      ...(assetState ? { assetState } : {}),
     }
   }
 
@@ -2043,6 +2337,14 @@ export class AdvisorySessionService {
     }
 
     return this.outputRepository
+  }
+
+  private requireOutputRatingRepository(): AdvisoryOutputRatingRepository {
+    if (!this.outputRatingRepository) {
+      throw new ServiceUnavailableException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
+    }
+
+    return this.outputRatingRepository
   }
 
   private requireWorkflowParser(): ThinkTankWorkflowParserService {
@@ -3117,6 +3419,75 @@ export class AdvisorySessionService {
         workflow_key: context.workflowKey,
         section_count: context.output.sections?.length ?? 0,
         ai_label_metadata_present: this.hasRequiredAiLabelMetadata(context.output),
+      },
+    })
+  }
+
+  private async emitOutputRatingSubmitted(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    sessionId: string
+    output: AdvisoryWorkflowOutput
+    assetState: AdvisoryOutputAssetState
+    rating: number
+    feedbackTextLength: number
+  }): Promise<void> {
+    await this.eventService.emitTelemetry({
+      eventName: ThinkTankEventName.OutputRatingSubmitted,
+      tenantId: context.tenantId,
+      actorId: context.user.id,
+      subjectType: ThinkTankSubjectType.Output,
+      subjectId: context.output.id,
+      outcome: ThinkTankEventOutcome.Success,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      optional: {
+        sessionId: context.sessionId,
+        outputId: context.output.id,
+        workflowType: context.output.workflowKey,
+      },
+      telemetry: {
+        entityType: 'ThinkTankOutputRating',
+        organizationId: context.user.organizationId ?? null,
+      },
+      metadata: {
+        workflowKey: context.output.workflowKey,
+        rating: context.rating,
+        feedbackTextPresent: context.feedbackTextLength > 0,
+        feedbackTextLength: context.feedbackTextLength,
+        isFavorited: context.assetState.isFavorited,
+      },
+    })
+  }
+
+  private async emitOutputFavoriteUpdated(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    sessionId: string
+    output: AdvisoryWorkflowOutput
+    assetState: AdvisoryOutputAssetState
+  }): Promise<void> {
+    await this.eventService.emitTelemetry({
+      eventName: ThinkTankEventName.OutputFavoriteUpdated,
+      tenantId: context.tenantId,
+      actorId: context.user.id,
+      subjectType: ThinkTankSubjectType.Output,
+      subjectId: context.output.id,
+      outcome: ThinkTankEventOutcome.Success,
+      privacyClassification: ThinkTankPrivacyClassification.Operational,
+      optional: {
+        sessionId: context.sessionId,
+        outputId: context.output.id,
+        workflowType: context.output.workflowKey,
+      },
+      telemetry: {
+        entityType: 'ThinkTankOutputRating',
+        organizationId: context.user.organizationId ?? null,
+      },
+      metadata: {
+        workflowKey: context.output.workflowKey,
+        rating: context.assetState.rating,
+        feedbackTextPresent: context.assetState.feedbackTextPresent,
+        isFavorited: context.assetState.isFavorited,
       },
     })
   }

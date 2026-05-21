@@ -5,6 +5,7 @@ import { AdvisoryModuleConfig } from '../../database/entities/advisory-module-co
 import { AdvisoryConversationMessage } from '../../database/entities/advisory-conversation-message.entity'
 import { AdvisoryOrganizationContext } from '../../database/entities/advisory-organization-context.entity'
 import { AdvisoryQuickConsultContext } from '../../database/entities/advisory-quick-consult-context.entity'
+import { AdvisoryOutputRating } from '../../database/entities/advisory-output-rating.entity'
 import { AdvisoryRecommendationFeedback } from '../../database/entities/advisory-recommendation-feedback.entity'
 import { AdvisoryWorkflowCheckpoint } from '../../database/entities/advisory-workflow-checkpoint.entity'
 import { AdvisoryWorkflowOutput } from '../../database/entities/advisory-workflow-output.entity'
@@ -58,6 +59,7 @@ import { ThinkTankWorkflowRegistryService } from './runtime/workflow-registry.se
 import { AdvisorySessionController } from './sessions/advisory-session.controller'
 import { AdvisoryOutputExportService } from './outputs/advisory-output-export.service'
 import { AdvisoryOutputPdfRendererService } from './outputs/advisory-output-pdf-renderer.service'
+import { AdvisoryOutputRatingRepository } from './outputs/advisory-output-rating.repository'
 import { AdvisoryWorkflowOutputRepository } from './outputs/advisory-workflow-output.repository'
 import { AdvisoryConversationMessageRepository } from './sessions/advisory-conversation-message.repository'
 import { AdvisorySessionRepository } from './sessions/advisory-session.repository'
@@ -73,6 +75,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
       AdvisoryConversationMessage,
       AdvisoryOrganizationContext,
       AdvisoryQuickConsultContext,
+      AdvisoryOutputRating,
       AdvisoryRecommendationFeedback,
       AdvisoryWorkflowCheckpoint,
       AdvisoryWorkflowOutput,
@@ -100,6 +103,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryOrganizationContextRepository,
     AdvisoryOrganizationContextService,
     AdvisoryConversationMessageRepository,
+    AdvisoryOutputRatingRepository,
     AdvisoryWorkflowOutputRepository,
     AdvisoryOutputExportService,
     AdvisoryOutputPdfRendererService,
@@ -151,6 +155,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryOrganizationContextRepository,
     AdvisoryOrganizationContextService,
     AdvisoryConversationMessageRepository,
+    AdvisoryOutputRatingRepository,
     AdvisoryWorkflowOutputRepository,
     AdvisoryOutputExportService,
     AdvisoryOutputPdfRendererService,

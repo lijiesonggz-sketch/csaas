@@ -46,6 +46,9 @@ describe('AdvisorySessionController workflow outputs (ATDD RED)', () => {
       | 'appendOutputSection'
       | 'completeOutput'
       | 'getSessionCheckpoint'
+      | 'getOutputAssetState'
+      | 'submitOutputRating'
+      | 'updateOutputFavorite'
     >
   >
 
@@ -86,6 +89,36 @@ describe('AdvisorySessionController workflow outputs (ATDD RED)', () => {
             sectionCount: 1,
           },
           lastActivityAt: '2026-05-21T00:00:00.000Z',
+        },
+      }),
+      getOutputAssetState: jest.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        assetState: {
+          outputId: 'output-1',
+          rating: 4,
+          feedbackTextPresent: true,
+          isFavorited: false,
+          updatedAt: '2026-05-21T06:00:00.000Z',
+        },
+      }),
+      submitOutputRating: jest.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        assetState: {
+          outputId: 'output-1',
+          rating: 5,
+          feedbackTextPresent: true,
+          isFavorited: false,
+          updatedAt: '2026-05-21T06:05:00.000Z',
+        },
+      }),
+      updateOutputFavorite: jest.fn().mockResolvedValue({
+        sessionId: 'session-1',
+        assetState: {
+          outputId: 'output-1',
+          rating: null,
+          feedbackTextPresent: false,
+          isFavorited: true,
+          updatedAt: '2026-05-21T06:10:00.000Z',
         },
       }),
     } as never
@@ -131,6 +164,24 @@ describe('AdvisorySessionController workflow outputs (ATDD RED)', () => {
       'sessions/:sessionId/checkpoint',
     )
     expect(Reflect.getMetadata(METHOD_METADATA, controller.getCheckpoint)).toBe(RequestMethod.GET)
+    expect(Reflect.getMetadata(PATH_METADATA, controller.getOutputAssetState)).toBe(
+      'sessions/:sessionId/output/state',
+    )
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.getOutputAssetState)).toBe(
+      RequestMethod.GET,
+    )
+    expect(Reflect.getMetadata(PATH_METADATA, controller.submitOutputRating)).toBe(
+      'sessions/:sessionId/output/rating',
+    )
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.submitOutputRating)).toBe(
+      RequestMethod.PUT,
+    )
+    expect(Reflect.getMetadata(PATH_METADATA, controller.updateOutputFavorite)).toBe(
+      'sessions/:sessionId/output/favorite',
+    )
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.updateOutputFavorite)).toBe(
+      RequestMethod.PUT,
+    )
   })
 
   test('[P0] returns the current session output in a ThinkTank-owned data envelope', async () => {
@@ -273,6 +324,112 @@ describe('AdvisorySessionController workflow outputs (ATDD RED)', () => {
       user,
       tenantId: 'tenant-1',
       sessionId: 'session-1',
+    })
+  })
+
+  test('[P0][4.4-BE-013][AC1,AC4] forwards rating bodies through a safe whitelist only', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(
+      controller.submitOutputRating(
+        'session-1',
+        {
+          tenantId: 'attacker-tenant',
+          actorId: 'attacker-actor',
+          sessionId: 'attacker-session',
+          outputId: ' output-1 ',
+          rating: 5,
+          feedbackText: '  高管摘要很有帮助  ',
+          contentMarkdown: 'raw report text must not be forwarded',
+          sections: [{ contentMarkdown: 'raw section text must not be forwarded' }],
+        } as never,
+        user as never,
+        'tenant-1',
+      ),
+    ).resolves.toEqual({
+      data: {
+        sessionId: 'session-1',
+        assetState: expect.objectContaining({
+          outputId: 'output-1',
+          rating: 5,
+          feedbackTextPresent: true,
+        }),
+      },
+    })
+
+    expect(service.submitOutputRating).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      sessionId: 'session-1',
+      outputId: 'output-1',
+      rating: 5,
+      feedbackText: '高管摘要很有帮助',
+    })
+    expect(JSON.stringify(service.submitOutputRating.mock.calls[0][0])).not.toMatch(
+      /attacker|raw report|raw section|contentMarkdown|sections/i,
+    )
+  })
+
+  test('[P0][4.4-BE-014][AC2,AC4] forwards favorite updates without browser-owned scope', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(
+      controller.updateOutputFavorite(
+        'session-1',
+        {
+          tenantId: 'attacker-tenant',
+          actorId: 'attacker-actor',
+          outputId: ' output-1 ',
+          isFavorited: true,
+          title: 'raw title should not be accepted',
+        } as never,
+        user as never,
+        'tenant-1',
+      ),
+    ).resolves.toEqual({
+      data: {
+        sessionId: 'session-1',
+        assetState: expect.objectContaining({
+          outputId: 'output-1',
+          isFavorited: true,
+          rating: null,
+        }),
+      },
+    })
+
+    expect(service.updateOutputFavorite).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      sessionId: 'session-1',
+      outputId: 'output-1',
+      isFavorited: true,
+    })
+    expect(JSON.stringify(service.updateOutputFavorite.mock.calls[0][0])).not.toMatch(
+      /attacker|raw title/i,
+    )
+  })
+
+  test('[P0][4.4-BE-015][AC2,AC4] reads output asset state by outputId query only', async () => {
+    const user = { id: 'user-1', organizationId: 'org-1' }
+
+    await expect(
+      controller.getOutputAssetState('session-1', ' output-1 ', user as never, 'tenant-1'),
+    ).resolves.toEqual({
+      data: {
+        sessionId: 'session-1',
+        assetState: expect.objectContaining({
+          outputId: 'output-1',
+          rating: 4,
+          isFavorited: false,
+        }),
+      },
+    })
+
+    expect(service.getOutputAssetState).toHaveBeenCalledWith({
+      user,
+      tenantId: 'tenant-1',
+      sessionId: 'session-1',
+      outputId: 'output-1',
     })
   })
 })
