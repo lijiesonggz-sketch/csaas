@@ -41,6 +41,10 @@ export async function POST(request: Request, { params }: { params: { sessionId: 
           content: typeof body?.content === 'string' ? body.content : '',
           decisionAction:
             typeof body?.decisionAction === 'string' ? body.decisionAction : undefined,
+          addressedAdvisorId:
+            typeof body?.addressedAdvisorId === 'string' ? body.addressedAdvisorId : undefined,
+          addressedMessageId:
+            typeof body?.addressedMessageId === 'string' ? body.addressedMessageId : undefined,
         }),
         cache: 'no-store',
         signal: request.signal,

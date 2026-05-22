@@ -465,4 +465,78 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
     expect(screen.queryByText('stale stream delta')).not.toBeInTheDocument()
     expect(screen.getByText('Key conclusion: setup guidance is missing.')).toBeInTheDocument()
   })
+
+  test('[P0][5.3-FE-006][AC2] removes completed Party Mode advisor messages when the same stream fails later', async () => {
+    const user = userEvent.setup()
+    mockStreamMessage.mockImplementation(async function* () {
+      yield { event: 'message.started', data: {} }
+      yield {
+        event: 'party_mode.current_speaker',
+        data: {
+          sessionId: 'session-1',
+          round: 1,
+          speakerIndex: 1,
+          advisorId: 'security-architect',
+          advisorName: '张岚',
+          advisorRole: '安全架构师',
+        },
+      }
+      yield { event: 'message.delta', data: { index: 0, delta: '第一位专家已完成但应回滚' } }
+      yield {
+        event: 'message.completed',
+        data: {
+          assistantMessage: {
+            id: 'advisor-message-1',
+            role: 'assistant',
+            content: '第一位专家已完成但应回滚',
+            workflowKey: 'problem-solving',
+            stepIndex: 2,
+            metadata: {
+              party_mode_message: true,
+              party_mode_round: 1,
+              party_mode_speaker_index: 1,
+              party_mode_advisor_id: 'security-architect',
+              party_mode_advisor_name: '张岚',
+              party_mode_advisor_role: '安全架构师',
+            },
+          },
+          decisionOptions: [],
+          partyModeTurnComplete: false,
+        },
+      }
+      yield {
+        event: 'party_mode.current_speaker',
+        data: {
+          sessionId: 'session-1',
+          round: 1,
+          speakerIndex: 2,
+          advisorId: 'ops-advisor',
+          advisorName: '陈晨',
+          advisorRole: '运维负责人',
+        },
+      }
+      yield { event: 'message.delta', data: { index: 0, delta: '第二位专家的半截回复' } }
+      yield {
+        event: 'message.error',
+        data: {
+          code: 'THINKTANK_PARTY_MODE_STREAM_FAILED',
+          message: '暂时无法生成 ThinkTank 顾问回复，请稍后重试。',
+          retryable: true,
+        },
+      }
+    })
+
+    render(<AdvisoryWorkspaceShell />)
+    await user.click(await screen.findByRole('button', { name: /继续 Retention Diagnosis/ }))
+    const textbox = await screen.findByRole('textbox', { name: '输入你的回答' })
+    await user.type(textbox, 'Continue Party Mode')
+    await user.click(screen.getByRole('button', { name: '发送' }))
+
+    expect(
+      (await screen.findAllByText('暂时无法生成 ThinkTank 顾问回复，请稍后重试。')).length,
+    ).toBeGreaterThan(0)
+    expect(screen.queryByText('第一位专家已完成但应回滚')).not.toBeInTheDocument()
+    expect(screen.queryByText('第二位专家的半截回复')).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: '输入你的回答' })).toHaveValue('Continue Party Mode')
+  })
 })

@@ -1,0 +1,176 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "story_id": "5-3-serial-expert-discussion-experience",
+  "generated_at": "2026-05-22T12:45:00+08:00",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "requirement": "When Party Mode advisors respond, responses appear in the single conversation column with expert name, role, identity border, current round indicator, and non-color-only identity structure.",
+      "coverage": "FULL",
+      "test_level": "Backend service + frontend component",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-serial.atdd.spec.ts",
+          "cases": [
+            "[P0][5.3-BE-001][AC1,AC2] creates serial advisor messages with round, order, identity, current-speaker, and shared context metadata",
+            "[P1][5.3-BE-005][AC1,AC3] keeps provider and message metadata free of raw persona content and source paths"
+          ]
+        },
+        {
+          "file": "frontend/components/advisory/AdvisoryChatMessage.party-mode.atdd.test.tsx",
+          "cases": [
+            "[P0][5.3-FE-001][AC1] renders expert identity with name, role, round, and non-color-only structure"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "Covered indirectly through session message service and route/controller regressions; no standalone Party Mode page or endpoint added.",
+        "auth_authz_coverage": "Tenant/session ownership and module availability are inherited from existing message service tests and Story 5.1 Party Mode start regressions.",
+        "error_path_coverage": "Metadata privacy and source leakage are covered by backend ATDD; UI identity uses accessible roles/labels rather than color-only selectors."
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "requirement": "While one advisor is responding, loading/streaming state clearly identifies the current speaker and users can keep reading/scrolling/selecting previous expert messages.",
+      "coverage": "FULL",
+      "test_level": "Backend streaming + frontend parser/component",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-serial.atdd.spec.ts",
+          "cases": [
+            "[P0][5.3-BE-002][AC2] streams current-speaker events before each advisor response",
+            "[P0][5.3-BE-007][AC2] serializes concurrent Party Mode turns so rounds do not duplicate"
+          ]
+        },
+        {
+          "file": "frontend/lib/advisory/streaming.party-mode.atdd.test.ts",
+          "cases": [
+            "[P0][5.3-FE-003][AC2] parses current-speaker metadata before advisor deltas",
+            "[P0][5.3-FE-005][AC2] treats a partial Party Mode stream as malformed until the final expert completes"
+          ]
+        },
+        {
+          "file": "frontend/components/advisory/AdvisoryChatMessage.party-mode.atdd.test.tsx",
+          "cases": [
+            "[P0][5.3-FE-002][AC2] announces the current streaming expert by name and role in a polite live region"
+          ]
+        },
+        {
+          "file": "frontend/components/advisory/AdvisoryWorkspaceShell.resume-session.test.tsx",
+          "cases": [
+            "[P0][5.3-FE-006][AC2] removes completed Party Mode advisor messages when the same stream fails later"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "Direct SSE contract is covered by backend controller stream tests and frontend stream parser tests.",
+        "auth_authz_coverage": "Stream route continues to strip caller-supplied tenant fields and require NextAuth session token in route proxy tests.",
+        "error_path_coverage": "Partial stream, backend stream error, abort cleanup, and UI rollback are covered."
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P0",
+      "requirement": "When the user responds to a specific expert, the addressed expert deepens the point first and other advisors add relevant follow-up without losing shared context.",
+      "coverage": "FULL",
+      "test_level": "Backend service + frontend component/parser + API proxy",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-serial.atdd.spec.ts",
+          "cases": [
+            "[P0][5.3-BE-003][AC3] validates addressed expert replies and makes the addressed advisor speak first",
+            "[P0][5.3-BE-004][AC3] rejects forged, stale, or non-Party-Mode addressed expert references before persistence/provider calls",
+            "[P0][5.3-BE-006][AC3] rejects forged addressed expert references before streaming SSE starts",
+            "[P1][5.3-BE-005][AC1,AC3] keeps provider and message metadata free of raw persona content and source paths"
+          ]
+        },
+        {
+          "file": "frontend/components/advisory/AdvisoryChatMessage.party-mode.atdd.test.tsx",
+          "cases": [
+            "[P0][5.3-FE-004][AC3] exposes an accessible reply action for a previous expert message"
+          ]
+        },
+        {
+          "file": "frontend/lib/advisory/streaming.party-mode.atdd.test.ts",
+          "cases": [
+            "[P0][5.3-FE-004][AC3] sends addressed expert hint as server-validated advisor and message ids"
+          ]
+        },
+        {
+          "file": "frontend/app/api/advisory/sessions/[sessionId]/messages/route.test.ts",
+          "cases": [
+            "[P0] proxies message submission without relaying caller-supplied tenant fields"
+          ]
+        },
+        {
+          "file": "frontend/app/api/advisory/sessions/[sessionId]/messages/stream/route.test.ts",
+          "cases": [
+            "[P0] forwards backend SSE bytes and strips caller-supplied tenant fields",
+            "[P1] converts backend stream startup failures to a safe JSON error"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "Both message submit and stream proxy paths are covered; backend controller tests verify pre-stream validation can use normal HTTP exception handling.",
+        "auth_authz_coverage": "Forged/stale expert references, tenant stripping, and session-scoped backend validation are covered.",
+        "error_path_coverage": "Invalid advisor id, stale/non-Party-Mode addressed message id, pre-SSE validation, partial stream, and metadata leakage are covered."
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 3,
+    "fully_covered": 3,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 3, "covered": 3, "percentage": 100 },
+      "P1": { "total": 0, "covered": 0, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Keep Story 5.3 backend serial-turn, frontend stream parser, ChatMessage, WorkspaceShell, and route proxy tests in the Epic 5 regression set.",
+      "requirements": ["AC1", "AC2", "AC3"]
+    }
+  ],
+  "verification_commands": [
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.party-mode-serial.atdd.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.messages.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.messages.controller.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/runtime --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session --runInBand",
+    "cd backend && npx tsc --noEmit",
+    "cd frontend && npm run test -- components/advisory/AdvisoryChatMessage --runInBand",
+    "cd frontend && npm run test -- components/advisory/AdvisoryWorkspaceShell --runInBand",
+    "cd frontend && npm run test -- lib/advisory/streaming --runInBand",
+    "cd frontend && npm run test -- --runTestsByPath \"app/api/advisory/sessions/[sessionId]/messages/route.test.ts\" --runInBand",
+    "cd frontend && npm run test -- --runTestsByPath \"app/api/advisory/sessions/[sessionId]/messages/stream/route.test.ts\" --runInBand",
+    "cd frontend && npx tsc --noEmit",
+    "git diff --check"
+  ]
+}

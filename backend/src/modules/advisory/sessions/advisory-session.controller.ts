@@ -468,6 +468,8 @@ export class AdvisorySessionController {
       sessionId,
       content: body.content,
       decisionAction: body.decisionAction,
+      addressedAdvisorId: body.addressedAdvisorId,
+      addressedMessageId: body.addressedMessageId,
     })
 
     return { data: response }
@@ -495,6 +497,8 @@ export class AdvisorySessionController {
       sessionId,
       content: body.content,
       decisionAction: body.decisionAction,
+      addressedAdvisorId: body.addressedAdvisorId,
+      addressedMessageId: body.addressedMessageId,
       signal: abortController.signal,
     })
     const iterator = stream[Symbol.asyncIterator]()

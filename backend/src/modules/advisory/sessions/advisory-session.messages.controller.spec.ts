@@ -131,6 +131,8 @@ describe('AdvisorySessionController guided messages', () => {
       sessionId: 'session-1',
       content: 'We need to inspect retention drop-off.',
       decisionAction: undefined,
+      addressedAdvisorId: undefined,
+      addressedMessageId: undefined,
     })
   })
 
@@ -166,6 +168,8 @@ describe('AdvisorySessionController guided messages', () => {
       sessionId: 'session-1',
       content: 'Please stream this response.',
       decisionAction: undefined,
+      addressedAdvisorId: undefined,
+      addressedMessageId: undefined,
       signal: expect.any(AbortSignal),
     })
     expect(response.write.mock.calls.map(([frame]) => frame)).toEqual([

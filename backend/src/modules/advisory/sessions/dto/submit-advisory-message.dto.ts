@@ -18,4 +18,14 @@ export class SubmitAdvisoryMessageDto {
   @IsString()
   @IsIn(THINKTANK_DECISION_ACTIONS)
   decisionAction?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  addressedAdvisorId?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  addressedMessageId?: string
 }

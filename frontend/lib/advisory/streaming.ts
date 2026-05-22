@@ -19,6 +19,7 @@ export type ThinkTankStreamingEventName =
   | 'message.delta'
   | 'message.completed'
   | 'message.error'
+  | 'party_mode.current_speaker'
 
 export type ThinkTankStreamingEvent =
   | {
@@ -43,6 +44,18 @@ export type ThinkTankStreamingEvent =
         assistantMessage: ThinkTankConversationMessage
         decisionOptions?: ThinkTankDecisionOption[]
         checkpointWarning?: ThinkTankCheckpointWarning
+        partyModeTurnComplete?: boolean
+      }
+    }
+  | {
+      event: 'party_mode.current_speaker'
+      data: {
+        sessionId?: string
+        round: number
+        speakerIndex: number
+        advisorId: string
+        advisorName: string
+        advisorRole: string
       }
     }
   | {
@@ -61,6 +74,10 @@ export interface ThinkTankStreamingOptions {
 export interface ThinkTankStreamingInput {
   content: string
   decisionAction?: string
+  addressedExpertHint?: {
+    advisorId: string
+    messageId?: string
+  }
 }
 
 export async function* streamThinkTankSessionMessage(
@@ -82,6 +99,8 @@ export async function* streamThinkTankSessionMessage(
       body: JSON.stringify({
         content,
         decisionAction: input.decisionAction,
+        addressedAdvisorId: input.addressedExpertHint?.advisorId,
+        addressedMessageId: input.addressedExpertHint?.messageId,
       }),
       cache: 'no-store',
       signal: options.signal,
@@ -112,7 +131,7 @@ export async function* streamThinkTankSessionMessage(
       buffer = events.remaining
 
       for (const event of events.parsed) {
-        if (event.event === 'message.completed' || event.event === 'message.error') {
+        if (isTerminalStreamingEvent(event)) {
           sawTerminalEvent = true
         }
         yield event
@@ -122,7 +141,7 @@ export async function* streamThinkTankSessionMessage(
     buffer += decoder.decode()
     const events = drainSseBuffer(`${buffer}\n\n`)
     for (const event of events.parsed) {
-      if (event.event === 'message.completed' || event.event === 'message.error') {
+      if (isTerminalStreamingEvent(event)) {
         sawTerminalEvent = true
       }
       yield event
@@ -184,8 +203,17 @@ function isThinkTankStreamingEventName(value: string): value is ThinkTankStreami
     value === 'message.started' ||
     value === 'message.delta' ||
     value === 'message.completed' ||
-    value === 'message.error'
+    value === 'message.error' ||
+    value === 'party_mode.current_speaker'
   )
+}
+
+function isTerminalStreamingEvent(event: ThinkTankStreamingEvent): boolean {
+  if (event.event === 'message.error') return true
+  if (event.event !== 'message.completed') return false
+
+  const isPartyModeMessage = event.data.assistantMessage.metadata?.party_mode_message === true
+  return !isPartyModeMessage || event.data.partyModeTurnComplete === true
 }
 
 function normalizeStreamingMessageContent(content: string): string {

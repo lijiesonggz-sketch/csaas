@@ -156,6 +156,13 @@ type WorkflowCatalogStatus = 'loading' | 'ready' | 'error'
 type SessionMessagesStatus = 'idle' | 'loading' | 'ready' | 'error'
 type MessageStreamingStatus = 'idle' | 'submitting' | 'streaming' | 'completing' | 'error'
 type WorkspaceMode = 'quick-consult' | 'workflow'
+type PartyModeReplyTarget = {
+  advisorId: string
+  advisorName: string
+  advisorRole: string
+  messageId: string
+  round?: number
+}
 type OrganizationContextStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'error'
 type UnfinishedSessionsStatus = 'idle' | 'loading' | 'ready' | 'error'
 type HistoryLoadStatus = 'idle' | 'loading' | 'ready' | 'error'
@@ -280,6 +287,30 @@ function isSameDecisionOption(left: ThinkTankDecisionOption, right: ThinkTankDec
     left.label === right.label &&
     (left.shortcut ?? '') === (right.shortcut ?? '')
   )
+}
+
+function readPartyModeReplyTarget(message: ThinkTankConversationMessage): PartyModeReplyTarget | null {
+  if (message.metadata?.party_mode_message !== true) return null
+  const advisorId = readMetadataText(message.metadata.party_mode_advisor_id)
+  const advisorName = readMetadataText(message.metadata.party_mode_advisor_name)
+  const advisorRole = readMetadataText(message.metadata.party_mode_advisor_role)
+  if (!advisorId || !advisorName || !advisorRole) return null
+
+  return {
+    advisorId,
+    advisorName,
+    advisorRole,
+    messageId: message.id,
+    round: readMetadataNumber(message.metadata.party_mode_round) ?? undefined,
+  }
+}
+
+function readMetadataText(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function readMetadataNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 function formatSessionActivityTime(value: string): string {
@@ -622,6 +653,9 @@ export default function AdvisoryWorkspaceShell() {
     useState<MessageStreamingStatus>('idle')
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
   const [streamAnnouncement, setStreamAnnouncement] = useState('')
+  const [partyModeReplyTarget, setPartyModeReplyTarget] = useState<PartyModeReplyTarget | null>(
+    null
+  )
   const [hasUnreadStreamContent, setHasUnreadStreamContent] = useState(false)
   const [showAllMessages, setShowAllMessages] = useState(false)
   const [selectedDecisionLabel, setSelectedDecisionLabel] = useState<string | null>(null)
@@ -785,6 +819,7 @@ export default function AdvisoryWorkspaceShell() {
     setIsSubmittingMessage(false)
     setMessageStreamingStatus('idle')
     setStreamingMessageId(null)
+    setPartyModeReplyTarget(null)
     setResumingSessionId(null)
     setWorkspaceMode('quick-consult')
 
@@ -1710,7 +1745,12 @@ export default function AdvisoryWorkspaceShell() {
   }
 
   const handleSubmitMessage = async (
-    override: { content?: string; decisionAction?: string; selectedDecisionLabel?: string } = {}
+    override: {
+      content?: string
+      decisionAction?: string
+      selectedDecisionLabel?: string
+      addressedExpertHint?: { advisorId: string; messageId?: string }
+    } = {}
   ) => {
     if (
       !activeLaunch ||
@@ -1750,17 +1790,28 @@ export default function AdvisoryWorkspaceShell() {
     }
     const abortController = new AbortController()
     const isDecisionSubmit = Boolean(override.decisionAction)
+    const addressedExpertHint =
+      override.addressedExpertHint ?? (!isDecisionSubmit && partyModeReplyTarget
+        ? {
+            advisorId: partyModeReplyTarget.advisorId,
+            messageId: partyModeReplyTarget.messageId,
+          }
+        : undefined)
     const streamSessionId = activeLaunch.sessionId
     const streamWorkflowKey = activeLaunch.workflow.key
     const streamStep = activeLaunch.currentStep
     const streamRequestId = messageStreamRequestIdRef.current + 1
     let receivedDeltaCount = 0
     let streamEndedWithTerminalEvent = false
+    let currentPendingAssistantMessageId = assistantMessageId
+    const activeStreamMessageIds = new Set<string>([userMessage.id, assistantMessageId])
     const shouldAutoScrollOnSubmit = isConversationNearBottom()
     const isCurrentMessageStream = () =>
       streamAbortRef.current === abortController &&
       messageStreamRequestIdRef.current === streamRequestId &&
       activeLaunchRef.current?.sessionId === streamSessionId
+    const isActiveStreamMessage = (message: ThinkTankConversationMessage) =>
+      activeStreamMessageIds.has(message.id) || message.id === currentPendingAssistantMessageId
 
     messageSubmitInFlightRef.current = true
     messageStreamRequestIdRef.current = streamRequestId
@@ -1775,6 +1826,7 @@ export default function AdvisoryWorkspaceShell() {
     setHasUnreadStreamContent(false)
     if (!isDecisionSubmit) {
       setDraft('')
+      setPartyModeReplyTarget(null)
     }
     setSessionMessages((currentMessages) => [
       ...currentMessages,
@@ -1786,7 +1838,7 @@ export default function AdvisoryWorkspaceShell() {
     try {
       for await (const event of streamThinkTankSessionMessage(
         streamSessionId,
-        { content, decisionAction: override.decisionAction },
+        { content, decisionAction: override.decisionAction, addressedExpertHint },
         { signal: abortController.signal }
       )) {
         if (!isCurrentMessageStream()) return
@@ -1798,12 +1850,56 @@ export default function AdvisoryWorkspaceShell() {
           continue
         }
 
+        if (event.event === 'party_mode.current_speaker') {
+          setMessageStreamingStatus('streaming')
+          const nextPendingMessageId =
+            currentPendingAssistantMessageId && receivedDeltaCount === 0
+              ? currentPendingAssistantMessageId
+              : `local-assistant-${Date.now()}-${event.data.round}-${event.data.speakerIndex}`
+          currentPendingAssistantMessageId = nextPendingMessageId
+          activeStreamMessageIds.add(nextPendingMessageId)
+          receivedDeltaCount = 0
+          setStreamingMessageId(nextPendingMessageId)
+          setSessionMessages((currentMessages) => {
+            const pendingMessage: ThinkTankConversationMessage = {
+              id: nextPendingMessageId,
+              role: 'assistant',
+              content: '',
+              workflowKey: streamWorkflowKey,
+              stepIndex: streamStep.index,
+              decisionOptions: [],
+              metadata: {
+                streaming: true,
+                party_mode_message: true,
+                party_mode_current_speaker: true,
+                party_mode_round: event.data.round,
+                party_mode_speaker_index: event.data.speakerIndex,
+                party_mode_advisor_id: event.data.advisorId,
+                party_mode_advisor_name: event.data.advisorName,
+                party_mode_advisor_role: event.data.advisorRole,
+              },
+            }
+            if (currentMessages.some((message) => message.id === nextPendingMessageId)) {
+              return currentMessages.map((message) =>
+                message.id === nextPendingMessageId ? pendingMessage : message
+              )
+            }
+            return [...currentMessages, pendingMessage]
+          })
+          announceStreamStatus(
+            `${event.data.advisorName}（${event.data.advisorRole}）正在发言。`,
+            { immediate: true }
+          )
+          applyStreamingScrollBehavior(shouldAutoScroll)
+          continue
+        }
+
         if (event.event === 'message.delta') {
           receivedDeltaCount += 1
           setMessageStreamingStatus('streaming')
           setSessionMessages((currentMessages) =>
             currentMessages.map((message) =>
-              message.id === assistantMessageId
+              message.id === currentPendingAssistantMessageId
                 ? { ...message, content: `${message.content}${event.data.delta}` }
                 : message
             )
@@ -1815,11 +1911,14 @@ export default function AdvisoryWorkspaceShell() {
 
         if (event.event === 'message.error') {
           streamEndedWithTerminalEvent = true
+          if (!isDecisionSubmit) {
+            setDraft(content)
+          }
           setMessageStreamingStatus('error')
           setMessageError(event.data.message)
           announceStreamStatus('顾问回复生成失败。', { immediate: true })
           setSessionMessages((currentMessages) => [
-            ...currentMessages.filter((message) => message.id !== assistantMessageId),
+            ...currentMessages.filter((message) => !isActiveStreamMessage(message)),
             {
               id: `stream-error-${Date.now()}`,
               role: 'system',
@@ -1833,8 +1932,6 @@ export default function AdvisoryWorkspaceShell() {
         }
 
         if (event.event === 'message.completed') {
-          streamEndedWithTerminalEvent = true
-          setMessageStreamingStatus('completing')
           const completedAssistantMessage = {
             ...event.data.assistantMessage,
             decisionOptions:
@@ -1842,18 +1939,28 @@ export default function AdvisoryWorkspaceShell() {
                 ? event.data.assistantMessage.decisionOptions
                 : (event.data.decisionOptions ?? []),
           }
+          const isPartyModeMessage =
+            completedAssistantMessage.metadata?.party_mode_message === true
+          const isTerminalCompletedEvent =
+            !isPartyModeMessage || event.data.partyModeTurnComplete === true
+          if (isTerminalCompletedEvent) {
+            streamEndedWithTerminalEvent = true
+          }
+          activeStreamMessageIds.add(completedAssistantMessage.id)
+          setMessageStreamingStatus(isTerminalCompletedEvent ? 'completing' : 'streaming')
           setSessionMessages((currentMessages) => {
             const foundPendingMessage = currentMessages.some(
-              (message) => message.id === assistantMessageId
+              (message) => message.id === currentPendingAssistantMessageId
             )
             if (!foundPendingMessage) {
               return [...currentMessages, completedAssistantMessage]
             }
 
             return currentMessages.map((message) =>
-              message.id === assistantMessageId ? completedAssistantMessage : message
+              message.id === currentPendingAssistantMessageId ? completedAssistantMessage : message
             )
           })
+          currentPendingAssistantMessageId = ''
           if (event.data.currentStep) {
             setActiveLaunch((currentLaunch) =>
               currentLaunch
@@ -1870,7 +1977,7 @@ export default function AdvisoryWorkspaceShell() {
           }
           showCheckpointWarning(event.data.checkpointWarning)
           announceStreamStatus('顾问回复已完成。', { immediate: true })
-          setStreamingMessageId(null)
+          setStreamingMessageId(isTerminalCompletedEvent ? null : currentPendingAssistantMessageId)
           applyStreamingScrollBehavior(shouldAutoScroll)
         }
       }
@@ -1883,9 +1990,7 @@ export default function AdvisoryWorkspaceShell() {
         announceStreamStatus('顾问回复生成失败。', { immediate: true })
         setMessageError(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
         setSessionMessages((currentMessages) =>
-          currentMessages.filter(
-            (message) => message.id !== userMessage.id && message.id !== assistantMessageId
-          )
+          currentMessages.filter((message) => !isActiveStreamMessage(message))
         )
         return
       }
@@ -1900,9 +2005,7 @@ export default function AdvisoryWorkspaceShell() {
       announceStreamStatus('顾问回复生成失败。', { immediate: true })
       setMessageError(readMessageSubmitErrorMessage(error))
       setSessionMessages((currentMessages) =>
-        currentMessages.filter(
-          (message) => message.id !== userMessage.id && message.id !== assistantMessageId
-        )
+        currentMessages.filter((message) => !isActiveStreamMessage(message))
       )
     } finally {
       const isCurrentStream = streamAbortRef.current === abortController
@@ -2134,6 +2237,15 @@ export default function AdvisoryWorkspaceShell() {
         )
       }
     }
+    textareaRef.current?.focus({ preventScroll: true })
+  }
+
+  const handleReplyToExpert = (message: ThinkTankConversationMessage) => {
+    const target = readPartyModeReplyTarget(message)
+    if (!target) return
+
+    setPartyModeReplyTarget(target)
+    setMessageError(null)
     textareaRef.current?.focus({ preventScroll: true })
   }
 
@@ -3035,6 +3147,7 @@ export default function AdvisoryWorkspaceShell() {
                         isStreaming={isStreamingActive && message.id === streamingMessageId}
                         decisionOptionsAreCurrent={message.id === latestDecisionMessageId}
                         onDecisionOption={handleDecisionOption}
+                        onReplyToExpert={handleReplyToExpert}
                       />
                     ))}
                   </div>
@@ -3064,6 +3177,29 @@ export default function AdvisoryWorkspaceShell() {
                 }}
               >
                 <div className="mx-auto max-w-5xl">
+                  {partyModeReplyTarget && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      aria-label="当前回复对象"
+                      className="mb-2 flex items-center justify-between gap-3 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs text-[hsl(var(--advisory-foreground))]"
+                    >
+                      <span className="min-w-0 truncate">
+                        回复 {partyModeReplyTarget.advisorName}，{partyModeReplyTarget.advisorRole}
+                        {partyModeReplyTarget.round ? `，第 ${partyModeReplyTarget.round} 轮` : ''}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        aria-label="取消专家回复对象"
+                        onClick={() => setPartyModeReplyTarget(null)}
+                        className="h-6 shrink-0 rounded-sm px-2 text-xs"
+                      >
+                        取消
+                      </Button>
+                    </div>
+                  )}
                   <div className="flex items-end gap-3">
                     <Textarea
                       ref={textareaRef}

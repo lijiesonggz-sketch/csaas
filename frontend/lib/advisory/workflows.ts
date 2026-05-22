@@ -133,6 +133,12 @@ export interface ThinkTankSessionMessageStreamChunk {
 export interface ThinkTankSessionMessageSubmitInput {
   content: string
   decisionAction?: string
+  addressedExpertHint?: ThinkTankAddressedExpertHint
+}
+
+export interface ThinkTankAddressedExpertHint {
+  advisorId: string
+  messageId?: string
 }
 
 export interface ThinkTankSessionMessageSubmitResult extends ThinkTankSessionMessagesResult {
@@ -263,6 +269,8 @@ export async function sendThinkTankSessionMessage(
     body: JSON.stringify({
       content,
       decisionAction: input.decisionAction,
+      addressedAdvisorId: input.addressedExpertHint?.advisorId,
+      addressedMessageId: input.addressedExpertHint?.messageId,
     }),
     cache: 'no-store',
   })

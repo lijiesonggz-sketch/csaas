@@ -10,6 +10,7 @@ interface AdvisoryChatMessageProps {
   isStreaming?: boolean
   decisionOptionsAreCurrent?: boolean
   onDecisionOption?: (option: ThinkTankDecisionOption) => void
+  onReplyToExpert?: (message: ThinkTankConversationMessage) => void
 }
 
 type MarkdownBlock =
@@ -23,22 +24,46 @@ export function AdvisoryChatMessage({
   isStreaming = false,
   decisionOptionsAreCurrent = true,
   onDecisionOption,
+  onReplyToExpert,
 }: AdvisoryChatMessageProps) {
   const roleDisplay = getRoleDisplay(message)
+  const partyModeIdentity = getPartyModeIdentity(message)
+  const canReplyToExpert = Boolean(partyModeIdentity && !isStreaming && onReplyToExpert)
 
   return (
     <article
       aria-label={roleDisplay.ariaLabel}
       className={cn('rounded-sm border border-l-[3px] p-4', roleDisplay.className)}
+      style={partyModeIdentity ? { borderLeftColor: partyModeIdentity.accentColor } : undefined}
     >
       <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold text-[hsl(var(--advisory-muted-foreground))]">
-          {roleDisplay.label}
-        </p>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-[hsl(var(--advisory-muted-foreground))]">
+            {roleDisplay.label}
+          </p>
+          {partyModeIdentity && (
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+              <span>{partyModeIdentity.role}</span>
+              <span>第 {partyModeIdentity.round} 轮</span>
+              <span>发言 {partyModeIdentity.speakerIndex}</span>
+              {partyModeIdentity.perspective && <span>{partyModeIdentity.perspective}</span>}
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2 text-xs text-[hsl(var(--advisory-muted-foreground))]">
           {isStreaming && (
-            <span role="status" aria-live="polite">
-              正在生成
+            <span
+              role="status"
+              aria-live="polite"
+              aria-label={
+                partyModeIdentity
+                  ? `当前发言人：${partyModeIdentity.name}，${partyModeIdentity.role}`
+                  : 'ThinkTank 回复生成状态'
+              }
+            >
+              {partyModeIdentity
+                ? `${partyModeIdentity.name}（${partyModeIdentity.role}）正在发言`
+                : '正在生成'}
             </span>
           )}
           {message.stepIndex && <span>Step {message.stepIndex}</span>}
@@ -55,6 +80,20 @@ export function AdvisoryChatMessage({
           </span>
         )}
       </div>
+      {canReplyToExpert && partyModeIdentity && (
+        <div className="mt-3 flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-label={`回复${partyModeIdentity.name}，${partyModeIdentity.role}`}
+            onClick={() => onReplyToExpert?.(message)}
+            className="h-7 rounded-sm px-2 text-xs"
+          >
+            回复 {partyModeIdentity.name}
+          </Button>
+        </div>
+      )}
       {message.role === 'assistant' && message.decisionOptions?.length ? (
         <div aria-label="顾问决策选项" className="mt-4 flex flex-wrap gap-2">
           {message.decisionOptions.map((option) => {
@@ -282,6 +321,16 @@ function sanitizeMarkdownHref(href: string): string {
 }
 
 function getRoleDisplay(message: ThinkTankConversationMessage) {
+  const partyModeIdentity = getPartyModeIdentity(message)
+  if (partyModeIdentity) {
+    return {
+      label: partyModeIdentity.name,
+      ariaLabel: `专家消息：${partyModeIdentity.name}，${partyModeIdentity.role}，第 ${partyModeIdentity.round} 轮`,
+      className:
+        'mr-auto max-w-[88%] border-l-[hsl(var(--advisory-foreground))] bg-[hsl(var(--advisory-muted-bg))]',
+    }
+  }
+
   if (message.role === 'user') {
     return {
       label: '你的回答',
@@ -318,4 +367,50 @@ function getRoleDisplay(message: ThinkTankConversationMessage) {
     className:
       'mr-auto max-w-[88%] border-l-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]',
   }
+}
+
+function getPartyModeIdentity(message: ThinkTankConversationMessage):
+  | {
+      id: string
+      name: string
+      role: string
+      perspective: string
+      round: number
+      speakerIndex: number
+      accentColor: string
+    }
+  | null {
+  if (message.metadata?.party_mode_message !== true) return null
+
+  const advisorId = readMetadataText(message.metadata.party_mode_advisor_id) ?? 'expert'
+  const name = readMetadataText(message.metadata.party_mode_advisor_name) ?? '专家'
+  const role = readMetadataText(message.metadata.party_mode_advisor_role) ?? 'ThinkTank Expert'
+  const perspective = readMetadataText(message.metadata.party_mode_advisor_perspective) ?? ''
+  const round = readMetadataNumber(message.metadata.party_mode_round) ?? 1
+  const speakerIndex = readMetadataNumber(message.metadata.party_mode_speaker_index) ?? 1
+
+  return {
+    id: advisorId,
+    name,
+    role,
+    perspective,
+    round,
+    speakerIndex,
+    accentColor: getExpertAccentColor(advisorId),
+  }
+}
+
+function readMetadataText(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function readMetadataNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function getExpertAccentColor(advisorId: string): string {
+  const palette = ['#0f766e', '#7c3aed', '#b45309', '#2563eb', '#be123c']
+  const hash = advisorId.split('').reduce((total, char) => total + char.charCodeAt(0), 0)
+
+  return palette[hash % palette.length]
 }
