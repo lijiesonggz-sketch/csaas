@@ -76,9 +76,14 @@ import {
   KnowledgeBaseAssociationResult,
 } from '../outputs/knowledge-base-association.port'
 import { createThinkTankPromptCachePolicy } from '../provider-gateway/thinktank-prompt-cache-policy'
+import { ThinkTankPartyModeAdvisorPersonaService } from '../runtime/party-mode-advisor-persona.service'
 import { ThinkTankPromptAssemblerService } from '../runtime/prompt-assembler.service'
 import { ThinkTankRuntimeError, ThinkTankRuntimeErrorCode } from '../runtime/runtime.errors'
-import { ThinkTankAssembledPrompt, ThinkTankWorkflowMetadata } from '../runtime/runtime.types'
+import {
+  ThinkTankAssembledPrompt,
+  ThinkTankPartyModeAdvisorSelection,
+  ThinkTankWorkflowMetadata,
+} from '../runtime/runtime.types'
 import { ThinkTankWorkflowParserService } from '../runtime/workflow-parser.service'
 import { ThinkTankWorkflowRegistryService } from '../runtime/workflow-registry.service'
 import {
@@ -134,15 +139,11 @@ const SAFE_CURRENT_STEP_REF = 'current-step:1'
 const INVALID_WORKFLOW_AUDIT_KEY = 'invalid-workflow'
 const THINKTANK_PARTY_MODE_ACTION = 'party-mode'
 const THINKTANK_PARTY_MODE_RETURN_ACTION = 'return-to-workflow'
-const THINKTANK_PARTY_MODE_DISABLED_DESCRIPTION =
-  'Party Mode 未启用；当前仍可使用单顾问流程。'
+const THINKTANK_PARTY_MODE_DISABLED_DESCRIPTION = 'Party Mode 未启用；当前仍可使用单顾问流程。'
 const THINKTANK_PARTY_MODE_ENABLED_DESCRIPTION = '启动多角色顾问讨论'
-const THINKTANK_PARTY_MODE_STARTED_MESSAGE =
-  'Party Mode 上下文已创建。多角色顾问讨论将在后续步骤基于当前工作流继续，完成后可返回原工作流。'
 const THINKTANK_PARTY_MODE_RETURNED_MESSAGE =
   '已返回原工作流。你可以继续当前步骤、深入追问或修订方向。'
-const THINKTANK_PARTY_MODE_UNAVAILABLE_MESSAGE =
-  'Party Mode 当前不可用，请继续使用单顾问流程。'
+const THINKTANK_PARTY_MODE_UNAVAILABLE_MESSAGE = 'Party Mode 当前不可用，请继续使用单顾问流程。'
 const EXPECTED_THINKTANK_WORKFLOW_KEYS = [
   'brainstorming',
   'domain-research',
@@ -486,6 +487,8 @@ export class AdvisorySessionService {
     private readonly knowledgeBaseAssociationPort?: KnowledgeBaseAssociationPort,
     @Optional()
     private readonly contextCompressionService?: ThinkTankContextCompressionService,
+    @Optional()
+    private readonly partyModeAdvisorPersonas?: ThinkTankPartyModeAdvisorPersonaService,
   ) {}
 
   async listWorkflows(context: AdvisorySessionContext): Promise<AdvisoryWorkflowCatalogResult> {
@@ -1347,9 +1350,7 @@ export class AdvisorySessionService {
       history,
     )
     const isPartyModeAction = this.isPartyModeDecisionAction(context.decisionAction)
-    const isPartyModeReturnAction = this.isPartyModeReturnDecisionAction(
-      context.decisionAction,
-    )
+    const isPartyModeReturnAction = this.isPartyModeReturnDecisionAction(context.decisionAction)
     if (isPartyModeAction) {
       this.assertPartyModeDecisionCanStart(context.tenantId, session, tenantScopedHistory)
       const partyModeResult = await this.startPartyModeFromDecision({
@@ -1532,9 +1533,7 @@ export class AdvisorySessionService {
       history,
     )
     const isPartyModeAction = this.isPartyModeDecisionAction(context.decisionAction)
-    const isPartyModeReturnAction = this.isPartyModeReturnDecisionAction(
-      context.decisionAction,
-    )
+    const isPartyModeReturnAction = this.isPartyModeReturnDecisionAction(context.decisionAction)
     if (isPartyModeAction) {
       this.assertPartyModeDecisionCanStart(context.tenantId, session, tenantScopedHistory)
       if (context.signal?.aborted) {
@@ -1567,7 +1566,7 @@ export class AdvisorySessionService {
           decisionOptions: partyModeResult.decisionOptions,
           ...(partyModeResult.checkpointWarning
             ? { checkpointWarning: partyModeResult.checkpointWarning }
-          : {}),
+            : {}),
         },
       }
       return
@@ -1604,7 +1603,7 @@ export class AdvisorySessionService {
           decisionOptions: partyModeResult.decisionOptions,
           ...(partyModeResult.checkpointWarning
             ? { checkpointWarning: partyModeResult.checkpointWarning }
-          : {}),
+            : {}),
         },
       }
       return
@@ -3082,6 +3081,14 @@ export class AdvisorySessionService {
     return this.providerGateway
   }
 
+  private requirePartyModeAdvisorPersonaService(): ThinkTankPartyModeAdvisorPersonaService {
+    if (!this.partyModeAdvisorPersonas) {
+      throw new ServiceUnavailableException(THINKTANK_PARTY_MODE_UNAVAILABLE_MESSAGE)
+    }
+
+    return this.partyModeAdvisorPersonas
+  }
+
   private requireOutputRepository(): AdvisoryWorkflowOutputRepository {
     if (!this.outputRepository) {
       throw new ServiceUnavailableException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
@@ -4231,16 +4238,13 @@ export class AdvisorySessionService {
     let userMessage: AdvisoryConversationMessage | undefined
 
     try {
-      userMessage = await this.createUserMessageWithNextSequence(
-        context.messageRepository,
-        {
-          tenantId: context.tenantId,
-          user: context.user,
-          session: claimedSession,
-          content: context.content,
-          decisionAction: context.decisionAction,
-        },
-      )
+      userMessage = await this.createUserMessageWithNextSequence(context.messageRepository, {
+        tenantId: context.tenantId,
+        user: context.user,
+        session: claimedSession,
+        content: context.content,
+        decisionAction: context.decisionAction,
+      })
       const scopedConversationMessages = [...context.tenantScopedHistory, userMessage]
       const partyModeResult = await this.createPartyModeStartedResponse({
         tenantId: context.tenantId,
@@ -4255,9 +4259,7 @@ export class AdvisorySessionService {
         ...partyModeResult,
       }
     } catch (error) {
-      await this.deletePartyModeMessages(context.messageRepository, context.tenantId, [
-        userMessage,
-      ])
+      await this.deletePartyModeMessages(context.messageRepository, context.tenantId, [userMessage])
       await this.rollbackPartyModeStart(context.tenantId, context.user, claimedSession).catch(
         () => undefined,
       )
@@ -4287,16 +4289,13 @@ export class AdvisorySessionService {
     let userMessage: AdvisoryConversationMessage | undefined
 
     try {
-      userMessage = await this.createUserMessageWithNextSequence(
-        context.messageRepository,
-        {
-          tenantId: context.tenantId,
-          user: context.user,
-          session: claimedSession,
-          content: context.content,
-          decisionAction: context.decisionAction,
-        },
-      )
+      userMessage = await this.createUserMessageWithNextSequence(context.messageRepository, {
+        tenantId: context.tenantId,
+        user: context.user,
+        session: claimedSession,
+        content: context.content,
+        decisionAction: context.decisionAction,
+      })
       const scopedConversationMessages = [...context.tenantScopedHistory, userMessage]
       const partyModeResult = await this.createPartyModeReturnedResponse({
         tenantId: context.tenantId,
@@ -4311,9 +4310,7 @@ export class AdvisorySessionService {
         ...partyModeResult,
       }
     } catch (error) {
-      await this.deletePartyModeMessages(context.messageRepository, context.tenantId, [
-        userMessage,
-      ])
+      await this.deletePartyModeMessages(context.messageRepository, context.tenantId, [userMessage])
       await this.rollbackPartyModeReturn(context.tenantId, context.user, claimedSession).catch(
         () => undefined,
       )
@@ -4401,8 +4398,8 @@ export class AdvisorySessionService {
     tenantId: string,
     messages: Array<AdvisoryConversationMessage | undefined>,
   ): Promise<void> {
-    for (const message of messages.filter(
-      (candidate): candidate is AdvisoryConversationMessage => Boolean(candidate),
+    for (const message of messages.filter((candidate): candidate is AdvisoryConversationMessage =>
+      Boolean(candidate),
     )) {
       await messageRepository.deleteMessage(tenantId, message.id).catch(() => undefined)
     }
@@ -4465,7 +4462,13 @@ export class AdvisorySessionService {
     let assistantMessage: AdvisoryConversationMessage | undefined
     try {
       const decisionOptions = this.createPartyModeStartedDecisionOptions()
-      const partyModeMetadata = await this.createPartyModeContextMetadata(context)
+      const advisorSelection = await this.requirePartyModeAdvisorPersonaService().selectAdvisors({
+        workflowKey: context.session.workflowKey,
+        currentStepLabel: context.session.currentStep.label,
+        currentStepSourceRef: context.session.currentStep.sourceRef,
+        latestUserMessage: context.userMessage.content,
+      })
+      const partyModeMetadata = await this.createPartyModeContextMetadata(context, advisorSelection)
       assistantMessage = await messageRepository.createMessageWithNextSequence(
         context.tenantId,
         context.session.id,
@@ -4473,7 +4476,7 @@ export class AdvisorySessionService {
           sessionId: context.session.id,
           actorId: context.user.id,
           role: AdvisoryConversationMessageRole.Assistant,
-          content: THINKTANK_PARTY_MODE_STARTED_MESSAGE,
+          content: advisorSelection.visibleSummary,
           workflowKey: context.session.workflowKey,
           stepIndex: context.session.currentStep.index,
           decisionOptions,
@@ -4484,6 +4487,9 @@ export class AdvisorySessionService {
               ai_generated: true,
               party_mode_started: availability.enabled,
               decision_action: THINKTANK_PARTY_MODE_ACTION,
+              party_mode_advisor_count: advisorSelection.metadata.party_mode_advisor_count,
+              party_mode_omitted_advisor_count:
+                advisorSelection.metadata.party_mode_omitted_advisor_count,
             },
           ),
           providerMetadata: {},
@@ -4619,12 +4625,15 @@ export class AdvisorySessionService {
     }
   }
 
-  private async createPartyModeContextMetadata(context: {
-    tenantId: string
-    session: AdvisoryWorkflowSession
-    userMessage: AdvisoryConversationMessage
-    scopedConversationMessages: AdvisoryConversationMessage[]
-  }): Promise<Record<string, string | number | boolean | null>> {
+  private async createPartyModeContextMetadata(
+    context: {
+      tenantId: string
+      session: AdvisoryWorkflowSession
+      userMessage: AdvisoryConversationMessage
+      scopedConversationMessages: AdvisoryConversationMessage[]
+    },
+    advisorSelection?: ThinkTankPartyModeAdvisorSelection,
+  ): Promise<Record<string, string | number | boolean | null>> {
     const output = await this.findPartyModeContextOutput(context.tenantId, context.session.id)
     const quickConsultContextId = this.optionalText(
       context.session.metadata?.quick_consult_context_id,
@@ -4653,7 +4662,43 @@ export class AdvisorySessionService {
       party_mode_return_workflow_key: context.session.workflowKey,
       party_mode_return_step_index: context.session.currentStep.index,
       party_mode_started_at: new Date().toISOString(),
+      ...this.pickPartyModeAdvisorSelectionMetadata(advisorSelection),
     }
+  }
+
+  private pickPartyModeAdvisorSelectionMetadata(
+    advisorSelection?: ThinkTankPartyModeAdvisorSelection,
+  ): Record<string, string | number | boolean | null> {
+    const metadata = advisorSelection?.metadata ?? {}
+    const allowedKeys = [
+      'party_mode_advisor_count',
+      'party_mode_selected_advisor_ids',
+      'party_mode_selected_advisor_names',
+      'party_mode_selected_advisor_roles',
+      'party_mode_selected_advisor_perspectives',
+      'party_mode_selected_advisor_source_paths',
+      'party_mode_selected_advisor_source_hashes',
+      'party_mode_selected_advisor_reasons',
+      'party_mode_selected_advisor_role_families',
+      'party_mode_omitted_advisor_count',
+      'party_mode_omitted_advisors',
+      'party_mode_omission_reasons',
+    ]
+    const safeMetadata: Record<string, string | number | boolean | null> = {}
+
+    for (const key of allowedKeys) {
+      const value = metadata[key]
+      if (
+        value === null ||
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean'
+      ) {
+        safeMetadata[key] = value
+      }
+    }
+
+    return safeMetadata
   }
 
   private async findPartyModeContextOutput(

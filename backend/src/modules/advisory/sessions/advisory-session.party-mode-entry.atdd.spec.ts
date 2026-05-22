@@ -8,6 +8,7 @@ import { AdvisoryEventService } from '../events/advisory-event.service'
 import { AdvisoryCheckpointService } from '../checkpoints/advisory-checkpoint.service'
 import { ThinkTankProviderGatewayService } from '../provider-gateway/thinktank-provider-gateway.service'
 import { ThinkTankProviderStreamChunk } from '../provider-gateway/thinktank-provider-gateway.types'
+import { ThinkTankPartyModeAdvisorPersonaService } from '../runtime/party-mode-advisor-persona.service'
 import { ThinkTankPromptAssemblerService } from '../runtime/prompt-assembler.service'
 import { ThinkTankWorkflowRegistryService } from '../runtime/workflow-registry.service'
 import { AdvisoryWorkflowOutputRepository } from '../outputs/advisory-workflow-output.repository'
@@ -130,6 +131,9 @@ describe('Story 5.1 ATDD - Party Mode entry from workflow', () => {
   >
   let eventService: jest.Mocked<Pick<AdvisoryEventService, 'emitAudit' | 'emitTelemetry'>>
   let checkpointService: jest.Mocked<Pick<AdvisoryCheckpointService, 'saveCheckpoint'>>
+  let partyModeAdvisorPersonas: jest.Mocked<
+    Pick<ThinkTankPartyModeAdvisorPersonaService, 'selectAdvisors'>
+  >
   let service: AdvisorySessionService
 
   beforeEach(() => {
@@ -236,20 +240,19 @@ describe('Story 5.1 ATDD - Party Mode entry from workflow', () => {
       deleteMessage: jest.fn().mockResolvedValue(true),
     }
     providerGateway = {
-      stream: jest.fn(async function* (
-        input,
-        signal?,
-      ): AsyncIterable<ThinkTankProviderStreamChunk> {
-        void input
-        void signal
-        yield {
-          index: 0,
-          delta: 'Single advisor response.',
-          done: true,
-          provider: 'fake',
-          model: 'fake-thinktank-model',
-        }
-      }),
+      stream: jest.fn(
+        async function* (input, signal?): AsyncIterable<ThinkTankProviderStreamChunk> {
+          void input
+          void signal
+          yield {
+            index: 0,
+            delta: 'Single advisor response.',
+            done: true,
+            provider: 'fake',
+            model: 'fake-thinktank-model',
+          }
+        },
+      ),
     }
     outputRepository = {
       findActiveDraftForSession: jest.fn().mockResolvedValue(draftOutput),
@@ -262,10 +265,87 @@ describe('Story 5.1 ATDD - Party Mode entry from workflow', () => {
     checkpointService = {
       saveCheckpoint: jest.fn().mockResolvedValue({}),
     }
+    partyModeAdvisorPersonas = {
+      selectAdvisors: jest.fn().mockResolvedValue({
+        advisors: [
+          {
+            id: 'creative-problem-solver',
+            displayName: 'Dr. Quinn',
+            role: 'Systematic Problem-Solving Expert',
+            identity: 'Systems problem solver',
+            communicationStyle: 'Deductive',
+            principles: 'Find root causes',
+            capabilities: ['TRIZ', 'root cause analysis'],
+            module: 'cis',
+            sourcePath: '_bmad/cis/agents/creative-problem-solver.md',
+            sourceHash: 'problem-solver-source-hash',
+            perspective: '系统性问题诊断',
+            roleFamily: 'problem-solving',
+            selectionReason: '当前步骤需要 root cause diagnosis',
+          },
+          {
+            id: 'architect',
+            displayName: 'Winston',
+            role: 'System Architect',
+            identity: 'Technical architect',
+            communicationStyle: 'Calm',
+            principles: 'Design simple solutions',
+            capabilities: ['distributed systems', 'API design'],
+            module: 'bmm',
+            sourcePath: '_bmad/bmm/agents/architect.md',
+            sourceHash: 'architect-source-hash',
+            perspective: '技术架构可行性',
+            roleFamily: 'technical',
+            selectionReason: '补充 implementation feasibility',
+          },
+          {
+            id: 'pm',
+            displayName: 'John',
+            role: 'Product Manager',
+            identity: 'Product veteran',
+            communicationStyle: 'Asks why',
+            principles: 'User value first',
+            capabilities: ['PRD creation', 'stakeholder alignment'],
+            module: 'bmm',
+            sourcePath: '_bmad/bmm/agents/pm.md',
+            sourceHash: 'pm-source-hash',
+            perspective: '产品价值与优先级',
+            roleFamily: 'product',
+            selectionReason: '补充 user value and prioritization',
+          },
+        ],
+        omittedAdvisors: [],
+        visibleSummary:
+          'Party Mode 上下文已创建。3 位 ThinkTank 顾问将加入：Dr. Quinn（系统性问题诊断）、Winston（技术架构可行性）、John（产品价值与优先级）。',
+        metadata: {
+          party_mode_advisor_count: 3,
+          party_mode_selected_advisor_ids: 'creative-problem-solver|architect|pm',
+          party_mode_selected_advisor_names: 'Dr. Quinn|Winston|John',
+          party_mode_selected_advisor_roles:
+            'Systematic Problem-Solving Expert|System Architect|Product Manager',
+          party_mode_selected_advisor_perspectives:
+            '系统性问题诊断|技术架构可行性|产品价值与优先级',
+          party_mode_selected_advisor_source_paths:
+            '_bmad/cis/agents/creative-problem-solver.md|_bmad/bmm/agents/architect.md|_bmad/bmm/agents/pm.md',
+          party_mode_selected_advisor_source_hashes:
+            'problem-solver-source-hash|architect-source-hash|pm-source-hash',
+          party_mode_selected_advisor_reasons:
+            '当前步骤需要 root cause diagnosis|补充 implementation feasibility|补充 user value and prioritization',
+          party_mode_omitted_advisor_count: 0,
+          party_mode_omitted_advisors: null,
+          party_mode_omission_reasons: null,
+          party_mode_status: 'hacked-by-advisor-metadata',
+          party_mode_context_id: 'hacked-by-advisor-metadata',
+        },
+      }),
+    }
 
     service = new AdvisorySessionService(
       accessService as never,
-      { discoverWorkflows: jest.fn(), findWorkflow: jest.fn() } as unknown as ThinkTankWorkflowRegistryService,
+      {
+        discoverWorkflows: jest.fn(),
+        findWorkflow: jest.fn(),
+      } as unknown as ThinkTankWorkflowRegistryService,
       { assemblePrompt: jest.fn() } as unknown as ThinkTankPromptAssemblerService,
       sessionRepository as never,
       eventService as never,
@@ -276,6 +356,11 @@ describe('Story 5.1 ATDD - Party Mode entry from workflow', () => {
       undefined,
       undefined,
       checkpointService as never,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      partyModeAdvisorPersonas as never,
     )
   })
 
@@ -395,9 +480,9 @@ describe('Story 5.1 ATDD - Party Mode entry from workflow', () => {
         }),
       }),
     )
-    expect(JSON.stringify(checkpointService.saveCheckpoint.mock.calls[0][0].metadata)).not.toContain(
-      'We need to decide',
-    )
+    expect(
+      JSON.stringify(checkpointService.saveCheckpoint.mock.calls[0][0].metadata),
+    ).not.toContain('We need to decide')
     expect(result.assistantMessage.content).toContain('Party Mode')
     expect(result.assistantMessage.metadata).toEqual(
       expect.objectContaining({
@@ -768,5 +853,185 @@ describe('Story 5.1 ATDD - Party Mode entry from workflow', () => {
       }),
     )
     expect(providerGateway.stream).not.toHaveBeenCalled()
+  })
+
+  test('[P0][5.2-BE-001][AC1,AC2] explains selected ThinkTank advisor personas before Party Mode discussion begins', async () => {
+    process.env.THINKTANK_PARTY_MODE_ENABLED = 'true'
+    process.env.THINKTANK_PARTY_MODE_TENANTS = tenantId
+
+    const result = await service.submitMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: '启动 Party Mode',
+      decisionAction: 'party-mode',
+    })
+
+    expect(providerGateway.stream).not.toHaveBeenCalled()
+    expect(partyModeAdvisorPersonas.selectAdvisors).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflowKey: 'problem-solving',
+        currentStepLabel: '根因分解',
+        currentStepSourceRef: 'workflow:problem-solving#step-2',
+        latestUserMessage: '启动 Party Mode',
+      }),
+    )
+    expect(result.assistantMessage.content).toContain('ThinkTank 顾问')
+    expect(result.assistantMessage.content).toContain('Dr. Quinn')
+    expect(result.assistantMessage.content).toContain('Winston')
+    expect(result.assistantMessage.content).toContain('John')
+    expect(result.assistantMessage.content).not.toContain('_bmad/')
+    expect(result.assistantMessage.content).not.toContain('<agent>')
+    expect(sessionRepository.finalizePartyModeStart).toHaveBeenCalledWith(
+      tenantId,
+      sessionId,
+      actorId,
+      expect.objectContaining({
+        party_mode_advisor_count: 3,
+        party_mode_selected_advisor_ids: 'creative-problem-solver|architect|pm',
+        party_mode_selected_advisor_source_paths:
+          '_bmad/cis/agents/creative-problem-solver.md|_bmad/bmm/agents/architect.md|_bmad/bmm/agents/pm.md',
+      }),
+    )
+    expect(JSON.stringify(result.assistantMessage.providerMetadata)).not.toContain(
+      'Systems problem solver',
+    )
+  })
+
+  test('[P0][5.2-BE-002][AC3] keeps Party Mode start retryable when advisor loading falls below the minimum viable set', async () => {
+    process.env.THINKTANK_PARTY_MODE_ENABLED = 'true'
+    process.env.THINKTANK_PARTY_MODE_TENANTS = tenantId
+    partyModeAdvisorPersonas.selectAdvisors.mockRejectedValueOnce(
+      new Error('minimum viable advisor set unavailable'),
+    )
+
+    await expect(
+      service.submitMessage({
+        user,
+        tenantId,
+        sessionId,
+        content: '启动 Party Mode',
+        decisionAction: 'party-mode',
+      }),
+    ).rejects.toThrow()
+
+    expect(messageRepository.createMessageWithNextSequence).toHaveBeenCalledTimes(1)
+    expect(messageRepository.deleteMessage).toHaveBeenCalledWith(
+      tenantId,
+      'message-user-party-entry',
+    )
+    expect(sessionRepository.finalizePartyModeStart).not.toHaveBeenCalled()
+    expect(sessionRepository.rollbackPartyModeStart).toHaveBeenCalledWith(
+      tenantId,
+      sessionId,
+      actorId,
+      expect.objectContaining({
+        party_mode_active: false,
+        party_mode_status: 'start-failed',
+      }),
+    )
+    expect(providerGateway.stream).not.toHaveBeenCalled()
+  })
+
+  test('[P1][5.2-BE-003][AC3] surfaces omitted advisor names without exposing source paths or stack traces', async () => {
+    process.env.THINKTANK_PARTY_MODE_ENABLED = 'true'
+    process.env.THINKTANK_PARTY_MODE_TENANTS = tenantId
+    partyModeAdvisorPersonas.selectAdvisors.mockResolvedValueOnce({
+      advisors: [
+        {
+          id: 'creative-problem-solver',
+          displayName: 'Dr. Quinn',
+          role: 'Systematic Problem-Solving Expert',
+          identity: 'Systems problem solver',
+          communicationStyle: 'Deductive',
+          principles: 'Find root causes',
+          capabilities: ['TRIZ', 'root cause analysis'],
+          module: 'cis',
+          sourcePath: '_bmad/cis/agents/creative-problem-solver.md',
+          sourceHash: 'problem-solver-source-hash',
+          perspective: '系统性问题诊断',
+          roleFamily: 'problem-solving',
+          selectionReason: '当前步骤需要 root cause diagnosis',
+        },
+        {
+          id: 'analyst',
+          displayName: 'Mary',
+          role: 'Business Analyst',
+          identity: 'Business analyst',
+          communicationStyle: 'Evidence-led',
+          principles: 'Ground findings',
+          capabilities: ['market research', 'requirements'],
+          module: 'bmm',
+          sourcePath: '_bmad/bmm/agents/analyst.md',
+          sourceHash: 'analyst-source-hash',
+          perspective: '业务证据分析',
+          roleFamily: 'research',
+          selectionReason: '补充 evidence analysis',
+        },
+        {
+          id: 'pm',
+          displayName: 'John',
+          role: 'Product Manager',
+          identity: 'Product veteran',
+          communicationStyle: 'Asks why',
+          principles: 'User value first',
+          capabilities: ['PRD creation', 'stakeholder alignment'],
+          module: 'bmm',
+          sourcePath: '_bmad/bmm/agents/pm.md',
+          sourceHash: 'pm-source-hash',
+          perspective: '产品价值与优先级',
+          roleFamily: 'product',
+          selectionReason: '补充 user value',
+        },
+      ],
+      omittedAdvisors: [
+        {
+          id: 'architect',
+          displayName: 'Winston',
+          reason: '顾问源文件不可用，本次先由其余 ThinkTank 顾问继续。',
+          sourcePath: '_bmad/bmm/agents/architect.md',
+        },
+      ],
+      visibleSummary:
+        'Party Mode 上下文已创建。3 位 ThinkTank 顾问将加入。已略过 Winston：顾问源文件不可用，本次先由其余 ThinkTank 顾问继续。',
+      metadata: {
+        party_mode_advisor_count: 3,
+        party_mode_selected_advisor_ids: 'creative-problem-solver|analyst|pm',
+        party_mode_selected_advisor_names: 'Dr. Quinn|Mary|John',
+        party_mode_selected_advisor_roles:
+          'Systematic Problem-Solving Expert|Business Analyst|Product Manager',
+        party_mode_selected_advisor_perspectives: '系统性问题诊断|业务证据分析|产品价值与优先级',
+        party_mode_selected_advisor_source_paths:
+          '_bmad/cis/agents/creative-problem-solver.md|_bmad/bmm/agents/analyst.md|_bmad/bmm/agents/pm.md',
+        party_mode_selected_advisor_source_hashes:
+          'problem-solver-source-hash|analyst-source-hash|pm-source-hash',
+        party_mode_selected_advisor_reasons:
+          '当前步骤需要 root cause diagnosis|补充 evidence analysis|补充 user value',
+        party_mode_omitted_advisor_count: 1,
+        party_mode_omitted_advisors: 'Winston',
+        party_mode_omission_reasons: '顾问源文件不可用，本次先由其余 ThinkTank 顾问继续。',
+      },
+    } as never)
+
+    const result = await service.submitMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: '启动 Party Mode',
+      decisionAction: 'party-mode',
+    })
+
+    expect(result.assistantMessage.content).toContain('已略过 Winston')
+    expect(result.assistantMessage.content).not.toContain('_bmad/bmm/agents/architect.md')
+    expect(result.assistantMessage.content).not.toContain('Error:')
+    expect(sessionRepository.finalizePartyModeStart).toHaveBeenCalledWith(
+      tenantId,
+      sessionId,
+      actorId,
+      expect.objectContaining({
+        party_mode_omitted_advisor_count: 1,
+        party_mode_omitted_advisors: 'Winston',
+      }),
+    )
   })
 })

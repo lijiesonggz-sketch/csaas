@@ -1,0 +1,143 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "story_id": "5-2-advisor-persona-loading-and-selection",
+  "generated_at": "2026-05-22T11:22:05+08:00",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "requirement": "Party Mode loads persona identity, role, communication style, principles, and capabilities from approved agent definitions, and user-visible identity is branded as ThinkTank advisor content.",
+      "coverage": "FULL",
+      "test_level": "Unit + service integration",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/runtime/party-mode-advisor-persona.service.spec.ts",
+          "cases": [
+            "[P0][5.2-UNIT-001][AC1,AC2] loads approved personas and selects differentiated ThinkTank advisors",
+            "[P0][5.2-UNIT-001B][AC1] treats name-only team rows as an allowlist backed by manifest source paths",
+            "[P0][5.2-UNIT-001C][AC1] rejects invalid advisor count inputs before selecting personas",
+            "[P0][5.2-UNIT-002B][AC1,AC3] propagates non-recoverable source approval errors instead of treating them as omissions",
+            "[P0][5.2-UNIT-002C][AC1] rejects approved CSV rows that point outside agent definition roots",
+            "[P0][5.2-UNIT-003B][AC1] does not fall back to every manifest advisor when team rosters contain no valid approved candidates",
+            "[P1][5.2-UNIT-004][AC1,AC2] returns only scalar-safe metadata pointers and source hashes"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "cases": [
+            "[P0][5.2-BE-001][AC1,AC2] explains selected ThinkTank advisor personas before Party Mode discussion begins"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "N/A - no new HTTP endpoint or DTO contract introduced",
+        "auth_authz_coverage": "Inherited Story 5.1 feature flag, tenant allowlist, stale decision, and cross-tenant negative paths remain covered in party-mode-entry ATDD",
+        "error_path_coverage": "Covered by invalid count, non-agent path, non-recoverable approval error, manifest/team allowlist, and raw-content leakage tests"
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "requirement": "Party Mode selects relevant and differentiated advisors, then explains selected advisor names and perspectives before discussion begins.",
+      "coverage": "FULL",
+      "test_level": "Unit + service integration",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/runtime/party-mode-advisor-persona.service.spec.ts",
+          "cases": [
+            "[P0][5.2-UNIT-001][AC1,AC2] loads approved personas and selects differentiated ThinkTank advisors",
+            "[P0][5.2-UNIT-001D][AC2] uses step and message relevance when ordering differentiated advisors",
+            "[P1][5.2-UNIT-004][AC1,AC2] returns only scalar-safe metadata pointers and source hashes"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "cases": [
+            "[P0][5.2-BE-001][AC1,AC2] explains selected ThinkTank advisor personas before Party Mode discussion begins"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "N/A",
+        "auth_authz_coverage": "N/A for advisor selection; Party Mode start availability is covered by Story 5.1 regression tests in the same ATDD suite",
+        "error_path_coverage": "Differentiation and relevance are covered by deterministic unit assertions; no provider call is made"
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P0",
+      "requirement": "If one advisor persona fails to load, Party Mode can continue with the minimum viable set and explains omitted advisors; if fewer than three advisors remain, it fails safely and keeps the start retryable.",
+      "coverage": "FULL",
+      "test_level": "Unit + service integration",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/runtime/party-mode-advisor-persona.service.spec.ts",
+          "cases": [
+            "[P0][5.2-UNIT-002][AC3] continues with visible omission when one selected advisor source fails and the viable set remains",
+            "[P0][5.2-UNIT-002B][AC1,AC3] propagates non-recoverable source approval errors instead of treating them as omissions",
+            "[P0][5.2-UNIT-003][AC3] fails closed when fewer than three approved advisors can be loaded",
+            "[P0][5.2-UNIT-003C][AC3] explains invalid team roster rows when the viable advisor set remains"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "cases": [
+            "[P0][5.2-BE-002][AC3] keeps Party Mode start retryable when advisor loading falls below the minimum viable set",
+            "[P1][5.2-BE-003][AC3] surfaces omitted advisor names without exposing source paths or stack traces"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "N/A",
+        "auth_authz_coverage": "N/A for persona loading; existing Party Mode start authorization regressions remain covered",
+        "error_path_coverage": "Covered by recoverable omission, non-recoverable approval failure, below-minimum failure, retryable rollback, and message cleanup assertions"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 3,
+    "fully_covered": 3,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 3, "covered": 3, "percentage": 100 },
+      "P1": { "total": 0, "covered": 0, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Keep the Story 5.2 runtime and Party Mode entry suites in the Epic 5 regression set because they guard file-source approval, metadata sanitization, and rollback behavior.",
+      "requirements": ["AC1", "AC2", "AC3"]
+    }
+  ],
+  "verification_commands": [
+    "cd backend && npm run test -- src/modules/advisory/runtime/party-mode-advisor-persona.service.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/runtime --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.repository.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/dto/submit-advisory-message.dto.spec.ts --runInBand",
+    "cd backend && npx tsc --noEmit"
+  ]
+}

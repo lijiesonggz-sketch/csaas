@@ -18,6 +18,10 @@ const DEFAULT_APPROVED_ROOTS = [
   '_bmad/bmm/workflows',
   '_bmad/cis/agents',
   '_bmad/bmm/agents',
+  '_bmad/cis/teams',
+  '_bmad/bmm/teams',
+  '_bmad/tea/agents',
+  '_bmad/tea/teams',
   '_bmad/_config',
 ]
 

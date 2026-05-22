@@ -1,5 +1,5 @@
 # generated: 2026-05-18T21:27:35+08:00
-# last_updated: 2026-05-22T10:25:28+08:00
+# last_updated: 2026-05-22T11:22:05+08:00
 # project: Csaas
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: '2026-05-18T21:27:35+08:00'
-last_updated: '2026-05-22T10:25:28+08:00'
+last_updated: '2026-05-22T11:22:05+08:00'
 project: Csaas
 project_key: NOKEY
 tracking_system: file-system
@@ -85,7 +85,7 @@ development_status:
 
   epic-5: in-progress
   5-1-party-mode-entry-from-workflow: done
-  5-2-advisor-persona-loading-and-selection: backlog
+  5-2-advisor-persona-loading-and-selection: done
   5-3-serial-expert-discussion-experience: backlog
   5-4-differentiated-frameworks-and-integrated-conclusion: backlog
   5-5-party-mode-resource-and-failure-controls: backlog

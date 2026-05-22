@@ -54,6 +54,7 @@ import { QuickConsultMethodRecommendationService } from './quick-consult/quick-c
 import { QuickConsultRecommendationFeedbackRepository } from './quick-consult/quick-consult-recommendation-feedback.repository'
 import { QuickConsultRecommendationFeedbackService } from './quick-consult/quick-consult-recommendation-feedback.service'
 import { ThinkTankBrandMapperService } from './runtime/brand-mapper.service'
+import { ThinkTankPartyModeAdvisorPersonaService } from './runtime/party-mode-advisor-persona.service'
 import { ThinkTankPromptAssemblerService } from './runtime/prompt-assembler.service'
 import { ThinkTankRuntimeFileProviderService } from './runtime/runtime-file-provider.service'
 import { ThinkTankWorkflowParserService } from './runtime/workflow-parser.service'
@@ -156,6 +157,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     ThinkTankProviderGatewayService,
     ThinkTankRuntimeFileProviderService,
     ThinkTankBrandMapperService,
+    ThinkTankPartyModeAdvisorPersonaService,
     ThinkTankWorkflowParserService,
     ThinkTankWorkflowRegistryService,
     ThinkTankPromptAssemblerService,
@@ -187,6 +189,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     ThinkTankProviderGatewayService,
     ThinkTankRuntimeFileProviderService,
     ThinkTankBrandMapperService,
+    ThinkTankPartyModeAdvisorPersonaService,
     ThinkTankWorkflowParserService,
     ThinkTankWorkflowRegistryService,
     ThinkTankPromptAssemblerService,

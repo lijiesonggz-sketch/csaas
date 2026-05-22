@@ -7,6 +7,7 @@ export enum ThinkTankRuntimeErrorCode {
   WorkflowMalformed = 'THINKTANK_RUNTIME_WORKFLOW_MALFORMED',
   WorkflowNotFound = 'THINKTANK_RUNTIME_WORKFLOW_NOT_FOUND',
   InvalidWorkflowKey = 'THINKTANK_RUNTIME_INVALID_WORKFLOW_KEY',
+  PartyModeAdvisorSetUnavailable = 'THINKTANK_RUNTIME_PARTY_MODE_ADVISORS_UNAVAILABLE',
 }
 
 export class ThinkTankRuntimeError extends Error {

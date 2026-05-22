@@ -1,0 +1,35 @@
+schema: 1
+story: 5-2-advisor-persona-loading-and-selection
+decision: PASS
+decision_date: '2026-05-22T11:22:05+08:00'
+rationale: >-
+  P0 coverage is 100%, no P1 requirements were identified, and overall coverage
+  is 100% against the 80% minimum. Unit and service-integration tests cover
+  approved persona source loading, ThinkTank visible branding, relevant and
+  differentiated selection, omission handling, scalar-safe metadata, and safe
+  rollback below the minimum viable advisor set.
+gate_criteria:
+  p0_coverage_required: 100%
+  p0_coverage_actual: 100%
+  p0_status: MET
+  p1_coverage_target_pass: 90%
+  p1_coverage_minimum: 80%
+  p1_coverage_actual: 100%
+  p1_status: MET
+  overall_coverage_minimum: 80%
+  overall_coverage_actual: 100%
+  overall_status: MET
+coverage_statistics:
+  total_requirements: 3
+  fully_covered: 3
+  partially_covered: 0
+  uncovered: 0
+  overall_coverage_percentage: 100
+uncovered_requirements: []
+recommendations:
+  - priority: LOW
+    action: Keep Story 5.2 runtime and Party Mode entry suites in the Epic 5 regression set.
+    requirements:
+      - AC1
+      - AC2
+      - AC3
