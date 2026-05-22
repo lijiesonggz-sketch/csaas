@@ -59,6 +59,8 @@ import { AdvisoryWorkflowOutputRepository } from '../outputs/advisory-workflow-o
 import { ThinkTankProviderGatewayService } from '../provider-gateway/thinktank-provider-gateway.service'
 import {
   ThinkTankProviderMessage,
+  ThinkTankProviderErrorCategory,
+  ThinkTankProviderGatewayError,
   ThinkTankProviderStreamChunk,
 } from '../provider-gateway/thinktank-provider-gateway.types'
 import {
@@ -141,6 +143,10 @@ const THINKTANK_PARTY_MODE_ACTION = 'party-mode'
 const THINKTANK_PARTY_MODE_RETURN_ACTION = 'return-to-workflow'
 const THINKTANK_PARTY_MODE_INTEGRATE_ACTION = 'integrate-party-mode'
 const THINKTANK_PARTY_MODE_ACCEPT_CONCLUSION_ACTION = 'accept-party-mode-conclusion'
+const THINKTANK_PARTY_MODE_RETRY_ADVISOR_ACTION = 'retry-party-mode-advisor'
+const THINKTANK_PARTY_MODE_CONTINUE_ACTION = 'continue-party-mode'
+const THINKTANK_PARTY_MODE_DEFAULT_MAX_TOKENS = 12000
+const THINKTANK_PARTY_MODE_DEFAULT_MAX_COST = 2
 const THINKTANK_PARTY_MODE_DISABLED_DESCRIPTION = 'Party Mode 未启用；当前仍可使用单顾问流程。'
 const THINKTANK_PARTY_MODE_ENABLED_DESCRIPTION = '启动多角色顾问讨论'
 const THINKTANK_PARTY_MODE_RETURNED_MESSAGE =
@@ -385,6 +391,25 @@ export type AdvisoryConversationStreamingEvent =
       }
     }
   | {
+      event: 'party_mode.advisor_failed'
+      data: {
+        sessionId: string
+        round: number
+        advisorId: string
+        advisorName: string
+        advisorRole: string
+        failureCategory: string
+        retryable: boolean
+        omittedAdvisorIds: string[]
+        remainingBudget: {
+          tokens: number
+          maxTokens: number
+          cost: number
+          maxCost: number
+        }
+      }
+    }
+  | {
       event: 'message.error'
       data: {
         code: string
@@ -497,6 +522,23 @@ interface PartyModeSerialTurnResult {
 interface PartyModeDecisionMatch {
   message: AdvisoryConversationMessage
   option: AdvisoryConversationDecisionOption
+}
+
+interface PartyModeBudgetPolicy {
+  maxTokens: number
+  maxCost: number
+}
+
+interface PartyModeBudgetState extends PartyModeBudgetPolicy {
+  consumedTokens: number
+  consumedCost: number
+}
+
+interface PartyModeProviderFailure {
+  category: string
+  retryable: boolean
+  provider?: string
+  status?: string
 }
 
 interface AdvisoryAppendOutputSectionContext extends AdvisorySessionMessageContext {
@@ -1412,6 +1454,10 @@ export class AdvisorySessionService {
     const isPartyModeAcceptConclusionAction = this.isPartyModeAcceptConclusionDecisionAction(
       context.decisionAction,
     )
+    const isPartyModeRetryAdvisorAction = this.isPartyModeRetryAdvisorDecisionAction(
+      context.decisionAction,
+    )
+    const isPartyModeContinueAction = this.isPartyModeContinueDecisionAction(context.decisionAction)
     if (isPartyModeAction) {
       this.assertPartyModeDecisionCanStart(context.tenantId, session, tenantScopedHistory)
       const partyModeResult = await this.startPartyModeFromDecision({
@@ -1441,7 +1487,12 @@ export class AdvisorySessionService {
       }
     }
     if (isPartyModeReturnAction) {
-      this.assertPartyModeReturnCanStart(context.tenantId, session, tenantScopedHistory)
+      this.assertPartyModeReturnCanStart(
+        context.tenantId,
+        session,
+        tenantScopedHistory,
+        this.optionalText(context.addressedMessageId) ?? undefined,
+      )
       const partyModeResult = await this.returnToWorkflowFromPartyMode({
         tenantId: context.tenantId,
         user: context.user,
@@ -1534,6 +1585,53 @@ export class AdvisorySessionService {
           : {}),
       }
     }
+    if (isPartyModeRetryAdvisorAction || isPartyModeContinueAction) {
+      const recovery = this.assertPartyModeRecoveryCanStart(
+        session,
+        tenantScopedHistory,
+        context.decisionAction,
+        this.optionalText(context.addressedMessageId) ?? undefined,
+      )
+      const retryAdvisorId = isPartyModeRetryAdvisorAction
+        ? (this.optionalText(recovery.message.metadata?.party_mode_failed_advisor_id) ?? undefined)
+        : undefined
+      const advisorOrderIds = this.createPartyModeRecoveryAdvisorOrderIds({
+        sourceMessage: recovery.message,
+        action: context.decisionAction,
+      })
+      const partyModeResult = await this.createPartyModeSerialTurn({
+        tenantId: context.tenantId,
+        user: context.user,
+        session,
+        messageRepository,
+        tenantScopedHistory,
+        content,
+        addressedAdvisorId: retryAdvisorId,
+        advisorOrderIds,
+      })
+      const assistantMessage = partyModeResult.advisorMessages.at(-1) ?? partyModeResult.userMessage
+
+      return {
+        sessionId: session.id,
+        currentStep: session.currentStep,
+        messages: [
+          ...partyModeResult.tenantScopedHistory,
+          partyModeResult.userMessage,
+          ...partyModeResult.advisorMessages,
+        ],
+        assistantMessage,
+        stream: partyModeResult.stream,
+        decisionOptions: partyModeResult.decisionOptions,
+        partyModeTurn: {
+          round: partyModeResult.round,
+          advisorOrder: partyModeResult.advisorOrder,
+          messages: partyModeResult.advisorMessages,
+        },
+        ...(partyModeResult.checkpointWarning
+          ? { checkpointWarning: partyModeResult.checkpointWarning }
+          : {}),
+      }
+    }
     if (this.isPartyModeDiscussionReady(session)) {
       const partyModeResult = await this.createPartyModeSerialTurn({
         tenantId: context.tenantId,
@@ -1545,8 +1643,7 @@ export class AdvisorySessionService {
         addressedAdvisorId: this.optionalText(context.addressedAdvisorId) ?? undefined,
         addressedMessageId: this.optionalText(context.addressedMessageId) ?? undefined,
       })
-      const assistantMessage =
-        partyModeResult.advisorMessages.at(-1) ?? partyModeResult.userMessage
+      const assistantMessage = partyModeResult.advisorMessages.at(-1) ?? partyModeResult.userMessage
 
       return {
         sessionId: session.id,
@@ -1705,6 +1802,10 @@ export class AdvisorySessionService {
     const isPartyModeAcceptConclusionAction = this.isPartyModeAcceptConclusionDecisionAction(
       context.decisionAction,
     )
+    const isPartyModeRetryAdvisorAction = this.isPartyModeRetryAdvisorDecisionAction(
+      context.decisionAction,
+    )
+    const isPartyModeContinueAction = this.isPartyModeContinueDecisionAction(context.decisionAction)
     if (isPartyModeAction) {
       this.assertPartyModeDecisionCanStart(context.tenantId, session, tenantScopedHistory)
       if (context.signal?.aborted) {
@@ -1743,7 +1844,12 @@ export class AdvisorySessionService {
       return
     }
     if (isPartyModeReturnAction) {
-      this.assertPartyModeReturnCanStart(context.tenantId, session, tenantScopedHistory)
+      this.assertPartyModeReturnCanStart(
+        context.tenantId,
+        session,
+        tenantScopedHistory,
+        this.optionalText(context.addressedMessageId) ?? undefined,
+      )
       if (context.signal?.aborted) {
         return
       }
@@ -1870,6 +1976,38 @@ export class AdvisorySessionService {
             ? { checkpointWarning: partyModeResult.checkpointWarning }
             : {}),
         },
+      }
+      return
+    }
+    if (isPartyModeRetryAdvisorAction || isPartyModeContinueAction) {
+      const recovery = this.assertPartyModeRecoveryCanStart(
+        session,
+        tenantScopedHistory,
+        context.decisionAction,
+        this.optionalText(context.addressedMessageId) ?? undefined,
+      )
+      if (context.signal?.aborted) {
+        return
+      }
+      const retryAdvisorId = isPartyModeRetryAdvisorAction
+        ? (this.optionalText(recovery.message.metadata?.party_mode_failed_advisor_id) ?? undefined)
+        : undefined
+      const advisorOrderIds = this.createPartyModeRecoveryAdvisorOrderIds({
+        sourceMessage: recovery.message,
+        action: context.decisionAction,
+      })
+      for await (const event of this.streamPartyModeSerialTurn({
+        tenantId: context.tenantId,
+        user: context.user,
+        session,
+        messageRepository,
+        tenantScopedHistory,
+        content,
+        addressedAdvisorId: retryAdvisorId,
+        advisorOrderIds,
+        signal: context.signal,
+      })) {
+        yield event
       }
       return
     }
@@ -4416,6 +4554,18 @@ export class AdvisorySessionService {
     return value === THINKTANK_PARTY_MODE_ACCEPT_CONCLUSION_ACTION
   }
 
+  private isPartyModeRetryAdvisorDecisionAction(
+    value: unknown,
+  ): value is typeof THINKTANK_PARTY_MODE_RETRY_ADVISOR_ACTION {
+    return value === THINKTANK_PARTY_MODE_RETRY_ADVISOR_ACTION
+  }
+
+  private isPartyModeContinueDecisionAction(
+    value: unknown,
+  ): value is typeof THINKTANK_PARTY_MODE_CONTINUE_ACTION {
+    return value === THINKTANK_PARTY_MODE_CONTINUE_ACTION
+  }
+
   private isPartyModeDiscussionReady(session: AdvisoryWorkflowSession): boolean {
     return (
       session.metadata?.party_mode_active === true &&
@@ -4462,16 +4612,17 @@ export class AdvisorySessionService {
     return this.assignUniquePartyModeFrameworks(preferredAdvisors)
   }
 
-  private assignUniquePartyModeFrameworks(advisors: PartyModeAdvisorTurn[]): PartyModeAdvisorTurn[] {
+  private assignUniquePartyModeFrameworks(
+    advisors: PartyModeAdvisorTurn[],
+  ): PartyModeAdvisorTurn[] {
     const fallbackFrameworks = this.getPartyModeFallbackFrameworks()
     const usedFrameworks = new Set<string>()
 
     return advisors.map((advisor, index) => {
-      const framework =
-        !usedFrameworks.has(advisor.analysisFramework)
-          ? advisor.analysisFramework
-          : (fallbackFrameworks.find((candidate) => !usedFrameworks.has(candidate)) ??
-            fallbackFrameworks[index % fallbackFrameworks.length])
+      const framework = !usedFrameworks.has(advisor.analysisFramework)
+        ? advisor.analysisFramework
+        : (fallbackFrameworks.find((candidate) => !usedFrameworks.has(candidate)) ??
+          fallbackFrameworks[index % fallbackFrameworks.length])
       usedFrameworks.add(framework)
 
       return {
@@ -4489,12 +4640,7 @@ export class AdvisorySessionService {
     perspective: string
     index: number
   }): string {
-    const haystack = [
-      context.id,
-      context.role,
-      context.roleFamily,
-      context.perspective,
-    ]
+    const haystack = [context.id, context.role, context.roleFamily, context.perspective]
       .join(' ')
       .toLowerCase()
     if (/problem|root|cause|diagnos|creative/.test(haystack)) {
@@ -4574,6 +4720,35 @@ export class AdvisorySessionService {
     return [addressed, ...advisors.filter((advisor) => advisor.id !== addressedAdvisorId)]
   }
 
+  private resolvePartyModeAdvisorSubset(
+    advisors: PartyModeAdvisorTurn[],
+    advisorIds: string[],
+  ): PartyModeAdvisorTurn[] {
+    const uniqueIds = this.uniquePartyModeAdvisorIds(advisorIds)
+    if (uniqueIds.length === 0) {
+      throw new ConflictException(THINKTANK_PARTY_MODE_ADVISOR_REFERENCE_INVALID_MESSAGE)
+    }
+
+    return uniqueIds.map((advisorId) => {
+      const advisor = advisors.find((candidate) => candidate.id === advisorId)
+      if (!advisor) {
+        throw new ConflictException(THINKTANK_PARTY_MODE_ADVISOR_REFERENCE_INVALID_MESSAGE)
+      }
+
+      return advisor
+    })
+  }
+
+  private uniquePartyModeAdvisorIds(advisorIds: string[]): string[] {
+    return [
+      ...new Set(
+        advisorIds
+          .map((advisorId) => advisorId.trim())
+          .filter((advisorId) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(advisorId)),
+      ),
+    ]
+  }
+
   private resolvePartyModeAddressedAdvisor(context: {
     session: AdvisoryWorkflowSession
     tenantScopedHistory: AdvisoryConversationMessage[]
@@ -4588,7 +4763,10 @@ export class AdvisorySessionService {
     if (!this.isPartyModeDiscussionReady(context.session)) {
       throw new ConflictException(THINKTANK_PARTY_MODE_ADVISOR_REFERENCE_INVALID_MESSAGE)
     }
-    if (!addressedAdvisorId || !context.advisors.some((advisor) => advisor.id === addressedAdvisorId)) {
+    if (
+      !addressedAdvisorId ||
+      !context.advisors.some((advisor) => advisor.id === addressedAdvisorId)
+    ) {
       throw new ConflictException(THINKTANK_PARTY_MODE_ADVISOR_REFERENCE_INVALID_MESSAGE)
     }
     if (!addressedMessageId) return addressedAdvisorId
@@ -4637,10 +4815,7 @@ export class AdvisorySessionService {
     }
   }
 
-  private async withPartyModeTurnLock<T>(
-    sessionId: string,
-    run: () => Promise<T>,
-  ): Promise<T> {
+  private async withPartyModeTurnLock<T>(sessionId: string, run: () => Promise<T>): Promise<T> {
     const release = await this.acquirePartyModeTurnLock(sessionId)
     try {
       return await run()
@@ -4721,6 +4896,435 @@ export class AdvisorySessionService {
     }
   }
 
+  private createPartyModeAdvisorFailedEvent(context: {
+    session: AdvisoryWorkflowSession
+    advisor: PartyModeAdvisorTurn
+    round: number
+    failure: PartyModeProviderFailure
+    omittedAdvisors: PartyModeAdvisorTurn[]
+    budgetState: PartyModeBudgetState
+  }): AdvisoryConversationStreamingEvent {
+    return {
+      event: 'party_mode.advisor_failed',
+      data: {
+        sessionId: context.session.id,
+        round: context.round,
+        advisorId: context.advisor.id,
+        advisorName: context.advisor.name,
+        advisorRole: context.advisor.role,
+        failureCategory: context.failure.category,
+        retryable: context.failure.retryable,
+        omittedAdvisorIds: context.omittedAdvisors.map((advisor) => advisor.id),
+        remainingBudget: {
+          tokens: this.getPartyModeRemainingTokens(context.budgetState),
+          maxTokens: context.budgetState.maxTokens,
+          cost: this.getPartyModeRemainingCost(context.budgetState),
+          maxCost: context.budgetState.maxCost,
+        },
+      },
+    }
+  }
+
+  private readPartyModeBudgetPolicy(): PartyModeBudgetPolicy {
+    return {
+      maxTokens: this.readPositiveBudgetNumber(
+        process.env.THINKTANK_PARTY_MODE_MAX_TOKENS,
+        THINKTANK_PARTY_MODE_DEFAULT_MAX_TOKENS,
+        true,
+      ),
+      maxCost: this.readPositiveBudgetNumber(
+        process.env.THINKTANK_PARTY_MODE_MAX_COST,
+        THINKTANK_PARTY_MODE_DEFAULT_MAX_COST,
+        false,
+      ),
+    }
+  }
+
+  private readPositiveBudgetNumber(value: unknown, fallback: number, integer: boolean): number {
+    if (typeof value !== 'string' || !value.trim()) return fallback
+
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback
+
+    return integer ? Math.max(1, Math.trunc(parsed)) : this.roundPartyModeCost(parsed)
+  }
+
+  private createPartyModeBudgetState(context: {
+    session: AdvisoryWorkflowSession
+    tenantScopedHistory: AdvisoryConversationMessage[]
+  }): PartyModeBudgetState {
+    const policy = this.readPartyModeBudgetPolicy()
+
+    return {
+      ...policy,
+      consumedTokens: this.readLatestPartyModeBudgetNumber(
+        context.session,
+        context.tenantScopedHistory,
+        'party_mode_budget_consumed_tokens',
+      ),
+      consumedCost: this.readLatestPartyModeBudgetNumber(
+        context.session,
+        context.tenantScopedHistory,
+        'party_mode_budget_consumed_cost',
+      ),
+    }
+  }
+
+  private readLatestPartyModeBudgetNumber(
+    session: AdvisoryWorkflowSession,
+    messages: AdvisoryConversationMessage[],
+    key: string,
+  ): number {
+    const values = [session.metadata?.[key], ...messages.map((message) => message.metadata?.[key])]
+      .map((value) => (typeof value === 'number' && Number.isFinite(value) ? value : null))
+      .filter((value): value is number => value !== null && value >= 0)
+
+    return values.length ? Math.max(...values) : 0
+  }
+
+  private applyPartyModeProviderUsage(
+    state: PartyModeBudgetState,
+    lastChunk: ThinkTankProviderStreamChunk | undefined,
+  ): PartyModeBudgetState {
+    const consumedTokens =
+      typeof lastChunk?.usage?.totalTokens === 'number' &&
+      Number.isFinite(lastChunk.usage.totalTokens)
+        ? Math.max(0, Math.trunc(lastChunk.usage.totalTokens))
+        : 0
+    const consumedCost =
+      typeof lastChunk?.estimatedCost === 'number' && Number.isFinite(lastChunk.estimatedCost)
+        ? Math.max(0, lastChunk.estimatedCost)
+        : 0
+
+    return {
+      ...state,
+      consumedTokens: state.consumedTokens + consumedTokens,
+      consumedCost: this.roundPartyModeCost(state.consumedCost + consumedCost),
+    }
+  }
+
+  private createPartyModeBudgetMetadata(
+    state: PartyModeBudgetState,
+  ): Record<string, string | number | boolean | null> {
+    return {
+      party_mode_budget_max_tokens: state.maxTokens,
+      party_mode_budget_consumed_tokens: state.consumedTokens,
+      party_mode_budget_remaining_tokens: this.getPartyModeRemainingTokens(state),
+      party_mode_budget_max_cost: state.maxCost,
+      party_mode_budget_consumed_cost: state.consumedCost,
+      party_mode_budget_remaining_cost: this.getPartyModeRemainingCost(state),
+      party_mode_budget_exceeded: this.isPartyModeBudgetExceeded(state),
+    }
+  }
+
+  private getPartyModeRemainingTokens(state: PartyModeBudgetState): number {
+    return Math.max(0, state.maxTokens - state.consumedTokens)
+  }
+
+  private getPartyModeRemainingCost(state: PartyModeBudgetState): number {
+    return this.roundPartyModeCost(Math.max(0, state.maxCost - state.consumedCost))
+  }
+
+  private isPartyModeBudgetExceeded(state: PartyModeBudgetState): boolean {
+    return state.consumedTokens >= state.maxTokens || state.consumedCost >= state.maxCost
+  }
+
+  private roundPartyModeCost(value: number): number {
+    return Number(value.toFixed(6))
+  }
+
+  private createPartyModeOmittedAdvisorMetadata(
+    advisors: PartyModeAdvisorTurn[],
+  ): Record<string, string | null> {
+    return {
+      party_mode_omitted_advisor_ids: this.joinPartyModeMetadataValues(
+        advisors.map((advisor) => advisor.id),
+      ),
+      party_mode_omitted_advisor_names: this.joinPartyModeMetadataValues(
+        advisors.map((advisor) => advisor.name),
+      ),
+      party_mode_omitted_advisor_roles: this.joinPartyModeMetadataValues(
+        advisors.map((advisor) => advisor.role),
+      ),
+    }
+  }
+
+  private createPartyModeRecoveryAdvisorOrderIds(context: {
+    sourceMessage: AdvisoryConversationMessage
+    action?: string
+  }): string[] {
+    const failedAdvisorId = this.optionalText(
+      context.sourceMessage.metadata?.party_mode_failed_advisor_id,
+    )
+    const omittedAdvisorIds = this.splitPartyModeMetadata(
+      context.sourceMessage.metadata?.party_mode_omitted_advisor_ids,
+    )
+
+    if (context.action === THINKTANK_PARTY_MODE_RETRY_ADVISOR_ACTION) {
+      if (context.sourceMessage.metadata?.party_mode_failure_retryable === false) {
+        throw new ConflictException(THINKTANK_PARTY_MODE_UNAVAILABLE_MESSAGE)
+      }
+      return this.uniquePartyModeAdvisorIds([
+        ...(failedAdvisorId ? [failedAdvisorId] : []),
+        ...omittedAdvisorIds,
+      ])
+    }
+
+    return this.uniquePartyModeAdvisorIds(omittedAdvisorIds)
+  }
+
+  private createPartyModeBudgetDecisionOptions(
+    budgetState?: PartyModeBudgetState,
+  ): AdvisoryConversationDecisionOption[] {
+    const canContinue = budgetState ? !this.isPartyModeBudgetExceeded(budgetState) : true
+
+    return [
+      {
+        key: 'continue-party-mode',
+        action: THINKTANK_PARTY_MODE_CONTINUE_ACTION,
+        label: '继续讨论',
+        enabled: canContinue,
+        description: canContinue
+          ? '保留已有专家结论并继续 Party Mode'
+          : 'Party Mode 预算已耗尽，调整预算后再继续',
+      },
+      this.createPartyModeRecoveryReturnOption(),
+    ]
+  }
+
+  private createPartyModeFailureDecisionOptions(
+    advisor: PartyModeAdvisorTurn,
+    failure?: PartyModeProviderFailure,
+    omittedAdvisors: PartyModeAdvisorTurn[] = [],
+  ): AdvisoryConversationDecisionOption[] {
+    const retryable = failure?.retryable ?? true
+    const canContinue = omittedAdvisors.length > 0
+
+    return [
+      {
+        key: 'retry-party-mode-advisor',
+        action: THINKTANK_PARTY_MODE_RETRY_ADVISOR_ACTION,
+        label: `重试${advisor.name}`,
+        enabled: retryable,
+        description: retryable
+          ? `重新请求 ${advisor.name} 的专家意见`
+          : `${advisor.name} 的失败类型不可重试`,
+      },
+      {
+        key: 'continue-party-mode',
+        action: THINKTANK_PARTY_MODE_CONTINUE_ACTION,
+        label: '继续讨论',
+        enabled: canContinue,
+        description: canContinue ? '保留已有专家结论并继续 Party Mode' : '没有剩余待讨论专家',
+      },
+      this.createPartyModeRecoveryReturnOption(),
+    ]
+  }
+
+  private createPartyModeRecoveryReturnOption(): AdvisoryConversationDecisionOption {
+    return {
+      key: 'return-to-workflow',
+      action: THINKTANK_PARTY_MODE_RETURN_ACTION,
+      label: '返回原工作流',
+      enabled: true,
+      description: '保留已有结论并返回原工作流当前步骤',
+    }
+  }
+
+  private async createPartyModeBudgetExceededMessage(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: AdvisoryWorkflowSession
+    messageRepository: AdvisoryConversationMessageRepository
+    round: number
+    budgetState: PartyModeBudgetState
+    omittedAdvisors: PartyModeAdvisorTurn[]
+  }): Promise<AdvisoryConversationMessage> {
+    return await context.messageRepository.createMessageWithNextSequence(
+      context.tenantId,
+      context.session.id,
+      {
+        sessionId: context.session.id,
+        actorId: context.user.id,
+        role: AdvisoryConversationMessageRole.Assistant,
+        content:
+          'Party Mode 已达到本轮预算上限，已保留前面专家结论。你可以继续讨论、返回原工作流，或稍后调整预算后重试。',
+        workflowKey: context.session.workflowKey,
+        stepIndex: context.session.currentStep.index,
+        decisionOptions: this.createPartyModeBudgetDecisionOptions(context.budgetState),
+        metadata: this.createMessageMetadata(
+          context.session.workflowKey,
+          context.session.currentStep.index,
+          {
+            ai_generated: true,
+            party_mode_message: true,
+            party_mode_round: context.round,
+            ...this.createPartyModeBudgetMetadata(context.budgetState),
+            ...this.createPartyModeOmittedAdvisorMetadata(context.omittedAdvisors),
+          },
+        ),
+        providerMetadata: {},
+      },
+    )
+  }
+
+  private async createPartyModeAdvisorFailureMessage(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: AdvisoryWorkflowSession
+    messageRepository: AdvisoryConversationMessageRepository
+    advisor: PartyModeAdvisorTurn
+    round: number
+    speakerIndex: number
+    failure: PartyModeProviderFailure
+    omittedAdvisors: PartyModeAdvisorTurn[]
+    budgetState: PartyModeBudgetState
+  }): Promise<AdvisoryConversationMessage> {
+    return await context.messageRepository.createMessageWithNextSequence(
+      context.tenantId,
+      context.session.id,
+      {
+        sessionId: context.session.id,
+        actorId: context.user.id,
+        role: AdvisoryConversationMessageRole.Assistant,
+        content: `${context.advisor.name} 本轮未能完成回复，已保留前面专家结论。你可以重试该专家、继续讨论，或返回原工作流。`,
+        workflowKey: context.session.workflowKey,
+        stepIndex: context.session.currentStep.index,
+        decisionOptions: this.createPartyModeFailureDecisionOptions(
+          context.advisor,
+          context.failure,
+          context.omittedAdvisors,
+        ),
+        metadata: this.createMessageMetadata(
+          context.session.workflowKey,
+          context.session.currentStep.index,
+          {
+            ai_generated: true,
+            party_mode_message: true,
+            party_mode_failure: true,
+            party_mode_round: context.round,
+            party_mode_speaker_index: context.speakerIndex,
+            party_mode_failed_advisor_id: context.advisor.id,
+            party_mode_failed_advisor_name: context.advisor.name,
+            party_mode_failed_advisor_role: context.advisor.role,
+            party_mode_failure_category: context.failure.category,
+            party_mode_failure_retryable: context.failure.retryable,
+            ...this.createPartyModeBudgetMetadata(context.budgetState),
+            ...this.createPartyModeOmittedAdvisorMetadata(context.omittedAdvisors),
+          },
+        ),
+        providerMetadata: {},
+      },
+    )
+  }
+
+  private toPartyModeProviderFailure(error: unknown): PartyModeProviderFailure {
+    if (error instanceof ThinkTankProviderGatewayError) {
+      return {
+        category: error.category,
+        retryable: error.retryable,
+        provider: error.provider,
+        status: error.status,
+      }
+    }
+
+    return {
+      category: 'unknown',
+      retryable: true,
+    }
+  }
+
+  private toThinkTankErrorCategory(category: string): ThinkTankErrorCategory {
+    const providerCategory = category as ThinkTankProviderErrorCategory
+    if (providerCategory === 'timeout') return ThinkTankErrorCategory.Timeout
+    if (providerCategory === 'provider') return ThinkTankErrorCategory.Provider
+    if (providerCategory === 'validation') return ThinkTankErrorCategory.Validation
+
+    return ThinkTankErrorCategory.Unknown
+  }
+
+  private async emitPartyModeBudgetExceededTelemetry(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: AdvisoryWorkflowSession
+    round: number
+    budgetState: PartyModeBudgetState
+    omittedAdvisors: PartyModeAdvisorTurn[]
+  }): Promise<void> {
+    await this.eventService
+      .emitTelemetry({
+        eventName: ThinkTankEventName.PartyModeBudgetExceeded,
+        tenantId: context.tenantId,
+        actorId: context.session.actorId || context.user.id,
+        subjectType: ThinkTankSubjectType.Session,
+        subjectId: context.session.id,
+        outcome: ThinkTankEventOutcome.Blocked,
+        privacyClassification: ThinkTankPrivacyClassification.Operational,
+        optional: {
+          sessionId: context.session.id,
+          workflowType: context.session.workflowKey,
+          estimatedTokens: context.budgetState.consumedTokens,
+          estimatedCost: context.budgetState.consumedCost,
+        },
+        metadata: {
+          party_mode_round: context.round,
+          budget_max_tokens: context.budgetState.maxTokens,
+          budget_consumed_tokens: context.budgetState.consumedTokens,
+          budget_remaining_tokens: this.getPartyModeRemainingTokens(context.budgetState),
+          budget_max_cost: context.budgetState.maxCost,
+          budget_consumed_cost: context.budgetState.consumedCost,
+          budget_remaining_cost: this.getPartyModeRemainingCost(context.budgetState),
+          omitted_advisor_ids: this.joinPartyModeMetadataValues(
+            context.omittedAdvisors.map((advisor) => advisor.id),
+          ),
+        },
+      })
+      .catch(() => undefined)
+  }
+
+  private async emitPartyModeAdvisorFailedTelemetry(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: AdvisoryWorkflowSession
+    advisor: PartyModeAdvisorTurn
+    round: number
+    failure: PartyModeProviderFailure
+    omittedAdvisors: PartyModeAdvisorTurn[]
+    budgetState: PartyModeBudgetState
+  }): Promise<void> {
+    await this.eventService
+      .emitTelemetry({
+        eventName: ThinkTankEventName.PartyModeAdvisorFailed,
+        tenantId: context.tenantId,
+        actorId: context.session.actorId || context.user.id,
+        subjectType: ThinkTankSubjectType.Session,
+        subjectId: context.session.id,
+        outcome: ThinkTankEventOutcome.Partial,
+        privacyClassification: ThinkTankPrivacyClassification.Operational,
+        optional: {
+          sessionId: context.session.id,
+          workflowType: context.session.workflowKey,
+          provider: context.failure.provider,
+          errorCategory: this.toThinkTankErrorCategory(context.failure.category),
+        },
+        metadata: {
+          party_mode_round: context.round,
+          advisor_id: context.advisor.id,
+          advisor_name: context.advisor.name,
+          advisor_role: context.advisor.role,
+          failure_category: context.failure.category,
+          failure_status: context.failure.status ?? null,
+          retryable: context.failure.retryable,
+          omitted_advisor_ids: this.joinPartyModeMetadataValues(
+            context.omittedAdvisors.map((advisor) => advisor.id),
+          ),
+          budget_remaining_tokens: this.getPartyModeRemainingTokens(context.budgetState),
+          budget_remaining_cost: this.getPartyModeRemainingCost(context.budgetState),
+        },
+      })
+      .catch(() => undefined)
+  }
+
   private createPartyModeAdvisorSystemPrompt(context: {
     baseSystem: string
     advisor: PartyModeAdvisorTurn
@@ -4760,6 +5364,7 @@ export class AdvisorySessionService {
     addressedAdvisorId?: string
     providerPrompt: Awaited<ReturnType<AdvisorySessionService['createProviderPromptContext']>>
     providerMessages: ThinkTankProviderMessage[]
+    maxTokens?: number
     signal?: AbortSignal
     onChunk?: (chunk: ThinkTankProviderStreamChunk) => void
   }): Promise<{
@@ -4777,6 +5382,7 @@ export class AdvisorySessionService {
         actorId: context.user.id,
         subjectId: context.session.id,
         stream: true,
+        maxTokens: context.maxTokens,
         system: this.createPartyModeAdvisorSystemPrompt({
           baseSystem: context.providerPrompt.system,
           advisor: context.advisor,
@@ -4833,6 +5439,7 @@ export class AdvisorySessionService {
     content: string
     addressedAdvisorId?: string
     addressedMessageId?: string
+    advisorOrderIds?: string[]
     signal?: AbortSignal
   }): Promise<PartyModeSerialTurnResult> {
     return this.withPartyModeTurnLock(context.session.id, async () => {
@@ -4848,8 +5455,14 @@ export class AdvisorySessionService {
         addressedAdvisorId: context.addressedAdvisorId,
         addressedMessageId: context.addressedMessageId,
       })
-      const orderedAdvisors = this.createPartyModeAdvisorOrder(advisors, addressedAdvisorId)
+      const orderedAdvisors = context.advisorOrderIds
+        ? this.resolvePartyModeAdvisorSubset(advisors, context.advisorOrderIds)
+        : this.createPartyModeAdvisorOrder(advisors, addressedAdvisorId)
       const round = this.getNextPartyModeRound(tenantScopedHistory)
+      let budgetState = this.createPartyModeBudgetState({
+        session: context.session,
+        tenantScopedHistory,
+      })
       let userMessage: AdvisoryConversationMessage | undefined
       const advisorMessages: AdvisoryConversationMessage[] = []
       const stream: AdvisoryConversationStreamChunk[] = []
@@ -4876,23 +5489,148 @@ export class AdvisorySessionService {
           if (context.signal?.aborted) {
             throw new ServiceUnavailableException(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
           }
-          const speakerIndex = index + 1
-          const response = await this.collectPartyModeAdvisorResponse({
-            tenantId: context.tenantId,
-            user: context.user,
-            session: context.session,
-            advisor,
-            round,
-            speakerIndex,
-            addressedAdvisorId,
-            providerPrompt,
-            providerMessages: this.toProviderMessages([
-              ...tenantScopedHistory,
+          if (this.isPartyModeBudgetExceeded(budgetState)) {
+            const omittedAdvisors = orderedAdvisors.slice(index)
+            const budgetMessage = await this.createPartyModeBudgetExceededMessage({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              messageRepository: context.messageRepository,
+              round,
+              budgetState,
+              omittedAdvisors,
+            })
+            advisorMessages.push(budgetMessage)
+            await this.emitPartyModeBudgetExceededTelemetry({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              round,
+              budgetState,
+              omittedAdvisors,
+            })
+            const checkpointWarning = await this.saveCheckpointForSession({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              conversation: {
+                messageCount: tenantScopedHistory.length + 1 + advisorMessages.length,
+                lastMessageId: budgetMessage.id,
+                historyPointer: `conversation_messages:${context.session.id}`,
+              },
+              metadata: {
+                party_mode_active: true,
+                party_mode_status: 'context-created',
+                party_mode_latest_round: round,
+                party_mode_latest_advisor_count: advisorMessages.length,
+                ...this.createPartyModeBudgetMetadata(budgetState),
+              },
+            })
+
+            return {
+              tenantScopedHistory,
               userMessage,
-              ...advisorMessages,
-            ]),
-            signal: context.signal,
-          })
+              advisorMessages,
+              stream,
+              round,
+              advisorOrder: orderedAdvisors.map((orderedAdvisor) => orderedAdvisor.id),
+              decisionOptions: this.createPartyModeBudgetDecisionOptions(budgetState),
+              ...(checkpointWarning ? { checkpointWarning } : {}),
+            }
+          }
+          const speakerIndex = index + 1
+          let response: Awaited<
+            ReturnType<AdvisorySessionService['collectPartyModeAdvisorResponse']>
+          >
+          const responsePartialChunks: ThinkTankProviderStreamChunk[] = []
+          try {
+            response = await this.collectPartyModeAdvisorResponse({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              advisor,
+              round,
+              speakerIndex,
+              addressedAdvisorId,
+              providerPrompt,
+              providerMessages: this.toProviderMessages([
+                ...tenantScopedHistory,
+                userMessage,
+                ...advisorMessages,
+              ]),
+              maxTokens: this.getPartyModeRemainingTokens(budgetState),
+              signal: context.signal,
+              onChunk: (chunk) => responsePartialChunks.push(chunk),
+            })
+          } catch (error) {
+            if (context.signal?.aborted) {
+              throw new ServiceUnavailableException(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
+            }
+            budgetState = this.applyPartyModeProviderUsage(
+              budgetState,
+              responsePartialChunks.at(-1),
+            )
+            const failure = this.toPartyModeProviderFailure(error)
+            const omittedAdvisors = orderedAdvisors.slice(index + 1)
+            const failureMessage = await this.createPartyModeAdvisorFailureMessage({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              messageRepository: context.messageRepository,
+              advisor,
+              round,
+              speakerIndex,
+              failure,
+              omittedAdvisors,
+              budgetState,
+            })
+            advisorMessages.push(failureMessage)
+            await this.emitPartyModeAdvisorFailedTelemetry({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              advisor,
+              round,
+              failure,
+              omittedAdvisors,
+              budgetState,
+            })
+            const checkpointWarning = await this.saveCheckpointForSession({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              conversation: {
+                messageCount: tenantScopedHistory.length + 1 + advisorMessages.length,
+                lastMessageId: failureMessage.id,
+                historyPointer: `conversation_messages:${context.session.id}`,
+              },
+              metadata: {
+                party_mode_active: true,
+                party_mode_status: 'context-created',
+                party_mode_latest_round: round,
+                party_mode_latest_advisor_count: advisorMessages.length,
+                party_mode_latest_failure_advisor_id: advisor.id,
+                party_mode_latest_failure_category: failure.category,
+                ...this.createPartyModeBudgetMetadata(budgetState),
+              },
+            })
+
+            return {
+              tenantScopedHistory,
+              userMessage,
+              advisorMessages,
+              stream,
+              round,
+              advisorOrder: orderedAdvisors.map((orderedAdvisor) => orderedAdvisor.id),
+              decisionOptions: this.createPartyModeFailureDecisionOptions(
+                advisor,
+                failure,
+                omittedAdvisors,
+              ),
+              ...(checkpointWarning ? { checkpointWarning } : {}),
+            }
+          }
+          budgetState = this.applyPartyModeProviderUsage(budgetState, response.lastChunk)
           stream.push(
             ...response.chunks.map((chunk) => ({
               index: stream.length + chunk.index,
@@ -4918,23 +5656,79 @@ export class AdvisorySessionService {
               content: response.content,
               workflowKey: context.session.workflowKey,
               stepIndex: context.session.currentStep.index,
-              decisionOptions: isFinalAdvisor ? this.createPartyModeDiscussionDecisionOptions() : [],
+              decisionOptions: isFinalAdvisor
+                ? this.createPartyModeDiscussionDecisionOptions(budgetState)
+                : [],
               metadata: this.createMessageMetadata(
                 context.session.workflowKey,
                 context.session.currentStep.index,
-                this.createPartyModeAdvisorMetadata({
-                  session: context.session,
-                  advisor,
-                  round,
-                  speakerIndex,
-                  addressedAdvisorId,
-                  finishReason: response.lastChunk?.finishReason ?? null,
-                }),
+                {
+                  ...this.createPartyModeAdvisorMetadata({
+                    session: context.session,
+                    advisor,
+                    round,
+                    speakerIndex,
+                    addressedAdvisorId,
+                    finishReason: response.lastChunk?.finishReason ?? null,
+                  }),
+                  ...this.createPartyModeBudgetMetadata(budgetState),
+                },
               ),
               providerMetadata: this.createAssistantProviderMetadata(response.lastChunk),
             },
           )
           advisorMessages.push(advisorMessage)
+          if (this.isPartyModeBudgetExceeded(budgetState)) {
+            const omittedAdvisors = orderedAdvisors.slice(index + 1)
+            await this.emitPartyModeBudgetExceededTelemetry({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              round,
+              budgetState,
+              omittedAdvisors,
+            })
+            if (omittedAdvisors.length > 0) {
+              const budgetMessage = await this.createPartyModeBudgetExceededMessage({
+                tenantId: context.tenantId,
+                user: context.user,
+                session: context.session,
+                messageRepository: context.messageRepository,
+                round,
+                budgetState,
+                omittedAdvisors,
+              })
+              advisorMessages.push(budgetMessage)
+              const checkpointWarning = await this.saveCheckpointForSession({
+                tenantId: context.tenantId,
+                user: context.user,
+                session: context.session,
+                conversation: {
+                  messageCount: tenantScopedHistory.length + 1 + advisorMessages.length,
+                  lastMessageId: budgetMessage.id,
+                  historyPointer: `conversation_messages:${context.session.id}`,
+                },
+                metadata: {
+                  party_mode_active: true,
+                  party_mode_status: 'context-created',
+                  party_mode_latest_round: round,
+                  party_mode_latest_advisor_count: advisorMessages.length,
+                  ...this.createPartyModeBudgetMetadata(budgetState),
+                },
+              })
+
+              return {
+                tenantScopedHistory,
+                userMessage,
+                advisorMessages,
+                stream,
+                round,
+                advisorOrder: orderedAdvisors.map((orderedAdvisor) => orderedAdvisor.id),
+                decisionOptions: this.createPartyModeBudgetDecisionOptions(budgetState),
+                ...(checkpointWarning ? { checkpointWarning } : {}),
+              }
+            }
+          }
         }
 
         const lastMessage = advisorMessages.at(-1) ?? userMessage
@@ -4952,6 +5746,7 @@ export class AdvisorySessionService {
             party_mode_status: 'context-created',
             party_mode_latest_round: round,
             party_mode_latest_advisor_count: advisorMessages.length,
+            ...this.createPartyModeBudgetMetadata(budgetState),
           },
         })
 
@@ -4962,7 +5757,7 @@ export class AdvisorySessionService {
           stream,
           round,
           advisorOrder: orderedAdvisors.map((advisor) => advisor.id),
-          decisionOptions: this.createPartyModeDiscussionDecisionOptions(),
+          decisionOptions: this.createPartyModeDiscussionDecisionOptions(budgetState),
           ...(checkpointWarning ? { checkpointWarning } : {}),
         }
       } catch (error) {
@@ -4984,6 +5779,7 @@ export class AdvisorySessionService {
     content: string
     addressedAdvisorId?: string
     addressedMessageId?: string
+    advisorOrderIds?: string[]
     signal?: AbortSignal
   }): AsyncIterable<AdvisoryConversationStreamingEvent> {
     const release = await this.acquirePartyModeTurnLock(context.session.id)
@@ -5003,8 +5799,14 @@ export class AdvisorySessionService {
         addressedAdvisorId: context.addressedAdvisorId,
         addressedMessageId: context.addressedMessageId,
       })
-      const orderedAdvisors = this.createPartyModeAdvisorOrder(advisors, addressedAdvisorId)
+      const orderedAdvisors = context.advisorOrderIds
+        ? this.resolvePartyModeAdvisorSubset(advisors, context.advisorOrderIds)
+        : this.createPartyModeAdvisorOrder(advisors, addressedAdvisorId)
       const round = this.getNextPartyModeRound(tenantScopedHistory)
+      let budgetState = this.createPartyModeBudgetState({
+        session: context.session,
+        tenantScopedHistory,
+      })
       const cleanupPartyModeTurn = async () => {
         await this.deletePartyModeMessages(context.messageRepository, context.tenantId, [
           userMessage,
@@ -5051,6 +5853,57 @@ export class AdvisorySessionService {
             await cleanupPartyModeTurn()
             return
           }
+          if (this.isPartyModeBudgetExceeded(budgetState)) {
+            const omittedAdvisors = orderedAdvisors.slice(index)
+            const budgetMessage = await this.createPartyModeBudgetExceededMessage({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              messageRepository: context.messageRepository,
+              round,
+              budgetState,
+              omittedAdvisors,
+            })
+            advisorMessages.push(budgetMessage)
+            await this.emitPartyModeBudgetExceededTelemetry({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              round,
+              budgetState,
+              omittedAdvisors,
+            })
+            const checkpointWarning = await this.saveCheckpointForSession({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              conversation: {
+                messageCount: tenantScopedHistory.length + 1 + advisorMessages.length,
+                lastMessageId: budgetMessage.id,
+                historyPointer: `conversation_messages:${context.session.id}`,
+              },
+              metadata: {
+                party_mode_active: true,
+                party_mode_status: 'context-created',
+                party_mode_latest_round: round,
+                party_mode_latest_advisor_count: advisorMessages.length,
+                ...this.createPartyModeBudgetMetadata(budgetState),
+              },
+            })
+
+            yield {
+              event: 'message.completed',
+              data: {
+                sessionId: context.session.id,
+                currentStep: context.session.currentStep,
+                assistantMessage: budgetMessage,
+                decisionOptions: this.createPartyModeBudgetDecisionOptions(budgetState),
+                partyModeTurnComplete: true,
+                ...(checkpointWarning ? { checkpointWarning } : {}),
+              },
+            }
+            return
+          }
           const speakerIndex = index + 1
           yield this.createPartyModeCurrentSpeakerEvent({
             session: context.session,
@@ -5066,70 +5919,150 @@ export class AdvisorySessionService {
 
           const responseChunks: ThinkTankProviderStreamChunk[] = []
           let advisorContent = ''
-          for await (const chunk of providerGateway.stream(
-            {
-              tenantId: context.tenantId,
-              actorId: context.user.id,
-              subjectId: context.session.id,
-              stream: true,
-              system: this.createPartyModeAdvisorSystemPrompt({
-                baseSystem: providerPrompt.system,
-                advisor,
-                round,
-                speakerIndex,
-                addressedAdvisorId,
-              }),
-              messages: this.toProviderMessages([
-                ...tenantScopedHistory,
-                userMessage,
-                ...advisorMessages,
-              ]),
-              promptCache: this.createDisabledPromptCachePolicy(),
-              metadata: {
-                workflow_key: context.session.workflowKey,
-                step_index: context.session.currentStep.index,
-                party_mode_message: true,
-                party_mode_round: round,
-                party_mode_speaker_index: speakerIndex,
-                party_mode_advisor_id: advisor.id,
-                party_mode_advisor_name: advisor.name,
-                party_mode_advisor_role: advisor.role,
-                party_mode_advisor_perspective: advisor.perspective,
-                party_mode_analysis_framework: advisor.analysisFramework,
-                party_mode_addressed_advisor_id: addressedAdvisorId ?? null,
-                party_mode_shared_context_pointer:
-                  this.optionalText(context.session.metadata?.party_mode_context_history_pointer) ??
-                  this.optionalText(context.session.metadata?.party_mode_problem_context_pointer) ??
-                  `conversation_messages:${context.session.id}`,
-                ...providerPrompt.metadata,
+          let providerFailure: unknown
+          try {
+            for await (const chunk of providerGateway.stream(
+              {
+                tenantId: context.tenantId,
+                actorId: context.user.id,
+                subjectId: context.session.id,
+                stream: true,
+                maxTokens: this.getPartyModeRemainingTokens(budgetState),
+                system: this.createPartyModeAdvisorSystemPrompt({
+                  baseSystem: providerPrompt.system,
+                  advisor,
+                  round,
+                  speakerIndex,
+                  addressedAdvisorId,
+                }),
+                messages: this.toProviderMessages([
+                  ...tenantScopedHistory,
+                  userMessage,
+                  ...advisorMessages,
+                ]),
+                promptCache: this.createDisabledPromptCachePolicy(),
+                metadata: {
+                  workflow_key: context.session.workflowKey,
+                  step_index: context.session.currentStep.index,
+                  party_mode_message: true,
+                  party_mode_round: round,
+                  party_mode_speaker_index: speakerIndex,
+                  party_mode_advisor_id: advisor.id,
+                  party_mode_advisor_name: advisor.name,
+                  party_mode_advisor_role: advisor.role,
+                  party_mode_advisor_perspective: advisor.perspective,
+                  party_mode_analysis_framework: advisor.analysisFramework,
+                  party_mode_addressed_advisor_id: addressedAdvisorId ?? null,
+                  party_mode_shared_context_pointer:
+                    this.optionalText(
+                      context.session.metadata?.party_mode_context_history_pointer,
+                    ) ??
+                    this.optionalText(
+                      context.session.metadata?.party_mode_problem_context_pointer,
+                    ) ??
+                    `conversation_messages:${context.session.id}`,
+                  ...providerPrompt.metadata,
+                },
               },
-            },
-            context.signal,
-          )) {
-            if (context.signal?.aborted) {
-              await cleanupPartyModeTurn()
-              return
+              context.signal,
+            )) {
+              if (context.signal?.aborted) {
+                await cleanupPartyModeTurn()
+                return
+              }
+              responseChunks.push(chunk)
+              advisorContent += chunk.delta
+              yield {
+                event: 'message.delta',
+                data: {
+                  index: chunk.index,
+                  delta: chunk.delta,
+                },
+              }
             }
-            responseChunks.push(chunk)
-            advisorContent += chunk.delta
-            yield {
-              event: 'message.delta',
-              data: {
-                index: chunk.index,
-                delta: chunk.delta,
-              },
-            }
+          } catch (error) {
+            providerFailure = error
           }
 
           if (context.signal?.aborted) {
             await cleanupPartyModeTurn()
             return
           }
-          if (!advisorContent.trim()) {
-            throw new ServiceUnavailableException(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
+          if (providerFailure || !advisorContent.trim()) {
+            budgetState = this.applyPartyModeProviderUsage(budgetState, responseChunks.at(-1))
+            const failure = this.toPartyModeProviderFailure(providerFailure)
+            const omittedAdvisors = orderedAdvisors.slice(index + 1)
+            const failureMessage = await this.createPartyModeAdvisorFailureMessage({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              messageRepository: context.messageRepository,
+              advisor,
+              round,
+              speakerIndex,
+              failure,
+              omittedAdvisors,
+              budgetState,
+            })
+            advisorMessages.push(failureMessage)
+            await this.emitPartyModeAdvisorFailedTelemetry({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              advisor,
+              round,
+              failure,
+              omittedAdvisors,
+              budgetState,
+            })
+            const checkpointWarning = await this.saveCheckpointForSession({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              conversation: {
+                messageCount: tenantScopedHistory.length + 1 + advisorMessages.length,
+                lastMessageId: failureMessage.id,
+                historyPointer: `conversation_messages:${context.session.id}`,
+              },
+              metadata: {
+                party_mode_active: true,
+                party_mode_status: 'context-created',
+                party_mode_latest_round: round,
+                party_mode_latest_advisor_count: advisorMessages.length,
+                party_mode_latest_failure_advisor_id: advisor.id,
+                party_mode_latest_failure_category: failure.category,
+                ...this.createPartyModeBudgetMetadata(budgetState),
+              },
+            })
+
+            yield this.createPartyModeAdvisorFailedEvent({
+              session: context.session,
+              advisor,
+              round,
+              failure,
+              omittedAdvisors,
+              budgetState,
+            })
+            yield {
+              event: 'message.completed',
+              data: {
+                sessionId: context.session.id,
+                currentStep: context.session.currentStep,
+                assistantMessage: failureMessage,
+                decisionOptions: this.createPartyModeFailureDecisionOptions(
+                  advisor,
+                  failure,
+                  omittedAdvisors,
+                ),
+                partyModeTurnComplete: true,
+                ...(checkpointWarning ? { checkpointWarning } : {}),
+              },
+            }
+            return
           }
 
           const lastChunk = responseChunks.at(-1)
+          budgetState = this.applyPartyModeProviderUsage(budgetState, lastChunk)
           const isFinalAdvisor = speakerIndex === orderedAdvisors.length
           const advisorMessage = await context.messageRepository.createMessageWithNextSequence(
             context.tenantId,
@@ -5141,18 +6074,23 @@ export class AdvisorySessionService {
               content: advisorContent.trim(),
               workflowKey: context.session.workflowKey,
               stepIndex: context.session.currentStep.index,
-              decisionOptions: isFinalAdvisor ? this.createPartyModeDiscussionDecisionOptions() : [],
+              decisionOptions: isFinalAdvisor
+                ? this.createPartyModeDiscussionDecisionOptions(budgetState)
+                : [],
               metadata: this.createMessageMetadata(
                 context.session.workflowKey,
                 context.session.currentStep.index,
-                this.createPartyModeAdvisorMetadata({
-                  session: context.session,
-                  advisor,
-                  round,
-                  speakerIndex,
-                  addressedAdvisorId,
-                  finishReason: lastChunk?.finishReason ?? null,
-                }),
+                {
+                  ...this.createPartyModeAdvisorMetadata({
+                    session: context.session,
+                    advisor,
+                    round,
+                    speakerIndex,
+                    addressedAdvisorId,
+                    finishReason: lastChunk?.finishReason ?? null,
+                  }),
+                  ...this.createPartyModeBudgetMetadata(budgetState),
+                },
               ),
               providerMetadata: this.createAssistantProviderMetadata(lastChunk),
             },
@@ -5179,6 +6117,7 @@ export class AdvisorySessionService {
                   party_mode_status: 'context-created',
                   party_mode_latest_round: round,
                   party_mode_latest_advisor_count: advisorMessages.length,
+                  ...this.createPartyModeBudgetMetadata(budgetState),
                 },
               })
             : undefined
@@ -5189,10 +6128,67 @@ export class AdvisorySessionService {
               sessionId: context.session.id,
               currentStep: context.session.currentStep,
               assistantMessage: advisorMessage,
-              decisionOptions: isFinalAdvisor ? this.createPartyModeDiscussionDecisionOptions() : [],
+              decisionOptions: isFinalAdvisor
+                ? this.createPartyModeDiscussionDecisionOptions(budgetState)
+                : [],
               partyModeTurnComplete: isFinalAdvisor,
               ...(checkpointWarning ? { checkpointWarning } : {}),
             },
+          }
+
+          if (this.isPartyModeBudgetExceeded(budgetState)) {
+            const omittedAdvisors = orderedAdvisors.slice(index + 1)
+            await this.emitPartyModeBudgetExceededTelemetry({
+              tenantId: context.tenantId,
+              user: context.user,
+              session: context.session,
+              round,
+              budgetState,
+              omittedAdvisors,
+            })
+            if (omittedAdvisors.length > 0) {
+              const budgetMessage = await this.createPartyModeBudgetExceededMessage({
+                tenantId: context.tenantId,
+                user: context.user,
+                session: context.session,
+                messageRepository: context.messageRepository,
+                round,
+                budgetState,
+                omittedAdvisors,
+              })
+              advisorMessages.push(budgetMessage)
+              const budgetCheckpointWarning = await this.saveCheckpointForSession({
+                tenantId: context.tenantId,
+                user: context.user,
+                session: context.session,
+                conversation: {
+                  messageCount: tenantScopedHistory.length + 1 + advisorMessages.length,
+                  lastMessageId: budgetMessage.id,
+                  historyPointer: `conversation_messages:${context.session.id}`,
+                },
+                metadata: {
+                  party_mode_active: true,
+                  party_mode_status: 'context-created',
+                  party_mode_latest_round: round,
+                  party_mode_latest_advisor_count: advisorMessages.length,
+                  ...this.createPartyModeBudgetMetadata(budgetState),
+                },
+              })
+              yield {
+                event: 'message.completed',
+                data: {
+                  sessionId: context.session.id,
+                  currentStep: context.session.currentStep,
+                  assistantMessage: budgetMessage,
+                  decisionOptions: this.createPartyModeBudgetDecisionOptions(budgetState),
+                  partyModeTurnComplete: true,
+                  ...(budgetCheckpointWarning
+                    ? { checkpointWarning: budgetCheckpointWarning }
+                    : {}),
+                },
+              }
+              return
+            }
           }
         }
       } catch {
@@ -5299,8 +6295,9 @@ export class AdvisorySessionService {
     _tenantId: string,
     session: AdvisoryWorkflowSession,
     messages: AdvisoryConversationMessage[],
+    sourceMessageId?: string,
   ): void {
-    const latestReturnOption = this.findLatestAssistantDecisionOption(
+    const latestReturnOption = this.findLatestAssistantDecisionOptionMatch(
       messages,
       THINKTANK_PARTY_MODE_RETURN_ACTION,
     )
@@ -5308,10 +6305,41 @@ export class AdvisorySessionService {
     if (
       session.metadata?.party_mode_active !== true ||
       session.metadata?.party_mode_status !== 'context-created' ||
-      !latestReturnOption?.enabled
+      !latestReturnOption?.option.enabled ||
+      (sourceMessageId && latestReturnOption.message.id !== sourceMessageId)
     ) {
       throw new ConflictException(THINKTANK_PARTY_MODE_UNAVAILABLE_MESSAGE)
     }
+  }
+
+  private assertPartyModeRecoveryCanStart(
+    session: AdvisoryWorkflowSession,
+    messages: AdvisoryConversationMessage[],
+    action: string | undefined,
+    sourceMessageId?: string,
+  ): PartyModeDecisionMatch {
+    const latestRecoveryOption = this.findLatestAssistantDecisionOptionMatch(messages, action ?? '')
+    const recoveryMessage = latestRecoveryOption?.message
+
+    if (
+      session.metadata?.party_mode_active !== true ||
+      session.metadata?.party_mode_status !== 'context-created' ||
+      !latestRecoveryOption?.option.enabled ||
+      (sourceMessageId && recoveryMessage.id !== sourceMessageId) ||
+      recoveryMessage.metadata?.party_mode_message !== true ||
+      (recoveryMessage.metadata?.party_mode_failure !== true &&
+        recoveryMessage.metadata?.party_mode_budget_exceeded !== true)
+    ) {
+      throw new ConflictException(THINKTANK_PARTY_MODE_UNAVAILABLE_MESSAGE)
+    }
+    if (
+      action === THINKTANK_PARTY_MODE_RETRY_ADVISOR_ACTION &&
+      recoveryMessage.metadata?.party_mode_failure_retryable === false
+    ) {
+      throw new ConflictException(THINKTANK_PARTY_MODE_UNAVAILABLE_MESSAGE)
+    }
+
+    return latestRecoveryOption
   }
 
   private assertPartyModeIntegrationCanStart(
@@ -5494,6 +6522,10 @@ export class AdvisorySessionService {
       if (!sourceRound) {
         throw new ConflictException(THINKTANK_PARTY_MODE_INTEGRATION_UNAVAILABLE_MESSAGE)
       }
+      let budgetState = this.createPartyModeBudgetState({
+        session: context.session,
+        tenantScopedHistory,
+      })
 
       let userMessage: AdvisoryConversationMessage | undefined
       let assistantMessage: AdvisoryConversationMessage | undefined
@@ -5511,7 +6543,9 @@ export class AdvisorySessionService {
         const sourceFrameworks = this.joinPartyModeMetadataValues(
           sourceRound.messages
             .map((message) => message.metadata?.party_mode_analysis_framework)
-            .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+            .filter(
+              (value): value is string => typeof value === 'string' && value.trim().length > 0,
+            ),
         )
 
         userMessage = await this.createUserMessageWithNextSequence(context.messageRepository, {
@@ -5525,6 +6559,50 @@ export class AdvisorySessionService {
             party_mode_source_round: sourceRound.round,
           },
         })
+        if (this.isPartyModeBudgetExceeded(budgetState)) {
+          const budgetMessage = await this.createPartyModeBudgetExceededMessage({
+            tenantId: context.tenantId,
+            user: context.user,
+            session: context.session,
+            messageRepository: context.messageRepository,
+            round: sourceRound.round,
+            budgetState,
+            omittedAdvisors: [],
+          })
+          assistantMessage = budgetMessage
+          await this.emitPartyModeBudgetExceededTelemetry({
+            tenantId: context.tenantId,
+            user: context.user,
+            session: context.session,
+            round: sourceRound.round,
+            budgetState,
+            omittedAdvisors: [],
+          })
+          const checkpointWarning = await this.saveCheckpointForSession({
+            tenantId: context.tenantId,
+            user: context.user,
+            session: context.session,
+            conversation: {
+              messageCount: tenantScopedHistory.length + 2,
+              lastMessageId: budgetMessage.id,
+              historyPointer: `conversation_messages:${context.session.id}`,
+            },
+            metadata: {
+              party_mode_active: true,
+              party_mode_status: 'context-created',
+              party_mode_latest_integration_source_round: sourceRound.round,
+              ...this.createPartyModeBudgetMetadata(budgetState),
+            },
+          })
+
+          return {
+            userMessage,
+            assistantMessage: budgetMessage,
+            stream: [],
+            decisionOptions: this.createPartyModeBudgetDecisionOptions(budgetState),
+            ...(checkpointWarning ? { checkpointWarning } : {}),
+          }
+        }
         const providerPrompt = await this.createProviderPromptContext(context.session)
         const providerGateway = this.requireProviderGateway()
         const providerMetadata = {
@@ -5547,6 +6625,7 @@ export class AdvisorySessionService {
             actorId: context.user.id,
             subjectId: context.session.id,
             stream: true,
+            maxTokens: this.getPartyModeRemainingTokens(budgetState),
             system: this.createPartyModeIntegrationSystemPrompt(providerPrompt.system),
             messages: this.toProviderMessages([...tenantScopedHistory, userMessage]),
             promptCache: this.createDisabledPromptCachePolicy(),
@@ -5575,6 +6654,17 @@ export class AdvisorySessionService {
         }
 
         const lastChunk = providerChunks.at(-1)
+        budgetState = this.applyPartyModeProviderUsage(budgetState, lastChunk)
+        if (this.isPartyModeBudgetExceeded(budgetState)) {
+          await this.emitPartyModeBudgetExceededTelemetry({
+            tenantId: context.tenantId,
+            user: context.user,
+            session: context.session,
+            round: sourceRound.round,
+            budgetState,
+            omittedAdvisors: [],
+          })
+        }
         const decisionOptions = this.createPartyModeIntegrationDecisionOptions()
         assistantMessage = await context.messageRepository.createMessageWithNextSequence(
           context.tenantId,
@@ -5599,6 +6689,7 @@ export class AdvisorySessionService {
                 party_mode_source_round: sourceRound.round,
                 party_mode_source_message_ids: sourceMessageIds,
                 party_mode_frameworks: sourceFrameworks,
+                ...this.createPartyModeBudgetMetadata(budgetState),
               },
             ),
             providerMetadata: this.createAssistantProviderMetadata(lastChunk),
@@ -5618,6 +6709,7 @@ export class AdvisorySessionService {
             party_mode_status: 'context-created',
             party_mode_latest_integration_message_id: assistantMessage.id,
             party_mode_latest_integration_source_round: sourceRound.round,
+            ...this.createPartyModeBudgetMetadata(budgetState),
           },
         })
 
@@ -5789,7 +6881,9 @@ export class AdvisorySessionService {
       context.session.currentStep.label,
       stepIndex,
     )} - Party Mode 整合结论`
-    const providerMetadata = this.toSafeProviderMetadata(context.sourceMessage.providerMetadata ?? {})
+    const providerMetadata = this.toSafeProviderMetadata(
+      context.sourceMessage.providerMetadata ?? {},
+    )
     const section: AdvisoryWorkflowOutputSection = {
       id: randomUUID(),
       stepIndex,
@@ -5845,9 +6939,7 @@ export class AdvisorySessionService {
     sourceMessageId: string,
   ): boolean {
     return Boolean(
-      output.sections?.some(
-        (section) => section.metadata?.source_message_id === sourceMessageId,
-      ),
+      output.sections?.some((section) => section.metadata?.source_message_id === sourceMessageId),
     )
   }
 
@@ -6106,7 +7198,13 @@ export class AdvisorySessionService {
     ]
   }
 
-  private createPartyModeDiscussionDecisionOptions(): AdvisoryConversationDecisionOption[] {
+  private createPartyModeDiscussionDecisionOptions(
+    budgetState?: PartyModeBudgetState,
+  ): AdvisoryConversationDecisionOption[] {
+    if (budgetState && this.isPartyModeBudgetExceeded(budgetState)) {
+      return this.createPartyModeBudgetDecisionOptions(budgetState)
+    }
+
     return [
       {
         key: 'integrate-party-mode',

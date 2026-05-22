@@ -9,7 +9,10 @@ interface AdvisoryChatMessageProps {
   message: ThinkTankConversationMessage
   isStreaming?: boolean
   decisionOptionsAreCurrent?: boolean
-  onDecisionOption?: (option: ThinkTankDecisionOption, message: ThinkTankConversationMessage) => void
+  onDecisionOption?: (
+    option: ThinkTankDecisionOption,
+    message: ThinkTankConversationMessage
+  ) => void
   onReplyToExpert?: (message: ThinkTankConversationMessage) => void
 }
 
@@ -29,13 +32,20 @@ export function AdvisoryChatMessage({
   const roleDisplay = getRoleDisplay(message)
   const partyModeIdentity = getPartyModeIdentity(message)
   const partyModeIntegration = getPartyModeIntegration(message)
+  const partyModeRecovery = getPartyModeRecovery(message)
   const canReplyToExpert = Boolean(partyModeIdentity && !isStreaming && onReplyToExpert)
 
   return (
     <article
       aria-label={roleDisplay.ariaLabel}
       className={cn('rounded-sm border border-l-[3px] p-4', roleDisplay.className)}
-      style={partyModeIdentity ? { borderLeftColor: partyModeIdentity.accentColor } : undefined}
+      style={
+        partyModeRecovery
+          ? { borderLeftColor: partyModeRecovery.accentColor }
+          : partyModeIdentity
+            ? { borderLeftColor: partyModeIdentity.accentColor }
+            : undefined
+      }
     >
       <div className="mb-2 flex items-center justify-between gap-3">
         <div className="min-w-0">
@@ -51,6 +61,15 @@ export function AdvisoryChatMessage({
               {partyModeIdentity.analysisFramework && (
                 <span>{partyModeIdentity.analysisFramework}</span>
               )}
+            </div>
+          )}
+          {partyModeRecovery && (
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+              <span>{partyModeRecovery.advisorRole}</span>
+              <span>第 {partyModeRecovery.round} 轮</span>
+              {partyModeRecovery.speakerIndex && <span>发言 {partyModeRecovery.speakerIndex}</span>}
+              <span>失败类型：{partyModeRecovery.failureCategory}</span>
+              <span>{partyModeRecovery.retryable ? '可重试' : '不可重试'}</span>
             </div>
           )}
         </div>
@@ -80,6 +99,26 @@ export function AdvisoryChatMessage({
           </p>
         )}
         <MarkdownContent content={message.content} />
+        {partyModeRecovery && (
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]">
+            <span>
+              失败专家：{partyModeRecovery.advisorName}（{partyModeRecovery.advisorRole}）
+            </span>
+            {partyModeRecovery.omittedAdvisorNames.length > 0 && (
+              <span>遗漏专家：{partyModeRecovery.omittedAdvisorNames.join('、')}</span>
+            )}
+            {partyModeRecovery.remainingTokens !== null && partyModeRecovery.maxTokens !== null && (
+              <span>
+                剩余 Token {partyModeRecovery.remainingTokens} / {partyModeRecovery.maxTokens}
+              </span>
+            )}
+            {partyModeRecovery.remainingCost !== null && partyModeRecovery.maxCost !== null && (
+              <span>
+                剩余成本 {partyModeRecovery.remainingCost} / {partyModeRecovery.maxCost}
+              </span>
+            )}
+          </div>
+        )}
         {isStreaming && (
           <span
             aria-hidden="true"
@@ -113,7 +152,10 @@ export function AdvisoryChatMessage({
             }`
 
             return (
-              <span key={`${message.id}-${option.action}`} className="flex max-w-full flex-col gap-1">
+              <span
+                key={`${message.id}-${option.action}`}
+                className="flex max-w-full flex-col gap-1"
+              >
                 <Button
                   type="button"
                   variant="outline"
@@ -330,6 +372,20 @@ function sanitizeMarkdownHref(href: string): string {
 }
 
 function getRoleDisplay(message: ThinkTankConversationMessage) {
+  const partyModeRecovery = getPartyModeRecovery(message)
+  if (partyModeRecovery) {
+    return {
+      label: partyModeRecovery.isBudgetExceeded
+        ? 'Party Mode 预算'
+        : `专家失败：${partyModeRecovery.advisorName}`,
+      ariaLabel: partyModeRecovery.isBudgetExceeded
+        ? `Party Mode 预算已达到上限，第 ${partyModeRecovery.round} 轮`
+        : `专家失败：${partyModeRecovery.advisorName}，${partyModeRecovery.advisorRole}，第 ${partyModeRecovery.round} 轮`,
+      className:
+        'mr-auto max-w-[88%] border-l-[hsl(var(--destructive))] bg-[hsl(var(--advisory-muted-bg))]',
+    }
+  }
+
   const partyModeIntegration = getPartyModeIntegration(message)
   if (partyModeIntegration) {
     return {
@@ -388,19 +444,23 @@ function getRoleDisplay(message: ThinkTankConversationMessage) {
   }
 }
 
-function getPartyModeIdentity(message: ThinkTankConversationMessage):
-  | {
-      id: string
-      name: string
-      role: string
-      perspective: string
-      analysisFramework: string
-      round: number
-      speakerIndex: number
-      accentColor: string
-    }
-  | null {
+function getPartyModeIdentity(message: ThinkTankConversationMessage): {
+  id: string
+  name: string
+  role: string
+  perspective: string
+  analysisFramework: string
+  round: number
+  speakerIndex: number
+  accentColor: string
+} | null {
   if (message.metadata?.party_mode_message !== true) return null
+  if (
+    message.metadata.party_mode_failure === true ||
+    message.metadata.party_mode_budget_exceeded === true
+  ) {
+    return null
+  }
 
   const advisorId = readMetadataText(message.metadata.party_mode_advisor_id) ?? 'expert'
   const name = readMetadataText(message.metadata.party_mode_advisor_name) ?? '专家'
@@ -422,11 +482,62 @@ function getPartyModeIdentity(message: ThinkTankConversationMessage):
   }
 }
 
-function getPartyModeIntegration(message: ThinkTankConversationMessage):
-  | {
-      visibleLabel: string
-    }
-  | null {
+function getPartyModeRecovery(message: ThinkTankConversationMessage): {
+  advisorName: string
+  advisorRole: string
+  round: number
+  speakerIndex: number | null
+  failureCategory: string
+  retryable: boolean
+  omittedAdvisorNames: string[]
+  remainingTokens: number | null
+  maxTokens: number | null
+  remainingCost: number | null
+  maxCost: number | null
+  accentColor: string
+  isBudgetExceeded: boolean
+} | null {
+  const metadata = message.metadata
+  if (!metadata) return null
+  const isFailure = metadata.party_mode_failure === true
+  const isBudgetExceeded = metadata.party_mode_budget_exceeded === true
+  if (!isFailure && !isBudgetExceeded) return null
+
+  const advisorId =
+    readMetadataText(metadata.party_mode_failed_advisor_id) ??
+    readMetadataText(metadata.party_mode_advisor_id) ??
+    'party-mode'
+  const advisorName =
+    readMetadataText(metadata.party_mode_failed_advisor_name) ??
+    readMetadataText(metadata.party_mode_advisor_name) ??
+    (isBudgetExceeded ? 'Party Mode' : '专家')
+  const advisorRole =
+    readMetadataText(metadata.party_mode_failed_advisor_role) ??
+    readMetadataText(metadata.party_mode_advisor_role) ??
+    (isBudgetExceeded ? '资源控制' : 'ThinkTank Expert')
+
+  return {
+    advisorName,
+    advisorRole,
+    round: readMetadataNumber(metadata.party_mode_round) ?? 1,
+    speakerIndex: readMetadataNumber(metadata.party_mode_speaker_index),
+    failureCategory:
+      readMetadataText(metadata.party_mode_failure_category) ??
+      (isBudgetExceeded ? 'budget_exceeded' : 'unknown'),
+    retryable: metadata.party_mode_failure_retryable === true,
+    omittedAdvisorNames: splitMetadataList(metadata.party_mode_omitted_advisor_names),
+    remainingTokens: readMetadataNumber(metadata.party_mode_budget_remaining_tokens),
+    maxTokens: readMetadataNumber(metadata.party_mode_budget_max_tokens),
+    remainingCost: readMetadataNumber(metadata.party_mode_budget_remaining_cost),
+    maxCost: readMetadataNumber(metadata.party_mode_budget_max_cost),
+    accentColor: getExpertAccentColor(advisorId),
+    isBudgetExceeded,
+  }
+}
+
+function getPartyModeIntegration(message: ThinkTankConversationMessage): {
+  visibleLabel: string
+} | null {
   if (message.metadata?.party_mode_integration !== true) return null
 
   return {
@@ -440,6 +551,15 @@ function readMetadataText(value: unknown): string | null {
 
 function readMetadataNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function splitMetadataList(value: unknown): string[] {
+  return typeof value === 'string'
+    ? value
+        .split('|')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : []
 }
 
 function getExpertAccentColor(advisorId: string): string {

@@ -1,10 +1,7 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdvisoryWorkspaceShell from './AdvisoryWorkspaceShell'
-import {
-  fetchThinkTankUnfinishedSessions,
-  resumeThinkTankSession,
-} from '@/lib/advisory/sessions'
+import { fetchThinkTankUnfinishedSessions, resumeThinkTankSession } from '@/lib/advisory/sessions'
 import { streamThinkTankSessionMessage } from '@/lib/advisory/streaming'
 import { fetchThinkTankWorkflowOutput } from '@/lib/advisory/outputs'
 
@@ -196,8 +193,12 @@ jest.mock('@/lib/advisory/sessions', () => ({
 jest.mock('@/lib/advisory/history', () => ({
   THINKTANK_HISTORY_LOAD_FAILED_MESSAGE: '暂时无法加载 ThinkTank 历史记录，请稍后重试。',
   THINKTANK_HISTORY_SEARCH_FAILED_MESSAGE: '暂时无法搜索 ThinkTank 历史记录，请稍后重试。',
-  fetchThinkTankSessionHistory: jest.fn().mockResolvedValue({ items: [], meta: { page: 1, limit: 20, total: 0 } }),
-  searchThinkTankHistory: jest.fn().mockResolvedValue({ items: [], meta: { page: 1, limit: 20, total: 0 } }),
+  fetchThinkTankSessionHistory: jest
+    .fn()
+    .mockResolvedValue({ items: [], meta: { page: 1, limit: 20, total: 0 } }),
+  searchThinkTankHistory: jest
+    .fn()
+    .mockResolvedValue({ items: [], meta: { page: 1, limit: 20, total: 0 } }),
 }))
 
 const mockFetchUnfinished = fetchThinkTankUnfinishedSessions as jest.Mock
@@ -339,7 +340,9 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
     expect(await screen.findByText('已恢复未完成会话')).toBeInTheDocument()
     const recoverySummary = screen.getByRole('article', { name: 'ThinkTank 会话恢复摘要' })
     expect(within(recoverySummary).getByText(/Map constraints/)).toBeInTheDocument()
-    expect(within(recoverySummary).getAllByText(/setup guidance is missing/).length).toBeGreaterThan(0)
+    expect(
+      within(recoverySummary).getAllByText(/setup guidance is missing/).length
+    ).toBeGreaterThan(0)
     expect(screen.getByText('Key conclusion: setup guidance is missing.')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '先查看文档' }))
@@ -382,8 +385,12 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
     rerender(<AdvisoryWorkspaceShell />)
 
     await waitFor(() => expect(mockFetchUnfinished).toHaveBeenCalledTimes(2))
-    expect(await screen.findByRole('button', { name: /继续 Tenant Two Diagnosis/ })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /继续 Retention Diagnosis/ })).not.toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /继续 Tenant Two Diagnosis/ })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /继续 Retention Diagnosis/ })
+    ).not.toBeInTheDocument()
     expect(screen.queryByText('已恢复未完成会话')).not.toBeInTheDocument()
     expect(screen.queryByText('Key conclusion: setup guidance is missing.')).not.toBeInTheDocument()
   })
@@ -427,10 +434,14 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
     })
 
     await waitFor(() => expect(mockFetchUnfinished).toHaveBeenCalledTimes(2))
-    expect(await screen.findByRole('button', { name: /继续 Tenant Two Diagnosis/ })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /继续 Tenant Two Diagnosis/ })
+    ).toBeInTheDocument()
     expect(screen.queryByText('已恢复未完成会话')).not.toBeInTheDocument()
     expect(screen.queryByText('Key conclusion: setup guidance is missing.')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /继续 Retention Diagnosis/ })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /继续 Retention Diagnosis/ })
+    ).not.toBeInTheDocument()
   })
 
   test('[P0][4.2-FE-010][AC2] aborts an in-flight stream before resuming a session again', async () => {
@@ -535,7 +546,7 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
     await user.click(screen.getByRole('button', { name: '发送' }))
 
     expect(
-      (await screen.findAllByText('暂时无法生成 ThinkTank 顾问回复，请稍后重试。')).length,
+      (await screen.findAllByText('暂时无法生成 ThinkTank 顾问回复，请稍后重试。')).length
     ).toBeGreaterThan(0)
     expect(screen.queryByText('第一位专家已完成但应回滚')).not.toBeInTheDocument()
     expect(screen.queryByText('第二位专家的半截回复')).not.toBeInTheDocument()
@@ -582,7 +593,9 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
             content: '已返回原工作流。',
             workflowKey: 'problem-solving',
             stepIndex: 2,
-            decisionOptions: [{ key: 'continue', action: 'continue', label: '继续', enabled: true }],
+            decisionOptions: [
+              { key: 'continue', action: 'continue', label: '继续', enabled: true },
+            ],
             metadata: {
               ai_generated: true,
               party_mode_returned: true,
@@ -636,7 +649,140 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
     )
     await waitFor(() => expect(mockFetchWorkflowOutput).toHaveBeenCalledWith('session-1'))
     expect(
-      screen.getByRole('status', { name: 'ThinkTank step completion status' }),
+      screen.getByRole('status', { name: 'ThinkTank step completion status' })
     ).toHaveTextContent('Party Mode 整合结论已写入报告草稿。')
+  })
+
+  test('[P0][5.5-FE-002][AC2,AC3] preserves prior Party Mode work and submits retry, continue, and return controls from latest failure message', async () => {
+    const user = userEvent.setup()
+    mockResumeSession.mockResolvedValueOnce(
+      createResumeResult({
+        messages: [
+          {
+            id: 'advisor-message-1',
+            role: 'assistant',
+            content: '第一位专家已完成，应在后续失败后保留。',
+            sequence: 3,
+            workflowKey: 'problem-solving',
+            stepIndex: 2,
+            metadata: {
+              party_mode_message: true,
+              party_mode_round: 1,
+              party_mode_speaker_index: 1,
+              party_mode_advisor_id: 'security-architect',
+              party_mode_advisor_name: '张岚',
+              party_mode_advisor_role: '安全架构师',
+            },
+          },
+          {
+            id: 'party-failure-message-1',
+            role: 'assistant',
+            content: '陈晨本轮超时，已保留前面专家结论。',
+            sequence: 4,
+            workflowKey: 'problem-solving',
+            stepIndex: 2,
+            metadata: {
+              party_mode_message: true,
+              party_mode_failure: true,
+              party_mode_round: 1,
+              party_mode_failed_advisor_id: 'ops-advisor',
+              party_mode_failed_advisor_name: '陈晨',
+              party_mode_failed_advisor_role: '运维负责人',
+              party_mode_failure_category: 'timeout',
+              party_mode_failure_retryable: true,
+              party_mode_budget_remaining_tokens: 2400,
+              party_mode_budget_max_tokens: 8000,
+            },
+            decisionOptions: [
+              {
+                key: 'retry-party-mode-advisor',
+                action: 'retry-party-mode-advisor',
+                label: '重试陈晨',
+                enabled: true,
+              },
+              {
+                key: 'continue-party-mode',
+                action: 'continue-party-mode',
+                label: '继续讨论',
+                enabled: true,
+              },
+              {
+                key: 'return-to-workflow',
+                action: 'return-to-workflow',
+                label: '返回原工作流',
+                enabled: true,
+              },
+            ],
+          },
+        ],
+      })
+    )
+    mockStreamMessage.mockImplementation(async function* (
+      _sessionId: string,
+      payload: { decisionAction?: string }
+    ) {
+      yield {
+        event: 'message.completed',
+        data: {
+          assistantMessage: {
+            id: `response-${payload.decisionAction}`,
+            role: 'assistant',
+            content: `handled ${payload.decisionAction}`,
+            workflowKey: 'problem-solving',
+            stepIndex: 2,
+            decisionOptions: [],
+          },
+          decisionOptions: [],
+          currentStep: { index: 2, label: 'Map constraints' },
+        },
+      }
+    })
+
+    render(<AdvisoryWorkspaceShell />)
+    await user.click(await screen.findByRole('button', { name: /继续 Retention Diagnosis/ }))
+
+    expect(await screen.findByText('第一位专家已完成，应在后续失败后保留。')).toBeInTheDocument()
+    expect(screen.getByText('陈晨本轮超时，已保留前面专家结论。')).toBeInTheDocument()
+    expect(screen.getByText(/剩余.*2400.*8000/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /重试陈晨/ }))
+    await waitFor(() =>
+      expect(mockStreamMessage).toHaveBeenLastCalledWith(
+        'session-1',
+        expect.objectContaining({
+          content: '重试陈晨',
+          decisionAction: 'retry-party-mode-advisor',
+          decisionSourceMessageId: 'party-failure-message-1',
+        }),
+        expect.any(Object)
+      )
+    )
+    expect(screen.getByText('第一位专家已完成，应在后续失败后保留。')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /继续讨论/ }))
+    await waitFor(() =>
+      expect(mockStreamMessage).toHaveBeenLastCalledWith(
+        'session-1',
+        expect.objectContaining({
+          content: '继续讨论',
+          decisionAction: 'continue-party-mode',
+          decisionSourceMessageId: 'party-failure-message-1',
+        }),
+        expect.any(Object)
+      )
+    )
+
+    await user.click(screen.getByRole('button', { name: /返回原工作流/ }))
+    await waitFor(() =>
+      expect(mockStreamMessage).toHaveBeenLastCalledWith(
+        'session-1',
+        expect.objectContaining({
+          content: '返回原工作流',
+          decisionAction: 'return-to-workflow',
+          decisionSourceMessageId: 'party-failure-message-1',
+        }),
+        expect.any(Object)
+      )
+    )
   })
 })

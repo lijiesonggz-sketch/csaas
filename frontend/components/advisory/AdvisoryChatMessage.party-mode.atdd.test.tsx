@@ -132,12 +132,86 @@ describe('AdvisoryChatMessage Party Mode ATDD', () => {
     expect(screen.getByText('Technical feasibility and architecture')).toBeInTheDocument()
 
     rerender(<AdvisoryChatMessage message={integrationMessage} />)
-    expect(
-      screen.getByRole('article', { name: /Party Mode 整合结论/ }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('article', { name: /Party Mode 整合结论/ })).toBeInTheDocument()
     expect(screen.getByText('[AI Generated]')).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: /接受整合结论/ }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /接受整合结论/ })).toBeInTheDocument()
+  })
+
+  test('[P0][5.5-FE-001][AC1,AC2] renders advisor failure, omitted advisors, remaining budget, and recovery controls accessibly', async () => {
+    const onDecisionOption = jest.fn()
+    const message: ThinkTankConversationMessage = {
+      id: 'party-failure-message-1',
+      role: 'assistant',
+      content: '陈晨未能完成本轮回复，已保留前面专家的结论。',
+      workflowKey: 'problem-solving',
+      stepIndex: 2,
+      metadata: {
+        party_mode_message: true,
+        party_mode_failure: true,
+        party_mode_round: 1,
+        party_mode_speaker_index: 2,
+        party_mode_failed_advisor_id: 'ops-advisor',
+        party_mode_failed_advisor_name: '陈晨',
+        party_mode_failed_advisor_role: '运维负责人',
+        party_mode_failure_category: 'timeout',
+        party_mode_failure_retryable: true,
+        party_mode_omitted_advisor_ids: 'finance-advisor',
+        party_mode_omitted_advisor_names: '财务顾问',
+        party_mode_budget_remaining_tokens: 3200,
+        party_mode_budget_max_tokens: 8000,
+        party_mode_budget_remaining_cost: 0.42,
+        party_mode_budget_max_cost: 1,
+      },
+      decisionOptions: [
+        {
+          key: 'retry-party-mode-advisor',
+          action: 'retry-party-mode-advisor',
+          label: '重试陈晨',
+          enabled: true,
+        },
+        {
+          key: 'continue-party-mode',
+          action: 'continue-party-mode',
+          label: '继续讨论',
+          enabled: true,
+        },
+        {
+          key: 'return-to-workflow',
+          action: 'return-to-workflow',
+          label: '返回原工作流',
+          enabled: true,
+        },
+      ],
+    }
+
+    render(<AdvisoryChatMessage message={message} onDecisionOption={onDecisionOption} />)
+
+    const article = screen.getByRole('article', {
+      name: /专家失败.*陈晨.*运维负责人.*第 1 轮/,
+    })
+    expect(within(article).getAllByText(/陈晨/).length).toBeGreaterThan(0)
+    expect(within(article).getAllByText(/运维负责人/).length).toBeGreaterThan(0)
+    expect(within(article).getByText(/timeout|超时/)).toBeInTheDocument()
+    expect(within(article).getByText(/财务顾问/)).toBeInTheDocument()
+    expect(within(article).getByText(/剩余.*3200.*8000/)).toBeInTheDocument()
+    expect(within(article).getByText(/0\.42.*1/)).toBeInTheDocument()
+
+    await userEvent.click(within(article).getByRole('button', { name: /重试陈晨/ }))
+    expect(onDecisionOption).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'retry-party-mode-advisor' }),
+      message
+    )
+
+    await userEvent.click(within(article).getByRole('button', { name: /继续讨论/ }))
+    expect(onDecisionOption).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'continue-party-mode' }),
+      message
+    )
+
+    await userEvent.click(within(article).getByRole('button', { name: /返回原工作流/ }))
+    expect(onDecisionOption).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'return-to-workflow' }),
+      message
+    )
   })
 })

@@ -1,0 +1,216 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "story_id": "5-5-party-mode-resource-and-failure-controls",
+  "generated_at": "2026-05-22T15:54:46+08:00",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "requirement": "Party Mode enforces configured token or cost budget for advisor and integration provider calls, exposes remaining budget state to orchestration, and emits thinktank.party_mode.budget_exceeded without raw content.",
+      "coverage": "FULL",
+      "test_level": "Backend service/stream + frontend component",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-resource.atdd.spec.ts",
+          "cases": [
+            "[P0][5.5-BE-001][AC1,AC3] accounts provider usage and exposes remaining Party Mode budget in advisor and checkpoint metadata",
+            "[P0][5.5-BE-002][AC1] stops additional advisors when budget is exceeded and emits operational telemetry without raw content",
+            "[P0][5.5-BE-008][AC1] emits budget telemetry when the final advisor consumes the remaining budget",
+            "[P0][5.5-BE-009][AC1,AC3] integration action stops before provider calls when Party Mode budget is already exhausted"
+          ]
+        },
+        {
+          "file": "frontend/components/advisory/AdvisoryChatMessage.party-mode.atdd.test.tsx",
+          "cases": [
+            "[P0][5.5-FE-001][AC1,AC2] renders advisor failure, omitted advisors, remaining budget, and recovery controls accessibly"
+          ]
+        },
+        {
+          "file": "frontend/lib/advisory/streaming.party-mode.atdd.test.ts",
+          "cases": [
+            "[P0][5.5-FE-004][AC1,AC2] treats a persisted Party Mode failure assistant message as terminal and exposes failure metadata"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/events/advisory-event.service.spec.ts",
+          "cases": [
+            "Regression coverage for operational telemetry validation and raw-content rejection"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "Covered through existing session submit and stream paths; no new Party Mode endpoint was introduced. DTO validation covers new recovery actions and service tests cover provider-call guards.",
+        "auth_authz_coverage": "No new auth/authz rule is introduced. Existing tenant/session/latest decision validation remains the enforcement boundary and is exercised by Party Mode regressions.",
+        "error_path_coverage": "Budget exhausted before integration call, budget exhausted after final advisor usage, and mid-round budget stop paths are covered."
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "requirement": "When an advisor times out or partially fails, prior Party Mode work is preserved, UI identifies failed/omitted advisors, recovery controls are available, and thinktank.party_mode.advisor_failed is emitted without raw content.",
+      "coverage": "FULL",
+      "test_level": "Backend service/stream + frontend component/parser",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-resource.atdd.spec.ts",
+          "cases": [
+            "[P0][5.5-BE-003][AC2,AC3] preserves prior advisor messages when a later advisor times out, emits advisor_failed, and exposes recovery decisions",
+            "[P0][5.5-BE-006][AC2,AC3] retry recovery resumes the failed and omitted advisor segment without replaying completed experts",
+            "[P0][5.5-BE-007][AC2,AC3] continue recovery resumes only omitted advisors and rejects non-retryable advisor retry"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/sessions/dto/submit-advisory-message.dto.spec.ts",
+          "cases": [
+            "[P0][5.5-BE-006][AC2,AC3] allows Party Mode recovery decision actions through API validation"
+          ]
+        },
+        {
+          "file": "frontend/components/advisory/AdvisoryChatMessage.party-mode.atdd.test.tsx",
+          "cases": [
+            "[P0][5.5-FE-001][AC1,AC2] renders advisor failure, omitted advisors, remaining budget, and recovery controls accessibly"
+          ]
+        },
+        {
+          "file": "frontend/components/advisory/AdvisoryWorkspaceShell.resume-session.test.tsx",
+          "cases": [
+            "[P0][5.5-FE-002][AC2,AC3] preserves prior Party Mode work and submits retry, continue, and return controls from latest failure message"
+          ]
+        },
+        {
+          "file": "frontend/lib/advisory/streaming.party-mode.atdd.test.ts",
+          "cases": [
+            "[P0][5.5-FE-003][AC2,AC3] parses party_mode.advisor_failed before the terminal persisted failure message",
+            "[P0][5.5-FE-004][AC1,AC2] treats a persisted Party Mode failure assistant message as terminal and exposes failure metadata",
+            "[P0][5.5-FE-006][AC2,AC3] rejects advisor_failed without a persisted terminal failure message"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/events/advisory-event.service.spec.ts",
+          "cases": [
+            "Regression coverage for operational telemetry validation and raw-content rejection"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "Recovery still uses the existing message submit API and streaming parser. DTO and workspace tests cover retry-party-mode-advisor, continue-party-mode, and return-to-workflow payloads.",
+        "auth_authz_coverage": "Latest failure message binding and server-owned decision validation are covered; retry of non-retryable failures is rejected server-side.",
+        "error_path_coverage": "Timeout, retryable failure, non-retryable failure, malformed advisor_failed stream without terminal message, and omitted-advisor recovery queues are covered."
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P1",
+      "requirement": "Automated tests remain deterministic with fake advisors and fake GLM responses for timeout, partial response, cost limit, successful integration, and single-advisor regression paths.",
+      "coverage": "FULL",
+      "test_level": "Backend service regressions + frontend component/parser regressions + TypeScript checks",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-resource.atdd.spec.ts",
+          "cases": [
+            "[P0][5.5-BE-001][AC1,AC3] accounts provider usage and exposes remaining Party Mode budget in advisor and checkpoint metadata",
+            "[P0][5.5-BE-003][AC2,AC3] preserves prior advisor messages when a later advisor times out, emits advisor_failed, and exposes recovery decisions",
+            "[P1][5.5-BE-004][AC3] deterministic fake provider success path remains unaffected and emits no resource failure telemetry",
+            "[P1][5.5-BE-005][AC3] single-advisor workflow calls still use the fake provider once and do not inherit Party Mode budget failures",
+            "[P0][5.5-BE-006][AC2,AC3] retry recovery resumes the failed and omitted advisor segment without replaying completed experts",
+            "[P0][5.5-BE-007][AC2,AC3] continue recovery resumes only omitted advisors and rejects non-retryable advisor retry",
+            "[P0][5.5-BE-009][AC1,AC3] integration action stops before provider calls when Party Mode budget is already exhausted"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-serial.atdd.spec.ts",
+          "cases": [
+            "Story 5.3 serial Party Mode regression coverage for advisor order, current speaker events, and normal completion"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-integration.atdd.spec.ts",
+          "cases": [
+            "Story 5.4 integration regression coverage for integrated conclusion and accept/return behavior"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/sessions/dto/submit-advisory-message.dto.spec.ts",
+          "cases": [
+            "[P0][5.5-BE-006][AC2,AC3] allows Party Mode recovery decision actions through API validation"
+          ]
+        },
+        {
+          "file": "frontend/components/advisory/AdvisoryWorkspaceShell.resume-session.test.tsx",
+          "cases": [
+            "[P0][5.5-FE-002][AC2,AC3] preserves prior Party Mode work and submits retry, continue, and return controls from latest failure message"
+          ]
+        },
+        {
+          "file": "frontend/lib/advisory/streaming.party-mode.atdd.test.ts",
+          "cases": [
+            "[P0][5.5-FE-003][AC2,AC3] parses party_mode.advisor_failed before the terminal persisted failure message",
+            "[P0][5.5-FE-006][AC2,AC3] rejects advisor_failed without a persisted terminal failure message"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "No live GLM/network/provider dependency is used. Fake provider usage, stream chunks, provider errors, and deterministic decision submissions exercise the relevant contracts.",
+        "auth_authz_coverage": "Recovery and return controls are bound to the latest server-owned assistant message rather than trusting browser-supplied Party Mode state.",
+        "error_path_coverage": "Timeout, non-retryable provider error, budget exhaustion, malformed stream, and single-advisor isolation are covered; full browser E2E is intentionally deferred because story scope is service/component deterministic coverage."
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 3,
+    "fully_covered": 3,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 2, "covered": 2, "percentage": 100 },
+      "P1": { "total": 1, "covered": 1, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    },
+    "residual_risks": [
+      {
+        "id": "RR-5.5-001",
+        "severity": "LOW",
+        "description": "No full browser E2E was added for the recovery controls. This is non-blocking because Story 5.5 requirements are covered by deterministic backend service, frontend component, workspace, and parser tests without live provider calls."
+      }
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Keep the Story 5.5 resource ATDD, DTO, event service, ChatMessage, WorkspaceShell, and streaming parser suites in the Epic 5 regression set.",
+      "requirements": ["AC1", "AC2", "AC3"]
+    }
+  ],
+  "verification_commands": [
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.party-mode-resource.atdd.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.party-mode-serial.atdd.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.party-mode-integration.atdd.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/dto/submit-advisory-message.dto.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/events/advisory-event.service.spec.ts --runInBand",
+    "cd backend && npx tsc --noEmit",
+    "cd frontend && npm run test -- lib/advisory/streaming.party-mode.atdd.test.ts --runInBand",
+    "cd frontend && npm run test -- components/advisory/AdvisoryChatMessage.party-mode.atdd.test.tsx --runInBand",
+    "cd frontend && npm run test -- components/advisory/AdvisoryWorkspaceShell.resume-session.test.tsx --runInBand",
+    "cd frontend && npx tsc --noEmit"
+  ]
+}

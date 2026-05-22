@@ -20,6 +20,7 @@ export type ThinkTankStreamingEventName =
   | 'message.completed'
   | 'message.error'
   | 'party_mode.current_speaker'
+  | 'party_mode.advisor_failed'
 
 export type ThinkTankStreamingEvent =
   | {
@@ -56,6 +57,25 @@ export type ThinkTankStreamingEvent =
         advisorId: string
         advisorName: string
         advisorRole: string
+      }
+    }
+  | {
+      event: 'party_mode.advisor_failed'
+      data: {
+        sessionId?: string
+        round: number
+        advisorId: string
+        advisorName: string
+        advisorRole: string
+        failureCategory: string
+        retryable: boolean
+        omittedAdvisorIds?: string[]
+        remainingBudget?: {
+          tokens?: number
+          maxTokens?: number
+          cost?: number
+          maxCost?: number
+        }
       }
     }
   | {
@@ -205,7 +225,8 @@ function isThinkTankStreamingEventName(value: string): value is ThinkTankStreami
     value === 'message.delta' ||
     value === 'message.completed' ||
     value === 'message.error' ||
-    value === 'party_mode.current_speaker'
+    value === 'party_mode.current_speaker' ||
+    value === 'party_mode.advisor_failed'
   )
 }
 

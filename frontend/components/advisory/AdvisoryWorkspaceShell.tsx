@@ -289,7 +289,9 @@ function isSameDecisionOption(left: ThinkTankDecisionOption, right: ThinkTankDec
   )
 }
 
-function readPartyModeReplyTarget(message: ThinkTankConversationMessage): PartyModeReplyTarget | null {
+function readPartyModeReplyTarget(
+  message: ThinkTankConversationMessage
+): PartyModeReplyTarget | null {
   if (message.metadata?.party_mode_message !== true) return null
   const advisorId = readMetadataText(message.metadata.party_mode_advisor_id)
   const advisorName = readMetadataText(message.metadata.party_mode_advisor_name)
@@ -1792,7 +1794,8 @@ export default function AdvisoryWorkspaceShell() {
     const abortController = new AbortController()
     const isDecisionSubmit = Boolean(override.decisionAction)
     const addressedExpertHint =
-      override.addressedExpertHint ?? (!isDecisionSubmit && partyModeReplyTarget
+      override.addressedExpertHint ??
+      (!isDecisionSubmit && partyModeReplyTarget
         ? {
             advisorId: partyModeReplyTarget.advisorId,
             messageId: partyModeReplyTarget.messageId,
@@ -1892,11 +1895,19 @@ export default function AdvisoryWorkspaceShell() {
             }
             return [...currentMessages, pendingMessage]
           })
-          announceStreamStatus(
-            `${event.data.advisorName}（${event.data.advisorRole}）正在发言。`,
-            { immediate: true }
-          )
+          announceStreamStatus(`${event.data.advisorName}（${event.data.advisorRole}）正在发言。`, {
+            immediate: true,
+          })
           applyStreamingScrollBehavior(shouldAutoScroll)
+          continue
+        }
+
+        if (event.event === 'party_mode.advisor_failed') {
+          streamEndedWithTerminalEvent = true
+          setMessageStreamingStatus('completing')
+          announceStreamStatus(`${event.data.advisorName} 本轮未能完成回复。`, {
+            immediate: true,
+          })
           continue
         }
 
@@ -1945,8 +1956,7 @@ export default function AdvisoryWorkspaceShell() {
                 ? event.data.assistantMessage.decisionOptions
                 : (event.data.decisionOptions ?? []),
           }
-          const isPartyModeMessage =
-            completedAssistantMessage.metadata?.party_mode_message === true
+          const isPartyModeMessage = completedAssistantMessage.metadata?.party_mode_message === true
           const isTerminalCompletedEvent =
             !isPartyModeMessage || event.data.partyModeTurnComplete === true
           if (isTerminalCompletedEvent) {
@@ -2242,8 +2252,31 @@ export default function AdvisoryWorkspaceShell() {
 
     if (option.action === 'return-to-workflow') {
       void handleSubmitMessage({
-        content: '返回工作流',
+        content: '返回原工作流',
         decisionAction: 'return-to-workflow',
+        decisionSourceMessageId: sourceMessage?.id,
+        selectedDecisionLabel: option.label,
+      })
+      textareaRef.current?.focus({ preventScroll: true })
+      return
+    }
+
+    if (option.action === 'retry-party-mode-advisor') {
+      void handleSubmitMessage({
+        content: option.label,
+        decisionAction: 'retry-party-mode-advisor',
+        decisionSourceMessageId: sourceMessage?.id,
+        selectedDecisionLabel: option.label,
+      })
+      textareaRef.current?.focus({ preventScroll: true })
+      return
+    }
+
+    if (option.action === 'continue-party-mode') {
+      void handleSubmitMessage({
+        content: option.label,
+        decisionAction: 'continue-party-mode',
+        decisionSourceMessageId: sourceMessage?.id,
         selectedDecisionLabel: option.label,
       })
       textareaRef.current?.focus({ preventScroll: true })

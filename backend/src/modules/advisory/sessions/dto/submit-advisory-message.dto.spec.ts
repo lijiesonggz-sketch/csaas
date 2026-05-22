@@ -24,6 +24,17 @@ describe('SubmitAdvisoryMessageDto', () => {
     }
   })
 
+  it('[P0][5.5-BE-006][AC2,AC3] allows Party Mode recovery decision actions through API validation', async () => {
+    for (const decisionAction of ['retry-party-mode-advisor', 'continue-party-mode']) {
+      const dto = plainToInstance(SubmitAdvisoryMessageDto, {
+        content: 'Party Mode recovery',
+        decisionAction,
+      })
+
+      await expect(validate(dto)).resolves.toEqual([])
+    }
+  })
+
   it('[P0][5.1-BE-014][AC1,AC2] rejects unknown decision actions before controller handling', async () => {
     const dto = plainToInstance(SubmitAdvisoryMessageDto, {
       content: '伪造动作',

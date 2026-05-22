@@ -9,6 +9,8 @@ export const THINKTANK_DECISION_ACTIONS = [
   'return-to-workflow',
   'integrate-party-mode',
   'accept-party-mode-conclusion',
+  'retry-party-mode-advisor',
+  'continue-party-mode',
 ] as const
 
 export class SubmitAdvisoryMessageDto {

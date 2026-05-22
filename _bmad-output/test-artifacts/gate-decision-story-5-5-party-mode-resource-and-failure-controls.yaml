@@ -1,0 +1,57 @@
+schema: 1
+story: 5-5-party-mode-resource-and-failure-controls
+decision: PASS
+decision_date: '2026-05-22T15:54:46+08:00'
+rationale: >-
+  P0 coverage is 100%, P1 coverage is 100%, and overall coverage is 100%
+  against the 80% minimum. Backend resource ATDD, DTO validation, telemetry
+  privacy tests, frontend ChatMessage and WorkspaceShell tests, and streaming
+  parser tests cover Party Mode budgets, budget telemetry, advisor failure
+  telemetry, recovery actions, malformed failure streams, successful Party Mode
+  regressions, and single-advisor isolation.
+gate_criteria:
+  p0_coverage_required: 100%
+  p0_coverage_actual: 100%
+  p0_status: MET
+  p1_coverage_target_pass: 90%
+  p1_coverage_minimum: 80%
+  p1_coverage_actual: 100%
+  p1_status: MET
+  overall_coverage_minimum: 80%
+  overall_coverage_actual: 100%
+  overall_status: MET
+coverage_statistics:
+  total_requirements: 3
+  fully_covered: 3
+  partially_covered: 0
+  uncovered: 0
+  overall_coverage_percentage: 100
+  priority_breakdown:
+    P0:
+      total: 2
+      covered: 2
+      percentage: 100
+    P1:
+      total: 1
+      covered: 1
+      percentage: 100
+    P2:
+      total: 0
+      covered: 0
+      percentage: 100
+    P3:
+      total: 0
+      covered: 0
+      percentage: 100
+uncovered_requirements: []
+recommendations:
+  - priority: LOW
+    action: Keep Story 5.5 resource ATDD, DTO, event service, ChatMessage, WorkspaceShell, and streaming parser suites in the Epic 5 regression set.
+    requirements:
+      - AC1
+      - AC2
+      - AC3
+residual_risks:
+  - id: RR-5.5-001
+    severity: LOW
+    description: No full browser E2E was added for recovery controls; deterministic service/component/parser coverage satisfies the Story 5.5 acceptance scope.
