@@ -213,4 +213,43 @@ describe('AuditLogService', () => {
       expect(queryBuilder.getMany).toHaveBeenCalled()
     })
   })
+
+  describe('findThinkTankUsageEvents', () => {
+    it('queries tenant-scoped ThinkTank candidates using occurred_at with createdAt fallback', async () => {
+      const queryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([]),
+      }
+      repository.createQueryBuilder.mockReturnValue(queryBuilder as never)
+
+      await service.findThinkTankUsageEvents({
+        tenantId: 'tenant-456',
+        dateFrom: new Date('2026-05-01T00:00:00.000Z'),
+        dateTo: new Date('2026-05-22T23:59:59.999Z'),
+        eventNames: ['thinktank.workflow.started'],
+      })
+
+      expect(queryBuilder.where).toHaveBeenCalledWith(
+        'audit.tenantId = :tenantId',
+        { tenantId: 'tenant-456' },
+      )
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        "((audit.details ->> 'event_name' IN (:...eventNames) OR audit.details ->> 'eventName' IN (:...eventNames)) OR (audit.details ->> 'event_name') LIKE 'thinktank.%' OR (audit.details ->> 'eventName') LIKE 'thinktank.%' OR audit.entityType LIKE 'ThinkTank%')",
+        { eventNames: ['thinktank.workflow.started'] },
+      )
+      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+        "((audit.details ->> 'occurred_at' >= :dateFromIso AND audit.details ->> 'occurred_at' <= :dateToIso) OR (audit.details ->> 'occurredAt' >= :dateFromIso AND audit.details ->> 'occurredAt' <= :dateToIso) OR audit.createdAt BETWEEN :dateFrom AND :dateTo)",
+        {
+          dateFrom: new Date('2026-05-01T00:00:00.000Z'),
+          dateTo: new Date('2026-05-22T23:59:59.999Z'),
+          dateFromIso: '2026-05-01T00:00:00.000Z',
+          dateToIso: '2026-05-22T23:59:59.999Z',
+        },
+      )
+      expect(queryBuilder.orderBy).toHaveBeenCalledWith('audit.createdAt', 'ASC')
+      expect(queryBuilder.getMany).toHaveBeenCalled()
+    })
+  })
 })

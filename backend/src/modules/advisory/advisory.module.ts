@@ -34,6 +34,8 @@ import {
 import { AdvisoryOrganizationContextController } from './org-context/advisory-organization-context.controller'
 import { AdvisoryOrganizationContextRepository } from './org-context/advisory-organization-context.repository'
 import { AdvisoryOrganizationContextService } from './org-context/advisory-organization-context.service'
+import { AdvisoryOperationsController } from './operations/advisory-operations.controller'
+import { AdvisoryOperationsService } from './operations/advisory-operations.service'
 import {
   THINKTANK_PROVIDER_GATEWAY_ADAPTERS,
   THINKTANK_PROVIDER_GATEWAY_CONFIG,
@@ -95,6 +97,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryAccessController,
     AdvisoryAdminController,
     AdvisoryOrganizationContextController,
+    AdvisoryOperationsController,
     AdvisorySessionController,
     QuickConsultController,
   ],
@@ -112,6 +115,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     },
     AdvisoryOrganizationContextRepository,
     AdvisoryOrganizationContextService,
+    AdvisoryOperationsService,
     AdvisoryConversationMessageRepository,
     AdvisoryOutputRatingRepository,
     AdvisoryOutputKnowledgeBaseAssociationRepository,
@@ -172,6 +176,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     CsaasEnterpriseSignalsService,
     AdvisoryOrganizationContextRepository,
     AdvisoryOrganizationContextService,
+    AdvisoryOperationsService,
     AdvisoryConversationMessageRepository,
     AdvisoryOutputRatingRepository,
     AdvisoryOutputKnowledgeBaseAssociationRepository,

@@ -8,6 +8,13 @@ export interface QueryAuditLogDto {
   offset?: number
 }
 
+export interface FindThinkTankUsageEventsQuery {
+  tenantId: string
+  dateFrom: Date
+  dateTo: Date
+  eventNames: readonly string[]
+}
+
 export type TaxonomyRolloutReportHistoryType =
   | 'retirement'
   | 'rollback'
@@ -152,6 +159,26 @@ export class AuditLogService {
       )
       .orderBy('audit.createdAt', 'DESC')
       .take(Math.min(Math.max(limit, 1), 20))
+      .getMany()
+  }
+
+  async findThinkTankUsageEvents(query: FindThinkTankUsageEventsQuery): Promise<AuditLog[]> {
+    const eventNames = query.eventNames.length ? [...query.eventNames] : ['__none__']
+    const dateFromIso = query.dateFrom.toISOString()
+    const dateToIso = query.dateTo.toISOString()
+
+    return this.auditLogRepository
+      .createQueryBuilder('audit')
+      .where('audit.tenantId = :tenantId', { tenantId: query.tenantId })
+      .andWhere(
+        "((audit.details ->> 'event_name' IN (:...eventNames) OR audit.details ->> 'eventName' IN (:...eventNames)) OR (audit.details ->> 'event_name') LIKE 'thinktank.%' OR (audit.details ->> 'eventName') LIKE 'thinktank.%' OR audit.entityType LIKE 'ThinkTank%')",
+        { eventNames },
+      )
+      .andWhere(
+        "((audit.details ->> 'occurred_at' >= :dateFromIso AND audit.details ->> 'occurred_at' <= :dateToIso) OR (audit.details ->> 'occurredAt' >= :dateFromIso AND audit.details ->> 'occurredAt' <= :dateToIso) OR audit.createdAt BETWEEN :dateFrom AND :dateTo)",
+        { dateFrom: query.dateFrom, dateTo: query.dateTo, dateFromIso, dateToIso },
+      )
+      .orderBy('audit.createdAt', 'ASC')
       .getMany()
   }
 

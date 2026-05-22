@@ -1,0 +1,123 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-22T17:22:31+08:00",
+  "story_id": "6-1-usage-and-completion-dashboard",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "coverage": "FULL",
+      "requirement": "Operator sees usage by workflow type, Quick Consult volume, structured workflow starts, completions, incomplete sessions, with tenant/date filtering according to permissions.",
+      "tests": [
+        "backend/src/modules/advisory/operations/advisory-operations.usage.atdd.spec.ts::6.1-UNIT-001",
+        "backend/src/modules/advisory/operations/advisory-operations.service.spec.ts::counts known versioned events by tenant and date range",
+        "backend/src/modules/advisory/operations/advisory-operations.controller.atdd.spec.ts::6.1-API-001/002/004/005/006",
+        "backend/src/modules/advisory/operations/advisory-operations.controller.spec.ts",
+        "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts::6.1-API-007/008/009/010/011/012",
+        "frontend/lib/advisory/operations.test.ts",
+        "frontend/app/api/advisory/admin/operations/usage/route.test.ts",
+        "frontend/app/admin/advisory/operations/page.test.tsx",
+        "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts::6.1-E2E-001/002"
+      ],
+      "test_levels": ["Unit", "API", "Component", "E2E"],
+      "endpoint_coverage": "present",
+      "auth_authz_coverage": "present_positive_and_negative",
+      "error_path_coverage": "present"
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "coverage": "FULL",
+      "requirement": "Dashboard uses Story 1.4 versioned ThinkTank event contract and treats unknown or malformed events as instrumentation gaps rather than valid zero counts.",
+      "tests": [
+        "backend/src/modules/advisory/operations/advisory-operations.usage.atdd.spec.ts::6.1-UNIT-001/002",
+        "backend/src/modules/advisory/operations/advisory-operations.service.spec.ts::malformed/unknown rows, non-usage event exclusion, gap window scoping, unsafe event-name redaction, completion_without_start",
+        "frontend/app/admin/advisory/operations/page.test.tsx::instrumentation gaps",
+        "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts::6.1-E2E-001"
+      ],
+      "test_levels": ["Unit", "Component", "E2E"],
+      "endpoint_coverage": "present_via_service_contract_and_route_envelope",
+      "auth_authz_coverage": "not_applicable",
+      "error_path_coverage": "present"
+    },
+    {
+      "id": "AC3",
+      "priority": "P1",
+      "coverage": "FULL",
+      "requirement": "Low-completion workflow and trend period are identifiable, and drilldown exposes aggregated counts without raw private conversation content.",
+      "tests": [
+        "backend/src/modules/advisory/operations/advisory-operations.usage.atdd.spec.ts::6.1-UNIT-003",
+        "backend/src/modules/advisory/operations/advisory-operations.service.spec.ts::low-completion and private content suppression",
+        "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts::API response raw-content suppression",
+        "frontend/lib/advisory/operations.test.ts::privacy-safe normalization",
+        "frontend/app/admin/advisory/operations/page.test.tsx::aggregate drilldown without raw content",
+        "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts::6.1-E2E-003/006"
+      ],
+      "test_levels": ["Unit", "API", "Component", "E2E"],
+      "endpoint_coverage": "present",
+      "auth_authz_coverage": "not_applicable",
+      "error_path_coverage": "present"
+    },
+    {
+      "id": "AC4",
+      "priority": "P1",
+      "coverage": "FULL",
+      "requirement": "Delayed or unavailable telemetry shows clear freshness/unavailable state and does not display misleading successful zero measurements.",
+      "tests": [
+        "backend/src/modules/advisory/operations/advisory-operations.usage.atdd.spec.ts::6.1-UNIT-004/005",
+        "backend/src/modules/advisory/operations/advisory-operations.service.spec.ts::delayed or unavailable telemetry",
+        "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts::unavailable freshness pass-through",
+        "frontend/lib/advisory/operations.test.ts::non-2xx unavailable bodies",
+        "frontend/app/admin/advisory/operations/page.test.tsx::unavailable state without zero metrics",
+        "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts::6.1-E2E-004/005"
+      ],
+      "test_levels": ["Unit", "API", "Component", "E2E"],
+      "endpoint_coverage": "present",
+      "auth_authz_coverage": "not_applicable",
+      "error_path_coverage": "present"
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 4,
+    "fully_covered": 4,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 2, "covered": 2, "percentage": 100 },
+      "P1": { "total": 2, "covered": 2, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    },
+    "resolved_findings": [
+      "Added active backend route tests for tenantId=current normalization, foreign tenant denial, invalid/inverted date windows, API response raw-content suppression, and unavailable freshness pass-through.",
+      "Added active frontend proxy test for upstream 403 tenant-denial propagation.",
+      "Root tests/api/advisory-operations-usage.spec.ts remains a skipped external live HTTP contract artifact and is not counted as executed coverage."
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Run bmad-testarch-test-review in a later hardening pass if the team wants a dedicated test-quality audit.",
+      "requirements": []
+    }
+  ]
+}

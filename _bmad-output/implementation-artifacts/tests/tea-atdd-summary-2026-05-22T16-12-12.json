@@ -1,0 +1,35 @@
+{
+  "tdd_phase": "RED",
+  "total_tests": 17,
+  "api_tests": 11,
+  "e2e_tests": 6,
+  "all_tests_skipped": true,
+  "expected_to_fail": true,
+  "fixtures_created": 1,
+  "acceptance_criteria_covered": [
+    "AC1: usage by workflow type, Quick Consult volume, starts, completions, incomplete sessions, tenant/date filtering",
+    "AC2: Story 1.4 versioned event contract and malformed/unknown event gap handling",
+    "AC3: low-completion workflow detection and privacy-safe aggregate drilldown",
+    "AC4: delayed/unavailable telemetry freshness state instead of misleading zeros",
+    "AC1: operator endpoint supports tenant/date filters according to permissions",
+    "AC4: endpoint returns dashboard data envelope including freshness/unavailable state",
+    "AC1: GET /advisory/admin/operations/usage returns usage and completion metrics with tenant/date filters",
+    "AC2: instrumentation gaps are represented explicitly",
+    "AC3: response is aggregate-only and excludes raw private conversation content",
+    "AC4: freshness/unavailable status is part of the API contract",
+    "AC1: operator sees usage by workflow type, Quick Consult volume, structured workflow starts, completions, incomplete sessions, with tenant/date filtering according to permissions",
+    "AC2: dashboard surfaces unknown or malformed events as instrumentation gaps instead of valid zero counts",
+    "AC3: low-completion workflows can be drilled into through aggregate counts without raw private content",
+    "AC4: delayed or unavailable telemetry shows clear freshness/unavailable state and does not display misleading successful zero measurements"
+  ],
+  "knowledge_fragments_used": [
+    "api-request",
+    "data-factories",
+    "api-testing-patterns",
+    "fixture-architecture",
+    "network-first",
+    "selector-resilience"
+  ],
+  "subagent_execution": "SUBAGENT (API + E2E)",
+  "performance_gain": "~50% faster than sequential"
+}

@@ -2281,7 +2281,7 @@ describe('AdvisoryPage', () => {
               decisionOptions: [
                 {
                   action: 'return-to-workflow',
-                  label: '返回工作流',
+                  label: '返回原工作流',
                   enabled: true,
                   description: '返回原工作流当前步骤',
                 },
@@ -2343,12 +2343,12 @@ describe('AdvisoryPage', () => {
     })
     expect(await screen.findByText(/Party Mode 上下文已创建/)).toBeVisible()
     expect(input).toHaveValue('Draft should stay.')
-    await user.click(screen.getByRole('button', { name: /返回工作流/ }))
+    await user.click(screen.getByRole('button', { name: /返回原工作流/ }))
     await waitFor(() => {
       expect(mockStreamThinkTankSessionMessage).toHaveBeenLastCalledWith(
         'session-brainstorming',
         expect.objectContaining({
-          content: '返回工作流',
+          content: '返回原工作流',
           decisionAction: 'return-to-workflow',
         }),
         expect.objectContaining({ signal: expect.any(AbortSignal) })
@@ -2359,7 +2359,7 @@ describe('AdvisoryPage', () => {
     const stalePartyModeButtons = screen.getAllByRole('button', { name: /Party Mode.*快捷键 P/ })
     expect(stalePartyModeButtons[stalePartyModeButtons.length - 1]).toBeDisabled()
     expect(screen.getByRole('status', { name: 'ThinkTank 工作台状态' })).toHaveTextContent(
-      '已选择：返回工作流'
+      '已选择：返回原工作流'
     )
   })
 
