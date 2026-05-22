@@ -1,0 +1,55 @@
+schema: 1
+story: 6-2-provider-telemetry-aggregation
+decision: PASS
+decision_date: '2026-05-22T18:45:00+08:00'
+rationale: >-
+  P0 coverage is 100%, P1 has no applicable standalone acceptance criteria, and
+  overall coverage is 100% against the 80% minimum. Provider telemetry service
+  ATDD, controller ATDD, real HTTP route tests, and audit-log source query tests
+  cover deterministic aggregation, cache/cost/token math, versioned event
+  filtering, malformed/privacy-unsafe instrumentation gaps, tenant isolation,
+  route-level auth denial, invalid filters, freshness, and unavailable source
+  behavior without live GLM calls.
+gate_criteria:
+  p0_coverage_required: 100%
+  p0_coverage_actual: 100%
+  p0_status: MET
+  p1_coverage_target_pass: 90%
+  p1_coverage_minimum: 80%
+  p1_coverage_actual: 100%
+  p1_status: MET
+  overall_coverage_minimum: 80%
+  overall_coverage_actual: 100%
+  overall_status: MET
+coverage_statistics:
+  total_requirements: 3
+  fully_covered: 3
+  partially_covered: 0
+  uncovered: 0
+  overall_coverage_percentage: 100
+  priority_breakdown:
+    P0:
+      total: 3
+      covered: 3
+      percentage: 100
+    P1:
+      total: 0
+      covered: 0
+      percentage: 100
+    P2:
+      total: 0
+      covered: 0
+      percentage: 100
+    P3:
+      total: 0
+      covered: 0
+      percentage: 100
+uncovered_requirements: []
+recommendations:
+  - priority: LOW
+    action: Keep Story 6.2 provider telemetry service, controller, route, and audit-log query suites in the Epic 6 regression set.
+    requirements:
+      - AC1
+      - AC2
+      - AC3
+residual_risks: []

@@ -1,0 +1,181 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "story_id": "6-2-provider-telemetry-aggregation",
+  "generated_at": "2026-05-22T18:45:00+08:00",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "requirement": "Provider telemetry aggregation deterministically computes latency, error rate, timeout rate, estimated token usage, cache usage, estimated cost, and safe workflow, Quick Consult, Party Mode, and provider groupings.",
+      "coverage": "FULL",
+      "test_level": "Unit/ATDD + API route + audit query",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/operations/advisory-provider-telemetry.atdd.spec.ts",
+          "cases": [
+            "[P0][6.2-UNIT-001][AC1,AC3] deterministically aggregates fake provider completed failed and retried telemetry",
+            "[P0][6.2-UNIT-001B][AC1] treats HTTP 408 provider failures as timeout failures",
+            "[P0][6.2-UNIT-002][AC1,AC3] computes cache usage without double counting provider tokens or cost",
+            "[P0][6.2-UNIT-003][AC1] groups metrics by workflow Quick Consult Party Mode and provider from safe metadata"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/operations/advisory-operations-provider-telemetry.controller.atdd.spec.ts",
+          "cases": [
+            "[P1][6.2-API-007][AC1] returns the data envelope and delegates current tenant date workflow and grouping filters"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts",
+          "cases": [
+            "[P1][6.2-API-014][AC1,AC2] serves GET /advisory/admin/operations/provider-telemetry as aggregate-only data"
+          ]
+        },
+        {
+          "file": "backend/src/modules/audit/audit-log-provider-telemetry.atdd.spec.ts",
+          "cases": [
+            "[P1][6.2-INT-007][AC1,AC2] queries only registered provider and prompt cache telemetry rows by row tenant date and event names"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "Covered by controller metadata/direct ATDD and a real Nest HTTP route test for aggregate-only provider telemetry output.",
+        "auth_authz_coverage": "Route-level guard/tenant negative paths are covered after review hardening.",
+        "error_path_coverage": "Timeout, cache mismatch, unavailable source, malformed telemetry, unsafe metadata, wrong version, invalid dates, and max window paths are covered."
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "requirement": "Aggregator accepts only versioned provider/cache telemetry events from the Story 1.4 registry and rejects malformed, unversioned, wrong-version, unknown, or privacy-unsafe events as traceable instrumentation gaps.",
+      "coverage": "FULL",
+      "test_level": "Unit/ATDD + API route + audit query",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/operations/advisory-provider-telemetry.atdd.spec.ts",
+          "cases": [
+            "[P0][6.2-UNIT-004][AC2] rejects unknown unversioned malformed wrong version and privacy unsafe rows as instrumentation gaps",
+            "[P1][6.2-UNIT-005][AC2] surfaces delayed freshness and source unavailable states instead of trusted zero-only metrics",
+            "[P0][6.2-UNIT-006][AC2] enforces service-level tenant scope and maximum query window before reading rows"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/operations/advisory-operations-provider-telemetry.controller.atdd.spec.ts",
+          "cases": [
+            "[P1][6.2-API-006][AC1,AC2] exposes provider telemetry endpoint behind admin guards and role metadata",
+            "[P1][6.2-API-008][AC2] rejects foreign tenant and malformed date windows before querying telemetry",
+            "[P1][6.2-API-009][AC2] passes through unavailable freshness and never returns raw telemetry details"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts",
+          "cases": [
+            "[P1][6.2-API-014][AC1,AC2] serves GET /advisory/admin/operations/provider-telemetry as aggregate-only data",
+            "[P0][6.2-API-015][AC2] rejects foreign tenant provider telemetry filters before reading rows",
+            "[P1][6.2-API-016][AC2] rejects malformed provider telemetry date and grouping filters at the route",
+            "[P1][6.2-API-017][AC2] returns unavailable provider telemetry freshness when the source fails",
+            "[P1][6.2-API-018][AC2] returns 401 before serving anonymous provider telemetry requests",
+            "[P1][6.2-API-019][AC2] returns 403 when role guard denies provider telemetry access"
+          ]
+        },
+        {
+          "file": "backend/src/modules/audit/audit-log-provider-telemetry.atdd.spec.ts",
+          "cases": [
+            "[P1][6.2-INT-007][AC1,AC2] queries only registered provider and prompt cache telemetry rows by row tenant date and event names",
+            "[P1][6.2-INT-008][AC2] defaults to the Story 6.2 provider telemetry whitelist and orders rows deterministically"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "Provider telemetry route has positive, validation, unavailable, tenant denial, anonymous, and role denial coverage.",
+        "auth_authz_coverage": "JwtAuthGuard, TenantGuard, RolesGuard metadata and real HTTP 401/403/foreign-tenant paths are covered.",
+        "error_path_coverage": "Malformed date, invalid date-only, repeated date query, invalid groupBy, oversized date window, unavailable source, unsafe payload, tenant mismatch, and unsafe dimension paths are covered."
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P0",
+      "requirement": "Automated tests use fake provider telemetry to compute deterministic cost, latency, cache, and failure summaries without live GLM calls.",
+      "coverage": "FULL",
+      "test_level": "Unit/ATDD",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/operations/advisory-provider-telemetry.atdd.spec.ts",
+          "cases": [
+            "[P0][6.2-UNIT-001][AC1,AC3] deterministically aggregates fake provider completed failed and retried telemetry",
+            "[P0][6.2-UNIT-002][AC1,AC3] computes cache usage without double counting provider tokens or cost"
+          ]
+        },
+        {
+          "file": "_bmad-output/test-artifacts/atdd-checklist-6-2-provider-telemetry-aggregation.md",
+          "cases": [
+            "ATDD generation explicitly selected backend fake telemetry fixtures and 0 browser/live GLM tests for Story 6.2."
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "Not applicable to the no-live-provider test constraint.",
+        "auth_authz_coverage": "Not applicable to fake provider determinism.",
+        "error_path_coverage": "Failure, retry, timeout, cache miss, cache bypass, and inconsistent cache event fixtures are deterministic in unit/ATDD coverage."
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 3,
+    "fully_covered": 3,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": {
+        "total": 3,
+        "covered": 3,
+        "percentage": 100
+      },
+      "P1": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P2": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P3": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Keep Story 6.2 provider telemetry, route, and audit-log query suites in the Epic 6 regression set.",
+      "requirements": [
+        "AC1",
+        "AC2",
+        "AC3"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2482 @@
+diff --git a/_bmad-output/implementation-artifacts/sprint-status.yaml b/_bmad-output/implementation-artifacts/sprint-status.yaml
+index 738fd49..77072a7 100644
+--- a/_bmad-output/implementation-artifacts/sprint-status.yaml
++++ b/_bmad-output/implementation-artifacts/sprint-status.yaml
+@@ -1,5 +1,5 @@
+ # generated: 2026-05-18T21:27:35+08:00
+-# last_updated: 2026-05-22T17:29:10+08:00
++# last_updated: 2026-05-22T17:36:46+08:00
+ # project: Csaas
+ # project_key: NOKEY
+ # tracking_system: file-system
+@@ -35,7 +35,7 @@
+ # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+ 
+ generated: '2026-05-18T21:27:35+08:00'
+-last_updated: '2026-05-22T17:29:10+08:00'
++last_updated: '2026-05-22T18:11:30+08:00'
+ project: Csaas
+ project_key: NOKEY
+ tracking_system: file-system
+@@ -93,7 +93,7 @@ development_status:
+ 
+   epic-6: in-progress
+   6-1-usage-and-completion-dashboard: done
+-  6-2-provider-telemetry-aggregation: backlog
++  6-2-provider-telemetry-aggregation: review
+   6-3-cost-latency-and-failure-dashboard: backlog
+   6-4-feedback-and-output-quality-analysis: backlog
+   6-5-governance-review-from-audit-and-telemetry: backlog
+diff --git a/backend/src/modules/advisory/advisory.module.ts b/backend/src/modules/advisory/advisory.module.ts
+index a17cf71..9f5b0d5 100644
+--- a/backend/src/modules/advisory/advisory.module.ts
++++ b/backend/src/modules/advisory/advisory.module.ts
+@@ -36,6 +36,7 @@ import { AdvisoryOrganizationContextRepository } from './org-context/advisory-or
+ import { AdvisoryOrganizationContextService } from './org-context/advisory-organization-context.service'
+ import { AdvisoryOperationsController } from './operations/advisory-operations.controller'
+ import { AdvisoryOperationsService } from './operations/advisory-operations.service'
++import { AdvisoryProviderTelemetryService } from './operations/advisory-provider-telemetry.service'
+ import {
+   THINKTANK_PROVIDER_GATEWAY_ADAPTERS,
+   THINKTANK_PROVIDER_GATEWAY_CONFIG,
+@@ -116,6 +117,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
+     AdvisoryOrganizationContextRepository,
+     AdvisoryOrganizationContextService,
+     AdvisoryOperationsService,
++    AdvisoryProviderTelemetryService,
+     AdvisoryConversationMessageRepository,
+     AdvisoryOutputRatingRepository,
+     AdvisoryOutputKnowledgeBaseAssociationRepository,
+@@ -177,6 +179,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
+     AdvisoryOrganizationContextRepository,
+     AdvisoryOrganizationContextService,
+     AdvisoryOperationsService,
++    AdvisoryProviderTelemetryService,
+     AdvisoryConversationMessageRepository,
+     AdvisoryOutputRatingRepository,
+     AdvisoryOutputKnowledgeBaseAssociationRepository,
+diff --git a/backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts b/backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts
+index 35cf4b5..5c98971 100644
+--- a/backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts
++++ b/backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts
+@@ -9,6 +9,7 @@ import { AuditLogService } from '../../audit/audit-log.service'
+ import { THINKTANK_EVENT_VERSION, ThinkTankEventName } from '../events/thinktank-event-contract'
+ import { AdvisoryOperationsController } from './advisory-operations.controller'
+ import { AdvisoryOperationsService } from './advisory-operations.service'
++import { AdvisoryProviderTelemetryService } from './advisory-provider-telemetry.service'
+ 
+ const currentTenantId = '660e8400-e29b-41d4-a716-446655440000'
+ const actor = {
+@@ -20,6 +21,7 @@ const actor = {
+ 
+ const otherTenantId = '111e8400-e29b-41d4-a716-446655440000'
+ const rawConversation = 'PRIVATE_PROMPT_DO_NOT_RETURN_FROM_USAGE_ENDPOINT'
++const rawProviderPayload = 'PRIVATE_PROMPT_DO_NOT_RETURN_FROM_PROVIDER_TELEMETRY'
+ 
+ function auditLog(
+   id: string,
+@@ -50,10 +52,47 @@ function auditLog(
+   }
+ }
+ 
++function providerTelemetryAuditLog(
++  id: string,
++  overrides: Record<string, unknown>,
++  options: { tenantId?: string; createdAt?: Date } = {},
++) {
++  return {
++    id,
++    tenantId: options.tenantId ?? currentTenantId,
++    userId: actor.id,
++    entityType: 'ThinkTankProviderTelemetry',
++    entityId: String(overrides.subject_id ?? id),
++    createdAt: options.createdAt ?? new Date('2026-05-21T10:00:00.000Z'),
++    details: {
++      event_name: ThinkTankEventName.ProviderCallCompleted,
++      event_version: THINKTANK_EVENT_VERSION,
++      tenant_id: currentTenantId,
++      actor_id: actor.id,
++      subject_type: 'provider_call',
++      subject_id: id,
++      outcome: 'success',
++      occurred_at: '2026-05-21T10:00:00.000Z',
++      correlation_id: `corr-${id}`,
++      privacy_classification: 'operational',
++      provider: 'zhipu-glm',
++      workflow_type: 'quick-consult',
++      latency_ms: 120,
++      estimated_tokens: 42,
++      estimated_cost: 0.12,
++      input_tokens: 30,
++      output_tokens: 12,
++      total_tokens: 42,
++      ...overrides,
++    },
++  }
++}
++
+ describe('AdvisoryOperationsController HTTP route', () => {
+   let app: INestApplication
+   const auditLogSource = {
+     findThinkTankUsageEvents: jest.fn(),
++    findThinkTankProviderTelemetryEvents: jest.fn(),
+   }
+ 
+   async function createApp(options?: { authenticated?: boolean; roleAllowed?: boolean }) {
+@@ -64,6 +103,7 @@ describe('AdvisoryOperationsController HTTP route', () => {
+       controllers: [AdvisoryOperationsController],
+       providers: [
+         AdvisoryOperationsService,
++        AdvisoryProviderTelemetryService,
+         {
+           provide: AuditLogService,
+           useValue: auditLogSource,
+@@ -114,6 +154,17 @@ describe('AdvisoryOperationsController HTTP route', () => {
+         message: rawConversation,
+       }),
+     ])
++    auditLogSource.findThinkTankProviderTelemetryEvents.mockResolvedValue([
++      providerTelemetryAuditLog('provider-call-1', {
++        subject_type: 'quick_consult',
++        quick_consult: true,
++      }),
++      providerTelemetryAuditLog('raw-provider-payload', {
++        event_name: ThinkTankEventName.ProviderCallFailed,
++        outcome: 'failure',
++        prompt: rawProviderPayload,
++      }),
++    ])
+     app = await createApp()
+   })
+ 
+@@ -172,6 +223,53 @@ describe('AdvisoryOperationsController HTTP route', () => {
+     )
+   })
+ 
++  it('[P1][6.2-API-014][AC1,AC2] serves GET /advisory/admin/operations/provider-telemetry as aggregate-only data', async () => {
++    const response = await request(app.getHttpServer())
++      .get('/advisory/admin/operations/provider-telemetry')
++      .query({
++        tenantId: 'current',
++        dateFrom: '2026-05-01',
++        dateTo: '2026-05-22',
++        groupBy: 'workflow,experience,provider',
++      })
++      .expect(200)
++
++    expect(response.body).toEqual({ data: expect.any(Object) })
++    expect(response.body.data.appliedFilters).toEqual(
++      expect.objectContaining({
++        tenantId: currentTenantId,
++        dateFrom: '2026-05-01T00:00:00.000Z',
++        dateTo: '2026-05-22T23:59:59.999Z',
++        groupBy: ['workflow', 'experience', 'provider'],
++      }),
++    )
++    expect(response.body.data.summary).toEqual(
++      expect.objectContaining({
++        terminalCalls: 1,
++        successfulCalls: 1,
++        failedCalls: 0,
++        estimatedTokens: 42,
++        estimatedCost: 0.12,
++      }),
++    )
++    expect(response.body.data.byExperience).toEqual(
++      expect.arrayContaining([
++        expect.objectContaining({ experience: 'quick_consult', terminalCalls: 1 }),
++      ]),
++    )
++    expect(auditLogSource.findThinkTankProviderTelemetryEvents).toHaveBeenCalledWith(
++      expect.objectContaining({
++        tenantId: currentTenantId,
++        dateFrom: new Date('2026-05-01T00:00:00.000Z'),
++        dateTo: new Date('2026-05-22T23:59:59.999Z'),
++      }),
++    )
++    expect(response.body.data.instrumentationGaps).toEqual(
++      expect.arrayContaining([expect.objectContaining({ reason: 'privacy_unsafe_payload' })]),
++    )
++    expect(JSON.stringify(response.body)).not.toContain(rawProviderPayload)
++  })
++
+   it('[P0][6.1-API-011][AC1] rejects foreign tenant filters before reading usage events', async () => {
+     await request(app.getHttpServer())
+       .get('/advisory/admin/operations/usage')
+diff --git a/backend/src/modules/advisory/operations/advisory-operations.controller.ts b/backend/src/modules/advisory/operations/advisory-operations.controller.ts
+index de8ab97..d97e663 100644
+--- a/backend/src/modules/advisory/operations/advisory-operations.controller.ts
++++ b/backend/src/modules/advisory/operations/advisory-operations.controller.ts
+@@ -1,4 +1,12 @@
+-import { Controller, ForbiddenException, Get, Query, UseGuards } from '@nestjs/common'
++import {
++  BadRequestException,
++  Controller,
++  ForbiddenException,
++  Get,
++  Optional,
++  Query,
++  UseGuards,
++} from '@nestjs/common'
+ import { UserRole } from '../../../database/entities/user.entity'
+ import { CurrentUser } from '../../auth/decorators/current-user.decorator'
+ import { Roles } from '../../auth/decorators/roles.decorator'
+@@ -7,19 +15,31 @@ import { RolesGuard } from '../../auth/guards/roles.guard'
+ import { CurrentTenant } from '../../organizations/decorators/current-tenant.decorator'
+ import { TenantGuard } from '../../organizations/guards/tenant.guard'
+ import { AdvisoryOperationsService } from './advisory-operations.service'
++import { AdvisoryProviderTelemetryService } from './advisory-provider-telemetry.service'
++import { AdvisoryProviderTelemetryGroupBy } from './advisory-provider-telemetry.types'
+ import { AdvisoryOperationsActor } from './advisory-operations.types'
+ 
++const MAX_PROVIDER_TELEMETRY_WINDOW_DAYS = 90
++
+ interface AdvisoryOperationsUsageQueryDto {
+-  tenantId?: string
+-  dateFrom?: string
+-  dateTo?: string
+-  workflowType?: string
++  tenantId?: unknown
++  dateFrom?: unknown
++  dateTo?: unknown
++  workflowType?: unknown
++}
++
++interface AdvisoryProviderTelemetryQueryDto extends AdvisoryOperationsUsageQueryDto {
++  groupBy?: unknown
+ }
+ 
+ @Controller('advisory/admin/operations')
+ @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
+ export class AdvisoryOperationsController {
+-  constructor(private readonly advisoryOperationsService: AdvisoryOperationsService) {}
++  constructor(
++    private readonly advisoryOperationsService: AdvisoryOperationsService,
++    @Optional()
++    private readonly advisoryProviderTelemetryService?: AdvisoryProviderTelemetryService,
++  ) {}
+ 
+   @Get('usage')
+   @Roles(UserRole.ADMIN)
+@@ -30,21 +50,50 @@ export class AdvisoryOperationsController {
+   ) {
+     const defaults = this.defaultWindow()
+     const requestedTenantId = this.resolveRequestedTenantId(query.tenantId, currentTenantId)
++    const dateFrom = this.readOptionalQueryString(query.dateFrom, 'dateFrom') ?? defaults.dateFrom
++    const dateTo = this.readOptionalQueryString(query.dateTo, 'dateTo') ?? defaults.dateTo
+ 
+     return {
+       data: await this.advisoryOperationsService.getUsageDashboard({
+         actor,
+         currentTenantId,
+         tenantId: requestedTenantId,
+-        dateFrom: query.dateFrom ?? defaults.dateFrom,
+-        dateTo: query.dateTo ?? defaults.dateTo,
+-        workflowType: query.workflowType,
++        dateFrom,
++        dateTo,
++        workflowType: this.readOptionalQueryString(query.workflowType, 'workflowType'),
+       }),
+     }
+   }
+ 
+-  private resolveRequestedTenantId(tenantId: string | undefined, currentTenantId: string): string {
+-    const requestedTenantId = tenantId?.trim()
++  @Get('provider-telemetry')
++  @Roles(UserRole.ADMIN)
++  async getProviderTelemetry(
++    @CurrentUser() actor: AdvisoryOperationsActor,
++    @CurrentTenant() currentTenantId: string,
++    @Query() query: AdvisoryProviderTelemetryQueryDto,
++  ) {
++    const providerTelemetryService = this.requireProviderTelemetryService()
++    const defaults = this.defaultWindow()
++    const requestedTenantId = this.resolveRequestedTenantId(query.tenantId, currentTenantId)
++    const dateFrom = this.readOptionalQueryString(query.dateFrom, 'dateFrom') ?? defaults.dateFrom
++    const dateTo = this.readOptionalQueryString(query.dateTo, 'dateTo') ?? defaults.dateTo
++    this.assertValidDateWindow(dateFrom, dateTo)
++
++    return {
++      data: await providerTelemetryService.getProviderTelemetry({
++        actor,
++        currentTenantId,
++        tenantId: requestedTenantId,
++        dateFrom,
++        dateTo,
++        workflowType: this.readOptionalQueryString(query.workflowType, 'workflowType'),
++        groupBy: this.parseGroupBy(query.groupBy),
++      }),
++    }
++  }
++
++  private resolveRequestedTenantId(tenantId: unknown, currentTenantId: string): string {
++    const requestedTenantId = this.readOptionalQueryString(tenantId, 'tenantId')
+     if (!requestedTenantId || requestedTenantId === 'current') {
+       return currentTenantId
+     }
+@@ -62,4 +111,108 @@ export class AdvisoryOperationsController {
+       dateTo: dateTo.toISOString(),
+     }
+   }
++
++  private requireProviderTelemetryService(): AdvisoryProviderTelemetryService {
++    if (!this.advisoryProviderTelemetryService) {
++      throw new Error('AdvisoryProviderTelemetryService is not configured.')
++    }
++    return this.advisoryProviderTelemetryService
++  }
++
++  private parseGroupBy(
++    value: unknown,
++  ): AdvisoryProviderTelemetryGroupBy[] {
++    const allowed = new Set<AdvisoryProviderTelemetryGroupBy>([
++      'workflow',
++      'experience',
++      'provider',
++    ])
++    if (value === undefined || value === null || value === '') return []
++    if (typeof value !== 'string' && !Array.isArray(value)) {
++      throw new BadRequestException('Invalid groupBy filter.')
++    }
++    const values = Array.isArray(value)
++      ? value.map((item) => this.requireQueryString(item, 'groupBy'))
++      : [value]
++    const parsed = values
++      .flatMap((item) => item.split(','))
++      .map((item) => item.trim())
++      .filter(Boolean)
++    const invalid = parsed.filter(
++      (item) => !allowed.has(item as AdvisoryProviderTelemetryGroupBy),
++    )
++    if (invalid.length) {
++      throw new BadRequestException('Invalid groupBy filter.')
++    }
++    return [
++      ...new Set(
++        parsed.filter((item): item is AdvisoryProviderTelemetryGroupBy =>
++          allowed.has(item as AdvisoryProviderTelemetryGroupBy),
++        ),
++      ),
++    ]
++  }
++
++  private assertValidDateWindow(dateFrom: string, dateTo: string): void {
++    const from = this.parseQueryDate(dateFrom, 'from')
++    const to = this.parseQueryDate(dateTo, 'to')
++    if (from > to) {
++      throw new BadRequestException('dateFrom must be before dateTo.')
++    }
++    if (
++      to.getTime() - from.getTime() >
++      MAX_PROVIDER_TELEMETRY_WINDOW_DAYS * 24 * 60 * 60 * 1000
++    ) {
++      throw new BadRequestException(
++        `date window must not exceed ${MAX_PROVIDER_TELEMETRY_WINDOW_DAYS} days.`,
++      )
++    }
++  }
++
++  private parseQueryDate(value: string, boundary: 'from' | 'to'): Date {
++    const text = this.requireQueryString(value, boundary === 'from' ? 'dateFrom' : 'dateTo')
++    const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(text)
++    const parsed = isDateOnly ? this.parseStrictDateOnly(text, boundary) : new Date(text)
++    if (Number.isNaN(parsed.getTime())) {
++      throw new BadRequestException('Invalid date filter.')
++    }
++    return parsed
++  }
++
++  private readOptionalQueryString(value: unknown, fieldName: string): string | undefined {
++    if (value === undefined || value === null || value === '') return undefined
++    return this.requireQueryString(value, fieldName)
++  }
++
++  private requireQueryString(value: unknown, fieldName: string): string {
++    if (Array.isArray(value) || typeof value !== 'string') {
++      throw new BadRequestException(`Invalid ${fieldName} filter.`)
++    }
++    const trimmed = value.trim()
++    if (!trimmed) {
++      throw new BadRequestException(`Invalid ${fieldName} filter.`)
++    }
++    return trimmed
++  }
++
++  private parseStrictDateOnly(value: string, boundary: 'from' | 'to'): Date {
++    const [yearText, monthText, dayText] = value.split('-')
++    const year = Number(yearText)
++    const month = Number(monthText)
++    const day = Number(dayText)
++    const parsed = new Date(
++      Date.UTC(year, month - 1, day, 0, 0, 0, boundary === 'to' ? 999 : 0),
++    )
++    if (
++      parsed.getUTCFullYear() !== year ||
++      parsed.getUTCMonth() !== month - 1 ||
++      parsed.getUTCDate() !== day
++    ) {
++      throw new BadRequestException('Invalid date filter.')
++    }
++    if (boundary === 'to') {
++      parsed.setUTCHours(23, 59, 59, 999)
++    }
++    return parsed
++  }
+ }
+diff --git a/backend/src/modules/audit/audit-log.service.ts b/backend/src/modules/audit/audit-log.service.ts
+index bf79a29..a3a9cf6 100644
+--- a/backend/src/modules/audit/audit-log.service.ts
++++ b/backend/src/modules/audit/audit-log.service.ts
+@@ -15,6 +15,21 @@ export interface FindThinkTankUsageEventsQuery {
+   eventNames: readonly string[]
+ }
+ 
++export interface FindThinkTankProviderTelemetryEventsQuery {
++  tenantId: string
++  dateFrom: Date
++  dateTo: Date
++  eventNames?: readonly string[]
++}
++
++const THINKTANK_PROVIDER_TELEMETRY_EVENT_NAMES = [
++  'thinktank.provider.call_completed',
++  'thinktank.provider.call_failed',
++  'thinktank.provider.call_retried',
++  'thinktank.prompt_cache.hit',
++  'thinktank.prompt_cache.miss',
++] as const
++
+ export type TaxonomyRolloutReportHistoryType =
+   | 'retirement'
+   | 'rollback'
+@@ -182,6 +197,30 @@ export class AuditLogService {
+       .getMany()
+   }
+ 
++  async findThinkTankProviderTelemetryEvents(
++    query: FindThinkTankProviderTelemetryEventsQuery,
++  ): Promise<AuditLog[]> {
++    const eventNames = query.eventNames?.length
++      ? [...query.eventNames]
++      : [...THINKTANK_PROVIDER_TELEMETRY_EVENT_NAMES]
++    const dateFromIso = query.dateFrom.toISOString()
++    const dateToIso = query.dateTo.toISOString()
++
++    return this.auditLogRepository
++      .createQueryBuilder('audit')
++      .where('audit.tenantId = :tenantId', { tenantId: query.tenantId })
++      .andWhere(
++        "((audit.details ->> 'event_name' IN (:...eventNames) OR audit.details ->> 'eventName' IN (:...eventNames)) OR (audit.details ->> 'event_name') LIKE 'thinktank.provider.%' OR (audit.details ->> 'eventName') LIKE 'thinktank.provider.%' OR (audit.details ->> 'event_name') LIKE 'thinktank.prompt_cache.%' OR (audit.details ->> 'eventName') LIKE 'thinktank.prompt_cache.%' OR audit.entityType LIKE 'ThinkTankProvider%')",
++        { eventNames },
++      )
++      .andWhere(
++        "((audit.details ->> 'occurred_at' >= :dateFromIso AND audit.details ->> 'occurred_at' <= :dateToIso) OR (audit.details ->> 'occurredAt' >= :dateFromIso AND audit.details ->> 'occurredAt' <= :dateToIso) OR audit.createdAt BETWEEN :dateFrom AND :dateTo)",
++        { dateFrom: query.dateFrom, dateTo: query.dateTo, dateFromIso, dateToIso },
++      )
++      .orderBy('audit.createdAt', 'ASC')
++      .getMany()
++  }
++
+   async findTaxonomyRolloutReports(
+     query: FindTaxonomyRolloutReportsQuery,
+   ): Promise<TaxonomyRolloutReportHistoryResult> {
+diff --git a/backend/src/modules/advisory/operations/advisory-operations-provider-telemetry.controller.atdd.spec.ts b/backend/src/modules/advisory/operations/advisory-operations-provider-telemetry.controller.atdd.spec.ts
+new file mode 100644
+index 0000000..eb334f5
+--- /dev/null
++++ b/backend/src/modules/advisory/operations/advisory-operations-provider-telemetry.controller.atdd.spec.ts
+@@ -0,0 +1,200 @@
++import 'reflect-metadata'
++import { METHOD_METADATA, PATH_METADATA, GUARDS_METADATA } from '@nestjs/common/constants'
++import { RequestMethod } from '@nestjs/common'
++import { UserRole } from '../../../database/entities/user.entity'
++import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard'
++import { RolesGuard } from '../../auth/guards/roles.guard'
++import { TenantGuard } from '../../organizations/guards/tenant.guard'
++import { AdvisoryOperationsController } from './advisory-operations.controller'
++
++const currentTenantId = '660e8400-e29b-41d4-a716-446655440000'
++const otherTenantId = '111e8400-e29b-41d4-a716-446655440000'
++const actor = {
++  id: '770e8400-e29b-41d4-a716-446655440000',
++  role: UserRole.ADMIN,
++  tenantId: currentTenantId,
++  organizationId: null,
++}
++
++function createController(service: Record<string, unknown>) {
++  return Reflect.construct(AdvisoryOperationsController, [service, service]) as any
++}
++
++/*
++ * Provider Scrutiny Evidence:
++ * - Handler: backend/src/modules/advisory/operations/advisory-operations.controller.ts
++ * - Endpoint: NEW - GET /advisory/admin/operations/provider-telemetry
++ * - Status: 200 with { data } for authorized admin requests; 403 for foreign tenant; 400 for invalid date windows
++ * - Response shape: aggregate-only generatedAt, appliedFilters, summary, byWorkflow, byExperience, byProvider, cache, instrumentationGaps, freshness
++ * - Required guards: JwtAuthGuard, TenantGuard, RolesGuard, UserRole.ADMIN
++ * - Privacy: response must not expose actor-level rows, raw event details, prompt, message, content, report, feedback, or raw cache payloads
++ */
++describe('Story 6.2 provider telemetry operations endpoint ATDD', () => {
++  test('[P1][6.2-API-006][AC1,AC2] exposes provider telemetry endpoint behind admin guards and role metadata', () => {
++    const handler = (AdvisoryOperationsController.prototype as unknown as Record<string, unknown>)
++      .getProviderTelemetry
++
++    expect(Reflect.getMetadata(PATH_METADATA, AdvisoryOperationsController)).toBe(
++      'advisory/admin/operations',
++    )
++    expect(Reflect.getMetadata(GUARDS_METADATA, AdvisoryOperationsController)).toEqual(
++      expect.arrayContaining([JwtAuthGuard, TenantGuard, RolesGuard]),
++    )
++    expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe('provider-telemetry')
++    expect(Reflect.getMetadata(METHOD_METADATA, handler)).toBe(RequestMethod.GET)
++    expect(Reflect.getMetadata('roles', handler)).toEqual([UserRole.ADMIN])
++  })
++
++  test('[P1][6.2-API-007][AC1] returns the data envelope and delegates current tenant date workflow and grouping filters', async () => {
++    const payload = {
++      generatedAt: '2026-05-22T17:40:00.000Z',
++      appliedFilters: {
++        tenantId: currentTenantId,
++        dateFrom: '2026-05-01T00:00:00.000Z',
++        dateTo: '2026-05-22T23:59:59.999Z',
++        workflowType: 'party-mode',
++      },
++      summary: {
++        terminalCalls: 3,
++        successfulCalls: 2,
++        failedCalls: 1,
++        retryEvents: 1,
++        errorRate: 0.3333,
++        timeoutRate: 0.3333,
++        estimatedTokens: 350,
++        estimatedCost: 0.55,
++        measurementStatus: 'fresh',
++      },
++      byWorkflow: [],
++      byExperience: [],
++      byProvider: [],
++      cache: { hits: 1, misses: 1, bypasses: 0, totalLookups: 2, hitRate: 0.5 },
++      instrumentationGaps: [],
++      freshness: { source: 'audit_logs', status: 'fresh', latestEventAt: '2026-05-21T10:00:00.000Z' },
++    }
++    const service = { getProviderTelemetry: jest.fn().mockResolvedValue(payload) }
++    const controller = createController(service)
++
++    await expect(
++      controller.getProviderTelemetry(actor, currentTenantId, {
++        tenantId: 'current',
++        dateFrom: '2026-05-01T00:00:00.000Z',
++        dateTo: '2026-05-22T23:59:59.999Z',
++        workflowType: 'party-mode',
++        groupBy: 'workflow,experience,provider',
++      }),
++    ).resolves.toEqual({ data: payload })
++
++    expect(service.getProviderTelemetry).toHaveBeenCalledWith(
++      expect.objectContaining({
++        actor,
++        currentTenantId,
++        tenantId: currentTenantId,
++        dateFrom: '2026-05-01T00:00:00.000Z',
++        dateTo: '2026-05-22T23:59:59.999Z',
++        workflowType: 'party-mode',
++        groupBy: ['workflow', 'experience', 'provider'],
++      }),
++    )
++  })
++
++  test('[P1][6.2-API-008][AC2] rejects foreign tenant and malformed date windows before querying telemetry', async () => {
++    const service = { getProviderTelemetry: jest.fn() }
++    const controller = createController(service)
++
++    await expect(
++      controller.getProviderTelemetry(actor, currentTenantId, { tenantId: otherTenantId }),
++    ).rejects.toThrow()
++    await expect(
++      controller.getProviderTelemetry(actor, currentTenantId, {
++        tenantId: 'current',
++        dateFrom: '2026-05-22T23:59:59.999Z',
++        dateTo: '2026-05-01T00:00:00.000Z',
++      }),
++    ).rejects.toThrow(/date/i)
++    await expect(
++      controller.getProviderTelemetry(actor, currentTenantId, {
++        tenantId: 'current',
++        dateFrom: 'not-a-date',
++        dateTo: '2026-05-22T23:59:59.999Z',
++      }),
++    ).rejects.toThrow(/date/i)
++    await expect(
++      controller.getProviderTelemetry(actor, currentTenantId, {
++        tenantId: 'current',
++        dateFrom: ['2026-05-01'] as any,
++        dateTo: '2026-05-22T23:59:59.999Z',
++      }),
++    ).rejects.toThrow(/date/i)
++    await expect(
++      controller.getProviderTelemetry(actor, currentTenantId, {
++        tenantId: ['current'] as any,
++      }),
++    ).rejects.toThrow(/tenantId/i)
++    await expect(
++      controller.getProviderTelemetry(actor, currentTenantId, {
++        tenantId: 'current',
++        dateFrom: '2026-02-31',
++        dateTo: '2026-05-22',
++      }),
++    ).rejects.toThrow(/date/i)
++    await expect(
++      controller.getProviderTelemetry(actor, currentTenantId, {
++        tenantId: 'current',
++        dateFrom: '2026-01-01',
++        dateTo: '2026-05-22',
++      }),
++    ).rejects.toThrow(/90 days/i)
++    await expect(
++      controller.getProviderTelemetry(actor, currentTenantId, {
++        tenantId: 'current',
++        groupBy: 'workflow,bogus',
++      }),
++    ).rejects.toThrow(/groupBy/i)
++
++    expect(service.getProviderTelemetry).not.toHaveBeenCalled()
++  })
++
++  test('[P1][6.2-API-009][AC2] passes through unavailable freshness and never returns raw telemetry details', async () => {
++    const payload = {
++      generatedAt: '2026-05-22T17:40:00.000Z',
++      appliedFilters: {
++        tenantId: currentTenantId,
++        dateFrom: '2026-05-01T00:00:00.000Z',
++        dateTo: '2026-05-22T23:59:59.999Z',
++      },
++      summary: {
++        terminalCalls: 0,
++        successfulCalls: 0,
++        failedCalls: 0,
++        errorRate: null,
++        timeoutRate: null,
++        estimatedTokens: 0,
++        estimatedCost: 0,
++        measurementStatus: 'unavailable',
++      },
++      byWorkflow: [],
++      byExperience: [],
++      byProvider: [],
++      cache: { hits: 0, misses: 0, bypasses: 0, totalLookups: 0, hitRate: null },
++      instrumentationGaps: [{ reason: 'telemetry_source_unavailable', source: 'audit_logs' }],
++      freshness: { source: 'audit_logs', status: 'unavailable', latestEventAt: null },
++    }
++    const service = { getProviderTelemetry: jest.fn().mockResolvedValue(payload) }
++    const controller = createController(service)
++
++    const response = await controller.getProviderTelemetry(actor, currentTenantId, {
++      tenantId: 'current',
++    })
++
++    expect(response).toEqual({ data: payload })
++    expect(JSON.stringify(response)).not.toMatch(
++      /PRIVATE_|prompt|message|content|conversation|report|feedback/i,
++    )
++    expect(response.data.instrumentationGaps).toEqual(
++      expect.arrayContaining([
++        expect.objectContaining({ reason: 'telemetry_source_unavailable', source: 'audit_logs' }),
++      ]),
++    )
++  })
++})
+diff --git a/backend/src/modules/advisory/operations/advisory-provider-telemetry.atdd.spec.ts b/backend/src/modules/advisory/operations/advisory-provider-telemetry.atdd.spec.ts
+new file mode 100644
+index 0000000..633a23b
+--- /dev/null
++++ b/backend/src/modules/advisory/operations/advisory-provider-telemetry.atdd.spec.ts
+@@ -0,0 +1,524 @@
++export {}
++
++import {
++  THINKTANK_EVENT_VERSION,
++  ThinkTankEventName,
++  ThinkTankPrivacyClassification,
++  ThinkTankSubjectType,
++} from '../events/thinktank-event-contract'
++
++const serviceModulePath = './advisory-provider-telemetry.service'
++
++const tenantId = '660e8400-e29b-41d4-a716-446655440000'
++const otherTenantId = '111e8400-e29b-41d4-a716-446655440000'
++const actorId = '770e8400-e29b-41d4-a716-446655440000'
++const dateFrom = '2026-05-01T00:00:00.000Z'
++const dateTo = '2026-05-22T23:59:59.999Z'
++const providerEventNames = [
++  ThinkTankEventName.ProviderCallCompleted,
++  ThinkTankEventName.ProviderCallFailed,
++  ThinkTankEventName.ProviderCallRetried,
++  ThinkTankEventName.PromptCacheHit,
++  ThinkTankEventName.PromptCacheMiss,
++]
++
++type AuditRow = {
++  id: string
++  tenantId: string | null
++  userId: string
++  entityType: string
++  entityId: string | null
++  details: Record<string, unknown> | null
++  createdAt: Date
++}
++
++function telemetry(overrides: Record<string, unknown> = {}) {
++  return {
++    event_name: ThinkTankEventName.ProviderCallCompleted,
++    event_version: THINKTANK_EVENT_VERSION,
++    tenant_id: tenantId,
++    actor_id: actorId,
++    subject_type: ThinkTankSubjectType.ProviderCall,
++    subject_id: 'provider-call-1',
++    outcome: 'success',
++    occurred_at: '2026-05-21T10:00:00.000Z',
++    correlation_id: 'correlation-1',
++    privacy_classification: ThinkTankPrivacyClassification.Operational,
++    provider: 'zhipu-glm',
++    workflow_type: 'problem-solving',
++    latency_ms: 100,
++    estimated_tokens: 10,
++    estimated_cost: 0.01,
++    ...overrides,
++  }
++}
++
++function auditLog(
++  id: string,
++  details: Record<string, unknown> | null,
++  overrides: Partial<AuditRow> = {},
++): AuditRow {
++  return {
++    id,
++    tenantId,
++    userId: actorId,
++    entityType: 'ThinkTankProviderTelemetry',
++    entityId: typeof details?.subject_id === 'string' ? details.subject_id : null,
++    details,
++    createdAt: new Date('2026-05-21T10:00:00.000Z'),
++    ...overrides,
++  }
++}
++
++async function createService(rows: AuditRow[]) {
++  const { AdvisoryProviderTelemetryService } = await import(serviceModulePath)
++  const auditLogSource = {
++    findThinkTankProviderTelemetryEvents: jest.fn().mockResolvedValue(rows),
++  }
++
++  return {
++    service: new AdvisoryProviderTelemetryService(auditLogSource),
++    auditLogSource,
++  }
++}
++
++describe('Story 6.2 Provider Telemetry Aggregation backend ATDD', () => {
++  test('[P0][6.2-UNIT-001][AC1,AC3] deterministically aggregates fake provider completed failed and retried telemetry', async () => {
++    const rows = [
++      auditLog(
++        'completed-1',
++        telemetry({
++          subject_id: 'call-1',
++          correlation_id: 'corr-1',
++          latency_ms: 1200,
++          estimated_tokens: 140,
++          input_tokens: 100,
++          output_tokens: 40,
++          total_tokens: 140,
++          estimated_cost: 0.21,
++        }),
++      ),
++      auditLog(
++        'completed-2',
++        telemetry({
++          subject_id: 'call-2',
++          correlation_id: 'corr-2',
++          latency_ms: 600,
++          estimated_tokens: 80,
++          input_tokens: 60,
++          output_tokens: 20,
++          total_tokens: 80,
++          estimated_cost: 0.14,
++        }),
++      ),
++      auditLog(
++        'failed-timeout',
++        telemetry({
++          event_name: ThinkTankEventName.ProviderCallFailed,
++          outcome: 'failure',
++          subject_id: 'call-3',
++          correlation_id: 'corr-3',
++          latency_ms: 900,
++          estimated_tokens: 130,
++          input_tokens: 90,
++          output_tokens: 40,
++          total_tokens: 130,
++          estimated_cost: 0.2,
++          error_category: 'timeout',
++          status: 'timeout',
++        }),
++      ),
++      auditLog(
++        'retried-1',
++        telemetry({
++          event_name: ThinkTankEventName.ProviderCallRetried,
++          outcome: 'partial',
++          subject_id: 'call-3',
++          correlation_id: 'corr-3',
++          latency_ms: 200,
++          retry_attempt: 1,
++          max_attempts: 2,
++          retryable: true,
++          error_category: 'provider',
++        }),
++      ),
++      auditLog('foreign-tenant', telemetry({ subject_id: 'call-foreign' }), {
++        tenantId: otherTenantId,
++      }),
++    ]
++    const { service, auditLogSource } = await createService(rows)
++
++    const result = await service.getProviderTelemetry({
++      tenantId,
++      dateFrom,
++      dateTo,
++      now: new Date('2026-05-22T17:40:00.000Z'),
++    })
++
++    expect(auditLogSource.findThinkTankProviderTelemetryEvents).toHaveBeenCalledWith(
++      expect.objectContaining({
++        tenantId,
++        dateFrom: new Date(dateFrom),
++        dateTo: new Date(dateTo),
++        eventNames: expect.arrayContaining(providerEventNames),
++      }),
++    )
++    expect(result.summary).toEqual(
++      expect.objectContaining({
++        terminalCalls: 3,
++        successfulCalls: 2,
++        failedCalls: 1,
++        retryEvents: 1,
++        errorRate: 0.3333,
++        timeoutRate: 0.3333,
++        estimatedTokens: 350,
++        estimatedCost: 0.55,
++      }),
++    )
++    expect(result.summary.latency).toEqual(
++      expect.objectContaining({ averageMs: 900, p95Ms: 1200 }),
++    )
++    expect(result.summary.tokens).toEqual({ input: 250, output: 100, total: 350, estimated: 350 })
++    expect(result.byProvider).toEqual([
++      expect.objectContaining({ provider: 'zhipu-glm', terminalCalls: 3, retryEvents: 1 }),
++    ])
++  })
++
++  test('[P0][6.2-UNIT-001B][AC1] treats HTTP 408 provider failures as timeout failures', async () => {
++    const rows = [
++      auditLog(
++        'failed-408',
++        telemetry({
++          event_name: ThinkTankEventName.ProviderCallFailed,
++          outcome: 'failure',
++          subject_id: 'call-408',
++          correlation_id: 'corr-408',
++          error_category: 'provider',
++          status: 'failed',
++          error_code: 'THINKTANK_PROVIDER_408',
++        }),
++      ),
++    ]
++    const { service } = await createService(rows)
++
++    const result = await service.getProviderTelemetry({
++      tenantId,
++      dateFrom,
++      dateTo,
++      now: new Date('2026-05-22T17:40:00.000Z'),
++    })
++
++    expect(result.summary).toEqual(
++      expect.objectContaining({
++        terminalCalls: 1,
++        failedCalls: 1,
++        errorRate: 1,
++        timeoutRate: 1,
++      }),
++    )
++  })
++
++  test('[P0][6.2-UNIT-002][AC1,AC3] computes cache usage without double counting provider tokens or cost', async () => {
++    const rows = [
++      auditLog(
++        'provider-with-cache-status',
++        telemetry({
++          subject_id: 'call-cache-1',
++          correlation_id: 'corr-cache-1',
++          cache_status: 'hit',
++          estimated_tokens: 180,
++          input_tokens: 120,
++          output_tokens: 60,
++          total_tokens: 180,
++          estimated_cost: 0.24,
++        }),
++      ),
++      auditLog(
++        'cache-hit',
++        telemetry({
++          event_name: ThinkTankEventName.PromptCacheHit,
++          subject_id: 'cache-1',
++          correlation_id: 'corr-cache-1',
++          cache_status: 'hit',
++          estimated_tokens: 999,
++          estimated_cost: 9.99,
++          cached_input_tokens: 120,
++        }),
++      ),
++      auditLog(
++        'cache-miss',
++        telemetry({
++          event_name: ThinkTankEventName.PromptCacheMiss,
++          subject_id: 'cache-2',
++          correlation_id: 'corr-cache-2',
++          cache_status: 'miss',
++          estimated_tokens: 999,
++          estimated_cost: 9.99,
++          cache_eligible_input_tokens: 80,
++        }),
++      ),
++      auditLog(
++        'cache-bypass',
++        telemetry({
++          event_name: ThinkTankEventName.PromptCacheMiss,
++          subject_id: 'cache-3',
++          correlation_id: 'corr-cache-3',
++          cache_status: 'bypass',
++          estimated_tokens: 999,
++          estimated_cost: 9.99,
++          cache_bypass_reason: 'provider_metadata_absent',
++        }),
++      ),
++      auditLog(
++        'cache-hit-mismatch',
++        telemetry({
++          event_name: ThinkTankEventName.PromptCacheHit,
++          subject_id: 'cache-4',
++          correlation_id: 'corr-cache-4',
++          cache_status: 'miss',
++        }),
++      ),
++    ]
++    const { service } = await createService(rows)
++
++    const result = await service.getProviderTelemetry({
++      tenantId,
++      dateFrom,
++      dateTo,
++      now: new Date('2026-05-22T17:40:00.000Z'),
++    })
++
++    expect(result.summary.estimatedTokens).toBe(180)
++    expect(result.summary.estimatedCost).toBe(0.24)
++    expect(result.cache).toEqual(
++      expect.objectContaining({
++        hits: 1,
++        misses: 1,
++        bypasses: 1,
++        totalLookups: 3,
++        hitRate: 0.3333,
++        cachedInputTokens: 120,
++      }),
++    )
++    expect(result.instrumentationGaps).toEqual(
++      expect.arrayContaining([
++        expect.objectContaining({
++          auditLogId: 'cache-hit-mismatch',
++          reason: 'cache_status_event_mismatch',
++        }),
++      ]),
++    )
++  })
++
++  test('[P0][6.2-UNIT-003][AC1] groups metrics by workflow Quick Consult Party Mode and provider from safe metadata', async () => {
++    const rows = [
++      auditLog(
++        'workflow-provider',
++        telemetry({
++          subject_id: 'call-workflow',
++          correlation_id: 'corr-workflow',
++          workflow_type: 'domain-research',
++          provider: 'zhipu-glm',
++        }),
++      ),
++      auditLog(
++        'quick-provider',
++        telemetry({
++          subject_id: 'quick-1',
++          subject_type: ThinkTankSubjectType.QuickConsult,
++          correlation_id: 'corr-quick',
++          workflow_type: 'quick-consult',
++          provider: 'zhipu-glm',
++          quick_consult: true,
++        }),
++      ),
++      auditLog(
++        'party-provider',
++        telemetry({
++          subject_id: 'party-1',
++          subject_type: ThinkTankSubjectType.Session,
++          correlation_id: 'corr-party',
++          workflow_type: 'party-mode',
++          provider: 'anthropic-claude',
++          party_mode_message: true,
++        }),
++      ),
++    ]
++    const { service } = await createService(rows)
++
++    const result = await service.getProviderTelemetry({
++      tenantId,
++      dateFrom,
++      dateTo,
++      groupBy: ['workflow', 'experience', 'provider'],
++      now: new Date('2026-05-22T17:40:00.000Z'),
++    })
++
++    expect(result.byWorkflow).toEqual(
++      expect.arrayContaining([
++        expect.objectContaining({ workflowKey: 'domain-research', terminalCalls: 1 }),
++        expect.objectContaining({ workflowKey: 'quick-consult', terminalCalls: 1 }),
++        expect.objectContaining({ workflowKey: 'party-mode', terminalCalls: 1 }),
++      ]),
++    )
++    expect(result.byExperience).toEqual(
++      expect.arrayContaining([
++        expect.objectContaining({ experience: 'workflow', terminalCalls: 1 }),
++        expect.objectContaining({ experience: 'quick_consult', terminalCalls: 1 }),
++        expect.objectContaining({ experience: 'party_mode', terminalCalls: 1 }),
++      ]),
++    )
++    expect(result.byProvider).toEqual(
++      expect.arrayContaining([
++        expect.objectContaining({ provider: 'zhipu-glm', terminalCalls: 2 }),
++        expect.objectContaining({ provider: 'anthropic-claude', terminalCalls: 1 }),
++      ]),
++    )
++    expect(result.instrumentationGaps).toEqual([])
++
++    const providerOnly = await service.getProviderTelemetry({
++      tenantId,
++      dateFrom,
++      dateTo,
++      groupBy: ['provider'],
++      now: new Date('2026-05-22T17:40:00.000Z'),
++    })
++
++    expect(providerOnly.byProvider).toEqual(
++      expect.arrayContaining([expect.objectContaining({ provider: 'zhipu-glm' })]),
++    )
++    expect(providerOnly.byWorkflow).toEqual([])
++    expect(providerOnly.byExperience).toEqual([])
++  })
++
++  test('[P0][6.2-UNIT-004][AC2] rejects unknown unversioned malformed wrong version and privacy unsafe rows as instrumentation gaps', async () => {
++    const rawSecret = 'PRIVATE_PROMPT_DO_NOT_RENDER'
++    const rows = [
++      auditLog('valid-provider', telemetry({ subject_id: 'valid-call', correlation_id: 'corr-valid' })),
++      auditLog('unknown-event', telemetry({ event_name: 'thinktank.provider.unknown' })),
++      auditLog('missing-version', telemetry({ event_version: undefined })),
++      auditLog('wrong-version', telemetry({ event_version: 999 })),
++      auditLog('wrong-version-sensitive', telemetry({ event_version: { prompt: rawSecret } })),
++      auditLog('bad-date', telemetry({ occurred_at: 'not-a-date' })),
++      auditLog('future-date', telemetry({ occurred_at: '2027-01-01T00:00:00.000Z' })),
++      auditLog('non-operational', telemetry({ privacy_classification: ThinkTankPrivacyClassification.Restricted })),
++      auditLog('missing-required', telemetry({ correlation_id: undefined })),
++      auditLog('raw-sensitive', telemetry({ prompt: rawSecret })),
++      auditLog('tenant-mismatch', telemetry({ tenant_id: otherTenantId })),
++      auditLog('unsafe-provider-value', telemetry({ provider: rawSecret })),
++      auditLog('unsafe-workflow-value', telemetry({ workflow_type: rawSecret })),
++      auditLog('empty-details', null),
++    ]
++    const { service } = await createService(rows)
++
++    const result = await service.getProviderTelemetry({
++      tenantId,
++      dateFrom,
++      dateTo,
++      now: new Date('2026-05-22T17:40:00.000Z'),
++    })
++
++    expect(result.summary.terminalCalls).toBe(1)
++    expect(result.instrumentationGaps).toEqual(
++      expect.arrayContaining([
++        expect.objectContaining({ auditLogId: 'unknown-event', reason: 'unknown_event_name' }),
++        expect.objectContaining({ auditLogId: 'missing-version', reason: 'missing_event_version' }),
++        expect.objectContaining({
++          auditLogId: 'wrong-version',
++          reason: 'event_version_mismatch',
++          expectedVersion: THINKTANK_EVENT_VERSION,
++          actualVersion: 999,
++        }),
++        expect.objectContaining({ auditLogId: 'wrong-version-sensitive', reason: 'privacy_unsafe_payload' }),
++        expect.objectContaining({ auditLogId: 'bad-date', reason: 'invalid_occurred_at' }),
++        expect.objectContaining({ auditLogId: 'future-date', reason: 'future_occurred_at' }),
++        expect.objectContaining({ auditLogId: 'non-operational', reason: 'privacy_classification_not_operational' }),
++        expect.objectContaining({ auditLogId: 'missing-required', reason: 'missing_required_field' }),
++        expect.objectContaining({ auditLogId: 'raw-sensitive', reason: 'privacy_unsafe_payload' }),
++        expect.objectContaining({ auditLogId: 'tenant-mismatch', reason: 'tenant_mismatch' }),
++        expect.objectContaining({ auditLogId: 'unsafe-provider-value', reason: 'invalid_provider_metadata' }),
++        expect.objectContaining({ auditLogId: 'unsafe-workflow-value', reason: 'invalid_grouping_metadata' }),
++        expect.objectContaining({ auditLogId: 'empty-details', reason: 'missing_event_details' }),
++      ]),
++    )
++    expect(JSON.stringify(result)).not.toContain(rawSecret)
++  })
++
++  test('[P1][6.2-UNIT-005][AC2] surfaces delayed freshness and source unavailable states instead of trusted zero-only metrics', async () => {
++    const stale = await createService([
++      auditLog('stale-provider', telemetry({ occurred_at: '2026-05-01T08:00:00.000Z' }), {
++        createdAt: new Date('2026-05-01T08:00:00.000Z'),
++      }),
++    ])
++
++    await expect(
++      stale.service.getProviderTelemetry({
++        tenantId,
++        dateFrom,
++        dateTo,
++        now: new Date('2026-05-22T17:40:00.000Z'),
++      }),
++    ).resolves.toEqual(
++      expect.objectContaining({
++        summary: expect.objectContaining({ measurementStatus: 'delayed' }),
++        freshness: expect.objectContaining({
++          source: 'audit_logs',
++          status: 'delayed',
++          latestEventAt: '2026-05-01T08:00:00.000Z',
++        }),
++        instrumentationGaps: expect.arrayContaining([
++          expect.objectContaining({ reason: 'telemetry_delayed' }),
++        ]),
++      }),
++    )
++
++    const { AdvisoryProviderTelemetryService } = await import(serviceModulePath)
++    const unavailableSource = {
++      findThinkTankProviderTelemetryEvents: jest
++        .fn()
++        .mockRejectedValue(new Error('audit_logs unavailable')),
++    }
++    const unavailable = new AdvisoryProviderTelemetryService(unavailableSource)
++    const result = await unavailable.getProviderTelemetry({
++      tenantId,
++      dateFrom,
++      dateTo,
++      now: new Date('2026-05-22T17:40:00.000Z'),
++    })
++
++    expect(result.summary.measurementStatus).toBe('unavailable')
++    expect(result.summary.errorRate).toBeNull()
++    expect(result.summary.timeoutRate).toBeNull()
++    expect(result.freshness).toEqual(
++      expect.objectContaining({ source: 'audit_logs', status: 'unavailable' }),
++    )
++    expect(result.instrumentationGaps).toEqual(
++      expect.arrayContaining([
++        expect.objectContaining({ reason: 'telemetry_source_unavailable', source: 'audit_logs' }),
++      ]),
++    )
++  })
++
++  test('[P0][6.2-UNIT-006][AC2] enforces service-level tenant scope and maximum query window before reading rows', async () => {
++    const { service, auditLogSource } = await createService([])
++
++    await expect(
++      service.getProviderTelemetry({
++        actor: { id: actorId, tenantId },
++        tenantId: otherTenantId,
++        dateFrom,
++        dateTo,
++      }),
++    ).rejects.toThrow('无权查看其他租户')
++
++    await expect(
++      service.getProviderTelemetry({
++        tenantId,
++        dateFrom: '2026-01-01',
++        dateTo: '2026-05-22',
++      }),
++    ).rejects.toThrow(/90 days/i)
++
++    expect(auditLogSource.findThinkTankProviderTelemetryEvents).not.toHaveBeenCalled()
++  })
++})
+diff --git a/backend/src/modules/advisory/operations/advisory-provider-telemetry.service.ts b/backend/src/modules/advisory/operations/advisory-provider-telemetry.service.ts
+new file mode 100644
+index 0000000..7af2ff8
+--- /dev/null
++++ b/backend/src/modules/advisory/operations/advisory-provider-telemetry.service.ts
+@@ -0,0 +1,979 @@
++import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common'
++import { AuditLogService } from '../../audit/audit-log.service'
++import { getThinkTankEventKind } from '../events/thinktank-event-registry'
++import {
++  THINKTANK_EVENT_VERSION,
++  ThinkTankEventName,
++  ThinkTankPrivacyClassification,
++  assertNoRawSensitiveThinkTankKeys,
++} from '../events/thinktank-event-contract'
++import {
++  AdvisoryProviderTelemetryAppliedFilters,
++  AdvisoryProviderTelemetryAuditLogRow,
++  AdvisoryProviderTelemetryAuditLogSource,
++  AdvisoryProviderTelemetryCacheSummary,
++  AdvisoryProviderTelemetryDashboard,
++  AdvisoryProviderTelemetryExperience,
++  AdvisoryProviderTelemetryExperienceGroup,
++  AdvisoryProviderTelemetryFreshness,
++  AdvisoryProviderTelemetryGroupBy,
++  AdvisoryProviderTelemetryGroupMetrics,
++  AdvisoryProviderTelemetryInstrumentationGap,
++  AdvisoryProviderTelemetryMeasurementStatus,
++  AdvisoryProviderTelemetryProviderGroup,
++  AdvisoryProviderTelemetryQuery,
++  AdvisoryProviderTelemetrySummary,
++  AdvisoryProviderTelemetryTokenSummary,
++  AdvisoryProviderTelemetryWorkflowGroup,
++  THINKTANK_PROVIDER_TELEMETRY_EVENT_NAMES,
++} from './advisory-provider-telemetry.types'
++
++const DEFAULT_WINDOW_DAYS = 30
++const MAX_WINDOW_DAYS = 90
++const FRESHNESS_DELAY_HOURS = 48
++const PROVIDER_TELEMETRY_EVENT_NAME_SET = new Set<string>(
++  THINKTANK_PROVIDER_TELEMETRY_EVENT_NAMES,
++)
++const REQUIRED_EVENT_FIELDS = [
++  'tenant_id',
++  'actor_id',
++  'subject_type',
++  'subject_id',
++  'outcome',
++  'occurred_at',
++  'correlation_id',
++  'privacy_classification',
++] as const
++
++interface NormalizedProviderTelemetryFilters {
++  tenantId: string
++  dateFrom: Date
++  dateTo: Date
++  workflowType: string | null
++  groupBy: AdvisoryProviderTelemetryGroupBy[]
++  appliedFilters: AdvisoryProviderTelemetryAppliedFilters
++}
++
++interface NormalizedProviderTelemetryEvent {
++  eventName: ThinkTankEventName
++  eventAt: Date
++  provider: string
++  workflowKey: string | null
++  experience: AdvisoryProviderTelemetryExperience
++  latencyMs: number | null
++  estimatedTokens: number
++  estimatedCost: number
++  inputTokens: number
++  outputTokens: number
++  totalTokens: number
++  errorCategory: string | null
++  status: string | null
++  cacheStatus: 'hit' | 'miss' | 'bypass' | null
++  cachedInputTokens: number
++  cacheReadInputTokens: number
++  cacheCreationInputTokens: number
++  cacheEligibleInputTokens: number
++  errorCode: string | null
++}
++
++interface ProviderTelemetryMetricsAccumulator {
++  terminalCalls: number
++  successfulCalls: number
++  failedCalls: number
++  retryEvents: number
++  timeoutFailures: number
++  estimatedTokens: number
++  estimatedCost: number
++  inputTokens: number
++  outputTokens: number
++  totalTokens: number
++  latencyMs: number[]
++  cacheHits: number
++  cacheMisses: number
++  cacheBypasses: number
++}
++
++@Injectable()
++export class AdvisoryProviderTelemetryService {
++  constructor(
++    @Inject(AuditLogService)
++    private readonly auditLogSource: AdvisoryProviderTelemetryAuditLogSource,
++  ) {}
++
++  async getProviderTelemetry(
++    query: AdvisoryProviderTelemetryQuery,
++  ): Promise<AdvisoryProviderTelemetryDashboard> {
++    const filters = this.normalizeFilters(query)
++    const now = query.now ?? new Date()
++    const generatedAt = now.toISOString()
++
++    let rows: AdvisoryProviderTelemetryAuditLogRow[]
++    try {
++      rows = await this.auditLogSource.findThinkTankProviderTelemetryEvents({
++        tenantId: filters.tenantId,
++        dateFrom: filters.dateFrom,
++        dateTo: filters.dateTo,
++        eventNames: THINKTANK_PROVIDER_TELEMETRY_EVENT_NAMES,
++      })
++    } catch {
++      return this.buildUnavailableDashboard(filters.appliedFilters, generatedAt)
++    }
++
++    return this.aggregateRows(rows, filters, now, generatedAt)
++  }
++
++  private aggregateRows(
++    rows: AdvisoryProviderTelemetryAuditLogRow[],
++    filters: NormalizedProviderTelemetryFilters,
++    now: Date,
++    generatedAt: string,
++  ): AdvisoryProviderTelemetryDashboard {
++    const gaps: AdvisoryProviderTelemetryInstrumentationGap[] = []
++    const summaryMetrics = this.createMetricsAccumulator()
++    const workflowMetrics = new Map<string, ProviderTelemetryMetricsAccumulator>()
++    const experienceMetrics = new Map<string, ProviderTelemetryMetricsAccumulator>()
++    const providerMetrics = new Map<string, ProviderTelemetryMetricsAccumulator>()
++    const cache = this.createCacheSummary()
++    let latestEventAt: Date | null = null
++
++    for (const row of rows) {
++      if (row.tenantId !== filters.tenantId) continue
++
++      const normalized = this.normalizeRow(row, filters, now, gaps)
++      if (!normalized) continue
++
++      if (filters.workflowType && normalized.workflowKey !== filters.workflowType) {
++        continue
++      }
++
++      latestEventAt = this.maxDate(latestEventAt, normalized.eventAt)
++      this.applyMetrics(summaryMetrics, normalized)
++      this.applyMetrics(this.metricsFor(providerMetrics, normalized.provider), normalized)
++
++      const workflowKey = normalized.workflowKey ?? 'unknown'
++      this.applyMetrics(this.metricsFor(workflowMetrics, workflowKey), normalized)
++      this.applyMetrics(this.metricsFor(experienceMetrics, normalized.experience), normalized)
++      this.applyCacheSummary(cache, normalized)
++    }
++
++    const freshness = this.resolveFreshness(latestEventAt, now, gaps)
++    if (freshness.status === 'delayed' && this.isTelemetryStale(latestEventAt, now)) {
++      gaps.push({
++        reason: 'telemetry_delayed',
++        owner: 'provider_gateway',
++        source: 'audit_logs',
++        latestEventAt: freshness.latestEventAt,
++      })
++    }
++
++    const measurementStatus = freshness.status
++    return {
++      generatedAt,
++      appliedFilters: filters.appliedFilters,
++      summary: this.toSummary(summaryMetrics, measurementStatus),
++      byWorkflow: this.shouldIncludeGroup(filters, 'workflow')
++        ? this.toWorkflowGroups(workflowMetrics, measurementStatus)
++        : [],
++      byExperience: this.shouldIncludeGroup(filters, 'experience')
++        ? this.toExperienceGroups(experienceMetrics, measurementStatus)
++        : [],
++      byProvider: this.shouldIncludeGroup(filters, 'provider')
++        ? this.toProviderGroups(providerMetrics, measurementStatus)
++        : [],
++      cache,
++      instrumentationGaps: gaps,
++      freshness,
++    }
++  }
++
++  private normalizeRow(
++    row: AdvisoryProviderTelemetryAuditLogRow,
++    filters: NormalizedProviderTelemetryFilters,
++    now: Date,
++    gaps: AdvisoryProviderTelemetryInstrumentationGap[],
++  ): NormalizedProviderTelemetryEvent | null {
++    const details = this.recordOrNull(row.details)
++    if (!this.isCandidateInWindow(row, details, filters)) {
++      return null
++    }
++
++    if (!details) {
++      gaps.push({ auditLogId: row.id, reason: 'missing_event_details', owner: 'provider_gateway' })
++      return null
++    }
++
++    const eventNameText = this.readString(details.event_name) ?? this.readString(details.eventName)
++    try {
++      assertNoRawSensitiveThinkTankKeys(details)
++    } catch {
++      gaps.push({
++        auditLogId: row.id,
++        eventName: eventNameText ? this.redactUnknownEventName(eventNameText) : undefined,
++        reason: 'privacy_unsafe_payload',
++        owner: 'privacy_boundary',
++      })
++      return null
++    }
++
++    if (!eventNameText) {
++      gaps.push({ auditLogId: row.id, reason: 'missing_event_name', owner: 'provider_gateway' })
++      return null
++    }
++
++    if (!PROVIDER_TELEMETRY_EVENT_NAME_SET.has(eventNameText)) {
++      if (getThinkTankEventKind(eventNameText)) {
++        return null
++      }
++      gaps.push({
++        auditLogId: row.id,
++        eventName: this.redactUnknownEventName(eventNameText),
++        reason: 'unknown_event_name',
++        owner: 'story_1_4_event_contract',
++      })
++      return null
++    }
++
++    const eventName = eventNameText as ThinkTankEventName
++    const eventVersion = details.event_version ?? details.eventVersion
++    if (eventVersion === undefined || eventVersion === null) {
++      gaps.push({
++        auditLogId: row.id,
++        eventName,
++        reason: 'missing_event_version',
++        owner: 'story_1_4_event_contract',
++      })
++      return null
++    }
++
++    if (eventVersion !== THINKTANK_EVENT_VERSION) {
++      gaps.push({
++        auditLogId: row.id,
++        eventName,
++        reason: 'event_version_mismatch',
++        owner: 'story_1_4_event_contract',
++        expectedVersion: THINKTANK_EVENT_VERSION,
++        actualVersion: this.safeDiagnosticValue(eventVersion),
++      })
++      return null
++    }
++
++    const eventAt = this.parseEventDate(details.occurred_at ?? details.occurredAt)
++    if (!eventAt) {
++      gaps.push({
++        auditLogId: row.id,
++        eventName,
++        reason: 'invalid_occurred_at',
++        owner: 'story_1_4_event_contract',
++      })
++      return null
++    }
++
++    if (eventAt > now) {
++      gaps.push({
++        auditLogId: row.id,
++        eventName,
++        reason: 'future_occurred_at',
++        owner: 'story_1_4_event_contract',
++      })
++      return null
++    }
++
++    if (eventAt < filters.dateFrom || eventAt > filters.dateTo) {
++      return null
++    }
++
++    const privacyClassification =
++      this.readString(details.privacy_classification) ??
++      this.readString(details.privacyClassification)
++    if (privacyClassification !== ThinkTankPrivacyClassification.Operational) {
++      gaps.push({
++        auditLogId: row.id,
++        eventName,
++        reason: 'privacy_classification_not_operational',
++        owner: 'story_1_4_event_contract',
++      })
++      return null
++    }
++
++    const missingField = this.findMissingRequiredField(details)
++    if (missingField) {
++      gaps.push({
++        auditLogId: row.id,
++        eventName,
++        reason: 'missing_required_field',
++        owner: 'story_1_4_event_contract',
++        field: missingField,
++      })
++      return null
++    }
++
++    const eventTenantId = this.readString(details.tenant_id) ?? this.readString(details.tenantId)
++    if (eventTenantId !== filters.tenantId) {
++      gaps.push({
++        auditLogId: row.id,
++        eventName,
++        reason: 'tenant_mismatch',
++        owner: 'story_1_4_event_contract',
++      })
++      return null
++    }
++
++    const rawProvider = this.readString(details.provider)
++    const provider = this.safeDimensionValue(rawProvider)
++    if (!rawProvider) {
++      gaps.push({
++        auditLogId: row.id,
++        eventName,
++        reason: 'missing_provider',
++        owner: 'provider_gateway',
++      })
++    }
++    if (rawProvider && !provider) {
++      gaps.push({
++        auditLogId: row.id,
++        eventName,
++        reason: 'invalid_provider_metadata',
++        owner: 'provider_gateway',
++      })
++      return null
++    }
++
++    const rawWorkflowKey = this.readWorkflowKey(details)
++    const workflowKey = this.safeDimensionValue(rawWorkflowKey)
++    if (!workflowKey) {
++      gaps.push({
++        auditLogId: row.id,
++        eventName,
++        reason: rawWorkflowKey ? 'invalid_grouping_metadata' : 'missing_grouping_metadata',
++        owner: this.resolveGroupingOwner(details),
++      })
++      if (rawWorkflowKey) return null
++    }
++    const cacheStatus = this.resolveCacheStatus(eventName, details)
++    if (!this.isCacheStatusConsistent(eventName, cacheStatus)) {
++      gaps.push({
++        auditLogId: row.id,
++        eventName,
++        reason: 'cache_status_event_mismatch',
++        owner: 'provider_gateway',
++      })
++      return null
++    }
++
++    return {
++      eventName,
++      eventAt,
++      provider: provider ?? 'unknown',
++      workflowKey,
++      experience: this.resolveExperience(details, workflowKey),
++      latencyMs: this.readNonNegativeNumber(details.latency_ms ?? details.latencyMs),
++      estimatedTokens: this.readNonNegativeNumber(details.estimated_tokens) ?? 0,
++      estimatedCost: this.readNonNegativeNumber(details.estimated_cost) ?? 0,
++      inputTokens: this.readNonNegativeNumber(details.input_tokens) ?? 0,
++      outputTokens: this.readNonNegativeNumber(details.output_tokens) ?? 0,
++      totalTokens:
++        this.readNonNegativeNumber(details.total_tokens) ??
++        this.readNonNegativeNumber(details.estimated_tokens) ??
++        0,
++      errorCategory:
++        this.readString(details.error_category) ?? this.readString(details.errorCategory),
++      status: this.readString(details.status),
++      cacheStatus,
++      cachedInputTokens: this.readNonNegativeNumber(details.cached_input_tokens) ?? 0,
++      cacheReadInputTokens: this.readNonNegativeNumber(details.cache_read_input_tokens) ?? 0,
++      cacheCreationInputTokens:
++        this.readNonNegativeNumber(details.cache_creation_input_tokens) ?? 0,
++      cacheEligibleInputTokens:
++        this.readNonNegativeNumber(details.cache_eligible_input_tokens) ?? 0,
++      errorCode:
++        this.readString(details.error_code) ??
++        this.readString(details.errorCode) ??
++        this.readStatusCode(details.status_code ?? details.statusCode),
++    }
++  }
++
++  private normalizeFilters(
++    query: AdvisoryProviderTelemetryQuery,
++  ): NormalizedProviderTelemetryFilters {
++    const now = query.now ?? new Date()
++    const dateTo = this.normalizeDate(query.dateTo, 'to') ?? now
++    const dateFrom =
++      this.normalizeDate(query.dateFrom, 'from') ?? this.daysBefore(dateTo, DEFAULT_WINDOW_DAYS)
++    const currentTenantId = this.readString(query.currentTenantId)
++    const requestedTenantId = this.readString(query.tenantId)
++    const actorTenantId = this.readString(query.actor?.tenantId)
++    const scopedTenantId = currentTenantId ?? actorTenantId
++    const tenantId =
++      scopedTenantId ?? (requestedTenantId === 'current' ? null : requestedTenantId)
++    const workflowType = this.readString(query.workflowType)
++    const normalizedWorkflowType = workflowType && workflowType !== 'all' ? workflowType : null
++    const groupBy = this.normalizeGroupBy(query.groupBy)
++
++    if (!tenantId) {
++      throw new BadRequestException('tenantId is required for ThinkTank provider telemetry.')
++    }
++
++    if (
++      scopedTenantId &&
++      requestedTenantId &&
++      requestedTenantId !== 'current' &&
++      requestedTenantId !== scopedTenantId
++    ) {
++      throw new ForbiddenException('当前账号无权查看其他租户的 ThinkTank 运营数据。')
++    }
++
++    if (dateFrom > dateTo) {
++      throw new BadRequestException('dateFrom must be before dateTo.')
++    }
++    if (dateTo.getTime() - dateFrom.getTime() > MAX_WINDOW_DAYS * 24 * 60 * 60 * 1000) {
++      throw new BadRequestException(`date window must not exceed ${MAX_WINDOW_DAYS} days.`)
++    }
++
++    return {
++      tenantId,
++      dateFrom,
++      dateTo,
++      workflowType: normalizedWorkflowType,
++      groupBy,
++      appliedFilters: {
++        tenantId,
++        dateFrom: dateFrom.toISOString(),
++        dateTo: dateTo.toISOString(),
++        ...(normalizedWorkflowType ? { workflowType: normalizedWorkflowType } : {}),
++        ...(groupBy.length ? { groupBy } : {}),
++      },
++    }
++  }
++
++  private applyMetrics(
++    metrics: ProviderTelemetryMetricsAccumulator,
++    event: NormalizedProviderTelemetryEvent,
++  ): void {
++    if (event.eventName === ThinkTankEventName.ProviderCallCompleted) {
++      metrics.terminalCalls += 1
++      metrics.successfulCalls += 1
++      this.applyProviderCallMeasures(metrics, event)
++      return
++    }
++
++    if (event.eventName === ThinkTankEventName.ProviderCallFailed) {
++      metrics.terminalCalls += 1
++      metrics.failedCalls += 1
++      if (this.isTimeoutFailure(event)) metrics.timeoutFailures += 1
++      this.applyProviderCallMeasures(metrics, event)
++      return
++    }
++
++    if (event.eventName === ThinkTankEventName.ProviderCallRetried) {
++      metrics.retryEvents += 1
++      return
++    }
++
++    if (event.eventName === ThinkTankEventName.PromptCacheHit) {
++      metrics.cacheHits += 1
++      return
++    }
++
++    if (event.cacheStatus === 'bypass') {
++      metrics.cacheBypasses += 1
++      return
++    }
++
++    metrics.cacheMisses += 1
++  }
++
++  private applyProviderCallMeasures(
++    metrics: ProviderTelemetryMetricsAccumulator,
++    event: NormalizedProviderTelemetryEvent,
++  ): void {
++    metrics.estimatedTokens += event.estimatedTokens
++    metrics.estimatedCost += event.estimatedCost
++    metrics.inputTokens += event.inputTokens
++    metrics.outputTokens += event.outputTokens
++    metrics.totalTokens += event.totalTokens
++    if (event.latencyMs !== null) metrics.latencyMs.push(event.latencyMs)
++  }
++
++  private applyCacheSummary(
++    cache: AdvisoryProviderTelemetryCacheSummary,
++    event: NormalizedProviderTelemetryEvent,
++  ): void {
++    if (
++      event.eventName !== ThinkTankEventName.PromptCacheHit &&
++      event.eventName !== ThinkTankEventName.PromptCacheMiss
++    ) {
++      return
++    }
++
++    if (event.eventName === ThinkTankEventName.PromptCacheHit) {
++      cache.hits += 1
++    } else if (event.cacheStatus === 'bypass') {
++      cache.bypasses += 1
++    } else {
++      cache.misses += 1
++    }
++
++    cache.totalLookups = cache.hits + cache.misses + cache.bypasses
++    cache.hitRate = cache.totalLookups > 0 ? this.rate(cache.hits, cache.totalLookups) : null
++    cache.cachedInputTokens += event.cachedInputTokens
++    cache.cacheReadInputTokens += event.cacheReadInputTokens
++    cache.cacheCreationInputTokens += event.cacheCreationInputTokens
++    cache.cacheEligibleInputTokens += event.cacheEligibleInputTokens
++  }
++
++  private toSummary(
++    metrics: ProviderTelemetryMetricsAccumulator,
++    measurementStatus: AdvisoryProviderTelemetryMeasurementStatus,
++  ): AdvisoryProviderTelemetrySummary {
++    const tokens: AdvisoryProviderTelemetryTokenSummary = {
++      input: metrics.inputTokens,
++      output: metrics.outputTokens,
++      total: metrics.totalTokens,
++      estimated: metrics.estimatedTokens,
++    }
++    const unavailable = measurementStatus === 'unavailable'
++
++    return {
++      terminalCalls: metrics.terminalCalls,
++      successfulCalls: metrics.successfulCalls,
++      failedCalls: metrics.failedCalls,
++      retryEvents: metrics.retryEvents,
++      errorRate:
++        unavailable || metrics.terminalCalls === 0
++          ? null
++          : this.rate(metrics.failedCalls, metrics.terminalCalls),
++      timeoutRate:
++        unavailable || metrics.terminalCalls === 0
++          ? null
++          : this.rate(metrics.timeoutFailures, metrics.terminalCalls),
++      estimatedTokens: metrics.estimatedTokens,
++      estimatedCost: this.roundMetric(metrics.estimatedCost),
++      latency: this.toLatencySummary(metrics.latencyMs),
++      tokens,
++      measurementStatus,
++    }
++  }
++
++  private toGroupMetrics(
++    metrics: ProviderTelemetryMetricsAccumulator,
++    measurementStatus: AdvisoryProviderTelemetryMeasurementStatus,
++  ): AdvisoryProviderTelemetryGroupMetrics {
++    return {
++      ...this.toSummary(metrics, measurementStatus),
++      cacheHits: metrics.cacheHits,
++      cacheMisses: metrics.cacheMisses,
++      cacheBypasses: metrics.cacheBypasses,
++    }
++  }
++
++  private toWorkflowGroups(
++    groups: Map<string, ProviderTelemetryMetricsAccumulator>,
++    measurementStatus: AdvisoryProviderTelemetryMeasurementStatus,
++  ): AdvisoryProviderTelemetryWorkflowGroup[] {
++    return [...groups.entries()]
++      .map(([workflowKey, metrics]) => ({
++        workflowKey,
++        workflowLabel: this.toLabel(workflowKey),
++        ...this.toGroupMetrics(metrics, measurementStatus),
++      }))
++      .sort((left, right) => left.workflowKey.localeCompare(right.workflowKey))
++  }
++
++  private toExperienceGroups(
++    groups: Map<string, ProviderTelemetryMetricsAccumulator>,
++    measurementStatus: AdvisoryProviderTelemetryMeasurementStatus,
++  ): AdvisoryProviderTelemetryExperienceGroup[] {
++    return [...groups.entries()]
++      .map(([experience, metrics]) => ({
++        experience: experience as AdvisoryProviderTelemetryExperience,
++        ...this.toGroupMetrics(metrics, measurementStatus),
++      }))
++      .sort((left, right) => left.experience.localeCompare(right.experience))
++  }
++
++  private toProviderGroups(
++    groups: Map<string, ProviderTelemetryMetricsAccumulator>,
++    measurementStatus: AdvisoryProviderTelemetryMeasurementStatus,
++  ): AdvisoryProviderTelemetryProviderGroup[] {
++    return [...groups.entries()]
++      .map(([provider, metrics]) => ({
++        provider,
++        ...this.toGroupMetrics(metrics, measurementStatus),
++      }))
++      .sort((left, right) => left.provider.localeCompare(right.provider))
++  }
++
++  private buildUnavailableDashboard(
++    appliedFilters: AdvisoryProviderTelemetryAppliedFilters,
++    generatedAt: string,
++  ): AdvisoryProviderTelemetryDashboard {
++    const summary = this.toSummary(this.createMetricsAccumulator(), 'unavailable')
++    return {
++      generatedAt,
++      appliedFilters,
++      summary,
++      byWorkflow: [],
++      byExperience: [],
++      byProvider: [],
++      cache: this.createCacheSummary(),
++      instrumentationGaps: [
++        {
++          reason: 'telemetry_source_unavailable',
++          source: 'audit_logs',
++          owner: 'provider_gateway',
++        },
++      ],
++      freshness: {
++        source: 'audit_logs',
++        status: 'unavailable',
++        latestEventAt: null,
++        description: 'Provider telemetry source is unavailable. No trusted measurements are available.',
++      },
++    }
++  }
++
++  private resolveFreshness(
++    latestEventAt: Date | null,
++    now: Date,
++    gaps: AdvisoryProviderTelemetryInstrumentationGap[],
++  ): AdvisoryProviderTelemetryFreshness {
++    if (!latestEventAt) {
++      return {
++        source: 'audit_logs',
++        status: 'delayed',
++        latestEventAt: null,
++        description: 'No trusted provider telemetry events were found for this operational window.',
++      }
++    }
++
++    if (gaps.length > 0) {
++      return {
++        source: 'audit_logs',
++        status: 'delayed',
++        latestEventAt: latestEventAt.toISOString(),
++        description: 'Provider telemetry contains instrumentation gaps. Treat metrics as partial.',
++      }
++    }
++
++    if (this.isTelemetryStale(latestEventAt, now)) {
++      return {
++        source: 'audit_logs',
++        status: 'delayed',
++        latestEventAt: latestEventAt.toISOString(),
++        description: 'Provider telemetry is delayed. Treat these metrics as stale.',
++      }
++    }
++
++    return {
++      source: 'audit_logs',
++      status: 'fresh',
++      latestEventAt: latestEventAt.toISOString(),
++      description: `Provider telemetry is current through ${latestEventAt.toISOString()}.`,
++    }
++  }
++
++  private createMetricsAccumulator(): ProviderTelemetryMetricsAccumulator {
++    return {
++      terminalCalls: 0,
++      successfulCalls: 0,
++      failedCalls: 0,
++      retryEvents: 0,
++      timeoutFailures: 0,
++      estimatedTokens: 0,
++      estimatedCost: 0,
++      inputTokens: 0,
++      outputTokens: 0,
++      totalTokens: 0,
++      latencyMs: [],
++      cacheHits: 0,
++      cacheMisses: 0,
++      cacheBypasses: 0,
++    }
++  }
++
++  private createCacheSummary(): AdvisoryProviderTelemetryCacheSummary {
++    return {
++      hits: 0,
++      misses: 0,
++      bypasses: 0,
++      totalLookups: 0,
++      hitRate: null,
++      cachedInputTokens: 0,
++      cacheReadInputTokens: 0,
++      cacheCreationInputTokens: 0,
++      cacheEligibleInputTokens: 0,
++    }
++  }
++
++  private metricsFor(
++    groups: Map<string, ProviderTelemetryMetricsAccumulator>,
++    key: string,
++  ): ProviderTelemetryMetricsAccumulator {
++    let metrics = groups.get(key)
++    if (!metrics) {
++      metrics = this.createMetricsAccumulator()
++      groups.set(key, metrics)
++    }
++    return metrics
++  }
++
++  private shouldIncludeGroup(
++    filters: NormalizedProviderTelemetryFilters,
++    group: AdvisoryProviderTelemetryGroupBy,
++  ): boolean {
++    return filters.groupBy.length === 0 || filters.groupBy.includes(group)
++  }
++
++  private toLatencySummary(values: number[]) {
++    if (!values.length) return { averageMs: null, p95Ms: null }
++    const sorted = [...values].sort((left, right) => left - right)
++    const total = sorted.reduce((sum, value) => sum + value, 0)
++    const p95Index = Math.max(0, Math.ceil(sorted.length * 0.95) - 1)
++    return {
++      averageMs: this.roundMetric(total / sorted.length),
++      p95Ms: this.roundMetric(sorted[p95Index]),
++    }
++  }
++
++  private resolveCacheStatus(
++    eventName: ThinkTankEventName,
++    details: Record<string, unknown>,
++  ): 'hit' | 'miss' | 'bypass' | null {
++    const cacheStatus = this.readString(details.cache_status) ?? this.readString(details.cacheStatus)
++    if (cacheStatus === 'hit' || cacheStatus === 'miss' || cacheStatus === 'bypass') {
++      return cacheStatus
++    }
++    if (eventName === ThinkTankEventName.PromptCacheHit) return 'hit'
++    if (eventName === ThinkTankEventName.PromptCacheMiss) return 'miss'
++    return null
++  }
++
++  private isCacheStatusConsistent(
++    eventName: ThinkTankEventName,
++    cacheStatus: 'hit' | 'miss' | 'bypass' | null,
++  ): boolean {
++    if (eventName === ThinkTankEventName.PromptCacheHit) {
++      return cacheStatus === null || cacheStatus === 'hit'
++    }
++    if (eventName === ThinkTankEventName.PromptCacheMiss) {
++      return cacheStatus === null || cacheStatus === 'miss' || cacheStatus === 'bypass'
++    }
++    return true
++  }
++
++  private resolveExperience(
++    details: Record<string, unknown>,
++    workflowKey: string | null,
++  ): AdvisoryProviderTelemetryExperience {
++    const subjectType =
++      this.readString(details.subject_type) ?? this.readString(details.subjectType)
++    const workflow = workflowKey?.toLowerCase() ?? ''
++
++    if (
++      subjectType === 'quick_consult' ||
++      details.quick_consult === true ||
++      workflow.includes('quick-consult') ||
++      workflow.includes('quick_consult')
++    ) {
++      return 'quick_consult'
++    }
++
++    if (
++      details.party_mode_message === true ||
++      details.party_mode_integration === true ||
++      workflow.includes('party-mode') ||
++      workflow.includes('party_mode')
++    ) {
++      return 'party_mode'
++    }
++
++    return workflowKey ? 'workflow' : 'unknown'
++  }
++
++  private resolveGroupingOwner(details: Record<string, unknown>): string {
++    const subjectType =
++      this.readString(details.subject_type) ?? this.readString(details.subjectType)
++    if (subjectType === 'quick_consult') return 'quick_consult_telemetry'
++    if (details.party_mode_message === true || details.party_mode_integration === true) {
++      return 'party_mode_telemetry'
++    }
++    return 'provider_gateway'
++  }
++
++  private readWorkflowKey(details: Record<string, unknown>): string | null {
++    return (
++      this.readString(details.workflow_type) ??
++      this.readString(details.workflowType) ??
++      this.readString(details.workflow_key) ??
++      this.readString(details.workflowKey)
++    )
++  }
++
++  private isTimeoutFailure(event: NormalizedProviderTelemetryEvent): boolean {
++    return [event.errorCategory, event.status, event.errorCode]
++      .filter((value): value is string => typeof value === 'string')
++      .some((value) => {
++        const normalized = value.toLowerCase()
++        return (
++          normalized.includes('timeout') ||
++          normalized.includes('etimedout') ||
++          normalized.endsWith('_408') ||
++          normalized === '408'
++        )
++      })
++  }
++
++  private findMissingRequiredField(details: Record<string, unknown>): string | null {
++    for (const field of REQUIRED_EVENT_FIELDS) {
++      if (!this.readString(details[field])) return field
++    }
++    return null
++  }
++
++  private normalizeGroupBy(
++    value: readonly AdvisoryProviderTelemetryGroupBy[] | null | undefined,
++  ): AdvisoryProviderTelemetryGroupBy[] {
++    if (!value?.length) return []
++    const allowed = new Set<AdvisoryProviderTelemetryGroupBy>(['workflow', 'experience', 'provider'])
++    return [...new Set(value.filter((item) => allowed.has(item)))]
++  }
++
++  private normalizeDate(value: unknown, boundary: 'from' | 'to'): Date | null {
++    if (value instanceof Date) {
++      if (Number.isNaN(value.getTime())) throw new BadRequestException('Invalid date filter.')
++      return value
++    }
++    if (Array.isArray(value) || (value && typeof value === 'object')) {
++      throw new BadRequestException('Invalid date filter.')
++    }
++
++    const text = this.readString(value)
++    if (!text) return null
++
++    const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(text)
++    const parsed = isDateOnly ? this.parseStrictDateOnly(text, boundary) : new Date(text)
++    if (Number.isNaN(parsed.getTime())) throw new BadRequestException('Invalid date filter.')
++    return parsed
++  }
++
++  private isCandidateInWindow(
++    row: AdvisoryProviderTelemetryAuditLogRow,
++    details: Record<string, unknown> | null,
++    filters: NormalizedProviderTelemetryFilters,
++  ): boolean {
++    const occurredAt = this.parseEventDateQuiet(details?.occurred_at ?? details?.occurredAt)
++    return (
++      (occurredAt !== null && occurredAt >= filters.dateFrom && occurredAt <= filters.dateTo) ||
++      (row.createdAt >= filters.dateFrom && row.createdAt <= filters.dateTo)
++    )
++  }
++
++  private parseEventDate(value: unknown): Date | null {
++    const text = this.readString(value)
++    if (!text) return null
++    const parsed = new Date(text)
++    return Number.isNaN(parsed.getTime()) ? null : parsed
++  }
++
++  private parseEventDateQuiet(value: unknown): Date | null {
++    return this.parseEventDate(value)
++  }
++
++  private recordOrNull(value: unknown): Record<string, unknown> | null {
++    return value && typeof value === 'object' && !Array.isArray(value)
++      ? (value as Record<string, unknown>)
++      : null
++  }
++
++  private readString(value: unknown): string | null {
++    return typeof value === 'string' && value.trim() ? value.trim() : null
++  }
++
++  private readNonNegativeNumber(value: unknown): number | null {
++    return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
++  }
++
++  private readStatusCode(value: unknown): string | null {
++    if (typeof value === 'number' && Number.isInteger(value) && value >= 100 && value <= 599) {
++      return String(value)
++    }
++    return this.readString(value)
++  }
++
++  private maxDate(left: Date | null, right: Date): Date {
++    return !left || right > left ? right : left
++  }
++
++  private daysBefore(date: Date, days: number): Date {
++    return new Date(date.getTime() - days * 24 * 60 * 60 * 1000)
++  }
++
++  private isTelemetryStale(latestEventAt: Date | null, now: Date): boolean {
++    if (!latestEventAt) return true
++    return now.getTime() - latestEventAt.getTime() > FRESHNESS_DELAY_HOURS * 60 * 60 * 1000
++  }
++
++  private rate(numerator: number, denominator: number): number {
++    if (denominator <= 0) return 0
++    return this.roundMetric(numerator / denominator, 4)
++  }
++
++  private roundMetric(value: number, precision = 4): number {
++    const factor = Math.pow(10, precision)
++    return Math.round(value * factor) / factor
++  }
++
++  private toLabel(value: string): string {
++    return value
++      .split(/[-_]/g)
++      .filter(Boolean)
++      .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
++      .join(' ')
++  }
++
++  private redactUnknownEventName(eventName: string): string {
++    return /^thinktank\.[a-z0-9_.-]{1,96}$/i.test(eventName) &&
++      !/PRIVATE_|raw|conversation|prompt|report|feedback|content|message/i.test(eventName)
++      ? eventName
++      : 'unregistered_thinktank_event'
++  }
++
++  private safeDiagnosticValue(value: unknown): unknown {
++    if (typeof value === 'number' && Number.isFinite(value)) return value
++    if (typeof value === 'boolean') return value
++    if (typeof value === 'string' && this.isSafeDiagnosticText(value)) return value
++    if (value === null || value === undefined) return value
++    return `[${Array.isArray(value) ? 'array' : typeof value}]`
++  }
++
++  private safeDimensionValue(value: string | null): string | null {
++    if (!value || !this.isSafeDiagnosticText(value)) return null
++    return /^[a-z0-9][a-z0-9._-]{0,63}$/i.test(value) ? value : null
++  }
++
++  private isSafeDiagnosticText(value: string): boolean {
++    if (!value || value.length > 96) return false
++    return !/PRIVATE_|raw|conversation|prompt|report|feedback|content|message/i.test(value)
++  }
++
++  private parseStrictDateOnly(value: string, boundary: 'from' | 'to'): Date {
++    const [yearText, monthText, dayText] = value.split('-')
++    const year = Number(yearText)
++    const month = Number(monthText)
++    const day = Number(dayText)
++    const parsed = new Date(
++      Date.UTC(year, month - 1, day, 0, 0, 0, boundary === 'to' ? 999 : 0),
++    )
++    if (
++      parsed.getUTCFullYear() !== year ||
++      parsed.getUTCMonth() !== month - 1 ||
++      parsed.getUTCDate() !== day
++    ) {
++      throw new BadRequestException('Invalid date filter.')
++    }
++    if (boundary === 'to') {
++      parsed.setUTCHours(23, 59, 59, 999)
++    }
++    return parsed
++  }
++}
+diff --git a/backend/src/modules/advisory/operations/advisory-provider-telemetry.types.ts b/backend/src/modules/advisory/operations/advisory-provider-telemetry.types.ts
+new file mode 100644
+index 0000000..b767cae
+--- /dev/null
++++ b/backend/src/modules/advisory/operations/advisory-provider-telemetry.types.ts
+@@ -0,0 +1,164 @@
++import { AuditLog } from '../../../database/entities/audit-log.entity'
++import { UserRole } from '../../../database/entities/user.entity'
++import { ThinkTankEventName } from '../events/thinktank-event-contract'
++
++export const THINKTANK_PROVIDER_TELEMETRY_EVENT_NAMES = [
++  ThinkTankEventName.ProviderCallCompleted,
++  ThinkTankEventName.ProviderCallFailed,
++  ThinkTankEventName.ProviderCallRetried,
++  ThinkTankEventName.PromptCacheHit,
++  ThinkTankEventName.PromptCacheMiss,
++] as const
++
++export type ThinkTankProviderTelemetryEventName =
++  (typeof THINKTANK_PROVIDER_TELEMETRY_EVENT_NAMES)[number]
++
++export type AdvisoryProviderTelemetryMeasurementStatus =
++  | 'fresh'
++  | 'delayed'
++  | 'unavailable'
++
++export type AdvisoryProviderTelemetryGroupBy = 'workflow' | 'experience' | 'provider'
++
++export interface AdvisoryProviderTelemetryActor {
++  id: string
++  role?: UserRole | string | null
++  tenantId?: string | null
++  organizationId?: string | null
++}
++
++export interface AdvisoryProviderTelemetryQuery {
++  tenantId?: string | null
++  currentTenantId?: string | null
++  dateFrom?: string | Date | null
++  dateTo?: string | Date | null
++  workflowType?: string | null
++  groupBy?: readonly AdvisoryProviderTelemetryGroupBy[] | null
++  actor?: AdvisoryProviderTelemetryActor | null
++  now?: Date
++}
++
++export interface AdvisoryProviderTelemetryEventQuery {
++  tenantId: string
++  dateFrom: Date
++  dateTo: Date
++  eventNames: readonly string[]
++}
++
++export type AdvisoryProviderTelemetryAuditLogRow = Pick<
++  AuditLog,
++  'id' | 'tenantId' | 'userId' | 'entityType' | 'entityId' | 'details' | 'createdAt'
++>
++
++export interface AdvisoryProviderTelemetryAuditLogSource {
++  findThinkTankProviderTelemetryEvents(
++    query: AdvisoryProviderTelemetryEventQuery,
++  ): Promise<AdvisoryProviderTelemetryAuditLogRow[]>
++}
++
++export interface AdvisoryProviderTelemetryAppliedFilters {
++  tenantId: string
++  dateFrom: string
++  dateTo: string
++  workflowType?: string
++  groupBy?: AdvisoryProviderTelemetryGroupBy[]
++}
++
++export interface AdvisoryProviderTelemetryInstrumentationGap {
++  auditLogId?: string
++  eventName?: string
++  reason: string
++  owner?: string
++  source?: string
++  expectedVersion?: number
++  actualVersion?: unknown
++  latestEventAt?: string | null
++  count?: number
++  field?: string
++}
++
++export interface AdvisoryProviderTelemetryFreshness {
++  source: 'audit_logs'
++  status: AdvisoryProviderTelemetryMeasurementStatus
++  latestEventAt: string | null
++  description: string
++}
++
++export interface AdvisoryProviderTelemetryLatencySummary {
++  averageMs: number | null
++  p95Ms: number | null
++}
++
++export interface AdvisoryProviderTelemetryTokenSummary {
++  input: number
++  output: number
++  total: number
++  estimated: number
++}
++
++export interface AdvisoryProviderTelemetrySummary {
++  terminalCalls: number
++  successfulCalls: number
++  failedCalls: number
++  retryEvents: number
++  errorRate: number | null
++  timeoutRate: number | null
++  estimatedTokens: number
++  estimatedCost: number
++  latency: AdvisoryProviderTelemetryLatencySummary
++  tokens: AdvisoryProviderTelemetryTokenSummary
++  measurementStatus: AdvisoryProviderTelemetryMeasurementStatus
++}
++
++export interface AdvisoryProviderTelemetryGroupMetrics
++  extends AdvisoryProviderTelemetrySummary {
++  cacheHits: number
++  cacheMisses: number
++  cacheBypasses: number
++}
++
++export interface AdvisoryProviderTelemetryWorkflowGroup
++  extends AdvisoryProviderTelemetryGroupMetrics {
++  workflowKey: string
++  workflowLabel: string
++}
++
++export type AdvisoryProviderTelemetryExperience =
++  | 'workflow'
++  | 'quick_consult'
++  | 'party_mode'
++  | 'unknown'
++
++export interface AdvisoryProviderTelemetryExperienceGroup
++  extends AdvisoryProviderTelemetryGroupMetrics {
++  experience: AdvisoryProviderTelemetryExperience
++}
++
++export interface AdvisoryProviderTelemetryProviderGroup
++  extends AdvisoryProviderTelemetryGroupMetrics {
++  provider: string
++}
++
++export interface AdvisoryProviderTelemetryCacheSummary {
++  hits: number
++  misses: number
++  bypasses: number
++  totalLookups: number
++  hitRate: number | null
++  cachedInputTokens: number
++  cacheReadInputTokens: number
++  cacheCreationInputTokens: number
++  cacheEligibleInputTokens: number
++}
++
++export interface AdvisoryProviderTelemetryDashboard {
++  generatedAt: string
++  appliedFilters: AdvisoryProviderTelemetryAppliedFilters
++  summary: AdvisoryProviderTelemetrySummary
++  byWorkflow: AdvisoryProviderTelemetryWorkflowGroup[]
++  byExperience: AdvisoryProviderTelemetryExperienceGroup[]
++  byProvider: AdvisoryProviderTelemetryProviderGroup[]
++  cache: AdvisoryProviderTelemetryCacheSummary
++  instrumentationGaps: AdvisoryProviderTelemetryInstrumentationGap[]
++  freshness: AdvisoryProviderTelemetryFreshness
++}
+diff --git a/backend/src/modules/audit/audit-log-provider-telemetry.atdd.spec.ts b/backend/src/modules/audit/audit-log-provider-telemetry.atdd.spec.ts
+new file mode 100644
+index 0000000..45e7933
+--- /dev/null
++++ b/backend/src/modules/audit/audit-log-provider-telemetry.atdd.spec.ts
+@@ -0,0 +1,103 @@
++import { AuditLogService } from './audit-log.service'
++import { ThinkTankEventName } from '../advisory/events/thinktank-event-contract'
++
++const tenantId = '660e8400-e29b-41d4-a716-446655440000'
++const dateFrom = new Date('2026-05-01T00:00:00.000Z')
++const dateTo = new Date('2026-05-22T23:59:59.999Z')
++const providerEventNames = [
++  ThinkTankEventName.ProviderCallCompleted,
++  ThinkTankEventName.ProviderCallFailed,
++  ThinkTankEventName.ProviderCallRetried,
++  ThinkTankEventName.PromptCacheHit,
++  ThinkTankEventName.PromptCacheMiss,
++]
++
++function createQueryBuilder(rows: unknown[] = []) {
++  const calls: Array<{ method: string; sql?: string; params?: Record<string, unknown> }> = []
++  const params: Record<string, unknown> = {}
++  const queryBuilder = {
++    calls,
++    params,
++    where: jest.fn((sql: string, nextParams?: Record<string, unknown>) => {
++      calls.push({ method: 'where', sql, params: nextParams })
++      Object.assign(params, nextParams)
++      return queryBuilder
++    }),
++    andWhere: jest.fn((sql: string, nextParams?: Record<string, unknown>) => {
++      calls.push({ method: 'andWhere', sql, params: nextParams })
++      Object.assign(params, nextParams)
++      return queryBuilder
++    }),
++    orderBy: jest.fn((sql: string) => {
++      calls.push({ method: 'orderBy', sql })
++      return queryBuilder
++    }),
++    getMany: jest.fn().mockResolvedValue(rows),
++  }
++  return queryBuilder
++}
++
++function createService(rows: unknown[] = []) {
++  const queryBuilder = createQueryBuilder(rows)
++  const repository = {
++    createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
++    find: jest.fn(() => {
++      throw new Error('provider telemetry aggregation must not use generic find')
++    }),
++  }
++  return { service: new AuditLogService(repository as never), repository, queryBuilder }
++}
++
++/*
++ * Provider Scrutiny Evidence:
++ * - Source: backend/src/modules/audit/audit-log.service.ts currently has findThinkTankUsageEvents for Story 6.1.
++ * - Expected new method: findThinkTankProviderTelemetryEvents(query).
++ * - Source table: audit_logs through Repository<AuditLog>.createQueryBuilder('audit').
++ * - Shape: returns AuditLog[] rows only; no new provider telemetry table, job queue, or generic AI usage dependency.
++ * - Filtering: audit.tenantId, provider/cache event names, occurred_at/occurredAt/date window, and createdAt candidate window for gap diagnosis.
++ */
++describe('Story 6.2 AuditLogService provider telemetry query ATDD', () => {
++  test('[P1][6.2-INT-007][AC1,AC2] queries only registered provider and prompt cache telemetry rows by row tenant date and event names', async () => {
++    const rows = [
++      { id: 'provider-row', tenantId, details: { event_name: ThinkTankEventName.ProviderCallCompleted } },
++    ]
++    const { service, repository, queryBuilder } = createService(rows)
++
++    const result = await (service as any).findThinkTankProviderTelemetryEvents({
++      tenantId,
++      dateFrom,
++      dateTo,
++      eventNames: providerEventNames,
++    })
++
++    expect(result).toBe(rows)
++    expect(repository.createQueryBuilder).toHaveBeenCalledWith('audit')
++    expect(queryBuilder.params).toEqual(
++      expect.objectContaining({
++        tenantId,
++        dateFrom,
++        dateTo,
++        eventNames: expect.arrayContaining(providerEventNames),
++      }),
++    )
++    const sql = queryBuilder.calls.map((call) => call.sql).join(' ')
++    expect(sql).toContain('audit.tenantId')
++    expect(sql).toContain('event_name')
++    expect(sql).toContain('eventName')
++    expect(sql).toContain('occurred_at')
++    expect(sql).toContain('occurredAt')
++    expect(sql).toContain('audit.createdAt')
++    expect(sql).not.toMatch(/ai_usage|provider_telemetry|glm_calls/i)
++  })
++
++  test('[P1][6.2-INT-008][AC2] defaults to the Story 6.2 provider telemetry whitelist and orders rows deterministically', async () => {
++    const { service, repository, queryBuilder } = createService([])
++
++    await (service as any).findThinkTankProviderTelemetryEvents({ tenantId, dateFrom, dateTo })
++
++    expect(repository.createQueryBuilder).toHaveBeenCalledTimes(1)
++    expect(queryBuilder.params.eventNames).toEqual(expect.arrayContaining(providerEventNames))
++    expect(queryBuilder.orderBy).toHaveBeenCalledWith('audit.createdAt', 'ASC')
++    expect(queryBuilder.getMany).toHaveBeenCalledTimes(1)
++  })
++})

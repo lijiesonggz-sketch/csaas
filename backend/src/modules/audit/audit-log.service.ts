@@ -15,6 +15,21 @@ export interface FindThinkTankUsageEventsQuery {
   eventNames: readonly string[]
 }
 
+export interface FindThinkTankProviderTelemetryEventsQuery {
+  tenantId: string
+  dateFrom: Date
+  dateTo: Date
+  eventNames?: readonly string[]
+}
+
+const THINKTANK_PROVIDER_TELEMETRY_EVENT_NAMES = [
+  'thinktank.provider.call_completed',
+  'thinktank.provider.call_failed',
+  'thinktank.provider.call_retried',
+  'thinktank.prompt_cache.hit',
+  'thinktank.prompt_cache.miss',
+] as const
+
 export type TaxonomyRolloutReportHistoryType =
   | 'retirement'
   | 'rollback'
@@ -172,6 +187,30 @@ export class AuditLogService {
       .where('audit.tenantId = :tenantId', { tenantId: query.tenantId })
       .andWhere(
         "((audit.details ->> 'event_name' IN (:...eventNames) OR audit.details ->> 'eventName' IN (:...eventNames)) OR (audit.details ->> 'event_name') LIKE 'thinktank.%' OR (audit.details ->> 'eventName') LIKE 'thinktank.%' OR audit.entityType LIKE 'ThinkTank%')",
+        { eventNames },
+      )
+      .andWhere(
+        "((audit.details ->> 'occurred_at' >= :dateFromIso AND audit.details ->> 'occurred_at' <= :dateToIso) OR (audit.details ->> 'occurredAt' >= :dateFromIso AND audit.details ->> 'occurredAt' <= :dateToIso) OR audit.createdAt BETWEEN :dateFrom AND :dateTo)",
+        { dateFrom: query.dateFrom, dateTo: query.dateTo, dateFromIso, dateToIso },
+      )
+      .orderBy('audit.createdAt', 'ASC')
+      .getMany()
+  }
+
+  async findThinkTankProviderTelemetryEvents(
+    query: FindThinkTankProviderTelemetryEventsQuery,
+  ): Promise<AuditLog[]> {
+    const eventNames = query.eventNames?.length
+      ? [...query.eventNames]
+      : [...THINKTANK_PROVIDER_TELEMETRY_EVENT_NAMES]
+    const dateFromIso = query.dateFrom.toISOString()
+    const dateToIso = query.dateTo.toISOString()
+
+    return this.auditLogRepository
+      .createQueryBuilder('audit')
+      .where('audit.tenantId = :tenantId', { tenantId: query.tenantId })
+      .andWhere(
+        "((audit.details ->> 'event_name' IN (:...eventNames) OR audit.details ->> 'eventName' IN (:...eventNames)) OR (audit.details ->> 'event_name') LIKE 'thinktank.provider.%' OR (audit.details ->> 'eventName') LIKE 'thinktank.provider.%' OR (audit.details ->> 'event_name') LIKE 'thinktank.prompt_cache.%' OR (audit.details ->> 'eventName') LIKE 'thinktank.prompt_cache.%' OR audit.entityType LIKE 'ThinkTankProvider%')",
         { eventNames },
       )
       .andWhere(
