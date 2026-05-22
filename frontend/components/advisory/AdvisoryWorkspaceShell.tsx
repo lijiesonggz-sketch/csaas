@@ -263,6 +263,25 @@ function getLatestDecisionOptions(
   return []
 }
 
+function getLatestDecisionMessageId(messages: ThinkTankConversationMessage[]): string | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    if (message.role === 'assistant' && message.decisionOptions?.length) {
+      return message.id
+    }
+  }
+
+  return null
+}
+
+function isSameDecisionOption(left: ThinkTankDecisionOption, right: ThinkTankDecisionOption) {
+  return (
+    left.action === right.action &&
+    left.label === right.label &&
+    (left.shortcut ?? '') === (right.shortcut ?? '')
+  )
+}
+
 function formatSessionActivityTime(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '最近更新'
@@ -1690,7 +1709,9 @@ export default function AdvisoryWorkspaceShell() {
     }
   }
 
-  const handleSubmitMessage = async () => {
+  const handleSubmitMessage = async (
+    override: { content?: string; decisionAction?: string; selectedDecisionLabel?: string } = {}
+  ) => {
     if (
       !activeLaunch ||
       sessionMessagesStatus !== 'ready' ||
@@ -1700,7 +1721,7 @@ export default function AdvisoryWorkspaceShell() {
       return
     }
 
-    const content = draft.trim()
+    const content = (override.content ?? draft).trim()
     if (!content) {
       setMessageError(THINKTANK_EMPTY_MESSAGE_MESSAGE)
       return
@@ -1728,6 +1749,7 @@ export default function AdvisoryWorkspaceShell() {
       metadata: { streaming: true },
     }
     const abortController = new AbortController()
+    const isDecisionSubmit = Boolean(override.decisionAction)
     const streamSessionId = activeLaunch.sessionId
     const streamWorkflowKey = activeLaunch.workflow.key
     const streamStep = activeLaunch.currentStep
@@ -1745,13 +1767,15 @@ export default function AdvisoryWorkspaceShell() {
     streamAbortRef.current?.abort()
     streamAbortRef.current = abortController
     setMessageError(null)
-    setSelectedDecisionLabel(null)
+    setSelectedDecisionLabel(override.selectedDecisionLabel ?? null)
     setIsSubmittingMessage(true)
     setMessageStreamingStatus('submitting')
     setStreamingMessageId(assistantMessageId)
     announceStreamStatus('ThinkTank 顾问正在准备回复。', { immediate: true })
     setHasUnreadStreamContent(false)
-    setDraft('')
+    if (!isDecisionSubmit) {
+      setDraft('')
+    }
     setSessionMessages((currentMessages) => [
       ...currentMessages,
       userMessage,
@@ -1762,7 +1786,7 @@ export default function AdvisoryWorkspaceShell() {
     try {
       for await (const event of streamThinkTankSessionMessage(
         streamSessionId,
-        { content },
+        { content, decisionAction: override.decisionAction },
         { signal: abortController.signal }
       )) {
         if (!isCurrentMessageStream()) return
@@ -1852,7 +1876,9 @@ export default function AdvisoryWorkspaceShell() {
       }
       if (!streamEndedWithTerminalEvent) {
         if (!isCurrentMessageStream()) return
-        setDraft(content)
+        if (!isDecisionSubmit) {
+          setDraft(content)
+        }
         setMessageStreamingStatus('error')
         announceStreamStatus('顾问回复生成失败。', { immediate: true })
         setMessageError(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
@@ -1867,7 +1893,9 @@ export default function AdvisoryWorkspaceShell() {
       textareaRef.current?.focus({ preventScroll: true })
     } catch (error) {
       if (!isCurrentMessageStream()) return
-      setDraft(content)
+      if (!isDecisionSubmit) {
+        setDraft(content)
+      }
       setMessageStreamingStatus('error')
       announceStreamStatus('顾问回复生成失败。', { immediate: true })
       setMessageError(readMessageSubmitErrorMessage(error))
@@ -2064,6 +2092,30 @@ export default function AdvisoryWorkspaceShell() {
 
   const handleDecisionOption = (option: ThinkTankDecisionOption) => {
     if (!option.enabled) return
+    const latestDecisionOptions = getLatestDecisionOptions(sessionMessages)
+    if (!latestDecisionOptions.some((candidate) => isSameDecisionOption(candidate, option))) {
+      return
+    }
+
+    if (option.action === 'party-mode') {
+      void handleSubmitMessage({
+        content: '启动 Party Mode',
+        decisionAction: 'party-mode',
+        selectedDecisionLabel: option.label,
+      })
+      textareaRef.current?.focus({ preventScroll: true })
+      return
+    }
+
+    if (option.action === 'return-to-workflow') {
+      void handleSubmitMessage({
+        content: '返回工作流',
+        decisionAction: 'return-to-workflow',
+        selectedDecisionLabel: option.label,
+      })
+      textareaRef.current?.focus({ preventScroll: true })
+      return
+    }
 
     setSelectedDecisionLabel(option.label)
     if (option.action === 'continue') {
@@ -2138,6 +2190,7 @@ export default function AdvisoryWorkspaceShell() {
     lazyHiddenMessageCount > 0 && !showAllMessages
       ? sessionMessages.slice(-THINKTANK_MESSAGE_LAZY_RENDER_THRESHOLD)
       : sessionMessages
+  const latestDecisionMessageId = getLatestDecisionMessageId(sessionMessages)
   const isStreamingActive =
     messageStreamingStatus === 'submitting' ||
     messageStreamingStatus === 'streaming' ||
@@ -2980,6 +3033,7 @@ export default function AdvisoryWorkspaceShell() {
                         key={message.id}
                         message={message}
                         isStreaming={isStreamingActive && message.id === streamingMessageId}
+                        decisionOptionsAreCurrent={message.id === latestDecisionMessageId}
                         onDecisionOption={handleDecisionOption}
                       />
                     ))}

@@ -178,6 +178,72 @@ describe('AdvisorySessionRepository', () => {
     })
   })
 
+  it('[P0][5.1-BE-009][AC3] atomically claims Party Mode start only for active unclaimed actor sessions', async () => {
+    const session = createSession({ status: AdvisoryWorkflowSessionStatus.Active })
+    const queryBuilder = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      setParameters: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 1 }),
+    }
+    typeormRepository.createQueryBuilder.mockReturnValue(queryBuilder as never)
+    typeormRepository.findOne.mockResolvedValue(session)
+
+    const result = await repository.claimPartyModeStart(tenantId, session.id, session.actorId, {
+      party_mode_active: true,
+      party_mode_status: 'starting',
+    })
+
+    expect(result).toBe(session)
+    expect(queryBuilder.update).toHaveBeenCalledWith(AdvisoryWorkflowSession)
+    expect(queryBuilder.set.mock.calls[0][0].metadata()).toContain(
+      'COALESCE("metadata"',
+    )
+    expect(queryBuilder.where).toHaveBeenCalledWith('"id" = :sessionId')
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith('"tenant_id" = :tenantId')
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith('"actor_id" = :actorId')
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith('"status" = :status')
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      `COALESCE("metadata" ->> 'party_mode_active', 'false') <> 'true'`,
+    )
+    expect(queryBuilder.setParameters).toHaveBeenCalledWith({
+      tenantId,
+      sessionId: session.id,
+      actorId: session.actorId,
+      status: AdvisoryWorkflowSessionStatus.Active,
+      metadata: JSON.stringify({
+        party_mode_active: true,
+        party_mode_status: 'starting',
+      }),
+    })
+    expect(typeormRepository.findOne).toHaveBeenCalledWith({
+      where: { id: session.id, tenantId },
+    })
+  })
+
+  it('[P0][5.1-BE-010][AC3] returns null when Party Mode claim loses the concurrency race', async () => {
+    const session = createSession({ status: AdvisoryWorkflowSessionStatus.Active })
+    const queryBuilder = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      setParameters: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue({ affected: 0 }),
+    }
+    typeormRepository.createQueryBuilder.mockReturnValue(queryBuilder as never)
+
+    await expect(
+      repository.claimPartyModeStart(tenantId, session.id, session.actorId, {
+        party_mode_active: true,
+      }),
+    ).resolves.toBeNull()
+
+    expect(typeormRepository.findOne).not.toHaveBeenCalled()
+  })
+
   it('[P0][4.7-BE-001][AC1] returns null when safe-exit loses the active-state update race', async () => {
     const session = createSession({ status: AdvisoryWorkflowSessionStatus.Active })
     typeormRepository.findOne.mockResolvedValueOnce(session)

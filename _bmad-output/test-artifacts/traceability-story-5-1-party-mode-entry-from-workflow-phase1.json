@@ -1,0 +1,193 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-22T10:25:28+08:00",
+  "story_id": "5.1",
+  "story_key": "5-1-party-mode-entry-from-workflow",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "description": "Party Mode is selectable only as an in-workflow option and does not appear as a standalone MVP page.",
+      "coverage": "FULL",
+      "test_levels": ["service-integration", "frontend-component"],
+      "tests": [
+        {
+          "id": "5.1-BE-001",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "description": "Exposes Party Mode only when feature flag and tenant allowlist enable it."
+        },
+        {
+          "id": "5.1-BE-005",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "description": "Rejects forged or disabled Party Mode actions before persisting workflow history."
+        },
+        {
+          "id": "5.1-BE-007",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "description": "Rejects stale Party Mode actions when the latest decision message no longer offers it."
+        },
+        {
+          "id": "5.1-FE-001",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "description": "Starts Party Mode from an enabled in-message decision option."
+        },
+        {
+          "id": "5.1-FE-002",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "description": "Keeps Party Mode out of standalone workflow navigation."
+        }
+      ],
+      "coverage_heuristics": {
+        "endpoint_coverage": "covered through service and Next.js proxy/client path tests",
+        "auth_negative_path": "tenant/session ownership is server scoped; forged/stale actions are rejected",
+        "error_path": "disabled, forged, stale, and concurrent starts covered"
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "description": "Party Mode disabled by feature flag or tenant configuration is hidden/unavailable with messaging while normal single-advisor flow remains usable.",
+      "coverage": "FULL",
+      "test_levels": ["service-integration", "frontend-component"],
+      "tests": [
+        {
+          "id": "5.1-BE-002",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "description": "Keeps Party Mode unavailable when tenant configuration disables it while single-advisor actions work."
+        },
+        {
+          "id": "5.1-BE-005",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "description": "Rejects forged or disabled Party Mode actions before persisting workflow history."
+        },
+        {
+          "id": "5.1-BE-014",
+          "file": "backend/src/modules/advisory/sessions/dto/submit-advisory-message.dto.spec.ts",
+          "description": "Rejects unknown decision actions before controller handling."
+        },
+        {
+          "id": "5.1-FE-002",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "description": "Shows unavailable state and keeps single-advisor workflow actions usable."
+        }
+      ],
+      "coverage_heuristics": {
+        "endpoint_coverage": "message submit/stream path covered by service and frontend page tests",
+        "auth_negative_path": "tenant allowlist and disabled option paths covered",
+        "error_path": "disabled and unknown action validation covered"
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P0",
+      "description": "Party Mode start creates a sanitized session context preserving workflow step, problem, report draft, conversation pointer, and return path.",
+      "coverage": "FULL",
+      "test_levels": ["service-integration", "repository-unit", "dto-unit", "frontend-component"],
+      "tests": [
+        {
+          "id": "5.1-BE-003",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "description": "Starts Party Mode from decisionAction and stores sanitized return context without calling provider."
+        },
+        {
+          "id": "5.1-BE-004",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "description": "Rejects Party Mode start for cross-tenant or inactive sessions before context creation."
+        },
+        {
+          "id": "5.1-BE-006",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "description": "Streams Party Mode start as terminal started/completed events without provider work."
+        },
+        {
+          "id": "5.1-BE-008",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "description": "Rejects a concurrent Party Mode retry before writing conversation history."
+        },
+        {
+          "id": "5.1-BE-009",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.repository.spec.ts",
+          "description": "Atomically claims Party Mode start only for active unclaimed actor sessions."
+        },
+        {
+          "id": "5.1-BE-010",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.repository.spec.ts",
+          "description": "Returns null when Party Mode claim loses the concurrency race."
+        },
+        {
+          "id": "5.1-BE-011",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "description": "Rolls back a claimed Party Mode start when later persistence fails."
+        },
+        {
+          "id": "5.1-BE-012",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "description": "Returns from Party Mode to the original workflow through a server-owned decision action."
+        },
+        {
+          "id": "5.1-BE-013",
+          "file": "backend/src/modules/advisory/sessions/dto/submit-advisory-message.dto.spec.ts",
+          "description": "Allows the server-owned Party Mode return action through API validation."
+        },
+        {
+          "id": "5.1-BE-015",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "description": "Removes Party Mode start messages when finalize fails so retry remains possible."
+        },
+        {
+          "id": "5.1-BE-016",
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts",
+          "description": "Removes Party Mode return messages when finalize fails so return can be retried."
+        },
+        {
+          "id": "5.1-FE-001",
+          "file": "frontend/app/advisory/__tests__/page.test.tsx",
+          "description": "Starts Party Mode and submits return-to-workflow through the existing streaming client."
+        }
+      ],
+      "coverage_heuristics": {
+        "endpoint_coverage": "submit and stream paths both covered; DTO validation covers return action",
+        "auth_negative_path": "cross-tenant/inactive session path covered",
+        "error_path": "claim conflict, persistence failure, finalize failure, rollback cleanup, and return retryability covered"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 3,
+    "fully_covered": 3,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 3, "covered": 3, "percentage": 100 },
+      "P1": { "total": 0, "covered": 0, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Re-run focused Story 5.1 backend/frontend tests after future Party Mode state-machine or decision-control changes.",
+      "requirements": []
+    }
+  ]
+}

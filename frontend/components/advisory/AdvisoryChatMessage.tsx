@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 interface AdvisoryChatMessageProps {
   message: ThinkTankConversationMessage
   isStreaming?: boolean
+  decisionOptionsAreCurrent?: boolean
   onDecisionOption?: (option: ThinkTankDecisionOption) => void
 }
 
@@ -20,6 +21,7 @@ type MarkdownBlock =
 export function AdvisoryChatMessage({
   message,
   isStreaming = false,
+  decisionOptionsAreCurrent = true,
   onDecisionOption,
 }: AdvisoryChatMessageProps) {
   const roleDisplay = getRoleDisplay(message)
@@ -57,26 +59,36 @@ export function AdvisoryChatMessage({
         <div aria-label="顾问决策选项" className="mt-4 flex flex-wrap gap-2">
           {message.decisionOptions.map((option) => {
             const shortcutHint = option.shortcut ? `快捷键 ${option.shortcut}` : '无快捷键'
+            const isDisabled = !option.enabled || !decisionOptionsAreCurrent
+            const accessibleLabel = `${option.label}，${shortcutHint}${
+              option.description ? `，${option.description}` : ''
+            }`
 
             return (
-              <Button
-                key={`${message.id}-${option.action}`}
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!option.enabled}
-                aria-label={`${option.label}，${shortcutHint}`}
-                title={`${option.label}，${shortcutHint}`}
-                onClick={() => onDecisionOption?.(option)}
-                className="h-8 rounded-sm px-2 text-xs"
-              >
-                <span>{option.label}</span>
-                {option.shortcut && (
-                  <span className="ml-2 rounded-sm border border-current px-1 text-[10px] leading-4">
-                    {option.shortcut}
+              <span key={`${message.id}-${option.action}`} className="flex max-w-full flex-col gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isDisabled}
+                  aria-label={accessibleLabel}
+                  title={accessibleLabel}
+                  onClick={() => onDecisionOption?.(option)}
+                  className="h-8 rounded-sm px-2 text-xs"
+                >
+                  <span>{option.label}</span>
+                  {option.shortcut && (
+                    <span className="ml-2 rounded-sm border border-current px-1 text-[10px] leading-4">
+                      {option.shortcut}
+                    </span>
+                  )}
+                </Button>
+                {option.description && !option.enabled && decisionOptionsAreCurrent && (
+                  <span className="max-w-56 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                    {option.description}
                   </span>
                 )}
-              </Button>
+              </span>
             )
           })}
         </div>

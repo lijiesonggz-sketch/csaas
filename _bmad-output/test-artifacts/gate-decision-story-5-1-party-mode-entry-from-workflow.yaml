@@ -1,0 +1,73 @@
+schema: bmad-testarch-gate-v1
+story_id: '5.1'
+story_key: 5-1-party-mode-entry-from-workflow
+story_title: Party Mode Entry from Workflow
+decision: PASS
+decision_date: '2026-05-22T10:25:28+08:00'
+gate_type: story
+decision_mode: deterministic
+rationale: >-
+  P0 coverage is 100%, effective P1 coverage is 100% because Story 5.1 has no
+  P1 acceptance criteria, and overall coverage is 100%. No critical,
+  high-priority, endpoint, auth/authz, happy-path-only, or partial-coverage gaps remain.
+criteria:
+  p0_coverage_required: 100
+  p0_coverage_actual: 100
+  p0_status: MET
+  p1_coverage_target_pass: 90
+  p1_coverage_minimum: 80
+  p1_coverage_actual: 100
+  p1_status: MET
+  overall_coverage_minimum: 80
+  overall_coverage_actual: 100
+  overall_status: MET
+coverage:
+  total_requirements: 3
+  fully_covered: 3
+  partially_covered: 0
+  uncovered: 0
+  priority_breakdown:
+    P0:
+      total: 3
+      covered: 3
+      percentage: 100
+    P1:
+      total: 0
+      covered: 0
+      percentage: 100
+    P2:
+      total: 0
+      covered: 0
+      percentage: 100
+    P3:
+      total: 0
+      covered: 0
+      percentage: 100
+gaps:
+  critical: 0
+  high: 0
+  medium: 0
+  low: 0
+  endpoint: 0
+  auth_negative_path: 0
+  happy_path_only: 0
+evidence:
+  - command: cd backend && npm test -- advisory-session.party-mode-entry.atdd.spec.ts advisory-session.repository.spec.ts advisory-session.messages.spec.ts advisory-session.checkpoint.spec.ts submit-advisory-message.dto.spec.ts --runInBand
+    result: PASS, 5 suites / 42 tests
+  - command: cd backend && npx tsc --noEmit
+    result: PASS
+  - command: cd frontend && npm test -- app/advisory/__tests__/page.test.tsx --runInBand
+    result: PASS, 1 suite / 50 tests
+  - command: cd frontend && npx tsc --noEmit
+    result: PASS
+  - command: cd frontend && npm run test:e2e -- advisory-theme-density-baseline.spec.ts --project=chromium
+    result: First run 5/6 PASS with one cold-start waitForResponse timeout; immediate warmed rerun PASS, 6/6
+  - command: cd backend && npm test -- --runInBand
+    result: PASS, 322 suites passed / 19 skipped; 2830 tests passed / 112 skipped / 5 todo
+artifacts:
+  coverage_matrix: _bmad-output/test-artifacts/traceability-story-5-1-party-mode-entry-from-workflow-phase1.json
+  traceability_report: _bmad-output/test-artifacts/traceability-report-story-5-1-party-mode-entry-from-workflow.md
+  code_review: _bmad-output/test-artifacts/code-review-story-5-1-party-mode-entry-from-workflow.md
+  atdd_checklist: _bmad-output/test-artifacts/atdd-checklist-5-1-party-mode-entry-from-workflow.md
+residual_risks:
+  - Persona loading, serial expert discussion, differentiated frameworks, integrated conclusion write-back, and Party Mode resource controls are intentionally deferred to Stories 5.2-5.5.

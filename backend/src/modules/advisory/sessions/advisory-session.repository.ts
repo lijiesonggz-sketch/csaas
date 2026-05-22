@@ -180,8 +180,172 @@ export class AdvisorySessionRepository extends BaseRepository<AdvisoryWorkflowSe
     return this.update(tenantId, sessionId, safeData as DeepPartial<AdvisoryWorkflowSession>)
   }
 
+  async claimPartyModeStart(
+    tenantId: string,
+    sessionId: string,
+    actorId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<AdvisoryWorkflowSession | null> {
+    this.assertScopeValue(tenantId, 'tenantId')
+    this.assertScopeValue(sessionId, 'id')
+    this.assertScopeValue(actorId, 'id')
+
+    const result = await this.repository
+      .createQueryBuilder()
+      .update(AdvisoryWorkflowSession)
+      .set({
+        metadata: () => `COALESCE("metadata", '{}'::jsonb) || CAST(:metadata AS jsonb)`,
+      } as never)
+      .where('"id" = :sessionId')
+      .andWhere('"tenant_id" = :tenantId')
+      .andWhere('"actor_id" = :actorId')
+      .andWhere('"status" = :status')
+      .andWhere(`COALESCE("metadata" ->> 'party_mode_active', 'false') <> 'true'`)
+      .setParameters({
+        tenantId,
+        sessionId,
+        actorId,
+        status: AdvisoryWorkflowSessionStatus.Active,
+        metadata: JSON.stringify(metadata),
+      })
+      .execute()
+
+    if ((result.affected ?? 0) !== 1) return null
+
+    return this.findSessionById(tenantId, sessionId)
+  }
+
+  async finalizePartyModeStart(
+    tenantId: string,
+    sessionId: string,
+    actorId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<AdvisoryWorkflowSession | null> {
+    return this.mergePartyModeMetadata(
+      tenantId,
+      sessionId,
+      actorId,
+      metadata,
+      `COALESCE("metadata" ->> 'party_mode_active', 'false') = 'true'`,
+      `"metadata" ->> 'party_mode_status' = :partyModeStatus`,
+      { partyModeStatus: 'starting' },
+    )
+  }
+
+  async rollbackPartyModeStart(
+    tenantId: string,
+    sessionId: string,
+    actorId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<boolean> {
+    const session = await this.mergePartyModeMetadata(
+      tenantId,
+      sessionId,
+      actorId,
+      metadata,
+      `COALESCE("metadata" ->> 'party_mode_active', 'false') = 'true'`,
+      `"metadata" ->> 'party_mode_status' = :partyModeStatus`,
+      { partyModeStatus: 'starting' },
+    )
+
+    return Boolean(session)
+  }
+
+  async claimPartyModeReturn(
+    tenantId: string,
+    sessionId: string,
+    actorId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<AdvisoryWorkflowSession | null> {
+    return this.mergePartyModeMetadata(
+      tenantId,
+      sessionId,
+      actorId,
+      metadata,
+      `COALESCE("metadata" ->> 'party_mode_active', 'false') = 'true'`,
+      `"metadata" ->> 'party_mode_status' = :partyModeStatus`,
+      { partyModeStatus: 'context-created' },
+    )
+  }
+
+  async finalizePartyModeReturn(
+    tenantId: string,
+    sessionId: string,
+    actorId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<AdvisoryWorkflowSession | null> {
+    return this.mergePartyModeMetadata(
+      tenantId,
+      sessionId,
+      actorId,
+      metadata,
+      `COALESCE("metadata" ->> 'party_mode_active', 'false') = 'true'`,
+      `"metadata" ->> 'party_mode_status' = :partyModeStatus`,
+      { partyModeStatus: 'returning' },
+    )
+  }
+
+  async rollbackPartyModeReturn(
+    tenantId: string,
+    sessionId: string,
+    actorId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<boolean> {
+    const session = await this.mergePartyModeMetadata(
+      tenantId,
+      sessionId,
+      actorId,
+      metadata,
+      `COALESCE("metadata" ->> 'party_mode_active', 'false') = 'true'`,
+      `"metadata" ->> 'party_mode_status' = :partyModeStatus`,
+      { partyModeStatus: 'returning' },
+    )
+
+    return Boolean(session)
+  }
+
   async deleteSession(tenantId: string, sessionId: string): Promise<boolean> {
     return this.delete(tenantId, sessionId)
+  }
+
+  private async mergePartyModeMetadata(
+    tenantId: string,
+    sessionId: string,
+    actorId: string,
+    metadata: Record<string, unknown>,
+    activePredicate: string,
+    statusPredicate: string,
+    statusParameters: Record<string, unknown>,
+  ): Promise<AdvisoryWorkflowSession | null> {
+    this.assertScopeValue(tenantId, 'tenantId')
+    this.assertScopeValue(sessionId, 'id')
+    this.assertScopeValue(actorId, 'id')
+
+    const result = await this.repository
+      .createQueryBuilder()
+      .update(AdvisoryWorkflowSession)
+      .set({
+        metadata: () => `COALESCE("metadata", '{}'::jsonb) || CAST(:metadata AS jsonb)`,
+      } as never)
+      .where('"id" = :sessionId')
+      .andWhere('"tenant_id" = :tenantId')
+      .andWhere('"actor_id" = :actorId')
+      .andWhere('"status" = :status')
+      .andWhere(activePredicate)
+      .andWhere(statusPredicate)
+      .setParameters({
+        tenantId,
+        sessionId,
+        actorId,
+        status: AdvisoryWorkflowSessionStatus.Active,
+        metadata: JSON.stringify(metadata),
+        ...statusParameters,
+      })
+      .execute()
+
+    if ((result.affected ?? 0) !== 1) return null
+
+    return this.findSessionById(tenantId, sessionId)
   }
 
   async pauseActiveSessionForActor(

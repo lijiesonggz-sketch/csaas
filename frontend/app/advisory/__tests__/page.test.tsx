@@ -519,7 +519,13 @@ describe('AdvisoryPage', () => {
           { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
           { action: 'deepen', label: '深入', shortcut: 'A', enabled: true },
           { action: 'revise', label: '修订', shortcut: 'R', enabled: true },
-          { action: 'party-mode', label: 'Party Mode', shortcut: 'P', enabled: false },
+          {
+            action: 'party-mode',
+            label: 'Party Mode',
+            shortcut: 'P',
+            enabled: false,
+            description: 'Party Mode 未启用；当前仍可使用单顾问流程。',
+          },
         ],
       },
       stream: [{ index: 0, delta: 'Here is the advisor summary.', done: true }],
@@ -527,7 +533,13 @@ describe('AdvisoryPage', () => {
         { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
         { action: 'deepen', label: '深入', shortcut: 'A', enabled: true },
         { action: 'revise', label: '修订', shortcut: 'R', enabled: true },
-        { action: 'party-mode', label: 'Party Mode', shortcut: 'P', enabled: false },
+        {
+          action: 'party-mode',
+          label: 'Party Mode',
+          shortcut: 'P',
+          enabled: false,
+          description: 'Party Mode 未启用；当前仍可使用单顾问流程。',
+        },
       ],
     })
     mockStreamThinkTankSessionMessage.mockImplementation(async function* () {
@@ -566,14 +578,26 @@ describe('AdvisoryPage', () => {
               { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
               { action: 'deepen', label: '深入', shortcut: 'A', enabled: true },
               { action: 'revise', label: '修订', shortcut: 'R', enabled: true },
-              { action: 'party-mode', label: 'Party Mode', shortcut: 'P', enabled: false },
+              {
+                action: 'party-mode',
+                label: 'Party Mode',
+                shortcut: 'P',
+                enabled: false,
+                description: 'Party Mode 未启用；当前仍可使用单顾问流程。',
+              },
             ],
           },
           decisionOptions: [
             { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
             { action: 'deepen', label: '深入', shortcut: 'A', enabled: true },
             { action: 'revise', label: '修订', shortcut: 'R', enabled: true },
-            { action: 'party-mode', label: 'Party Mode', shortcut: 'P', enabled: false },
+            {
+              action: 'party-mode',
+              label: 'Party Mode',
+              shortcut: 'P',
+              enabled: false,
+              description: 'Party Mode 未启用；当前仍可使用单顾问流程。',
+            },
           ],
         },
       }
@@ -2194,6 +2218,174 @@ describe('AdvisoryPage', () => {
     expect(screen.getByRole('status', { name: 'ThinkTank 工作台状态' })).toHaveTextContent(
       '已选择：继续'
     )
+  })
+
+  test('[P0][5.1-FE-001][AC1,AC3] starts Party Mode from an enabled in-message decision option', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockStreamThinkTankSessionMessage
+      .mockImplementationOnce(async function* () {
+        yield {
+          event: 'message.started',
+          data: {
+            sessionId: 'session-brainstorming',
+            currentStep: { index: 1, label: '当前步骤' },
+          },
+        }
+        yield {
+          event: 'message.completed',
+          data: {
+            sessionId: 'session-brainstorming',
+            currentStep: { index: 1, label: '当前步骤' },
+            assistantMessage: {
+              id: 'assistant-with-party-entry',
+              role: 'assistant',
+              content: 'Here is the advisor summary.',
+              decisionOptions: [
+                { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+                { action: 'deepen', label: '深入', shortcut: 'A', enabled: true },
+                { action: 'revise', label: '修订', shortcut: 'R', enabled: true },
+                {
+                  action: 'party-mode',
+                  label: 'Party Mode',
+                  shortcut: 'P',
+                  enabled: true,
+                  description: '启动多角色顾问讨论',
+                },
+              ],
+            },
+            decisionOptions: [],
+          },
+        }
+      })
+      .mockImplementationOnce(async function* () {
+        yield {
+          event: 'message.started',
+          data: {
+            sessionId: 'session-brainstorming',
+            currentStep: { index: 1, label: '当前步骤' },
+          },
+        }
+        yield {
+          event: 'message.completed',
+          data: {
+            sessionId: 'session-brainstorming',
+            currentStep: { index: 1, label: '当前步骤' },
+            assistantMessage: {
+              id: 'assistant-party-started',
+              role: 'assistant',
+              content: 'Party Mode 上下文已创建。多角色顾问讨论将在后续步骤基于当前工作流继续。',
+              decisionOptions: [
+                {
+                  action: 'return-to-workflow',
+                  label: '返回工作流',
+                  enabled: true,
+                  description: '返回原工作流当前步骤',
+                },
+              ],
+              metadata: { party_mode_started: true },
+            },
+            decisionOptions: [],
+          },
+        }
+      })
+      .mockImplementationOnce(async function* () {
+        yield {
+          event: 'message.started',
+          data: {
+            sessionId: 'session-brainstorming',
+            currentStep: { index: 1, label: '当前步骤' },
+          },
+        }
+        yield {
+          event: 'message.completed',
+          data: {
+            sessionId: 'session-brainstorming',
+            currentStep: { index: 1, label: '当前步骤' },
+            assistantMessage: {
+              id: 'assistant-party-returned',
+              role: 'assistant',
+              content: '已返回原工作流。你可以继续当前步骤、深入追问或修订方向。',
+              decisionOptions: [
+                { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+                { action: 'deepen', label: '深入', shortcut: 'A', enabled: true },
+              ],
+              metadata: { party_mode_returned: true },
+            },
+            decisionOptions: [],
+          },
+        }
+      })
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+    const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+    await user.type(input, 'Need guidance.')
+    await user.keyboard('{Enter}')
+    await user.type(input, 'Draft should stay.')
+
+    await user.click(await screen.findByRole('button', { name: /Party Mode.*快捷键 P/ }))
+
+    await waitFor(() => {
+      expect(mockStreamThinkTankSessionMessage).toHaveBeenLastCalledWith(
+        'session-brainstorming',
+        expect.objectContaining({
+          content: '启动 Party Mode',
+          decisionAction: 'party-mode',
+        }),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      )
+    })
+    expect(await screen.findByText(/Party Mode 上下文已创建/)).toBeVisible()
+    expect(input).toHaveValue('Draft should stay.')
+    await user.click(screen.getByRole('button', { name: /返回工作流/ }))
+    await waitFor(() => {
+      expect(mockStreamThinkTankSessionMessage).toHaveBeenLastCalledWith(
+        'session-brainstorming',
+        expect.objectContaining({
+          content: '返回工作流',
+          decisionAction: 'return-to-workflow',
+        }),
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      )
+    })
+    expect(await screen.findByText(/已返回原工作流/)).toBeVisible()
+    expect(input).toHaveValue('Draft should stay.')
+    const stalePartyModeButtons = screen.getAllByRole('button', { name: /Party Mode.*快捷键 P/ })
+    expect(stalePartyModeButtons[stalePartyModeButtons.length - 1]).toBeDisabled()
+    expect(screen.getByRole('status', { name: 'ThinkTank 工作台状态' })).toHaveTextContent(
+      '已选择：返回工作流'
+    )
+  })
+
+  test('[P0][5.1-FE-002][AC1,AC2] keeps Party Mode out of standalone workflow navigation and unavailable when disabled', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    expect(within(workflowNav).queryByRole('button', { name: /Party Mode/ })).not.toBeInTheDocument()
+
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+    await user.type(await screen.findByRole('textbox', { name: '输入你的回答' }), 'Need guidance.')
+    await user.keyboard('{Enter}')
+
+    const partyModeButton = await screen.findByRole('button', { name: /Party Mode.*快捷键 P/ })
+    expect(partyModeButton).toBeDisabled()
+    expect(screen.getByText('Party Mode 未启用；当前仍可使用单顾问流程。')).toBeVisible()
+    expect(screen.getByRole('button', { name: /继续.*快捷键 C/ })).toBeEnabled()
+
+    fireEvent.keyDown(document.body, { key: 'p' })
+    expect(mockStreamThinkTankSessionMessage).toHaveBeenCalledTimes(1)
   })
 
   test('[P1] honors Escape and Ctrl+D shortcuts without losing focus or draft text', async () => {
