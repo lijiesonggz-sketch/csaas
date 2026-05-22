@@ -74,6 +74,7 @@ export interface ThinkTankStreamingOptions {
 export interface ThinkTankStreamingInput {
   content: string
   decisionAction?: string
+  decisionSourceMessageId?: string
   addressedExpertHint?: {
     advisorId: string
     messageId?: string
@@ -100,7 +101,7 @@ export async function* streamThinkTankSessionMessage(
         content,
         decisionAction: input.decisionAction,
         addressedAdvisorId: input.addressedExpertHint?.advisorId,
-        addressedMessageId: input.addressedExpertHint?.messageId,
+        addressedMessageId: input.decisionSourceMessageId ?? input.addressedExpertHint?.messageId,
       }),
       cache: 'no-store',
       signal: options.signal,

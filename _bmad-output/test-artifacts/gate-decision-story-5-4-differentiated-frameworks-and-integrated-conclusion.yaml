@@ -1,0 +1,36 @@
+schema: 1
+story: 5-4-differentiated-frameworks-and-integrated-conclusion
+decision: PASS
+decision_date: '2026-05-22T13:05:29+08:00'
+rationale: >-
+  P0 coverage is 100%, no P1 requirements were identified, and overall coverage
+  is 100% against the 80% minimum. Backend service/streaming tests, frontend
+  component/workspace tests, output append regression tests, DTO validation, and
+  Party Mode parser tests cover differentiated frameworks, integrated conclusion
+  generation, follow-up-before-accept, stale decision rejection, idempotent
+  report append, and return-to-workflow behavior.
+gate_criteria:
+  p0_coverage_required: 100%
+  p0_coverage_actual: 100%
+  p0_status: MET
+  p1_coverage_target_pass: 90%
+  p1_coverage_minimum: 80%
+  p1_coverage_actual: 100%
+  p1_status: MET
+  overall_coverage_minimum: 80%
+  overall_coverage_actual: 100%
+  overall_status: MET
+coverage_statistics:
+  total_requirements: 3
+  fully_covered: 3
+  partially_covered: 0
+  uncovered: 0
+  overall_coverage_percentage: 100
+uncovered_requirements: []
+recommendations:
+  - priority: LOW
+    action: Keep Story 5.4 integration ATDD, DTO, output append, ChatMessage, WorkspaceShell, and Party Mode stream parser suites in the Epic 5 regression set.
+    requirements:
+      - AC1
+      - AC2
+      - AC3

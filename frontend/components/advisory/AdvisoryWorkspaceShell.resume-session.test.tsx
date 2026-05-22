@@ -6,6 +6,7 @@ import {
   resumeThinkTankSession,
 } from '@/lib/advisory/sessions'
 import { streamThinkTankSessionMessage } from '@/lib/advisory/streaming'
+import { fetchThinkTankWorkflowOutput } from '@/lib/advisory/outputs'
 
 let mockSessionData: {
   user: {
@@ -202,6 +203,7 @@ jest.mock('@/lib/advisory/history', () => ({
 const mockFetchUnfinished = fetchThinkTankUnfinishedSessions as jest.Mock
 const mockResumeSession = resumeThinkTankSession as jest.Mock
 const mockStreamMessage = streamThinkTankSessionMessage as jest.Mock
+const mockFetchWorkflowOutput = fetchThinkTankWorkflowOutput as jest.Mock
 
 function createUnfinishedSessionCard(overrides: Record<string, unknown> = {}) {
   return {
@@ -538,5 +540,103 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
     expect(screen.queryByText('第一位专家已完成但应回滚')).not.toBeInTheDocument()
     expect(screen.queryByText('第二位专家的半截回复')).not.toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: '输入你的回答' })).toHaveValue('Continue Party Mode')
+  })
+
+  test('[P0][5.4-FE-002][AC3] accepts Party Mode integration and refreshes the live report draft', async () => {
+    const user = userEvent.setup()
+    mockResumeSession.mockResolvedValueOnce(
+      createResumeResult({
+        messages: [
+          {
+            id: 'message-integration-1',
+            role: 'assistant',
+            content: 'Consensus: onboarding is the primary blocker.',
+            sequence: 5,
+            workflowKey: 'problem-solving',
+            stepIndex: 2,
+            metadata: {
+              ai_generated: true,
+              party_mode_integration: true,
+              party_mode_integration_status: 'draft',
+              ai_label_visible: '[AI Generated]',
+            },
+            decisionOptions: [
+              {
+                key: 'accept-party-mode-conclusion',
+                action: 'accept-party-mode-conclusion',
+                label: '接受整合结论',
+                enabled: true,
+              },
+            ],
+          },
+        ],
+      })
+    )
+    mockStreamMessage.mockImplementationOnce(async function* () {
+      yield {
+        event: 'message.completed',
+        data: {
+          assistantMessage: {
+            id: 'message-returned',
+            role: 'assistant',
+            content: '已返回原工作流。',
+            workflowKey: 'problem-solving',
+            stepIndex: 2,
+            decisionOptions: [{ key: 'continue', action: 'continue', label: '继续', enabled: true }],
+            metadata: {
+              ai_generated: true,
+              party_mode_returned: true,
+              party_mode_integrated_conclusion_accepted: true,
+            },
+          },
+          decisionOptions: [{ key: 'continue', action: 'continue', label: '继续', enabled: true }],
+          currentStep: { index: 2, label: 'Map constraints' },
+        },
+      }
+    })
+    mockFetchWorkflowOutput.mockResolvedValueOnce({
+      output: {
+        id: 'output-1',
+        sessionId: 'session-1',
+        workflowKey: 'problem-solving',
+        status: 'draft',
+        title: 'Retention Diagnosis',
+        summary: 'Users drop after setup.',
+        contentMarkdown:
+          '# Retention Diagnosis\n\n## Map constraints - Party Mode 整合结论\n\n[AI Generated]\n\nConsensus: onboarding is the primary blocker.',
+        sections: [
+          {
+            id: 'section-1',
+            stepIndex: 2,
+            heading: 'Map constraints - Party Mode 整合结论',
+            contentMarkdown: '[AI Generated]\n\nConsensus: onboarding is the primary blocker.',
+            aiLabel: '[AI Generated]',
+            metadata: { ai_generated: true, source_message_id: 'message-integration-1' },
+          },
+        ],
+        aiLabelMetadata: { visible_label: '[AI Generated]' },
+        metadata: { section_count: 1 },
+      },
+    })
+
+    render(<AdvisoryWorkspaceShell />)
+    await user.click(await screen.findByRole('button', { name: /继续 Retention Diagnosis/ }))
+    await user.click(await screen.findByRole('button', { name: /接受整合结论/ }))
+
+    await waitFor(() =>
+      expect(mockStreamMessage).toHaveBeenCalledWith(
+        'session-1',
+        expect.objectContaining({
+          content: '接受整合结论',
+          decisionAction: 'accept-party-mode-conclusion',
+          decisionSourceMessageId: 'message-integration-1',
+        }),
+        expect.any(Object)
+      )
+    )
+    await waitFor(() => expect(mockFetchWorkflowOutput).toHaveBeenCalledWith('session-1'))
+    expect(
+      screen.getByRole('status', { name: 'ThinkTank step completion status' }),
+    ).toHaveTextContent('Party Mode 整合结论已写入报告草稿。')
   })
 })

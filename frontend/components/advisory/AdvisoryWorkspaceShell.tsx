@@ -1748,6 +1748,7 @@ export default function AdvisoryWorkspaceShell() {
     override: {
       content?: string
       decisionAction?: string
+      decisionSourceMessageId?: string
       selectedDecisionLabel?: string
       addressedExpertHint?: { advisorId: string; messageId?: string }
     } = {}
@@ -1838,7 +1839,12 @@ export default function AdvisoryWorkspaceShell() {
     try {
       for await (const event of streamThinkTankSessionMessage(
         streamSessionId,
-        { content, decisionAction: override.decisionAction, addressedExpertHint },
+        {
+          content,
+          decisionAction: override.decisionAction,
+          decisionSourceMessageId: override.decisionSourceMessageId,
+          addressedExpertHint,
+        },
         { signal: abortController.signal }
       )) {
         if (!isCurrentMessageStream()) return
@@ -1993,6 +1999,27 @@ export default function AdvisoryWorkspaceShell() {
           currentMessages.filter((message) => !isActiveStreamMessage(message))
         )
         return
+      }
+      if (override.decisionAction === 'accept-party-mode-conclusion') {
+        try {
+          const result = await fetchThinkTankWorkflowOutput(streamSessionId)
+          if (!isCurrentMessageStream()) return
+          const feedback = 'Party Mode 整合结论已写入报告草稿。'
+          setWorkflowOutput(result.output)
+          setHistoryPreviewOutput(null)
+          setHasUnreadDocumentContent(!documentDrawerOpen)
+          setOutputCompletionFeedback(feedback)
+          setOutputAnnouncement(feedback)
+          showCheckpointWarning(result.checkpointWarning)
+          announceStreamStatus(feedback, { immediate: true })
+        } catch (error) {
+          if (!isCurrentMessageStream()) return
+          void error
+          const feedback = 'Party Mode 整合结论已提交，报告草稿刷新失败。'
+          setOutputCompletionFeedback(feedback)
+          setOutputAnnouncement(feedback)
+          announceStreamStatus(feedback, { immediate: true })
+        }
       }
       setSessionMessagesStatus('ready')
       textareaRef.current?.focus({ preventScroll: true })
@@ -2193,7 +2220,10 @@ export default function AdvisoryWorkspaceShell() {
     setHasUnreadDocumentContent(false)
   }
 
-  const handleDecisionOption = (option: ThinkTankDecisionOption) => {
+  const handleDecisionOption = (
+    option: ThinkTankDecisionOption,
+    sourceMessage?: ThinkTankConversationMessage
+  ) => {
     if (!option.enabled) return
     const latestDecisionOptions = getLatestDecisionOptions(sessionMessages)
     if (!latestDecisionOptions.some((candidate) => isSameDecisionOption(candidate, option))) {
@@ -2214,6 +2244,28 @@ export default function AdvisoryWorkspaceShell() {
       void handleSubmitMessage({
         content: '返回工作流',
         decisionAction: 'return-to-workflow',
+        selectedDecisionLabel: option.label,
+      })
+      textareaRef.current?.focus({ preventScroll: true })
+      return
+    }
+
+    if (option.action === 'integrate-party-mode') {
+      void handleSubmitMessage({
+        content: '进入观点整合',
+        decisionAction: 'integrate-party-mode',
+        decisionSourceMessageId: sourceMessage?.id,
+        selectedDecisionLabel: option.label,
+      })
+      textareaRef.current?.focus({ preventScroll: true })
+      return
+    }
+
+    if (option.action === 'accept-party-mode-conclusion') {
+      void handleSubmitMessage({
+        content: '接受整合结论',
+        decisionAction: 'accept-party-mode-conclusion',
+        decisionSourceMessageId: sourceMessage?.id,
         selectedDecisionLabel: option.label,
       })
       textareaRef.current?.focus({ preventScroll: true })

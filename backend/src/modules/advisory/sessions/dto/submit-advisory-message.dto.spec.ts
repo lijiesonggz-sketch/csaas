@@ -13,6 +13,17 @@ describe('SubmitAdvisoryMessageDto', () => {
     await expect(validate(dto)).resolves.toEqual([])
   })
 
+  it('[P0][5.4-BE-005][AC2,AC3] allows Party Mode integration and acceptance decision actions through API validation', async () => {
+    for (const decisionAction of ['integrate-party-mode', 'accept-party-mode-conclusion']) {
+      const dto = plainToInstance(SubmitAdvisoryMessageDto, {
+        content: 'Party Mode decision',
+        decisionAction,
+      })
+
+      await expect(validate(dto)).resolves.toEqual([])
+    }
+  })
+
   it('[P0][5.1-BE-014][AC1,AC2] rejects unknown decision actions before controller handling', async () => {
     const dto = plainToInstance(SubmitAdvisoryMessageDto, {
       content: '伪造动作',

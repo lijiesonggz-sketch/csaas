@@ -1,0 +1,173 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "story_id": "5-4-differentiated-frameworks-and-integrated-conclusion",
+  "generated_at": "2026-05-22T13:05:29+08:00",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "requirement": "When Party Mode prompts are assembled for multiple advisors, each advisor receives a differentiated analysis lens or framework, and tests verify advisors are not asked to perform the same role.",
+      "coverage": "FULL",
+      "test_level": "Backend service + frontend component",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-integration.atdd.spec.ts",
+          "cases": [
+            "[P0][5.4-BE-001][AC1] assigns differentiated analysis frameworks to advisor prompts and safe metadata",
+            "[P0][5.4-BE-005][AC1] deduplicates framework assignment within a Party Mode turn"
+          ]
+        },
+        {
+          "file": "frontend/components/advisory/AdvisoryChatMessage.party-mode.atdd.test.tsx",
+          "cases": [
+            "[P0][5.4-FE-001][AC1,AC2] renders Party Mode advisor framework and integrated conclusion AI label"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "Covered through the existing session message path; no standalone Party Mode endpoint or page was added.",
+        "auth_authz_coverage": "Tenant/session and server-owned Party Mode state are inherited from Story 5.1/5.2/5.3 regression suites.",
+        "error_path_coverage": "Framework deduplication and metadata privacy are covered by backend ATDD and frontend rendering tests."
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P0",
+      "requirement": "When the user requests integration after multiple viewpoints, the system summarizes consensus, disagreements, risks, and next steps, while allowing follow-up questions before acceptance.",
+      "coverage": "FULL",
+      "test_level": "Backend service/streaming + frontend component",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-integration.atdd.spec.ts",
+          "cases": [
+            "[P0][5.4-BE-002][AC2] creates an AI-generated integrated conclusion covering consensus, disagreements, risks, and next steps",
+            "[P0][5.4-BE-004][AC2,AC3] rejects stale or forged Party Mode integration and accept decisions",
+            "[P0][5.4-BE-006][AC2] streams integration messages with started, delta, and completed events"
+          ]
+        },
+        {
+          "file": "frontend/components/advisory/AdvisoryChatMessage.party-mode.atdd.test.tsx",
+          "cases": [
+            "[P0][5.4-FE-001][AC1,AC2] renders Party Mode advisor framework and integrated conclusion AI label"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "The existing submit and stream session message APIs are extended with server-owned decision actions and covered by service/stream tests.",
+        "auth_authz_coverage": "Latest-option and optional source message binding reject stale, forged, disabled, and non-latest actions before provider calls or persistence.",
+        "error_path_coverage": "Stale integration target, partial stream ordering, and follow-up-before-accept controls are covered."
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P0",
+      "requirement": "When the user accepts the integrated conclusion, Party Mode appends the conclusion to the active report draft and resumes the normal workflow.",
+      "coverage": "FULL",
+      "test_level": "Backend service/output integration + frontend workspace",
+      "tests": [
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.party-mode-integration.atdd.spec.ts",
+          "cases": [
+            "[P0][5.4-BE-003][AC3] accepts the integrated conclusion, appends it to the active draft, and returns to workflow",
+            "[P0][5.4-BE-004][AC2,AC3] rejects stale or forged Party Mode integration and accept decisions",
+            "[P0][5.4-BE-007][AC3] makes conclusion report append idempotent by source message id"
+          ]
+        },
+        {
+          "file": "frontend/components/advisory/AdvisoryWorkspaceShell.resume-session.test.tsx",
+          "cases": [
+            "[P0][5.4-FE-002][AC3] accepts integration from the clicked source message and refreshes the live document draft"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.outputs.spec.ts",
+          "cases": [
+            "Regression coverage for active output draft append/source validation"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.messages.spec.ts",
+          "cases": [
+            "Regression coverage for session message lifecycle and provider stream handling"
+          ]
+        },
+        {
+          "file": "backend/src/modules/advisory/sessions/advisory-session.messages.controller.spec.ts",
+          "cases": [
+            "Regression coverage for message/stream controller behavior"
+          ]
+        },
+        {
+          "file": "frontend/components/advisory/AdvisoryWorkspaceShell",
+          "cases": [
+            "Regression coverage for workspace decision and output refresh flows"
+          ]
+        },
+        {
+          "file": "frontend/lib/advisory/streaming.party-mode.atdd.test.ts",
+          "cases": [
+            "Regression coverage for Party Mode stream parsing"
+          ]
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "Accept uses the existing session message decision path and the existing output append path; no browser-supplied report body is trusted.",
+        "auth_authz_coverage": "Accept validates latest decision action and the clicked source message id before append/return, with tenant/session validation inherited from output append.",
+        "error_path_coverage": "Stale accept, retry/idempotency, output refresh failure messaging, and normal return-to-workflow regression boundaries are covered."
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 3,
+    "fully_covered": 3,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": { "total": 3, "covered": 3, "percentage": 100 },
+      "P1": { "total": 0, "covered": 0, "percentage": 100 },
+      "P2": { "total": 0, "covered": 0, "percentage": 100 },
+      "P3": { "total": 0, "covered": 0, "percentage": 100 }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Keep Story 5.4 integration ATDD, output append, message/controller, workspace, and stream parser suites in the Epic 5 regression set.",
+      "requirements": ["AC1", "AC2", "AC3"]
+    }
+  ],
+  "verification_commands": [
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.party-mode-integration.atdd.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.party-mode-serial.atdd.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.party-mode-entry.atdd.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.outputs.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.messages.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/advisory-session.messages.controller.spec.ts --runInBand",
+    "cd backend && npm run test -- src/modules/advisory/sessions/dto/submit-advisory-message.dto.spec.ts --runInBand",
+    "cd backend && npx tsc --noEmit",
+    "cd frontend && npm run test -- components/advisory/AdvisoryChatMessage.party-mode.atdd.test.tsx --runInBand",
+    "cd frontend && npm run test -- components/advisory/AdvisoryWorkspaceShell.resume-session.test.tsx --runInBand",
+    "cd frontend && npm run test -- components/advisory/AdvisoryWorkspaceShell --runInBand",
+    "cd frontend && npm run test -- lib/advisory/streaming.party-mode.atdd.test.ts --runInBand",
+    "cd frontend && npx tsc --noEmit"
+  ]
+}

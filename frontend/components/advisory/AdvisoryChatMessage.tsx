@@ -9,7 +9,7 @@ interface AdvisoryChatMessageProps {
   message: ThinkTankConversationMessage
   isStreaming?: boolean
   decisionOptionsAreCurrent?: boolean
-  onDecisionOption?: (option: ThinkTankDecisionOption) => void
+  onDecisionOption?: (option: ThinkTankDecisionOption, message: ThinkTankConversationMessage) => void
   onReplyToExpert?: (message: ThinkTankConversationMessage) => void
 }
 
@@ -28,6 +28,7 @@ export function AdvisoryChatMessage({
 }: AdvisoryChatMessageProps) {
   const roleDisplay = getRoleDisplay(message)
   const partyModeIdentity = getPartyModeIdentity(message)
+  const partyModeIntegration = getPartyModeIntegration(message)
   const canReplyToExpert = Boolean(partyModeIdentity && !isStreaming && onReplyToExpert)
 
   return (
@@ -47,6 +48,9 @@ export function AdvisoryChatMessage({
               <span>第 {partyModeIdentity.round} 轮</span>
               <span>发言 {partyModeIdentity.speakerIndex}</span>
               {partyModeIdentity.perspective && <span>{partyModeIdentity.perspective}</span>}
+              {partyModeIdentity.analysisFramework && (
+                <span>{partyModeIdentity.analysisFramework}</span>
+              )}
             </div>
           )}
         </div>
@@ -70,6 +74,11 @@ export function AdvisoryChatMessage({
         </div>
       </div>
       <div className="min-w-0 break-words text-[length:inherit] leading-[inherit] text-[hsl(var(--advisory-foreground))]">
+        {partyModeIntegration?.visibleLabel && (
+          <p className="mb-2 text-xs font-semibold text-[hsl(var(--advisory-muted-foreground))]">
+            {partyModeIntegration.visibleLabel}
+          </p>
+        )}
         <MarkdownContent content={message.content} />
         {isStreaming && (
           <span
@@ -112,7 +121,7 @@ export function AdvisoryChatMessage({
                   disabled={isDisabled}
                   aria-label={accessibleLabel}
                   title={accessibleLabel}
-                  onClick={() => onDecisionOption?.(option)}
+                  onClick={() => onDecisionOption?.(option, message)}
                   className="h-8 rounded-sm px-2 text-xs"
                 >
                   <span>{option.label}</span>
@@ -321,6 +330,16 @@ function sanitizeMarkdownHref(href: string): string {
 }
 
 function getRoleDisplay(message: ThinkTankConversationMessage) {
+  const partyModeIntegration = getPartyModeIntegration(message)
+  if (partyModeIntegration) {
+    return {
+      label: 'Party Mode 整合结论',
+      ariaLabel: 'Party Mode 整合结论',
+      className:
+        'mr-auto max-w-[88%] border-l-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]',
+    }
+  }
+
   const partyModeIdentity = getPartyModeIdentity(message)
   if (partyModeIdentity) {
     return {
@@ -375,6 +394,7 @@ function getPartyModeIdentity(message: ThinkTankConversationMessage):
       name: string
       role: string
       perspective: string
+      analysisFramework: string
       round: number
       speakerIndex: number
       accentColor: string
@@ -386,6 +406,7 @@ function getPartyModeIdentity(message: ThinkTankConversationMessage):
   const name = readMetadataText(message.metadata.party_mode_advisor_name) ?? '专家'
   const role = readMetadataText(message.metadata.party_mode_advisor_role) ?? 'ThinkTank Expert'
   const perspective = readMetadataText(message.metadata.party_mode_advisor_perspective) ?? ''
+  const analysisFramework = readMetadataText(message.metadata.party_mode_analysis_framework) ?? ''
   const round = readMetadataNumber(message.metadata.party_mode_round) ?? 1
   const speakerIndex = readMetadataNumber(message.metadata.party_mode_speaker_index) ?? 1
 
@@ -394,9 +415,22 @@ function getPartyModeIdentity(message: ThinkTankConversationMessage):
     name,
     role,
     perspective,
+    analysisFramework,
     round,
     speakerIndex,
     accentColor: getExpertAccentColor(advisorId),
+  }
+}
+
+function getPartyModeIntegration(message: ThinkTankConversationMessage):
+  | {
+      visibleLabel: string
+    }
+  | null {
+  if (message.metadata?.party_mode_integration !== true) return null
+
+  return {
+    visibleLabel: readMetadataText(message.metadata.ai_label_visible) ?? '[AI Generated]',
   }
 }
 

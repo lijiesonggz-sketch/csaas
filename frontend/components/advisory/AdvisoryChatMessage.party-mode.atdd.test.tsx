@@ -88,4 +88,56 @@ describe('AdvisoryChatMessage Party Mode ATDD', () => {
 
     expect(onReplyToExpert).toHaveBeenCalledWith(message)
   })
+
+  test('[P0][5.4-FE-001][AC1,AC2] renders Party Mode framework and AI-generated integration label accessibly', () => {
+    const advisorMessage: ThinkTankConversationMessage = {
+      id: 'advisor-framework-message',
+      role: 'assistant',
+      content: '我会先从技术可行性拆解落地风险。',
+      workflowKey: 'problem-solving',
+      stepIndex: 2,
+      metadata: {
+        party_mode_message: true,
+        party_mode_round: 1,
+        party_mode_speaker_index: 2,
+        party_mode_advisor_id: 'architect',
+        party_mode_advisor_name: 'Winston',
+        party_mode_advisor_role: 'System Architect',
+        party_mode_analysis_framework: 'Technical feasibility and architecture',
+      },
+    }
+    const integrationMessage: ThinkTankConversationMessage = {
+      id: 'integration-message',
+      role: 'assistant',
+      content: 'Consensus: onboarding is the primary blocker.\nRisks: roadmap distraction.',
+      workflowKey: 'problem-solving',
+      stepIndex: 2,
+      metadata: {
+        ai_generated: true,
+        party_mode_integration: true,
+        party_mode_integration_status: 'draft',
+        ai_label_visible: '[AI Generated]',
+      },
+      decisionOptions: [
+        {
+          key: 'accept-party-mode-conclusion',
+          action: 'accept-party-mode-conclusion',
+          label: '接受整合结论',
+          enabled: true,
+        },
+      ],
+    }
+
+    const { rerender } = render(<AdvisoryChatMessage message={advisorMessage} />)
+    expect(screen.getByText('Technical feasibility and architecture')).toBeInTheDocument()
+
+    rerender(<AdvisoryChatMessage message={integrationMessage} />)
+    expect(
+      screen.getByRole('article', { name: /Party Mode 整合结论/ }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('[AI Generated]')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /接受整合结论/ }),
+    ).toBeInTheDocument()
+  })
 })

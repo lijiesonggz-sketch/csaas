@@ -139,13 +139,20 @@ const SAFE_CURRENT_STEP_REF = 'current-step:1'
 const INVALID_WORKFLOW_AUDIT_KEY = 'invalid-workflow'
 const THINKTANK_PARTY_MODE_ACTION = 'party-mode'
 const THINKTANK_PARTY_MODE_RETURN_ACTION = 'return-to-workflow'
+const THINKTANK_PARTY_MODE_INTEGRATE_ACTION = 'integrate-party-mode'
+const THINKTANK_PARTY_MODE_ACCEPT_CONCLUSION_ACTION = 'accept-party-mode-conclusion'
 const THINKTANK_PARTY_MODE_DISABLED_DESCRIPTION = 'Party Mode 未启用；当前仍可使用单顾问流程。'
 const THINKTANK_PARTY_MODE_ENABLED_DESCRIPTION = '启动多角色顾问讨论'
 const THINKTANK_PARTY_MODE_RETURNED_MESSAGE =
   '已返回原工作流。你可以继续当前步骤、深入追问或修订方向。'
+const THINKTANK_PARTY_MODE_INTEGRATED_RETURNED_MESSAGE =
+  '已返回原工作流。Party Mode 整合结论已写入报告草稿。你可以继续当前步骤、深入追问或修订方向。'
 const THINKTANK_PARTY_MODE_UNAVAILABLE_MESSAGE = 'Party Mode 当前不可用，请继续使用单顾问流程。'
 const THINKTANK_PARTY_MODE_ADVISOR_REFERENCE_INVALID_MESSAGE =
   '该专家引用已不可用，请从当前 Party Mode 讨论中重新选择专家。'
+const THINKTANK_PARTY_MODE_INTEGRATION_UNAVAILABLE_MESSAGE =
+  'Party Mode 整合操作已不可用，请从当前讨论重新进入整合。'
+const THINKTANK_PARTY_MODE_AI_VISIBLE_LABEL = '[AI Generated]'
 const EXPECTED_THINKTANK_WORKFLOW_KEYS = [
   'brainstorming',
   'domain-research',
@@ -471,6 +478,9 @@ interface PartyModeAdvisorTurn {
   name: string
   role: string
   perspective: string
+  roleFamily: string
+  analysisFramework: string
+  frameworkInstruction: string
 }
 
 interface PartyModeSerialTurnResult {
@@ -482,6 +492,11 @@ interface PartyModeSerialTurnResult {
   advisorOrder: string[]
   decisionOptions: AdvisoryConversationDecisionOption[]
   checkpointWarning?: AdvisoryCheckpointWarning
+}
+
+interface PartyModeDecisionMatch {
+  message: AdvisoryConversationMessage
+  option: AdvisoryConversationDecisionOption
 }
 
 interface AdvisoryAppendOutputSectionContext extends AdvisorySessionMessageContext {
@@ -1391,6 +1406,12 @@ export class AdvisorySessionService {
     )
     const isPartyModeAction = this.isPartyModeDecisionAction(context.decisionAction)
     const isPartyModeReturnAction = this.isPartyModeReturnDecisionAction(context.decisionAction)
+    const isPartyModeIntegrationAction = this.isPartyModeIntegrationDecisionAction(
+      context.decisionAction,
+    )
+    const isPartyModeAcceptConclusionAction = this.isPartyModeAcceptConclusionDecisionAction(
+      context.decisionAction,
+    )
     if (isPartyModeAction) {
       this.assertPartyModeDecisionCanStart(context.tenantId, session, tenantScopedHistory)
       const partyModeResult = await this.startPartyModeFromDecision({
@@ -1429,6 +1450,72 @@ export class AdvisorySessionService {
         tenantScopedHistory,
         content,
         decisionAction: context.decisionAction,
+      })
+
+      return {
+        sessionId: session.id,
+        currentStep: session.currentStep,
+        messages: [
+          ...tenantScopedHistory,
+          partyModeResult.userMessage,
+          partyModeResult.assistantMessage,
+        ],
+        assistantMessage: partyModeResult.assistantMessage,
+        stream: [],
+        decisionOptions: partyModeResult.decisionOptions,
+        ...(partyModeResult.checkpointWarning
+          ? { checkpointWarning: partyModeResult.checkpointWarning }
+          : {}),
+      }
+    }
+    if (isPartyModeIntegrationAction) {
+      this.assertPartyModeIntegrationCanStart(
+        session,
+        tenantScopedHistory,
+        this.optionalText(context.addressedMessageId) ?? undefined,
+      )
+      const partyModeResult = await this.createPartyModeIntegratedConclusion({
+        tenantId: context.tenantId,
+        user: context.user,
+        session,
+        messageRepository,
+        tenantScopedHistory,
+        content,
+        decisionAction: context.decisionAction,
+        sourceMessageId: this.optionalText(context.addressedMessageId) ?? undefined,
+      })
+
+      return {
+        sessionId: session.id,
+        currentStep: session.currentStep,
+        messages: [
+          ...tenantScopedHistory,
+          partyModeResult.userMessage,
+          partyModeResult.assistantMessage,
+        ],
+        assistantMessage: partyModeResult.assistantMessage,
+        stream: partyModeResult.stream,
+        decisionOptions: partyModeResult.decisionOptions,
+        ...(partyModeResult.checkpointWarning
+          ? { checkpointWarning: partyModeResult.checkpointWarning }
+          : {}),
+      }
+    }
+    if (isPartyModeAcceptConclusionAction) {
+      this.assertPartyModeAcceptConclusionCanStart(
+        session,
+        tenantScopedHistory,
+        this.optionalText(context.addressedMessageId) ?? undefined,
+      )
+      const partyModeResult = await this.acceptPartyModeIntegratedConclusion({
+        tenantId: context.tenantId,
+        user: context.user,
+        session,
+        messageRepository,
+        tenantScopedHistory,
+        content,
+        decisionAction: context.decisionAction,
+        sourceMessageId: this.optionalText(context.addressedMessageId) ?? undefined,
       })
 
       return {
@@ -1612,6 +1699,12 @@ export class AdvisorySessionService {
     )
     const isPartyModeAction = this.isPartyModeDecisionAction(context.decisionAction)
     const isPartyModeReturnAction = this.isPartyModeReturnDecisionAction(context.decisionAction)
+    const isPartyModeIntegrationAction = this.isPartyModeIntegrationDecisionAction(
+      context.decisionAction,
+    )
+    const isPartyModeAcceptConclusionAction = this.isPartyModeAcceptConclusionDecisionAction(
+      context.decisionAction,
+    )
     if (isPartyModeAction) {
       this.assertPartyModeDecisionCanStart(context.tenantId, session, tenantScopedHistory)
       if (context.signal?.aborted) {
@@ -1662,6 +1755,100 @@ export class AdvisorySessionService {
         tenantScopedHistory,
         content,
         decisionAction: context.decisionAction,
+      })
+
+      yield {
+        event: 'message.started',
+        data: {
+          sessionId: session.id,
+          currentStep: session.currentStep,
+        },
+      }
+
+      yield {
+        event: 'message.completed',
+        data: {
+          sessionId: session.id,
+          currentStep: session.currentStep,
+          assistantMessage: partyModeResult.assistantMessage,
+          decisionOptions: partyModeResult.decisionOptions,
+          ...(partyModeResult.checkpointWarning
+            ? { checkpointWarning: partyModeResult.checkpointWarning }
+            : {}),
+        },
+      }
+      return
+    }
+    if (isPartyModeIntegrationAction) {
+      this.assertPartyModeIntegrationCanStart(
+        session,
+        tenantScopedHistory,
+        this.optionalText(context.addressedMessageId) ?? undefined,
+      )
+      if (context.signal?.aborted) {
+        return
+      }
+      yield {
+        event: 'message.started',
+        data: {
+          sessionId: session.id,
+          currentStep: session.currentStep,
+        },
+      }
+      const partyModeResult = await this.createPartyModeIntegratedConclusion({
+        tenantId: context.tenantId,
+        user: context.user,
+        session,
+        messageRepository,
+        tenantScopedHistory,
+        content,
+        decisionAction: context.decisionAction,
+        sourceMessageId: this.optionalText(context.addressedMessageId) ?? undefined,
+        signal: context.signal,
+      })
+
+      for (const chunk of partyModeResult.stream) {
+        yield {
+          event: 'message.delta',
+          data: {
+            index: chunk.index,
+            delta: chunk.delta,
+          },
+        }
+      }
+
+      yield {
+        event: 'message.completed',
+        data: {
+          sessionId: session.id,
+          currentStep: session.currentStep,
+          assistantMessage: partyModeResult.assistantMessage,
+          decisionOptions: partyModeResult.decisionOptions,
+          ...(partyModeResult.checkpointWarning
+            ? { checkpointWarning: partyModeResult.checkpointWarning }
+            : {}),
+        },
+      }
+      return
+    }
+    if (isPartyModeAcceptConclusionAction) {
+      this.assertPartyModeAcceptConclusionCanStart(
+        session,
+        tenantScopedHistory,
+        this.optionalText(context.addressedMessageId) ?? undefined,
+      )
+      if (context.signal?.aborted) {
+        return
+      }
+      const partyModeResult = await this.acceptPartyModeIntegratedConclusion({
+        tenantId: context.tenantId,
+        user: context.user,
+        session,
+        messageRepository,
+        tenantScopedHistory,
+        content,
+        decisionAction: context.decisionAction,
+        sourceMessageId: this.optionalText(context.addressedMessageId) ?? undefined,
       })
 
       yield {
@@ -4217,6 +4404,18 @@ export class AdvisorySessionService {
     return value === THINKTANK_PARTY_MODE_RETURN_ACTION
   }
 
+  private isPartyModeIntegrationDecisionAction(
+    value: unknown,
+  ): value is typeof THINKTANK_PARTY_MODE_INTEGRATE_ACTION {
+    return value === THINKTANK_PARTY_MODE_INTEGRATE_ACTION
+  }
+
+  private isPartyModeAcceptConclusionDecisionAction(
+    value: unknown,
+  ): value is typeof THINKTANK_PARTY_MODE_ACCEPT_CONCLUSION_ACTION {
+    return value === THINKTANK_PARTY_MODE_ACCEPT_CONCLUSION_ACTION
+  }
+
   private isPartyModeDiscussionReady(session: AdvisoryWorkflowSession): boolean {
     return (
       session.metadata?.party_mode_active === true &&
@@ -4232,15 +4431,124 @@ export class AdvisorySessionService {
     const perspectives = this.splitPartyModeMetadata(
       metadata.party_mode_selected_advisor_perspectives,
     )
+    const roleFamilies = this.splitPartyModeMetadata(
+      metadata.party_mode_selected_advisor_role_families,
+    )
 
-    return ids
-      .map((id, index) => ({
-        id,
-        name: names[index] ?? id,
-        role: roles[index] ?? 'ThinkTank Expert',
-        perspective: perspectives[index] ?? '',
-      }))
+    const preferredAdvisors = ids
+      .map((id, index) => {
+        const role = roles[index] ?? 'ThinkTank Expert'
+        const roleFamily = roleFamilies[index] ?? ''
+        const analysisFramework = this.resolvePartyModeAnalysisFramework({
+          id,
+          role,
+          roleFamily,
+          perspective: perspectives[index] ?? '',
+          index,
+        })
+
+        return {
+          id,
+          name: names[index] ?? id,
+          role,
+          perspective: perspectives[index] ?? '',
+          roleFamily,
+          analysisFramework,
+          frameworkInstruction: this.createPartyModeFrameworkInstruction(analysisFramework),
+        }
+      })
       .filter((advisor) => advisor.id.length > 0)
+
+    return this.assignUniquePartyModeFrameworks(preferredAdvisors)
+  }
+
+  private assignUniquePartyModeFrameworks(advisors: PartyModeAdvisorTurn[]): PartyModeAdvisorTurn[] {
+    const fallbackFrameworks = this.getPartyModeFallbackFrameworks()
+    const usedFrameworks = new Set<string>()
+
+    return advisors.map((advisor, index) => {
+      const framework =
+        !usedFrameworks.has(advisor.analysisFramework)
+          ? advisor.analysisFramework
+          : (fallbackFrameworks.find((candidate) => !usedFrameworks.has(candidate)) ??
+            fallbackFrameworks[index % fallbackFrameworks.length])
+      usedFrameworks.add(framework)
+
+      return {
+        ...advisor,
+        analysisFramework: framework,
+        frameworkInstruction: this.createPartyModeFrameworkInstruction(framework),
+      }
+    })
+  }
+
+  private resolvePartyModeAnalysisFramework(context: {
+    id: string
+    role: string
+    roleFamily: string
+    perspective: string
+    index: number
+  }): string {
+    const haystack = [
+      context.id,
+      context.role,
+      context.roleFamily,
+      context.perspective,
+    ]
+      .join(' ')
+      .toLowerCase()
+    if (/problem|root|cause|diagnos|creative/.test(haystack)) {
+      return 'Root cause decomposition'
+    }
+    if (/architect|technical|engineer|implementation|system/.test(haystack)) {
+      return 'Technical feasibility and architecture'
+    }
+    if (/product|priorit|pm|value/.test(haystack)) {
+      return 'Product value and prioritization'
+    }
+    if (/risk|govern|compliance|qa|quality|operat/.test(haystack)) {
+      return 'Risk and governance review'
+    }
+    if (/design|ux|customer|research/.test(haystack)) {
+      return 'Customer and UX evidence'
+    }
+    if (/strategy|market|analyst|business/.test(haystack)) {
+      return 'Strategy and market fit'
+    }
+
+    const fallbackFrameworks = this.getPartyModeFallbackFrameworks()
+
+    return fallbackFrameworks[context.index % fallbackFrameworks.length]
+  }
+
+  private getPartyModeFallbackFrameworks(): string[] {
+    return [
+      'Root cause decomposition',
+      'Technical feasibility and architecture',
+      'Product value and prioritization',
+      'Risk and governance review',
+      'Customer and UX evidence',
+      'Strategy and market fit',
+    ]
+  }
+
+  private createPartyModeFrameworkInstruction(analysisFramework: string): string {
+    switch (analysisFramework) {
+      case 'Root cause decomposition':
+        return 'Break the issue into causes, symptoms, evidence, and causal assumptions.'
+      case 'Technical feasibility and architecture':
+        return 'Assess implementation feasibility, architecture constraints, integration risk, and operational complexity.'
+      case 'Product value and prioritization':
+        return 'Evaluate user value, prioritization tradeoffs, success criteria, and opportunity cost.'
+      case 'Risk and governance review':
+        return 'Surface compliance, reliability, security, operational, and downside risks.'
+      case 'Customer and UX evidence':
+        return 'Anchor the viewpoint in customer behavior, UX friction, research signals, and adoption risk.'
+      case 'Strategy and market fit':
+        return 'Connect the decision to market position, strategy, differentiation, and business model impact.'
+      default:
+        return 'Use the named framework to add a non-overlapping perspective.'
+    }
   }
 
   private splitPartyModeMetadata(value: unknown): string[] {
@@ -4379,6 +4687,7 @@ export class AdvisorySessionService {
       party_mode_advisor_name: context.advisor.name,
       party_mode_advisor_role: context.advisor.role,
       party_mode_advisor_perspective: context.advisor.perspective,
+      party_mode_analysis_framework: context.advisor.analysisFramework,
       party_mode_addressed_advisor_id: context.addressedAdvisorId ?? null,
       party_mode_addressed_first: Boolean(isAddressedAdvisor),
       party_mode_follow_up_to_addressed_advisor: Boolean(
@@ -4428,6 +4737,8 @@ export class AdvisorySessionService {
       `Expert name: ${context.advisor.name}.`,
       `Expert role: ${context.advisor.role}.`,
       context.advisor.perspective ? `Expert perspective: ${context.advisor.perspective}.` : '',
+      `Analysis framework: ${context.advisor.analysisFramework}.`,
+      `Framework instruction: ${context.advisor.frameworkInstruction}`,
       context.addressedAdvisorId === context.advisor.id
         ? 'The user addressed this expert directly. Deepen that point first.'
         : context.addressedAdvisorId
@@ -4485,6 +4796,7 @@ export class AdvisorySessionService {
           party_mode_advisor_name: context.advisor.name,
           party_mode_advisor_role: context.advisor.role,
           party_mode_advisor_perspective: context.advisor.perspective,
+          party_mode_analysis_framework: context.advisor.analysisFramework,
           party_mode_addressed_advisor_id: context.addressedAdvisorId ?? null,
           party_mode_shared_context_pointer:
             this.optionalText(context.session.metadata?.party_mode_context_history_pointer) ??
@@ -4606,7 +4918,7 @@ export class AdvisorySessionService {
               content: response.content,
               workflowKey: context.session.workflowKey,
               stepIndex: context.session.currentStep.index,
-              decisionOptions: isFinalAdvisor ? this.createPartyModeStartedDecisionOptions() : [],
+              decisionOptions: isFinalAdvisor ? this.createPartyModeDiscussionDecisionOptions() : [],
               metadata: this.createMessageMetadata(
                 context.session.workflowKey,
                 context.session.currentStep.index,
@@ -4650,7 +4962,7 @@ export class AdvisorySessionService {
           stream,
           round,
           advisorOrder: orderedAdvisors.map((advisor) => advisor.id),
-          decisionOptions: this.createPartyModeStartedDecisionOptions(),
+          decisionOptions: this.createPartyModeDiscussionDecisionOptions(),
           ...(checkpointWarning ? { checkpointWarning } : {}),
         }
       } catch (error) {
@@ -4783,6 +5095,7 @@ export class AdvisorySessionService {
                 party_mode_advisor_name: advisor.name,
                 party_mode_advisor_role: advisor.role,
                 party_mode_advisor_perspective: advisor.perspective,
+                party_mode_analysis_framework: advisor.analysisFramework,
                 party_mode_addressed_advisor_id: addressedAdvisorId ?? null,
                 party_mode_shared_context_pointer:
                   this.optionalText(context.session.metadata?.party_mode_context_history_pointer) ??
@@ -4828,7 +5141,7 @@ export class AdvisorySessionService {
               content: advisorContent.trim(),
               workflowKey: context.session.workflowKey,
               stepIndex: context.session.currentStep.index,
-              decisionOptions: isFinalAdvisor ? this.createPartyModeStartedDecisionOptions() : [],
+              decisionOptions: isFinalAdvisor ? this.createPartyModeDiscussionDecisionOptions() : [],
               metadata: this.createMessageMetadata(
                 context.session.workflowKey,
                 context.session.currentStep.index,
@@ -4876,7 +5189,7 @@ export class AdvisorySessionService {
               sessionId: context.session.id,
               currentStep: context.session.currentStep,
               assistantMessage: advisorMessage,
-              decisionOptions: isFinalAdvisor ? this.createPartyModeStartedDecisionOptions() : [],
+              decisionOptions: isFinalAdvisor ? this.createPartyModeDiscussionDecisionOptions() : [],
               partyModeTurnComplete: isFinalAdvisor,
               ...(checkpointWarning ? { checkpointWarning } : {}),
             },
@@ -5001,6 +5314,56 @@ export class AdvisorySessionService {
     }
   }
 
+  private assertPartyModeIntegrationCanStart(
+    session: AdvisoryWorkflowSession,
+    messages: AdvisoryConversationMessage[],
+    sourceMessageId?: string,
+  ): PartyModeDecisionMatch {
+    const latestIntegrationOption = this.findLatestAssistantDecisionOptionMatch(
+      messages,
+      THINKTANK_PARTY_MODE_INTEGRATE_ACTION,
+    )
+    const latestRound = this.findLatestPartyModeAdvisorRound(messages)
+
+    if (
+      session.metadata?.party_mode_active !== true ||
+      session.metadata?.party_mode_status !== 'context-created' ||
+      !latestIntegrationOption?.option.enabled ||
+      !latestRound ||
+      latestIntegrationOption.message.id !== latestRound.messages.at(-1)?.id ||
+      (sourceMessageId && latestIntegrationOption.message.id !== sourceMessageId)
+    ) {
+      throw new ConflictException(THINKTANK_PARTY_MODE_INTEGRATION_UNAVAILABLE_MESSAGE)
+    }
+
+    return latestIntegrationOption
+  }
+
+  private assertPartyModeAcceptConclusionCanStart(
+    session: AdvisoryWorkflowSession,
+    messages: AdvisoryConversationMessage[],
+    sourceMessageId?: string,
+  ): PartyModeDecisionMatch {
+    const latestAcceptOption = this.findLatestAssistantDecisionOptionMatch(
+      messages,
+      THINKTANK_PARTY_MODE_ACCEPT_CONCLUSION_ACTION,
+    )
+    const integrationMessage = latestAcceptOption?.message
+
+    if (
+      session.metadata?.party_mode_active !== true ||
+      session.metadata?.party_mode_status !== 'context-created' ||
+      !latestAcceptOption?.option.enabled ||
+      integrationMessage?.metadata?.party_mode_integration !== true ||
+      integrationMessage.metadata?.party_mode_integration_status !== 'draft' ||
+      (sourceMessageId && integrationMessage.id !== sourceMessageId)
+    ) {
+      throw new ConflictException(THINKTANK_PARTY_MODE_INTEGRATION_UNAVAILABLE_MESSAGE)
+    }
+
+    return latestAcceptOption
+  }
+
   private async startPartyModeFromDecision(context: {
     tenantId: string
     user: AdvisoryAccessUser
@@ -5103,6 +5466,391 @@ export class AdvisorySessionService {
     }
   }
 
+  private async createPartyModeIntegratedConclusion(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: AdvisoryWorkflowSession
+    messageRepository: AdvisoryConversationMessageRepository
+    tenantScopedHistory: AdvisoryConversationMessage[]
+    content: string
+    decisionAction?: string
+    sourceMessageId?: string
+    signal?: AbortSignal
+  }): Promise<{
+    userMessage: AdvisoryConversationMessage
+    assistantMessage: AdvisoryConversationMessage
+    stream: AdvisoryConversationStreamChunk[]
+    decisionOptions: AdvisoryConversationDecisionOption[]
+    checkpointWarning?: AdvisoryCheckpointWarning
+  }> {
+    return this.withPartyModeTurnLock(context.session.id, async () => {
+      const tenantScopedHistory = await this.reloadPartyModeTenantScopedHistory(context)
+      this.assertPartyModeIntegrationCanStart(
+        context.session,
+        tenantScopedHistory,
+        context.sourceMessageId,
+      )
+      const sourceRound = this.findLatestPartyModeAdvisorRound(tenantScopedHistory)
+      if (!sourceRound) {
+        throw new ConflictException(THINKTANK_PARTY_MODE_INTEGRATION_UNAVAILABLE_MESSAGE)
+      }
+
+      let userMessage: AdvisoryConversationMessage | undefined
+      let assistantMessage: AdvisoryConversationMessage | undefined
+      const providerChunks: ThinkTankProviderStreamChunk[] = []
+      const stream: AdvisoryConversationStreamChunk[] = []
+      let assistantContent = ''
+
+      try {
+        if (context.signal?.aborted) {
+          throw new ServiceUnavailableException(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
+        }
+        const sourceMessageIds = this.joinPartyModeMetadataValues(
+          sourceRound.messages.map((message) => message.id),
+        )
+        const sourceFrameworks = this.joinPartyModeMetadataValues(
+          sourceRound.messages
+            .map((message) => message.metadata?.party_mode_analysis_framework)
+            .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+        )
+
+        userMessage = await this.createUserMessageWithNextSequence(context.messageRepository, {
+          tenantId: context.tenantId,
+          user: context.user,
+          session: context.session,
+          content: context.content,
+          decisionAction: context.decisionAction,
+          metadata: {
+            party_mode_integration_requested: true,
+            party_mode_source_round: sourceRound.round,
+          },
+        })
+        const providerPrompt = await this.createProviderPromptContext(context.session)
+        const providerGateway = this.requireProviderGateway()
+        const providerMetadata = {
+          workflow_key: context.session.workflowKey,
+          step_index: context.session.currentStep.index,
+          party_mode_integration: true,
+          party_mode_source_round: sourceRound.round,
+          party_mode_source_message_ids: sourceMessageIds,
+          party_mode_frameworks: sourceFrameworks,
+          party_mode_shared_context_pointer:
+            this.optionalText(context.session.metadata?.party_mode_context_history_pointer) ??
+            this.optionalText(context.session.metadata?.party_mode_problem_context_pointer) ??
+            `conversation_messages:${context.session.id}`,
+          ...providerPrompt.metadata,
+        }
+
+        for await (const chunk of providerGateway.stream(
+          {
+            tenantId: context.tenantId,
+            actorId: context.user.id,
+            subjectId: context.session.id,
+            stream: true,
+            system: this.createPartyModeIntegrationSystemPrompt(providerPrompt.system),
+            messages: this.toProviderMessages([...tenantScopedHistory, userMessage]),
+            promptCache: this.createDisabledPromptCachePolicy(),
+            metadata: providerMetadata,
+          },
+          context.signal,
+        )) {
+          if (context.signal?.aborted) {
+            throw new ServiceUnavailableException(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
+          }
+          providerChunks.push(chunk)
+          assistantContent += chunk.delta
+          stream.push({
+            index: stream.length + chunk.index,
+            delta: chunk.delta,
+            done: chunk.done,
+            provider: chunk.provider,
+            model: chunk.model,
+            latencyMs: chunk.latencyMs,
+            finishReason: chunk.finishReason,
+          })
+        }
+
+        if (!assistantContent.trim()) {
+          throw new ServiceUnavailableException(THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
+        }
+
+        const lastChunk = providerChunks.at(-1)
+        const decisionOptions = this.createPartyModeIntegrationDecisionOptions()
+        assistantMessage = await context.messageRepository.createMessageWithNextSequence(
+          context.tenantId,
+          context.session.id,
+          {
+            sessionId: context.session.id,
+            actorId: context.user.id,
+            role: AdvisoryConversationMessageRole.Assistant,
+            content: assistantContent.trim(),
+            workflowKey: context.session.workflowKey,
+            stepIndex: context.session.currentStep.index,
+            decisionOptions,
+            metadata: this.createMessageMetadata(
+              context.session.workflowKey,
+              context.session.currentStep.index,
+              {
+                ai_generated: true,
+                finish_reason: lastChunk?.finishReason ?? null,
+                party_mode_integration: true,
+                party_mode_integration_status: 'draft',
+                ai_label_visible: THINKTANK_PARTY_MODE_AI_VISIBLE_LABEL,
+                party_mode_source_round: sourceRound.round,
+                party_mode_source_message_ids: sourceMessageIds,
+                party_mode_frameworks: sourceFrameworks,
+              },
+            ),
+            providerMetadata: this.createAssistantProviderMetadata(lastChunk),
+          },
+        )
+        const checkpointWarning = await this.saveCheckpointForSession({
+          tenantId: context.tenantId,
+          user: context.user,
+          session: context.session,
+          conversation: {
+            messageCount: tenantScopedHistory.length + 2,
+            lastMessageId: assistantMessage.id,
+            historyPointer: `conversation_messages:${context.session.id}`,
+          },
+          metadata: {
+            party_mode_active: true,
+            party_mode_status: 'context-created',
+            party_mode_latest_integration_message_id: assistantMessage.id,
+            party_mode_latest_integration_source_round: sourceRound.round,
+          },
+        })
+
+        return {
+          userMessage,
+          assistantMessage,
+          stream,
+          decisionOptions,
+          ...(checkpointWarning ? { checkpointWarning } : {}),
+        }
+      } catch (error) {
+        await this.deletePartyModeMessages(context.messageRepository, context.tenantId, [
+          userMessage,
+          assistantMessage,
+        ])
+        throw this.toMessageSubmitException(error)
+      }
+    })
+  }
+
+  private async acceptPartyModeIntegratedConclusion(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: AdvisoryWorkflowSession
+    messageRepository: AdvisoryConversationMessageRepository
+    tenantScopedHistory: AdvisoryConversationMessage[]
+    content: string
+    decisionAction?: string
+    sourceMessageId?: string
+  }): Promise<{
+    userMessage: AdvisoryConversationMessage
+    assistantMessage: AdvisoryConversationMessage
+    decisionOptions: AdvisoryConversationDecisionOption[]
+    checkpointWarning?: AdvisoryCheckpointWarning
+  }> {
+    return this.withPartyModeTurnLock(context.session.id, async () => {
+      const tenantScopedHistory = await this.reloadPartyModeTenantScopedHistory(context)
+      const latestAccept = this.assertPartyModeAcceptConclusionCanStart(
+        context.session,
+        tenantScopedHistory,
+        context.sourceMessageId,
+      )
+      const sourceMessage = await this.resolvePartyModeIntegrationSourceMessage({
+        tenantId: context.tenantId,
+        session: context.session,
+        messageRepository: context.messageRepository,
+        messageId: latestAccept.message.id,
+      })
+      const claimedSession = await this.claimPartyModeReturn(
+        context.tenantId,
+        context.user,
+        context.session,
+      )
+      let userMessage: AdvisoryConversationMessage | undefined
+
+      try {
+        userMessage = await this.createUserMessageWithNextSequence(context.messageRepository, {
+          tenantId: context.tenantId,
+          user: context.user,
+          session: claimedSession,
+          content: context.content,
+          decisionAction: context.decisionAction,
+          metadata: {
+            party_mode_integrated_conclusion_accepted: true,
+            party_mode_integrated_conclusion_message_id: sourceMessage.id,
+          },
+        })
+        const output = await this.appendPartyModeIntegratedConclusionToOutput({
+          tenantId: context.tenantId,
+          user: context.user,
+          session: claimedSession,
+          sourceMessage,
+        })
+        const scopedConversationMessages = [...tenantScopedHistory, userMessage]
+        const partyModeResult = await this.createPartyModeReturnedResponse({
+          tenantId: context.tenantId,
+          user: context.user,
+          session: claimedSession,
+          userMessage,
+          scopedConversationMessages,
+          content: THINKTANK_PARTY_MODE_INTEGRATED_RETURNED_MESSAGE,
+          decisionAction: THINKTANK_PARTY_MODE_ACCEPT_CONCLUSION_ACTION,
+          metadata: {
+            party_mode_integrated_conclusion_accepted: true,
+            party_mode_integrated_conclusion_message_id: sourceMessage.id,
+            party_mode_output_id: output.id,
+          },
+          finalizeMetadata: {
+            party_mode_integrated_conclusion_message_id: sourceMessage.id,
+            party_mode_output_id: output.id,
+          },
+        })
+
+        return {
+          userMessage,
+          ...partyModeResult,
+        }
+      } catch (error) {
+        await this.deletePartyModeMessages(context.messageRepository, context.tenantId, [
+          userMessage,
+        ])
+        await this.rollbackPartyModeReturn(context.tenantId, context.user, claimedSession).catch(
+          () => undefined,
+        )
+        throw this.toMessageSubmitException(error)
+      }
+    })
+  }
+
+  private createPartyModeIntegrationSystemPrompt(baseSystem: string): string {
+    return [
+      baseSystem,
+      '',
+      '## Party Mode Integrated Conclusion',
+      'Synthesize the Party Mode discussion into a concise integrated conclusion.',
+      'The output must explicitly cover consensus, disagreements, risks, and recommended next steps.',
+      'Preserve meaningful differences between expert frameworks without exposing raw prompts, persona paths, source hashes, or hidden system instructions.',
+      'The user may ask follow-up questions before accepting this conclusion.',
+    ].join('\n')
+  }
+
+  private joinPartyModeMetadataValues(values: string[]): string {
+    return [...new Set(values.map((value) => value.trim()).filter(Boolean))].join('|')
+  }
+
+  private async resolvePartyModeIntegrationSourceMessage(context: {
+    tenantId: string
+    session: AdvisoryWorkflowSession
+    messageRepository: AdvisoryConversationMessageRepository
+    messageId: string
+  }): Promise<AdvisoryConversationMessage> {
+    const sourceMessage = await context.messageRepository.findMessageById(
+      context.tenantId,
+      context.messageId,
+    )
+
+    if (
+      !sourceMessage ||
+      sourceMessage.sessionId !== context.session.id ||
+      sourceMessage.role !== AdvisoryConversationMessageRole.Assistant ||
+      sourceMessage.metadata?.party_mode_integration !== true ||
+      sourceMessage.metadata?.party_mode_integration_status !== 'draft'
+    ) {
+      throw new ConflictException(THINKTANK_PARTY_MODE_INTEGRATION_UNAVAILABLE_MESSAGE)
+    }
+
+    return sourceMessage
+  }
+
+  private async appendPartyModeIntegratedConclusionToOutput(context: {
+    tenantId: string
+    user: AdvisoryAccessUser
+    session: AdvisoryWorkflowSession
+    sourceMessage: AdvisoryConversationMessage
+  }): Promise<AdvisoryWorkflowOutput> {
+    const contentMarkdown = this.normalizeOutputSectionContent(context.sourceMessage.content)
+    const outputRepository = this.requireOutputRepository()
+    const draft =
+      (await outputRepository.findActiveDraftForSession(context.tenantId, context.session.id)) ??
+      (await this.createActiveDraftForSession(context.tenantId, context.session))
+    if (this.hasOutputSectionForSourceMessage(draft, context.sourceMessage.id)) {
+      return draft
+    }
+    const stepIndex = this.normalizeStepIndex(
+      context.sourceMessage.stepIndex ?? context.session.currentStep.index,
+      context.session.currentStep.index,
+    )
+    const stepLabel = `${this.normalizeStepLabel(
+      context.session.currentStep.label,
+      stepIndex,
+    )} - Party Mode 整合结论`
+    const providerMetadata = this.toSafeProviderMetadata(context.sourceMessage.providerMetadata ?? {})
+    const section: AdvisoryWorkflowOutputSection = {
+      id: randomUUID(),
+      stepIndex,
+      heading: stepLabel,
+      contentMarkdown: `${THINKTANK_PARTY_MODE_AI_VISIBLE_LABEL}\n\n${contentMarkdown}`,
+      aiLabel: THINKTANK_PARTY_MODE_AI_VISIBLE_LABEL,
+      metadata: {
+        '@context': 'https://schema.org',
+        '@type': 'CreativeWork',
+        ai_generated: true,
+        machine_readable: true,
+        workflow_key: context.session.workflowKey,
+        source_session_id: context.session.id,
+        source_message_id: context.sourceMessage.id,
+        step_label: stepLabel,
+        step_index: stepIndex,
+        generated_at: new Date().toISOString(),
+        ...providerMetadata,
+      },
+      createdAt: new Date().toISOString(),
+    }
+
+    await this.assertActiveSessionStillCurrent(
+      context.tenantId,
+      context.session.id,
+      context.session.actorId,
+    )
+    const output = await outputRepository.appendSection(context.tenantId, draft.id, section)
+    if (!output) {
+      throw new NotFoundException(THINKTANK_OUTPUT_NOT_FOUND_MESSAGE)
+    }
+    await this.saveCheckpointForSession({
+      tenantId: context.tenantId,
+      user: context.user,
+      session: context.session,
+      conversation: {
+        messageCount: context.sourceMessage.sequence,
+        lastMessageId: context.sourceMessage.id,
+        historyPointer: `conversation_messages:${context.session.id}`,
+      },
+      documentState: this.toCheckpointDocumentState(output),
+      metadata: {
+        party_mode_integrated_conclusion_message_id: context.sourceMessage.id,
+        party_mode_output_id: output.id,
+      },
+    })
+
+    return output
+  }
+
+  private hasOutputSectionForSourceMessage(
+    output: AdvisoryWorkflowOutput,
+    sourceMessageId: string,
+  ): boolean {
+    return Boolean(
+      output.sections?.some(
+        (section) => section.metadata?.source_message_id === sourceMessageId,
+      ),
+    )
+  }
+
   private async claimPartyModeStart(
     tenantId: string,
     user: AdvisoryAccessUser,
@@ -5194,16 +5942,46 @@ export class AdvisorySessionService {
     messages: AdvisoryConversationMessage[],
     action: string,
   ): AdvisoryConversationDecisionOption | null {
+    return this.findLatestAssistantDecisionOptionMatch(messages, action)?.option ?? null
+  }
+
+  private findLatestAssistantDecisionOptionMatch(
+    messages: AdvisoryConversationMessage[],
+    action: string,
+  ): PartyModeDecisionMatch | null {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       const message = messages[index]
       if (message.role !== AdvisoryConversationMessageRole.Assistant) continue
       const decisionOptions = message.decisionOptions ?? []
       if (decisionOptions.length === 0) continue
 
-      return decisionOptions.find((candidate) => candidate.action === action) ?? null
+      const option = decisionOptions.find((candidate) => candidate.action === action)
+      return option ? { message, option } : null
     }
 
     return null
+  }
+
+  private findLatestPartyModeAdvisorRound(
+    messages: AdvisoryConversationMessage[],
+  ): { round: number; messages: AdvisoryConversationMessage[] } | null {
+    const advisorMessages = messages.filter(
+      (message) =>
+        message.role === AdvisoryConversationMessageRole.Assistant &&
+        message.metadata?.party_mode_message === true &&
+        typeof message.metadata.party_mode_round === 'number' &&
+        Number.isFinite(message.metadata.party_mode_round),
+    )
+    if (advisorMessages.length === 0) return null
+
+    const round = Math.max(
+      ...advisorMessages.map((message) => message.metadata?.party_mode_round as number),
+    )
+    const sourceMessages = advisorMessages
+      .filter((message) => message.metadata?.party_mode_round === round)
+      .sort((left, right) => left.sequence - right.sequence)
+
+    return { round, messages: sourceMessages }
   }
 
   private isEnabledEnvironmentFlag(value: unknown): boolean {
@@ -5328,12 +6106,50 @@ export class AdvisorySessionService {
     ]
   }
 
+  private createPartyModeDiscussionDecisionOptions(): AdvisoryConversationDecisionOption[] {
+    return [
+      {
+        key: 'integrate-party-mode',
+        action: THINKTANK_PARTY_MODE_INTEGRATE_ACTION,
+        label: '进入观点整合',
+        enabled: true,
+        description: '综合专家共识、分歧、风险和下一步建议',
+      },
+      ...this.createPartyModeStartedDecisionOptions(),
+    ]
+  }
+
+  private createPartyModeIntegrationDecisionOptions(): AdvisoryConversationDecisionOption[] {
+    return [
+      {
+        key: 'accept-party-mode-conclusion',
+        action: THINKTANK_PARTY_MODE_ACCEPT_CONCLUSION_ACTION,
+        label: '接受整合结论',
+        enabled: true,
+        description: '写入报告草稿并返回原工作流',
+      },
+      {
+        key: 'party-mode-follow-up',
+        action: 'deepen',
+        label: '继续追问',
+        shortcut: 'A',
+        enabled: true,
+        description: '在接受前继续补充问题',
+      },
+      ...this.createPartyModeStartedDecisionOptions(),
+    ]
+  }
+
   private async createPartyModeReturnedResponse(context: {
     tenantId: string
     user: AdvisoryAccessUser
     session: AdvisoryWorkflowSession
     userMessage: AdvisoryConversationMessage
     scopedConversationMessages: AdvisoryConversationMessage[]
+    content?: string
+    decisionAction?: string
+    metadata?: Record<string, string | number | boolean | null>
+    finalizeMetadata?: Record<string, string | number | boolean | null>
   }): Promise<{
     assistantMessage: AdvisoryConversationMessage
     decisionOptions: AdvisoryConversationDecisionOption[]
@@ -5350,7 +6166,7 @@ export class AdvisorySessionService {
           sessionId: context.session.id,
           actorId: context.user.id,
           role: AdvisoryConversationMessageRole.Assistant,
-          content: THINKTANK_PARTY_MODE_RETURNED_MESSAGE,
+          content: context.content ?? THINKTANK_PARTY_MODE_RETURNED_MESSAGE,
           workflowKey: context.session.workflowKey,
           stepIndex: context.session.currentStep.index,
           decisionOptions,
@@ -5360,7 +6176,8 @@ export class AdvisorySessionService {
             {
               ai_generated: true,
               party_mode_returned: true,
-              decision_action: THINKTANK_PARTY_MODE_RETURN_ACTION,
+              decision_action: context.decisionAction ?? THINKTANK_PARTY_MODE_RETURN_ACTION,
+              ...(context.metadata ?? {}),
             },
           ),
           providerMetadata: {},
@@ -5376,6 +6193,7 @@ export class AdvisorySessionService {
           party_mode_status: 'returned',
           party_mode_returned_at: returnedAt,
           party_mode_return_message_id: assistantMessage.id,
+          ...(context.finalizeMetadata ?? {}),
         },
       )
       if (!finalizedSession) {
@@ -5396,6 +6214,7 @@ export class AdvisorySessionService {
           party_mode_status: 'returned',
           party_mode_returned_at: returnedAt,
           party_mode_return_message_id: assistantMessage.id,
+          ...(context.finalizeMetadata ?? {}),
         },
       })
 
