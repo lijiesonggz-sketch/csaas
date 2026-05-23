@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: '2026-05-18T21:27:35+08:00'
-last_updated: '2026-05-22T18:45:00+08:00'
+last_updated: '2026-05-23T11:01:17+08:00'
 project: Csaas
 project_key: NOKEY
 tracking_system: file-system
@@ -94,7 +94,7 @@ development_status:
   epic-6: in-progress
   6-1-usage-and-completion-dashboard: done
   6-2-provider-telemetry-aggregation: done
-  6-3-cost-latency-and-failure-dashboard: backlog
+  6-3-cost-latency-and-failure-dashboard: done
   6-4-feedback-and-output-quality-analysis: backlog
   6-5-governance-review-from-audit-and-telemetry: backlog
   epic-6-retrospective: optional

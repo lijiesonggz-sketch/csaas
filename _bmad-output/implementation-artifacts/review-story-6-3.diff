@@ -1,0 +1,2849 @@
+diff --git a/_bmad-output/implementation-artifacts/sprint-status.yaml b/_bmad-output/implementation-artifacts/sprint-status.yaml
+index 785abcf..b5646a2 100644
+--- a/_bmad-output/implementation-artifacts/sprint-status.yaml
++++ b/_bmad-output/implementation-artifacts/sprint-status.yaml
+@@ -35,7 +35,7 @@
+ # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+ 
+ generated: '2026-05-18T21:27:35+08:00'
+-last_updated: '2026-05-22T18:45:00+08:00'
++last_updated: '2026-05-23T02:58:00+08:00'
+ project: Csaas
+ project_key: NOKEY
+ tracking_system: file-system
+@@ -94,7 +94,7 @@ development_status:
+   epic-6: in-progress
+   6-1-usage-and-completion-dashboard: done
+   6-2-provider-telemetry-aggregation: done
+-  6-3-cost-latency-and-failure-dashboard: backlog
++  6-3-cost-latency-and-failure-dashboard: review
+   6-4-feedback-and-output-quality-analysis: backlog
+   6-5-governance-review-from-audit-and-telemetry: backlog
+   epic-6-retrospective: optional
+diff --git a/frontend/app/admin/advisory/operations/page.test.tsx b/frontend/app/admin/advisory/operations/page.test.tsx
+index 31513c3..c58a404 100644
+--- a/frontend/app/admin/advisory/operations/page.test.tsx
++++ b/frontend/app/admin/advisory/operations/page.test.tsx
+@@ -4,6 +4,7 @@ import { fetchAdvisoryOperationsUsage } from '@/lib/advisory/operations'
+ 
+ jest.mock('@/lib/advisory/operations', () => ({
+   fetchAdvisoryOperationsUsage: jest.fn(),
++  fetchAdvisoryProviderTelemetry: jest.fn(),
+ }))
+ 
+ const dashboard = {
+@@ -73,14 +74,156 @@ const dashboard = {
+   ],
+ }
+ 
++const providerTelemetryDashboard = {
++  generatedAt: '2026-05-23T01:30:00.000Z',
++  filters: {
++    selected: {
++      tenantId: 'tenant-alpha',
++      dateFrom: '2026-05-01',
++      dateTo: '2026-05-22',
++      workflowType: 'all',
++      groupBy: ['workflow', 'experience', 'provider'],
++    },
++  },
++  freshness: {
++    source: 'audit_logs',
++    status: 'fresh',
++    latestEventAt: '2026-05-22T08:10:00.000Z',
++    description: 'Provider telemetry is current.',
++  },
++  metrics: {
++    terminalCalls: 8,
++    successfulCalls: 6,
++    failedCalls: 2,
++    retryEvents: 1,
++    errorRate: 25,
++    timeoutRate: 12.5,
++    estimatedTokens: 12000,
++    estimatedCost: 18.75,
++    averageLatencyMs: 3400,
++    p95LatencyMs: 6200,
++    cacheHits: 5,
++    cacheMisses: 3,
++    cacheBypasses: 1,
++    cacheHitRate: 55.56,
++  },
++  byWorkflow: [
++    {
++      key: 'problem-solving',
++      label: 'Problem Solving',
++      scopeLabel: 'workflow',
++      terminalCalls: 5,
++      failedCalls: 2,
++      errorRate: 40,
++      timeoutRate: 20,
++      estimatedTokens: 9000,
++      estimatedCost: 13.5,
++      averageLatencyMs: 3600,
++      p95LatencyMs: 6400,
++      cacheHits: 3,
++      cacheMisses: 2,
++      cacheBypasses: 0,
++      cacheHitRate: 60,
++      measurementStatus: 'fresh',
++    },
++  ],
++  byExperience: [
++    {
++      key: 'quick_consult',
++      label: 'Quick Consult',
++      scopeLabel: 'experience',
++      terminalCalls: 3,
++      failedCalls: 0,
++      errorRate: 0,
++      timeoutRate: 0,
++      estimatedTokens: 900,
++      estimatedCost: 1.2,
++      averageLatencyMs: 1400,
++      p95LatencyMs: 2300,
++      cacheHits: 2,
++      cacheMisses: 1,
++      cacheBypasses: 0,
++      cacheHitRate: 66.67,
++      measurementStatus: 'fresh',
++    },
++    {
++      key: 'party_mode',
++      label: 'Party Mode',
++      scopeLabel: 'experience',
++      terminalCalls: 5,
++      failedCalls: 2,
++      errorRate: 40,
++      timeoutRate: 20,
++      estimatedTokens: 11100,
++      estimatedCost: 17.55,
++      averageLatencyMs: 4600,
++      p95LatencyMs: 7200,
++      cacheHits: 2,
++      cacheMisses: 3,
++      cacheBypasses: 1,
++      cacheHitRate: 40,
++      measurementStatus: 'fresh',
++    },
++  ],
++  byProvider: [
++    {
++      key: 'zhipu-glm',
++      label: 'zhipu-glm',
++      scopeLabel: 'provider',
++      terminalCalls: 8,
++      failedCalls: 2,
++      errorRate: 25,
++      timeoutRate: 12.5,
++      estimatedTokens: 12000,
++      estimatedCost: 18.75,
++      averageLatencyMs: 3400,
++      p95LatencyMs: 6200,
++      cacheHits: 5,
++      cacheMisses: 3,
++      cacheBypasses: 1,
++      cacheHitRate: 55.56,
++      measurementStatus: 'fresh',
++    },
++  ],
++  thresholdBreaches: [
++    {
++      id: 'summary-p95-latency',
++      metric: 'P95 latency',
++      actualValue: '6200 ms',
++      thresholdValue: '5000 ms',
++      tenantId: 'tenant-alpha',
++      affectedScope: 'All provider calls',
++      workflowType: 'all',
++      timeWindow: '2026-05-01 to 2026-05-22',
++      severity: 'warning',
++      message:
++        'P95 latency breach: 6200 ms exceeds 5000 ms for tenant-alpha across all provider calls during 2026-05-01 to 2026-05-22.',
++    },
++  ],
++  instrumentationGaps: [
++    {
++      eventName: 'thinktank.provider.call_failed',
++      reason: 'missing_grouping_metadata',
++      owningArea: 'provider_gateway',
++      count: 1,
++    },
++  ],
++}
++
+ describe('AdvisoryOperationsPage', () => {
+   const mockFetchUsage = fetchAdvisoryOperationsUsage as jest.MockedFunction<
+     typeof fetchAdvisoryOperationsUsage
+   >
++  const mockFetchProviderTelemetry = (
++    jest.requireMock('@/lib/advisory/operations') as {
++      fetchAdvisoryProviderTelemetry: jest.Mock
++    }
++  ).fetchAdvisoryProviderTelemetry
+ 
+   beforeEach(() => {
+     jest.clearAllMocks()
+     mockFetchUsage.mockResolvedValue(dashboard)
++    mockFetchProviderTelemetry.mockResolvedValue(providerTelemetryDashboard)
+   })
+ 
+   it('renders filters, usage metrics, workflow table, freshness, and instrumentation gaps', async () => {
+@@ -160,4 +303,81 @@ describe('AdvisoryOperationsPage', () => {
+     expect(alert).toHaveTextContent(/No trusted measurements|try again/i)
+     expect(screen.queryByText(/Quick Consult volume\s+0/i)).not.toBeInTheDocument()
+   })
++
++  it('[6.3-COMP-001][P1][AC1] renders provider telemetry metrics and grouped monitoring views', async () => {
++    render(<AdvisoryOperationsPage />)
++
++    const providerMetrics = await screen.findByRole('region', {
++      name: /Provider telemetry metrics/i,
++    })
++    expect(providerMetrics).toHaveTextContent('Average latency')
++    expect(providerMetrics).toHaveTextContent('3400 ms')
++    expect(providerMetrics).toHaveTextContent('P95 latency')
++    expect(providerMetrics).toHaveTextContent('6200 ms')
++    expect(providerMetrics).toHaveTextContent('Error rate')
++    expect(providerMetrics).toHaveTextContent('25%')
++    expect(providerMetrics).toHaveTextContent('Timeout rate')
++    expect(providerMetrics).toHaveTextContent('12.5%')
++    expect(providerMetrics).toHaveTextContent('Estimated tokens')
++    expect(providerMetrics).toHaveTextContent('12,000')
++    expect(providerMetrics).toHaveTextContent('Estimated cost')
++    expect(providerMetrics).toHaveTextContent('18.75')
++    expect(providerMetrics).toHaveTextContent('Cache hit rate')
++    expect(providerMetrics).toHaveTextContent('55.6%')
++
++    const providerTable = screen.getByRole('table', { name: /Provider telemetry groups/i })
++    expect(providerTable).toHaveTextContent('Problem Solving')
++    expect(providerTable).toHaveTextContent('Quick Consult')
++    expect(providerTable).toHaveTextContent('Party Mode')
++    expect(providerTable).toHaveTextContent('zhipu-glm')
++  })
++
++  it('[6.3-COMP-002][P1][AC2] identifies threshold breaches with text, icon labeling, tenant, scope, and time window', async () => {
++    render(<AdvisoryOperationsPage />)
++
++    const breaches = await screen.findByRole('region', { name: /Provider threshold breaches/i })
++    expect(breaches).toHaveTextContent(/Warning breach/i)
++    expect(breaches).toHaveTextContent('P95 latency')
++    expect(breaches).toHaveTextContent('6200 ms')
++    expect(breaches).toHaveTextContent('5000 ms')
++    expect(breaches).toHaveTextContent('tenant-alpha')
++    expect(breaches).toHaveTextContent('Workflow type: all')
++    expect(breaches).toHaveTextContent('All provider calls')
++    expect(breaches).toHaveTextContent('2026-05-01 to 2026-05-22')
++  })
++
++  it('[6.3-COMP-004][P1][AC1,AC3] renders provider telemetry instrumentation gaps', async () => {
++    render(<AdvisoryOperationsPage />)
++
++    const gaps = await screen.findByRole('region', { name: /Provider telemetry gaps/i })
++    expect(gaps).toHaveTextContent(/missing grouping metadata/i)
++    expect(gaps).toHaveTextContent('thinktank.provider.call_failed')
++    expect(gaps).toHaveTextContent('provider_gateway')
++  })
++
++  it('[6.3-COMP-003][P1][AC3] renders unavailable provider telemetry without misleading zero measurements or raw content', async () => {
++    mockFetchProviderTelemetry.mockResolvedValue({
++      ...providerTelemetryDashboard,
++      freshness: {
++        source: 'audit_logs',
++        status: 'unavailable',
++        latestEventAt: null,
++        description: 'Provider telemetry source is unavailable. No trusted measurements are available.',
++      },
++      metrics: null,
++      byWorkflow: [],
++      byExperience: [],
++      byProvider: [],
++      thresholdBreaches: [],
++      instrumentationGaps: [],
++    })
++
++    render(<AdvisoryOperationsPage />)
++
++    const alert = await screen.findByRole('alert', { name: /Provider telemetry unavailable/i })
++    expect(alert).toHaveTextContent(/No trusted measurements/i)
++    expect(screen.queryByText(/Average latency\s+0 ms/i)).not.toBeInTheDocument()
++    expect(screen.queryByText(/Estimated cost\s+0/i)).not.toBeInTheDocument()
++    expect(screen.queryByText(/PRIVATE_|prompt|conversation|report|feedback/i)).not.toBeInTheDocument()
++  })
+ })
+diff --git a/frontend/app/admin/advisory/operations/page.tsx b/frontend/app/admin/advisory/operations/page.tsx
+index e3fe619..599d3cb 100644
+--- a/frontend/app/admin/advisory/operations/page.tsx
++++ b/frontend/app/admin/advisory/operations/page.tsx
+@@ -1,13 +1,16 @@
+ 'use client'
+ 
+-import { useEffect, useMemo, useState } from 'react'
++import { type ReactNode, useEffect, useMemo, useState } from 'react'
+ import {
+   AlertTriangle,
+   BarChart3,
+   Clock3,
++  Database,
++  Gauge,
+   Loader2,
+   RefreshCw,
+   Search,
++  ShieldAlert,
+ } from 'lucide-react'
+ import { Alert, AlertDescription } from '@/components/ui/alert'
+ import { Badge } from '@/components/ui/badge'
+@@ -37,10 +40,13 @@ import {
+   TableRow,
+ } from '@/components/ui/table'
+ import {
++  AdvisoryProviderTelemetryGroup,
++  AdvisoryProviderTelemetryView,
+   AdvisoryOperationsUsageFilters,
+   AdvisoryOperationsUsageView,
+   AdvisoryOperationsWorkflowUsage,
+   fetchAdvisoryOperationsUsage,
++  fetchAdvisoryProviderTelemetry,
+ } from '@/lib/advisory/operations'
+ 
+ const DEFAULT_FILTERS = {
+@@ -52,10 +58,13 @@ const DEFAULT_FILTERS = {
+ 
+ export default function AdvisoryOperationsPage() {
+   const [dashboard, setDashboard] = useState<AdvisoryOperationsUsageView | null>(null)
++  const [providerTelemetry, setProviderTelemetry] =
++    useState<AdvisoryProviderTelemetryView | null>(null)
+   const [filters, setFilters] = useState<Required<AdvisoryOperationsUsageFilters>>(DEFAULT_FILTERS)
+   const [loading, setLoading] = useState(true)
+   const [refreshing, setRefreshing] = useState(false)
+   const [error, setError] = useState<string | null>(null)
++  const [providerError, setProviderError] = useState<string | null>(null)
+   const [selectedWorkflow, setSelectedWorkflow] =
+     useState<AdvisoryOperationsWorkflowUsage | null>(null)
+ 
+@@ -68,6 +77,17 @@ export default function AdvisoryOperationsPage() {
+   const unavailable = dashboard?.freshness.status === 'unavailable'
+   const delayed = dashboard?.freshness.status === 'delayed'
+   const metrics = dashboard?.metrics ?? null
++  const providerUnavailable = providerTelemetry?.freshness.status === 'unavailable'
++  const providerDelayed = providerTelemetry?.freshness.status === 'delayed'
++  const providerMetrics = providerTelemetry?.metrics ?? null
++  const providerGroups = useMemo(
++    () => [
++      ...(providerTelemetry?.byWorkflow ?? []),
++      ...(providerTelemetry?.byExperience ?? []),
++      ...(providerTelemetry?.byProvider ?? []),
++    ],
++    [providerTelemetry],
++  )
+ 
+   const lowCompletionCount = useMemo(
+     () => dashboard?.workflowUsage.filter((workflow) => workflow.lowCompletion).length ?? 0,
+@@ -78,6 +98,73 @@ export default function AdvisoryOperationsPage() {
+     if (initial) setLoading(true)
+     else setRefreshing(true)
+     setError(null)
++    setProviderError(null)
++
++    try {
++      let providerFilters = nextFilters
++      const usageResult = await Promise.resolve(fetchAdvisoryOperationsUsage(nextFilters))
++        .then((value) => ({ status: 'fulfilled' as const, value }))
++        .catch((reason) => ({ status: 'rejected' as const, reason }))
++
++      if (usageResult.status === 'fulfilled') {
++        const loaded = usageResult.value
++        setDashboard(loaded)
++        setFilters(loaded.filters.selected)
++        providerFilters = loaded.filters.selected
++      } else {
++        setError(
++          usageResult.reason instanceof Error
++            ? usageResult.reason.message
++            : 'Usage data unavailable. No trusted measurements are available.',
++        )
++      }
++
++      const providerResult = await Promise.resolve(
++        fetchAdvisoryProviderTelemetry({
++          ...providerFilters,
++          groupBy: ['workflow', 'experience', 'provider'],
++        }),
++      )
++        .then((value) => ({ status: 'fulfilled' as const, value }))
++        .catch((reason) => ({ status: 'rejected' as const, reason }))
++
++      if (providerResult.status === 'fulfilled') {
++        setProviderTelemetry(providerResult.value)
++      } else {
++        setProviderTelemetry(null)
++        setProviderError(
++          providerResult.reason instanceof Error
++            ? providerResult.reason.message
++            : 'Provider telemetry unavailable. No trusted measurements are available.',
++        )
++      }
++    } finally {
++      setLoading(false)
++      setRefreshing(false)
++    }
++  }
++
++  async function loadProviderTelemetryOnly(nextFilters: AdvisoryOperationsUsageFilters) {
++    setProviderError(null)
++
++    try {
++      const loaded = await fetchAdvisoryProviderTelemetry({
++        ...nextFilters,
++        groupBy: ['workflow', 'experience', 'provider'],
++      })
++      setProviderTelemetry(loaded)
++    } catch (loadError) {
++      setProviderTelemetry(null)
++      setProviderError(
++        loadError instanceof Error
++          ? loadError.message
++          : 'Provider telemetry unavailable. No trusted measurements are available.',
++      )
++    }
++  }
++
++  async function loadUsageOnly(nextFilters: AdvisoryOperationsUsageFilters) {
++    setError(null)
+ 
+     try {
+       const loaded = await fetchAdvisoryOperationsUsage(nextFilters)
+@@ -89,9 +176,6 @@ export default function AdvisoryOperationsPage() {
+           ? loadError.message
+           : 'Usage data unavailable. No trusted measurements are available.',
+       )
+-    } finally {
+-      setLoading(false)
+-      setRefreshing(false)
+     }
+   }
+ 
+@@ -100,7 +184,10 @@ export default function AdvisoryOperationsPage() {
+   }
+ 
+   function applyFilters() {
+-    void loadUsage(filters)
++    setRefreshing(true)
++    Promise.allSettled([loadUsageOnly(filters), loadProviderTelemetryOnly(filters)]).finally(() =>
++      setRefreshing(false),
++    )
+   }
+ 
+   if (loading) {
+@@ -158,6 +245,36 @@ export default function AdvisoryOperationsPage() {
+           </Alert>
+         )}
+ 
++        {(providerError || providerUnavailable) && (
++          <Alert
++            variant="destructive"
++            role="alert"
++            aria-label="Provider telemetry unavailable"
++          >
++            <AlertTriangle className="h-4 w-4" />
++            <AlertDescription>
++              {providerError ??
++                `Provider telemetry unavailable. ${
++                  providerTelemetry?.freshness.description ??
++                  'No trusted measurements are available; try again.'
++                }`}
++            </AlertDescription>
++          </Alert>
++        )}
++
++        {providerDelayed && (
++          <Alert
++            role="alert"
++            className="border-amber-200 bg-amber-50 text-amber-900"
++            aria-label="Provider telemetry delayed"
++          >
++            <Clock3 className="h-4 w-4" />
++            <AlertDescription>
++              Delayed provider telemetry. Treat cost, latency, cache, and failure metrics as stale.
++            </AlertDescription>
++          </Alert>
++        )}
++
+         <Card variant="outlined" className="bg-white">
+           <CardHeader className="pb-3">
+             <CardTitle className="text-base">Filters</CardTitle>
+@@ -271,6 +388,154 @@ export default function AdvisoryOperationsPage() {
+           )}
+         </section>
+ 
++        <section role="region" aria-label="Provider telemetry metrics">
++          <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
++            <div>
++              <h2 className="text-lg font-semibold text-slate-900">Provider telemetry</h2>
++              <p className="text-sm text-slate-600">
++                Aggregate cost, latency, cache, timeout, and failure measurements from provider events.
++              </p>
++            </div>
++            <div className="flex items-center gap-2">
++              <Badge variant={freshnessBadgeVariant(providerTelemetry?.freshness.status)}>
++                {freshnessLabel(providerTelemetry?.freshness.status)}
++              </Badge>
++              <span className="text-xs text-slate-500">
++                {providerTelemetry?.freshness.latestEventAt
++                  ? `last provider event ${formatDateTime(providerTelemetry.freshness.latestEventAt)}`
++                  : 'provider event unavailable'}
++              </span>
++            </div>
++          </div>
++          {providerMetrics ? (
++            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
++              <MetricCard
++                label="Average latency"
++                value={formatMilliseconds(providerMetrics.averageLatencyMs)}
++                icon={<Gauge className="h-4 w-4 text-emerald-600" />}
++              />
++              <MetricCard
++                label="P95 latency"
++                value={formatMilliseconds(providerMetrics.p95LatencyMs)}
++                icon={<Clock3 className="h-4 w-4 text-emerald-600" />}
++              />
++              <MetricCard label="Error rate" value={formatPercent(providerMetrics.errorRate)} />
++              <MetricCard label="Timeout rate" value={formatPercent(providerMetrics.timeoutRate)} />
++              <MetricCard
++                label="Estimated tokens"
++                value={formatInteger(providerMetrics.estimatedTokens)}
++              />
++              <MetricCard
++                label="Estimated cost"
++                value={formatCost(providerMetrics.estimatedCost)}
++              />
++              <MetricCard label="Provider calls" value={providerMetrics.terminalCalls} />
++              <MetricCard label="Failed calls" value={providerMetrics.failedCalls} />
++              <MetricCard label="Retries" value={providerMetrics.retryEvents} />
++              <MetricCard label="Cache hits" value={providerMetrics.cacheHits} />
++              <MetricCard label="Cache misses" value={providerMetrics.cacheMisses} />
++              <MetricCard label="Cache bypasses" value={providerMetrics.cacheBypasses} />
++              <MetricCard
++                label="Cache hit rate"
++                value={formatPercent(providerMetrics.cacheHitRate)}
++                icon={<Database className="h-4 w-4 text-emerald-600" />}
++              />
++            </div>
++          ) : (
++            <Card variant="outlined" className="bg-white">
++              <CardContent className="py-5 text-sm text-slate-600">
++                No trusted provider measurements are available for this filter set.
++              </CardContent>
++            </Card>
++          )}
++        </section>
++
++        <section role="region" aria-label="Provider threshold breaches">
++          <Card variant="outlined" className="bg-white">
++            <CardHeader className="flex flex-row items-center justify-between pb-3">
++              <CardTitle className="text-base">Provider threshold breaches</CardTitle>
++              <Badge
++                variant={
++                  providerTelemetry?.thresholdBreaches.length ? 'warning' : 'success'
++                }
++              >
++                {providerTelemetry?.thresholdBreaches.length ?? 0} warning breach
++              </Badge>
++            </CardHeader>
++            <CardContent>
++              {providerTelemetry?.thresholdBreaches.length ? (
++                <div className="space-y-2">
++                  {providerTelemetry.thresholdBreaches.map((breach) => (
++                    <div
++                      key={breach.id}
++                      className="rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
++                    >
++                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
++                        <div>
++                          <p className="flex items-center gap-2 font-medium">
++                            <ShieldAlert className="h-4 w-4" aria-hidden="true" />
++                            <span>Warning breach: {breach.metric}</span>
++                          </p>
++                          <p className="mt-1 text-amber-900">{breach.message}</p>
++                        </div>
++                        <Badge variant="warning">{breach.severity}</Badge>
++                      </div>
++                      <div className="mt-2 grid gap-2 text-xs md:grid-cols-5">
++                        <span>Actual: {breach.actualValue}</span>
++                        <span>Threshold: {breach.thresholdValue}</span>
++                        <span>Tenant: {breach.tenantId}</span>
++                        <span>Workflow type: {breach.workflowType}</span>
++                        <span>Window: {breach.timeWindow}</span>
++                      </div>
++                      <p className="mt-1 text-xs">Scope: {breach.affectedScope}</p>
++                    </div>
++                  ))}
++                </div>
++              ) : (
++                <p className="text-sm text-slate-600">
++                  No provider threshold breaches detected for this filter set.
++                </p>
++              )}
++            </CardContent>
++          </Card>
++        </section>
++
++        <Card variant="outlined" className="bg-white">
++          <CardHeader className="pb-3">
++            <CardTitle className="text-base">Provider telemetry groups</CardTitle>
++          </CardHeader>
++          <CardContent>
++            <Table aria-label="Provider telemetry groups">
++              <TableHeader>
++                <TableRow>
++                  <TableHead>Group</TableHead>
++                  <TableHead>Scope</TableHead>
++                  <TableHead className="text-right">Calls</TableHead>
++                  <TableHead className="text-right">P95 latency</TableHead>
++                  <TableHead className="text-right">Error rate</TableHead>
++                  <TableHead className="text-right">Timeout rate</TableHead>
++                  <TableHead className="text-right">Tokens</TableHead>
++                  <TableHead className="text-right">Cost</TableHead>
++                  <TableHead className="text-right">Cache</TableHead>
++                </TableRow>
++              </TableHeader>
++              <TableBody>
++                {providerGroups.length ? (
++                  providerGroups.map((group) => (
++                    <ProviderGroupRow key={`${group.scopeLabel}-${group.key}`} group={group} />
++                  ))
++                ) : (
++                  <TableRow>
++                    <TableCell colSpan={9} className="py-6 text-center text-sm text-slate-500">
++                      No trusted provider group measurements are available.
++                    </TableCell>
++                  </TableRow>
++                )}
++              </TableBody>
++            </Table>
++          </CardContent>
++        </Card>
++
+         <Card variant="outlined" className="bg-white">
+           <CardHeader className="flex flex-row items-center justify-between pb-3">
+             <CardTitle className="text-base">Workflow completion</CardTitle>
+@@ -335,6 +600,36 @@ export default function AdvisoryOperationsPage() {
+           </CardContent>
+         </Card>
+ 
++        <section role="region" aria-label="Provider telemetry gaps">
++          <Card variant="outlined" className="bg-white">
++            <CardHeader className="pb-3">
++              <CardTitle className="text-base">Provider telemetry gaps</CardTitle>
++            </CardHeader>
++            <CardContent>
++              {providerTelemetry?.instrumentationGaps.length ? (
++                <div className="space-y-2">
++                  {providerTelemetry.instrumentationGaps.map((gap, index) => (
++                    <div
++                      key={`${gap.reason}-${gap.eventName ?? index}`}
++                      className="flex flex-col gap-1 rounded-sm border border-slate-200 px-3 py-2 text-sm md:flex-row md:items-center md:justify-between"
++                    >
++                      <div>
++                        <p className="font-medium">{humanizeGapReason(gap.reason)}</p>
++                        <p className="text-slate-600">
++                          {gap.eventName ?? 'provider event unavailable'} · {gap.owningArea}
++                        </p>
++                      </div>
++                      <Badge variant="outline">{gap.count}</Badge>
++                    </div>
++                  ))}
++                </div>
++              ) : (
++                <p className="text-sm text-slate-600">No provider telemetry gaps detected.</p>
++              )}
++            </CardContent>
++          </Card>
++        </section>
++
+         <section role="region" aria-label="Instrumentation gaps">
+           <Card variant="outlined" className="bg-white">
+             <CardHeader className="pb-3">
+@@ -403,17 +698,48 @@ export default function AdvisoryOperationsPage() {
+   )
+ }
+ 
+-function MetricCard({ label, value }: { label: string; value: string | number }) {
++function MetricCard({
++  label,
++  value,
++  icon,
++}: {
++  label: string
++  value: string | number
++  icon?: ReactNode
++}) {
+   return (
+     <Card variant="outlined" className="bg-white">
+       <CardContent className="py-4">
+-        <p className="text-xs font-medium uppercase tracking-normal text-slate-500">{label}</p>
++        <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-normal text-slate-500">
++          {icon}
++          <span>{label}</span>
++        </p>
+         <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+       </CardContent>
+     </Card>
+   )
+ }
+ 
++function ProviderGroupRow({ group }: { group: AdvisoryProviderTelemetryGroup }) {
++  return (
++    <TableRow>
++      <TableCell className="font-medium">{group.label}</TableCell>
++      <TableCell>
++        <Badge variant="outline">{group.scopeLabel}</Badge>
++      </TableCell>
++      <TableCell className="text-right">{group.terminalCalls}</TableCell>
++      <TableCell className="text-right">{formatMilliseconds(group.p95LatencyMs)}</TableCell>
++      <TableCell className="text-right">{formatPercent(group.errorRate)}</TableCell>
++      <TableCell className="text-right">{formatPercent(group.timeoutRate)}</TableCell>
++      <TableCell className="text-right">{formatInteger(group.estimatedTokens)}</TableCell>
++      <TableCell className="text-right">{formatCost(group.estimatedCost)}</TableCell>
++      <TableCell className="text-right">
++        {group.cacheHits}/{group.cacheMisses}/{group.cacheBypasses}
++      </TableCell>
++    </TableRow>
++  )
++}
++
+ function freshnessLabel(status: string | undefined) {
+   if (status === 'fresh') return 'Fresh'
+   if (status === 'delayed') return 'Delayed'
+@@ -431,6 +757,22 @@ function formatPercent(value: number | null) {
+   return `${Math.round(value * 10) / 10}%`
+ }
+ 
++function formatMilliseconds(value: number | null) {
++  if (value === null) return '-'
++  return `${Math.round(value)} ms`
++}
++
++function formatInteger(value: number) {
++  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)
++}
++
++function formatCost(value: number) {
++  return new Intl.NumberFormat('en-US', {
++    maximumFractionDigits: 2,
++    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
++  }).format(value)
++}
++
+ function formatDateTime(value: string) {
+   const date = new Date(value)
+   if (Number.isNaN(date.getTime())) return value
+diff --git a/frontend/e2e/advisory-operations-dashboard.atdd.spec.ts b/frontend/e2e/advisory-operations-dashboard.atdd.spec.ts
+index 2385ba1..054b1ca 100644
+--- a/frontend/e2e/advisory-operations-dashboard.atdd.spec.ts
++++ b/frontend/e2e/advisory-operations-dashboard.atdd.spec.ts
+@@ -2,6 +2,9 @@ import { expect, test, type Page } from '@playwright/test'
+ 
+ const USAGE_API_PATTERN = '**/api/advisory/admin/operations/usage**'
+ const USAGE_API_PATH = '/api/advisory/admin/operations/usage'
++const PROVIDER_TELEMETRY_API_PATTERN =
++  '**/api/advisory/admin/operations/provider-telemetry**'
++const PROVIDER_TELEMETRY_API_PATH = '/api/advisory/admin/operations/provider-telemetry'
+ 
+ const RAW_PRIVACY_STRINGS = [
+   'PRIVATE_CONVERSATION_DO_NOT_RENDER',
+@@ -17,6 +20,11 @@ type UsageFixtureOptions = {
+   includeRawPrivacyProbe?: boolean
+ }
+ 
++type ProviderTelemetryFixtureOptions = {
++  freshnessStatus?: FreshnessStatus
++  includeRawPrivacyProbe?: boolean
++}
++
+ async function mockAdminSession(page: Page) {
+   await page.route('**/api/auth/session**', async (route) => {
+     await route.fulfill({
+@@ -168,6 +176,194 @@ function buildUsageResponse(options: UsageFixtureOptions = {}) {
+   return { data }
+ }
+ 
++function buildProviderTelemetryResponse(options: ProviderTelemetryFixtureOptions = {}) {
++  const freshnessStatus = options.freshnessStatus ?? 'fresh'
++  const unavailable = freshnessStatus === 'unavailable'
++  const data: Record<string, unknown> = {
++    generatedAt: '2026-05-23T01:30:00.000Z',
++    appliedFilters: {
++      tenantId: 'tenant-alpha',
++      dateFrom: '2026-05-01T00:00:00.000Z',
++      dateTo: '2026-05-22T23:59:59.999Z',
++      groupBy: ['workflow', 'experience', 'provider'],
++    },
++    summary: unavailable
++      ? {
++          terminalCalls: 0,
++          successfulCalls: 0,
++          failedCalls: 0,
++          retryEvents: 0,
++          errorRate: null,
++          timeoutRate: null,
++          estimatedTokens: 0,
++          estimatedCost: 0,
++          latency: { averageMs: null, p95Ms: null },
++          tokens: { input: 0, output: 0, total: 0, estimated: 0 },
++          measurementStatus: 'unavailable',
++        }
++      : {
++          terminalCalls: 8,
++          successfulCalls: 6,
++          failedCalls: 2,
++          retryEvents: 1,
++          errorRate: 0.25,
++          timeoutRate: 0.125,
++          estimatedTokens: 12000,
++          estimatedCost: 18.75,
++          latency: { averageMs: 3400, p95Ms: 6200 },
++          tokens: { input: 7200, output: 4800, total: 12000, estimated: 12000 },
++          measurementStatus: freshnessStatus,
++        },
++    byWorkflow: unavailable
++      ? []
++      : [
++          {
++            workflowKey: 'problem-solving',
++            workflowLabel: 'Problem Solving',
++            terminalCalls: 5,
++            successfulCalls: 3,
++            failedCalls: 2,
++            retryEvents: 1,
++            errorRate: 0.4,
++            timeoutRate: 0.2,
++            estimatedTokens: 9000,
++            estimatedCost: 13.5,
++            latency: { averageMs: 3600, p95Ms: 6400 },
++            tokens: { input: 5400, output: 3600, total: 9000, estimated: 9000 },
++            measurementStatus: freshnessStatus,
++            cacheHits: 3,
++            cacheMisses: 2,
++            cacheBypasses: 0,
++          },
++        ],
++    byExperience: unavailable
++      ? []
++      : [
++          {
++            experience: 'quick_consult',
++            terminalCalls: 3,
++            successfulCalls: 3,
++            failedCalls: 0,
++            retryEvents: 0,
++            errorRate: 0,
++            timeoutRate: 0,
++            estimatedTokens: 900,
++            estimatedCost: 1.2,
++            latency: { averageMs: 1400, p95Ms: 2300 },
++            tokens: { input: 500, output: 400, total: 900, estimated: 900 },
++            measurementStatus: freshnessStatus,
++            cacheHits: 2,
++            cacheMisses: 1,
++            cacheBypasses: 0,
++          },
++          {
++            experience: 'party_mode',
++            terminalCalls: 5,
++            successfulCalls: 3,
++            failedCalls: 2,
++            retryEvents: 1,
++            errorRate: 0.4,
++            timeoutRate: 0.2,
++            estimatedTokens: 11100,
++            estimatedCost: 17.55,
++            latency: { averageMs: 4600, p95Ms: 7200 },
++            tokens: { input: 6700, output: 4400, total: 11100, estimated: 11100 },
++            measurementStatus: freshnessStatus,
++            cacheHits: 2,
++            cacheMisses: 3,
++            cacheBypasses: 1,
++          },
++        ],
++    byProvider: unavailable
++      ? []
++      : [
++          {
++            provider: 'zhipu-glm',
++            terminalCalls: 8,
++            successfulCalls: 6,
++            failedCalls: 2,
++            retryEvents: 1,
++            errorRate: 0.25,
++            timeoutRate: 0.125,
++            estimatedTokens: 12000,
++            estimatedCost: 18.75,
++            latency: { averageMs: 3400, p95Ms: 6200 },
++            tokens: { input: 7200, output: 4800, total: 12000, estimated: 12000 },
++            measurementStatus: freshnessStatus,
++            cacheHits: 5,
++            cacheMisses: 3,
++            cacheBypasses: 1,
++          },
++        ],
++    cache: unavailable
++      ? {
++          hits: 0,
++          misses: 0,
++          bypasses: 0,
++          totalLookups: 0,
++          hitRate: null,
++          cachedInputTokens: 0,
++          cacheReadInputTokens: 0,
++          cacheCreationInputTokens: 0,
++          cacheEligibleInputTokens: 0,
++        }
++      : {
++          hits: 5,
++          misses: 3,
++          bypasses: 1,
++          totalLookups: 9,
++          hitRate: 0.5556,
++          cachedInputTokens: 3200,
++          cacheReadInputTokens: 2200,
++          cacheCreationInputTokens: 1000,
++          cacheEligibleInputTokens: 5900,
++        },
++    instrumentationGaps: unavailable
++      ? []
++      : [
++          {
++            eventName: 'thinktank.provider.call_failed',
++            reason: 'missing_grouping_metadata',
++            owner: 'provider_gateway',
++            count: 1,
++          },
++        ],
++    freshness:
++      freshnessStatus === 'fresh'
++        ? {
++            source: 'audit_logs',
++            status: 'fresh',
++            latestEventAt: '2026-05-22T08:10:00.000Z',
++            description: 'Provider telemetry is current.',
++          }
++        : freshnessStatus === 'delayed'
++          ? {
++              source: 'audit_logs',
++              status: 'delayed',
++              latestEventAt: '2026-05-20T08:10:00.000Z',
++              description: 'Provider telemetry is delayed. Treat these metrics as stale.',
++            }
++          : {
++              source: 'audit_logs',
++              status: 'unavailable',
++              latestEventAt: null,
++              description: 'Provider telemetry source is unavailable. No trusted measurements are available.',
++            },
++  }
++
++  if (options.includeRawPrivacyProbe) {
++    Object.assign(data, {
++      rawProviderPayload: RAW_PRIVACY_STRINGS[1],
++      conversation: RAW_PRIVACY_STRINGS[0],
++      report: RAW_PRIVACY_STRINGS[2],
++      feedback: RAW_PRIVACY_STRINGS[3],
++      cacheKey: 'PRIVATE_CACHE_KEY_DO_NOT_RENDER',
++    })
++  }
++
++  return { data }
++}
++
+ async function mockUsageResponse(page: Page, responseBody: unknown, status = 200) {
+   await page.route(USAGE_API_PATTERN, async (route) => {
+     await route.fulfill({
+@@ -178,6 +374,16 @@ async function mockUsageResponse(page: Page, responseBody: unknown, status = 200
+   })
+ }
+ 
++async function mockProviderTelemetryResponse(page: Page, responseBody: unknown, status = 200) {
++  await page.route(PROVIDER_TELEMETRY_API_PATTERN, async (route) => {
++    await route.fulfill({
++      status,
++      contentType: 'application/json',
++      body: JSON.stringify(responseBody),
++    })
++  })
++}
++
+ async function openOperationsDashboard(page: Page, expectedStatus = 200) {
+   const usageResponsePromise = page.waitForResponse(
+     (response) => response.url().includes(USAGE_API_PATH) && response.status() === expectedStatus
+@@ -191,6 +397,30 @@ async function openOperationsDashboard(page: Page, expectedStatus = 200) {
+   }
+ }
+ 
++async function openOperationsDashboardWithProviderTelemetry(
++  page: Page,
++  expectedUsageStatus = 200,
++  expectedProviderStatus = 200,
++) {
++  const usageResponsePromise = page.waitForResponse(
++    (response) => response.url().includes(USAGE_API_PATH) && response.status() === expectedUsageStatus
++  )
++  const providerResponsePromise = page.waitForResponse(
++    (response) =>
++      response.url().includes(PROVIDER_TELEMETRY_API_PATH) &&
++      response.status() === expectedProviderStatus,
++  )
++
++  await page.goto('/admin/advisory/operations')
++  const [usageResponse, providerResponse] = await Promise.all([
++    usageResponsePromise,
++    providerResponsePromise,
++  ])
++
++  if (expectedUsageStatus < 400) expect(usageResponse.ok()).toBeTruthy()
++  if (expectedProviderStatus < 400) expect(providerResponse.ok()).toBeTruthy()
++}
++
+ async function chooseComboboxOption(page: Page, label: RegExp, optionName: RegExp | string) {
+   await page.getByRole('combobox', { name: label }).click()
+   await page.getByRole('option', { name: optionName }).click()
+@@ -208,6 +438,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
+   }) => {
+     await mockAdminSession(page)
+     await mockUsageResponse(page, buildUsageResponse())
++    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+ 
+     await openOperationsDashboard(page)
+ 
+@@ -244,6 +475,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
+   }) => {
+     await mockAdminSession(page)
+     await mockUsageResponse(page, buildUsageResponse())
++    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+     await openOperationsDashboard(page)
+ 
+     const filteredRequestPromise = page.waitForRequest((request) => {
+@@ -274,6 +506,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
+   test('[6.1-E2E-003][P1][AC3] opens low-completion drilldown with aggregate counts only', async ({ page }) => {
+     await mockAdminSession(page)
+     await mockUsageResponse(page, buildUsageResponse())
++    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+     await openOperationsDashboard(page)
+ 
+     const workflowTable = page.getByRole('table', { name: /Workflow completion/i })
+@@ -300,6 +533,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
+   }) => {
+     await mockAdminSession(page)
+     await mockUsageResponse(page, buildUsageResponse({ freshnessStatus: 'delayed' }))
++    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+ 
+     await openOperationsDashboard(page)
+ 
+@@ -316,6 +550,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
+   }) => {
+     await mockAdminSession(page)
+     await mockUsageResponse(page, buildUsageResponse({ freshnessStatus: 'unavailable' }), 503)
++    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+ 
+     await openOperationsDashboard(page, 503)
+ 
+@@ -331,6 +566,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
+   }) => {
+     await mockAdminSession(page)
+     await mockUsageResponse(page, buildUsageResponse({ includeRawPrivacyProbe: true }))
++    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+ 
+     await openOperationsDashboard(page)
+ 
+@@ -347,3 +583,108 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
+     await expectRawPrivacyStringsHidden(page)
+   })
+ })
++
++test.describe('Story 6.3 - provider cost latency and failure dashboard E2E (ATDD RED)', () => {
++  test('[6.3-E2E-001][P1][AC1,AC2] renders provider monitoring groups, threshold warnings, and freshness context', async ({
++    page,
++  }) => {
++    await mockAdminSession(page)
++    await mockUsageResponse(page, buildUsageResponse())
++    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
++
++    await openOperationsDashboardWithProviderTelemetry(page)
++
++    const providerMetrics = page.getByRole('region', { name: /Provider telemetry metrics/i })
++    await expect(providerMetrics).toContainText('Average latency')
++    await expect(providerMetrics).toContainText('3400 ms')
++    await expect(providerMetrics).toContainText('P95 latency')
++    await expect(providerMetrics).toContainText('6200 ms')
++    await expect(providerMetrics).toContainText('Error rate')
++    await expect(providerMetrics).toContainText('25%')
++    await expect(providerMetrics).toContainText('Timeout rate')
++    await expect(providerMetrics).toContainText('12.5%')
++    await expect(providerMetrics).toContainText('Estimated tokens')
++    await expect(providerMetrics).toContainText('12,000')
++    await expect(providerMetrics).toContainText('Estimated cost')
++    await expect(providerMetrics).toContainText('18.75')
++    await expect(providerMetrics).toContainText('Cache hit rate')
++    await expect(providerMetrics).toContainText('55.6%')
++
++    const providerGroups = page.getByRole('table', { name: /Provider telemetry groups/i })
++    await expect(providerGroups).toContainText('Problem Solving')
++    await expect(providerGroups).toContainText('Quick Consult')
++    await expect(providerGroups).toContainText('Party Mode')
++    await expect(providerGroups).toContainText('zhipu-glm')
++
++    const breaches = page.getByRole('region', { name: /Provider threshold breaches/i })
++    await expect(breaches).toContainText(/Warning breach/i)
++    await expect(breaches).toContainText('P95 latency')
++    await expect(breaches).toContainText('tenant-alpha')
++    await expect(breaches).toContainText('Workflow type: all')
++    await expect(breaches).toContainText('2026-05-01 to 2026-05-22')
++
++    const providerGaps = page.getByRole('region', { name: /Provider telemetry gaps/i })
++    await expect(providerGaps).toContainText(/missing grouping metadata/i)
++    await expect(providerGaps).toContainText('provider_gateway')
++  })
++
++  test('[6.3-E2E-002][P1][AC1] applies shared filters to provider telemetry requests', async ({
++    page,
++  }) => {
++    await mockAdminSession(page)
++    await mockUsageResponse(page, buildUsageResponse())
++    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
++    await openOperationsDashboardWithProviderTelemetry(page)
++
++    const filteredProviderRequestPromise = page.waitForRequest((request) => {
++      const url = new URL(request.url())
++      return (
++        url.pathname.includes(PROVIDER_TELEMETRY_API_PATH) &&
++        url.searchParams.get('tenantId') === 'tenant-beta' &&
++        url.searchParams.get('dateFrom') === '2026-05-01' &&
++        url.searchParams.get('dateTo') === '2026-05-22' &&
++        url.searchParams.get('workflowType') === 'problem-solving' &&
++        url.searchParams.get('groupBy') === 'workflow,experience,provider'
++      )
++    })
++
++    await chooseComboboxOption(page, /Tenant/i, 'Tenant Beta')
++    await page.getByLabel(/Date from/i).fill('2026-05-01')
++    await page.getByLabel(/Date to/i).fill('2026-05-22')
++    await chooseComboboxOption(page, /Workflow type/i, 'Problem Solving')
++    await page.getByRole('button', { name: /Apply filters/i }).click()
++
++    const filteredRequest = await filteredProviderRequestPromise
++    const filteredUrl = new URL(filteredRequest.url())
++    expect(filteredUrl.searchParams.get('tenantId')).toBe('tenant-beta')
++    expect(filteredUrl.searchParams.get('dateFrom')).toBe('2026-05-01')
++    expect(filteredUrl.searchParams.get('dateTo')).toBe('2026-05-22')
++    expect(filteredUrl.searchParams.get('workflowType')).toBe('problem-solving')
++    expect(filteredUrl.searchParams.get('groupBy')).toBe('workflow,experience,provider')
++  })
++
++  test('[6.3-E2E-003][P1][AC3] shows unavailable provider telemetry without successful zero measurements or raw private content', async ({
++    page,
++  }) => {
++    await mockAdminSession(page)
++    await mockUsageResponse(page, buildUsageResponse())
++    await mockProviderTelemetryResponse(
++      page,
++      buildProviderTelemetryResponse({
++        freshnessStatus: 'unavailable',
++        includeRawPrivacyProbe: true,
++      }),
++      503,
++    )
++
++    await openOperationsDashboardWithProviderTelemetry(page, 200, 503)
++
++    const alert = page.getByRole('alert').filter({ hasText: /Provider telemetry unavailable/i })
++    await expect(alert).toBeVisible()
++    await expect(alert).toContainText(/No trusted measurements/i)
++    await expect(page.getByText(/Average latency\s+0 ms/i)).toHaveCount(0)
++    await expect(page.getByText(/Estimated cost\s+0/i)).toHaveCount(0)
++    await expectRawPrivacyStringsHidden(page)
++    await expect(page.getByText('PRIVATE_CACHE_KEY_DO_NOT_RENDER', { exact: true })).toHaveCount(0)
++  })
++})
+diff --git a/frontend/lib/advisory/operations.test.ts b/frontend/lib/advisory/operations.test.ts
+index c8e2d5a..d62e59f 100644
+--- a/frontend/lib/advisory/operations.test.ts
++++ b/frontend/lib/advisory/operations.test.ts
+@@ -161,3 +161,392 @@ describe('advisory operations client', () => {
+     )
+   })
+ })
++
++const providerTelemetryPayload = {
++  generatedAt: '2026-05-23T01:30:00.000Z',
++  appliedFilters: {
++    tenantId: 'tenant-alpha',
++    dateFrom: '2026-05-01T00:00:00.000Z',
++    dateTo: '2026-05-22T23:59:59.999Z',
++    groupBy: ['workflow', 'experience', 'provider'],
++  },
++  summary: {
++    terminalCalls: 8,
++    successfulCalls: 6,
++    failedCalls: 2,
++    retryEvents: 1,
++    errorRate: 0.25,
++    timeoutRate: 0.125,
++    estimatedTokens: 12000,
++    estimatedCost: 18.75,
++    latency: { averageMs: 3400, p95Ms: 6200 },
++    tokens: { input: 7200, output: 4800, total: 12000, estimated: 12000 },
++    measurementStatus: 'fresh',
++  },
++  byWorkflow: [
++    {
++      workflowKey: 'problem-solving',
++      workflowLabel: 'Problem Solving',
++      terminalCalls: 5,
++      successfulCalls: 3,
++      failedCalls: 2,
++      retryEvents: 1,
++      errorRate: 0.4,
++      timeoutRate: 0.2,
++      estimatedTokens: 9000,
++      estimatedCost: 13.5,
++      latency: { averageMs: 3600, p95Ms: 6400 },
++      tokens: { input: 5400, output: 3600, total: 9000, estimated: 9000 },
++      measurementStatus: 'fresh',
++      cacheHits: 3,
++      cacheMisses: 2,
++      cacheBypasses: 0,
++    },
++  ],
++  byExperience: [
++    {
++      experience: 'quick_consult',
++      terminalCalls: 3,
++      successfulCalls: 3,
++      failedCalls: 0,
++      retryEvents: 0,
++      errorRate: 0,
++      timeoutRate: 0,
++      estimatedTokens: 900,
++      estimatedCost: 1.2,
++      latency: { averageMs: 1400, p95Ms: 2300 },
++      tokens: { input: 500, output: 400, total: 900, estimated: 900 },
++      measurementStatus: 'fresh',
++      cacheHits: 2,
++      cacheMisses: 1,
++      cacheBypasses: 0,
++    },
++    {
++      experience: 'party_mode',
++      terminalCalls: 5,
++      successfulCalls: 3,
++      failedCalls: 2,
++      retryEvents: 1,
++      errorRate: 0.4,
++      timeoutRate: 0.2,
++      estimatedTokens: 11100,
++      estimatedCost: 17.55,
++      latency: { averageMs: 4600, p95Ms: 7200 },
++      tokens: { input: 6700, output: 4400, total: 11100, estimated: 11100 },
++      measurementStatus: 'fresh',
++      cacheHits: 2,
++      cacheMisses: 3,
++      cacheBypasses: 1,
++    },
++  ],
++  byProvider: [
++    {
++      provider: 'zhipu-glm',
++      terminalCalls: 8,
++      successfulCalls: 6,
++      failedCalls: 2,
++      retryEvents: 1,
++      errorRate: 0.25,
++      timeoutRate: 0.125,
++      estimatedTokens: 12000,
++      estimatedCost: 18.75,
++      latency: { averageMs: 3400, p95Ms: 6200 },
++      tokens: { input: 7200, output: 4800, total: 12000, estimated: 12000 },
++      measurementStatus: 'fresh',
++      cacheHits: 5,
++      cacheMisses: 3,
++      cacheBypasses: 1,
++    },
++  ],
++  cache: {
++    hits: 5,
++    misses: 3,
++    bypasses: 1,
++    totalLookups: 9,
++    hitRate: 0.5556,
++    cachedInputTokens: 3200,
++    cacheReadInputTokens: 2200,
++    cacheCreationInputTokens: 1000,
++    cacheEligibleInputTokens: 5900,
++  },
++  instrumentationGaps: [
++    {
++      eventName: 'thinktank.provider.call_failed',
++      reason: 'missing_grouping_metadata',
++      owner: 'provider_gateway',
++      count: 1,
++    },
++  ],
++  freshness: {
++    source: 'audit_logs',
++    status: 'fresh',
++    latestEventAt: '2026-05-22T08:10:00.000Z',
++    description: 'Provider telemetry is current.',
++  },
++  rawProviderPayload: 'PRIVATE_PROMPT_DO_NOT_RENDER',
++}
++
++describe('advisory provider telemetry client ATDD (Story 6.3 RED)', () => {
++  it('[6.3-UNIT-001][P1][AC1,AC2] normalizes provider aggregates, grouped metrics, and threshold breaches', async () => {
++    const operationsModule = (await import('./operations')) as Record<string, unknown>
++    const normalizeAdvisoryProviderTelemetry =
++      operationsModule.normalizeAdvisoryProviderTelemetry as (data: unknown) => {
++        metrics: Record<string, unknown> | null
++        byWorkflow: Array<Record<string, unknown>>
++        byExperience: Array<Record<string, unknown>>
++        byProvider: Array<Record<string, unknown>>
++        thresholdBreaches: Array<Record<string, unknown>>
++      }
++
++    const normalized = normalizeAdvisoryProviderTelemetry(providerTelemetryPayload)
++
++    expect(normalized.metrics).toEqual(
++      expect.objectContaining({
++        terminalCalls: 8,
++        failedCalls: 2,
++        retryEvents: 1,
++        errorRate: 25,
++        timeoutRate: 12.5,
++        estimatedTokens: 12000,
++        estimatedCost: 18.75,
++        averageLatencyMs: 3400,
++        p95LatencyMs: 6200,
++        cacheHitRate: 55.56,
++      }),
++    )
++    expect(normalized.byWorkflow[0]).toEqual(
++      expect.objectContaining({
++        key: 'problem-solving',
++        label: 'Problem Solving',
++        errorRate: 40,
++        p95LatencyMs: 6400,
++      }),
++    )
++    expect(normalized.byExperience).toEqual(
++      expect.arrayContaining([
++        expect.objectContaining({ key: 'quick_consult', label: 'Quick Consult' }),
++        expect.objectContaining({ key: 'party_mode', label: 'Party Mode' }),
++      ]),
++    )
++    expect(normalized.thresholdBreaches).toEqual(
++      expect.arrayContaining([
++        expect.objectContaining({
++          metric: 'P95 latency',
++          actualValue: '6200 ms',
++          thresholdValue: '5000 ms',
++          tenantId: 'tenant-alpha',
++          timeWindow: '2026-05-01 to 2026-05-22',
++        }),
++      ]),
++    )
++    expect(JSON.stringify(normalized)).not.toMatch(/PRIVATE_|rawProvider|prompt|conversation|report|feedback/i)
++  })
++
++  it('[6.3-UNIT-002][P1][AC1] fetches provider telemetry through the Next proxy with safe filters only', async () => {
++    const operationsModule = (await import('./operations')) as Record<string, unknown>
++    const fetchAdvisoryProviderTelemetry =
++      operationsModule.fetchAdvisoryProviderTelemetry as (filters: Record<string, unknown>) => Promise<unknown>
++    ;(global.fetch as jest.Mock).mockResolvedValue({
++      ok: true,
++      status: 200,
++      json: async () => ({ data: providerTelemetryPayload }),
++    })
++
++    await fetchAdvisoryProviderTelemetry({
++      tenantId: 'current',
++      dateFrom: '2026-05-01',
++      dateTo: '2026-05-22',
++      workflowType: 'problem-solving',
++      groupBy: ['workflow', 'experience', 'provider'],
++      actorId: 'malicious-actor',
++      rawPrompt: 'PRIVATE_PROMPT_DO_NOT_FORWARD',
++      providerRawPayload: 'PRIVATE_PROVIDER_PAYLOAD_DO_NOT_FORWARD',
++    })
++
++    expect(global.fetch).toHaveBeenCalledWith(
++      '/api/advisory/admin/operations/provider-telemetry?dateFrom=2026-05-01&dateTo=2026-05-22&workflowType=problem-solving&groupBy=workflow%2Cexperience%2Cprovider',
++      expect.objectContaining({
++        headers: { Authorization: 'Bearer token' },
++        cache: 'no-store',
++      }),
++    )
++  })
++
++  it('[6.3-UNIT-003][P1][AC3] propagates provider telemetry auth failures and unavailable bodies', async () => {
++    const operationsModule = (await import('./operations')) as Record<string, unknown>
++    const fetchAdvisoryProviderTelemetry =
++      operationsModule.fetchAdvisoryProviderTelemetry as (filters?: Record<string, unknown>) => Promise<{
++        metrics: Record<string, unknown> | null
++        freshness: { status: string; description: string }
++      }>
++
++    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
++      ok: false,
++      status: 401,
++      json: async () => ({ message: 'No access token' }),
++    })
++
++    await expect(fetchAdvisoryProviderTelemetry()).rejects.toThrow('No access token')
++
++    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
++      ok: false,
++      status: 403,
++      json: async () => ({ message: '当前账号无权查看其他租户的 ThinkTank provider telemetry。' }),
++    })
++
++    await expect(fetchAdvisoryProviderTelemetry({ tenantId: 'tenant-forbidden' })).rejects.toThrow(
++      '当前账号无权查看其他租户的 ThinkTank provider telemetry。',
++    )
++
++    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
++      ok: false,
++      status: 503,
++      json: async () => ({
++        data: {
++          ...providerTelemetryPayload,
++          summary: {
++            ...providerTelemetryPayload.summary,
++            terminalCalls: 0,
++            failedCalls: 0,
++            estimatedTokens: 0,
++            estimatedCost: 0,
++            measurementStatus: 'unavailable',
++          },
++          byWorkflow: [],
++          byExperience: [],
++          byProvider: [],
++          cache: { ...providerTelemetryPayload.cache, hits: 0, misses: 0, totalLookups: 0, hitRate: null },
++          freshness: {
++            source: 'audit_logs',
++            status: 'unavailable',
++            latestEventAt: null,
++            description: 'Provider telemetry source is unavailable. No trusted measurements are available.',
++          },
++        },
++      }),
++    })
++
++    await expect(fetchAdvisoryProviderTelemetry()).resolves.toEqual(
++      expect.objectContaining({
++        metrics: null,
++        freshness: expect.objectContaining({
++          status: 'unavailable',
++          description: expect.stringMatching(/No trusted measurements/i),
++        }),
++      }),
++    )
++  })
++
++  it('[6.3-UNIT-004][P1][AC3] treats unavailable provider telemetry as untrusted instead of successful zero metrics', async () => {
++    const operationsModule = (await import('./operations')) as Record<string, unknown>
++    const normalizeAdvisoryProviderTelemetry =
++      operationsModule.normalizeAdvisoryProviderTelemetry as (data: unknown) => {
++        metrics: Record<string, unknown> | null
++        thresholdBreaches: Array<Record<string, unknown>>
++        freshness: { status: string; description: string }
++      }
++
++    const normalized = normalizeAdvisoryProviderTelemetry({
++      ...providerTelemetryPayload,
++      summary: {
++        ...providerTelemetryPayload.summary,
++        terminalCalls: 0,
++        failedCalls: 0,
++        estimatedTokens: 0,
++        estimatedCost: 0,
++        measurementStatus: 'unavailable',
++      },
++      byWorkflow: [],
++      byExperience: [],
++      byProvider: [],
++      cache: { ...providerTelemetryPayload.cache, hits: 0, misses: 0, totalLookups: 0, hitRate: null },
++      freshness: {
++        source: 'audit_logs',
++        status: 'unavailable',
++        latestEventAt: null,
++        description: 'Provider telemetry source is unavailable. No trusted measurements are available.',
++      },
++    })
++
++    expect(normalized.metrics).toBeNull()
++    expect(normalized.thresholdBreaches).toEqual([])
++    expect(normalized.freshness).toEqual(
++      expect.objectContaining({
++        status: 'unavailable',
++        description: expect.stringMatching(/No trusted measurements/i),
++      }),
++    )
++  })
++
++  it('[6.3-UNIT-005][P1][AC2,AC3] sanitizes provider group and gap identifiers and suppresses delayed zero metrics', async () => {
++    const operationsModule = (await import('./operations')) as Record<string, unknown>
++    const normalizeAdvisoryProviderTelemetry =
++      operationsModule.normalizeAdvisoryProviderTelemetry as (data: unknown) => {
++        metrics: Record<string, unknown> | null
++        byWorkflow: Array<Record<string, unknown>>
++        byExperience: Array<Record<string, unknown>>
++        byProvider: Array<Record<string, unknown>>
++        instrumentationGaps: Array<Record<string, unknown>>
++      }
++
++    const normalized = normalizeAdvisoryProviderTelemetry({
++      ...providerTelemetryPayload,
++      summary: {
++        terminalCalls: 0,
++        successfulCalls: 0,
++        failedCalls: 0,
++        retryEvents: 0,
++        errorRate: null,
++        timeoutRate: null,
++        estimatedTokens: 0,
++        estimatedCost: 0,
++        latency: { averageMs: null, p95Ms: null },
++        tokens: { input: 0, output: 0, total: 0, estimated: 0 },
++      },
++      byWorkflow: [
++        {
++          workflowKey: 'PRIVATE_PROMPT_DO_NOT_RENDER',
++          workflowLabel: 'PRIVATE_CONVERSATION_DO_NOT_RENDER',
++          terminalCalls: 0,
++          latency: { averageMs: null, p95Ms: null },
++          tokens: { input: 0, output: 0, total: 0, estimated: 0 },
++        },
++      ],
++      byExperience: [{ experience: 'PRIVATE_REPORT_DO_NOT_RENDER' }],
++      byProvider: [{ provider: 'PRIVATE_PROVIDER_PAYLOAD_DO_NOT_RENDER' }],
++      instrumentationGaps: [
++        {
++          eventName: 'PRIVATE_PROMPT_DO_NOT_RENDER',
++          reason: 'PRIVATE_CACHE_KEY_DO_NOT_RENDER',
++          owner: 'provider_gateway',
++          count: 1,
++        },
++      ],
++      freshness: {
++        source: 'audit_logs',
++        status: 'delayed',
++        latestEventAt: '2026-05-20T08:10:00.000Z',
++        description: 'Provider telemetry is delayed.',
++      },
++    })
++
++    expect(normalized.metrics).toBeNull()
++    expect(normalized.byWorkflow[0]).toEqual(
++      expect.objectContaining({ key: 'unknown-workflow', label: 'Unknown Workflow' }),
++    )
++    expect(normalized.byExperience[0]).toEqual(
++      expect.objectContaining({ key: 'unknown-experience', label: 'Unknown Experience' }),
++    )
++    expect(normalized.byProvider[0]).toEqual(
++      expect.objectContaining({ key: 'unknown-provider', label: 'Unknown provider' }),
++    )
++    expect(normalized.instrumentationGaps[0]).toEqual(
++      expect.objectContaining({
++        eventName: null,
++        reason: 'unknown_gap',
++        owningArea: 'provider_gateway',
++      }),
++    )
++    expect(JSON.stringify(normalized)).not.toMatch(/PRIVATE_|prompt|conversation|report|feedback|cache key/i)
++  })
++})
+diff --git a/frontend/lib/advisory/operations.ts b/frontend/lib/advisory/operations.ts
+index 442c2d8..1ff885f 100644
+--- a/frontend/lib/advisory/operations.ts
++++ b/frontend/lib/advisory/operations.ts
+@@ -10,6 +10,12 @@ export interface AdvisoryOperationsUsageFilters {
+   workflowType?: string
+ }
+ 
++export type AdvisoryProviderTelemetryGroupBy = 'workflow' | 'experience' | 'provider'
++
++export interface AdvisoryProviderTelemetryFilters extends AdvisoryOperationsUsageFilters {
++  groupBy?: AdvisoryProviderTelemetryGroupBy[]
++}
++
+ export interface AdvisoryOperationsFilterOption {
+   id?: string
+   key?: string
+@@ -71,6 +77,65 @@ export interface AdvisoryOperationsUsageView {
+   instrumentationGaps: AdvisoryOperationsInstrumentationGap[]
+ }
+ 
++export interface AdvisoryProviderTelemetryMetrics {
++  terminalCalls: number
++  successfulCalls: number
++  failedCalls: number
++  retryEvents: number
++  errorRate: number | null
++  timeoutRate: number | null
++  estimatedTokens: number
++  estimatedCost: number
++  averageLatencyMs: number | null
++  p95LatencyMs: number | null
++  inputTokens: number
++  outputTokens: number
++  totalTokens: number
++  cacheHits: number
++  cacheMisses: number
++  cacheBypasses: number
++  cacheHitRate: number | null
++}
++
++export interface AdvisoryProviderTelemetryGroup extends AdvisoryProviderTelemetryMetrics {
++  key: string
++  label: string
++  scopeLabel: 'workflow' | 'experience' | 'provider'
++  measurementStatus: AdvisoryOperationsFreshnessStatus
++}
++
++export interface AdvisoryProviderTelemetryThresholdBreach {
++  id: string
++  metric: string
++  actualValue: string
++  thresholdValue: string
++  tenantId: string
++  affectedScope: string
++  workflowType: string
++  timeWindow: string
++  severity: 'warning'
++  message: string
++}
++
++export interface AdvisoryProviderTelemetryView {
++  generatedAt: string | null
++  filters: {
++    selected: Required<AdvisoryProviderTelemetryFilters>
++  }
++  freshness: {
++    source: string
++    status: AdvisoryOperationsFreshnessStatus
++    latestEventAt: string | null
++    description: string
++  }
++  metrics: AdvisoryProviderTelemetryMetrics | null
++  byWorkflow: AdvisoryProviderTelemetryGroup[]
++  byExperience: AdvisoryProviderTelemetryGroup[]
++  byProvider: AdvisoryProviderTelemetryGroup[]
++  thresholdBreaches: AdvisoryProviderTelemetryThresholdBreach[]
++  instrumentationGaps: AdvisoryOperationsInstrumentationGap[]
++}
++
+ type JsonRecord = Record<string, unknown>
+ 
+ const DEFAULT_SELECTED_FILTERS = {
+@@ -80,6 +145,22 @@ const DEFAULT_SELECTED_FILTERS = {
+   workflowType: 'all',
+ }
+ 
++const DEFAULT_PROVIDER_SELECTED_FILTERS: Required<AdvisoryProviderTelemetryFilters> = {
++  ...DEFAULT_SELECTED_FILTERS,
++  groupBy: ['workflow', 'experience', 'provider'],
++}
++
++const PROVIDER_TELEMETRY_THRESHOLDS = {
++  averageLatencyMs: 3000,
++  p95LatencyMs: 5000,
++  errorRate: 5,
++  timeoutRate: 2,
++  cacheHitRate: 80,
++  quickConsultCostPerCall: 2,
++  workflowCostPerCall: 10,
++  partyModeCostPerCall: 10,
++}
++
+ export async function fetchAdvisoryOperationsUsage(
+   filters: AdvisoryOperationsUsageFilters = {},
+ ): Promise<AdvisoryOperationsUsageView> {
+@@ -105,6 +186,37 @@ export async function fetchAdvisoryOperationsUsage(
+   return normalizeAdvisoryOperationsUsage(data)
+ }
+ 
++export async function fetchAdvisoryProviderTelemetry(
++  filters: AdvisoryProviderTelemetryFilters = {},
++): Promise<AdvisoryProviderTelemetryView> {
++  const headers = await getAuthHeadersAsync()
++  const query = buildProviderTelemetryQuery(filters)
++  const response = await fetch(`/api/advisory/admin/operations/provider-telemetry${query}`, {
++    headers,
++    cache: 'no-store',
++  })
++  const body = await response.json().catch(() => null)
++  const data = unwrapAdvisoryEnvelope<unknown>(body)
++  const errorMessage = sanitizeOperationalText(
++    readAdvisoryMessage(body),
++    'Provider telemetry unavailable. No trusted measurements are available.',
++  )
++
++  if (!response.ok && !data) {
++    throw new Error(errorMessage)
++  }
++
++  if (!response.ok && !looksLikeProviderTelemetryData(data)) {
++    throw new Error(errorMessage)
++  }
++
++  if (!data) {
++    throw new Error('Provider telemetry unavailable. No trusted measurements are available.')
++  }
++
++  return normalizeAdvisoryProviderTelemetry(data)
++}
++
+ export function normalizeAdvisoryOperationsUsage(
+   data: unknown,
+ ): AdvisoryOperationsUsageView {
+@@ -127,6 +239,51 @@ export function normalizeAdvisoryOperationsUsage(
+   }
+ }
+ 
++export function normalizeAdvisoryProviderTelemetry(
++  data: unknown,
++): AdvisoryProviderTelemetryView {
++  const record = asRecord(data)
++  const selected = normalizeProviderSelectedFilters(record)
++  const freshness = normalizeProviderFreshness(record)
++  const measurementStatus = readFreshnessStatus(
++    asRecord(record.summary).measurementStatus,
++    freshness.status,
++  )
++  const unavailable = freshness.status === 'unavailable' || measurementStatus === 'unavailable'
++  const metrics = unavailable ? null : normalizeProviderMetrics(record)
++  const byWorkflow = unavailable
++    ? []
++    : normalizeProviderWorkflowGroups(record)
++  const byExperience = unavailable
++    ? []
++    : normalizeProviderExperienceGroups(record)
++  const byProvider = unavailable
++    ? []
++    : normalizeProviderProviderGroups(record)
++  const thresholdBreaches =
++    metrics === null
++      ? []
++      : buildProviderThresholdBreaches({
++          selected,
++          metrics,
++          byWorkflow,
++          byExperience,
++          byProvider,
++        })
++
++  return {
++    generatedAt: readString(record.generatedAt),
++    filters: { selected },
++    freshness,
++    metrics,
++    byWorkflow,
++    byExperience,
++    byProvider,
++    thresholdBreaches,
++    instrumentationGaps: normalizeInstrumentationGaps(record),
++  }
++}
++
+ function buildOperationsUsageQuery(filters: AdvisoryOperationsUsageFilters) {
+   const params = new URLSearchParams()
+   appendIfPresent(params, 'tenantId', filters.tenantId)
+@@ -137,6 +294,20 @@ function buildOperationsUsageQuery(filters: AdvisoryOperationsUsageFilters) {
+   return query ? `?${query}` : ''
+ }
+ 
++function buildProviderTelemetryQuery(filters: AdvisoryProviderTelemetryFilters) {
++  const params = new URLSearchParams()
++  appendIfPresent(params, 'tenantId', filters.tenantId)
++  appendIfPresent(params, 'dateFrom', filters.dateFrom)
++  appendIfPresent(params, 'dateTo', filters.dateTo)
++  appendIfPresent(params, 'workflowType', filters.workflowType)
++
++  const groupBy = normalizeGroupBy(filters.groupBy)
++  if (groupBy.length) params.set('groupBy', groupBy.join(','))
++
++  const query = params.toString()
++  return query ? `?${query}` : ''
++}
++
+ function appendIfPresent(params: URLSearchParams, key: string, value: string | undefined) {
+   if (value && value.trim() && value.trim() !== 'current') params.set(key, value.trim())
+ }
+@@ -160,6 +331,33 @@ function normalizeSelectedFilters(record: JsonRecord): Required<AdvisoryOperatio
+   }
+ }
+ 
++function normalizeProviderSelectedFilters(
++  record: JsonRecord,
++): Required<AdvisoryProviderTelemetryFilters> {
++  const filters = asRecord(record.filters)
++  const selected = asRecord(filters.selected)
++  const applied = asRecord(record.appliedFilters)
++
++  return {
++    tenantId:
++      readString(selected.tenantId) ??
++      readString(applied.tenantId) ??
++      DEFAULT_PROVIDER_SELECTED_FILTERS.tenantId,
++    dateFrom: toDateInput(readString(selected.dateFrom) ?? readString(applied.dateFrom)),
++    dateTo: toDateInput(readString(selected.dateTo) ?? readString(applied.dateTo)),
++    workflowType:
++      readString(selected.workflowType) ??
++      readString(applied.workflowType) ??
++      DEFAULT_PROVIDER_SELECTED_FILTERS.workflowType,
++    groupBy:
++      normalizeGroupBy(selected.groupBy).length > 0
++        ? normalizeGroupBy(selected.groupBy)
++        : normalizeGroupBy(applied.groupBy).length > 0
++          ? normalizeGroupBy(applied.groupBy)
++          : DEFAULT_PROVIDER_SELECTED_FILTERS.groupBy,
++  }
++}
++
+ function normalizeTenants(record: JsonRecord, selectedTenantId: string) {
+   const filters = asRecord(record.filters)
+   const tenantOptions = Array.isArray(filters.tenants) ? filters.tenants : []
+@@ -226,6 +424,24 @@ function normalizeFreshness(record: JsonRecord): AdvisoryOperationsUsageView['fr
+   }
+ }
+ 
++function normalizeProviderFreshness(
++  record: JsonRecord,
++): AdvisoryProviderTelemetryView['freshness'] {
++  const freshness = asRecord(record.freshness)
++  const status = readFreshnessStatus(freshness.status)
++  return {
++    source: readString(freshness.source) ?? 'audit_logs',
++    status,
++    latestEventAt: readString(freshness.latestEventAt) ?? readString(freshness.lastEventAt),
++    description: sanitizeOperationalText(
++      readString(freshness.description) ?? readString(freshness.message),
++      status === 'fresh'
++        ? 'Provider telemetry is current.'
++        : 'Provider telemetry unavailable. No trusted measurements are available.',
++    ),
++  }
++}
++
+ function normalizeMetrics(record: JsonRecord): AdvisoryOperationsMetrics | null {
+   if (record.metrics === null) return null
+ 
+@@ -269,6 +485,43 @@ function normalizeMetrics(record: JsonRecord): AdvisoryOperationsMetrics | null
+   }
+ }
+ 
++function normalizeProviderMetrics(record: JsonRecord): AdvisoryProviderTelemetryMetrics | null {
++  const summary = asRecord(record.summary)
++  if (!Object.keys(summary).length) return null
++
++  const measurementStatus = readString(summary.measurementStatus)
++  const freshnessStatus = readString(asRecord(record.freshness).status)
++  if (measurementStatus === 'unavailable' || freshnessStatus === 'unavailable') return null
++
++  const cache = asRecord(record.cache)
++  const tokens = asRecord(summary.tokens)
++  const terminalCalls = readNumber(summary.terminalCalls)
++
++  if ((measurementStatus === 'delayed' || freshnessStatus === 'delayed') && terminalCalls === 0) {
++    return null
++  }
++
++  return {
++    terminalCalls,
++    successfulCalls: readNumber(summary.successfulCalls),
++    failedCalls: readNumber(summary.failedCalls),
++    retryEvents: readNumber(summary.retryEvents),
++    errorRate: normalizePercent(summary.errorRate),
++    timeoutRate: normalizePercent(summary.timeoutRate),
++    estimatedTokens: readNumber(summary.estimatedTokens),
++    estimatedCost: readNumber(summary.estimatedCost),
++    averageLatencyMs: readNullableNumber(asRecord(summary.latency).averageMs),
++    p95LatencyMs: readNullableNumber(asRecord(summary.latency).p95Ms),
++    inputTokens: readNumber(tokens.input),
++    outputTokens: readNumber(tokens.output),
++    totalTokens: readNumber(tokens.total),
++    cacheHits: readNumber(cache.hits),
++    cacheMisses: readNumber(cache.misses),
++    cacheBypasses: readNumber(cache.bypasses),
++    cacheHitRate: normalizePercent(cache.hitRate),
++  }
++}
++
+ function normalizeWorkflowUsage(record: JsonRecord): AdvisoryOperationsWorkflowUsage[] {
+   const rawWorkflows = Array.isArray(record.workflowUsage)
+     ? record.workflowUsage
+@@ -297,6 +550,77 @@ function normalizeWorkflowUsage(record: JsonRecord): AdvisoryOperationsWorkflowU
+   })
+ }
+ 
++function normalizeProviderWorkflowGroups(record: JsonRecord): AdvisoryProviderTelemetryGroup[] {
++  const groups = Array.isArray(record.byWorkflow) ? record.byWorkflow : []
++  return groups.map((item) => {
++    const group = asRecord(item)
++    const key = sanitizeGroupKey(readString(group.workflowKey), 'unknown-workflow')
++    return {
++      ...normalizeProviderGroupMetrics(group),
++      key,
++      label: sanitizeOperationalText(readString(group.workflowLabel), toWorkflowLabel(key)),
++      scopeLabel: 'workflow',
++      measurementStatus: readFreshnessStatus(group.measurementStatus),
++    }
++  })
++}
++
++function normalizeProviderExperienceGroups(record: JsonRecord): AdvisoryProviderTelemetryGroup[] {
++  const groups = Array.isArray(record.byExperience) ? record.byExperience : []
++  return groups.map((item) => {
++    const group = asRecord(item)
++    const key = sanitizeGroupKey(readString(group.experience), 'unknown-experience')
++    return {
++      ...normalizeProviderGroupMetrics(group),
++      key,
++      label: sanitizeOperationalText(readString(group.experienceLabel), toExperienceLabel(key)),
++      scopeLabel: 'experience',
++      measurementStatus: readFreshnessStatus(group.measurementStatus),
++    }
++  })
++}
++
++function normalizeProviderProviderGroups(record: JsonRecord): AdvisoryProviderTelemetryGroup[] {
++  const groups = Array.isArray(record.byProvider) ? record.byProvider : []
++  return groups.map((item) => {
++    const group = asRecord(item)
++    const key = sanitizeGroupKey(readString(group.provider), 'unknown-provider')
++    return {
++      ...normalizeProviderGroupMetrics(group),
++      key,
++      label: sanitizeOperationalText(readString(group.provider), 'Unknown provider'),
++      scopeLabel: 'provider',
++      measurementStatus: readFreshnessStatus(group.measurementStatus),
++    }
++  })
++}
++
++function normalizeProviderGroupMetrics(group: JsonRecord): AdvisoryProviderTelemetryMetrics {
++  const tokens = asRecord(group.tokens)
++  const cacheHits = readNumber(group.cacheHits)
++  const cacheMisses = readNumber(group.cacheMisses)
++  const cacheBypasses = readNumber(group.cacheBypasses)
++  return {
++    terminalCalls: readNumber(group.terminalCalls),
++    successfulCalls: readNumber(group.successfulCalls),
++    failedCalls: readNumber(group.failedCalls),
++    retryEvents: readNumber(group.retryEvents),
++    errorRate: normalizePercent(group.errorRate),
++    timeoutRate: normalizePercent(group.timeoutRate),
++    estimatedTokens: readNumber(group.estimatedTokens),
++    estimatedCost: readNumber(group.estimatedCost),
++    averageLatencyMs: readNullableNumber(asRecord(group.latency).averageMs),
++    p95LatencyMs: readNullableNumber(asRecord(group.latency).p95Ms),
++    inputTokens: readNumber(tokens.input),
++    outputTokens: readNumber(tokens.output),
++    totalTokens: readNumber(tokens.total),
++    cacheHits,
++    cacheMisses,
++    cacheBypasses,
++    cacheHitRate: calculateCacheHitRate(cacheHits, cacheMisses),
++  }
++}
++
+ function normalizeTrendPeriod(value: unknown): string {
+   if (typeof value === 'string' && value.trim()) {
+     return sanitizeOperationalText(value.trim(), 'Selected range')
+@@ -333,13 +657,188 @@ function normalizeDrilldown(value: unknown): AdvisoryOperationsWorkflowDrilldown
+   }
+ }
+ 
++function buildProviderThresholdBreaches({
++  selected,
++  metrics,
++  byWorkflow,
++  byExperience,
++  byProvider,
++}: {
++  selected: Required<AdvisoryProviderTelemetryFilters>
++  metrics: AdvisoryProviderTelemetryMetrics
++  byWorkflow: AdvisoryProviderTelemetryGroup[]
++  byExperience: AdvisoryProviderTelemetryGroup[]
++  byProvider: AdvisoryProviderTelemetryGroup[]
++}): AdvisoryProviderTelemetryThresholdBreach[] {
++  const timeWindow = normalizeProviderTimeWindow(selected)
++  const base = {
++    tenantId: selected.tenantId,
++    workflowType: selected.workflowType,
++    timeWindow,
++  }
++  const breaches: AdvisoryProviderTelemetryThresholdBreach[] = []
++
++  collectThresholdBreaches(breaches, {
++    ...base,
++    scopeId: 'summary',
++    affectedScope: 'All provider calls',
++    metrics,
++    costPerCallThreshold: PROVIDER_TELEMETRY_THRESHOLDS.workflowCostPerCall,
++  })
++
++  for (const group of [...byWorkflow, ...byExperience, ...byProvider]) {
++    collectThresholdBreaches(breaches, {
++      ...base,
++      scopeId: `${group.scopeLabel}-${group.key}`,
++      affectedScope: group.label,
++      metrics: group,
++      costPerCallThreshold: costThresholdForGroup(group),
++    })
++  }
++
++  return breaches
++}
++
++function collectThresholdBreaches(
++  breaches: AdvisoryProviderTelemetryThresholdBreach[],
++  options: {
++    tenantId: string
++    workflowType: string
++    timeWindow: string
++    scopeId: string
++    affectedScope: string
++    metrics: AdvisoryProviderTelemetryMetrics
++    costPerCallThreshold: number | null
++  },
++) {
++  addUpperThresholdBreach(breaches, options, {
++    metric: 'P95 latency',
++    actual: options.metrics.p95LatencyMs,
++    threshold: PROVIDER_TELEMETRY_THRESHOLDS.p95LatencyMs,
++    unit: ' ms',
++  })
++  addUpperThresholdBreach(breaches, options, {
++    metric: 'Average latency',
++    actual: options.metrics.averageLatencyMs,
++    threshold: PROVIDER_TELEMETRY_THRESHOLDS.averageLatencyMs,
++    unit: ' ms',
++  })
++  addUpperThresholdBreach(breaches, options, {
++    metric: 'Error rate',
++    actual: options.metrics.errorRate,
++    threshold: PROVIDER_TELEMETRY_THRESHOLDS.errorRate,
++    unit: '%',
++  })
++  addUpperThresholdBreach(breaches, options, {
++    metric: 'Timeout rate',
++    actual: options.metrics.timeoutRate,
++    threshold: PROVIDER_TELEMETRY_THRESHOLDS.timeoutRate,
++    unit: '%',
++  })
++
++  if (
++    options.metrics.cacheHitRate !== null &&
++    options.metrics.cacheHits + options.metrics.cacheMisses > 0 &&
++    options.metrics.cacheHitRate < PROVIDER_TELEMETRY_THRESHOLDS.cacheHitRate
++  ) {
++    pushBreach(breaches, options, {
++      metric: 'Cache hit rate',
++      actualValue: `${formatNumber(options.metrics.cacheHitRate)}%`,
++      thresholdValue: `${PROVIDER_TELEMETRY_THRESHOLDS.cacheHitRate}% minimum`,
++    })
++  }
++
++  if (options.costPerCallThreshold && options.metrics.terminalCalls > 0) {
++    const costPerCall = options.metrics.estimatedCost / options.metrics.terminalCalls
++    if (costPerCall > options.costPerCallThreshold) {
++      pushBreach(breaches, options, {
++        metric: 'Estimated cost per call',
++        actualValue: formatCost(costPerCall),
++        thresholdValue: formatCost(options.costPerCallThreshold),
++      })
++    }
++  }
++}
++
++function addUpperThresholdBreach(
++  breaches: AdvisoryProviderTelemetryThresholdBreach[],
++  options: {
++    tenantId: string
++    workflowType: string
++    timeWindow: string
++    scopeId: string
++    affectedScope: string
++  },
++  threshold: {
++    metric: string
++    actual: number | null
++    threshold: number
++    unit: string
++  },
++) {
++  if (threshold.actual === null || threshold.actual <= threshold.threshold) return
++  pushBreach(breaches, options, {
++    metric: threshold.metric,
++    actualValue: `${formatNumber(threshold.actual)}${threshold.unit}`,
++    thresholdValue: `${formatNumber(threshold.threshold)}${threshold.unit}`,
++  })
++}
++
++function pushBreach(
++  breaches: AdvisoryProviderTelemetryThresholdBreach[],
++  options: {
++    tenantId: string
++    workflowType: string
++    timeWindow: string
++    scopeId: string
++    affectedScope: string
++  },
++  values: {
++    metric: string
++    actualValue: string
++    thresholdValue: string
++  },
++) {
++  const id = `${options.scopeId}-${values.metric.toLowerCase().replace(/\s+/g, '-')}`
++  breaches.push({
++    id,
++    metric: values.metric,
++    actualValue: values.actualValue,
++    thresholdValue: values.thresholdValue,
++    tenantId: options.tenantId,
++    affectedScope: options.affectedScope,
++    workflowType: options.workflowType,
++    timeWindow: options.timeWindow,
++    severity: 'warning',
++    message: `${values.metric} breach: ${values.actualValue} exceeds ${values.thresholdValue} for ${options.tenantId} on ${options.affectedScope} with workflow type ${options.workflowType} during ${options.timeWindow}.`,
++  })
++}
++
++function costThresholdForGroup(group: AdvisoryProviderTelemetryGroup): number | null {
++  if (group.scopeLabel === 'experience' && group.key === 'quick_consult') {
++    return PROVIDER_TELEMETRY_THRESHOLDS.quickConsultCostPerCall
++  }
++  if (group.scopeLabel === 'experience' && group.key === 'party_mode') {
++    return PROVIDER_TELEMETRY_THRESHOLDS.partyModeCostPerCall
++  }
++  if (group.scopeLabel === 'workflow') {
++    return PROVIDER_TELEMETRY_THRESHOLDS.workflowCostPerCall
++  }
++  return null
++}
++
++function normalizeProviderTimeWindow(filters: Required<AdvisoryProviderTelemetryFilters>) {
++  if (filters.dateFrom || filters.dateTo) return `${filters.dateFrom || '-'} to ${filters.dateTo || '-'}`
++  return 'Selected range'
++}
++
+ function normalizeInstrumentationGaps(record: JsonRecord): AdvisoryOperationsInstrumentationGap[] {
+   const gaps = Array.isArray(record.instrumentationGaps) ? record.instrumentationGaps : []
+   return gaps.map((item) => {
+     const gap = asRecord(item)
+     return {
+       eventName: sanitizeOptionalOperationalText(readString(gap.eventName)),
+-      reason: readString(gap.reason) ?? 'unknown_gap',
++      reason: sanitizeOperationalText(readString(gap.reason), 'unknown_gap'),
+       owningArea: sanitizeOperationalText(
+         readString(gap.owningArea) ?? readString(gap.owner),
+         'ThinkTank instrumentation',
+@@ -349,10 +848,42 @@ function normalizeInstrumentationGaps(record: JsonRecord): AdvisoryOperationsIns
+   })
+ }
+ 
+-function readFreshnessStatus(value: unknown): AdvisoryOperationsFreshnessStatus {
++function normalizeGroupBy(value: unknown): AdvisoryProviderTelemetryGroupBy[] {
++  const raw = Array.isArray(value)
++    ? value
++    : typeof value === 'string'
++      ? value.split(',')
++      : []
++  const allowed = new Set<AdvisoryProviderTelemetryGroupBy>([
++    'workflow',
++    'experience',
++    'provider',
++  ])
++
++  return raw
++    .map((item) => (typeof item === 'string' ? item.trim() : ''))
++    .filter((item): item is AdvisoryProviderTelemetryGroupBy =>
++      allowed.has(item as AdvisoryProviderTelemetryGroupBy),
++    )
++}
++
++function calculateCacheHitRate(hits: number, misses: number): number | null {
++  const total = hits + misses
++  if (total <= 0) return null
++  return Math.round((hits / total) * 10000) / 100
++}
++
++function readFreshnessStatus(
++  value: unknown,
++  fallback: AdvisoryOperationsFreshnessStatus = 'unavailable',
++): AdvisoryOperationsFreshnessStatus {
+   return value === 'fresh' || value === 'delayed' || value === 'unavailable'
+     ? value
+-    : 'unavailable'
++    : fallback
++}
++
++function readNullableNumber(value: unknown): number | null {
++  return typeof value === 'number' && Number.isFinite(value) ? value : null
+ }
+ 
+ function normalizePercent(value: unknown): number | null {
+@@ -362,6 +893,20 @@ function normalizePercent(value: unknown): number | null {
+   return Math.round((numeric <= 1 ? numeric * 100 : numeric) * 100) / 100
+ }
+ 
++function formatNumber(value: number): string {
++  return new Intl.NumberFormat('en-US', {
++    maximumFractionDigits: 2,
++    useGrouping: false,
++  }).format(Math.round(value * 100) / 100)
++}
++
++function formatCost(value: number): string {
++  return new Intl.NumberFormat('en-US', {
++    maximumFractionDigits: 2,
++    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
++  }).format(Math.round(value * 100) / 100)
++}
++
+ function toDateInput(value: string | null): string {
+   return value ? value.slice(0, 10) : ''
+ }
+@@ -374,6 +919,18 @@ function toWorkflowLabel(value: string): string {
+     .join(' ')
+ }
+ 
++function toExperienceLabel(value: string): string {
++  if (value === 'quick_consult') return 'Quick Consult'
++  if (value === 'party_mode') return 'Party Mode'
++  if (value === 'workflow') return 'Workflow'
++  return toWorkflowLabel(value)
++}
++
++function sanitizeGroupKey(value: string | null, fallback: string): string {
++  if (!value || containsRawSensitiveText(value)) return fallback
++  return value
++}
++
+ function sanitizeOptionalOperationalText(value: string | null): string | null {
+   if (!value) return null
+   return containsRawSensitiveText(value) ? null : value
+@@ -385,7 +942,7 @@ function sanitizeOperationalText(value: string | null, fallback: string): string
+ }
+ 
+ function containsRawSensitiveText(value: string): boolean {
+-  return /PRIVATE_|raw[_\s-]*(conversation|content|prompt|report|feedback)|conversation|prompt|report|feedback/i.test(
++  return /PRIVATE_|raw[_\s-]*(conversation|content|prompt|report|feedback|provider|payload)|provider[_\s-]*(raw|payload)|cache[_\s-]*key|actor[_\s-]*id|user[_\s-]*id|conversation|prompt|report|feedback/i.test(
+     value,
+   )
+ }
+@@ -394,6 +951,11 @@ function asRecord(value: unknown): JsonRecord {
+   return value && typeof value === 'object' && !Array.isArray(value) ? (value as JsonRecord) : {}
+ }
+ 
++function looksLikeProviderTelemetryData(value: unknown): boolean {
++  const record = asRecord(value)
++  return 'summary' in record || 'freshness' in record || 'byWorkflow' in record || 'byProvider' in record
++}
++
+ function readString(value: unknown): string | null {
+   return typeof value === 'string' && value.trim() ? value.trim() : null
+ }
+diff --git a/frontend/app/api/advisory/admin/operations/provider-telemetry/route.ts b/frontend/app/api/advisory/admin/operations/provider-telemetry/route.ts
+new file mode 100644
+index 0000000..9db4599
+--- /dev/null
++++ b/frontend/app/api/advisory/admin/operations/provider-telemetry/route.ts
+@@ -0,0 +1,68 @@
++import { NextRequest, NextResponse } from 'next/server'
++import { getServerSession } from 'next-auth'
++import { authOptions } from '@/lib/auth/auth-options'
++
++export const dynamic = 'force-dynamic'
++
++const ALLOWED_QUERY_PARAMS = ['tenantId', 'dateFrom', 'dateTo', 'workflowType', 'groupBy'] as const
++
++function resolveBackendUrl() {
++  return process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
++}
++
++async function resolveAuthorization(request: NextRequest) {
++  const session = await getServerSession(authOptions)
++  return (
++    request.headers.get('authorization') ??
++    (session?.accessToken ? `Bearer ${session.accessToken}` : null)
++  )
++}
++
++function buildBackendProviderTelemetryUrl(request: NextRequest) {
++  const requestUrl = new URL(request.url)
++  const params = new URLSearchParams()
++
++  for (const key of ALLOWED_QUERY_PARAMS) {
++    const values = requestUrl.searchParams.getAll(key)
++    if (values.length > 1) {
++      throw new Error(`Duplicate query parameter: ${key}`)
++    }
++    const value = values[0]
++    if (value && value !== 'current') params.set(key, value)
++  }
++
++  const query = params.toString()
++  return `${resolveBackendUrl()}/advisory/admin/operations/provider-telemetry${query ? `?${query}` : ''}`
++}
++
++export async function GET(request: NextRequest) {
++  try {
++    const authorization = await resolveAuthorization(request)
++
++    if (!authorization) {
++      return NextResponse.json({ message: 'No access token' }, { status: 401 })
++    }
++
++    let backendProviderTelemetryUrl: string
++    try {
++      backendProviderTelemetryUrl = buildBackendProviderTelemetryUrl(request)
++    } catch {
++      return NextResponse.json({ message: 'Duplicate filter parameter' }, { status: 400 })
++    }
++
++    const response = await fetch(backendProviderTelemetryUrl, {
++      method: 'GET',
++      headers: {
++        Authorization: authorization,
++        'Content-Type': 'application/json',
++      },
++      cache: 'no-store',
++    })
++    const body = await response.json().catch(() => ({}))
++
++    return NextResponse.json(body, { status: response.status })
++  } catch (error) {
++    console.error('[API /advisory/admin/operations/provider-telemetry] GET error:', error)
++    return NextResponse.json({ message: 'Internal server error' }, { status: 500 })
++  }
++}
+diff --git a/frontend/app/api/advisory/admin/operations/provider-telemetry/route.test.ts b/frontend/app/api/advisory/admin/operations/provider-telemetry/route.test.ts
+new file mode 100644
+index 0000000..72400ce
+--- /dev/null
++++ b/frontend/app/api/advisory/admin/operations/provider-telemetry/route.test.ts
+@@ -0,0 +1,156 @@
++import { getServerSession } from 'next-auth'
++
++jest.mock('next/server', () => ({
++  NextResponse: {
++    json: (body: unknown, init?: { status?: number }) => ({
++      status: init?.status ?? 200,
++      json: async () => body,
++    }),
++  },
++}))
++
++jest.mock('next-auth', () => ({
++  getServerSession: jest.fn(),
++}))
++
++jest.mock('@/lib/auth/auth-options', () => ({
++  authOptions: {},
++}))
++
++const mockGetServerSession = getServerSession as jest.Mock
++
++function createRequest(url: string, headers: Record<string, string | undefined> = {}) {
++  const normalizedHeaders = Object.fromEntries(
++    Object.entries(headers).map(([key, value]) => [key.toLowerCase(), value]),
++  )
++
++  return {
++    url,
++    headers: {
++      get: (name: string) => normalizedHeaders[name.toLowerCase()] ?? null,
++    },
++  }
++}
++
++describe('/api/advisory/admin/operations/provider-telemetry proxy route ATDD (Story 6.3 RED)', () => {
++  beforeEach(() => {
++    jest.clearAllMocks()
++    process.env.INTERNAL_API_URL = 'http://backend.test'
++    global.fetch = jest.fn().mockResolvedValue({
++      status: 200,
++      json: async () => ({ data: { freshness: { status: 'fresh' } } }),
++    })
++  })
++
++  afterEach(() => {
++    delete process.env.INTERNAL_API_URL
++  })
++
++  it('[6.3-API-001][P1][AC1] forwards provider telemetry with whitelisted filters and request authorization', async () => {
++    const routeModulePath = './route'
++    const { GET } = (await import(routeModulePath)) as { GET: (request: never) => Promise<{ status: number; json(): Promise<unknown> }> }
++    mockGetServerSession.mockResolvedValue({ accessToken: 'session-token' })
++
++    const response = await GET(
++      createRequest(
++        'http://frontend.test/api/advisory/admin/operations/provider-telemetry?tenantId=current&dateFrom=2026-05-01&dateTo=2026-05-22&workflowType=problem-solving&groupBy=workflow,experience,provider&actorId=malicious&rawPrompt=PRIVATE_PROMPT',
++        { authorization: 'Bearer request-token' },
++      ) as never,
++    )
++    const body = await response.json()
++
++    expect(response.status).toBe(200)
++    expect(body).toEqual({ data: { freshness: { status: 'fresh' } } })
++    expect(global.fetch).toHaveBeenCalledWith(
++      'http://backend.test/advisory/admin/operations/provider-telemetry?dateFrom=2026-05-01&dateTo=2026-05-22&workflowType=problem-solving&groupBy=workflow%2Cexperience%2Cprovider',
++      expect.objectContaining({
++        method: 'GET',
++        headers: expect.objectContaining({
++          Authorization: 'Bearer request-token',
++          'Content-Type': 'application/json',
++        }),
++        cache: 'no-store',
++      }),
++    )
++  })
++
++  it('[6.3-API-002][P1][AC1,AC2] rejects duplicate provider telemetry filters before proxying', async () => {
++    const routeModulePath = './route'
++    const { GET } = (await import(routeModulePath)) as { GET: (request: never) => Promise<{ status: number; json(): Promise<unknown> }> }
++    mockGetServerSession.mockResolvedValue({ accessToken: 'session-token' })
++
++    const duplicatedFilters = ['tenantId', 'dateFrom', 'dateTo', 'workflowType', 'groupBy']
++
++    for (const filterName of duplicatedFilters) {
++      const response = await GET(
++        createRequest(
++          `http://frontend.test/api/advisory/admin/operations/provider-telemetry?${filterName}=first&${filterName}=second`,
++        ) as never,
++      )
++      const body = await response.json()
++
++      expect(response.status).toBe(400)
++      expect(body).toEqual({ message: 'Duplicate filter parameter' })
++    }
++
++    expect(global.fetch).not.toHaveBeenCalled()
++  })
++
++  it('[6.3-API-003][P1][AC2,AC3] handles auth and upstream provider telemetry failures without rewriting bodies', async () => {
++    const routeModulePath = './route'
++    const { GET } = (await import(routeModulePath)) as { GET: (request: never) => Promise<{ status: number; json(): Promise<unknown> }> }
++
++    mockGetServerSession.mockResolvedValueOnce(null)
++    const unauthorized = await GET(
++      createRequest('http://frontend.test/api/advisory/admin/operations/provider-telemetry') as never,
++    )
++    expect(unauthorized.status).toBe(401)
++    await expect(unauthorized.json()).resolves.toEqual({ message: 'No access token' })
++
++    mockGetServerSession.mockResolvedValueOnce({ accessToken: 'session-token' })
++    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
++      status: 403,
++      json: async () => ({ message: '当前账号无权查看其他租户的 ThinkTank 运营数据。' }),
++    })
++
++    const forbidden = await GET(
++      createRequest(
++        'http://frontend.test/api/advisory/admin/operations/provider-telemetry?tenantId=tenant-forbidden',
++      ) as never,
++    )
++    expect(forbidden.status).toBe(403)
++    await expect(forbidden.json()).resolves.toEqual({
++      message: '当前账号无权查看其他租户的 ThinkTank 运营数据。',
++    })
++
++    mockGetServerSession.mockResolvedValueOnce({ accessToken: 'session-token' })
++    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
++      status: 503,
++      json: async () => ({
++        data: {
++          summary: { measurementStatus: 'unavailable' },
++          freshness: {
++            status: 'unavailable',
++            latestEventAt: null,
++            description: 'Provider telemetry source is unavailable. No trusted measurements are available.',
++          },
++        },
++      }),
++    })
++
++    const unavailable = await GET(
++      createRequest('http://frontend.test/api/advisory/admin/operations/provider-telemetry') as never,
++    )
++    expect(unavailable.status).toBe(503)
++    await expect(unavailable.json()).resolves.toEqual({
++      data: {
++        summary: { measurementStatus: 'unavailable' },
++        freshness: {
++          status: 'unavailable',
++          latestEventAt: null,
++          description: 'Provider telemetry source is unavailable. No trusted measurements are available.',
++        },
++      },
++    })
++  })
++})
+diff --git a/_bmad-output/test-artifacts/atdd-checklist-6-3-cost-latency-and-failure-dashboard.md b/_bmad-output/test-artifacts/atdd-checklist-6-3-cost-latency-and-failure-dashboard.md
+new file mode 100644
+index 0000000..921e52e
+--- /dev/null
++++ b/_bmad-output/test-artifacts/atdd-checklist-6-3-cost-latency-and-failure-dashboard.md
+@@ -0,0 +1,103 @@
++---
++stepsCompleted: ['step-01-preflight-and-context', 'step-02-generation-mode', 'step-03-test-strategy', 'step-04c-aggregate', 'step-05-validate-and-complete']
++lastStep: 'step-05-validate-and-complete'
++lastSaved: '2026-05-23T02:25:00+08:00'
++workflowType: 'testarch-atdd'
++inputDocuments:
++  - _bmad-output/implementation-artifacts/6-3-cost-latency-and-failure-dashboard.md
++  - _bmad-output/implementation-artifacts/6-1-usage-and-completion-dashboard.md
++  - _bmad-output/implementation-artifacts/6-2-provider-telemetry-aggregation.md
++  - backend/src/modules/advisory/operations/advisory-provider-telemetry.types.ts
++  - frontend/lib/advisory/operations.ts
++  - frontend/app/api/advisory/admin/operations/usage/route.ts
++  - frontend/app/admin/advisory/operations/page.tsx
++  - frontend/e2e/advisory-operations-dashboard.atdd.spec.ts
++---
++
++# ATDD Checklist: Story 6.3 Cost, Latency, and Failure Dashboard
++
++## Step 1: Preflight & Context Loading
++
++- Story: `_bmad-output/implementation-artifacts/6-3-cost-latency-and-failure-dashboard.md`
++- Detected stack: `fullstack`
++- Primary implementation scope: frontend client/proxy, operations dashboard UI, and Playwright coverage.
++- Backend source of truth: Story 6.2 `GET /advisory/admin/operations/provider-telemetry`; no new storage, migrations, jobs, backfill, live GLM, or frontend raw audit recomputation.
++- Test framework evidence:
++  - Jest config: `frontend/jest.config.js`
++  - Playwright config: `frontend/playwright.config.ts`
++  - Existing operations patterns: Story 6.1 client/proxy/page/E2E tests.
++
++## Step 2: Generation Mode Selection
++
++- Chosen mode: AI generation with existing source-pattern inspection.
++- Browser recording: skipped. The existing operations dashboard selectors are stable enough for RED coverage, and no live browser session was needed.
++- CLI session cleanup: N/A; no browser recording session opened.
++
++## Step 3: Test Strategy
++
++| Test ID | Priority | Level | AC | Scenario |
++| --- | --- | --- | --- | --- |
++| 6.3-UNIT-001 | P1 | Client unit | AC1, AC2 | Normalize 6.2 provider aggregates into metrics/groups and derive threshold breaches. |
++| 6.3-UNIT-002 | P1 | Client unit | AC1 | Fetch provider telemetry through Next proxy with safe filters only, suppressing `tenantId=current` and raw/actor filters. |
++| 6.3-UNIT-003 | P1 | Client unit | AC3 | Propagate 401/403 errors and normalize 503 unavailable envelopes as untrusted data. |
++| 6.3-UNIT-004 | P1 | Client unit | AC3 | Treat unavailable telemetry as no trusted measurements rather than successful zeros. |
++| 6.3-API-001 | P1 | Proxy API | AC1 | Forward only whitelisted filters and request authorization to the 6.2 backend endpoint. |
++| 6.3-API-002 | P1 | Proxy API | AC1, AC2 | Reject duplicate query filters before proxying. |
++| 6.3-API-003 | P1 | Proxy API | AC2, AC3 | Preserve 401, upstream 403, and 503 unavailable bodies/statuses. |
++| 6.3-COMP-001 | P1 | Component | AC1 | Render latency, failures, tokens, cost, cache, and workflow/experience/provider groups. |
++| 6.3-COMP-002 | P1 | Component | AC2 | Render threshold breach text, icon/badge labeling, tenant, scope, and time window. |
++| 6.3-COMP-003 | P1 | Component | AC3 | Render unavailable provider telemetry without misleading zero cards or raw content. |
++| 6.3-E2E-001 | P1 | E2E | AC1, AC2 | Dashboard shows provider metrics, groups, threshold warnings, and freshness context. |
++| 6.3-E2E-002 | P1 | E2E | AC1 | Shared filters are included in provider telemetry requests. |
++| 6.3-E2E-003 | P1 | E2E | AC3 | Unavailable provider telemetry hides successful zero measurements and private raw strings. |
++
++## Step 4: RED Tests Generated
++
++Generated and intentionally skipped RED coverage:
++
++- `frontend/lib/advisory/operations.test.ts`
++  - Provider telemetry normalization, threshold breach derivation, safe query construction, unavailable handling, auth/tenant error propagation, and raw sensitive content suppression.
++- `frontend/app/api/advisory/admin/operations/provider-telemetry/route.test.ts`
++  - Next proxy auth resolution, whitelist filtering, duplicate filter rejection, `tenantId=current` suppression, raw/actor filter rejection by omission, and upstream status/body propagation.
++- `frontend/app/admin/advisory/operations/page.test.tsx`
++  - Provider telemetry metrics, grouped views, threshold breach labeling, unavailable state, and raw-content suppression.
++- `frontend/e2e/advisory-operations-dashboard.atdd.spec.ts`
++  - Operations dashboard provider monitoring journey, shared filter request assertions, threshold/freshness visibility, and unavailable/no-zero behavior.
++
++TDD RED compliance:
++
++- All Story 6.3 generated tests use `it.skip()` or `test.skip()`.
++- Tests assert expected behavior, not placeholder truth assertions.
++- RED tests use aggregate provider telemetry fixtures, not raw audit rows.
++- Raw private probes cover prompt, conversation, report, feedback, provider payload, and cache key strings.
++
++## Acceptance Criteria Coverage
++
++- AC1: Covered by client normalization/fetch tests, proxy forwarding tests, component rendering tests, and E2E grouped metrics tests.
++- AC2: Covered by threshold breach normalization, component breach region assertions, proxy privacy filtering, and E2E warning visibility.
++- AC3: Covered by unavailable normalization, proxy 503 preservation, component unavailable state, and E2E no-successful-zero assertions.
++
++## Green Phase Commands
++
++```bash
++npm --workspace frontend run test -- operations app/api/advisory/admin/operations/provider-telemetry/route.test.ts app/admin/advisory/operations/page.test.tsx --runInBand
++npm --workspace frontend run test:e2e -- advisory-operations-dashboard.atdd.spec.ts --project=chromium
++cd frontend
++npx tsc --noEmit
++```
++
++## Implementation Guidance
++
++- Extend `frontend/lib/advisory/operations.ts` with typed provider telemetry filters/view models, safe normalization, threshold breach helpers, and `fetchAdvisoryProviderTelemetry()`.
++- Add `frontend/app/api/advisory/admin/operations/provider-telemetry/route.ts` by following the Story 6.1 usage proxy pattern and adding `groupBy` to the allowlist.
++- Extend `frontend/app/admin/advisory/operations/page.tsx` in-place; do not create a separate dashboard.
++- Keep usage and provider telemetry loading independent enough that provider telemetry unavailable does not erase the existing usage dashboard.
++- Remove `skip` from Story 6.3 tests during green phase and keep all existing Story 6.1 tests passing.
++
++## Step 5: Validate & Complete
++
++- Checklist validation: complete for Story 6.3 ATDD scope.
++- Temp artifacts: no random temp output required; durable ATDD evidence is this checklist plus colocated RED tests.
++- Browser sessions: none opened.
++- Key assumption: Story 6.3 consumes only the 6.2 aggregate endpoint and never renders or recomputes raw audit/provider content.
++
+diff --git a/_bmad-output/implementation-artifacts/6-3-cost-latency-and-failure-dashboard.md b/_bmad-output/implementation-artifacts/6-3-cost-latency-and-failure-dashboard.md
+new file mode 100644
+index 0000000..ef11aa6
+--- /dev/null
++++ b/_bmad-output/implementation-artifacts/6-3-cost-latency-and-failure-dashboard.md
+@@ -0,0 +1,241 @@
++# Story 6.3: Cost, Latency, and Failure Dashboard
++
++Status: review
++
++<!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
++
++## Story
++
++As a platform operator,
++I want to monitor cost, latency, and provider failures in a dashboard,
++so that I can keep ThinkTank reliable and economically sustainable.
++
++## Acceptance Criteria
++
++1. Given provider metrics have been aggregated, when the operator opens the monitoring view, then they can see latency, error rate, timeout rate, estimated token usage, cache usage, and estimated cost, and metrics are grouped by workflow, Quick Consult, and Party Mode where available.
++2. Given a metric exceeds its configured warning threshold, when the dashboard displays the metric, then the threshold breach is visually and textually identified, and the operator can see the affected tenant, workflow type, and time window where permissions allow.
++3. Given telemetry data is delayed or unavailable, when the dashboard loads, then the view shows a data freshness or unavailable-state message, and it does not display misleading zeros as successful measurements.
++
++## Tasks / Subtasks
++
++- [x] Generate ATDD acceptance coverage before production implementation (AC: 1, 2, 3)
++  - [x] Create Story 6.3 ATDD artifact under `_bmad-output/test-artifacts/`.
++  - [x] Add RED frontend client/proxy/component tests for provider telemetry loading, grouping, threshold breach labeling, freshness/unavailable states, and raw-content suppression.
++  - [x] Add RED Playwright coverage for the operations dashboard monitoring view.
++- [x] Add frontend provider telemetry data access and proxy (AC: 1, 2, 3)
++  - [x] Extend `frontend/lib/advisory/operations.ts` with typed provider telemetry filters, normalized dashboard view, and threshold breach helpers.
++  - [x] Add `frontend/app/api/advisory/admin/operations/provider-telemetry/route.ts` mirroring the 6.1 usage proxy: auth token resolution, query allowlist, duplicate query rejection, `tenantId=current` sentinel suppression, upstream status propagation.
++  - [x] Do not expose actor-level, raw row, prompt, conversation, report, feedback, cache-key, or provider raw payload fields in frontend state.
++- [x] Extend the operations dashboard monitoring UI (AC: 1, 2, 3)
++  - [x] Reuse `frontend/app/admin/advisory/operations/page.tsx` rather than creating a separate marketing-style page.
++  - [x] Show latency average/P95, error rate, timeout rate, estimated tokens, estimated cost, cache hit/miss/bypass usage, and cache hit rate.
++  - [x] Show grouped views for workflow, Quick Consult, Party Mode, and provider where the 6.2 aggregate endpoint provides safe metadata.
++  - [x] Show threshold breaches with text and icon/badge, not color alone; include affected tenant, workflow/experience/provider, and selected time window.
++  - [x] Preserve delayed/unavailable messaging and avoid zero-valued metric cards when `measurementStatus` or `freshness.status` is `unavailable`.
++- [x] Validate privacy, permissions, and regression requirements (AC: 1, 2, 3)
++  - [x] Confirm the dashboard consumes only `GET /advisory/admin/operations/provider-telemetry`; no frontend raw audit recomputation.
++  - [x] Confirm tenant/date/workflow filters are shared with the existing operations dashboard where appropriate.
++  - [x] Run focused Jest, Playwright E2E, TypeScript/build checks, and relevant regression suites before review.
++
++## Dev Notes
++
++### Source Requirements
++
++- Epic 6 consumes prior Epic telemetry and audit events for operational monitoring. It must not add or backfill instrumentation; missing provider metrics must surface as instrumentation gaps with an owning area. [Source: `_bmad-output/planning-artifacts/epics.md#Epic 6: 运营监控与质量反馈闭环`]
++- Story 6.3 owns the operator-facing cost/latency/failure dashboard. Story 6.2 already owns provider telemetry aggregation and exposes the aggregate read model. [Source: `_bmad-output/planning-artifacts/epics.md#Story 6.2: Provider Telemetry Aggregation`; `_bmad-output/planning-artifacts/epics.md#Story 6.3: Cost, Latency, and Failure Dashboard`]
++- PRD Journey 4 requires cost distribution, anomaly detection, failure/timeout visibility, and operational decisions about Party Mode and low-completion workflows. [Source: `_bmad-output/planning-artifacts/thinktank-prd.md#Journey 4: 赵刚 — 平台运营的质量与成本监控`]
++- Technical success targets include Quick Consult API cost under 2, full workflow API cost under 10, first-token latency P95 under 3 seconds, system availability above 99.5%, and API cost under 30% of revenue. Use these as threshold context; do not hardcode business billing behavior beyond dashboard warnings. [Source: `_bmad-output/planning-artifacts/thinktank-prd.md#Technical Success`; `_bmad-output/planning-artifacts/thinktank-prd.md#Performance`]
++- UX requires provider latency, failure, timeout, token, cache, estimated cost metrics, freshness/unavailable handling, textual chart summaries, and threshold breach indicators by text and icon, not color alone. [Source: `_bmad-output/planning-artifacts/ux-design-specification-thinktank.md#Operator Usage Dashboard`]
++
++### Architecture Guardrails
++
++- Frontend implementation belongs in the existing Next.js App Router operations surface:
++  - `frontend/lib/advisory/operations.ts`
++  - `frontend/app/api/advisory/admin/operations/provider-telemetry/route.ts`
++  - `frontend/app/admin/advisory/operations/page.tsx`
++  - tests beside those files plus the existing operations Playwright spec.
++- Backend provider telemetry is already implemented under `backend/src/modules/advisory/operations/` and guarded by `GET /advisory/admin/operations/provider-telemetry`. Do not add tables, migrations, BullMQ jobs, external analytics sinks, or live GLM calls for this dashboard.
++- The Next.js App Router route handler pattern is already used by the 6.1 usage proxy. Follow that structure and keep `cache: 'no-store'` for operational telemetry. [Source: `https://nextjs.org/docs/14/app/building-your-application/routing/route-handlers`]
++- NestJS controller/service separation from 6.2 remains the backend source of truth. If a backend gap is discovered, fix it in the existing controller/service with tests; do not move aggregation logic into frontend or controller glue. [Source: `https://docs.nestjs.com/controllers`]
++- Use existing shadcn/ui, Tailwind, and `lucide-react` patterns. The page should stay dense and operational, consistent with Story 6.1, not a hero/marketing layout.
++
++### Provider Telemetry Contract to Consume
++
++- Endpoint: `GET /advisory/admin/operations/provider-telemetry`.
++- Query filters: `tenantId`, `dateFrom`, `dateTo`, `workflowType`, optional `groupBy`.
++- Guarding: `JwtAuthGuard`, `TenantGuard`, `RolesGuard`, `UserRole.ADMIN`.
++- Response envelope: `{ data }`.
++- Aggregate-only response fields:
++  - `generatedAt`
++  - `appliedFilters`
++  - `summary`
++  - `byWorkflow`
++  - `byExperience`
++  - `byProvider`
++  - `cache`
++  - `instrumentationGaps`
++  - `freshness`
++- Summary metrics available from 6.2:
++  - `terminalCalls`, `successfulCalls`, `failedCalls`, `retryEvents`
++  - `errorRate`, `timeoutRate`
++  - `estimatedTokens`, `estimatedCost`
++  - `latency.averageMs`, `latency.p95Ms`
++  - `tokens.input`, `tokens.output`, `tokens.total`, `tokens.estimated`
++  - `measurementStatus`
++- Group rows include summary metrics plus `cacheHits`, `cacheMisses`, and `cacheBypasses`.
++- Do not require `groupBy` for normal rendering; the backend returns all groups when `groupBy` is empty. Use `groupBy=workflow,experience,provider` only if explicitness improves tests/proxy behavior.
++
++### Threshold Guidance
++
++- Add a small local dashboard threshold config unless an existing central config is discovered:
++  - average latency warning: `3000ms`
++  - P95 latency warning: `5000ms`
++  - error rate warning: `5%`
++  - timeout rate warning: `2%`
++  - cache hit rate warning: below `80%` when cache lookups exist
++  - estimated cost per terminal call warning: Quick Consult `2`, workflow/Party Mode `10`, in the same unit emitted by telemetry
++- Breach detection should be derived from normalized aggregate metrics only. It may calculate rates and per-call averages from group totals, but it must not fetch raw audit events.
++- Breach text must name the metric, threshold, actual value, affected tenant, affected workflow/experience/provider, and selected time window where permissions allow.
++- If a metric is `null`, `measurementStatus` is `unavailable`, or freshness is `unavailable`, render unavailable messaging instead of warning or healthy zero values.
++
++### Previous Story Intelligence
++
++- Story 6.1 established the operations page, filters, usage proxy, frontend normalization, freshness/unavailable UI, instrumentation gap messaging, raw-content suppression, and Playwright route mocking. Extend those files instead of creating a parallel dashboard shell. [Source: `_bmad-output/implementation-artifacts/6-1-usage-and-completion-dashboard.md`]
++- Story 6.2 established provider telemetry aggregation, the backend API, strict query validation, tenant scoping, 90-day date window, invalid/repeated query rejection, HTTP 408 timeout handling, cache event/status mismatch gaps, and route-level negative-path coverage. Do not weaken those contracts. [Source: `_bmad-output/implementation-artifacts/6-2-provider-telemetry-aggregation.md`]
++- 6.2 deliberately left dashboard UI, charts, proxy, and threshold breach visualization out of scope for 6.3. The dashboard must consume 6.2 aggregates and not duplicate backend aggregation logic in React.
++- Prior commit pattern for Epic 6 uses story checkpoint commits:
++  - `6f8d13f feat: complete story 6-1-usage-and-completion-dashboard`
++  - `88e2237 feat: complete story 6-2-provider-telemetry-aggregation`
++
++### Testing Requirements
++
++- Follow TDD: create ATDD/RED coverage before production implementation.
++- Required frontend client tests:
++  - provider telemetry aggregate normalization;
++  - threshold breach derivation and human-readable breach text;
++  - unavailable/delayed freshness does not render misleading zeros;
++  - raw sensitive fields are removed from normalized output;
++  - `tenantId=current` is not forwarded as a backend tenant id.
++- Required proxy route tests:
++  - forwards only whitelisted filters to `/advisory/admin/operations/provider-telemetry`;
++  - rejects duplicate whitelisted query params with `400`;
++  - returns `401` without request/session token;
++  - propagates upstream `403` and unavailable bodies without rewriting;
++  - does not forward unsupported actor/raw filters.
++- Required component tests:
++  - renders provider monitoring metrics and groups;
++  - marks threshold breaches with visible text and icon/badge;
++  - shows affected tenant/workflow/time window;
++  - shows delayed/unavailable provider telemetry states without zero cards;
++  - raw private strings never appear in the page or drilldown/details.
++- Required E2E coverage:
++  - operations dashboard loads provider monitoring view from the proxy;
++  - grouped workflow/Quick Consult/Party Mode metrics are visible;
++  - breach indicators and freshness warnings are visible;
++  - filters are included in provider telemetry requests;
++  - unavailable provider telemetry does not show successful zero measurements.
++- Suggested validation commands:
++  - `npm --workspace frontend run test -- operations app/api/advisory/admin/operations/provider-telemetry/route.test.ts app/admin/advisory/operations/page.test.tsx --runInBand`
++  - `npm --workspace frontend run test:e2e -- advisory-operations-dashboard.atdd.spec.ts --project=chromium`
++  - `cd frontend; npx tsc --noEmit`
++  - `npm --workspace backend run test -- advisory-provider-telemetry advisory-operations.controller.routes --runInBand` if backend is touched
++  - `npm --workspace backend run build` if backend is touched
++
++### Scope Boundaries
++
++- In scope: frontend provider telemetry client/proxy, operations monitoring UI, threshold warning model, freshness/unavailable states, privacy-safe rendering, frontend unit/component/E2E coverage, and trace/gate artifacts.
++- Out of scope: new backend storage, new telemetry event emission, provider gateway behavior changes, live GLM calls, billing/subscription enforcement, user-level anomaly detection, recommendation/report quality feedback aggregation, governance review UI, and raw audit drilldown.
++
++### References
++
++- `_bmad-output/planning-artifacts/epics.md#Story 6.3: Cost, Latency, and Failure Dashboard`
++- `_bmad-output/planning-artifacts/thinktank-prd.md#Journey 4: 赵刚 — 平台运营的质量与成本监控`
++- `_bmad-output/planning-artifacts/ux-design-specification-thinktank.md#Operator Usage Dashboard`
++- `_bmad-output/planning-artifacts/architecture-thinktank.md#Complete Project Directory Structure`
++- `_bmad-output/implementation-artifacts/6-1-usage-and-completion-dashboard.md`
++- `_bmad-output/implementation-artifacts/6-2-provider-telemetry-aggregation.md`
++- `backend/src/modules/advisory/operations/advisory-provider-telemetry.types.ts`
++- `backend/src/modules/advisory/operations/advisory-operations.controller.ts`
++- `frontend/lib/advisory/operations.ts`
++- `frontend/app/api/advisory/admin/operations/usage/route.ts`
++- `frontend/app/admin/advisory/operations/page.tsx`
++
++## Dev Agent Record
++
++### Agent Model Used
++
++GPT-5 Codex
++
++### Debug Log References
++
++- 2026-05-23: Story context created from Epic 6 Story 6.3, PRD Journey 4, UX operator dashboard requirements, Story 6.1 dashboard patterns, Story 6.2 provider telemetry aggregate contract, and current frontend/backend code.
++- 2026-05-23: ATDD RED coverage generated for frontend client, Next proxy, operations dashboard component, and Playwright dashboard flows before production implementation.
++- 2026-05-23: Implemented frontend provider telemetry normalization/proxy/dashboard UI and validated with focused Jest, Playwright E2E, TypeScript, and backend provider telemetry regression suites.
++- 2026-05-23: Code review completed with Blind Hunter, Edge Case Hunter, and Acceptance Auditor layers. Patch findings were fixed before trace:
++  - synchronized initial provider telemetry filters with usage-selected filters;
++  - sanitized upstream error messages, provider group keys/labels, and instrumentation gap reasons;
++  - suppressed delayed zero provider metrics;
++  - rendered workflow type in threshold breach details;
++  - rendered provider telemetry instrumentation gaps;
++  - mocked provider telemetry in existing Story 6.1 E2E tests to avoid unmocked proxy dependency.
++
++### Completion Notes List
++
++- Story context created and marked ready for development.
++- Created ATDD checklist and turned Story 6.3 RED tests green for client, proxy, component, and E2E coverage.
++- Added provider telemetry client normalization with threshold breach derivation, safe filter construction, unavailable-state handling, and raw sensitive text suppression.
++- Added Next provider telemetry proxy with auth resolution, allowlisted query forwarding, duplicate filter rejection, `tenantId=current` suppression, and upstream status/body propagation.
++- Extended the existing operations dashboard with provider metrics, workflow/experience/provider group table, textual/icon threshold warnings, freshness/unavailable messages, and shared filter refresh behavior.
++- Code review fixes completed for privacy sanitization, delayed zero metrics, provider gap surfacing, threshold workflow-type visibility, and E2E mock stability.
++- Validation passed:
++  - `npm --workspace frontend run test -- operations app/api/advisory/admin/operations/provider-telemetry/route.test.ts app/admin/advisory/operations/page.test.tsx --runInBand`
++  - `cd frontend; npx tsc --noEmit`
++  - `npm --workspace frontend run test:e2e -- advisory-operations-dashboard.atdd.spec.ts --project=chromium`
++  - `npm --workspace backend run test -- advisory-provider-telemetry advisory-operations.controller.routes --runInBand`
++
++### File List
++
++- `_bmad-output/implementation-artifacts/6-3-cost-latency-and-failure-dashboard.md`
++- `_bmad-output/implementation-artifacts/sprint-status.yaml`
++- `_bmad-output/test-artifacts/atdd-checklist-6-3-cost-latency-and-failure-dashboard.md`
++- `frontend/lib/advisory/operations.ts`
++- `frontend/lib/advisory/operations.test.ts`
++- `frontend/app/api/advisory/admin/operations/provider-telemetry/route.ts`
++- `frontend/app/api/advisory/admin/operations/provider-telemetry/route.test.ts`
++- `frontend/app/admin/advisory/operations/page.tsx`
++- `frontend/app/admin/advisory/operations/page.test.tsx`
++- `frontend/e2e/advisory-operations-dashboard.atdd.spec.ts`
++- `_bmad-output/implementation-artifacts/review-story-6-3.diff`
++
++### Change Log
++
++- 2026-05-23: Created Story 6.3 implementation context and marked ready for development.
++- 2026-05-23: Added ATDD coverage and implemented the provider cost, latency, cache, failure, threshold breach, and freshness dashboard on the existing operations page.
++- 2026-05-23: Addressed code review findings and reran frontend/backend focused validation.
++
++## Senior Developer Review (AI)
++
++### Review Date
++
++2026-05-23
++
++### Review Outcome
++
++Approve after fixes.
++
++### Review Layers
++
++- Blind Hunter: raised 1 Medium patch finding that provider telemetry instrumentation gaps were normalized but not rendered.
++- Edge Case Hunter: raised 4 patch findings around initial filter consistency, raw error-message leakage, missing `measurementStatus` fallback, and unsanitized gap reasons.
++- Acceptance Auditor: raised 3 patch findings around workflow type omission in threshold breach UI, raw-sensitive group identifiers, and delayed zero metrics.
++
++### Action Items
++
++- [x] [Medium] Render provider telemetry instrumentation gaps on the operations dashboard.
++- [x] [Medium] Align initial provider telemetry request filters with the usage-selected tenant/date/workflow filters.
++- [x] [Medium] Sanitize upstream provider telemetry error messages before rendering.
++- [x] [Medium] Treat missing provider `measurementStatus` as the freshness status instead of defaulting to unavailable.
++- [x] [Medium] Sanitize provider group keys/labels and instrumentation gap reasons before storing frontend state.
++- [x] [Medium] Suppress delayed zero provider telemetry metrics rather than rendering successful zero cards.
++- [x] [Medium] Include workflow type in threshold breach text/UI and tests.
++- [x] [Low] Mock provider telemetry in existing operations E2E tests to keep Story 6.1 flows deterministic.

@@ -1,0 +1,51 @@
+schema_version: 1
+target_type: story
+story_id: 6-3-cost-latency-and-failure-dashboard
+story_title: Cost, Latency, and Failure Dashboard
+decision: PASS
+decision_date: '2026-05-23T11:01:17+08:00'
+evaluator: leo
+gate_type: story
+decision_mode: deterministic
+rationale: P1 coverage is 100% and overall coverage is 100% against the 80% minimum. No P0 criteria are present, so P0 coverage is treated as 100% by safe percentage logic.
+coverage_matrix: _bmad-output/test-artifacts/tmp/tea-trace-coverage-matrix-story-6-3-cost-latency-and-failure-dashboard-2026-05-23T11-01-17+08-00.json
+traceability_report: _bmad-output/test-artifacts/traceability-report-story-6-3-cost-latency-and-failure-dashboard.md
+criteria:
+  p0_coverage_required: 100
+  p0_coverage_actual: 100
+  p0_status: MET
+  p1_coverage_target_pass: 90
+  p1_coverage_minimum: 80
+  p1_coverage_actual: 100
+  p1_status: MET
+  overall_coverage_minimum: 80
+  overall_coverage_actual: 100
+  overall_status: MET
+coverage_statistics:
+  total_requirements: 3
+  fully_covered: 3
+  partially_covered: 0
+  uncovered: 0
+  critical_gaps: 0
+  high_gaps: 0
+  medium_gaps: 0
+  low_gaps: 0
+evidence:
+  story_file: _bmad-output/implementation-artifacts/6-3-cost-latency-and-failure-dashboard.md
+  atdd_checklist: _bmad-output/test-artifacts/atdd-checklist-6-3-cost-latency-and-failure-dashboard.md
+  tests:
+    - frontend/lib/advisory/operations.test.ts
+    - frontend/app/api/advisory/admin/operations/provider-telemetry/route.test.ts
+    - frontend/app/admin/advisory/operations/page.test.tsx
+    - frontend/e2e/advisory-operations-dashboard.atdd.spec.ts
+  validation_commands:
+    - npm --workspace frontend run test -- operations app/api/advisory/admin/operations/provider-telemetry/route.test.ts app/admin/advisory/operations/page.test.tsx --runInBand
+    - cd frontend; npx tsc --noEmit
+    - npm --workspace frontend run test:e2e -- advisory-operations-dashboard.atdd.spec.ts --project=chromium
+    - npm --workspace backend run test -- advisory-provider-telemetry advisory-operations.controller.routes --runInBand
+recommendations:
+  - priority: LOW
+    action: Keep Story 6.3 provider telemetry client, proxy, component, and E2E checks in the Epic 6 regression set.
+uncovered_requirements: []
+waiver:
+  applied: false

@@ -4,6 +4,7 @@ import { fetchAdvisoryOperationsUsage } from '@/lib/advisory/operations'
 
 jest.mock('@/lib/advisory/operations', () => ({
   fetchAdvisoryOperationsUsage: jest.fn(),
+  fetchAdvisoryProviderTelemetry: jest.fn(),
 }))
 
 const dashboard = {
@@ -73,14 +74,156 @@ const dashboard = {
   ],
 }
 
+const providerTelemetryDashboard = {
+  generatedAt: '2026-05-23T01:30:00.000Z',
+  filters: {
+    selected: {
+      tenantId: 'tenant-alpha',
+      dateFrom: '2026-05-01',
+      dateTo: '2026-05-22',
+      workflowType: 'all',
+      groupBy: ['workflow', 'experience', 'provider'],
+    },
+  },
+  freshness: {
+    source: 'audit_logs',
+    status: 'fresh',
+    latestEventAt: '2026-05-22T08:10:00.000Z',
+    description: 'Provider telemetry is current.',
+  },
+  metrics: {
+    terminalCalls: 8,
+    successfulCalls: 6,
+    failedCalls: 2,
+    retryEvents: 1,
+    errorRate: 25,
+    timeoutRate: 12.5,
+    estimatedTokens: 12000,
+    estimatedCost: 18.75,
+    averageLatencyMs: 3400,
+    p95LatencyMs: 6200,
+    cacheHits: 5,
+    cacheMisses: 3,
+    cacheBypasses: 1,
+    cacheHitRate: 55.56,
+  },
+  byWorkflow: [
+    {
+      key: 'problem-solving',
+      label: 'Problem Solving',
+      scopeLabel: 'workflow',
+      terminalCalls: 5,
+      failedCalls: 2,
+      errorRate: 40,
+      timeoutRate: 20,
+      estimatedTokens: 9000,
+      estimatedCost: 13.5,
+      averageLatencyMs: 3600,
+      p95LatencyMs: 6400,
+      cacheHits: 3,
+      cacheMisses: 2,
+      cacheBypasses: 0,
+      cacheHitRate: 60,
+      measurementStatus: 'fresh',
+    },
+  ],
+  byExperience: [
+    {
+      key: 'quick_consult',
+      label: 'Quick Consult',
+      scopeLabel: 'experience',
+      terminalCalls: 3,
+      failedCalls: 0,
+      errorRate: 0,
+      timeoutRate: 0,
+      estimatedTokens: 900,
+      estimatedCost: 1.2,
+      averageLatencyMs: 1400,
+      p95LatencyMs: 2300,
+      cacheHits: 2,
+      cacheMisses: 1,
+      cacheBypasses: 0,
+      cacheHitRate: 66.67,
+      measurementStatus: 'fresh',
+    },
+    {
+      key: 'party_mode',
+      label: 'Party Mode',
+      scopeLabel: 'experience',
+      terminalCalls: 5,
+      failedCalls: 2,
+      errorRate: 40,
+      timeoutRate: 20,
+      estimatedTokens: 11100,
+      estimatedCost: 17.55,
+      averageLatencyMs: 4600,
+      p95LatencyMs: 7200,
+      cacheHits: 2,
+      cacheMisses: 3,
+      cacheBypasses: 1,
+      cacheHitRate: 40,
+      measurementStatus: 'fresh',
+    },
+  ],
+  byProvider: [
+    {
+      key: 'zhipu-glm',
+      label: 'zhipu-glm',
+      scopeLabel: 'provider',
+      terminalCalls: 8,
+      failedCalls: 2,
+      errorRate: 25,
+      timeoutRate: 12.5,
+      estimatedTokens: 12000,
+      estimatedCost: 18.75,
+      averageLatencyMs: 3400,
+      p95LatencyMs: 6200,
+      cacheHits: 5,
+      cacheMisses: 3,
+      cacheBypasses: 1,
+      cacheHitRate: 55.56,
+      measurementStatus: 'fresh',
+    },
+  ],
+  thresholdBreaches: [
+    {
+      id: 'summary-p95-latency',
+      metric: 'P95 latency',
+      actualValue: '6200 ms',
+      thresholdValue: '5000 ms',
+      tenantId: 'tenant-alpha',
+      affectedScope: 'All provider calls',
+      workflowType: 'all',
+      timeWindow: '2026-05-01 to 2026-05-22',
+      severity: 'warning',
+      message:
+        'P95 latency breach: 6200 ms exceeds 5000 ms for tenant-alpha across all provider calls during 2026-05-01 to 2026-05-22.',
+    },
+  ],
+  instrumentationGaps: [
+    {
+      eventName: 'thinktank.provider.call_failed',
+      reason: 'missing_grouping_metadata',
+      owningArea: 'provider_gateway',
+      count: 1,
+    },
+  ],
+}
+
 describe('AdvisoryOperationsPage', () => {
   const mockFetchUsage = fetchAdvisoryOperationsUsage as jest.MockedFunction<
     typeof fetchAdvisoryOperationsUsage
   >
+  const mockFetchProviderTelemetry = (
+    jest.requireMock('@/lib/advisory/operations') as {
+      fetchAdvisoryProviderTelemetry: jest.Mock
+    }
+  ).fetchAdvisoryProviderTelemetry
 
   beforeEach(() => {
     jest.clearAllMocks()
     mockFetchUsage.mockResolvedValue(dashboard)
+    mockFetchProviderTelemetry.mockResolvedValue(providerTelemetryDashboard)
   })
 
   it('renders filters, usage metrics, workflow table, freshness, and instrumentation gaps', async () => {
@@ -124,7 +267,7 @@ describe('AdvisoryOperationsPage', () => {
 
     await waitFor(() => {
       expect(mockFetchUsage).toHaveBeenLastCalledWith(
-        expect.objectContaining({ dateFrom: '2026-05-02' }),
+        expect.objectContaining({ dateFrom: '2026-05-02' })
       )
     })
 
@@ -136,7 +279,9 @@ describe('AdvisoryOperationsPage', () => {
     expect(drilldown).toHaveTextContent('Aggregated counts')
     expect(drilldown).toHaveTextContent('Starts')
     expect(drilldown).toHaveTextContent('10')
-    expect(JSON.stringify(drilldown.textContent)).not.toMatch(/PRIVATE_|prompt|conversation|report|feedback/i)
+    expect(JSON.stringify(drilldown.textContent)).not.toMatch(
+      /PRIVATE_|prompt|conversation|report|feedback/i
+    )
   })
 
   it('shows unavailable telemetry state without rendering misleading zero metrics', async () => {
@@ -159,5 +304,85 @@ describe('AdvisoryOperationsPage', () => {
     expect(alert).toHaveTextContent(/Telemetry unavailable|Usage data unavailable/i)
     expect(alert).toHaveTextContent(/No trusted measurements|try again/i)
     expect(screen.queryByText(/Quick Consult volume\s+0/i)).not.toBeInTheDocument()
+  })
+
+  it('[6.3-COMP-001][P1][AC1] renders provider telemetry metrics and grouped monitoring views', async () => {
+    render(<AdvisoryOperationsPage />)
+
+    const providerMetrics = await screen.findByRole('region', {
+      name: /Provider telemetry metrics/i,
+    })
+    expect(providerMetrics).toHaveTextContent('Average latency')
+    expect(providerMetrics).toHaveTextContent('3400 ms')
+    expect(providerMetrics).toHaveTextContent('P95 latency')
+    expect(providerMetrics).toHaveTextContent('6200 ms')
+    expect(providerMetrics).toHaveTextContent('Error rate')
+    expect(providerMetrics).toHaveTextContent('25%')
+    expect(providerMetrics).toHaveTextContent('Timeout rate')
+    expect(providerMetrics).toHaveTextContent('12.5%')
+    expect(providerMetrics).toHaveTextContent('Estimated tokens')
+    expect(providerMetrics).toHaveTextContent('12,000')
+    expect(providerMetrics).toHaveTextContent('Estimated cost')
+    expect(providerMetrics).toHaveTextContent('18.75')
+    expect(providerMetrics).toHaveTextContent('Cache hit rate')
+    expect(providerMetrics).toHaveTextContent('55.6%')
+
+    const providerTable = screen.getByRole('table', { name: /Provider telemetry groups/i })
+    expect(providerTable).toHaveTextContent('Problem Solving')
+    expect(providerTable).toHaveTextContent('Quick Consult')
+    expect(providerTable).toHaveTextContent('Party Mode')
+    expect(providerTable).toHaveTextContent('zhipu-glm')
+  })
+
+  it('[6.3-COMP-002][P1][AC2] identifies threshold breaches with text, icon labeling, tenant, scope, and time window', async () => {
+    render(<AdvisoryOperationsPage />)
+
+    const breaches = await screen.findByRole('region', { name: /Provider threshold breaches/i })
+    expect(breaches).toHaveTextContent(/Warning breach/i)
+    expect(breaches).toHaveTextContent('P95 latency')
+    expect(breaches).toHaveTextContent('6200 ms')
+    expect(breaches).toHaveTextContent('5000 ms')
+    expect(breaches).toHaveTextContent('tenant-alpha')
+    expect(breaches).toHaveTextContent('Workflow type: all')
+    expect(breaches).toHaveTextContent('All provider calls')
+    expect(breaches).toHaveTextContent('2026-05-01 to 2026-05-22')
+  })
+
+  it('[6.3-COMP-004][P1][AC1,AC3] renders provider telemetry instrumentation gaps', async () => {
+    render(<AdvisoryOperationsPage />)
+
+    const gaps = await screen.findByRole('region', { name: /Provider telemetry gaps/i })
+    expect(gaps).toHaveTextContent(/missing grouping metadata/i)
+    expect(gaps).toHaveTextContent('thinktank.provider.call_failed')
+    expect(gaps).toHaveTextContent('provider_gateway')
+  })
+
+  it('[6.3-COMP-003][P1][AC3] renders unavailable provider telemetry without misleading zero measurements or raw content', async () => {
+    mockFetchProviderTelemetry.mockResolvedValue({
+      ...providerTelemetryDashboard,
+      freshness: {
+        source: 'audit_logs',
+        status: 'unavailable',
+        latestEventAt: null,
+        description:
+          'Provider telemetry source is unavailable. No trusted measurements are available.',
+      },
+      metrics: null,
+      byWorkflow: [],
+      byExperience: [],
+      byProvider: [],
+      thresholdBreaches: [],
+      instrumentationGaps: [],
+    })
+
+    render(<AdvisoryOperationsPage />)
+
+    const alert = await screen.findByRole('alert', { name: /Provider telemetry unavailable/i })
+    expect(alert).toHaveTextContent(/No trusted measurements/i)
+    expect(screen.queryByText(/Average latency\s+0 ms/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Estimated cost\s+0/i)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/PRIVATE_|prompt|conversation|report|feedback/i)
+    ).not.toBeInTheDocument()
   })
 })

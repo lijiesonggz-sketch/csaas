@@ -1,0 +1,245 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-23T11:01:17+08:00",
+  "story_id": "6-3-cost-latency-and-failure-dashboard",
+  "story_title": "Cost, Latency, and Failure Dashboard",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P1",
+      "description": "Aggregated provider metrics are visible for latency, error rate, timeout rate, estimated token usage, cache usage, and estimated cost, grouped by workflow, Quick Consult, Party Mode, and provider where available.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "id": "6.3-UNIT-001",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "line": 290,
+          "coverage": "Normalizes provider aggregates, grouped metrics, and threshold breaches."
+        },
+        {
+          "id": "6.3-UNIT-002",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "line": 345,
+          "coverage": "Fetches provider telemetry through the Next proxy with safe filters only."
+        },
+        {
+          "id": "6.3-API-001",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/provider-telemetry/route.test.ts",
+          "line": 49,
+          "coverage": "Forwards whitelisted filters and request authorization to the backend aggregate endpoint."
+        },
+        {
+          "id": "6.3-COMP-001",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "line": 307,
+          "coverage": "Renders provider metrics and workflow, experience, and provider grouped monitoring views."
+        },
+        {
+          "id": "6.3-COMP-004",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "line": 349,
+          "coverage": "Renders provider telemetry instrumentation gaps."
+        },
+        {
+          "id": "6.3-E2E-001",
+          "level": "E2E",
+          "file": "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts",
+          "line": 588,
+          "coverage": "Renders provider monitoring groups, threshold warnings, and freshness context."
+        },
+        {
+          "id": "6.3-E2E-002",
+          "level": "E2E",
+          "file": "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts",
+          "line": 631,
+          "coverage": "Applies shared dashboard filters to provider telemetry requests."
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_authz_coverage": "covered by proxy authorization forwarding and 401/403 propagation",
+        "error_path_coverage": "covered by duplicate query rejection and unavailable telemetry paths"
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P1",
+      "description": "Threshold breaches are visually and textually identified with affected tenant, workflow type, scope, and time window where permissions allow.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "id": "6.3-UNIT-001",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "line": 290,
+          "coverage": "Derives human-readable threshold breaches from normalized provider metrics."
+        },
+        {
+          "id": "6.3-UNIT-005",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "line": 481,
+          "coverage": "Sanitizes provider group and gap identifiers while preserving warning semantics."
+        },
+        {
+          "id": "6.3-API-002",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/provider-telemetry/route.test.ts",
+          "line": 77,
+          "coverage": "Rejects duplicate provider telemetry filters before proxying."
+        },
+        {
+          "id": "6.3-API-003",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/provider-telemetry/route.test.ts",
+          "line": 99,
+          "coverage": "Preserves auth, upstream forbidden, and unavailable response statuses without leaking raw payloads."
+        },
+        {
+          "id": "6.3-COMP-002",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "line": 335,
+          "coverage": "Displays warning breach text, icon labeling, tenant, workflow type, scope, and time window."
+        },
+        {
+          "id": "6.3-E2E-001",
+          "level": "E2E",
+          "file": "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts",
+          "line": 588,
+          "coverage": "Validates warning breach visibility in the browser monitoring flow."
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_authz_coverage": "covered by 401/403 propagation and safe tenant filter handling",
+        "error_path_coverage": "covered by duplicate query, upstream forbidden, and privacy sanitization tests"
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P1",
+      "description": "Delayed or unavailable telemetry shows freshness/unavailable messaging and never displays misleading zero measurements as successful provider metrics.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "id": "6.3-UNIT-003",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "line": 375,
+          "coverage": "Propagates provider telemetry auth failures and normalizes unavailable bodies as untrusted data."
+        },
+        {
+          "id": "6.3-UNIT-004",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "line": 440,
+          "coverage": "Treats unavailable provider telemetry as no trusted measurements instead of successful zeros."
+        },
+        {
+          "id": "6.3-UNIT-005",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "line": 481,
+          "coverage": "Suppresses delayed zero provider metrics and sanitizes gap identifiers."
+        },
+        {
+          "id": "6.3-API-003",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/provider-telemetry/route.test.ts",
+          "line": 99,
+          "coverage": "Preserves unavailable upstream bodies/statuses."
+        },
+        {
+          "id": "6.3-COMP-003",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "line": 358,
+          "coverage": "Renders unavailable provider telemetry without zero metric cards or raw private content."
+        },
+        {
+          "id": "6.3-COMP-004",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "line": 349,
+          "coverage": "Surfaces instrumentation gaps as operational freshness context."
+        },
+        {
+          "id": "6.3-E2E-003",
+          "level": "E2E",
+          "file": "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts",
+          "line": 666,
+          "coverage": "Shows unavailable provider telemetry without successful zero measurements or raw private content."
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_authz_coverage": "covered by auth failure propagation",
+        "error_path_coverage": "covered by unavailable, delayed-zero suppression, and privacy probes"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 3,
+    "fully_covered": 3,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P1": {
+        "total": 3,
+        "covered": 3,
+        "percentage": 100
+      },
+      "P2": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P3": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Keep Story 6.3 provider telemetry client, proxy, component, and E2E checks in the Epic 6 regression set.",
+      "requirements": [
+        "AC1",
+        "AC2",
+        "AC3"
+      ]
+    }
+  ]
+}

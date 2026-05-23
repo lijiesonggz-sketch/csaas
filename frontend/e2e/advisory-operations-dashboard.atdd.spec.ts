@@ -2,6 +2,8 @@ import { expect, test, type Page } from '@playwright/test'
 
 const USAGE_API_PATTERN = '**/api/advisory/admin/operations/usage**'
 const USAGE_API_PATH = '/api/advisory/admin/operations/usage'
+const PROVIDER_TELEMETRY_API_PATTERN = '**/api/advisory/admin/operations/provider-telemetry**'
+const PROVIDER_TELEMETRY_API_PATH = '/api/advisory/admin/operations/provider-telemetry'
 
 const RAW_PRIVACY_STRINGS = [
   'PRIVATE_CONVERSATION_DO_NOT_RENDER',
@@ -13,6 +15,11 @@ const RAW_PRIVACY_STRINGS = [
 type FreshnessStatus = 'fresh' | 'delayed' | 'unavailable'
 
 type UsageFixtureOptions = {
+  freshnessStatus?: FreshnessStatus
+  includeRawPrivacyProbe?: boolean
+}
+
+type ProviderTelemetryFixtureOptions = {
   freshnessStatus?: FreshnessStatus
   includeRawPrivacyProbe?: boolean
 }
@@ -62,8 +69,18 @@ function buildUsageResponse(options: UsageFixtureOptions = {}) {
             completionRate: 30,
             lowCompletion: true,
             drilldown: [
-              { period: '2026-05-01 to 2026-05-07', starts: 6, completions: 1, incompleteSessions: 5 },
-              { period: '2026-05-08 to 2026-05-14', starts: 4, completions: 2, incompleteSessions: 2 },
+              {
+                period: '2026-05-01 to 2026-05-07',
+                starts: 6,
+                completions: 1,
+                incompleteSessions: 5,
+              },
+              {
+                period: '2026-05-08 to 2026-05-14',
+                starts: 4,
+                completions: 2,
+                incompleteSessions: 2,
+              },
             ],
           },
           {
@@ -75,7 +92,14 @@ function buildUsageResponse(options: UsageFixtureOptions = {}) {
             incompleteSessions: 0,
             completionRate: 100,
             lowCompletion: false,
-            drilldown: [{ period: '2026-05-01 to 2026-05-22', starts: 2, completions: 2, incompleteSessions: 0 }],
+            drilldown: [
+              {
+                period: '2026-05-01 to 2026-05-22',
+                starts: 2,
+                completions: 2,
+                incompleteSessions: 0,
+              },
+            ],
           },
         ]
 
@@ -168,8 +192,207 @@ function buildUsageResponse(options: UsageFixtureOptions = {}) {
   return { data }
 }
 
+function buildProviderTelemetryResponse(options: ProviderTelemetryFixtureOptions = {}) {
+  const freshnessStatus = options.freshnessStatus ?? 'fresh'
+  const unavailable = freshnessStatus === 'unavailable'
+  const data: Record<string, unknown> = {
+    generatedAt: '2026-05-23T01:30:00.000Z',
+    appliedFilters: {
+      tenantId: 'tenant-alpha',
+      dateFrom: '2026-05-01T00:00:00.000Z',
+      dateTo: '2026-05-22T23:59:59.999Z',
+      groupBy: ['workflow', 'experience', 'provider'],
+    },
+    summary: unavailable
+      ? {
+          terminalCalls: 0,
+          successfulCalls: 0,
+          failedCalls: 0,
+          retryEvents: 0,
+          errorRate: null,
+          timeoutRate: null,
+          estimatedTokens: 0,
+          estimatedCost: 0,
+          latency: { averageMs: null, p95Ms: null },
+          tokens: { input: 0, output: 0, total: 0, estimated: 0 },
+          measurementStatus: 'unavailable',
+        }
+      : {
+          terminalCalls: 8,
+          successfulCalls: 6,
+          failedCalls: 2,
+          retryEvents: 1,
+          errorRate: 0.25,
+          timeoutRate: 0.125,
+          estimatedTokens: 12000,
+          estimatedCost: 18.75,
+          latency: { averageMs: 3400, p95Ms: 6200 },
+          tokens: { input: 7200, output: 4800, total: 12000, estimated: 12000 },
+          measurementStatus: freshnessStatus,
+        },
+    byWorkflow: unavailable
+      ? []
+      : [
+          {
+            workflowKey: 'problem-solving',
+            workflowLabel: 'Problem Solving',
+            terminalCalls: 5,
+            successfulCalls: 3,
+            failedCalls: 2,
+            retryEvents: 1,
+            errorRate: 0.4,
+            timeoutRate: 0.2,
+            estimatedTokens: 9000,
+            estimatedCost: 13.5,
+            latency: { averageMs: 3600, p95Ms: 6400 },
+            tokens: { input: 5400, output: 3600, total: 9000, estimated: 9000 },
+            measurementStatus: freshnessStatus,
+            cacheHits: 3,
+            cacheMisses: 2,
+            cacheBypasses: 0,
+          },
+        ],
+    byExperience: unavailable
+      ? []
+      : [
+          {
+            experience: 'quick_consult',
+            terminalCalls: 3,
+            successfulCalls: 3,
+            failedCalls: 0,
+            retryEvents: 0,
+            errorRate: 0,
+            timeoutRate: 0,
+            estimatedTokens: 900,
+            estimatedCost: 1.2,
+            latency: { averageMs: 1400, p95Ms: 2300 },
+            tokens: { input: 500, output: 400, total: 900, estimated: 900 },
+            measurementStatus: freshnessStatus,
+            cacheHits: 2,
+            cacheMisses: 1,
+            cacheBypasses: 0,
+          },
+          {
+            experience: 'party_mode',
+            terminalCalls: 5,
+            successfulCalls: 3,
+            failedCalls: 2,
+            retryEvents: 1,
+            errorRate: 0.4,
+            timeoutRate: 0.2,
+            estimatedTokens: 11100,
+            estimatedCost: 17.55,
+            latency: { averageMs: 4600, p95Ms: 7200 },
+            tokens: { input: 6700, output: 4400, total: 11100, estimated: 11100 },
+            measurementStatus: freshnessStatus,
+            cacheHits: 2,
+            cacheMisses: 3,
+            cacheBypasses: 1,
+          },
+        ],
+    byProvider: unavailable
+      ? []
+      : [
+          {
+            provider: 'zhipu-glm',
+            terminalCalls: 8,
+            successfulCalls: 6,
+            failedCalls: 2,
+            retryEvents: 1,
+            errorRate: 0.25,
+            timeoutRate: 0.125,
+            estimatedTokens: 12000,
+            estimatedCost: 18.75,
+            latency: { averageMs: 3400, p95Ms: 6200 },
+            tokens: { input: 7200, output: 4800, total: 12000, estimated: 12000 },
+            measurementStatus: freshnessStatus,
+            cacheHits: 5,
+            cacheMisses: 3,
+            cacheBypasses: 1,
+          },
+        ],
+    cache: unavailable
+      ? {
+          hits: 0,
+          misses: 0,
+          bypasses: 0,
+          totalLookups: 0,
+          hitRate: null,
+          cachedInputTokens: 0,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
+          cacheEligibleInputTokens: 0,
+        }
+      : {
+          hits: 5,
+          misses: 3,
+          bypasses: 1,
+          totalLookups: 9,
+          hitRate: 0.5556,
+          cachedInputTokens: 3200,
+          cacheReadInputTokens: 2200,
+          cacheCreationInputTokens: 1000,
+          cacheEligibleInputTokens: 5900,
+        },
+    instrumentationGaps: unavailable
+      ? []
+      : [
+          {
+            eventName: 'thinktank.provider.call_failed',
+            reason: 'missing_grouping_metadata',
+            owner: 'provider_gateway',
+            count: 1,
+          },
+        ],
+    freshness:
+      freshnessStatus === 'fresh'
+        ? {
+            source: 'audit_logs',
+            status: 'fresh',
+            latestEventAt: '2026-05-22T08:10:00.000Z',
+            description: 'Provider telemetry is current.',
+          }
+        : freshnessStatus === 'delayed'
+          ? {
+              source: 'audit_logs',
+              status: 'delayed',
+              latestEventAt: '2026-05-20T08:10:00.000Z',
+              description: 'Provider telemetry is delayed. Treat these metrics as stale.',
+            }
+          : {
+              source: 'audit_logs',
+              status: 'unavailable',
+              latestEventAt: null,
+              description:
+                'Provider telemetry source is unavailable. No trusted measurements are available.',
+            },
+  }
+
+  if (options.includeRawPrivacyProbe) {
+    Object.assign(data, {
+      rawProviderPayload: RAW_PRIVACY_STRINGS[1],
+      conversation: RAW_PRIVACY_STRINGS[0],
+      report: RAW_PRIVACY_STRINGS[2],
+      feedback: RAW_PRIVACY_STRINGS[3],
+      cacheKey: 'PRIVATE_CACHE_KEY_DO_NOT_RENDER',
+    })
+  }
+
+  return { data }
+}
+
 async function mockUsageResponse(page: Page, responseBody: unknown, status = 200) {
   await page.route(USAGE_API_PATTERN, async (route) => {
+    await route.fulfill({
+      status,
+      contentType: 'application/json',
+      body: JSON.stringify(responseBody),
+    })
+  })
+}
+
+async function mockProviderTelemetryResponse(page: Page, responseBody: unknown, status = 200) {
+  await page.route(PROVIDER_TELEMETRY_API_PATTERN, async (route) => {
     await route.fulfill({
       status,
       contentType: 'application/json',
@@ -191,6 +414,31 @@ async function openOperationsDashboard(page: Page, expectedStatus = 200) {
   }
 }
 
+async function openOperationsDashboardWithProviderTelemetry(
+  page: Page,
+  expectedUsageStatus = 200,
+  expectedProviderStatus = 200
+) {
+  const usageResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes(USAGE_API_PATH) && response.status() === expectedUsageStatus
+  )
+  const providerResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes(PROVIDER_TELEMETRY_API_PATH) &&
+      response.status() === expectedProviderStatus
+  )
+
+  await page.goto('/admin/advisory/operations')
+  const [usageResponse, providerResponse] = await Promise.all([
+    usageResponsePromise,
+    providerResponsePromise,
+  ])
+
+  if (expectedUsageStatus < 400) expect(usageResponse.ok()).toBeTruthy()
+  if (expectedProviderStatus < 400) expect(providerResponse.ok()).toBeTruthy()
+}
+
 async function chooseComboboxOption(page: Page, label: RegExp, optionName: RegExp | string) {
   await page.getByRole('combobox', { name: label }).click()
   await page.getByRole('option', { name: optionName }).click()
@@ -208,6 +456,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
   }) => {
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
 
     await openOperationsDashboard(page)
 
@@ -231,8 +480,12 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
 
     const workflowTable = page.getByRole('table', { name: /Workflow completion/i })
     await expect(workflowTable).toBeVisible()
-    await expect(workflowTable.getByRole('row').filter({ hasText: 'Problem Solving' })).toContainText('30%')
-    await expect(workflowTable.getByRole('row').filter({ hasText: 'Innovation Strategy' })).toContainText('100%')
+    await expect(
+      workflowTable.getByRole('row').filter({ hasText: 'Problem Solving' })
+    ).toContainText('30%')
+    await expect(
+      workflowTable.getByRole('row').filter({ hasText: 'Innovation Strategy' })
+    ).toContainText('100%')
 
     const gaps = page.getByRole('region', { name: /Instrumentation gaps/i })
     await expect(gaps).toContainText(/unknown event name/i)
@@ -244,6 +497,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
   }) => {
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
     await openOperationsDashboard(page)
 
     const filteredRequestPromise = page.waitForRequest((request) => {
@@ -271,9 +525,12 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
     expect(filteredUrl.searchParams.get('workflowType')).toBe('problem-solving')
   })
 
-  test('[6.1-E2E-003][P1][AC3] opens low-completion drilldown with aggregate counts only', async ({ page }) => {
+  test('[6.1-E2E-003][P1][AC3] opens low-completion drilldown with aggregate counts only', async ({
+    page,
+  }) => {
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
     await openOperationsDashboard(page)
 
     const workflowTable = page.getByRole('table', { name: /Workflow completion/i })
@@ -300,6 +557,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
   }) => {
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse({ freshnessStatus: 'delayed' }))
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
 
     await openOperationsDashboard(page)
 
@@ -316,10 +574,13 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
   }) => {
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse({ freshnessStatus: 'unavailable' }), 503)
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
 
     await openOperationsDashboard(page, 503)
 
-    const alert = page.getByRole('alert').filter({ hasText: /Telemetry unavailable|Usage data unavailable/i })
+    const alert = page
+      .getByRole('alert')
+      .filter({ hasText: /Telemetry unavailable|Usage data unavailable/i })
     await expect(alert).toBeVisible()
     await expect(alert).toContainText(/No trusted measurements|try again/i)
     await expect(page.getByText(/Quick Consult volume\s+0/i)).toHaveCount(0)
@@ -331,6 +592,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
   }) => {
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse({ includeRawPrivacyProbe: true }))
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
 
     await openOperationsDashboard(page)
 
@@ -345,5 +607,110 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
     const drilldown = page.getByRole('dialog', { name: /Problem Solving completion drilldown/i })
     await expect(drilldown).toContainText('Aggregated counts')
     await expectRawPrivacyStringsHidden(page)
+  })
+})
+
+test.describe('Story 6.3 - provider cost latency and failure dashboard E2E (ATDD RED)', () => {
+  test('[6.3-E2E-001][P1][AC1,AC2] renders provider monitoring groups, threshold warnings, and freshness context', async ({
+    page,
+  }) => {
+    await mockAdminSession(page)
+    await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+
+    await openOperationsDashboardWithProviderTelemetry(page)
+
+    const providerMetrics = page.getByRole('region', { name: /Provider telemetry metrics/i })
+    await expect(providerMetrics).toContainText('Average latency')
+    await expect(providerMetrics).toContainText('3400 ms')
+    await expect(providerMetrics).toContainText('P95 latency')
+    await expect(providerMetrics).toContainText('6200 ms')
+    await expect(providerMetrics).toContainText('Error rate')
+    await expect(providerMetrics).toContainText('25%')
+    await expect(providerMetrics).toContainText('Timeout rate')
+    await expect(providerMetrics).toContainText('12.5%')
+    await expect(providerMetrics).toContainText('Estimated tokens')
+    await expect(providerMetrics).toContainText('12,000')
+    await expect(providerMetrics).toContainText('Estimated cost')
+    await expect(providerMetrics).toContainText('18.75')
+    await expect(providerMetrics).toContainText('Cache hit rate')
+    await expect(providerMetrics).toContainText('55.6%')
+
+    const providerGroups = page.getByRole('table', { name: /Provider telemetry groups/i })
+    await expect(providerGroups).toContainText('Problem Solving')
+    await expect(providerGroups).toContainText('Quick Consult')
+    await expect(providerGroups).toContainText('Party Mode')
+    await expect(providerGroups).toContainText('zhipu-glm')
+
+    const breaches = page.getByRole('region', { name: /Provider threshold breaches/i })
+    await expect(breaches).toContainText(/Warning breach/i)
+    await expect(breaches).toContainText('P95 latency')
+    await expect(breaches).toContainText('tenant-alpha')
+    await expect(breaches).toContainText('Workflow type: all')
+    await expect(breaches).toContainText('2026-05-01 to 2026-05-22')
+
+    const providerGaps = page.getByRole('region', { name: /Provider telemetry gaps/i })
+    await expect(providerGaps).toContainText(/missing grouping metadata/i)
+    await expect(providerGaps).toContainText('provider_gateway')
+  })
+
+  test('[6.3-E2E-002][P1][AC1] applies shared filters to provider telemetry requests', async ({
+    page,
+  }) => {
+    await mockAdminSession(page)
+    await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await openOperationsDashboardWithProviderTelemetry(page)
+
+    const filteredProviderRequestPromise = page.waitForRequest((request) => {
+      const url = new URL(request.url())
+      return (
+        url.pathname.includes(PROVIDER_TELEMETRY_API_PATH) &&
+        url.searchParams.get('tenantId') === 'tenant-beta' &&
+        url.searchParams.get('dateFrom') === '2026-05-01' &&
+        url.searchParams.get('dateTo') === '2026-05-22' &&
+        url.searchParams.get('workflowType') === 'problem-solving' &&
+        url.searchParams.get('groupBy') === 'workflow,experience,provider'
+      )
+    })
+
+    await chooseComboboxOption(page, /Tenant/i, 'Tenant Beta')
+    await page.getByLabel(/Date from/i).fill('2026-05-01')
+    await page.getByLabel(/Date to/i).fill('2026-05-22')
+    await chooseComboboxOption(page, /Workflow type/i, 'Problem Solving')
+    await page.getByRole('button', { name: /Apply filters/i }).click()
+
+    const filteredRequest = await filteredProviderRequestPromise
+    const filteredUrl = new URL(filteredRequest.url())
+    expect(filteredUrl.searchParams.get('tenantId')).toBe('tenant-beta')
+    expect(filteredUrl.searchParams.get('dateFrom')).toBe('2026-05-01')
+    expect(filteredUrl.searchParams.get('dateTo')).toBe('2026-05-22')
+    expect(filteredUrl.searchParams.get('workflowType')).toBe('problem-solving')
+    expect(filteredUrl.searchParams.get('groupBy')).toBe('workflow,experience,provider')
+  })
+
+  test('[6.3-E2E-003][P1][AC3] shows unavailable provider telemetry without successful zero measurements or raw private content', async ({
+    page,
+  }) => {
+    await mockAdminSession(page)
+    await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(
+      page,
+      buildProviderTelemetryResponse({
+        freshnessStatus: 'unavailable',
+        includeRawPrivacyProbe: true,
+      }),
+      503
+    )
+
+    await openOperationsDashboardWithProviderTelemetry(page, 200, 503)
+
+    const alert = page.getByRole('alert').filter({ hasText: /Provider telemetry unavailable/i })
+    await expect(alert).toBeVisible()
+    await expect(alert).toContainText(/No trusted measurements/i)
+    await expect(page.getByText(/Average latency\s+0 ms/i)).toHaveCount(0)
+    await expect(page.getByText(/Estimated cost\s+0/i)).toHaveCount(0)
+    await expectRawPrivacyStringsHidden(page)
+    await expect(page.getByText('PRIVATE_CACHE_KEY_DO_NOT_RENDER', { exact: true })).toHaveCount(0)
   })
 })

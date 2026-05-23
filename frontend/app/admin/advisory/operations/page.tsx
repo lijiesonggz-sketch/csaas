@@ -1,24 +1,22 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   BarChart3,
   Clock3,
+  Database,
+  Gauge,
   Loader2,
   RefreshCw,
   Search,
+  ShieldAlert,
 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -37,10 +35,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
+  AdvisoryProviderTelemetryGroup,
+  AdvisoryProviderTelemetryView,
   AdvisoryOperationsUsageFilters,
   AdvisoryOperationsUsageView,
   AdvisoryOperationsWorkflowUsage,
   fetchAdvisoryOperationsUsage,
+  fetchAdvisoryProviderTelemetry,
 } from '@/lib/advisory/operations'
 
 const DEFAULT_FILTERS = {
@@ -52,31 +53,118 @@ const DEFAULT_FILTERS = {
 
 export default function AdvisoryOperationsPage() {
   const [dashboard, setDashboard] = useState<AdvisoryOperationsUsageView | null>(null)
+  const [providerTelemetry, setProviderTelemetry] = useState<AdvisoryProviderTelemetryView | null>(
+    null
+  )
   const [filters, setFilters] = useState<Required<AdvisoryOperationsUsageFilters>>(DEFAULT_FILTERS)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [selectedWorkflow, setSelectedWorkflow] =
-    useState<AdvisoryOperationsWorkflowUsage | null>(null)
+  const [providerError, setProviderError] = useState<string | null>(null)
+  const [selectedWorkflow, setSelectedWorkflow] = useState<AdvisoryOperationsWorkflowUsage | null>(
+    null
+  )
 
   useEffect(() => {
     void loadUsage({}, true)
   }, [])
 
-  const tenantOptions = dashboard?.filters.tenants ?? [{ id: filters.tenantId, name: filters.tenantId }]
-  const workflowOptions = dashboard?.filters.workflowTypes ?? [{ key: 'all', label: 'All workflows' }]
+  const tenantOptions = dashboard?.filters.tenants ?? [
+    { id: filters.tenantId, name: filters.tenantId },
+  ]
+  const workflowOptions = dashboard?.filters.workflowTypes ?? [
+    { key: 'all', label: 'All workflows' },
+  ]
   const unavailable = dashboard?.freshness.status === 'unavailable'
   const delayed = dashboard?.freshness.status === 'delayed'
   const metrics = dashboard?.metrics ?? null
+  const providerUnavailable = providerTelemetry?.freshness.status === 'unavailable'
+  const providerDelayed = providerTelemetry?.freshness.status === 'delayed'
+  const providerMetrics = providerTelemetry?.metrics ?? null
+  const providerGroups = useMemo(
+    () => [
+      ...(providerTelemetry?.byWorkflow ?? []),
+      ...(providerTelemetry?.byExperience ?? []),
+      ...(providerTelemetry?.byProvider ?? []),
+    ],
+    [providerTelemetry]
+  )
 
   const lowCompletionCount = useMemo(
     () => dashboard?.workflowUsage.filter((workflow) => workflow.lowCompletion).length ?? 0,
-    [dashboard],
+    [dashboard]
   )
 
   async function loadUsage(nextFilters: AdvisoryOperationsUsageFilters, initial = false) {
     if (initial) setLoading(true)
     else setRefreshing(true)
+    setError(null)
+    setProviderError(null)
+
+    try {
+      let providerFilters = nextFilters
+      const usageResult = await Promise.resolve(fetchAdvisoryOperationsUsage(nextFilters))
+        .then((value) => ({ status: 'fulfilled' as const, value }))
+        .catch((reason) => ({ status: 'rejected' as const, reason }))
+
+      if (usageResult.status === 'fulfilled') {
+        const loaded = usageResult.value
+        setDashboard(loaded)
+        setFilters(loaded.filters.selected)
+        providerFilters = loaded.filters.selected
+      } else {
+        setError(
+          usageResult.reason instanceof Error
+            ? usageResult.reason.message
+            : 'Usage data unavailable. No trusted measurements are available.'
+        )
+      }
+
+      const providerResult = await Promise.resolve(
+        fetchAdvisoryProviderTelemetry({
+          ...providerFilters,
+          groupBy: ['workflow', 'experience', 'provider'],
+        })
+      )
+        .then((value) => ({ status: 'fulfilled' as const, value }))
+        .catch((reason) => ({ status: 'rejected' as const, reason }))
+
+      if (providerResult.status === 'fulfilled') {
+        setProviderTelemetry(providerResult.value)
+      } else {
+        setProviderTelemetry(null)
+        setProviderError(
+          providerResult.reason instanceof Error
+            ? providerResult.reason.message
+            : 'Provider telemetry unavailable. No trusted measurements are available.'
+        )
+      }
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  async function loadProviderTelemetryOnly(nextFilters: AdvisoryOperationsUsageFilters) {
+    setProviderError(null)
+
+    try {
+      const loaded = await fetchAdvisoryProviderTelemetry({
+        ...nextFilters,
+        groupBy: ['workflow', 'experience', 'provider'],
+      })
+      setProviderTelemetry(loaded)
+    } catch (loadError) {
+      setProviderTelemetry(null)
+      setProviderError(
+        loadError instanceof Error
+          ? loadError.message
+          : 'Provider telemetry unavailable. No trusted measurements are available.'
+      )
+    }
+  }
+
+  async function loadUsageOnly(nextFilters: AdvisoryOperationsUsageFilters) {
     setError(null)
 
     try {
@@ -87,11 +175,8 @@ export default function AdvisoryOperationsPage() {
       setError(
         loadError instanceof Error
           ? loadError.message
-          : 'Usage data unavailable. No trusted measurements are available.',
+          : 'Usage data unavailable. No trusted measurements are available.'
       )
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
     }
   }
 
@@ -100,7 +185,10 @@ export default function AdvisoryOperationsPage() {
   }
 
   function applyFilters() {
-    void loadUsage(filters)
+    setRefreshing(true)
+    Promise.allSettled([loadUsageOnly(filters), loadProviderTelemetryOnly(filters)]).finally(() =>
+      setRefreshing(false)
+    )
   }
 
   if (loading) {
@@ -143,7 +231,8 @@ export default function AdvisoryOperationsPage() {
             <AlertDescription>
               {error ??
                 `Telemetry unavailable. ${
-                  dashboard?.freshness.description ?? 'No trusted measurements are available; try again.'
+                  dashboard?.freshness.description ??
+                  'No trusted measurements are available; try again.'
                 }`}
             </AlertDescription>
           </Alert>
@@ -154,6 +243,32 @@ export default function AdvisoryOperationsPage() {
             <Clock3 className="h-4 w-4" />
             <AlertDescription>
               Delayed telemetry. Metrics are stale until the audit log stream catches up.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {(providerError || providerUnavailable) && (
+          <Alert variant="destructive" role="alert" aria-label="Provider telemetry unavailable">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              {providerError ??
+                `Provider telemetry unavailable. ${
+                  providerTelemetry?.freshness.description ??
+                  'No trusted measurements are available; try again.'
+                }`}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {providerDelayed && (
+          <Alert
+            role="alert"
+            className="border-amber-200 bg-amber-50 text-amber-900"
+            aria-label="Provider telemetry delayed"
+          >
+            <Clock3 className="h-4 w-4" />
+            <AlertDescription>
+              Delayed provider telemetry. Treat cost, latency, cache, and failure metrics as stale.
             </AlertDescription>
           </Alert>
         )}
@@ -271,6 +386,151 @@ export default function AdvisoryOperationsPage() {
           )}
         </section>
 
+        <section role="region" aria-label="Provider telemetry metrics">
+          <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Provider telemetry</h2>
+              <p className="text-sm text-slate-600">
+                Aggregate cost, latency, cache, timeout, and failure measurements from provider
+                events.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant={freshnessBadgeVariant(providerTelemetry?.freshness.status)}>
+                {freshnessLabel(providerTelemetry?.freshness.status)}
+              </Badge>
+              <span className="text-xs text-slate-500">
+                {providerTelemetry?.freshness.latestEventAt
+                  ? `last provider event ${formatDateTime(providerTelemetry.freshness.latestEventAt)}`
+                  : 'provider event unavailable'}
+              </span>
+            </div>
+          </div>
+          {providerMetrics ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+              <MetricCard
+                label="Average latency"
+                value={formatMilliseconds(providerMetrics.averageLatencyMs)}
+                icon={<Gauge className="h-4 w-4 text-emerald-600" />}
+              />
+              <MetricCard
+                label="P95 latency"
+                value={formatMilliseconds(providerMetrics.p95LatencyMs)}
+                icon={<Clock3 className="h-4 w-4 text-emerald-600" />}
+              />
+              <MetricCard label="Error rate" value={formatPercent(providerMetrics.errorRate)} />
+              <MetricCard label="Timeout rate" value={formatPercent(providerMetrics.timeoutRate)} />
+              <MetricCard
+                label="Estimated tokens"
+                value={formatInteger(providerMetrics.estimatedTokens)}
+              />
+              <MetricCard
+                label="Estimated cost"
+                value={formatCost(providerMetrics.estimatedCost)}
+              />
+              <MetricCard label="Provider calls" value={providerMetrics.terminalCalls} />
+              <MetricCard label="Failed calls" value={providerMetrics.failedCalls} />
+              <MetricCard label="Retries" value={providerMetrics.retryEvents} />
+              <MetricCard label="Cache hits" value={providerMetrics.cacheHits} />
+              <MetricCard label="Cache misses" value={providerMetrics.cacheMisses} />
+              <MetricCard label="Cache bypasses" value={providerMetrics.cacheBypasses} />
+              <MetricCard
+                label="Cache hit rate"
+                value={formatPercent(providerMetrics.cacheHitRate)}
+                icon={<Database className="h-4 w-4 text-emerald-600" />}
+              />
+            </div>
+          ) : (
+            <Card variant="outlined" className="bg-white">
+              <CardContent className="py-5 text-sm text-slate-600">
+                No trusted provider measurements are available for this filter set.
+              </CardContent>
+            </Card>
+          )}
+        </section>
+
+        <section role="region" aria-label="Provider threshold breaches">
+          <Card variant="outlined" className="bg-white">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-base">Provider threshold breaches</CardTitle>
+              <Badge variant={providerTelemetry?.thresholdBreaches.length ? 'warning' : 'success'}>
+                {providerTelemetry?.thresholdBreaches.length ?? 0} warning breach
+              </Badge>
+            </CardHeader>
+            <CardContent>
+              {providerTelemetry?.thresholdBreaches.length ? (
+                <div className="space-y-2">
+                  {providerTelemetry.thresholdBreaches.map((breach) => (
+                    <div
+                      key={breach.id}
+                      className="rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+                    >
+                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="flex items-center gap-2 font-medium">
+                            <ShieldAlert className="h-4 w-4" aria-hidden="true" />
+                            <span>Warning breach: {breach.metric}</span>
+                          </p>
+                          <p className="mt-1 text-amber-900">{breach.message}</p>
+                        </div>
+                        <Badge variant="warning">{breach.severity}</Badge>
+                      </div>
+                      <div className="mt-2 grid gap-2 text-xs md:grid-cols-5">
+                        <span>Actual: {breach.actualValue}</span>
+                        <span>Threshold: {breach.thresholdValue}</span>
+                        <span>Tenant: {breach.tenantId}</span>
+                        <span>Workflow type: {breach.workflowType}</span>
+                        <span>Window: {breach.timeWindow}</span>
+                      </div>
+                      <p className="mt-1 text-xs">Scope: {breach.affectedScope}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-600">
+                  No provider threshold breaches detected for this filter set.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        <Card variant="outlined" className="bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Provider telemetry groups</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table aria-label="Provider telemetry groups">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Group</TableHead>
+                  <TableHead>Scope</TableHead>
+                  <TableHead className="text-right">Calls</TableHead>
+                  <TableHead className="text-right">P95 latency</TableHead>
+                  <TableHead className="text-right">Error rate</TableHead>
+                  <TableHead className="text-right">Timeout rate</TableHead>
+                  <TableHead className="text-right">Tokens</TableHead>
+                  <TableHead className="text-right">Cost</TableHead>
+                  <TableHead className="text-right">Cache</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {providerGroups.length ? (
+                  providerGroups.map((group) => (
+                    <ProviderGroupRow key={`${group.scopeLabel}-${group.key}`} group={group} />
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={9} className="py-6 text-center text-sm text-slate-500">
+                      No trusted provider group measurements are available.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
         <Card variant="outlined" className="bg-white">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <CardTitle className="text-base">Workflow completion</CardTitle>
@@ -335,6 +595,36 @@ export default function AdvisoryOperationsPage() {
           </CardContent>
         </Card>
 
+        <section role="region" aria-label="Provider telemetry gaps">
+          <Card variant="outlined" className="bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Provider telemetry gaps</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {providerTelemetry?.instrumentationGaps.length ? (
+                <div className="space-y-2">
+                  {providerTelemetry.instrumentationGaps.map((gap, index) => (
+                    <div
+                      key={`${gap.reason}-${gap.eventName ?? index}`}
+                      className="flex flex-col gap-1 rounded-sm border border-slate-200 px-3 py-2 text-sm md:flex-row md:items-center md:justify-between"
+                    >
+                      <div>
+                        <p className="font-medium">{humanizeGapReason(gap.reason)}</p>
+                        <p className="text-slate-600">
+                          {gap.eventName ?? 'provider event unavailable'} · {gap.owningArea}
+                        </p>
+                      </div>
+                      <Badge variant="outline">{gap.count}</Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-600">No provider telemetry gaps detected.</p>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
         <section role="region" aria-label="Instrumentation gaps">
           <Card variant="outlined" className="bg-white">
             <CardHeader className="pb-3">
@@ -366,7 +656,10 @@ export default function AdvisoryOperationsPage() {
         </section>
       </div>
 
-      <Dialog open={Boolean(selectedWorkflow)} onOpenChange={(open) => !open && setSelectedWorkflow(null)}>
+      <Dialog
+        open={Boolean(selectedWorkflow)}
+        onOpenChange={(open) => !open && setSelectedWorkflow(null)}
+      >
         <DialogContent
           role="dialog"
           aria-label={
@@ -403,14 +696,45 @@ export default function AdvisoryOperationsPage() {
   )
 }
 
-function MetricCard({ label, value }: { label: string; value: string | number }) {
+function MetricCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string
+  value: string | number
+  icon?: ReactNode
+}) {
   return (
     <Card variant="outlined" className="bg-white">
       <CardContent className="py-4">
-        <p className="text-xs font-medium uppercase tracking-normal text-slate-500">{label}</p>
+        <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-normal text-slate-500">
+          {icon}
+          <span>{label}</span>
+        </p>
         <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
       </CardContent>
     </Card>
+  )
+}
+
+function ProviderGroupRow({ group }: { group: AdvisoryProviderTelemetryGroup }) {
+  return (
+    <TableRow>
+      <TableCell className="font-medium">{group.label}</TableCell>
+      <TableCell>
+        <Badge variant="outline">{group.scopeLabel}</Badge>
+      </TableCell>
+      <TableCell className="text-right">{group.terminalCalls}</TableCell>
+      <TableCell className="text-right">{formatMilliseconds(group.p95LatencyMs)}</TableCell>
+      <TableCell className="text-right">{formatPercent(group.errorRate)}</TableCell>
+      <TableCell className="text-right">{formatPercent(group.timeoutRate)}</TableCell>
+      <TableCell className="text-right">{formatInteger(group.estimatedTokens)}</TableCell>
+      <TableCell className="text-right">{formatCost(group.estimatedCost)}</TableCell>
+      <TableCell className="text-right">
+        {group.cacheHits}/{group.cacheMisses}/{group.cacheBypasses}
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -429,6 +753,22 @@ function freshnessBadgeVariant(status: string | undefined) {
 function formatPercent(value: number | null) {
   if (value === null) return '-'
   return `${Math.round(value * 10) / 10}%`
+}
+
+function formatMilliseconds(value: number | null) {
+  if (value === null) return '-'
+  return `${Math.round(value)} ms`
+}
+
+function formatInteger(value: number) {
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value)
+}
+
+function formatCost(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+  }).format(value)
 }
 
 function formatDateTime(value: string) {
