@@ -159,6 +159,323 @@ describe('advisory operations client', () => {
   })
 })
 
+const qualityFeedbackPayload = {
+  generatedAt: '2026-05-23T02:10:00.000Z',
+  appliedFilters: {
+    tenantId: 'tenant-alpha',
+    dateFrom: '2026-05-01T00:00:00.000Z',
+    dateTo: '2026-05-22T23:59:59.999Z',
+    workflowType: 'all',
+    recommendationType: 'all',
+    timeBucket: 'day',
+  },
+  summary: {
+    measurementStatus: 'fresh',
+    totalRatings: 42,
+    averageRating: 3.6,
+    lowRatingCount: 9,
+    lowRatingRate: 0.2143,
+    recommendationRatings: {
+      sampleSize: 24,
+      averageRating: 3.4,
+      lowQualityCount: 6,
+      lowQualityRate: 0.25,
+      distribution: { 1: 2, 2: 4, 3: 6, 4: 8, 5: 4 },
+      feedbackTextPresentCount: 7,
+      feedbackTextWithheldCount: 7,
+      feedbackTextUnavailableReason: 'privacy_policy',
+    },
+    outputRatings: {
+      sampleSize: 18,
+      averageRating: 3.9,
+      lowQualityCount: 3,
+      lowQualityRate: 0.1667,
+      distribution: { 1: 1, 2: 2, 3: 3, 4: 7, 5: 5 },
+      feedbackTextPresentCount: 4,
+      feedbackTextWithheldCount: 4,
+      feedbackTextUnavailableReason: 'privacy_policy',
+    },
+    feedbackTextPresentCount: 11,
+    feedbackTextWithheldCount: 11,
+    feedbackTextUnavailableReason: 'privacy_policy_withheld',
+  },
+  byWorkflow: [
+    {
+      workflowKey: 'problem-solving',
+      workflowLabel: 'Problem Solving',
+      tenantId: 'tenant-alpha',
+      ratingCount: 18,
+      averageRating: 2.8,
+      lowRatingRate: 0.3889,
+      distribution: { 1: 2, 2: 5, 3: 4, 4: 5, 5: 2 },
+      feedbackTextPresentCount: 6,
+      feedbackTextWithheldCount: 6,
+      measurementStatus: 'fresh',
+    },
+  ],
+  byRecommendationType: [
+    {
+      recommendationType: 'risk-mitigation',
+      recommendationLabel: 'Risk Mitigation',
+      workflowKey: 'problem-solving',
+      tenantId: 'tenant-alpha',
+      ratingCount: 12,
+      averageRating: 2.6,
+      lowRatingRate: 0.4167,
+      distribution: { 1: 2, 2: 3, 3: 3, 4: 3, 5: 1 },
+    },
+  ],
+  lowQualityTrends: [
+    {
+      id: 'problem-solving-risk-mitigation',
+      workflowKey: 'problem-solving',
+      workflowLabel: 'Problem Solving',
+      recommendationType: 'risk-mitigation',
+      recommendationLabel: 'Risk Mitigation',
+      tenantId: 'tenant-alpha',
+      trendDirection: 'up',
+      currentLowRatingRate: 0.4167,
+      previousLowRatingRate: 0.1818,
+      sampleSize: 12,
+      severity: 'warning',
+    },
+  ],
+  instrumentationGaps: [
+    {
+      eventName: 'recommendation_feedback',
+      reason: 'missing_recommendation_category',
+      owningArea: 'quick_consult_feedback',
+      count: 2,
+    },
+  ],
+  freshness: {
+    source: 'recommendation_feedback,output_ratings',
+    status: 'fresh',
+    latestEventAt: '2026-05-22T08:10:00.000Z',
+    description: 'Quality feedback is current.',
+  },
+}
+
+describe('advisory quality feedback operations client (Story 6.4)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    global.fetch = jest.fn()
+  })
+
+  it('[6.4-UNIT-001][P1][AC1] normalizes quality feedback aggregates by workflow recommendation type tenant and selected date range', async () => {
+    const operationsModule = (await import('./operations')) as Record<string, unknown>
+    const normalizeAdvisoryQualityFeedback = operationsModule.normalizeAdvisoryQualityFeedback as (
+      data: unknown
+    ) => Record<string, any>
+
+    const normalized = normalizeAdvisoryQualityFeedback(qualityFeedbackPayload)
+
+    expect(normalized.filters.selected).toEqual(
+      expect.objectContaining({
+        tenantId: 'tenant-alpha',
+        dateFrom: '2026-05-01',
+        dateTo: '2026-05-22',
+        workflowType: 'all',
+        recommendationType: 'all',
+      })
+    )
+    expect(normalized.metrics).toEqual(
+      expect.objectContaining({
+        totalRatings: 42,
+        averageRating: 3.6,
+        lowRatingRate: 21.43,
+      })
+    )
+    expect(normalized.byWorkflow).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'problem-solving',
+          label: 'Problem Solving',
+          tenantId: 'tenant-alpha',
+          ratingCount: 18,
+          averageRating: 2.8,
+          lowRatingRate: 38.89,
+        }),
+      ])
+    )
+    expect(normalized.byRecommendationType).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'risk-mitigation',
+          label: 'Risk Mitigation',
+          workflowKey: 'problem-solving',
+          tenantId: 'tenant-alpha',
+        }),
+      ])
+    )
+  })
+
+  it('[6.4-UNIT-002][P1][AC2] normalizes low quality trends affected categories trend direction and rating distribution', async () => {
+    const operationsModule = (await import('./operations')) as Record<string, unknown>
+    const normalizeAdvisoryQualityFeedback = operationsModule.normalizeAdvisoryQualityFeedback as (
+      data: unknown
+    ) => Record<string, any>
+
+    const normalized = normalizeAdvisoryQualityFeedback(qualityFeedbackPayload)
+
+    expect(normalized.ratingDistribution.recommendation).toEqual({
+      1: 2,
+      2: 4,
+      3: 6,
+      4: 8,
+      5: 4,
+    })
+    expect(normalized.lowQualityTrends).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          workflowLabel: 'Problem Solving',
+          recommendationLabel: 'Risk Mitigation',
+          trendDirection: 'up',
+          currentLowRatingRate: 41.67,
+          previousLowRatingRate: 18.18,
+          sampleSize: 12,
+        }),
+      ])
+    )
+  })
+
+  it('[6.4-UNIT-004][P0][AC1,AC2] sanitizes raw feedback report prompt and conversation strings everywhere', async () => {
+    const operationsModule = (await import('./operations')) as Record<string, unknown>
+    const normalizeAdvisoryQualityFeedback = operationsModule.normalizeAdvisoryQualityFeedback as (
+      data: unknown
+    ) => Record<string, any>
+
+    const normalized = normalizeAdvisoryQualityFeedback({
+      ...qualityFeedbackPayload,
+      rawFeedbackText: 'PRIVATE_FEEDBACK_DO_NOT_RENDER',
+      reportContent: 'PRIVATE_REPORT_DO_NOT_RENDER',
+      prompt: 'PRIVATE_PROMPT_DO_NOT_RENDER',
+      conversation: 'PRIVATE_CONVERSATION_DO_NOT_RENDER',
+      byWorkflow: [
+        {
+          workflowKey: 'PRIVATE_PROMPT_DO_NOT_RENDER',
+          workflowLabel: 'raw conversation',
+          tenantId: 'tenant-alpha',
+          ratingCount: 1,
+        },
+      ],
+      lowQualityTrends: [
+        {
+          id: 'raw-feedback',
+          workflowKey: 'problem-solving',
+          workflowLabel: 'PRIVATE_FEEDBACK_DO_NOT_RENDER',
+          recommendationLabel: 'report content',
+          trendDirection: 'up',
+        },
+      ],
+      freshness: {
+        source: 'recommendation_feedback,output_ratings',
+        status: 'fresh',
+        latestEventAt: '2026-05-22T08:10:00.000Z',
+        description: 'raw feedback from report content',
+      },
+    })
+
+    expect(JSON.stringify(normalized)).not.toMatch(
+      /PRIVATE_|raw.*(feedback|report|prompt|conversation)|report content|conversation|prompt/i
+    )
+  })
+
+  it('[6.4-UNIT-005][P1][AC1] represents optional text feedback only as present withheld and unavailable counts', async () => {
+    const operationsModule = (await import('./operations')) as Record<string, unknown>
+    const normalizeAdvisoryQualityFeedback = operationsModule.normalizeAdvisoryQualityFeedback as (
+      data: unknown
+    ) => Record<string, any>
+
+    const normalized = normalizeAdvisoryQualityFeedback(qualityFeedbackPayload)
+
+    expect(normalized.feedbackText).toEqual({
+      presentCount: 11,
+      withheldCount: 11,
+      unavailableReason: 'privacy_policy_withheld',
+    })
+    expect(JSON.stringify(normalized)).not.toMatch(
+      /PRIVATE_|raw.*(feedback|report|prompt|conversation)/i
+    )
+  })
+
+  it('[6.4-UNIT-006][P1][AC1,AC3] fetchAdvisoryQualityFeedback omits tenantId=current and forwards only safe query params', async () => {
+    const operationsModule = (await import('./operations')) as Record<string, unknown>
+    const fetchAdvisoryQualityFeedback = operationsModule.fetchAdvisoryQualityFeedback as (
+      filters: Record<string, unknown>
+    ) => Promise<unknown>
+
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: qualityFeedbackPayload }),
+    })
+
+    await fetchAdvisoryQualityFeedback({
+      tenantId: 'current',
+      dateFrom: '2026-05-01',
+      dateTo: '2026-05-22',
+      workflowType: 'problem-solving',
+      recommendationType: 'risk-mitigation',
+      groupBy: ['workflow', 'recommendationType'],
+      timeBucket: 'day',
+      actorId: 'malicious',
+      rawFeedback: 'PRIVATE_FEEDBACK_DO_NOT_RENDER',
+    })
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/advisory/admin/operations/quality-feedback?dateFrom=2026-05-01&dateTo=2026-05-22&workflowType=problem-solving&recommendationType=risk-mitigation&groupBy=workflow%2CrecommendationType&timeBucket=day',
+      expect.objectContaining({ cache: 'no-store' })
+    )
+  })
+
+  it('[6.4-UNIT-007][P1][AC2] treats unavailable measurement status as untrusted null metrics not successful zero ratings', async () => {
+    const operationsModule = (await import('./operations')) as Record<string, unknown>
+    const normalizeAdvisoryQualityFeedback = operationsModule.normalizeAdvisoryQualityFeedback as (
+      data: unknown
+    ) => Record<string, any>
+
+    const normalized = normalizeAdvisoryQualityFeedback({
+      ...qualityFeedbackPayload,
+      summary: {
+        measurementStatus: 'unavailable',
+        totalRatings: 0,
+        averageRating: 0,
+        lowRatingCount: 0,
+        lowRatingRate: 0,
+        recommendationRatings: {
+          sampleSize: 0,
+          averageRating: null,
+          lowQualityCount: 0,
+          lowQualityRate: null,
+          distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+        },
+        outputRatings: {
+          sampleSize: 0,
+          averageRating: null,
+          lowQualityCount: 0,
+          lowQualityRate: null,
+          distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+        },
+      },
+      byWorkflow: [],
+      byRecommendationType: [],
+      lowQualityTrends: [],
+      freshness: {
+        source: 'recommendation_feedback,output_ratings',
+        status: 'unavailable',
+        latestEventAt: null,
+        description: 'Quality feedback unavailable. No trusted measurements are available.',
+      },
+    })
+
+    expect(normalized.metrics).toBeNull()
+    expect(normalized.byWorkflow).toEqual([])
+    expect(normalized.lowQualityTrends).toEqual([])
+    expect(normalized.freshness.status).toBe('unavailable')
+  })
+})
+
 const providerTelemetryPayload = {
   generatedAt: '2026-05-23T01:30:00.000Z',
   appliedFilters: {

@@ -37,11 +37,16 @@ import {
 import {
   AdvisoryProviderTelemetryGroup,
   AdvisoryProviderTelemetryView,
+  AdvisoryQualityFeedbackGroup,
+  AdvisoryQualityFeedbackView,
+  AdvisoryQualityLowQualityTrend,
+  AdvisoryQualityRecommendationTypeGroup,
   AdvisoryOperationsUsageFilters,
   AdvisoryOperationsUsageView,
   AdvisoryOperationsWorkflowUsage,
   fetchAdvisoryOperationsUsage,
   fetchAdvisoryProviderTelemetry,
+  fetchAdvisoryQualityFeedback,
 } from '@/lib/advisory/operations'
 
 const DEFAULT_FILTERS = {
@@ -56,11 +61,13 @@ export default function AdvisoryOperationsPage() {
   const [providerTelemetry, setProviderTelemetry] = useState<AdvisoryProviderTelemetryView | null>(
     null
   )
+  const [qualityFeedback, setQualityFeedback] = useState<AdvisoryQualityFeedbackView | null>(null)
   const [filters, setFilters] = useState<Required<AdvisoryOperationsUsageFilters>>(DEFAULT_FILTERS)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [providerError, setProviderError] = useState<string | null>(null)
+  const [qualityError, setQualityError] = useState<string | null>(null)
   const [selectedWorkflow, setSelectedWorkflow] = useState<AdvisoryOperationsWorkflowUsage | null>(
     null
   )
@@ -81,6 +88,13 @@ export default function AdvisoryOperationsPage() {
   const providerUnavailable = providerTelemetry?.freshness.status === 'unavailable'
   const providerDelayed = providerTelemetry?.freshness.status === 'delayed'
   const providerMetrics = providerTelemetry?.metrics ?? null
+  const qualityUnavailable = qualityFeedback?.freshness.status === 'unavailable'
+  const qualityDelayed = qualityFeedback?.freshness.status === 'delayed'
+  const qualityMetrics = qualityFeedback?.metrics ?? null
+  const qualityDistribution = qualityFeedback?.ratingDistribution ?? {
+    recommendation: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    report: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+  }
   const providerGroups = useMemo(
     () => [
       ...(providerTelemetry?.byWorkflow ?? []),
@@ -89,6 +103,7 @@ export default function AdvisoryOperationsPage() {
     ],
     [providerTelemetry]
   )
+  const qualityWarningCount = qualityFeedback?.lowQualityTrends.length ?? 0
 
   const lowCompletionCount = useMemo(
     () => dashboard?.workflowUsage.filter((workflow) => workflow.lowCompletion).length ?? 0,
@@ -100,6 +115,7 @@ export default function AdvisoryOperationsPage() {
     else setRefreshing(true)
     setError(null)
     setProviderError(null)
+    setQualityError(null)
 
     try {
       let providerFilters = nextFilters
@@ -139,6 +155,28 @@ export default function AdvisoryOperationsPage() {
             : 'Provider telemetry unavailable. No trusted measurements are available.'
         )
       }
+
+      const qualityResult = await Promise.resolve(
+        fetchAdvisoryQualityFeedback({
+          ...providerFilters,
+          recommendationType: 'all',
+          groupBy: ['workflow', 'recommendationType'],
+          timeBucket: 'day',
+        })
+      )
+        .then((value) => ({ status: 'fulfilled' as const, value }))
+        .catch((reason) => ({ status: 'rejected' as const, reason }))
+
+      if (qualityResult.status === 'fulfilled') {
+        setQualityFeedback(qualityResult.value)
+      } else {
+        setQualityFeedback(null)
+        setQualityError(
+          qualityResult.reason instanceof Error
+            ? qualityResult.reason.message
+            : 'Quality feedback unavailable. No trusted measurements are available.'
+        )
+      }
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -160,6 +198,27 @@ export default function AdvisoryOperationsPage() {
         loadError instanceof Error
           ? loadError.message
           : 'Provider telemetry unavailable. No trusted measurements are available.'
+      )
+    }
+  }
+
+  async function loadQualityFeedbackOnly(nextFilters: AdvisoryOperationsUsageFilters) {
+    setQualityError(null)
+
+    try {
+      const loaded = await fetchAdvisoryQualityFeedback({
+        ...nextFilters,
+        recommendationType: 'all',
+        groupBy: ['workflow', 'recommendationType'],
+        timeBucket: 'day',
+      })
+      setQualityFeedback(loaded)
+    } catch (loadError) {
+      setQualityFeedback(null)
+      setQualityError(
+        loadError instanceof Error
+          ? loadError.message
+          : 'Quality feedback unavailable. No trusted measurements are available.'
       )
     }
   }
@@ -186,9 +245,11 @@ export default function AdvisoryOperationsPage() {
 
   function applyFilters() {
     setRefreshing(true)
-    Promise.allSettled([loadUsageOnly(filters), loadProviderTelemetryOnly(filters)]).finally(() =>
-      setRefreshing(false)
-    )
+    Promise.allSettled([
+      loadUsageOnly(filters),
+      loadProviderTelemetryOnly(filters),
+      loadQualityFeedbackOnly(filters),
+    ]).finally(() => setRefreshing(false))
   }
 
   if (loading) {
@@ -269,6 +330,32 @@ export default function AdvisoryOperationsPage() {
             <Clock3 className="h-4 w-4" />
             <AlertDescription>
               Delayed provider telemetry. Treat cost, latency, cache, and failure metrics as stale.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {(qualityError || qualityUnavailable) && (
+          <Alert variant="destructive" role="alert" aria-label="Quality feedback unavailable">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              {qualityError ??
+                `Quality feedback unavailable. ${
+                  qualityFeedback?.freshness.description ??
+                  'No trusted measurements are available; try again.'
+                }`}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {qualityDelayed && (
+          <Alert
+            role="alert"
+            className="border-amber-200 bg-amber-50 text-amber-900"
+            aria-label="Quality feedback delayed"
+          >
+            <Clock3 className="h-4 w-4" />
+            <AlertDescription>
+              Delayed quality feedback. Treat recommendation and report quality metrics as partial.
             </AlertDescription>
           </Alert>
         )}
@@ -385,6 +472,179 @@ export default function AdvisoryOperationsPage() {
             </Card>
           )}
         </section>
+
+        <section role="region" aria-label="Quality feedback">
+          <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Quality feedback</h2>
+              <p className="text-sm text-slate-600">
+                Aggregate recommendation and report ratings by workflow, category, tenant, and
+                selected date range.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant={freshnessBadgeVariant(qualityFeedback?.freshness.status)}>
+                {freshnessLabel(qualityFeedback?.freshness.status)}
+              </Badge>
+              <span className="text-xs text-slate-500">
+                {qualityFeedback?.freshness.latestEventAt
+                  ? `last quality event ${formatDateTime(qualityFeedback.freshness.latestEventAt)}`
+                  : 'quality event unavailable'}
+              </span>
+            </div>
+          </div>
+          {qualityMetrics ? (
+            <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                <MetricCard
+                  label="Average rating"
+                  value={formatRating(qualityMetrics.averageRating)}
+                />
+                <MetricCard
+                  label="Low-rating rate"
+                  value={formatPercent(qualityMetrics.lowRatingRate)}
+                />
+                <MetricCard label="Sample size" value={qualityMetrics.totalRatings} />
+                <MetricCard
+                  label="Recommendation ratings"
+                  value={`${qualityMetrics.recommendationRatingCount} / ${formatRating(
+                    qualityMetrics.recommendationAverageRating
+                  )}`}
+                />
+                <MetricCard
+                  label="Report ratings"
+                  value={`${qualityMetrics.reportRatingCount} / ${formatRating(
+                    qualityMetrics.reportAverageRating
+                  )}`}
+                />
+                <MetricCard
+                  label="Feedback text present"
+                  value={qualityMetrics.feedbackTextPresentCount}
+                />
+                <MetricCard
+                  label="Feedback text withheld"
+                  value={qualityMetrics.feedbackTextWithheldCount}
+                />
+              </div>
+              <Card variant="outlined" className="bg-white">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Rating distribution</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <RatingDistribution
+                      label="Recommendation ratings"
+                      distribution={qualityDistribution.recommendation}
+                    />
+                    <RatingDistribution
+                      label="Report ratings"
+                      distribution={qualityDistribution.report}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <Card variant="outlined" className="bg-white">
+              <CardContent className="py-5 text-sm text-slate-600">
+                No trusted quality feedback measurements are available for this filter set.
+              </CardContent>
+            </Card>
+          )}
+        </section>
+
+        <section role="region" aria-label="Low-quality trends">
+          <Card variant="outlined" className="bg-white">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-base">Low-quality trends</CardTitle>
+              <Badge variant={qualityWarningCount > 0 ? 'warning' : 'success'}>
+                {qualityWarningCount} warning trend
+              </Badge>
+            </CardHeader>
+            <CardContent>
+              {qualityFeedback?.lowQualityTrends.length ? (
+                <div className="space-y-2">
+                  {qualityFeedback.lowQualityTrends.map((trend) => (
+                    <QualityTrendRow key={trend.id} trend={trend} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-600">
+                  No low-quality trend warnings detected for this filter set.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        <Card variant="outlined" className="bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Quality feedback by workflow</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table aria-label="Quality feedback by workflow">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Workflow</TableHead>
+                  <TableHead>Tenant</TableHead>
+                  <TableHead className="text-right">Ratings</TableHead>
+                  <TableHead className="text-right">Average</TableHead>
+                  <TableHead className="text-right">Low-rating rate</TableHead>
+                  <TableHead className="text-right">Text withheld</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {qualityFeedback?.byWorkflow.length ? (
+                  qualityFeedback.byWorkflow.map((group) => (
+                    <QualityWorkflowRow key={`${group.tenantId}-${group.key}`} group={group} />
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-6 text-center text-sm text-slate-500">
+                      No trusted workflow quality measurements are available.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <Card variant="outlined" className="bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Quality feedback by recommendation type</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table aria-label="Quality feedback by recommendation type">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Recommendation type</TableHead>
+                  <TableHead>Workflow</TableHead>
+                  <TableHead>Tenant</TableHead>
+                  <TableHead className="text-right">Ratings</TableHead>
+                  <TableHead className="text-right">Average</TableHead>
+                  <TableHead className="text-right">Low-rating rate</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {qualityFeedback?.byRecommendationType.length ? (
+                  qualityFeedback.byRecommendationType.map((group) => (
+                    <QualityRecommendationTypeRow
+                      key={`${group.tenantId}-${group.workflowKey ?? 'none'}-${group.key}`}
+                      group={group}
+                    />
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-6 text-center text-sm text-slate-500">
+                      No trusted recommendation quality measurements are available.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
 
         <section role="region" aria-label="Provider telemetry metrics">
           <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -625,6 +885,36 @@ export default function AdvisoryOperationsPage() {
           </Card>
         </section>
 
+        <section role="region" aria-label="Quality gaps">
+          <Card variant="outlined" className="bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Quality gaps</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {qualityFeedback?.instrumentationGaps.length ? (
+                <div className="space-y-2">
+                  {qualityFeedback.instrumentationGaps.map((gap, index) => (
+                    <div
+                      key={`${gap.reason}-${gap.eventName ?? index}`}
+                      className="flex flex-col gap-1 rounded-sm border border-slate-200 px-3 py-2 text-sm md:flex-row md:items-center md:justify-between"
+                    >
+                      <div>
+                        <p className="font-medium">{humanizeGapReason(gap.reason)}</p>
+                        <p className="text-slate-600">
+                          {gap.eventName ?? 'quality source unavailable'} · {gap.owningArea}
+                        </p>
+                      </div>
+                      <Badge variant="outline">{gap.count}</Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-600">No quality gaps detected.</p>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
         <section role="region" aria-label="Instrumentation gaps">
           <Card variant="outlined" className="bg-white">
             <CardHeader className="pb-3">
@@ -718,6 +1008,86 @@ function MetricCard({
   )
 }
 
+function RatingDistribution({
+  label,
+  distribution,
+}: {
+  label: string
+  distribution: Record<1 | 2 | 3 | 4 | 5, number>
+}) {
+  return (
+    <div className="rounded-sm border border-slate-200 p-3">
+      <p className="text-sm font-medium text-slate-900">{label}</p>
+      <div className="mt-3 grid grid-cols-5 gap-2 text-center text-sm">
+        {([1, 2, 3, 4, 5] as const).map((rating) => (
+          <div key={rating} className="rounded-sm bg-slate-50 px-2 py-2">
+            <p className="text-xs text-slate-500">{rating}</p>
+            <p className="mt-1 font-semibold text-slate-900">{distribution[rating]}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function QualityTrendRow({ trend }: { trend: AdvisoryQualityLowQualityTrend }) {
+  return (
+    <div className="rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="flex items-center gap-2 font-medium">
+            <ShieldAlert className="h-4 w-4" aria-hidden="true" />
+            <span>
+              {trend.workflowLabel} · {trend.recommendationLabel}
+            </span>
+          </p>
+          <p className="mt-1 text-amber-900">
+            Trend {trendDirectionLabel(trend.trendDirection)} from{' '}
+            {formatPercent(trend.previousLowRatingRate)} to{' '}
+            {formatPercent(trend.currentLowRatingRate)} across {trend.sampleSize} ratings.
+          </p>
+        </div>
+        <Badge variant="warning">{trend.severity}</Badge>
+      </div>
+      <div className="mt-2 grid gap-2 text-xs md:grid-cols-3">
+        <span>Current: {formatPercent(trend.currentLowRatingRate)}</span>
+        <span>Previous: {formatPercent(trend.previousLowRatingRate)}</span>
+        <span>Tenant: {trend.tenantId}</span>
+      </div>
+    </div>
+  )
+}
+
+function QualityWorkflowRow({ group }: { group: AdvisoryQualityFeedbackGroup }) {
+  return (
+    <TableRow>
+      <TableCell className="font-medium">{group.label}</TableCell>
+      <TableCell>{group.tenantId}</TableCell>
+      <TableCell className="text-right">{group.ratingCount}</TableCell>
+      <TableCell className="text-right">{formatRating(group.averageRating)}</TableCell>
+      <TableCell className="text-right">{formatPercent(group.lowRatingRate)}</TableCell>
+      <TableCell className="text-right">{group.feedbackTextWithheldCount}</TableCell>
+    </TableRow>
+  )
+}
+
+function QualityRecommendationTypeRow({
+  group,
+}: {
+  group: AdvisoryQualityRecommendationTypeGroup
+}) {
+  return (
+    <TableRow>
+      <TableCell className="font-medium">{group.label}</TableCell>
+      <TableCell>{group.workflowKey ?? '-'}</TableCell>
+      <TableCell>{group.tenantId}</TableCell>
+      <TableCell className="text-right">{group.ratingCount}</TableCell>
+      <TableCell className="text-right">{formatRating(group.averageRating)}</TableCell>
+      <TableCell className="text-right">{formatPercent(group.lowRatingRate)}</TableCell>
+    </TableRow>
+  )
+}
+
 function ProviderGroupRow({ group }: { group: AdvisoryProviderTelemetryGroup }) {
   return (
     <TableRow>
@@ -755,6 +1125,11 @@ function formatPercent(value: number | null) {
   return `${Math.round(value * 10) / 10}%`
 }
 
+function formatRating(value: number | null) {
+  if (value === null) return '-'
+  return String(Math.round(value * 10) / 10)
+}
+
 function formatMilliseconds(value: number | null) {
   if (value === null) return '-'
   return `${Math.round(value)} ms`
@@ -782,4 +1157,11 @@ function humanizeGapReason(reason: string) {
     return 'wrong event version'
   }
   return reason.replace(/_/g, ' ')
+}
+
+function trendDirectionLabel(direction: string) {
+  if (direction === 'up') return 'up'
+  if (direction === 'down') return 'down'
+  if (direction === 'flat') return 'flat'
+  return 'insufficient data'
 }

@@ -1,0 +1,32 @@
+{
+  "storyId": "6.4",
+  "storyKey": "6-4-feedback-and-output-quality-analysis",
+  "status": "ATDD complete",
+  "checklist": "_bmad-output/test-artifacts/atdd-checklist-6-4-feedback-and-output-quality-analysis.md",
+  "generatedAt": "2026-05-23T19:11:35+08:00",
+  "coverage": {
+    "AC1": [
+      "backend aggregation",
+      "frontend normalization",
+      "proxy whitelist",
+      "dashboard rendering",
+      "E2E quality metrics"
+    ],
+    "AC2": [
+      "low quality trend direction",
+      "affected category highlighting",
+      "unavailable no-zero handling"
+    ],
+    "AC3": [
+      "tenant rejection before reads",
+      "tenant scoped UI",
+      "cross tenant row suppression"
+    ]
+  },
+  "privacyGuardrails": [
+    "raw feedback text not returned",
+    "raw report content not returned",
+    "prompt/conversation sentinels sanitized",
+    "optional text feedback represented by present/withheld counts"
+  ]
+}

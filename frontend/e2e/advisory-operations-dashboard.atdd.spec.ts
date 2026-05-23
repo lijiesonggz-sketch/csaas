@@ -4,6 +4,8 @@ const USAGE_API_PATTERN = '**/api/advisory/admin/operations/usage**'
 const USAGE_API_PATH = '/api/advisory/admin/operations/usage'
 const PROVIDER_TELEMETRY_API_PATTERN = '**/api/advisory/admin/operations/provider-telemetry**'
 const PROVIDER_TELEMETRY_API_PATH = '/api/advisory/admin/operations/provider-telemetry'
+const QUALITY_FEEDBACK_API_PATTERN = '**/api/advisory/admin/operations/quality-feedback**'
+const QUALITY_FEEDBACK_API_PATH = '/api/advisory/admin/operations/quality-feedback'
 
 const RAW_PRIVACY_STRINGS = [
   'PRIVATE_CONVERSATION_DO_NOT_RENDER',
@@ -22,6 +24,12 @@ type UsageFixtureOptions = {
 type ProviderTelemetryFixtureOptions = {
   freshnessStatus?: FreshnessStatus
   includeRawPrivacyProbe?: boolean
+}
+
+type QualityFeedbackFixtureOptions = {
+  freshnessStatus?: FreshnessStatus
+  includeRawPrivacyProbe?: boolean
+  includeCrossTenantProbe?: boolean
 }
 
 async function mockAdminSession(page: Page) {
@@ -381,6 +389,164 @@ function buildProviderTelemetryResponse(options: ProviderTelemetryFixtureOptions
   return { data }
 }
 
+function buildQualityFeedbackResponse(options: QualityFeedbackFixtureOptions = {}) {
+  const freshnessStatus = options.freshnessStatus ?? 'fresh'
+  const unavailable = freshnessStatus === 'unavailable'
+  const data: Record<string, unknown> = {
+    generatedAt: '2026-05-23T02:10:00.000Z',
+    appliedFilters: {
+      tenantId: 'tenant-alpha',
+      dateFrom: '2026-05-01T00:00:00.000Z',
+      dateTo: '2026-05-22T23:59:59.999Z',
+      workflowType: 'all',
+      recommendationType: 'all',
+      timeBucket: 'day',
+    },
+    summary: unavailable
+      ? {
+          measurementStatus: 'unavailable',
+          totalRatings: 0,
+          averageRating: null,
+          lowRatingCount: 0,
+          lowRatingRate: null,
+          recommendationRatings: {
+            sampleSize: 0,
+            averageRating: null,
+            lowQualityCount: 0,
+            lowQualityRate: null,
+            distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+          },
+          outputRatings: {
+            sampleSize: 0,
+            averageRating: null,
+            lowQualityCount: 0,
+            lowQualityRate: null,
+            distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+          },
+          feedbackTextPresentCount: 0,
+          feedbackTextWithheldCount: 0,
+          feedbackTextUnavailableReason: 'privacy_policy_withheld',
+        }
+      : {
+          measurementStatus: freshnessStatus,
+          totalRatings: 42,
+          averageRating: 3.6,
+          lowRatingCount: 9,
+          lowRatingRate: 21.43,
+          recommendationRatings: {
+            sampleSize: 24,
+            averageRating: 3.4,
+            lowQualityCount: 6,
+            lowQualityRate: 25,
+            distribution: { 1: 2, 2: 4, 3: 6, 4: 8, 5: 4 },
+          },
+          outputRatings: {
+            sampleSize: 18,
+            averageRating: 3.9,
+            lowQualityCount: 3,
+            lowQualityRate: 16.67,
+            distribution: { 1: 1, 2: 2, 3: 3, 4: 7, 5: 5 },
+          },
+          feedbackTextPresentCount: 11,
+          feedbackTextWithheldCount: 11,
+          feedbackTextUnavailableReason: 'privacy_policy_withheld',
+        },
+    byWorkflow: unavailable
+      ? []
+      : [
+          {
+            workflowKey: 'problem-solving',
+            workflowLabel: 'Problem Solving',
+            tenantId: 'tenant-alpha',
+            ratingCount: 18,
+            averageRating: 2.8,
+            lowRatingRate: 38.89,
+            distribution: { 1: 2, 2: 5, 3: 4, 4: 5, 5: 2 },
+            feedbackTextPresentCount: 6,
+            feedbackTextWithheldCount: 6,
+            measurementStatus: freshnessStatus,
+          },
+        ],
+    byRecommendationType: unavailable
+      ? []
+      : [
+          {
+            recommendationType: 'risk-mitigation',
+            recommendationLabel: 'Risk Mitigation',
+            workflowKey: 'problem-solving',
+            tenantId: 'tenant-alpha',
+            ratingCount: 12,
+            averageRating: 2.6,
+            lowRatingRate: 41.67,
+            distribution: { 1: 2, 2: 3, 3: 3, 4: 3, 5: 1 },
+          },
+        ],
+    lowQualityTrends: unavailable
+      ? []
+      : [
+          {
+            id: 'problem-solving-risk-mitigation',
+            workflowKey: 'problem-solving',
+            workflowLabel: 'Problem Solving',
+            recommendationType: 'risk-mitigation',
+            recommendationLabel: 'Risk Mitigation',
+            tenantId: 'tenant-alpha',
+            trendDirection: 'up',
+            currentLowRatingRate: 41.67,
+            previousLowRatingRate: 18.18,
+            sampleSize: 12,
+            severity: 'warning',
+          },
+        ],
+    instrumentationGaps: unavailable
+      ? []
+      : [
+          {
+            eventName: 'recommendation_feedback',
+            reason: 'missing_recommendation_category',
+            owningArea: 'quick_consult_feedback',
+            count: 2,
+          },
+        ],
+    freshness:
+      freshnessStatus === 'fresh'
+        ? {
+            source: 'recommendation_feedback,output_ratings',
+            status: 'fresh',
+            latestEventAt: '2026-05-22T08:10:00.000Z',
+            description: 'Quality feedback is current.',
+          }
+        : {
+            source: 'recommendation_feedback,output_ratings',
+            status: 'unavailable',
+            latestEventAt: null,
+            description: 'Quality feedback unavailable. No trusted measurements are available.',
+          },
+  }
+
+  if (options.includeRawPrivacyProbe) {
+    Object.assign(data, {
+      rawFeedbackText: RAW_PRIVACY_STRINGS[3],
+      reportContent: RAW_PRIVACY_STRINGS[2],
+      prompt: RAW_PRIVACY_STRINGS[1],
+      conversation: RAW_PRIVACY_STRINGS[0],
+    })
+  }
+
+  if (options.includeCrossTenantProbe) {
+    ;(data.byWorkflow as Array<Record<string, unknown>>).push({
+      workflowKey: 'tenant-beta-workflow',
+      workflowLabel: 'Tenant Beta Workflow',
+      tenantId: 'tenant-beta',
+      ratingCount: 99,
+      averageRating: 1,
+      lowRatingRate: 100,
+    })
+  }
+
+  return { data }
+}
+
 async function mockUsageResponse(page: Page, responseBody: unknown, status = 200) {
   await page.route(USAGE_API_PATTERN, async (route) => {
     await route.fulfill({
@@ -393,6 +559,16 @@ async function mockUsageResponse(page: Page, responseBody: unknown, status = 200
 
 async function mockProviderTelemetryResponse(page: Page, responseBody: unknown, status = 200) {
   await page.route(PROVIDER_TELEMETRY_API_PATTERN, async (route) => {
+    await route.fulfill({
+      status,
+      contentType: 'application/json',
+      body: JSON.stringify(responseBody),
+    })
+  })
+}
+
+async function mockQualityFeedbackResponse(page: Page, responseBody: unknown, status = 200) {
+  await page.route(QUALITY_FEEDBACK_API_PATTERN, async (route) => {
     await route.fulfill({
       status,
       contentType: 'application/json',
@@ -457,6 +633,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse())
     await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
 
     await openOperationsDashboard(page)
 
@@ -498,6 +675,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse())
     await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
     await openOperationsDashboard(page)
 
     const filteredRequestPromise = page.waitForRequest((request) => {
@@ -531,6 +709,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse())
     await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
     await openOperationsDashboard(page)
 
     const workflowTable = page.getByRole('table', { name: /Workflow completion/i })
@@ -558,6 +737,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse({ freshnessStatus: 'delayed' }))
     await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
 
     await openOperationsDashboard(page)
 
@@ -575,6 +755,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse({ freshnessStatus: 'unavailable' }), 503)
     await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
 
     await openOperationsDashboard(page, 503)
 
@@ -593,6 +774,7 @@ test.describe('Story 6.1 - ThinkTank operations usage dashboard E2E (ATDD RED)',
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse({ includeRawPrivacyProbe: true }))
     await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
 
     await openOperationsDashboard(page)
 
@@ -617,6 +799,7 @@ test.describe('Story 6.3 - provider cost latency and failure dashboard E2E (ATDD
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse())
     await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
 
     await openOperationsDashboardWithProviderTelemetry(page)
 
@@ -660,6 +843,7 @@ test.describe('Story 6.3 - provider cost latency and failure dashboard E2E (ATDD
     await mockAdminSession(page)
     await mockUsageResponse(page, buildUsageResponse())
     await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
     await openOperationsDashboardWithProviderTelemetry(page)
 
     const filteredProviderRequestPromise = page.waitForRequest((request) => {
@@ -702,6 +886,7 @@ test.describe('Story 6.3 - provider cost latency and failure dashboard E2E (ATDD
       }),
       503
     )
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
 
     await openOperationsDashboardWithProviderTelemetry(page, 200, 503)
 
@@ -712,5 +897,142 @@ test.describe('Story 6.3 - provider cost latency and failure dashboard E2E (ATDD
     await expect(page.getByText(/Estimated cost\s+0/i)).toHaveCount(0)
     await expectRawPrivacyStringsHidden(page)
     await expect(page.getByText('PRIVATE_CACHE_KEY_DO_NOT_RENDER', { exact: true })).toHaveCount(0)
+  })
+})
+
+test.describe('Story 6.4 - quality feedback dashboard E2E', () => {
+  test('[6.4-E2E-001][P1][AC1,AC2] renders quality feedback metrics rating distribution trends and gaps', async ({
+    page,
+  }) => {
+    await mockAdminSession(page)
+    await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
+
+    await openOperationsDashboardWithProviderTelemetry(page)
+
+    const quality = page.getByRole('region', { name: /Quality feedback/i })
+    await expect(quality).toContainText('Average rating')
+    await expect(quality).toContainText('3.6')
+    await expect(quality).toContainText('Low-rating rate')
+    await expect(quality).toContainText('21.4%')
+    await expect(quality).toContainText('Recommendation ratings')
+    await expect(quality).toContainText('Report ratings')
+    await expect(quality).toContainText('Feedback text')
+    await expect(quality).toContainText('withheld')
+
+    const workflowTable = page.getByRole('table', { name: /Quality feedback by workflow/i })
+    await expect(workflowTable).toContainText('Problem Solving')
+    await expect(workflowTable).toContainText('38.9%')
+
+    const recommendationTable = page.getByRole('table', {
+      name: /Quality feedback by recommendation type/i,
+    })
+    await expect(recommendationTable).toContainText('Risk Mitigation')
+    await expect(recommendationTable).toContainText('41.7%')
+
+    const trends = page.getByRole('region', { name: /Low-quality trends/i })
+    await expect(trends).toContainText(/up|worsening/i)
+    await expect(trends).toContainText('Problem Solving')
+    await expect(trends).toContainText('Risk Mitigation')
+
+    const gaps = page.getByRole('region', { name: /Quality gaps/i })
+    await expect(gaps).toContainText(/missing recommendation category/i)
+    await expect(gaps).toContainText('quick_consult_feedback')
+  })
+
+  test('[6.4-E2E-002][P1][AC1,AC3] applies shared tenant date and workflow filters to quality feedback API request', async ({
+    page,
+  }) => {
+    await mockAdminSession(page)
+    await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
+    await openOperationsDashboardWithProviderTelemetry(page)
+
+    const filteredQualityRequestPromise = page.waitForRequest((request) => {
+      const url = new URL(request.url())
+      return (
+        url.pathname.includes(QUALITY_FEEDBACK_API_PATH) &&
+        url.searchParams.get('tenantId') === 'tenant-beta' &&
+        url.searchParams.get('dateFrom') === '2026-05-01' &&
+        url.searchParams.get('dateTo') === '2026-05-22' &&
+        url.searchParams.get('workflowType') === 'problem-solving'
+      )
+    })
+
+    await chooseComboboxOption(page, /Tenant/i, 'Tenant Beta')
+    await page.getByLabel(/Date from/i).fill('2026-05-01')
+    await page.getByLabel(/Date to/i).fill('2026-05-22')
+    await chooseComboboxOption(page, /Workflow type/i, 'Problem Solving')
+    await page.getByRole('button', { name: /Apply filters/i }).click()
+
+    const filteredRequest = await filteredQualityRequestPromise
+    const filteredUrl = new URL(filteredRequest.url())
+    expect(filteredUrl.searchParams.get('tenantId')).toBe('tenant-beta')
+    expect(filteredUrl.searchParams.get('dateFrom')).toBe('2026-05-01')
+    expect(filteredUrl.searchParams.get('dateTo')).toBe('2026-05-22')
+    expect(filteredUrl.searchParams.get('workflowType')).toBe('problem-solving')
+  })
+
+  test('[6.4-E2E-003][P0][AC3] tenant quality view does not expose cross tenant rows', async ({
+    page,
+  }) => {
+    await mockAdminSession(page)
+    await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(
+      page,
+      buildQualityFeedbackResponse({ includeCrossTenantProbe: true })
+    )
+
+    await openOperationsDashboardWithProviderTelemetry(page)
+
+    const workflowTable = page.getByRole('table', { name: /Quality feedback by workflow/i })
+    await expect(workflowTable).toContainText('tenant-alpha')
+    await expect(workflowTable).not.toContainText('tenant-beta')
+    await expect(page.getByText(/cross-tenant/i)).toHaveCount(0)
+  })
+
+  test('[6.4-E2E-004][P0][AC1,AC2] never renders raw feedback report prompt or conversation sentinels from quality data', async ({
+    page,
+  }) => {
+    await mockAdminSession(page)
+    await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(
+      page,
+      buildQualityFeedbackResponse({ includeRawPrivacyProbe: true })
+    )
+
+    await openOperationsDashboardWithProviderTelemetry(page)
+
+    await expectRawPrivacyStringsHidden(page)
+    await expect(
+      page.getByText(/raw feedback|raw prompt|report content|conversation/i)
+    ).toHaveCount(0)
+  })
+
+  test('[6.4-E2E-005][P1][AC2] unavailable quality feedback does not render misleading zero ratings or healthy trend state', async ({
+    page,
+  }) => {
+    await mockAdminSession(page)
+    await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(
+      page,
+      buildQualityFeedbackResponse({ freshnessStatus: 'unavailable' })
+    )
+
+    await openOperationsDashboardWithProviderTelemetry(page)
+
+    const alert = page.getByRole('alert').filter({ hasText: /Quality feedback unavailable/i })
+    await expect(alert).toBeVisible()
+    await expect(alert).toContainText(/No trusted measurements/i)
+    await expect(page.getByText(/Average rating\s+0/i)).toHaveCount(0)
+    await expect(page.getByText(/Low-rating rate\s+0%/i)).toHaveCount(0)
+    await expect(page.getByRole('region', { name: /Low-quality trends/i })).not.toContainText(
+      /Healthy/i
+    )
   })
 })

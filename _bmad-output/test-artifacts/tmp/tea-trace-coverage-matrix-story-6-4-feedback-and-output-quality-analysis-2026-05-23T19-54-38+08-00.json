@@ -1,0 +1,452 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-23T19:54:38+08:00",
+  "story_id": "6-4-feedback-and-output-quality-analysis",
+  "story_title": "Feedback and Output Quality Analysis",
+  "requirements": [
+    {
+      "id": "AC1",
+      "priority": "P0",
+      "description": "Recommendation and generated-report ratings are aggregated by workflow, recommendation type, tenant, and time range, with optional text feedback represented only where permissions and privacy policy allow.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "id": "6.4-BE-001",
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/operations/advisory-quality-feedback.atdd.spec.ts",
+          "coverage": "Aggregates recommendation feedback by workflow, recommendation type, tenant, and date range without returning raw text."
+        },
+        {
+          "id": "6.4-BE-002",
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/operations/advisory-quality-feedback.atdd.spec.ts",
+          "coverage": "Aggregates output ratings by workflow using existing workflow output metadata."
+        },
+        {
+          "id": "6.4-BE-004",
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/operations/advisory-quality-feedback.atdd.spec.ts",
+          "coverage": "Reports missing workflow/category/orphaned output/malformed rating as instrumentation gaps."
+        },
+        {
+          "id": "6.4-BE-007",
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/operations/advisory-quality-feedback.atdd.spec.ts",
+          "coverage": "Honors groupBy filters without returning unrequested group arrays."
+        },
+        {
+          "id": "6.4-API-001-backend",
+          "level": "API",
+          "file": "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts",
+          "coverage": "Serves the guarded quality-feedback endpoint with data envelope and current-tenant normalization."
+        },
+        {
+          "id": "6.4-API-003-backend",
+          "level": "API",
+          "file": "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts",
+          "coverage": "Rejects malformed quality dates and grouping filters at the route."
+        },
+        {
+          "id": "6.4-API-004-backend",
+          "level": "API",
+          "file": "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts",
+          "coverage": "Returns unavailable quality freshness without raw payload."
+        },
+        {
+          "id": "6.4-API-001-proxy",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/quality-feedback/route.test.ts",
+          "coverage": "Forwards quality feedback with whitelisted filters and session/request authorization."
+        },
+        {
+          "id": "6.4-API-003-proxy",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/quality-feedback/route.test.ts",
+          "coverage": "Rejects duplicate whitelisted query parameters before proxying."
+        },
+        {
+          "id": "6.4-API-004-proxy",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/quality-feedback/route.test.ts",
+          "coverage": "Ignores unsafe quality query parameters."
+        },
+        {
+          "id": "6.4-API-006-proxy",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/quality-feedback/route.test.ts",
+          "coverage": "Propagates upstream unavailable quality body and status unchanged."
+        },
+        {
+          "id": "6.4-UNIT-001",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "coverage": "Normalizes quality feedback aggregates by workflow, recommendation type, tenant, and date range."
+        },
+        {
+          "id": "6.4-UNIT-004",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "coverage": "Sanitizes raw feedback, report, prompt, and conversation strings everywhere."
+        },
+        {
+          "id": "6.4-UNIT-005",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "coverage": "Represents optional text feedback only as present, withheld, and unavailable counts."
+        },
+        {
+          "id": "6.4-UNIT-006",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "coverage": "Fetches quality feedback with safe query parameters and tenantId=current suppression."
+        },
+        {
+          "id": "6.4-UNIT-007",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "coverage": "Treats unavailable measurement status as untrusted null metrics, not successful zero ratings."
+        },
+        {
+          "id": "6.4-COMP-001",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "coverage": "Renders the quality feedback section inside the existing operations page."
+        },
+        {
+          "id": "6.4-COMP-002",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "coverage": "Displays recommendation/report aggregate metrics and rating distribution."
+        },
+        {
+          "id": "6.4-COMP-004",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "coverage": "Displays feedback text present and withheld counts without raw text."
+        },
+        {
+          "id": "6.4-E2E-001",
+          "level": "E2E",
+          "file": "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts",
+          "coverage": "Renders quality feedback metrics, rating distribution, trends, and gaps."
+        },
+        {
+          "id": "6.4-E2E-004",
+          "level": "E2E",
+          "file": "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts",
+          "coverage": "Never renders raw feedback, report, prompt, or conversation sentinels from quality data."
+        },
+        {
+          "id": "6.4-E2E-005",
+          "level": "E2E",
+          "file": "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts",
+          "coverage": "Unavailable quality feedback does not render misleading zero ratings or healthy trend state."
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_authz_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC2",
+      "priority": "P1",
+      "description": "Low-quality workflows or recommendation categories are highlighted with affected categories and trend direction for prompt, workflow, or recommendation improvement decisions.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "id": "6.4-BE-003",
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/operations/advisory-quality-feedback.atdd.spec.ts",
+          "coverage": "Highlights low-quality affected categories and trend direction."
+        },
+        {
+          "id": "6.4-BE-004",
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/operations/advisory-quality-feedback.atdd.spec.ts",
+          "coverage": "Reports instrumentation gaps for missing metadata and malformed ratings."
+        },
+        {
+          "id": "6.4-BE-005",
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/operations/advisory-quality-feedback.atdd.spec.ts",
+          "coverage": "Returns unavailable state with null rates when quality sources fail."
+        },
+        {
+          "id": "6.4-BE-008",
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/operations/advisory-quality-feedback.atdd.spec.ts",
+          "coverage": "Includes report output ratings and flat/down affected categories in low-quality trends."
+        },
+        {
+          "id": "6.4-API-001-backend",
+          "level": "API",
+          "file": "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts",
+          "coverage": "Serves low-quality trend and instrumentation gap arrays through the endpoint."
+        },
+        {
+          "id": "6.4-API-004-backend",
+          "level": "API",
+          "file": "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts",
+          "coverage": "Returns unavailable quality freshness without raw payload."
+        },
+        {
+          "id": "6.4-API-006-proxy",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/quality-feedback/route.test.ts",
+          "coverage": "Propagates upstream unavailable quality body and status unchanged."
+        },
+        {
+          "id": "6.4-UNIT-002",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "coverage": "Normalizes low-quality trends, affected categories, trend direction, and rating distribution."
+        },
+        {
+          "id": "6.4-UNIT-007",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "coverage": "Treats unavailable measurement status as untrusted null metrics."
+        },
+        {
+          "id": "6.4-COMP-003",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "coverage": "Displays low-quality affected workflow and category rows with text trend direction."
+        },
+        {
+          "id": "6.4-COMP-007",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "coverage": "Unavailable quality feedback shows trusted unavailable state and no zero-success metrics."
+        },
+        {
+          "id": "6.4-COMP-008",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "coverage": "Raw privacy sentinel strings are absent from rendered DOM."
+        },
+        {
+          "id": "6.4-E2E-001",
+          "level": "E2E",
+          "file": "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts",
+          "coverage": "Renders quality feedback metrics, trends, and gaps in browser."
+        },
+        {
+          "id": "6.4-E2E-004",
+          "level": "E2E",
+          "file": "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts",
+          "coverage": "Never renders raw feedback/report/prompt/conversation sentinels."
+        },
+        {
+          "id": "6.4-E2E-005",
+          "level": "E2E",
+          "file": "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts",
+          "coverage": "Unavailable quality feedback does not render healthy trend state."
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_authz_coverage": "not directly applicable beyond tenant-filtered aggregate access",
+        "error_path_coverage": "present"
+      }
+    },
+    {
+      "id": "AC3",
+      "priority": "P0",
+      "description": "Tenant administrators see only tenant-level aggregate quality data and cross-tenant data is not exposed.",
+      "coverage": "FULL",
+      "tests": [
+        {
+          "id": "6.4-BE-001",
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/operations/advisory-quality-feedback.atdd.spec.ts",
+          "coverage": "Recommendation feedback aggregation excludes foreign-tenant rows."
+        },
+        {
+          "id": "6.4-BE-002",
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/operations/advisory-quality-feedback.atdd.spec.ts",
+          "coverage": "Output rating aggregation excludes foreign-tenant rows."
+        },
+        {
+          "id": "6.4-BE-006",
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/operations/advisory-quality-feedback.atdd.spec.ts",
+          "coverage": "Enforces service tenant scope before reading rows."
+        },
+        {
+          "id": "6.4-BE-009",
+          "level": "Unit",
+          "file": "backend/src/modules/advisory/operations/advisory-quality-feedback.atdd.spec.ts",
+          "coverage": "Rejects foreign tenant scope when currentTenantId is omitted but actor tenant is present."
+        },
+        {
+          "id": "6.4-API-001-backend",
+          "level": "API",
+          "file": "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts",
+          "coverage": "Normalizes tenantId=current to the guarded current tenant."
+        },
+        {
+          "id": "6.4-API-002-backend",
+          "level": "API",
+          "file": "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts",
+          "coverage": "Rejects foreign tenant quality filters before service read."
+        },
+        {
+          "id": "6.4-API-005-backend",
+          "level": "API",
+          "file": "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts",
+          "coverage": "Returns 401 before serving anonymous quality feedback requests."
+        },
+        {
+          "id": "6.4-API-006-backend",
+          "level": "API",
+          "file": "backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts",
+          "coverage": "Returns 403 when role guard denies quality feedback access."
+        },
+        {
+          "id": "6.4-API-001-proxy",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/quality-feedback/route.test.ts",
+          "coverage": "Forwards whitelisted quality filters and request authorization."
+        },
+        {
+          "id": "6.4-API-002-proxy",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/quality-feedback/route.test.ts",
+          "coverage": "Strips tenantId=current before backend forwarding."
+        },
+        {
+          "id": "6.4-API-003-proxy",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/quality-feedback/route.test.ts",
+          "coverage": "Rejects duplicate whitelisted query params before proxying."
+        },
+        {
+          "id": "6.4-API-005-proxy",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/quality-feedback/route.test.ts",
+          "coverage": "Propagates upstream tenant-denied status and body unchanged."
+        },
+        {
+          "id": "6.4-API-007-proxy",
+          "level": "API",
+          "file": "frontend/app/api/advisory/admin/operations/quality-feedback/route.test.ts",
+          "coverage": "Returns 401 when no request authorization and no session token exist."
+        },
+        {
+          "id": "6.4-UNIT-006",
+          "level": "Unit",
+          "file": "frontend/lib/advisory/operations.test.ts",
+          "coverage": "Fetches quality feedback with tenantId=current omitted and safe query params only."
+        },
+        {
+          "id": "6.4-COMP-005",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "coverage": "Renders only current tenant aggregates in tenant admin view."
+        },
+        {
+          "id": "6.4-COMP-006",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "coverage": "Shared filters trigger quality feedback reload with tenant, date, and workflow filters."
+        },
+        {
+          "id": "6.4-COMP-008",
+          "level": "Component",
+          "file": "frontend/app/admin/advisory/operations/page.test.tsx",
+          "coverage": "Raw privacy sentinel strings are absent from rendered DOM."
+        },
+        {
+          "id": "6.4-E2E-002",
+          "level": "E2E",
+          "file": "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts",
+          "coverage": "Applies shared tenant, date, and workflow filters to quality feedback API requests."
+        },
+        {
+          "id": "6.4-E2E-003",
+          "level": "E2E",
+          "file": "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts",
+          "coverage": "Tenant quality view does not expose cross-tenant rows."
+        },
+        {
+          "id": "6.4-E2E-004",
+          "level": "E2E",
+          "file": "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts",
+          "coverage": "Never renders raw feedback/report/prompt/conversation sentinels from quality data."
+        }
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_authz_coverage": "present",
+        "error_path_coverage": "present"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 3,
+    "fully_covered": 3,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": {
+        "total": 2,
+        "covered": 2,
+        "percentage": 100
+      },
+      "P1": {
+        "total": 1,
+        "covered": 1,
+        "percentage": 100
+      },
+      "P2": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P3": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Keep Story 6.4 backend service/controller, frontend client/proxy/page, and E2E checks in the Epic 6 regression set.",
+      "requirements": [
+        "AC1",
+        "AC2",
+        "AC3"
+      ]
+    },
+    {
+      "priority": "LOW",
+      "action": "Consider splitting the shared operations dashboard E2E and page spec files after Epic 6 to reduce long-file maintenance cost.",
+      "requirements": []
+    }
+  ]
+}

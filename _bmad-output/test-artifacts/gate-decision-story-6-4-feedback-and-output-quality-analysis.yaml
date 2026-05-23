@@ -1,0 +1,60 @@
+schema_version: 1
+target_type: story
+story_id: 6-4-feedback-and-output-quality-analysis
+story_title: Feedback and Output Quality Analysis
+decision: PASS
+decision_date: '2026-05-23T19:54:38+08:00'
+evaluator: leo
+gate_type: story
+decision_mode: deterministic
+rationale: P0 coverage is 100%, P1 coverage is 100%, and overall coverage is 100%. Story 6.4 has backend service, backend controller, Next proxy, frontend client, component, and E2E coverage for quality aggregation, raw feedback privacy, low-quality trends, unavailable-source handling, and tenant isolation before data access.
+coverage_matrix: _bmad-output/test-artifacts/tmp/tea-trace-coverage-matrix-story-6-4-feedback-and-output-quality-analysis-2026-05-23T19-54-38+08-00.json
+traceability_report: _bmad-output/test-artifacts/traceability-report-story-6-4-feedback-and-output-quality-analysis.md
+criteria:
+  p0_coverage_required: 100
+  p0_coverage_actual: 100
+  p0_status: MET
+  p1_coverage_target_pass: 90
+  p1_coverage_minimum: 80
+  p1_coverage_actual: 100
+  p1_status: MET
+  overall_coverage_minimum: 80
+  overall_coverage_actual: 100
+  overall_status: MET
+coverage_statistics:
+  total_requirements: 3
+  fully_covered: 3
+  partially_covered: 0
+  uncovered: 0
+  critical_gaps: 0
+  high_gaps: 0
+  medium_gaps: 0
+  low_gaps: 0
+coverage_heuristics:
+  endpoints_without_tests: 0
+  auth_missing_negative_paths: 0
+  happy_path_only_criteria: 0
+evidence:
+  story_file: _bmad-output/implementation-artifacts/6-4-feedback-and-output-quality-analysis.md
+  atdd_checklist: _bmad-output/test-artifacts/atdd-checklist-6-4-feedback-and-output-quality-analysis.md
+  tests:
+    - backend/src/modules/advisory/operations/advisory-quality-feedback.atdd.spec.ts
+    - backend/src/modules/advisory/operations/advisory-operations.controller.routes.spec.ts
+    - frontend/lib/advisory/operations.test.ts
+    - frontend/app/api/advisory/admin/operations/quality-feedback/route.test.ts
+    - frontend/app/admin/advisory/operations/page.test.tsx
+    - frontend/e2e/advisory-operations-dashboard.atdd.spec.ts
+  validation_commands:
+    - npm --workspace backend test -- advisory-quality-feedback.atdd.spec.ts advisory-operations.controller.routes.spec.ts --runInBand
+    - npm --workspace frontend test -- lib/advisory/operations.test.ts app/api/advisory/admin/operations/quality-feedback/route.test.ts app/admin/advisory/operations/page.test.tsx --runInBand
+    - npm --workspace backend exec -- npx tsc --noEmit
+    - npm --workspace frontend exec -- npx tsc --noEmit
+    - npm --workspace frontend exec -- npx playwright test e2e/advisory-operations-dashboard.atdd.spec.ts --project=chromium
+recommendations:
+  - priority: LOW
+    action: Keep Story 6.4 backend service/controller, frontend client/proxy/page, and E2E checks in the Epic 6 regression set.
+  - priority: LOW
+    action: Consider splitting the shared operations dashboard E2E and page spec files after Epic 6 to reduce long-file maintenance cost.
+uncovered_requirements: []
+waiver:
+  applied: false

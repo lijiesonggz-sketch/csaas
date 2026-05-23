@@ -16,6 +16,15 @@ export interface AdvisoryProviderTelemetryFilters extends AdvisoryOperationsUsag
   groupBy?: AdvisoryProviderTelemetryGroupBy[]
 }
 
+export type AdvisoryQualityFeedbackGroupBy = 'workflow' | 'recommendationType' | 'tenant' | 'time'
+export type AdvisoryQualityFeedbackTimeBucket = 'day' | 'week' | 'month'
+
+export interface AdvisoryQualityFeedbackFilters extends AdvisoryOperationsUsageFilters {
+  recommendationType?: string
+  groupBy?: AdvisoryQualityFeedbackGroupBy[]
+  timeBucket?: AdvisoryQualityFeedbackTimeBucket
+}
+
 export interface AdvisoryOperationsFilterOption {
   id?: string
   key?: string
@@ -136,6 +145,79 @@ export interface AdvisoryProviderTelemetryView {
   instrumentationGaps: AdvisoryOperationsInstrumentationGap[]
 }
 
+export interface AdvisoryQualityFeedbackMetrics {
+  totalRatings: number
+  averageRating: number | null
+  lowRatingCount: number
+  lowRatingRate: number | null
+  recommendationRatingCount: number
+  recommendationAverageRating: number | null
+  recommendationLowRatingRate: number | null
+  reportRatingCount: number
+  reportAverageRating: number | null
+  reportLowRatingRate: number | null
+  feedbackTextPresentCount: number
+  feedbackTextWithheldCount: number
+  feedbackTextUnavailableReason: string | null
+}
+
+export type AdvisoryQualityRatingDistribution = Record<1 | 2 | 3 | 4 | 5, number>
+
+export interface AdvisoryQualityFeedbackGroup {
+  key: string
+  label: string
+  tenantId: string
+  ratingCount: number
+  averageRating: number | null
+  lowRatingRate: number | null
+  feedbackTextPresentCount: number
+  feedbackTextWithheldCount: number
+  measurementStatus: AdvisoryOperationsFreshnessStatus
+}
+
+export interface AdvisoryQualityRecommendationTypeGroup extends AdvisoryQualityFeedbackGroup {
+  workflowKey: string | null
+}
+
+export interface AdvisoryQualityLowQualityTrend {
+  id: string
+  workflowLabel: string
+  recommendationLabel: string
+  tenantId: string
+  trendDirection: 'up' | 'down' | 'flat' | 'insufficient_data'
+  currentLowRatingRate: number | null
+  previousLowRatingRate: number | null
+  sampleSize: number
+  severity: 'warning'
+}
+
+export interface AdvisoryQualityFeedbackView {
+  generatedAt: string | null
+  filters: {
+    selected: Required<AdvisoryQualityFeedbackFilters>
+  }
+  freshness: {
+    source: string
+    status: AdvisoryOperationsFreshnessStatus
+    latestEventAt: string | null
+    description: string
+  }
+  metrics: AdvisoryQualityFeedbackMetrics | null
+  ratingDistribution: {
+    recommendation: AdvisoryQualityRatingDistribution
+    report: AdvisoryQualityRatingDistribution
+  }
+  feedbackText: {
+    presentCount: number
+    withheldCount: number
+    unavailableReason: string | null
+  }
+  byWorkflow: AdvisoryQualityFeedbackGroup[]
+  byRecommendationType: AdvisoryQualityRecommendationTypeGroup[]
+  lowQualityTrends: AdvisoryQualityLowQualityTrend[]
+  instrumentationGaps: AdvisoryOperationsInstrumentationGap[]
+}
+
 type JsonRecord = Record<string, unknown>
 
 const DEFAULT_SELECTED_FILTERS = {
@@ -148,6 +230,13 @@ const DEFAULT_SELECTED_FILTERS = {
 const DEFAULT_PROVIDER_SELECTED_FILTERS: Required<AdvisoryProviderTelemetryFilters> = {
   ...DEFAULT_SELECTED_FILTERS,
   groupBy: ['workflow', 'experience', 'provider'],
+}
+
+const DEFAULT_QUALITY_SELECTED_FILTERS: Required<AdvisoryQualityFeedbackFilters> = {
+  ...DEFAULT_SELECTED_FILTERS,
+  recommendationType: 'all',
+  groupBy: ['workflow', 'recommendationType'],
+  timeBucket: 'day',
 }
 
 const PROVIDER_TELEMETRY_THRESHOLDS = {
@@ -217,6 +306,37 @@ export async function fetchAdvisoryProviderTelemetry(
   return normalizeAdvisoryProviderTelemetry(data)
 }
 
+export async function fetchAdvisoryQualityFeedback(
+  filters: AdvisoryQualityFeedbackFilters = {}
+): Promise<AdvisoryQualityFeedbackView> {
+  const headers = await getAuthHeadersAsync()
+  const query = buildQualityFeedbackQuery(filters)
+  const response = await fetch(`/api/advisory/admin/operations/quality-feedback${query}`, {
+    headers,
+    cache: 'no-store',
+  })
+  const body = await response.json().catch(() => null)
+  const data = unwrapAdvisoryEnvelope<unknown>(body)
+  const errorMessage = sanitizeQualityOperationalText(
+    readAdvisoryMessage(body),
+    'Quality feedback unavailable. No trusted measurements are available.'
+  )
+
+  if (!response.ok && !data) {
+    throw new Error(errorMessage)
+  }
+
+  if (!response.ok && !looksLikeQualityFeedbackData(data)) {
+    throw new Error(errorMessage)
+  }
+
+  if (!data) {
+    throw new Error('Quality feedback unavailable. No trusted measurements are available.')
+  }
+
+  return normalizeAdvisoryQualityFeedback(data)
+}
+
 export function normalizeAdvisoryOperationsUsage(data: unknown): AdvisoryOperationsUsageView {
   const record = asRecord(data)
   const generatedAt = readString(record.generatedAt)
@@ -274,6 +394,60 @@ export function normalizeAdvisoryProviderTelemetry(data: unknown): AdvisoryProvi
   }
 }
 
+export function normalizeAdvisoryQualityFeedback(data: unknown): AdvisoryQualityFeedbackView {
+  const record = asRecord(data)
+  const selected = normalizeQualitySelectedFilters(record)
+  const freshness = normalizeQualityFreshness(record)
+  const summary = asRecord(record.summary)
+  const measurementStatus = readFreshnessStatus(summary.measurementStatus, freshness.status)
+  const unavailable = freshness.status === 'unavailable' || measurementStatus === 'unavailable'
+  const metrics = unavailable ? null : normalizeQualityMetrics(record)
+  const byWorkflow = unavailable
+    ? []
+    : normalizeQualityWorkflowGroups(record).filter((group) =>
+        matchesSelectedTenant(group.tenantId, selected.tenantId)
+      )
+  const byRecommendationType = unavailable
+    ? []
+    : normalizeQualityRecommendationTypeGroups(record).filter((group) =>
+        matchesSelectedTenant(group.tenantId, selected.tenantId)
+      )
+  const lowQualityTrends = unavailable
+    ? []
+    : normalizeQualityLowQualityTrends(record).filter((trend) =>
+        matchesSelectedTenant(trend.tenantId, selected.tenantId)
+      )
+
+  return {
+    generatedAt: readString(record.generatedAt),
+    filters: { selected },
+    freshness,
+    metrics,
+    ratingDistribution: {
+      recommendation: unavailable
+        ? emptyRatingDistribution()
+        : normalizeRatingDistribution(asRecord(summary.recommendationRatings).distribution),
+      report: unavailable
+        ? emptyRatingDistribution()
+        : normalizeRatingDistribution(
+            asRecord(summary.reportRatings).distribution ??
+              asRecord(summary.outputRatings).distribution
+          ),
+    },
+    feedbackText: {
+      presentCount: readNumber(summary.feedbackTextPresentCount),
+      withheldCount: readNumber(summary.feedbackTextWithheldCount),
+      unavailableReason: sanitizeOptionalQualityText(
+        readString(summary.feedbackTextUnavailableReason)
+      ),
+    },
+    byWorkflow,
+    byRecommendationType,
+    lowQualityTrends,
+    instrumentationGaps: normalizeQualityInstrumentationGaps(record),
+  }
+}
+
 function buildOperationsUsageQuery(filters: AdvisoryOperationsUsageFilters) {
   const params = new URLSearchParams()
   appendIfPresent(params, 'tenantId', filters.tenantId)
@@ -293,6 +467,22 @@ function buildProviderTelemetryQuery(filters: AdvisoryProviderTelemetryFilters) 
 
   const groupBy = normalizeGroupBy(filters.groupBy)
   if (groupBy.length) params.set('groupBy', groupBy.join(','))
+
+  const query = params.toString()
+  return query ? `?${query}` : ''
+}
+
+function buildQualityFeedbackQuery(filters: AdvisoryQualityFeedbackFilters) {
+  const params = new URLSearchParams()
+  appendIfPresent(params, 'tenantId', filters.tenantId)
+  appendIfPresent(params, 'dateFrom', filters.dateFrom)
+  appendIfPresent(params, 'dateTo', filters.dateTo)
+  appendIfPresent(params, 'workflowType', filters.workflowType)
+  appendIfPresent(params, 'recommendationType', filters.recommendationType)
+
+  const groupBy = normalizeQualityGroupBy(filters.groupBy)
+  if (groupBy.length) params.set('groupBy', groupBy.join(','))
+  if (filters.timeBucket) params.set('timeBucket', filters.timeBucket)
 
   const query = params.toString()
   return query ? `?${query}` : ''
@@ -345,6 +535,41 @@ function normalizeProviderSelectedFilters(
         : normalizeGroupBy(applied.groupBy).length > 0
           ? normalizeGroupBy(applied.groupBy)
           : DEFAULT_PROVIDER_SELECTED_FILTERS.groupBy,
+  }
+}
+
+function normalizeQualitySelectedFilters(
+  record: JsonRecord
+): Required<AdvisoryQualityFeedbackFilters> {
+  const filters = asRecord(record.filters)
+  const selected = asRecord(filters.selected)
+  const applied = asRecord(record.appliedFilters)
+
+  return {
+    tenantId:
+      readString(selected.tenantId) ??
+      readString(applied.tenantId) ??
+      DEFAULT_QUALITY_SELECTED_FILTERS.tenantId,
+    dateFrom: toDateInput(readString(selected.dateFrom) ?? readString(applied.dateFrom)),
+    dateTo: toDateInput(readString(selected.dateTo) ?? readString(applied.dateTo)),
+    workflowType:
+      readString(selected.workflowType) ??
+      readString(applied.workflowType) ??
+      DEFAULT_QUALITY_SELECTED_FILTERS.workflowType,
+    recommendationType:
+      readString(selected.recommendationType) ??
+      readString(applied.recommendationType) ??
+      DEFAULT_QUALITY_SELECTED_FILTERS.recommendationType,
+    groupBy:
+      normalizeQualityGroupBy(selected.groupBy).length > 0
+        ? normalizeQualityGroupBy(selected.groupBy)
+        : normalizeQualityGroupBy(applied.groupBy).length > 0
+          ? normalizeQualityGroupBy(applied.groupBy)
+          : DEFAULT_QUALITY_SELECTED_FILTERS.groupBy,
+    timeBucket:
+      normalizeQualityTimeBucket(selected.timeBucket) ??
+      normalizeQualityTimeBucket(applied.timeBucket) ??
+      DEFAULT_QUALITY_SELECTED_FILTERS.timeBucket,
   }
 }
 
@@ -430,6 +655,22 @@ function normalizeProviderFreshness(
   }
 }
 
+function normalizeQualityFreshness(record: JsonRecord): AdvisoryQualityFeedbackView['freshness'] {
+  const freshness = asRecord(record.freshness)
+  const status = readFreshnessStatus(freshness.status)
+  return {
+    source: readString(freshness.source) ?? 'quality_feedback',
+    status,
+    latestEventAt: readString(freshness.latestEventAt) ?? readString(freshness.lastEventAt),
+    description: sanitizeQualityOperationalText(
+      readString(freshness.description) ?? readString(freshness.message),
+      status === 'fresh'
+        ? 'Quality feedback is current.'
+        : 'Quality feedback unavailable. No trusted measurements are available.'
+    ),
+  }
+}
+
 function normalizeMetrics(record: JsonRecord): AdvisoryOperationsMetrics | null {
   if (record.metrics === null) return null
 
@@ -510,6 +751,45 @@ function normalizeProviderMetrics(record: JsonRecord): AdvisoryProviderTelemetry
   }
 }
 
+function normalizeQualityMetrics(record: JsonRecord): AdvisoryQualityFeedbackMetrics | null {
+  const summary = asRecord(record.summary)
+  if (!Object.keys(summary).length) return null
+
+  const measurementStatus = readString(summary.measurementStatus)
+  const freshnessStatus = readString(asRecord(record.freshness).status)
+  if (measurementStatus === 'unavailable' || freshnessStatus === 'unavailable') return null
+
+  const recommendation = asRecord(summary.recommendationRatings)
+  const report = Object.keys(asRecord(summary.reportRatings)).length
+    ? asRecord(summary.reportRatings)
+    : asRecord(summary.outputRatings)
+  const totalRatings = readNumber(summary.totalRatings)
+
+  if ((measurementStatus === 'delayed' || freshnessStatus === 'delayed') && totalRatings === 0) {
+    return null
+  }
+
+  return {
+    totalRatings,
+    averageRating: readNullableNumber(summary.averageRating),
+    lowRatingCount: readNumber(summary.lowRatingCount),
+    lowRatingRate: normalizePercent(summary.lowRatingRate),
+    recommendationRatingCount: readNumber(recommendation.sampleSize ?? recommendation.count),
+    recommendationAverageRating: readNullableNumber(recommendation.averageRating),
+    recommendationLowRatingRate: normalizePercent(
+      recommendation.lowRatingRate ?? recommendation.lowQualityRate
+    ),
+    reportRatingCount: readNumber(report.sampleSize ?? report.count),
+    reportAverageRating: readNullableNumber(report.averageRating),
+    reportLowRatingRate: normalizePercent(report.lowRatingRate ?? report.lowQualityRate),
+    feedbackTextPresentCount: readNumber(summary.feedbackTextPresentCount),
+    feedbackTextWithheldCount: readNumber(summary.feedbackTextWithheldCount),
+    feedbackTextUnavailableReason: sanitizeOptionalQualityText(
+      readString(summary.feedbackTextUnavailableReason)
+    ),
+  }
+}
+
 function normalizeWorkflowUsage(record: JsonRecord): AdvisoryOperationsWorkflowUsage[] {
   const rawWorkflows = Array.isArray(record.workflowUsage)
     ? record.workflowUsage
@@ -579,6 +859,83 @@ function normalizeProviderProviderGroups(record: JsonRecord): AdvisoryProviderTe
       label: sanitizeOperationalText(readString(group.provider), 'Unknown provider'),
       scopeLabel: 'provider',
       measurementStatus: readFreshnessStatus(group.measurementStatus),
+    }
+  })
+}
+
+function normalizeQualityWorkflowGroups(record: JsonRecord): AdvisoryQualityFeedbackGroup[] {
+  const groups = Array.isArray(record.byWorkflow) ? record.byWorkflow : []
+  return groups.map((item) => {
+    const group = asRecord(item)
+    const key = sanitizeQualityGroupKey(readString(group.workflowKey), 'unknown-workflow')
+    return {
+      key,
+      label: sanitizeQualityOperationalText(readString(group.workflowLabel), toWorkflowLabel(key)),
+      tenantId: sanitizeQualityOperationalText(readString(group.tenantId), 'current'),
+      ratingCount: readNumber(group.ratingCount ?? group.sampleSize ?? group.count),
+      averageRating: readNullableNumber(group.averageRating),
+      lowRatingRate: normalizePercent(group.lowRatingRate ?? group.lowQualityRate),
+      feedbackTextPresentCount: readNumber(group.feedbackTextPresentCount),
+      feedbackTextWithheldCount: readNumber(group.feedbackTextWithheldCount),
+      measurementStatus: readFreshnessStatus(group.measurementStatus),
+    }
+  })
+}
+
+function normalizeQualityRecommendationTypeGroups(
+  record: JsonRecord
+): AdvisoryQualityRecommendationTypeGroup[] {
+  const groups = Array.isArray(record.byRecommendationType) ? record.byRecommendationType : []
+  return groups.map((item) => {
+    const group = asRecord(item)
+    const key = sanitizeQualityGroupKey(
+      readString(group.recommendationType),
+      'unknown-recommendation'
+    )
+    return {
+      key,
+      label: sanitizeQualityOperationalText(
+        readString(group.recommendationLabel),
+        toWorkflowLabel(key)
+      ),
+      workflowKey: sanitizeOptionalQualityText(readString(group.workflowKey)),
+      tenantId: sanitizeQualityOperationalText(readString(group.tenantId), 'current'),
+      ratingCount: readNumber(group.ratingCount ?? group.sampleSize ?? group.count),
+      averageRating: readNullableNumber(group.averageRating),
+      lowRatingRate: normalizePercent(group.lowRatingRate ?? group.lowQualityRate),
+      feedbackTextPresentCount: readNumber(group.feedbackTextPresentCount),
+      feedbackTextWithheldCount: readNumber(group.feedbackTextWithheldCount),
+      measurementStatus: readFreshnessStatus(group.measurementStatus),
+    }
+  })
+}
+
+function normalizeQualityLowQualityTrends(record: JsonRecord): AdvisoryQualityLowQualityTrend[] {
+  const trends = Array.isArray(record.lowQualityTrends) ? record.lowQualityTrends : []
+  return trends.map((item, index) => {
+    const trend = asRecord(item)
+    return {
+      id:
+        sanitizeOptionalQualityText(readString(trend.id)) ??
+        `quality-trend-${String(index + 1).padStart(2, '0')}`,
+      workflowLabel: sanitizeQualityOperationalText(
+        readString(trend.workflowLabel) ?? readString(trend.workflowKey),
+        'Unknown Workflow'
+      ),
+      recommendationLabel: sanitizeQualityOperationalText(
+        readString(trend.recommendationLabel) ?? readString(trend.recommendationType),
+        'Unknown recommendation'
+      ),
+      tenantId: sanitizeQualityOperationalText(readString(trend.tenantId), 'current'),
+      trendDirection: normalizeTrendDirection(trend.trendDirection ?? trend.direction),
+      currentLowRatingRate: normalizePercent(
+        trend.currentLowRatingRate ?? trend.currentLowQualityRate
+      ),
+      previousLowRatingRate: normalizePercent(
+        trend.previousLowRatingRate ?? trend.previousLowQualityRate
+      ),
+      sampleSize: readNumber(trend.sampleSize),
+      severity: 'warning',
     }
   })
 }
@@ -837,6 +1194,24 @@ function normalizeInstrumentationGaps(record: JsonRecord): AdvisoryOperationsIns
   })
 }
 
+function normalizeQualityInstrumentationGaps(
+  record: JsonRecord
+): AdvisoryOperationsInstrumentationGap[] {
+  const gaps = Array.isArray(record.instrumentationGaps) ? record.instrumentationGaps : []
+  return gaps.map((item) => {
+    const gap = asRecord(item)
+    return {
+      eventName: sanitizeOptionalQualityText(readString(gap.eventName)),
+      reason: sanitizeQualityOperationalText(readString(gap.reason), 'unknown_gap'),
+      owningArea: sanitizeQualityOperationalText(
+        readString(gap.owningArea) ?? readString(gap.owner),
+        'ThinkTank instrumentation'
+      ),
+      count: readNumber(gap.count) || 1,
+    }
+  })
+}
+
 function normalizeGroupBy(value: unknown): AdvisoryProviderTelemetryGroupBy[] {
   const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : []
   const allowed = new Set<AdvisoryProviderTelemetryGroupBy>(['workflow', 'experience', 'provider'])
@@ -846,6 +1221,53 @@ function normalizeGroupBy(value: unknown): AdvisoryProviderTelemetryGroupBy[] {
     .filter((item): item is AdvisoryProviderTelemetryGroupBy =>
       allowed.has(item as AdvisoryProviderTelemetryGroupBy)
     )
+}
+
+function normalizeQualityGroupBy(value: unknown): AdvisoryQualityFeedbackGroupBy[] {
+  const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : []
+  const allowed = new Set<AdvisoryQualityFeedbackGroupBy>([
+    'workflow',
+    'recommendationType',
+    'tenant',
+    'time',
+  ])
+
+  return raw
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item): item is AdvisoryQualityFeedbackGroupBy =>
+      allowed.has(item as AdvisoryQualityFeedbackGroupBy)
+    )
+}
+
+function normalizeQualityTimeBucket(value: unknown): AdvisoryQualityFeedbackTimeBucket | undefined {
+  if (value === 'day' || value === 'week' || value === 'month') return value
+  return undefined
+}
+
+function normalizeRatingDistribution(value: unknown): AdvisoryQualityRatingDistribution {
+  const distribution = asRecord(value)
+  return {
+    1: readNumber(distribution['1']),
+    2: readNumber(distribution['2']),
+    3: readNumber(distribution['3']),
+    4: readNumber(distribution['4']),
+    5: readNumber(distribution['5']),
+  }
+}
+
+function emptyRatingDistribution(): AdvisoryQualityRatingDistribution {
+  return { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+}
+
+function normalizeTrendDirection(value: unknown): 'up' | 'down' | 'flat' | 'insufficient_data' {
+  if (value === 'up' || value === 'down' || value === 'flat' || value === 'insufficient_data') {
+    return value
+  }
+  return 'insufficient_data'
+}
+
+function matchesSelectedTenant(groupTenantId: string, selectedTenantId: string): boolean {
+  return selectedTenantId === 'current' || groupTenantId === selectedTenantId
 }
 
 function calculateCacheHitRate(hits: number, misses: number): number | null {
@@ -910,9 +1332,19 @@ function sanitizeGroupKey(value: string | null, fallback: string): string {
   return value
 }
 
+function sanitizeQualityGroupKey(value: string | null, fallback: string): string {
+  if (!value || containsRawQualityText(value)) return fallback
+  return value
+}
+
 function sanitizeOptionalOperationalText(value: string | null): string | null {
   if (!value) return null
   return containsRawSensitiveText(value) ? null : value
+}
+
+function sanitizeOptionalQualityText(value: string | null): string | null {
+  if (!value) return null
+  return containsRawQualityText(value) ? null : value
 }
 
 function sanitizeOperationalText(value: string | null, fallback: string): string {
@@ -920,8 +1352,19 @@ function sanitizeOperationalText(value: string | null, fallback: string): string
   return value
 }
 
+function sanitizeQualityOperationalText(value: string | null, fallback: string): string {
+  if (!value || containsRawQualityText(value)) return fallback
+  return value
+}
+
 function containsRawSensitiveText(value: string): boolean {
   return /PRIVATE_|raw[_\s-]*(conversation|content|prompt|report|feedback|provider|payload)|provider[_\s-]*(raw|payload)|cache[_\s-]*key|actor[_\s-]*id|user[_\s-]*id|conversation|prompt|report|feedback/i.test(
+    value
+  )
+}
+
+function containsRawQualityText(value: string): boolean {
+  return /PRIVATE_|raw[_\s-]*(conversation|content|prompt|report|feedback|provider|payload)|provider[_\s-]*(raw|payload)|cache[_\s-]*key|actor[_\s-]*id|user[_\s-]*id|conversation|prompt|report content/i.test(
     value
   )
 }
@@ -934,6 +1377,16 @@ function looksLikeProviderTelemetryData(value: unknown): boolean {
   const record = asRecord(value)
   return (
     'summary' in record || 'freshness' in record || 'byWorkflow' in record || 'byProvider' in record
+  )
+}
+
+function looksLikeQualityFeedbackData(value: unknown): boolean {
+  const record = asRecord(value)
+  return (
+    'summary' in record ||
+    'freshness' in record ||
+    'byWorkflow' in record ||
+    'byRecommendationType' in record
   )
 }
 

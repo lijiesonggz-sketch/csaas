@@ -36,6 +36,7 @@ import { AdvisoryOrganizationContextRepository } from './org-context/advisory-or
 import { AdvisoryOrganizationContextService } from './org-context/advisory-organization-context.service'
 import { AdvisoryOperationsController } from './operations/advisory-operations.controller'
 import { AdvisoryOperationsService } from './operations/advisory-operations.service'
+import { AdvisoryQualityFeedbackService } from './operations/advisory-quality-feedback.service'
 import { AdvisoryProviderTelemetryService } from './operations/advisory-provider-telemetry.service'
 import {
   THINKTANK_PROVIDER_GATEWAY_ADAPTERS,
@@ -117,6 +118,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryOrganizationContextRepository,
     AdvisoryOrganizationContextService,
     AdvisoryOperationsService,
+    AdvisoryQualityFeedbackService,
     AdvisoryProviderTelemetryService,
     AdvisoryConversationMessageRepository,
     AdvisoryOutputRatingRepository,
@@ -179,6 +181,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryOrganizationContextRepository,
     AdvisoryOrganizationContextService,
     AdvisoryOperationsService,
+    AdvisoryQualityFeedbackService,
     AdvisoryProviderTelemetryService,
     AdvisoryConversationMessageRepository,
     AdvisoryOutputRatingRepository,

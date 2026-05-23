@@ -6,6 +6,10 @@ import {
   AdvisoryOutputRatingMetadata,
 } from '../../../database/entities/advisory-output-rating.entity'
 import { BaseRepository } from '../../../database/repositories/base.repository'
+import {
+  AdvisoryQualityFeedbackSourceQuery,
+  AdvisoryQualityOutputRatingRow,
+} from '../operations/advisory-quality-feedback.types'
 
 export interface AdvisoryOutputAssetState {
   outputId: string
@@ -212,6 +216,60 @@ export class AdvisoryOutputRatingRepository extends BaseRepository<AdvisoryOutpu
     return ratings.map((rating) => this.toAssetState(rating.outputId, rating))
   }
 
+  async findForQualityAggregation(
+    query: AdvisoryQualityFeedbackSourceQuery,
+  ): Promise<AdvisoryQualityOutputRatingRow[]> {
+    this.assertScopeValue(query.tenantId, 'tenantId')
+
+    const rows = await this.repository.query(
+      `
+        SELECT
+          rating."id",
+          rating."tenant_id" AS "tenantId",
+          rating."actor_id" AS "actorId",
+          rating."output_id" AS "outputId",
+          rating."session_id" AS "sessionId",
+          rating."rating",
+          (rating."feedback_text" IS NOT NULL AND length(trim(rating."feedback_text")) > 0) AS "feedbackTextPresent",
+          rating."metadata",
+          rating."rated_at" AS "ratedAt",
+          rating."created_at" AS "createdAt",
+          rating."updated_at" AS "updatedAt",
+          COALESCE(output."workflow_key", session."workflow_key") AS "workflowKey",
+          session."workflow_display_name" AS "workflowLabel"
+        FROM "output_ratings" rating
+        LEFT JOIN "workflow_outputs" output
+          ON output."tenant_id" = rating."tenant_id"
+          AND output."id" = rating."output_id"
+        LEFT JOIN "workflow_sessions" session
+          ON session."tenant_id" = rating."tenant_id"
+          AND session."id" = rating."session_id"
+        WHERE rating."tenant_id" = $1
+          AND rating."rating" IS NOT NULL
+          AND COALESCE(rating."rated_at", rating."updated_at", rating."created_at") >= $2
+          AND COALESCE(rating."rated_at", rating."updated_at", rating."created_at") <= $3
+        ORDER BY COALESCE(rating."rated_at", rating."updated_at", rating."created_at") ASC
+      `,
+      [query.tenantId, query.dateFrom, query.dateTo],
+    )
+
+    return rows.map((row: Record<string, unknown>) => ({
+      id: row.id as string,
+      tenantId: row.tenantId as string,
+      actorId: row.actorId as string,
+      outputId: row.outputId as string,
+      sessionId: row.sessionId as string,
+      rating: typeof row.rating === 'number' ? row.rating : null,
+      feedbackTextPresent: row.feedbackTextPresent === true,
+      metadata: row.metadata,
+      ratedAt: this.toOptionalDate(row.ratedAt),
+      createdAt: this.toRequiredDate(row.createdAt),
+      updatedAt: this.toRequiredDate(row.updatedAt),
+      workflowKey: (row.workflowKey as string | null) ?? null,
+      workflowLabel: (row.workflowLabel as string | null) ?? null,
+    }))
+  }
+
   toAssetState(
     outputId: string,
     rating: AdvisoryOutputRating | null | undefined,
@@ -283,5 +341,11 @@ export class AdvisoryOutputRatingRepository extends BaseRepository<AdvisoryOutpu
 
   private isNonEmptyText(value: unknown): value is string {
     return typeof value === 'string' && value.trim().length > 0
+  }
+
+  private recordOrEmpty(value: unknown): AdvisoryOutputRatingMetadata {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as AdvisoryOutputRatingMetadata)
+      : {}
   }
 }

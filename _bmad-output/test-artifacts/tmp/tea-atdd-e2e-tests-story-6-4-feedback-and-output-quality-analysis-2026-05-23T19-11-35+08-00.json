@@ -1,0 +1,33 @@
+{
+  "storyId": "6.4",
+  "storyKey": "6-4-feedback-and-output-quality-analysis",
+  "phase": "ATDD_RED",
+  "generatedAt": "2026-05-23T19:11:35+08:00",
+  "files": [
+    "frontend/lib/advisory/operations.test.ts",
+    "frontend/app/admin/advisory/operations/page.test.tsx",
+    "frontend/e2e/advisory-operations-dashboard.atdd.spec.ts"
+  ],
+  "tests": [
+    "6.4-UNIT-001",
+    "6.4-UNIT-002",
+    "6.4-UNIT-004",
+    "6.4-UNIT-005",
+    "6.4-UNIT-006",
+    "6.4-UNIT-007",
+    "6.4-COMP-001",
+    "6.4-COMP-002",
+    "6.4-COMP-003",
+    "6.4-COMP-004",
+    "6.4-COMP-005",
+    "6.4-COMP-006",
+    "6.4-COMP-007",
+    "6.4-COMP-008",
+    "6.4-E2E-001",
+    "6.4-E2E-002",
+    "6.4-E2E-003",
+    "6.4-E2E-004",
+    "6.4-E2E-005"
+  ],
+  "redCompliance": "parking tests use describe.skip or it.skip until green implementation"
+}

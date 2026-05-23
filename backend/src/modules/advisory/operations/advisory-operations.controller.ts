@@ -15,6 +15,11 @@ import { RolesGuard } from '../../auth/guards/roles.guard'
 import { CurrentTenant } from '../../organizations/decorators/current-tenant.decorator'
 import { TenantGuard } from '../../organizations/guards/tenant.guard'
 import { AdvisoryOperationsService } from './advisory-operations.service'
+import { AdvisoryQualityFeedbackService } from './advisory-quality-feedback.service'
+import {
+  AdvisoryQualityFeedbackGroupBy,
+  AdvisoryQualityFeedbackTimeBucket,
+} from './advisory-quality-feedback.types'
 import { AdvisoryProviderTelemetryService } from './advisory-provider-telemetry.service'
 import { AdvisoryProviderTelemetryGroupBy } from './advisory-provider-telemetry.types'
 import { AdvisoryOperationsActor } from './advisory-operations.types'
@@ -32,6 +37,12 @@ interface AdvisoryProviderTelemetryQueryDto extends AdvisoryOperationsUsageQuery
   groupBy?: unknown
 }
 
+interface AdvisoryQualityFeedbackQueryDto extends AdvisoryOperationsUsageQueryDto {
+  groupBy?: unknown
+  recommendationType?: unknown
+  timeBucket?: unknown
+}
+
 @Controller('advisory/admin/operations')
 @UseGuards(JwtAuthGuard, TenantGuard, RolesGuard)
 export class AdvisoryOperationsController {
@@ -39,6 +50,8 @@ export class AdvisoryOperationsController {
     private readonly advisoryOperationsService: AdvisoryOperationsService,
     @Optional()
     private readonly advisoryProviderTelemetryService?: AdvisoryProviderTelemetryService,
+    @Optional()
+    private readonly advisoryQualityFeedbackService?: AdvisoryQualityFeedbackService,
   ) {}
 
   @Get('usage')
@@ -92,6 +105,38 @@ export class AdvisoryOperationsController {
     }
   }
 
+  @Get('quality-feedback')
+  @Roles(UserRole.ADMIN)
+  async getQualityFeedback(
+    @CurrentUser() actor: AdvisoryOperationsActor,
+    @CurrentTenant() currentTenantId: string,
+    @Query() query: AdvisoryQualityFeedbackQueryDto,
+  ) {
+    const qualityFeedbackService = this.requireQualityFeedbackService()
+    const defaults = this.defaultWindow()
+    const requestedTenantId = this.resolveRequestedTenantId(query.tenantId, currentTenantId)
+    const dateFrom = this.readOptionalQueryString(query.dateFrom, 'dateFrom') ?? defaults.dateFrom
+    const dateTo = this.readOptionalQueryString(query.dateTo, 'dateTo') ?? defaults.dateTo
+    this.assertValidDateWindow(dateFrom, dateTo)
+
+    return {
+      data: await qualityFeedbackService.getQualityFeedback({
+        actor,
+        currentTenantId,
+        tenantId: requestedTenantId,
+        dateFrom,
+        dateTo,
+        workflowType: this.readOptionalQueryString(query.workflowType, 'workflowType'),
+        recommendationType: this.readOptionalQueryString(
+          query.recommendationType,
+          'recommendationType',
+        ),
+        groupBy: this.parseQualityGroupBy(query.groupBy),
+        timeBucket: this.parseQualityTimeBucket(query.timeBucket),
+      }),
+    }
+  }
+
   private resolveRequestedTenantId(tenantId: unknown, currentTenantId: string): string {
     const requestedTenantId = this.readOptionalQueryString(tenantId, 'tenantId')
     if (!requestedTenantId || requestedTenantId === 'current') {
@@ -117,6 +162,13 @@ export class AdvisoryOperationsController {
       throw new Error('AdvisoryProviderTelemetryService is not configured.')
     }
     return this.advisoryProviderTelemetryService
+  }
+
+  private requireQualityFeedbackService(): AdvisoryQualityFeedbackService {
+    if (!this.advisoryQualityFeedbackService) {
+      throw new Error('AdvisoryQualityFeedbackService is not configured.')
+    }
+    return this.advisoryQualityFeedbackService
   }
 
   private parseGroupBy(value: unknown): AdvisoryProviderTelemetryGroupBy[] {
@@ -147,6 +199,44 @@ export class AdvisoryOperationsController {
         ),
       ),
     ]
+  }
+
+  private parseQualityGroupBy(value: unknown): AdvisoryQualityFeedbackGroupBy[] {
+    const allowed = new Set<AdvisoryQualityFeedbackGroupBy>([
+      'workflow',
+      'recommendationType',
+      'tenant',
+      'time',
+    ])
+    if (value === undefined || value === null || value === '') return []
+    if (typeof value !== 'string' && !Array.isArray(value)) {
+      throw new BadRequestException('Invalid groupBy filter.')
+    }
+    const values = Array.isArray(value)
+      ? value.map((item) => this.requireQueryString(item, 'groupBy'))
+      : [value]
+    const parsed = values
+      .flatMap((item) => item.split(','))
+      .map((item) => item.trim())
+      .filter(Boolean)
+    const invalid = parsed.filter((item) => !allowed.has(item as AdvisoryQualityFeedbackGroupBy))
+    if (invalid.length) {
+      throw new BadRequestException('Invalid groupBy filter.')
+    }
+    return [
+      ...new Set(
+        parsed.filter((item): item is AdvisoryQualityFeedbackGroupBy =>
+          allowed.has(item as AdvisoryQualityFeedbackGroupBy),
+        ),
+      ),
+    ]
+  }
+
+  private parseQualityTimeBucket(value: unknown): AdvisoryQualityFeedbackTimeBucket | undefined {
+    const text = this.readOptionalQueryString(value, 'timeBucket')
+    if (!text) return undefined
+    if (text === 'day' || text === 'week' || text === 'month') return text
+    throw new BadRequestException('Invalid timeBucket filter.')
   }
 
   private assertValidDateWindow(dateFrom: string, dateTo: string): void {
