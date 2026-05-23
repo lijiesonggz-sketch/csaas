@@ -7,6 +7,7 @@ const alternateTenantId = '111e8400-e29b-41d4-a716-446655440000'
 const actorId = '770e8400-e29b-41d4-a716-446655440000'
 const dateFrom = '2026-05-01T00:00:00.000Z'
 const dateTo = '2026-05-22T23:59:59.999Z'
+const freshNow = new Date('2026-05-22T16:12:12.000Z')
 
 type AuditLogRow = {
   id: string
@@ -76,17 +77,82 @@ const instantiateService = async (rows: AuditLogRow[]) => {
 describe('Story 6.1 Usage and Completion Dashboard backend service (ATDD RED)', () => {
   test('[P0][6.1-UNIT-001][AC1,AC2] counts only known versioned ThinkTank events by tenant and date range', async () => {
     const rows = [
-      auditLog('audit-workflow-start-1', eventDetails({ event_name: 'thinktank.workflow.started', subject_id: 'session-1' })),
-      auditLog('audit-workflow-start-2', eventDetails({ event_name: 'thinktank.workflow.started', subject_id: 'session-2' })),
-      auditLog('audit-workflow-complete-1', eventDetails({ event_name: 'thinktank.workflow.completed', subject_id: 'session-1' })),
-      auditLog('audit-workflow-start-failed-1', eventDetails({ event_name: 'thinktank.workflow.start_failed', subject_id: 'session-3', outcome: 'failure' })),
-      auditLog('audit-quick-start-1', eventDetails({ event_name: 'thinktank.quick_consult.started', subject_type: 'quick_consult', subject_id: 'quick-1' })),
-      auditLog('audit-quick-start-2', eventDetails({ event_name: 'thinktank.quick_consult.started', subject_type: 'quick_consult', subject_id: 'quick-2' })),
-      auditLog('audit-quick-complete-1', eventDetails({ event_name: 'thinktank.quick_consult.completed', subject_type: 'quick_consult', subject_id: 'quick-1' })),
-      auditLog('audit-quick-failed-1', eventDetails({ event_name: 'thinktank.quick_consult.failed', subject_type: 'quick_consult', subject_id: 'quick-2', outcome: 'failure' })),
-      auditLog('audit-party-budget-1', eventDetails({ event_name: 'thinktank.party_mode.budget_exceeded', subject_type: 'session', subject_id: 'session-1', outcome: 'blocked' })),
-      auditLog('audit-party-advisor-1', eventDetails({ event_name: 'thinktank.party_mode.advisor_failed', subject_type: 'session', subject_id: 'session-1', outcome: 'partial' })),
-      auditLog('audit-other-tenant', eventDetails({ event_name: 'thinktank.workflow.started', tenant_id: alternateTenantId }), { tenantId: alternateTenantId }),
+      auditLog(
+        'audit-workflow-start-1',
+        eventDetails({ event_name: 'thinktank.workflow.started', subject_id: 'session-1' }),
+      ),
+      auditLog(
+        'audit-workflow-start-2',
+        eventDetails({ event_name: 'thinktank.workflow.started', subject_id: 'session-2' }),
+      ),
+      auditLog(
+        'audit-workflow-complete-1',
+        eventDetails({ event_name: 'thinktank.workflow.completed', subject_id: 'session-1' }),
+      ),
+      auditLog(
+        'audit-workflow-start-failed-1',
+        eventDetails({
+          event_name: 'thinktank.workflow.start_failed',
+          subject_id: 'session-3',
+          outcome: 'failure',
+        }),
+      ),
+      auditLog(
+        'audit-quick-start-1',
+        eventDetails({
+          event_name: 'thinktank.quick_consult.started',
+          subject_type: 'quick_consult',
+          subject_id: 'quick-1',
+        }),
+      ),
+      auditLog(
+        'audit-quick-start-2',
+        eventDetails({
+          event_name: 'thinktank.quick_consult.started',
+          subject_type: 'quick_consult',
+          subject_id: 'quick-2',
+        }),
+      ),
+      auditLog(
+        'audit-quick-complete-1',
+        eventDetails({
+          event_name: 'thinktank.quick_consult.completed',
+          subject_type: 'quick_consult',
+          subject_id: 'quick-1',
+        }),
+      ),
+      auditLog(
+        'audit-quick-failed-1',
+        eventDetails({
+          event_name: 'thinktank.quick_consult.failed',
+          subject_type: 'quick_consult',
+          subject_id: 'quick-2',
+          outcome: 'failure',
+        }),
+      ),
+      auditLog(
+        'audit-party-budget-1',
+        eventDetails({
+          event_name: 'thinktank.party_mode.budget_exceeded',
+          subject_type: 'session',
+          subject_id: 'session-1',
+          outcome: 'blocked',
+        }),
+      ),
+      auditLog(
+        'audit-party-advisor-1',
+        eventDetails({
+          event_name: 'thinktank.party_mode.advisor_failed',
+          subject_type: 'session',
+          subject_id: 'session-1',
+          outcome: 'partial',
+        }),
+      ),
+      auditLog(
+        'audit-other-tenant',
+        eventDetails({ event_name: 'thinktank.workflow.started', tenant_id: alternateTenantId }),
+        { tenantId: alternateTenantId },
+      ),
     ]
     const { service, auditLogSource } = await instantiateService(rows)
 
@@ -94,6 +160,7 @@ describe('Story 6.1 Usage and Completion Dashboard backend service (ATDD RED)', 
       tenantId,
       dateFrom,
       dateTo,
+      now: freshNow,
       actor: { id: actorId, role: 'admin' },
     })
 
@@ -135,29 +202,56 @@ describe('Story 6.1 Usage and Completion Dashboard backend service (ATDD RED)', 
 
   test('[P0][6.1-UNIT-002][AC2,AC4] reports unknown, unversioned, wrong-version, and malformed rows as instrumentation gaps', async () => {
     const rows = [
-      auditLog('audit-valid-start', eventDetails({ event_name: 'thinktank.workflow.started', workflow_type: 'design-thinking' })),
+      auditLog(
+        'audit-valid-start',
+        eventDetails({
+          event_name: 'thinktank.workflow.started',
+          workflow_type: 'design-thinking',
+        }),
+      ),
       auditLog('audit-unknown', eventDetails({ event_name: 'thinktank.workflow.mystery' })),
       auditLog('audit-missing-version', eventDetails({ event_version: undefined })),
       auditLog('audit-wrong-version', eventDetails({ event_version: 999 })),
       auditLog('audit-bad-date', eventDetails({ occurred_at: 'not-a-date' })),
-      auditLog('audit-missing-workflow', eventDetails({ workflow_type: undefined, subject_type: 'workflow' })),
+      auditLog(
+        'audit-missing-workflow',
+        eventDetails({ workflow_type: undefined, subject_type: 'workflow' }),
+      ),
       auditLog('audit-empty-details', null),
     ]
     const { service } = await instantiateService(rows)
 
-    const result = await service.getUsageDashboard({ tenantId, dateFrom, dateTo })
+    const result = await service.getUsageDashboard({ tenantId, dateFrom, dateTo, now: freshNow })
 
     expect(result.summary.workflows.started).toBe(1)
     expect(result.summary.workflows.completed).toBe(0)
     expect(result.summary.workflows.completionRate).toBeNull()
     expect(result.instrumentationGaps).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ auditLogId: 'audit-unknown', reason: 'unknown_event_name', eventName: 'thinktank.workflow.mystery' }),
-        expect.objectContaining({ auditLogId: 'audit-missing-version', reason: 'missing_event_version' }),
-        expect.objectContaining({ auditLogId: 'audit-wrong-version', reason: 'event_version_mismatch', expectedVersion: 1, actualVersion: 999 }),
+        expect.objectContaining({
+          auditLogId: 'audit-unknown',
+          reason: 'unknown_event_name',
+          eventName: 'thinktank.workflow.mystery',
+        }),
+        expect.objectContaining({
+          auditLogId: 'audit-missing-version',
+          reason: 'missing_event_version',
+        }),
+        expect.objectContaining({
+          auditLogId: 'audit-wrong-version',
+          reason: 'event_version_mismatch',
+          expectedVersion: 1,
+          actualVersion: 999,
+        }),
         expect.objectContaining({ auditLogId: 'audit-bad-date', reason: 'invalid_occurred_at' }),
-        expect.objectContaining({ auditLogId: 'audit-missing-workflow', reason: 'missing_workflow_identifier' }),
-        expect.objectContaining({ auditLogId: 'audit-empty-details', reason: 'missing_event_details' }),
+        expect.objectContaining({
+          auditLogId: 'audit-missing-workflow',
+          reason: 'missing_workflow_identifier',
+        }),
+        expect.objectContaining({
+          auditLogId: 'audit-empty-details',
+          reason: 'missing_event_details',
+        }),
       ]),
     )
     expect(result.freshness.status).not.toBe('fresh')
@@ -166,17 +260,69 @@ describe('Story 6.1 Usage and Completion Dashboard backend service (ATDD RED)', 
   test('[P1][6.1-UNIT-003][AC3] flags low-completion workflows and exposes aggregate drilldown without raw private content', async () => {
     const rawConversation = 'RAW CUSTOMER CONVERSATION THAT MUST NEVER LEAVE AUDIT DETAILS'
     const rows = [
-      auditLog('audit-domain-start-1', eventDetails({ event_name: 'thinktank.workflow.started', workflow_type: 'domain-research', subject_id: 'domain-session-1', prompt: rawConversation })),
-      auditLog('audit-domain-start-2', eventDetails({ event_name: 'thinktank.workflow.started', workflow_type: 'domain-research', subject_id: 'domain-session-2', message: rawConversation })),
-      auditLog('audit-domain-start-3', eventDetails({ event_name: 'thinktank.workflow.started', workflow_type: 'domain-research', subject_id: 'domain-session-3', content: rawConversation })),
-      auditLog('audit-domain-start-4', eventDetails({ event_name: 'thinktank.workflow.started', workflow_type: 'domain-research', subject_id: 'domain-session-4' })),
-      auditLog('audit-domain-complete-1', eventDetails({ event_name: 'thinktank.workflow.completed', workflow_type: 'domain-research', subject_id: 'domain-session-1' })),
-      auditLog('audit-design-start-1', eventDetails({ event_name: 'thinktank.workflow.started', workflow_type: 'design-thinking', subject_id: 'design-session-1' })),
-      auditLog('audit-design-complete-1', eventDetails({ event_name: 'thinktank.workflow.completed', workflow_type: 'design-thinking', subject_id: 'design-session-1' })),
+      auditLog(
+        'audit-domain-start-1',
+        eventDetails({
+          event_name: 'thinktank.workflow.started',
+          workflow_type: 'domain-research',
+          subject_id: 'domain-session-1',
+          prompt: rawConversation,
+        }),
+      ),
+      auditLog(
+        'audit-domain-start-2',
+        eventDetails({
+          event_name: 'thinktank.workflow.started',
+          workflow_type: 'domain-research',
+          subject_id: 'domain-session-2',
+          message: rawConversation,
+        }),
+      ),
+      auditLog(
+        'audit-domain-start-3',
+        eventDetails({
+          event_name: 'thinktank.workflow.started',
+          workflow_type: 'domain-research',
+          subject_id: 'domain-session-3',
+          content: rawConversation,
+        }),
+      ),
+      auditLog(
+        'audit-domain-start-4',
+        eventDetails({
+          event_name: 'thinktank.workflow.started',
+          workflow_type: 'domain-research',
+          subject_id: 'domain-session-4',
+        }),
+      ),
+      auditLog(
+        'audit-domain-complete-1',
+        eventDetails({
+          event_name: 'thinktank.workflow.completed',
+          workflow_type: 'domain-research',
+          subject_id: 'domain-session-1',
+        }),
+      ),
+      auditLog(
+        'audit-design-start-1',
+        eventDetails({
+          event_name: 'thinktank.workflow.started',
+          workflow_type: 'design-thinking',
+          subject_id: 'design-session-1',
+        }),
+      ),
+      auditLog(
+        'audit-design-complete-1',
+        eventDetails({
+          event_name: 'thinktank.workflow.completed',
+          workflow_type: 'design-thinking',
+          subject_id: 'design-session-1',
+        }),
+      ),
     ]
     const { service } = await instantiateService(rows)
 
-    const result = await service.getUsageDashboard({ tenantId, dateFrom, dateTo })
+    const result = await service.getUsageDashboard({ tenantId, dateFrom, dateTo, now: freshNow })
 
     expect(result.lowCompletionWorkflows).toEqual([
       expect.objectContaining({
@@ -203,7 +349,10 @@ describe('Story 6.1 Usage and Completion Dashboard backend service (ATDD RED)', 
     const staleRows = [
       auditLog(
         'audit-stale-start',
-        eventDetails({ event_name: 'thinktank.workflow.started', occurred_at: '2026-05-01T08:00:00.000Z' }),
+        eventDetails({
+          event_name: 'thinktank.workflow.started',
+          occurred_at: '2026-05-01T08:00:00.000Z',
+        }),
         { createdAt: new Date('2026-05-01T08:00:00.000Z') },
       ),
     ]
@@ -226,7 +375,10 @@ describe('Story 6.1 Usage and Completion Dashboard backend service (ATDD RED)', 
     expect(result.summary.measurementStatus).toBe('delayed')
     expect(result.instrumentationGaps).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ reason: 'telemetry_delayed', owner: 'thinktank_instrumentation' }),
+        expect.objectContaining({
+          reason: 'telemetry_delayed',
+          owner: 'thinktank_instrumentation',
+        }),
       ]),
     )
   })

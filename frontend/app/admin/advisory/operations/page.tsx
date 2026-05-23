@@ -35,6 +35,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
+  AdvisoryGovernanceEventTypeGroup,
+  AdvisoryGovernanceFilters,
+  AdvisoryGovernanceGroup,
+  AdvisoryGovernanceView,
   AdvisoryProviderTelemetryGroup,
   AdvisoryProviderTelemetryView,
   AdvisoryQualityFeedbackGroup,
@@ -45,6 +49,7 @@ import {
   AdvisoryOperationsUsageView,
   AdvisoryOperationsWorkflowUsage,
   fetchAdvisoryOperationsUsage,
+  fetchAdvisoryGovernanceReview,
   fetchAdvisoryProviderTelemetry,
   fetchAdvisoryQualityFeedback,
 } from '@/lib/advisory/operations'
@@ -56,18 +61,27 @@ const DEFAULT_FILTERS = {
   workflowType: 'all',
 }
 
+const DEFAULT_GOVERNANCE_FILTERS = {
+  actorId: '',
+  eventType: 'all',
+  outcome: 'all',
+}
+
 export default function AdvisoryOperationsPage() {
   const [dashboard, setDashboard] = useState<AdvisoryOperationsUsageView | null>(null)
   const [providerTelemetry, setProviderTelemetry] = useState<AdvisoryProviderTelemetryView | null>(
     null
   )
   const [qualityFeedback, setQualityFeedback] = useState<AdvisoryQualityFeedbackView | null>(null)
+  const [governanceReview, setGovernanceReview] = useState<AdvisoryGovernanceView | null>(null)
   const [filters, setFilters] = useState<Required<AdvisoryOperationsUsageFilters>>(DEFAULT_FILTERS)
+  const [governanceFilters, setGovernanceFilters] = useState(DEFAULT_GOVERNANCE_FILTERS)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [providerError, setProviderError] = useState<string | null>(null)
   const [qualityError, setQualityError] = useState<string | null>(null)
+  const [governanceError, setGovernanceError] = useState<string | null>(null)
   const [selectedWorkflow, setSelectedWorkflow] = useState<AdvisoryOperationsWorkflowUsage | null>(
     null
   )
@@ -91,6 +105,10 @@ export default function AdvisoryOperationsPage() {
   const qualityUnavailable = qualityFeedback?.freshness.status === 'unavailable'
   const qualityDelayed = qualityFeedback?.freshness.status === 'delayed'
   const qualityMetrics = qualityFeedback?.metrics ?? null
+  const governanceUnavailable = governanceReview?.freshness.status === 'unavailable'
+  const governanceDelayed = governanceReview?.freshness.status === 'delayed'
+  const governanceSourceUnavailable = Boolean(governanceError || governanceUnavailable)
+  const governanceMetrics = governanceReview?.metrics ?? null
   const qualityDistribution = qualityFeedback?.ratingDistribution ?? {
     recommendation: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
     report: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
@@ -116,6 +134,7 @@ export default function AdvisoryOperationsPage() {
     setError(null)
     setProviderError(null)
     setQualityError(null)
+    setGovernanceError(null)
 
     try {
       let providerFilters = nextFilters
@@ -177,6 +196,27 @@ export default function AdvisoryOperationsPage() {
             : 'Quality feedback unavailable. No trusted measurements are available.'
         )
       }
+
+      const governanceResult = await Promise.resolve(
+        fetchAdvisoryGovernanceReview({
+          ...providerFilters,
+          ...governanceFilters,
+          groupBy: ['eventType', 'outcome', 'actor', 'workflow'],
+        })
+      )
+        .then((value) => ({ status: 'fulfilled' as const, value }))
+        .catch((reason) => ({ status: 'rejected' as const, reason }))
+
+      if (governanceResult.status === 'fulfilled') {
+        setGovernanceReview(governanceResult.value)
+      } else {
+        setGovernanceReview(null)
+        setGovernanceError(
+          governanceResult.reason instanceof Error
+            ? governanceResult.reason.message
+            : 'Governance review unavailable. No trusted measurements are available.'
+        )
+      }
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -223,6 +263,29 @@ export default function AdvisoryOperationsPage() {
     }
   }
 
+  async function loadGovernanceOnly(
+    nextFilters: AdvisoryOperationsUsageFilters,
+    nextGovernanceFilters: Pick<AdvisoryGovernanceFilters, 'actorId' | 'eventType' | 'outcome'>
+  ) {
+    setGovernanceError(null)
+
+    try {
+      const loaded = await fetchAdvisoryGovernanceReview({
+        ...nextFilters,
+        ...nextGovernanceFilters,
+        groupBy: ['eventType', 'outcome', 'actor', 'workflow'],
+      })
+      setGovernanceReview(loaded)
+    } catch (loadError) {
+      setGovernanceReview(null)
+      setGovernanceError(
+        loadError instanceof Error
+          ? loadError.message
+          : 'Governance review unavailable. No trusted measurements are available.'
+      )
+    }
+  }
+
   async function loadUsageOnly(nextFilters: AdvisoryOperationsUsageFilters) {
     setError(null)
 
@@ -243,12 +306,17 @@ export default function AdvisoryOperationsPage() {
     setFilters((current) => ({ ...current, [key]: value }))
   }
 
+  function updateGovernanceFilter(key: keyof typeof DEFAULT_GOVERNANCE_FILTERS, value: string) {
+    setGovernanceFilters((current) => ({ ...current, [key]: value }))
+  }
+
   function applyFilters() {
     setRefreshing(true)
     Promise.allSettled([
       loadUsageOnly(filters),
       loadProviderTelemetryOnly(filters),
       loadQualityFeedbackOnly(filters),
+      loadGovernanceOnly(filters, governanceFilters),
     ]).finally(() => setRefreshing(false))
   }
 
@@ -360,12 +428,38 @@ export default function AdvisoryOperationsPage() {
           </Alert>
         )}
 
+        {(governanceError || governanceUnavailable) && (
+          <Alert variant="destructive" role="alert" aria-label="Governance review unavailable">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              {governanceError ??
+                `Governance review unavailable. ${
+                  governanceReview?.freshness.description ??
+                  'No trusted measurements are available; try again.'
+                }`}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {governanceDelayed && (
+          <Alert
+            role="alert"
+            className="border-amber-200 bg-amber-50 text-amber-900"
+            aria-label="Governance review delayed"
+          >
+            <Clock3 className="h-4 w-4" />
+            <AlertDescription>
+              Delayed governance review. Treat audit-derived governance summaries as partial.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Card variant="outlined" className="bg-white">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Filters</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-3 md:grid-cols-[1fr_160px_160px_1fr_auto] md:items-end">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_150px_150px_1fr_160px_180px_150px_auto] xl:items-end">
               <div className="space-y-1">
                 <Label htmlFor="operations-tenant">Tenant</Label>
                 <Select
@@ -420,6 +514,51 @@ export default function AdvisoryOperationsPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <Label htmlFor="operations-governance-actor">Actor</Label>
+                <Input
+                  id="operations-governance-actor"
+                  value={governanceFilters.actorId}
+                  onChange={(event) => updateGovernanceFilter('actorId', event.target.value)}
+                  placeholder="actor id"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="operations-governance-event-type">Event type</Label>
+                <Select
+                  value={governanceFilters.eventType}
+                  onValueChange={(value) => updateGovernanceFilter('eventType', value)}
+                >
+                  <SelectTrigger id="operations-governance-event-type" aria-label="Event type">
+                    <SelectValue placeholder="Event type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All events</SelectItem>
+                    <SelectItem value="thinktank.output.exported">Exported output</SelectItem>
+                    <SelectItem value="thinktank.access.denied">Access denied</SelectItem>
+                    <SelectItem value="thinktank.workflow.completed">Workflow completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="operations-governance-outcome">Outcome</Label>
+                <Select
+                  value={governanceFilters.outcome}
+                  onValueChange={(value) => updateGovernanceFilter('outcome', value)}
+                >
+                  <SelectTrigger id="operations-governance-outcome" aria-label="Outcome">
+                    <SelectValue placeholder="Outcome" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All outcomes</SelectItem>
+                    <SelectItem value="success">Success</SelectItem>
+                    <SelectItem value="denied">Denied</SelectItem>
+                    <SelectItem value="failure">Failure</SelectItem>
+                    <SelectItem value="blocked">Blocked</SelectItem>
+                    <SelectItem value="partial">Partial</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <Button type="button" onClick={applyFilters} disabled={refreshing}>
                 <Search className="mr-2 h-4 w-4" />
                 Apply filters
@@ -471,6 +610,224 @@ export default function AdvisoryOperationsPage() {
               </CardContent>
             </Card>
           )}
+        </section>
+
+        <section role="region" aria-label="Governance review">
+          <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Governance review</h2>
+              <p className="text-sm text-slate-600">
+                Audit-derived event summaries, AI label evidence, compliance issues, and
+                instrumentation gaps.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant={freshnessBadgeVariant(governanceReview?.freshness.status)}>
+                {freshnessLabel(governanceReview?.freshness.status)}
+              </Badge>
+              <span className="text-xs text-slate-500">
+                {governanceReview?.freshness.latestEventAt
+                  ? `last governance event ${formatDateTime(governanceReview.freshness.latestEventAt)}`
+                  : 'governance event unavailable'}
+              </span>
+            </div>
+          </div>
+
+          {governanceMetrics ? (
+            <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+                <MetricCard label="Trusted events" value={governanceMetrics.trustedEvents} />
+                <MetricCard label="Total events" value={governanceMetrics.totalEvents} />
+                <MetricCard label="Malformed events" value={governanceMetrics.malformedEvents} />
+                <MetricCard label="Denied actions" value={governanceMetrics.deniedActions} />
+                <MetricCard label="Exported outputs" value={governanceMetrics.exportedOutputs} />
+                <MetricCard
+                  label="Exports missing AI labels"
+                  value={governanceMetrics.exportsMissingAiLabelMetadata}
+                />
+                <MetricCard
+                  label="Compliance issues"
+                  value={governanceMetrics.complianceIssueCount}
+                />
+              </div>
+            </div>
+          ) : (
+            <Card variant="outlined" className="bg-white">
+              <CardContent className="py-5 text-sm text-slate-600">
+                No trusted governance measurements are available for this filter set.
+              </CardContent>
+            </Card>
+          )}
+        </section>
+
+        <Card variant="outlined" className="bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Governance events by event type</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table aria-label="Governance events by event type">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Event type</TableHead>
+                  <TableHead>Owner</TableHead>
+                  <TableHead className="text-right">Events</TableHead>
+                  <TableHead className="text-right">Denied</TableHead>
+                  <TableHead className="text-right">Failures</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {governanceReview?.byEventType.length ? (
+                  governanceReview.byEventType.map((group) => (
+                    <GovernanceEventTypeRow key={group.key} group={group} />
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-6 text-center text-sm text-slate-500">
+                      {governanceSourceUnavailable
+                        ? 'Governance source unavailable. Event groups cannot be determined.'
+                        : 'No trusted governance event groups are available.'}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-3 xl:grid-cols-3">
+          <GovernanceGroupTable
+            title="Governance by outcome"
+            ariaLabel="Governance events by outcome"
+            groups={governanceReview?.byOutcome ?? []}
+            unavailable={governanceSourceUnavailable}
+          />
+          <GovernanceGroupTable
+            title="Governance by actor"
+            ariaLabel="Governance events grouped by principal"
+            groups={governanceReview?.byActor ?? []}
+            unavailable={governanceSourceUnavailable}
+          />
+          <GovernanceGroupTable
+            title="Governance by workflow"
+            ariaLabel="Governance events by workflow"
+            groups={governanceReview?.byWorkflow ?? []}
+            unavailable={governanceSourceUnavailable}
+          />
+        </div>
+
+        <Card variant="outlined" className="bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Exported output AI labeling</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table aria-label="Exported output AI labeling">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Output</TableHead>
+                  <TableHead>Event</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {governanceReview?.exportedOutputs.length ? (
+                  governanceReview.exportedOutputs.map((output) => (
+                    <TableRow key={output.outputId}>
+                      <TableCell className="font-medium">{output.outputId}</TableCell>
+                      <TableCell>{output.eventName}</TableCell>
+                      <TableCell>
+                        {output.aiLabelMetadataPresent ? (
+                          <Badge variant="success">AI label metadata present</Badge>
+                        ) : (
+                          <Badge variant="warning">Missing AI label metadata</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="py-6 text-center text-sm text-slate-500">
+                      {governanceSourceUnavailable
+                        ? 'Governance source unavailable. Exported output evidence cannot be determined.'
+                        : 'No exported output governance events are available.'}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <section role="region" aria-label="Governance compliance issues">
+          <Card variant="outlined" className="bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Governance compliance issues</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {governanceReview?.complianceIssues.length ? (
+                <div className="space-y-2">
+                  {governanceReview.complianceIssues.map((issue) => (
+                    <div
+                      key={issue.id}
+                      className="rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+                    >
+                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="font-medium">{humanizeGapReason(issue.issueType)}</p>
+                          <p className="mt-1 text-amber-900">{issue.message}</p>
+                          <p className="mt-1 text-xs">
+                            {issue.eventName ?? 'event unavailable'} · {issue.owningArea} ·{' '}
+                            {issue.owningStory}
+                          </p>
+                        </div>
+                        <Badge variant="warning">Compliance issue</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-600">
+                  {governanceSourceUnavailable
+                    ? 'Governance source unavailable. Compliance issues cannot be determined.'
+                    : 'No governance compliance issues detected.'}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        <section role="region" aria-label="Governance evidence gaps">
+          <Card variant="outlined" className="bg-white">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Governance instrumentation gaps</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {governanceReview?.instrumentationGaps.length ? (
+                <div className="space-y-2">
+                  {governanceReview.instrumentationGaps.map((gap, index) => (
+                    <div
+                      key={`${gap.reason}-${gap.eventName ?? index}`}
+                      className="flex flex-col gap-1 rounded-sm border border-slate-200 px-3 py-2 text-sm md:flex-row md:items-center md:justify-between"
+                    >
+                      <div>
+                        <p className="font-medium">{humanizeGapReason(gap.reason)}</p>
+                        <p className="text-slate-600">
+                          {gap.eventName ?? 'event unavailable'} · {gap.owningArea} ·{' '}
+                          {gap.owningStory}
+                        </p>
+                      </div>
+                      <Badge variant="outline">{gap.count}</Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-600">
+                  {governanceSourceUnavailable
+                    ? 'Governance source unavailable. Instrumentation gaps cannot be determined.'
+                    : 'No governance instrumentation gaps detected.'}
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </section>
 
         <section role="region" aria-label="Quality feedback">
@@ -1085,6 +1442,75 @@ function QualityRecommendationTypeRow({
       <TableCell className="text-right">{formatRating(group.averageRating)}</TableCell>
       <TableCell className="text-right">{formatPercent(group.lowRatingRate)}</TableCell>
     </TableRow>
+  )
+}
+
+function GovernanceEventTypeRow({ group }: { group: AdvisoryGovernanceEventTypeGroup }) {
+  return (
+    <TableRow>
+      <TableCell className="font-medium">{group.key}</TableCell>
+      <TableCell>
+        <div className="flex flex-col">
+          <span>{group.owningArea ?? 'ThinkTank governance'}</span>
+          <span className="text-xs text-slate-500">{group.owningStory ?? '-'}</span>
+        </div>
+      </TableCell>
+      <TableCell className="text-right">{group.count}</TableCell>
+      <TableCell className="text-right">{group.deniedCount}</TableCell>
+      <TableCell className="text-right">{group.failureCount}</TableCell>
+    </TableRow>
+  )
+}
+
+function GovernanceGroupTable({
+  title,
+  ariaLabel,
+  groups,
+  unavailable,
+}: {
+  title: string
+  ariaLabel: string
+  groups: AdvisoryGovernanceGroup[]
+  unavailable: boolean
+}) {
+  return (
+    <Card variant="outlined" className="bg-white">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Table aria-label={ariaLabel}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Group</TableHead>
+              <TableHead className="text-right">Events</TableHead>
+              <TableHead className="text-right">Denied</TableHead>
+              <TableHead className="text-right">Exports</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {groups.length ? (
+              groups.map((group) => (
+                <TableRow key={group.key}>
+                  <TableCell className="font-medium">{group.label}</TableCell>
+                  <TableCell className="text-right">{group.count}</TableCell>
+                  <TableCell className="text-right">{group.deniedCount}</TableCell>
+                  <TableCell className="text-right">{group.exportedOutputCount}</TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={4} className="py-6 text-center text-sm text-slate-500">
+                  {unavailable
+                    ? 'Governance source unavailable. Grouped evidence cannot be determined.'
+                    : 'No trusted governance groups are available.'}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   )
 }
 

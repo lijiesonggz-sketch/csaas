@@ -1036,3 +1036,316 @@ test.describe('Story 6.4 - quality feedback dashboard E2E', () => {
     )
   })
 })
+
+const GOVERNANCE_API_PATTERN = '**/api/advisory/admin/operations/governance**'
+const GOVERNANCE_API_PATH = '/api/advisory/admin/operations/governance'
+
+function buildGovernanceResponse(
+  options: { freshnessStatus?: FreshnessStatus; includeRawPrivacyProbe?: boolean } = {}
+) {
+  const freshnessStatus = options.freshnessStatus ?? 'fresh'
+  const unavailable = freshnessStatus === 'unavailable'
+  const data: Record<string, unknown> = {
+    generatedAt: '2026-05-23T04:15:00.000Z',
+    appliedFilters: {
+      tenantId: 'tenant-alpha',
+      dateFrom: '2026-05-01T00:00:00.000Z',
+      dateTo: '2026-05-22T23:59:59.999Z',
+      workflowType: 'all',
+      actorId: 'all',
+      eventType: 'all',
+      outcome: 'all',
+      groupBy: ['eventType', 'outcome', 'actor', 'workflow'],
+    },
+    summary: unavailable
+      ? {
+          measurementStatus: 'unavailable',
+          totalEvents: null,
+          trustedEvents: null,
+          malformedEvents: null,
+          deniedActions: null,
+          exportedOutputs: null,
+          exportsMissingAiLabelMetadata: null,
+          complianceIssueCount: null,
+        }
+      : {
+          measurementStatus: freshnessStatus,
+          totalEvents: 18,
+          trustedEvents: 15,
+          malformedEvents: 3,
+          deniedActions: 2,
+          exportedOutputs: 3,
+          exportsMissingAiLabelMetadata: 1,
+          complianceIssueCount: 2,
+        },
+    byEventType: unavailable
+      ? []
+      : [
+          {
+            eventName: 'thinktank.output.exported',
+            count: 3,
+            successCount: 2,
+            deniedCount: 0,
+            owningArea: 'report export',
+            owningStory: 'Story 2.9 report export',
+          },
+          {
+            eventName: 'thinktank.access.denied',
+            count: 2,
+            successCount: 0,
+            deniedCount: 2,
+            owningArea: 'role access control',
+            owningStory: 'Story 1.4 event contract',
+          },
+        ],
+    byOutcome: unavailable
+      ? []
+      : [
+          { outcome: 'success', count: 12 },
+          { outcome: 'denied', count: 2 },
+        ],
+    byActor: unavailable
+      ? []
+      : [{ actorId: 'actor-42', count: 7, deniedCount: 1, exportedOutputCount: 2 }],
+    byWorkflow: unavailable
+      ? []
+      : [
+          {
+            workflowKey: 'problem-solving',
+            workflowLabel: 'Problem Solving',
+            count: 9,
+            deniedCount: 1,
+            exportedOutputCount: 2,
+          },
+        ],
+    exportedOutputs: unavailable
+      ? []
+      : [
+          {
+            outputId: 'output-safe-001',
+            eventName: 'thinktank.output.exported',
+            workflowKey: 'problem-solving',
+            aiLabelMetadataPresent: true,
+            complianceStatus: 'compliant',
+          },
+          {
+            outputId: 'output-safe-002',
+            eventName: 'thinktank.output.exported',
+            workflowKey: 'problem-solving',
+            aiLabelMetadataPresent: false,
+            complianceStatus: 'compliance_issue',
+          },
+        ],
+    complianceIssues: unavailable
+      ? []
+      : [
+          {
+            id: 'missing-ai-label-output-safe-002',
+            issueType: 'missing_ai_label_metadata',
+            eventName: 'thinktank.output.exported',
+            owningArea: 'report export',
+            owningStory: 'Story 2.9 report export',
+            message: 'AI label metadata missing for exported output output-safe-002.',
+          },
+        ],
+    instrumentationGaps: unavailable
+      ? [
+          {
+            eventName: 'audit_logs',
+            reason: 'governance_source_unavailable',
+            owningArea: 'audit logging',
+            owningStory: 'Story 1.4 event contract',
+            count: 1,
+          },
+        ]
+      : [
+          {
+            eventName: 'thinktank.workflow.completed',
+            reason: 'missing_required_field',
+            owningArea: 'workflow telemetry',
+            owningStory: 'Story 3.4 workflow completion',
+            count: 2,
+          },
+        ],
+    freshness: unavailable
+      ? {
+          source: 'audit_logs',
+          status: 'unavailable',
+          latestEventAt: null,
+          description:
+            'Governance review unavailable. No trusted governance measurements are available.',
+        }
+      : {
+          source: 'audit_logs',
+          status: freshnessStatus,
+          latestEventAt: '2026-05-22T08:10:00.000Z',
+          description: 'Governance review is current through audit_logs.',
+        },
+  }
+
+  if (options.includeRawPrivacyProbe) {
+    Object.assign(data, {
+      rawConversationContent: 'PRIVATE_CONVERSATION_DO_NOT_RENDER',
+      prompt: 'raw prompt',
+      reportContent: 'report content',
+      rawProviderPayload: 'provider payload',
+      cacheKey: 'cache key',
+    })
+  }
+
+  return { data }
+}
+
+async function mockGovernanceResponse(page: Page, responseBody: unknown, status = 200) {
+  await page.route(GOVERNANCE_API_PATTERN, async (route) => {
+    await route.fulfill({
+      status,
+      contentType: 'application/json',
+      body: JSON.stringify(responseBody),
+    })
+  })
+}
+
+async function openOperationsDashboardWithGovernance(
+  page: Page,
+  expectedStatuses: {
+    usage?: number
+    provider?: number
+    quality?: number
+    governance?: number
+  } = {}
+) {
+  const usageStatus = expectedStatuses.usage ?? 200
+  const providerStatus = expectedStatuses.provider ?? 200
+  const qualityStatus = expectedStatuses.quality ?? 200
+  const governanceStatus = expectedStatuses.governance ?? 200
+  const usageResponsePromise = page.waitForResponse(
+    (response) => response.url().includes(USAGE_API_PATH) && response.status() === usageStatus
+  )
+  const providerResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes(PROVIDER_TELEMETRY_API_PATH) && response.status() === providerStatus
+  )
+  const qualityResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes(QUALITY_FEEDBACK_API_PATH) && response.status() === qualityStatus
+  )
+  const governanceResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes(GOVERNANCE_API_PATH) && response.status() === governanceStatus
+  )
+
+  await page.goto('/admin/advisory/operations')
+  const [usageResponse, providerResponse, qualityResponse, governanceResponse] = await Promise.all([
+    usageResponsePromise,
+    providerResponsePromise,
+    qualityResponsePromise,
+    governanceResponsePromise,
+  ])
+
+  if (usageStatus < 400) expect(usageResponse.ok()).toBeTruthy()
+  if (providerStatus < 400) expect(providerResponse.ok()).toBeTruthy()
+  if (qualityStatus < 400) expect(qualityResponse.ok()).toBeTruthy()
+  if (governanceStatus < 400) expect(governanceResponse.ok()).toBeTruthy()
+}
+
+test.describe('Story 6.5 - governance review from audit and telemetry E2E (ATDD RED)', () => {
+  test('[6.5-E2E-001][P0][AC1,AC2,AC3,AC4] renders governance summaries compliance issues and instrumentation gaps without raw content', async ({
+    page,
+  }) => {
+    await mockAdminSession(page)
+    await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
+    await mockGovernanceResponse(page, buildGovernanceResponse({ includeRawPrivacyProbe: true }))
+
+    await openOperationsDashboardWithGovernance(page)
+
+    const governance = page.getByRole('region', { name: /Governance review/i })
+    await expect(governance).toContainText('Trusted events')
+    await expect(governance).toContainText('15')
+    await expect(governance).toContainText('Exports missing AI labels')
+    await expect(governance).toContainText('1')
+
+    await expect(
+      page.getByRole('table', { name: /Governance events by event type/i })
+    ).toContainText('thinktank.output.exported')
+    await expect(page.getByRole('table', { name: /Exported output AI labeling/i })).toContainText(
+      /Missing AI label metadata|Compliance issue/i
+    )
+    await expect(page.getByRole('region', { name: /Governance compliance issues/i })).toContainText(
+      'Story 2.9 report export'
+    )
+    await expect(page.getByRole('region', { name: /Governance evidence gaps/i })).toContainText(
+      'Story 3.4 workflow completion'
+    )
+    await expectRawPrivacyStringsHidden(page)
+    await expect(
+      page.getByText(/raw prompt|report content|provider payload|cache key/i)
+    ).toHaveCount(0)
+  })
+
+  test('[6.5-E2E-002][P0][AC1] applies shared and governance filters to the governance request query', async ({
+    page,
+  }) => {
+    await mockAdminSession(page)
+    await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
+    await mockGovernanceResponse(page, buildGovernanceResponse())
+    await openOperationsDashboardWithGovernance(page)
+
+    const filteredGovernanceRequestPromise = page.waitForRequest((request) => {
+      const url = new URL(request.url())
+      return (
+        url.pathname.includes(GOVERNANCE_API_PATH) &&
+        url.searchParams.get('tenantId') === 'tenant-beta' &&
+        url.searchParams.get('dateFrom') === '2026-05-01' &&
+        url.searchParams.get('dateTo') === '2026-05-22' &&
+        url.searchParams.get('workflowType') === 'problem-solving' &&
+        url.searchParams.get('actorId') === 'actor-42' &&
+        url.searchParams.get('eventType') === 'thinktank.output.exported' &&
+        url.searchParams.get('outcome') === 'denied'
+      )
+    })
+
+    await chooseComboboxOption(page, /Tenant/i, 'Tenant Beta')
+    await page.getByLabel(/Date from/i).fill('2026-05-01')
+    await page.getByLabel(/Date to/i).fill('2026-05-22')
+    await chooseComboboxOption(page, /Workflow type/i, 'Problem Solving')
+    await page.getByLabel(/Actor/i).fill('actor-42')
+    await chooseComboboxOption(page, /Event type/i, /Exported output|thinktank\.output\.exported/i)
+    await chooseComboboxOption(page, /Outcome/i, /Denied/i)
+    await page.getByRole('button', { name: /Apply filters/i }).click()
+
+    await filteredGovernanceRequestPromise
+  })
+
+  test('[6.5-E2E-003][P1][AC3,AC4] shows unavailable governance state without healthy zeroes or raw sentinels', async ({
+    page,
+  }) => {
+    await mockAdminSession(page)
+    await mockUsageResponse(page, buildUsageResponse())
+    await mockProviderTelemetryResponse(page, buildProviderTelemetryResponse())
+    await mockQualityFeedbackResponse(page, buildQualityFeedbackResponse())
+    await mockGovernanceResponse(
+      page,
+      buildGovernanceResponse({ freshnessStatus: 'unavailable', includeRawPrivacyProbe: true }),
+      503
+    )
+
+    await openOperationsDashboardWithGovernance(page, { governance: 503 })
+
+    const alert = page
+      .getByRole('alert')
+      .filter({ hasText: /Governance review unavailable|Governance data unavailable/i })
+    await expect(alert).toBeVisible()
+    await expect(alert).toContainText(/No trusted governance measurements|No trusted measurements/i)
+    await expect(page.getByText(/Trusted events\s+0/i)).toHaveCount(0)
+    await expect(page.getByText(/Compliance issues\s+0/i)).toHaveCount(0)
+    await expectRawPrivacyStringsHidden(page)
+    await expect(
+      page.getByText(/raw prompt|report content|provider payload|cache key/i)
+    ).toHaveCount(0)
+  })
+})

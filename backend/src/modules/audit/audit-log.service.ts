@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { AuditLog } from '../../database/entities/audit-log.entity'
+import { THINKTANK_GOVERNANCE_EVENT_NAMES } from '../advisory/events/thinktank-governance-events'
 
 export interface QueryAuditLogDto {
   limit?: number
@@ -20,6 +21,17 @@ export interface FindThinkTankProviderTelemetryEventsQuery {
   dateFrom: Date
   dateTo: Date
   eventNames?: readonly string[]
+}
+
+export interface FindThinkTankGovernanceEventsQuery {
+  tenantId: string
+  dateFrom: Date
+  dateTo: Date
+  eventNames?: readonly string[]
+  workflowType?: string | null
+  actorId?: string | null
+  eventType?: string | null
+  outcome?: string | null
 }
 
 const THINKTANK_PROVIDER_TELEMETRY_EVENT_NAMES = [
@@ -216,6 +228,30 @@ export class AuditLogService {
       .andWhere(
         "((audit.details ->> 'occurred_at' >= :dateFromIso AND audit.details ->> 'occurred_at' <= :dateToIso) OR (audit.details ->> 'occurredAt' >= :dateFromIso AND audit.details ->> 'occurredAt' <= :dateToIso) OR audit.createdAt BETWEEN :dateFrom AND :dateTo)",
         { dateFrom: query.dateFrom, dateTo: query.dateTo, dateFromIso, dateToIso },
+      )
+      .orderBy('audit.createdAt', 'ASC')
+      .getMany()
+  }
+
+  async findThinkTankGovernanceEvents(
+    query: FindThinkTankGovernanceEventsQuery,
+  ): Promise<AuditLog[]> {
+    const eventNames = query.eventNames?.length
+      ? [...query.eventNames]
+      : [...THINKTANK_GOVERNANCE_EVENT_NAMES]
+    const isoDatePattern =
+      '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$'
+
+    return this.auditLogRepository
+      .createQueryBuilder('audit')
+      .where('audit.tenantId = :tenantId', { tenantId: query.tenantId })
+      .andWhere(
+        "((audit.details ->> 'event_name' IN (:...eventNames) OR audit.details ->> 'eventName' IN (:...eventNames)) OR (audit.details ->> 'event_name') LIKE 'thinktank.%' OR (audit.details ->> 'eventName') LIKE 'thinktank.%' OR audit.entityType LIKE 'ThinkTank%')",
+        { eventNames },
+      )
+      .andWhere(
+        "((CASE WHEN (audit.details ->> 'occurred_at') ~ :isoDatePattern THEN (audit.details ->> 'occurred_at')::timestamptz ELSE NULL END) BETWEEN :dateFrom AND :dateTo OR (CASE WHEN (audit.details ->> 'occurredAt') ~ :isoDatePattern THEN (audit.details ->> 'occurredAt')::timestamptz ELSE NULL END) BETWEEN :dateFrom AND :dateTo OR audit.createdAt BETWEEN :dateFrom AND :dateTo)",
+        { dateFrom: query.dateFrom, dateTo: query.dateTo, isoDatePattern },
       )
       .orderBy('audit.createdAt', 'ASC')
       .getMany()

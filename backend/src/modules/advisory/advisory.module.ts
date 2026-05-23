@@ -35,6 +35,7 @@ import { AdvisoryOrganizationContextController } from './org-context/advisory-or
 import { AdvisoryOrganizationContextRepository } from './org-context/advisory-organization-context.repository'
 import { AdvisoryOrganizationContextService } from './org-context/advisory-organization-context.service'
 import { AdvisoryOperationsController } from './operations/advisory-operations.controller'
+import { AdvisoryGovernanceService } from './operations/advisory-governance.service'
 import { AdvisoryOperationsService } from './operations/advisory-operations.service'
 import { AdvisoryQualityFeedbackService } from './operations/advisory-quality-feedback.service'
 import { AdvisoryProviderTelemetryService } from './operations/advisory-provider-telemetry.service'
@@ -118,6 +119,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryOrganizationContextRepository,
     AdvisoryOrganizationContextService,
     AdvisoryOperationsService,
+    AdvisoryGovernanceService,
     AdvisoryQualityFeedbackService,
     AdvisoryProviderTelemetryService,
     AdvisoryConversationMessageRepository,
@@ -181,6 +183,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     AdvisoryOrganizationContextRepository,
     AdvisoryOrganizationContextService,
     AdvisoryOperationsService,
+    AdvisoryGovernanceService,
     AdvisoryQualityFeedbackService,
     AdvisoryProviderTelemetryService,
     AdvisoryConversationMessageRepository,

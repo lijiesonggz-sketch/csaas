@@ -1,0 +1,178 @@
+{
+  "phase": "PHASE_1_COMPLETE",
+  "generated_at": "2026-05-23T21:57:26+08:00",
+  "story_id": "6-5-governance-review-from-audit-and-telemetry",
+  "requirements": [
+    {
+      "id": "AC1",
+      "description": "Operators can filter and inspect governance event summaries by tenant, actor, event type, outcome, and date while raw conversation content is excluded by default.",
+      "priority": "P0",
+      "coverage": "FULL",
+      "test_level": ["Unit", "Integration", "API", "Component", "E2E"],
+      "tests": [
+        "6.5-BE-001",
+        "6.5-BE-005",
+        "6.5-BE-007",
+        "6.5-BE-008",
+        "6.5-BE-009",
+        "6.5-BE-010",
+        "6.5-BE-011",
+        "6.5-INT-001",
+        "6.5-INT-002",
+        "6.5-INT-003",
+        "6.5-API-001",
+        "6.5-API-002",
+        "6.5-API-003",
+        "6.5-API-004",
+        "6.5-API-005",
+        "6.5-FE-001",
+        "6.5-FE-003",
+        "6.5-FE-004",
+        "6.5-PROXY-001",
+        "6.5-PROXY-002",
+        "6.5-PROXY-003",
+        "6.5-PROXY-004",
+        "6.5-COMP-001",
+        "6.5-E2E-001",
+        "6.5-E2E-002"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_authz_coverage": "positive and negative paths present",
+        "error_path_coverage": "validation, duplicate query, unsafe filter, non-2xx, unavailable, tenant mismatch, and privacy paths present"
+      }
+    },
+    {
+      "id": "AC2",
+      "description": "Exported-output governance events indicate whether AI labeling metadata was present, and missing labeling metadata is surfaced as a compliance issue.",
+      "priority": "P0",
+      "coverage": "FULL",
+      "test_level": ["Unit", "API", "Component", "E2E"],
+      "tests": [
+        "6.5-BE-002",
+        "6.5-BE-009",
+        "6.5-API-001",
+        "6.5-FE-001",
+        "6.5-FE-005",
+        "6.5-COMP-001",
+        "6.5-E2E-001"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_authz_coverage": "covered through the guarded governance endpoint",
+        "error_path_coverage": "missing, false, and unknown compliance status paths present"
+      }
+    },
+    {
+      "id": "AC3",
+      "description": "Missing governance event types are shown as explicit instrumentation gaps traceable to the owning feature area.",
+      "priority": "P1",
+      "coverage": "FULL",
+      "test_level": ["Unit", "Integration", "API", "Component", "E2E"],
+      "tests": [
+        "6.5-BE-003",
+        "6.5-BE-004",
+        "6.5-BE-006",
+        "6.5-BE-008",
+        "6.5-INT-001",
+        "6.5-API-001",
+        "6.5-API-003",
+        "6.5-PROXY-002",
+        "6.5-FE-001",
+        "6.5-FE-002",
+        "6.5-COMP-001",
+        "6.5-COMP-002",
+        "6.5-E2E-001",
+        "6.5-E2E-003"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_authz_coverage": "covered through guarded endpoint and tenant rejection",
+        "error_path_coverage": "missing event, unknown event, audit source unavailable, malformed date, and no-misleading-zero paths present"
+      }
+    },
+    {
+      "id": "AC4",
+      "description": "Missing or malformed audit and telemetry events are mapped to owning event names and feature stories where possible, while raw conversation content remains excluded by default.",
+      "priority": "P0",
+      "coverage": "FULL",
+      "test_level": ["Unit", "Integration", "API", "Component", "E2E"],
+      "tests": [
+        "6.5-BE-003",
+        "6.5-BE-007",
+        "6.5-BE-008",
+        "6.5-BE-009",
+        "6.5-BE-011",
+        "6.5-INT-002",
+        "6.5-INT-003",
+        "6.5-API-001",
+        "6.5-API-005",
+        "6.5-PROXY-003",
+        "6.5-FE-001",
+        "6.5-FE-003",
+        "6.5-COMP-001",
+        "6.5-E2E-001",
+        "6.5-E2E-003"
+      ],
+      "heuristics": {
+        "endpoint_coverage": "present",
+        "auth_authz_coverage": "covered through guarded endpoint, service role gate, and tenant row boundary",
+        "error_path_coverage": "wrong version, missing fields, non-operational privacy classification, invalid dates, tenant mismatch, unknown event names, unsafe payload keys, unsafe filters, and unavailable source paths present"
+      }
+    }
+  ],
+  "coverage_statistics": {
+    "total_requirements": 4,
+    "fully_covered": 4,
+    "partially_covered": 0,
+    "uncovered": 0,
+    "overall_coverage_percentage": 100,
+    "priority_breakdown": {
+      "P0": {
+        "total": 3,
+        "covered": 3,
+        "percentage": 100
+      },
+      "P1": {
+        "total": 1,
+        "covered": 1,
+        "percentage": 100
+      },
+      "P2": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      },
+      "P3": {
+        "total": 0,
+        "covered": 0,
+        "percentage": 100
+      }
+    }
+  },
+  "gap_analysis": {
+    "critical_gaps": [],
+    "high_gaps": [],
+    "medium_gaps": [],
+    "low_gaps": [],
+    "partial_coverage_items": [],
+    "unit_only_items": []
+  },
+  "coverage_heuristics": {
+    "endpoint_gaps": [],
+    "auth_negative_path_gaps": [],
+    "happy_path_only_gaps": [],
+    "counts": {
+      "endpoints_without_tests": 0,
+      "auth_missing_negative_paths": 0,
+      "happy_path_only_criteria": 0
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "LOW",
+      "action": "Keep the Story 6.5 governance service, API, proxy, page, and E2E coverage in the Epic 6 regression set.",
+      "requirements": ["AC1", "AC2", "AC3", "AC4"]
+    }
+  ]
+}

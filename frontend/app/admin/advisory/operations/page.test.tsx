@@ -6,6 +6,7 @@ jest.mock('@/lib/advisory/operations', () => ({
   fetchAdvisoryOperationsUsage: jest.fn(),
   fetchAdvisoryProviderTelemetry: jest.fn(),
   fetchAdvisoryQualityFeedback: jest.fn(),
+  fetchAdvisoryGovernanceReview: jest.fn(),
 }))
 
 const dashboard = {
@@ -296,6 +297,44 @@ const qualityFeedbackDashboard = {
   ],
 }
 
+const governanceDashboard = {
+  generatedAt: '2026-05-23T04:15:00.000Z',
+  filters: {
+    selected: {
+      tenantId: 'tenant-alpha',
+      dateFrom: '2026-05-01',
+      dateTo: '2026-05-22',
+      workflowType: 'all',
+      actorId: '',
+      eventType: 'all',
+      outcome: 'all',
+      groupBy: ['eventType', 'outcome', 'actor', 'workflow'],
+    },
+  },
+  freshness: {
+    source: 'audit_logs',
+    status: 'fresh',
+    latestEventAt: '2026-05-22T08:10:00.000Z',
+    description: 'Governance review is current.',
+  },
+  metrics: {
+    totalEvents: 0,
+    trustedEvents: 0,
+    malformedEvents: 0,
+    deniedActions: 0,
+    exportedOutputs: 0,
+    exportsMissingAiLabelMetadata: 0,
+    complianceIssueCount: 0,
+  },
+  byEventType: [],
+  byOutcome: [],
+  byActor: [],
+  byWorkflow: [],
+  exportedOutputs: [],
+  complianceIssues: [],
+  instrumentationGaps: [],
+}
+
 describe('AdvisoryOperationsPage', () => {
   const mockFetchUsage = fetchAdvisoryOperationsUsage as jest.MockedFunction<
     typeof fetchAdvisoryOperationsUsage
@@ -310,12 +349,18 @@ describe('AdvisoryOperationsPage', () => {
       fetchAdvisoryQualityFeedback: jest.Mock
     }
   ).fetchAdvisoryQualityFeedback
+  const mockFetchGovernanceReview = (
+    jest.requireMock('@/lib/advisory/operations') as {
+      fetchAdvisoryGovernanceReview: jest.Mock
+    }
+  ).fetchAdvisoryGovernanceReview
 
   beforeEach(() => {
     jest.clearAllMocks()
     mockFetchUsage.mockResolvedValue(dashboard)
     mockFetchProviderTelemetry.mockResolvedValue(providerTelemetryDashboard)
     mockFetchQualityFeedback.mockResolvedValue(qualityFeedbackDashboard)
+    mockFetchGovernanceReview.mockResolvedValue(governanceDashboard)
   })
 
   it('renders filters, usage metrics, workflow table, freshness, and instrumentation gaps', async () => {

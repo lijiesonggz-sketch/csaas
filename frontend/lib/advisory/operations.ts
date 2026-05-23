@@ -25,6 +25,15 @@ export interface AdvisoryQualityFeedbackFilters extends AdvisoryOperationsUsageF
   timeBucket?: AdvisoryQualityFeedbackTimeBucket
 }
 
+export type AdvisoryGovernanceGroupBy = 'eventType' | 'outcome' | 'actor' | 'workflow'
+
+export interface AdvisoryGovernanceFilters extends AdvisoryOperationsUsageFilters {
+  actorId?: string
+  eventType?: string
+  outcome?: string
+  groupBy?: AdvisoryGovernanceGroupBy[]
+}
+
 export interface AdvisoryOperationsFilterOption {
   id?: string
   key?: string
@@ -218,6 +227,79 @@ export interface AdvisoryQualityFeedbackView {
   instrumentationGaps: AdvisoryOperationsInstrumentationGap[]
 }
 
+export interface AdvisoryGovernanceMetrics {
+  totalEvents: number
+  trustedEvents: number
+  malformedEvents: number
+  deniedActions: number
+  exportedOutputs: number
+  exportsMissingAiLabelMetadata: number
+  complianceIssueCount: number
+}
+
+export interface AdvisoryGovernanceGroup {
+  key: string
+  label: string
+  count: number
+  deniedCount: number
+  exportedOutputCount: number
+  owningArea?: string
+  owningStory?: string
+  measurementStatus: AdvisoryOperationsFreshnessStatus
+}
+
+export interface AdvisoryGovernanceEventTypeGroup extends AdvisoryGovernanceGroup {
+  successCount: number
+  failureCount: number
+  blockedCount: number
+  partialCount: number
+}
+
+export interface AdvisoryGovernanceExportedOutput {
+  outputId: string
+  eventName: string
+  aiLabelMetadataPresent: boolean
+  complianceStatus: 'compliant' | 'compliance_issue'
+}
+
+export interface AdvisoryGovernanceComplianceIssue {
+  id: string
+  issueType: string
+  eventName: string | null
+  owningArea: string
+  owningStory: string
+  message: string
+}
+
+export interface AdvisoryGovernanceInstrumentationGap {
+  eventName: string | null
+  reason: string
+  owningArea: string
+  owningStory: string
+  count: number
+}
+
+export interface AdvisoryGovernanceView {
+  generatedAt: string | null
+  filters: {
+    selected: Required<AdvisoryGovernanceFilters>
+  }
+  freshness: {
+    source: string
+    status: AdvisoryOperationsFreshnessStatus
+    latestEventAt: string | null
+    description: string
+  }
+  metrics: AdvisoryGovernanceMetrics | null
+  byEventType: AdvisoryGovernanceEventTypeGroup[]
+  byOutcome: AdvisoryGovernanceGroup[]
+  byActor: AdvisoryGovernanceGroup[]
+  byWorkflow: AdvisoryGovernanceGroup[]
+  exportedOutputs: AdvisoryGovernanceExportedOutput[]
+  complianceIssues: AdvisoryGovernanceComplianceIssue[]
+  instrumentationGaps: AdvisoryGovernanceInstrumentationGap[]
+}
+
 type JsonRecord = Record<string, unknown>
 
 const DEFAULT_SELECTED_FILTERS = {
@@ -237,6 +319,14 @@ const DEFAULT_QUALITY_SELECTED_FILTERS: Required<AdvisoryQualityFeedbackFilters>
   recommendationType: 'all',
   groupBy: ['workflow', 'recommendationType'],
   timeBucket: 'day',
+}
+
+const DEFAULT_GOVERNANCE_SELECTED_FILTERS: Required<AdvisoryGovernanceFilters> = {
+  ...DEFAULT_SELECTED_FILTERS,
+  actorId: '',
+  eventType: 'all',
+  outcome: 'all',
+  groupBy: ['eventType', 'outcome', 'actor', 'workflow'],
 }
 
 const PROVIDER_TELEMETRY_THRESHOLDS = {
@@ -335,6 +425,33 @@ export async function fetchAdvisoryQualityFeedback(
   }
 
   return normalizeAdvisoryQualityFeedback(data)
+}
+
+export async function fetchAdvisoryGovernanceReview(
+  filters: AdvisoryGovernanceFilters = {}
+): Promise<AdvisoryGovernanceView> {
+  const headers = await getAuthHeadersAsync()
+  const query = buildGovernanceQuery(filters)
+  const response = await fetch(`/api/advisory/admin/operations/governance${query}`, {
+    headers,
+    cache: 'no-store',
+  })
+  const body = await response.json().catch(() => null)
+  const data = unwrapAdvisoryEnvelope<unknown>(body)
+  const errorMessage = sanitizeGovernanceText(
+    readAdvisoryMessage(body),
+    'Governance review unavailable. No trusted measurements are available.'
+  )
+
+  if (!response.ok) {
+    throw new Error(errorMessage)
+  }
+
+  if (!data) {
+    throw new Error('Governance review unavailable. No trusted measurements are available.')
+  }
+
+  return normalizeAdvisoryGovernanceReview(data)
 }
 
 export function normalizeAdvisoryOperationsUsage(data: unknown): AdvisoryOperationsUsageView {
@@ -448,6 +565,29 @@ export function normalizeAdvisoryQualityFeedback(data: unknown): AdvisoryQuality
   }
 }
 
+export function normalizeAdvisoryGovernanceReview(data: unknown): AdvisoryGovernanceView {
+  const record = asRecord(data)
+  const selected = normalizeGovernanceSelectedFilters(record)
+  const freshness = normalizeGovernanceFreshness(record)
+  const summary = asRecord(record.summary)
+  const measurementStatus = readFreshnessStatus(summary.measurementStatus, freshness.status)
+  const unavailable = freshness.status === 'unavailable' || measurementStatus === 'unavailable'
+
+  return {
+    generatedAt: readString(record.generatedAt),
+    filters: { selected },
+    freshness,
+    metrics: unavailable ? null : normalizeGovernanceMetrics(record),
+    byEventType: unavailable ? [] : normalizeGovernanceEventTypeGroups(record),
+    byOutcome: unavailable ? [] : normalizeGovernanceOutcomeGroups(record),
+    byActor: unavailable ? [] : normalizeGovernanceActorGroups(record),
+    byWorkflow: unavailable ? [] : normalizeGovernanceWorkflowGroups(record),
+    exportedOutputs: unavailable ? [] : normalizeGovernanceExportedOutputs(record),
+    complianceIssues: normalizeGovernanceComplianceIssues(record),
+    instrumentationGaps: normalizeGovernanceInstrumentationGaps(record),
+  }
+}
+
 function buildOperationsUsageQuery(filters: AdvisoryOperationsUsageFilters) {
   const params = new URLSearchParams()
   appendIfPresent(params, 'tenantId', filters.tenantId)
@@ -488,8 +628,32 @@ function buildQualityFeedbackQuery(filters: AdvisoryQualityFeedbackFilters) {
   return query ? `?${query}` : ''
 }
 
+function buildGovernanceQuery(filters: AdvisoryGovernanceFilters) {
+  const params = new URLSearchParams()
+  appendGovernanceFilter(params, 'tenantId', filters.tenantId)
+  appendGovernanceFilter(params, 'dateFrom', filters.dateFrom)
+  appendGovernanceFilter(params, 'dateTo', filters.dateTo)
+  appendGovernanceFilter(params, 'workflowType', filters.workflowType)
+  appendGovernanceFilter(params, 'actorId', filters.actorId)
+  appendGovernanceFilter(params, 'eventType', filters.eventType)
+  appendGovernanceFilter(params, 'outcome', filters.outcome)
+
+  const groupBy = normalizeGovernanceGroupBy(filters.groupBy)
+  if (groupBy.length) params.set('groupBy', groupBy.join(','))
+
+  const query = params.toString()
+  return query ? `?${query}` : ''
+}
+
 function appendIfPresent(params: URLSearchParams, key: string, value: string | undefined) {
   if (value && value.trim() && value.trim() !== 'current') params.set(key, value.trim())
+}
+
+function appendGovernanceFilter(params: URLSearchParams, key: string, value: string | undefined) {
+  const text = value?.trim()
+  if (text && text !== 'current' && text !== 'all' && isSafeGovernanceClientFilter(text)) {
+    params.set(key, text)
+  }
 }
 
 function normalizeSelectedFilters(record: JsonRecord): Required<AdvisoryOperationsUsageFilters> {
@@ -570,6 +734,43 @@ function normalizeQualitySelectedFilters(
       normalizeQualityTimeBucket(selected.timeBucket) ??
       normalizeQualityTimeBucket(applied.timeBucket) ??
       DEFAULT_QUALITY_SELECTED_FILTERS.timeBucket,
+  }
+}
+
+function normalizeGovernanceSelectedFilters(
+  record: JsonRecord
+): Required<AdvisoryGovernanceFilters> {
+  const filters = asRecord(record.filters)
+  const selected = asRecord(filters.selected)
+  const applied = asRecord(record.appliedFilters)
+
+  return {
+    tenantId:
+      readString(selected.tenantId) ??
+      readString(applied.tenantId) ??
+      DEFAULT_GOVERNANCE_SELECTED_FILTERS.tenantId,
+    dateFrom: toDateInput(readString(selected.dateFrom) ?? readString(applied.dateFrom)),
+    dateTo: toDateInput(readString(selected.dateTo) ?? readString(applied.dateTo)),
+    workflowType:
+      readString(selected.workflowType) ??
+      readString(applied.workflowType) ??
+      DEFAULT_GOVERNANCE_SELECTED_FILTERS.workflowType,
+    actorId:
+      sanitizeOptionalGovernanceText(readString(selected.actorId) ?? readString(applied.actorId)) ??
+      DEFAULT_GOVERNANCE_SELECTED_FILTERS.actorId,
+    eventType:
+      sanitizeOptionalGovernanceText(
+        readString(selected.eventType) ?? readString(applied.eventType)
+      ) ?? DEFAULT_GOVERNANCE_SELECTED_FILTERS.eventType,
+    outcome:
+      sanitizeOptionalGovernanceText(readString(selected.outcome) ?? readString(applied.outcome)) ??
+      DEFAULT_GOVERNANCE_SELECTED_FILTERS.outcome,
+    groupBy:
+      normalizeGovernanceGroupBy(selected.groupBy).length > 0
+        ? normalizeGovernanceGroupBy(selected.groupBy)
+        : normalizeGovernanceGroupBy(applied.groupBy).length > 0
+          ? normalizeGovernanceGroupBy(applied.groupBy)
+          : DEFAULT_GOVERNANCE_SELECTED_FILTERS.groupBy,
   }
 }
 
@@ -667,6 +868,22 @@ function normalizeQualityFreshness(record: JsonRecord): AdvisoryQualityFeedbackV
       status === 'fresh'
         ? 'Quality feedback is current.'
         : 'Quality feedback unavailable. No trusted measurements are available.'
+    ),
+  }
+}
+
+function normalizeGovernanceFreshness(record: JsonRecord): AdvisoryGovernanceView['freshness'] {
+  const freshness = asRecord(record.freshness)
+  const status = readFreshnessStatus(freshness.status)
+  return {
+    source: sanitizeGovernanceText(readString(freshness.source), 'audit_logs'),
+    status,
+    latestEventAt: readString(freshness.latestEventAt) ?? readString(freshness.lastEventAt),
+    description: sanitizeGovernanceText(
+      readString(freshness.description) ?? readString(freshness.message),
+      status === 'fresh'
+        ? 'Governance review is current.'
+        : 'Governance review unavailable. No trusted measurements are available.'
     ),
   }
 }
@@ -787,6 +1004,25 @@ function normalizeQualityMetrics(record: JsonRecord): AdvisoryQualityFeedbackMet
     feedbackTextUnavailableReason: sanitizeOptionalQualityText(
       readString(summary.feedbackTextUnavailableReason)
     ),
+  }
+}
+
+function normalizeGovernanceMetrics(record: JsonRecord): AdvisoryGovernanceMetrics | null {
+  const summary = asRecord(record.summary)
+  if (!Object.keys(summary).length) return null
+
+  const measurementStatus = readString(summary.measurementStatus)
+  const freshnessStatus = readString(asRecord(record.freshness).status)
+  if (measurementStatus === 'unavailable' || freshnessStatus === 'unavailable') return null
+
+  return {
+    totalEvents: readNumber(summary.totalEvents),
+    trustedEvents: readNumber(summary.trustedEvents),
+    malformedEvents: readNumber(summary.malformedEvents),
+    deniedActions: readNumber(summary.deniedActions),
+    exportedOutputs: readNumber(summary.exportedOutputs),
+    exportsMissingAiLabelMetadata: readNumber(summary.exportsMissingAiLabelMetadata),
+    complianceIssueCount: readNumber(summary.complianceIssueCount),
   }
 }
 
@@ -936,6 +1172,138 @@ function normalizeQualityLowQualityTrends(record: JsonRecord): AdvisoryQualityLo
       ),
       sampleSize: readNumber(trend.sampleSize),
       severity: 'warning',
+    }
+  })
+}
+
+function normalizeGovernanceEventTypeGroups(
+  record: JsonRecord
+): AdvisoryGovernanceEventTypeGroup[] {
+  const groups = Array.isArray(record.byEventType) ? record.byEventType : []
+  return groups.map((item) => {
+    const group = asRecord(item)
+    const key = sanitizeGovernanceGroupKey(
+      readString(group.eventName) ?? readString(group.eventType),
+      'unknown-event'
+    )
+    return {
+      key,
+      label: sanitizeGovernanceText(readString(group.label), key),
+      count: readNumber(group.count),
+      successCount: readNumber(group.successCount),
+      failureCount: readNumber(group.failureCount),
+      deniedCount: readNumber(group.deniedCount),
+      blockedCount: readNumber(group.blockedCount),
+      partialCount: readNumber(group.partialCount),
+      exportedOutputCount: readNumber(group.exportedOutputCount),
+      owningArea:
+        sanitizeOptionalGovernanceText(
+          readString(group.owningArea) ?? readString(group.owningFeatureArea)
+        ) ?? undefined,
+      owningStory: sanitizeOptionalGovernanceText(readString(group.owningStory)) ?? undefined,
+      measurementStatus: readFreshnessStatus(group.measurementStatus),
+    }
+  })
+}
+
+function normalizeGovernanceOutcomeGroups(record: JsonRecord): AdvisoryGovernanceGroup[] {
+  const groups = Array.isArray(record.byOutcome) ? record.byOutcome : []
+  return groups.map((item) => {
+    const group = asRecord(item)
+    const key = sanitizeGovernanceGroupKey(readString(group.outcome), 'unknown-outcome')
+    return {
+      key,
+      label: sanitizeGovernanceText(readString(group.label), key),
+      count: readNumber(group.count),
+      deniedCount: key === 'denied' ? readNumber(group.count) : readNumber(group.deniedCount),
+      exportedOutputCount: readNumber(group.exportedOutputCount),
+      measurementStatus: readFreshnessStatus(group.measurementStatus),
+    }
+  })
+}
+
+function normalizeGovernanceActorGroups(record: JsonRecord): AdvisoryGovernanceGroup[] {
+  const groups = Array.isArray(record.byActor) ? record.byActor : []
+  return groups.map((item) => {
+    const group = asRecord(item)
+    const key = sanitizeGovernanceGroupKey(readString(group.actorId), 'redacted-actor')
+    return {
+      key,
+      label: sanitizeGovernanceText(readString(group.label), key),
+      count: readNumber(group.count),
+      deniedCount: readNumber(group.deniedCount),
+      exportedOutputCount: readNumber(group.exportedOutputCount),
+      measurementStatus: readFreshnessStatus(group.measurementStatus),
+    }
+  })
+}
+
+function normalizeGovernanceWorkflowGroups(record: JsonRecord): AdvisoryGovernanceGroup[] {
+  const groups = Array.isArray(record.byWorkflow) ? record.byWorkflow : []
+  return groups.map((item) => {
+    const group = asRecord(item)
+    const key = sanitizeGovernanceGroupKey(readString(group.workflowKey), 'unknown-workflow')
+    return {
+      key,
+      label: sanitizeGovernanceText(
+        readString(group.workflowLabel) ?? readString(group.label),
+        key
+      ),
+      count: readNumber(group.count),
+      deniedCount: readNumber(group.deniedCount),
+      exportedOutputCount: readNumber(group.exportedOutputCount),
+      measurementStatus: readFreshnessStatus(group.measurementStatus),
+    }
+  })
+}
+
+function normalizeGovernanceExportedOutputs(
+  record: JsonRecord
+): AdvisoryGovernanceExportedOutput[] {
+  const outputs = Array.isArray(record.exportedOutputs) ? record.exportedOutputs : []
+  return outputs.map((item, index) => {
+    const output = asRecord(item)
+    const aiLabelMetadataPresent = output.aiLabelMetadataPresent === true
+    const complianceStatus =
+      output.complianceStatus === 'compliant' && aiLabelMetadataPresent
+        ? 'compliant'
+        : 'compliance_issue'
+    return {
+      outputId:
+        sanitizeOptionalGovernanceText(readString(output.outputId)) ??
+        `output-${String(index + 1).padStart(2, '0')}`,
+      eventName:
+        sanitizeOptionalGovernanceText(readString(output.eventName)) ?? 'thinktank.output.exported',
+      aiLabelMetadataPresent,
+      complianceStatus,
+    }
+  })
+}
+
+function normalizeGovernanceComplianceIssues(
+  record: JsonRecord
+): AdvisoryGovernanceComplianceIssue[] {
+  const issues = Array.isArray(record.complianceIssues) ? record.complianceIssues : []
+  return issues.map((item, index) => {
+    const issue = asRecord(item)
+    return {
+      id:
+        sanitizeOptionalGovernanceText(readString(issue.id)) ??
+        `governance-issue-${String(index + 1).padStart(2, '0')}`,
+      issueType: sanitizeGovernanceText(readString(issue.issueType), 'governance_issue'),
+      eventName: sanitizeOptionalGovernanceText(readString(issue.eventName)),
+      owningArea: sanitizeGovernanceText(
+        readString(issue.owningArea) ?? readString(issue.owningFeatureArea),
+        'ThinkTank governance'
+      ),
+      owningStory: sanitizeGovernanceText(
+        readString(issue.owningStory),
+        'Owning story unavailable'
+      ),
+      message: sanitizeGovernanceText(
+        readString(issue.message),
+        'Governance compliance issue requires review.'
+      ),
     }
   })
 }
@@ -1212,6 +1580,25 @@ function normalizeQualityInstrumentationGaps(
   })
 }
 
+function normalizeGovernanceInstrumentationGaps(
+  record: JsonRecord
+): AdvisoryGovernanceInstrumentationGap[] {
+  const gaps = Array.isArray(record.instrumentationGaps) ? record.instrumentationGaps : []
+  return gaps.map((item) => {
+    const gap = asRecord(item)
+    return {
+      eventName: sanitizeOptionalGovernanceText(readString(gap.eventName)),
+      reason: sanitizeGovernanceText(readString(gap.reason), 'unknown_gap'),
+      owningArea: sanitizeGovernanceText(
+        readString(gap.owningArea) ?? readString(gap.owningFeatureArea) ?? readString(gap.owner),
+        'ThinkTank governance'
+      ),
+      owningStory: sanitizeGovernanceText(readString(gap.owningStory), 'Owning story unavailable'),
+      count: readNumber(gap.count) || 1,
+    }
+  })
+}
+
 function normalizeGroupBy(value: unknown): AdvisoryProviderTelemetryGroupBy[] {
   const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : []
   const allowed = new Set<AdvisoryProviderTelemetryGroupBy>(['workflow', 'experience', 'provider'])
@@ -1236,6 +1623,17 @@ function normalizeQualityGroupBy(value: unknown): AdvisoryQualityFeedbackGroupBy
     .map((item) => (typeof item === 'string' ? item.trim() : ''))
     .filter((item): item is AdvisoryQualityFeedbackGroupBy =>
       allowed.has(item as AdvisoryQualityFeedbackGroupBy)
+    )
+}
+
+function normalizeGovernanceGroupBy(value: unknown): AdvisoryGovernanceGroupBy[] {
+  const raw = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : []
+  const allowed = new Set<AdvisoryGovernanceGroupBy>(['eventType', 'outcome', 'actor', 'workflow'])
+
+  return raw
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item): item is AdvisoryGovernanceGroupBy =>
+      allowed.has(item as AdvisoryGovernanceGroupBy)
     )
 }
 
@@ -1337,6 +1735,11 @@ function sanitizeQualityGroupKey(value: string | null, fallback: string): string
   return value
 }
 
+function sanitizeGovernanceGroupKey(value: string | null, fallback: string): string {
+  if (!value || containsRawGovernanceText(value)) return fallback
+  return value
+}
+
 function sanitizeOptionalOperationalText(value: string | null): string | null {
   if (!value) return null
   return containsRawSensitiveText(value) ? null : value
@@ -1345,6 +1748,11 @@ function sanitizeOptionalOperationalText(value: string | null): string | null {
 function sanitizeOptionalQualityText(value: string | null): string | null {
   if (!value) return null
   return containsRawQualityText(value) ? null : value
+}
+
+function sanitizeOptionalGovernanceText(value: string | null): string | null {
+  if (!value) return null
+  return containsRawGovernanceText(value) ? null : value
 }
 
 function sanitizeOperationalText(value: string | null, fallback: string): string {
@@ -1357,6 +1765,19 @@ function sanitizeQualityOperationalText(value: string | null, fallback: string):
   return value
 }
 
+function sanitizeGovernanceText(value: string | null, fallback: string): string {
+  if (!value || containsRawGovernanceText(value)) return fallback
+  return value
+}
+
+function isSafeGovernanceClientFilter(value: string): boolean {
+  return Boolean(
+    value.length <= 128 &&
+    /^[a-z0-9][a-z0-9_.:-]{0,127}$/i.test(value) &&
+    !containsRawGovernanceText(value)
+  )
+}
+
 function containsRawSensitiveText(value: string): boolean {
   return /PRIVATE_|raw[_\s-]*(conversation|content|prompt|report|feedback|provider|payload)|provider[_\s-]*(raw|payload)|cache[_\s-]*key|actor[_\s-]*id|user[_\s-]*id|conversation|prompt|report|feedback/i.test(
     value
@@ -1365,6 +1786,12 @@ function containsRawSensitiveText(value: string): boolean {
 
 function containsRawQualityText(value: string): boolean {
   return /PRIVATE_|raw[_\s-]*(conversation|content|prompt|report|feedback|provider|payload)|provider[_\s-]*(raw|payload)|cache[_\s-]*key|actor[_\s-]*id|user[_\s-]*id|conversation|prompt|report content/i.test(
+    value
+  )
+}
+
+function containsRawGovernanceText(value: string): boolean {
+  return /PRIVATE_|raw[_\s-]*(conversation|content|prompt|report|feedback|provider|payload)|provider[_\s-]*(raw|payload)|cache[_\s-]*key|full[_\s-]*profile|conversation|prompt|message|report content|feedback text/i.test(
     value
   )
 }
