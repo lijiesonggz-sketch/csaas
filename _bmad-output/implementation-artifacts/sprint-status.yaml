@@ -1,5 +1,5 @@
 # generated: 2026-05-18T21:27:35+08:00
-# last_updated: 2026-05-24T01:16:25+08:00
+# last_updated: 2026-05-24T01:19:14+08:00
 # project: Csaas
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: '2026-05-18T21:27:35+08:00'
-last_updated: '2026-05-24T01:16:25+08:00'
+last_updated: '2026-05-24T01:19:14+08:00'
 project: Csaas
 project_key: NOKEY
 tracking_system: file-system
@@ -91,7 +91,7 @@ development_status:
   5-5-party-mode-resource-and-failure-controls: done
   epic-5-retrospective: optional
 
-  epic-6: in-progress
+  epic-6: done
   6-1-usage-and-completion-dashboard: done
   6-2-provider-telemetry-aggregation: done
   6-3-cost-latency-and-failure-dashboard: done
