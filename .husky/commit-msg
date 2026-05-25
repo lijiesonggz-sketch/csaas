@@ -1,4 +1,12 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
+#!/usr/bin/env sh
 
-npx --no -- commitlint --edit "$1"
+hook_dir="${0%/*}"
+if [ "$hook_dir" = "$0" ]; then
+  hook_dir=".husky"
+fi
+. "$hook_dir/path-setup.sh"
+
+repo_root="$(git rev-parse --show-toplevel)"
+
+cd "$repo_root" || exit 1
+node node_modules/@commitlint/cli/cli.js --edit "$1"

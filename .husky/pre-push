@@ -1,5 +1,10 @@
-#!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
+#!/usr/bin/env sh
+
+hook_dir="${0%/*}"
+if [ "$hook_dir" = "$0" ]; then
+  hook_dir=".husky"
+fi
+. "$hook_dir/path-setup.sh"
 
 repo_root="$(git rev-parse --show-toplevel)"
 
