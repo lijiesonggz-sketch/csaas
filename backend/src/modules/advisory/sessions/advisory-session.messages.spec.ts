@@ -4,6 +4,7 @@ import { UserRole } from '../../../database/entities/user.entity'
 import { AdvisoryConversationMessageRole } from '../../../database/entities/advisory-conversation-message.entity'
 import { AdvisoryAccessService } from '../access/advisory-access.service'
 import { AdvisoryEventService } from '../events/advisory-event.service'
+import { AdvisoryWorkflowOutputRepository } from '../outputs/advisory-workflow-output.repository'
 import { ThinkTankProviderGatewayService } from '../provider-gateway/thinktank-provider-gateway.service'
 import { ThinkTankProviderStreamChunk } from '../provider-gateway/thinktank-provider-gateway.types'
 import { ThinkTankPromptAssemblerService } from '../runtime/prompt-assembler.service'
@@ -52,6 +53,12 @@ describe('AdvisorySessionService guided messages', () => {
     >
   >
   let providerGateway: jest.Mocked<Pick<ThinkTankProviderGatewayService, 'stream'>>
+  let outputRepository: jest.Mocked<
+    Pick<
+      AdvisoryWorkflowOutputRepository,
+      'findActiveDraftForSession' | 'createDraft' | 'appendSection'
+    >
+  >
   let eventService: jest.Mocked<Pick<AdvisoryEventService, 'emitAudit' | 'emitTelemetry'>>
   let service: AdvisorySessionService
 
@@ -115,6 +122,53 @@ describe('AdvisorySessionService guided messages', () => {
         }
       }),
     }
+    outputRepository = {
+      findActiveDraftForSession: jest.fn().mockResolvedValue({
+        id: 'output-draft-1',
+        tenantId,
+        sessionId,
+        actorId,
+        workflowKey: 'domain-research',
+        status: 'draft',
+        title: 'Domain Research Report Draft',
+        summary: '',
+        contentMarkdown: '',
+        sections: [],
+        aiLabelMetadata: {
+          visible_label: '[AI Generated]',
+          ai_generated: true,
+          machine_readable: true,
+          source_session_id: sessionId,
+          workflow_key: 'domain-research',
+        },
+        metadata: {},
+        createdAt: new Date('2026-05-20T00:00:00.000Z'),
+        updatedAt: new Date('2026-05-20T00:00:00.000Z'),
+      }),
+      createDraft: jest.fn(),
+      appendSection: jest.fn().mockImplementation(async (_tenantId, _outputId, section) => ({
+        id: 'output-draft-1',
+        tenantId,
+        sessionId,
+        actorId,
+        workflowKey: 'domain-research',
+        status: 'draft',
+        title: 'Domain Research Report Draft',
+        summary: '',
+        contentMarkdown: section.contentMarkdown,
+        sections: [section],
+        aiLabelMetadata: {
+          visible_label: '[AI Generated]',
+          ai_generated: true,
+          machine_readable: true,
+          source_session_id: sessionId,
+          workflow_key: 'domain-research',
+        },
+        metadata: { section_count: 1 },
+        createdAt: new Date('2026-05-20T00:00:00.000Z'),
+        updatedAt: new Date('2026-05-20T00:00:00.000Z'),
+      })),
+    }
     eventService = {
       emitAudit: jest.fn().mockResolvedValue(undefined),
       emitTelemetry: jest.fn().mockResolvedValue(undefined),
@@ -131,6 +185,7 @@ describe('AdvisorySessionService guided messages', () => {
       eventService as never,
       messageRepository as never,
       providerGateway as never,
+      outputRepository as never,
     )
   })
 
@@ -518,6 +573,81 @@ describe('AdvisorySessionService guided messages', () => {
       expect.objectContaining({
         role: AdvisoryConversationMessageRole.User,
         content: 'Trigger provider failure.',
+      }),
+    )
+  })
+
+  test('[P0] does not append a max-token truncated final response to the report draft', async () => {
+    sessionRepository.findSessionById.mockResolvedValueOnce({
+      ...activeSession,
+      workflowKey: 'domain-research',
+      workflowDisplayName: 'Domain Research',
+      currentStep: {
+        index: 6,
+        label: 'Domain Research Step 6: Research Synthesis and Completion',
+        sourceRef: 'current-step:6',
+        totalSteps: 6,
+        isFinal: true,
+        isFinalStep: true,
+      },
+      metadata: {
+        workflow_key: 'domain-research',
+        runtime_step_count: 6,
+      },
+    })
+    providerGateway.stream.mockImplementationOnce(async function* () {
+      yield {
+        index: 0,
+        delta:
+          '# 领域研究综合报告\n\n## 3. 技术全景与创新趋势\n\n- 可一次性处理整份年报或长篇招股书\n- �',
+        done: true,
+        provider: 'glm',
+        model: 'glm-5.1',
+        usage: {
+          inputTokens: 6866,
+          outputTokens: 2000,
+          totalTokens: 8866,
+        },
+        estimatedCost: 0.006433,
+        latencyMs: 67800,
+        finishReason: 'max_tokens',
+      }
+    })
+
+    const events = []
+    for await (const event of service.streamMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: 'c',
+    })) {
+      events.push(event)
+    }
+
+    expect(events.map((event) => event.event)).toEqual([
+      'message.started',
+      'message.delta',
+      'message.completed',
+    ])
+    expect(events.at(-1)).toEqual(
+      expect.objectContaining({
+        event: 'message.completed',
+        data: expect.not.objectContaining({
+          appendedSection: expect.anything(),
+          output: expect.anything(),
+        }),
+      }),
+    )
+    expect(outputRepository.appendSection).not.toHaveBeenCalled()
+    expect(messageRepository.createMessageWithNextSequence).toHaveBeenNthCalledWith(
+      2,
+      tenantId,
+      sessionId,
+      expect.objectContaining({
+        role: AdvisoryConversationMessageRole.Assistant,
+        metadata: expect.objectContaining({
+          finish_reason: 'max_tokens',
+        }),
       }),
     )
   })

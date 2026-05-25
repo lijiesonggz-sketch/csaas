@@ -1,5 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { ThinkTankProviderGatewayConfig } from '../thinktank-provider-gateway.config'
+import {
+  THINKTANK_PROVIDER_GATEWAY_DEFAULT_MAX_OUTPUT_TOKENS,
+  ThinkTankProviderGatewayConfig,
+} from '../thinktank-provider-gateway.config'
 import {
   ThinkTankProviderAdapter,
   ThinkTankProviderGatewayError,
@@ -47,7 +50,10 @@ export class AnthropicGlmProviderAdapter implements ThinkTankProviderAdapter {
       const response = await this.client.messages.create(
         {
           model: request.model ?? this.config.model,
-          max_tokens: request.maxTokens ?? 2000,
+          max_tokens:
+            request.maxTokens ??
+            this.config.maxOutputTokens ??
+            THINKTANK_PROVIDER_GATEWAY_DEFAULT_MAX_OUTPUT_TOKENS,
           temperature: request.temperature ?? 0.7,
           system: createGlmSystemPayload(request, this.config),
           messages: request.messages.map((message) => ({

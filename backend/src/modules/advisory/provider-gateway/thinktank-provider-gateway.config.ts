@@ -10,6 +10,7 @@ export const THINKTANK_PROVIDER_GATEWAY_DEFAULT_MODEL = 'glm-5.1'
 export const THINKTANK_PROVIDER_GATEWAY_DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/anthropic'
 export const THINKTANK_PROVIDER_GATEWAY_FAKE_MODEL = 'fake-thinktank-smoke'
 export const THINKTANK_PROVIDER_GATEWAY_DEFAULT_TIMEOUT_MS = 120000
+export const THINKTANK_PROVIDER_GATEWAY_DEFAULT_MAX_OUTPUT_TOKENS = 8000
 
 export interface ThinkTankProviderGatewayConfig {
   providerMode: ThinkTankProviderType
@@ -17,6 +18,7 @@ export interface ThinkTankProviderGatewayConfig {
   apiKey?: string
   baseUrl?: string
   timeoutMs: number
+  maxOutputTokens?: number
   retry: Required<Pick<ThinkTankProviderRetryOptions, 'maxAttempts' | 'delayMs'>> & {
     backoffMultiplier: number
   }
@@ -38,6 +40,11 @@ export function resolveThinkTankProviderGatewayConfig(
     'THINKTANK_PROVIDER_TIMEOUT_MS',
     THINKTANK_PROVIDER_GATEWAY_DEFAULT_TIMEOUT_MS,
   )
+  const maxOutputTokens = readPositiveInteger(
+    source,
+    'THINKTANK_PROVIDER_MAX_OUTPUT_TOKENS',
+    THINKTANK_PROVIDER_GATEWAY_DEFAULT_MAX_OUTPUT_TOKENS,
+  )
   const maxAttempts = readPositiveInteger(source, 'THINKTANK_PROVIDER_RETRY_ATTEMPTS', 2)
   const delayMs = readNonNegativeInteger(source, 'THINKTANK_PROVIDER_RETRY_DELAY_MS', 100)
 
@@ -47,6 +54,7 @@ export function resolveThinkTankProviderGatewayConfig(
     apiKey: apiKey ?? undefined,
     baseUrl: baseUrl ?? undefined,
     timeoutMs,
+    maxOutputTokens,
     retry: {
       maxAttempts,
       delayMs,

@@ -1,5 +1,6 @@
 import {
   THINKTANK_PROVIDER_GATEWAY_DEFAULT_BASE_URL,
+  THINKTANK_PROVIDER_GATEWAY_DEFAULT_MAX_OUTPUT_TOKENS,
   THINKTANK_PROVIDER_GATEWAY_DEFAULT_TIMEOUT_MS,
   resolveThinkTankProviderGatewayConfig,
   THINKTANK_PROVIDER_GATEWAY_DEFAULT_MODEL,
@@ -18,6 +19,7 @@ describe('ThinkTank provider gateway config', () => {
       providerMode: 'fake',
       model: THINKTANK_PROVIDER_GATEWAY_DEFAULT_MODEL,
       timeoutMs: THINKTANK_PROVIDER_GATEWAY_DEFAULT_TIMEOUT_MS,
+      maxOutputTokens: THINKTANK_PROVIDER_GATEWAY_DEFAULT_MAX_OUTPUT_TOKENS,
       liveProviderEnabled: false,
       anthropicExplicitCacheEnabled: false,
       retry: {
@@ -88,6 +90,7 @@ describe('ThinkTank provider gateway config', () => {
       GLM_BASE_URL: 'https://example.test/v1',
       GLM_MODEL: 'glm-5.1',
       THINKTANK_PROVIDER_TIMEOUT_MS: '15000',
+      THINKTANK_PROVIDER_MAX_OUTPUT_TOKENS: '12000',
       THINKTANK_PROVIDER_RETRY_ATTEMPTS: '3',
       THINKTANK_PROVIDER_RETRY_DELAY_MS: '250',
     })
@@ -98,6 +101,7 @@ describe('ThinkTank provider gateway config', () => {
       baseUrl: 'https://example.test/v1',
       model: 'glm-5.1',
       timeoutMs: 15000,
+      maxOutputTokens: 12000,
       liveProviderEnabled: true,
       anthropicExplicitCacheEnabled: false,
       retry: {

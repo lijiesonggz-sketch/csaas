@@ -530,6 +530,48 @@ describe('AdvisorySessionService workflow outputs (ATDD RED)', () => {
     )
   })
 
+  test('[P0] refuses to complete a draft when the latest provider section was truncated', async () => {
+    outputRepository.findActiveDraftForSession.mockResolvedValueOnce(
+      createOutput({
+        sections: [
+          {
+            id: 'section-1',
+            stepIndex: 1,
+            heading: 'Diagnose retention',
+            contentMarkdown: '[AI Generated]\n\nPartial final report that hit the model limit.',
+            aiLabel: '[AI Generated]',
+            metadata: {
+              ai_generated: true,
+              provider: 'glm',
+              model: 'glm-5.1',
+              finish_reason: 'max_tokens',
+              output_tokens: 2000,
+            },
+            createdAt: '2026-05-20T00:01:00.000Z',
+          },
+        ],
+        contentMarkdown:
+          '# Problem Solving Report Draft\n\n[AI Generated]\n\nPartial final report that hit the model limit.',
+        metadata: {
+          section_count: 1,
+          last_step_index: 1,
+        },
+      }),
+    )
+
+    await expect(
+      service.completeOutput({
+        user,
+        tenantId,
+        sessionId,
+        outcome: 'success',
+      }),
+    ).rejects.toThrow(BadRequestException)
+
+    expect(outputRepository.completeDraftAndSession).not.toHaveBeenCalled()
+    expect(eventService.emitAudit).not.toHaveBeenCalled()
+  })
+
   test('[P0] refuses explicit completion before the workflow reaches its final step', async () => {
     sessionRepository.findSessionById.mockResolvedValueOnce({
       ...activeSession,

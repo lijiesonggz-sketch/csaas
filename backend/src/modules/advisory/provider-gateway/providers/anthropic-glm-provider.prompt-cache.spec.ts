@@ -1,7 +1,10 @@
 import 'reflect-metadata'
 import Anthropic from '@anthropic-ai/sdk'
 import { AnthropicGlmProviderAdapter } from './anthropic-glm-provider.adapter'
-import { ThinkTankProviderGatewayConfig } from '../thinktank-provider-gateway.config'
+import {
+  THINKTANK_PROVIDER_GATEWAY_DEFAULT_MAX_OUTPUT_TOKENS,
+  ThinkTankProviderGatewayConfig,
+} from '../thinktank-provider-gateway.config'
 import { ThinkTankProviderRequest } from '../thinktank-provider-gateway.types'
 
 jest.mock('@anthropic-ai/sdk', () => ({
@@ -169,6 +172,29 @@ describe('AnthropicGlmProviderAdapter prompt cache ATDD', () => {
 
     const payload = create.mock.calls[0][0]
     expect(JSON.stringify(payload)).not.toContain('cache_control')
+  })
+
+  test('[P0] uses the higher ThinkTank default output budget when maxTokens is not provided', async () => {
+    const { adapter, create } = createAdapterWithResponse({
+      id: 'msg-default-budget',
+      model: 'glm-5.1',
+      content: [{ type: 'text', text: 'Long report response.' }],
+      stop_reason: 'end_turn',
+      usage: {
+        input_tokens: 100,
+        output_tokens: 20,
+      },
+    })
+
+    const requestWithoutMaxTokens = { ...request }
+    delete requestWithoutMaxTokens.maxTokens
+    await adapter.complete(requestWithoutMaxTokens)
+
+    expect(create.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        max_tokens: THINKTANK_PROVIDER_GATEWAY_DEFAULT_MAX_OUTPUT_TOKENS,
+      }),
+    )
   })
 
   test('[P1] downgrades unsupported anthropic-explicit cache strategy to bypass', async () => {

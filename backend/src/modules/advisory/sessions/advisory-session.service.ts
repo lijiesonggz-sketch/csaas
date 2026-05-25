@@ -121,6 +121,8 @@ export const THINKTANK_OUTPUT_OUTCOME_INVALID_MESSAGE =
   'ThinkTank output completion outcome must be success or failure.'
 export const THINKTANK_OUTPUT_NOT_FINAL_STEP_MESSAGE =
   'ThinkTank output cannot be completed before the workflow reaches its final step.'
+export const THINKTANK_OUTPUT_TRUNCATED_MESSAGE =
+  'ThinkTank output cannot be completed because the latest AI response was truncated.'
 export const THINKTANK_OUTPUT_SECTION_TOO_LONG_MESSAGE = 'Output section content is too long.'
 export const THINKTANK_OUTPUT_RATING_INVALID_MESSAGE =
   'ThinkTank output rating must be an integer from 1 to 5.'
@@ -1331,6 +1333,9 @@ export class AdvisorySessionService {
     const session = await this.getTenantSession(context.tenantId, context.sessionId)
     this.assertActiveOutputSession(session)
     const sourceMessage = await this.resolveOutputSourceMessage(context, session)
+    if (this.isProviderOutputTruncated(sourceMessage)) {
+      throw new BadRequestException(THINKTANK_OUTPUT_TRUNCATED_MESSAGE)
+    }
     const contentMarkdown = this.normalizeOutputSectionContent(sourceMessage.content)
     const outputRepository = this.requireOutputRepository()
     const draft =
@@ -1344,6 +1349,7 @@ export class AdvisorySessionService {
     const providerMetadata = this.toSafeProviderMetadata({
       ...(context.providerMetadata ?? {}),
       ...(sourceMessage.providerMetadata ?? {}),
+      finish_reason: sourceMessage.metadata?.finish_reason,
     })
     const section: AdvisoryWorkflowOutputSection = {
       id: randomUUID(),
@@ -1412,6 +1418,10 @@ export class AdvisorySessionService {
 
     if (!this.hasReportContent(draft)) {
       throw new BadRequestException(THINKTANK_OUTPUT_EMPTY_MESSAGE)
+    }
+
+    if (this.hasTruncatedProviderOutputSection(draft)) {
+      throw new BadRequestException(THINKTANK_OUTPUT_TRUNCATED_MESSAGE)
     }
 
     this.assertWorkflowReadyForExplicitCompletion(session)
@@ -3768,6 +3778,7 @@ export class AdvisorySessionService {
       context.previousStep.index,
     )
     if (!sourceMessage) return null
+    if (this.isProviderOutputTruncated(sourceMessage)) return null
 
     return this.appendAssistantMessageToWorkflowOutput({
       tenantId: context.tenantId,
@@ -3788,6 +3799,7 @@ export class AdvisorySessionService {
   }): Promise<WorkflowOutputPersistenceResult | null> {
     if (!this.outputRepository) return null
     if (!this.shouldPersistWorkflowProviderResponse(context.session)) return null
+    if (this.isProviderOutputTruncated(context.sourceMessage)) return null
 
     return this.appendAssistantMessageToWorkflowOutput({
       tenantId: context.tenantId,
@@ -3819,9 +3831,10 @@ export class AdvisorySessionService {
     }
     const stepIndex = this.normalizeStepIndex(context.stepIndex, context.session.currentStep.index)
     const stepLabel = this.normalizeStepLabel(context.stepLabel, stepIndex)
-    const providerMetadata = this.toSafeProviderMetadata(
-      context.sourceMessage.providerMetadata ?? {},
-    )
+    const providerMetadata = this.toSafeProviderMetadata({
+      ...(context.sourceMessage.providerMetadata ?? {}),
+      finish_reason: context.sourceMessage.metadata?.finish_reason,
+    })
     const section: AdvisoryWorkflowOutputSection = {
       id: randomUUID(),
       stepIndex,
@@ -4325,6 +4338,8 @@ export class AdvisorySessionService {
 
     copyText('provider')
     copyText('model')
+    copyText('finishReason', 'finish_reason')
+    copyText('finish_reason', 'finish_reason')
     copyNumber('latencyMs', 'latency_ms')
     copyNumber('latency_ms', 'latency_ms')
     copyNumber('inputTokens', 'input_tokens')
@@ -4356,6 +4371,38 @@ export class AdvisorySessionService {
     copyNumber('cache_eligible_input_tokens', 'cache_eligible_input_tokens')
 
     return safe
+  }
+
+  private isProviderOutputTruncated(message: AdvisoryConversationMessage): boolean {
+    return this.isTruncatedProviderFinishReason(
+      message.metadata?.finish_reason ?? message.providerMetadata?.finish_reason,
+    )
+  }
+
+  private hasTruncatedProviderOutputSection(output: AdvisoryWorkflowOutput): boolean {
+    return (output.sections ?? []).some((section) => this.isTruncatedProviderOutputSection(section))
+  }
+
+  private isTruncatedProviderOutputSection(section: AdvisoryWorkflowOutputSection): boolean {
+    if (this.isTruncatedProviderFinishReason(section.metadata?.finish_reason)) {
+      return true
+    }
+
+    const content = section.contentMarkdown.trim()
+    const outputTokens = this.readMetadataNumber(section.metadata, 'output_tokens')
+    return content.endsWith('\uFFFD') && outputTokens !== null && outputTokens >= 1900
+  }
+
+  private isTruncatedProviderFinishReason(value: unknown): boolean {
+    if (typeof value !== 'string') return false
+
+    const normalized = value.trim().toLowerCase()
+    return normalized === 'max_tokens' || normalized === 'length' || normalized === 'model_length'
+  }
+
+  private readMetadataNumber(metadata: Record<string, unknown>, key: string): number | null {
+    const value = metadata[key]
+    return typeof value === 'number' && Number.isFinite(value) ? value : null
   }
 
   private hasRequiredAiLabelMetadata(output: AdvisoryWorkflowOutput): boolean {
@@ -4542,6 +4589,7 @@ export class AdvisorySessionService {
       cache_creation_input_tokens: lastChunk?.usage?.cacheCreationInputTokens ?? null,
       cached_input_tokens: lastChunk?.usage?.cachedInputTokens ?? null,
       cache_eligible_input_tokens: lastChunk?.usage?.cacheEligibleInputTokens ?? null,
+      finish_reason: lastChunk?.finishReason ?? null,
     }
   }
 
