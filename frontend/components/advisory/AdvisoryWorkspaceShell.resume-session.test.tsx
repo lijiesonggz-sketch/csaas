@@ -6,6 +6,7 @@ import {
   resumeThinkTankSession,
   safeExitThinkTankSession,
 } from '@/lib/advisory/sessions'
+import { launchThinkTankWorkflow } from '@/lib/advisory/workflows'
 import { streamThinkTankSessionMessage } from '@/lib/advisory/streaming'
 import { fetchThinkTankWorkflowOutput } from '@/lib/advisory/outputs'
 
@@ -213,6 +214,7 @@ jest.mock('@/lib/advisory/history', () => ({
 const mockFetchUnfinished = fetchThinkTankUnfinishedSessions as jest.Mock
 const mockResumeSession = resumeThinkTankSession as jest.Mock
 const mockSafeExitSession = safeExitThinkTankSession as jest.Mock
+const mockLaunchWorkflow = launchThinkTankWorkflow as jest.Mock
 const mockStreamMessage = streamThinkTankSessionMessage as jest.Mock
 const mockFetchWorkflowOutput = fetchThinkTankWorkflowOutput as jest.Mock
 
@@ -435,6 +437,81 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
     )
     expect((await screen.findAllByText('Market research recovered.')).length).toBeGreaterThan(0)
     expect(screen.queryByText('已有活动 ThinkTank 会话')).not.toBeInTheDocument()
+  })
+
+  test('[P0] resumes the selected unfinished session when the locally active session is already gone server-side', async () => {
+    const user = userEvent.setup()
+    const pausedSession = createUnfinishedSessionCard({
+      sessionId: 'session-market',
+      title: 'Market Research Session',
+      workflowKey: 'market-research',
+      workflowType: 'Market Research',
+      lastStep: { index: 6, label: 'Research Completion' },
+      status: 'paused',
+      statusSummary: '未完成 - Research Completion',
+    })
+    mockFetchUnfinished.mockResolvedValueOnce({
+      sessions: [pausedSession],
+    })
+    mockLaunchWorkflow.mockResolvedValueOnce({
+      sessionId: 'session-product-brief',
+      workflow: {
+        key: 'product-brief',
+        displayName: 'Product Brief',
+        canonicalName: 'Product Brief',
+        scenarioLabel: 'Product opportunity framing',
+        sourcePath: 'workflow:product-brief',
+      },
+      status: 'active',
+      sourceRefs: ['workflow:product-brief'],
+      firstPrompt: 'Product Brief workflow started.',
+      currentStep: { index: 6, label: 'Step 6: Product Brief Completion' },
+    })
+    mockSafeExitSession.mockRejectedValueOnce(new Error('ThinkTank session not found'))
+    mockResumeSession.mockResolvedValueOnce(
+      createResumeResult({
+        session: {
+          ...pausedSession,
+          status: 'active',
+        },
+        messages: [
+          {
+            id: 'message-market-research',
+            role: 'assistant',
+            content: 'Market research recovered.',
+            sequence: 2,
+            workflowKey: 'market-research',
+            stepIndex: 6,
+            decisionOptions: [
+              { key: 'continue', action: 'continue', label: '继续', enabled: true },
+            ],
+          },
+        ],
+        recoveryMessage: {
+          title: '已恢复未完成会话',
+          content: '已恢复到 Research Completion。Market research recovered.',
+          lastStep: 'Research Completion',
+          keyConclusions: ['Market research recovered.'],
+          actions: [
+            { key: 'continue', label: '继续' },
+            { key: 'review-document', label: '先查看文档' },
+          ],
+        },
+      })
+    )
+
+    render(<AdvisoryWorkspaceShell />)
+
+    await user.click(await screen.findByRole('button', { name: /启动 Design Thinking/ }))
+    expect(await screen.findByText('Product Brief')).toBeInTheDocument()
+
+    await user.click(await screen.findByRole('button', { name: /继续 Market Research Session/ }))
+
+    await waitFor(() => expect(mockSafeExitSession).toHaveBeenCalledWith('session-product-brief'))
+    await waitFor(() => expect(mockResumeSession).toHaveBeenCalledWith('session-market'))
+    expect(await screen.findByRole('heading', { name: 'Market Research' })).toBeInTheDocument()
+    expect(screen.getAllByText('Market research recovered.').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Product Brief workflow started.')).not.toBeInTheDocument()
   })
 
   test('[P0][4.2-FE-009][AC1] clears recovered session state and reloads unfinished sessions when identity changes', async () => {

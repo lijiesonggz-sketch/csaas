@@ -218,6 +218,12 @@ function readWorkflowErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.trim() ? error.message : fallback
 }
 
+function isStaleBlockingSessionExitError(error: unknown): boolean {
+  const message = readWorkflowErrorMessage(error, '')
+
+  return /session not found|会话.*(?:不存在|未找到)|找不到.*会话/i.test(message)
+}
+
 function readMessageSubmitErrorMessage(error: unknown): string {
   const message = readWorkflowErrorMessage(error, THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE)
 
@@ -1131,16 +1137,32 @@ export default function AdvisoryWorkspaceShell() {
       const blockingActiveSession = findBlockingActiveSessionForResume(sessionId)
       if (blockingActiveSession) {
         failureFallbackMessage = THINKTANK_SAFE_EXIT_SESSION_FAILED_MESSAGE
-        const exited = await safeExitThinkTankSession(blockingActiveSession.sessionId)
-        if (resumeRequestIdRef.current !== resumeRequestId) return
-        switchCheckpointWarning = exited.checkpointWarning
-        upsertPausedUnfinishedSession(
-          blockingActiveSession.launch ?? null,
-          exited.updatedAt,
-          blockingActiveSession.sessionCard
-        )
-        updateHistorySessionPaused(blockingActiveSession.sessionId, exited.updatedAt)
-        clearActiveWorkflowStateIfSession(blockingActiveSession.sessionId)
+        try {
+          const exited = await safeExitThinkTankSession(blockingActiveSession.sessionId)
+          if (resumeRequestIdRef.current !== resumeRequestId) return
+          switchCheckpointWarning = exited.checkpointWarning
+          upsertPausedUnfinishedSession(
+            blockingActiveSession.launch ?? null,
+            exited.updatedAt,
+            blockingActiveSession.sessionCard
+          )
+          updateHistorySessionPaused(blockingActiveSession.sessionId, exited.updatedAt)
+          clearActiveWorkflowStateIfSession(blockingActiveSession.sessionId)
+        } catch (error) {
+          if (!isStaleBlockingSessionExitError(error)) {
+            throw error
+          }
+          if (resumeRequestIdRef.current !== resumeRequestId) return
+          clearActiveWorkflowStateIfSession(blockingActiveSession.sessionId)
+          setUnfinishedSessions((currentSessions) =>
+            currentSessions.filter(
+              (sessionCard) => sessionCard.sessionId !== blockingActiveSession.sessionId
+            )
+          )
+          setHistoryItems((currentItems) =>
+            currentItems.filter((item) => item.sessionId !== blockingActiveSession.sessionId)
+          )
+        }
         failureFallbackMessage = THINKTANK_RESUME_SESSION_FAILED_MESSAGE
       }
 
