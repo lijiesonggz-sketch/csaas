@@ -11,7 +11,7 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "actualWorkers": 2
+      "actualWorkers": 1
     },
     "preserveOutput": "always",
     "projects": [
@@ -20,15 +20,13 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 1
         },
         "id": "chromium",
         "name": "chromium",
         "testDir": "D:/Csaas/frontend/e2e",
         "testIgnore": [],
-        "testMatch": [
-          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
-        ],
+        "testMatch": ["**/*.@(spec|test).?(c|m)[jt]s?(x)"],
         "timeout": 60000
       },
       {
@@ -36,15 +34,13 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 1
         },
         "id": "firefox",
         "name": "firefox",
         "testDir": "D:/Csaas/frontend/e2e",
         "testIgnore": [],
-        "testMatch": [
-          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
-        ],
+        "testMatch": ["**/*.@(spec|test).?(c|m)[jt]s?(x)"],
         "timeout": 60000
       },
       {
@@ -52,15 +48,13 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 1
         },
         "id": "webkit",
         "name": "webkit",
         "testDir": "D:/Csaas/frontend/e2e",
         "testIgnore": [],
-        "testMatch": [
-          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
-        ],
+        "testMatch": ["**/*.@(spec|test).?(c|m)[jt]s?(x)"],
         "timeout": 60000
       },
       {
@@ -68,15 +62,13 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 1
         },
         "id": "Mobile Chrome",
         "name": "Mobile Chrome",
         "testDir": "D:/Csaas/frontend/e2e",
         "testIgnore": [],
-        "testMatch": [
-          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
-        ],
+        "testMatch": ["**/*.@(spec|test).?(c|m)[jt]s?(x)"],
         "timeout": 60000
       },
       {
@@ -84,15 +76,13 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "actualWorkers": 2
+          "actualWorkers": 1
         },
         "id": "Mobile Safari",
         "name": "Mobile Safari",
         "testDir": "D:/Csaas/frontend/e2e",
         "testIgnore": [],
-        "testMatch": [
-          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
-        ],
+        "testMatch": ["**/*.@(spec|test).?(c|m)[jt]s?(x)"],
         "timeout": 60000
       }
     ],
@@ -110,10 +100,7 @@
           "outputFile": "playwright-report/results.json"
         }
       ],
-      [
-        "list",
-        null
-      ]
+      ["list", null]
     ],
     "reportSlowTests": {
       "max": 5,
@@ -124,25 +111,25 @@
     "updateSnapshots": "missing",
     "updateSourceMethod": "patch",
     "version": "1.59.0",
-    "workers": 11,
+    "workers": 1,
     "webServer": null
   },
   "suites": [
     {
-      "title": "advisory-history-search.spec.ts",
-      "file": "advisory-history-search.spec.ts",
+      "title": "advisory-full-stack-smoke.spec.ts",
+      "file": "advisory-full-stack-smoke.spec.ts",
       "column": 0,
       "line": 0,
       "specs": [],
       "suites": [
         {
-          "title": "Story 4.3 - Conversation History and Search",
-          "file": "advisory-history-search.spec.ts",
-          "line": 201,
+          "title": "ThinkTank full-stack smoke",
+          "file": "advisory-full-stack-smoke.spec.ts",
+          "line": 73,
           "column": 6,
           "specs": [
             {
-              "title": "[4.3-E2E-001][P1] filters, searches, and opens a ThinkTank report result",
+              "title": "[P0][FULLSTACK] opens ThinkTank, persists org context, launches, exits, and tombstones output",
               "ok": true,
               "tags": [],
               "tests": [
@@ -157,12 +144,38 @@
                       "workerIndex": 0,
                       "parallelIndex": 0,
                       "status": "passed",
-                      "duration": 2644,
+                      "duration": 3957,
                       "errors": [],
                       "stdout": [],
                       "stderr": [],
                       "retry": 0,
-                      "startTime": "2026-05-21T16:39:42.956Z",
+                      "steps": [
+                        {
+                          "title": "login through the real NextAuth credentials flow",
+                          "duration": 943
+                        },
+                        {
+                          "title": "open ThinkTank through real advisory API proxies",
+                          "duration": 858
+                        },
+                        {
+                          "title": "persist enterprise background through the real organization-context endpoint",
+                          "duration": 526
+                        },
+                        {
+                          "title": "launch a real workflow session and load its messages",
+                          "duration": 520
+                        },
+                        {
+                          "title": "safe-exit and delete the session through real lifecycle APIs",
+                          "duration": 482
+                        },
+                        {
+                          "title": "verify workflow_outputs tombstone metadata in PostgreSQL",
+                          "duration": 37
+                        }
+                      ],
+                      "startTime": "2026-05-25T11:16:02.361Z",
                       "annotations": [],
                       "attachments": []
                     }
@@ -170,94 +183,9 @@
                   "status": "expected"
                 }
               ],
-              "id": "d428d5d456bf4d7fe95b-cc779befff807a0c20f2",
-              "file": "advisory-history-search.spec.ts",
-              "line": 202,
-              "column": 7
-            },
-            {
-              "title": "[4.3-E2E-002][P1] empty history state is keyboard reachable and starts Quick Consult",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 0,
-                      "parallelIndex": 0,
-                      "status": "passed",
-                      "duration": 1495,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-05-21T16:39:45.853Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "d428d5d456bf4d7fe95b-53400f6b7f346c951eb0",
-              "file": "advisory-history-search.spec.ts",
-              "line": 245,
-              "column": 7
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "title": "advisory-safe-exit-destructive-actions.atdd.spec.ts",
-      "file": "advisory-safe-exit-destructive-actions.atdd.spec.ts",
-      "column": 0,
-      "line": 0,
-      "specs": [],
-      "suites": [
-        {
-          "title": "Story 4.7 ATDD - advisory safe exit and destructive actions",
-          "file": "advisory-safe-exit-destructive-actions.atdd.spec.ts",
-          "line": 3,
-          "column": 6,
-          "specs": [
-            {
-              "title": "[P0][4.7-E2E-001][AC1,AC2] safe exit and delete confirmations use accessible dialog flows without data-testid selectors",
-              "ok": true,
-              "tags": [],
-              "tests": [
-                {
-                  "timeout": 60000,
-                  "annotations": [],
-                  "expectedStatus": "passed",
-                  "projectId": "chromium",
-                  "projectName": "chromium",
-                  "results": [
-                    {
-                      "workerIndex": 1,
-                      "parallelIndex": 1,
-                      "status": "passed",
-                      "duration": 1375,
-                      "errors": [],
-                      "stdout": [],
-                      "stderr": [],
-                      "retry": 0,
-                      "startTime": "2026-05-21T16:39:42.959Z",
-                      "annotations": [],
-                      "attachments": []
-                    }
-                  ],
-                  "status": "expected"
-                }
-              ],
-              "id": "2b528c8b2c0130ce2ca6-447f00a31f0331aa6cdf",
-              "file": "advisory-safe-exit-destructive-actions.atdd.spec.ts",
-              "line": 4,
+              "id": "da3dc4879e490f6717c3-79376b3560bbd315f5a9",
+              "file": "advisory-full-stack-smoke.spec.ts",
+              "line": 88,
               "column": 7
             }
           ]
@@ -267,9 +195,9 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-05-21T16:39:42.074Z",
-    "duration": 5389.932,
-    "expected": 3,
+    "startTime": "2026-05-25T11:16:00.842Z",
+    "duration": 6548.655000000001,
+    "expected": 1,
     "skipped": 0,
     "unexpected": 0,
     "flaky": 0
