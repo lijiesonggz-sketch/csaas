@@ -387,6 +387,91 @@ describe('AdvisorySessionService workflow runtime runner', () => {
     expect(outputRepository.completeDraftAndSession).not.toHaveBeenCalled()
   })
 
+  it('persists only the BMAD document append block and excludes chat menus from the report draft', async () => {
+    await service.launchWorkflow({ user, tenantId, workflowKey: 'market-research' })
+    const launchInput = repository.createLaunchSession.mock.calls.at(-1)?.[1]
+    const launchedSession = createSession({
+      id: 'session-market-research-menu',
+      workflowKey: 'market-research',
+      workflowDisplayName: 'Market Research',
+      scenarioLabel: 'Market, competitor, and customer research',
+      currentStep: launchInput?.currentStep as AdvisoryWorkflowSession['currentStep'],
+      sourceRefs: launchInput?.sourceRefs as string[],
+      metadata: {
+        ...(launchInput?.metadata as AdvisoryWorkflowSession['metadata']),
+        runtime_current_step_append_on_route: true,
+      },
+    })
+    const previousAssistant = createAssistantMessage({
+      id: 'assistant-product-step-5',
+      sessionId: launchedSession.id,
+      workflowKey: launchedSession.workflowKey,
+      stepIndex: launchedSession.currentStep.index,
+      sequence: 2,
+      content: [
+        '我整理了本轮范围讨论。',
+        '',
+        '**Here is what I will add to the document:**',
+        '',
+        '## MVP Scope',
+        '',
+        '### Core Features',
+        '',
+        '- 资料整理自动摘要',
+        '',
+        '### Future Vision',
+        '',
+        '- 形成组织知识复利。',
+        '',
+        '### 请选择：',
+        '**[A]** Advanced Elicitation',
+        '**[P]** Party Mode',
+        '**[C]** Continue',
+        '你的选择是？',
+      ].join('\n'),
+    })
+    const routedSession = createSession({
+      ...launchedSession,
+      currentStep: {
+        index: 2,
+        label: 'Step 2: Customer Behavior Analysis',
+        sourceRef: 'current-step:2',
+      },
+      metadata: {
+        ...(launchedSession.metadata ?? {}),
+        runtime_current_step_source:
+          '_bmad/bmm/workflows/1-analysis/research/bmad-market-research/steps/step-02-customer-behavior.md',
+        runtime_current_step_index: 2,
+      },
+    })
+
+    messageRepository.findMessagesBySession.mockResolvedValueOnce([previousAssistant])
+    repository.findSessionById
+      .mockResolvedValueOnce(launchedSession)
+      .mockResolvedValueOnce(launchedSession)
+    repository.updateSession.mockResolvedValueOnce(routedSession)
+    outputRepository.findActiveDraftForSession.mockResolvedValueOnce(
+      createOutput({ sessionId: launchedSession.id, workflowKey: 'market-research' }),
+    )
+
+    await service.submitMessage({
+      user,
+      tenantId,
+      sessionId: launchedSession.id,
+      content: 'C',
+    })
+
+    const appendedSection = outputRepository.appendSection.mock.calls.at(-1)?.[2]
+    expect(appendedSection?.contentMarkdown).toContain('## MVP Scope')
+    expect(appendedSection?.contentMarkdown).toContain('### Core Features')
+    expect(appendedSection?.contentMarkdown).toContain('资料整理自动摘要')
+    expect(appendedSection?.contentMarkdown).not.toContain('请选择')
+    expect(appendedSection?.contentMarkdown).not.toContain('[A]')
+    expect(appendedSection?.contentMarkdown).not.toContain('[P]')
+    expect(appendedSection?.contentMarkdown).not.toContain('[C]')
+    expect(appendedSection?.contentMarkdown).not.toContain('你的选择是')
+  })
+
   it('persists final provider output without automatically completing the session', async () => {
     const finalSession = createSession({
       id: 'session-storytelling',

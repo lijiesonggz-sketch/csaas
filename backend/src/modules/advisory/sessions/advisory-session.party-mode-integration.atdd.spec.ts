@@ -141,7 +141,10 @@ describe('Story 5.4 ATDD - Party Mode differentiated frameworks and integrated c
   let outputRepository: jest.Mocked<
     Pick<
       AdvisoryWorkflowOutputRepository,
-      'findActiveDraftForSession' | 'findLatestCompletedForSession' | 'createDraft' | 'appendSection'
+      | 'findActiveDraftForSession'
+      | 'findLatestCompletedForSession'
+      | 'createDraft'
+      | 'appendSection'
     >
   >
   let providerGateway: jest.Mocked<Pick<ThinkTankProviderGatewayService, 'stream'>>
@@ -171,23 +174,29 @@ describe('Story 5.4 ATDD - Party Mode differentiated frameworks and integrated c
           sequence: 2,
           metadata: { ai_generated: true, party_mode_started: true },
           decisionOptions: [
-            { key: 'return-to-workflow', action: 'return-to-workflow', label: '返回工作流', enabled: true },
+            {
+              key: 'return-to-workflow',
+              action: 'return-to-workflow',
+              label: '返回工作流',
+              enabled: true,
+            },
           ],
         }),
       ]),
       findMessageById: jest.fn(),
-      createMessageWithNextSequence: jest.fn(async (_tenant, _session, input) =>
-        createMessage({
-          id: `message-${input.role}-${messageRepository.createMessageWithNextSequence.mock.calls.length}`,
-          role: input.role,
-          content: input.content,
-          sequence: messageRepository.createMessageWithNextSequence.mock.calls.length,
-          workflowKey: input.workflowKey,
-          stepIndex: input.stepIndex,
-          decisionOptions: input.decisionOptions ?? [],
-          metadata: input.metadata ?? {},
-          providerMetadata: input.providerMetadata ?? {},
-        }) as never,
+      createMessageWithNextSequence: jest.fn(
+        async (_tenant, _session, input) =>
+          createMessage({
+            id: `message-${input.role}-${messageRepository.createMessageWithNextSequence.mock.calls.length}`,
+            role: input.role,
+            content: input.content,
+            sequence: messageRepository.createMessageWithNextSequence.mock.calls.length,
+            workflowKey: input.workflowKey,
+            stepIndex: input.stepIndex,
+            decisionOptions: input.decisionOptions ?? [],
+            metadata: input.metadata ?? {},
+            providerMetadata: input.providerMetadata ?? {},
+          }) as never,
       ),
       deleteMessage: jest.fn().mockResolvedValue(true),
     }
@@ -230,7 +239,10 @@ describe('Story 5.4 ATDD - Party Mode differentiated frameworks and integrated c
     }
     service = new AdvisorySessionService(
       accessService as never,
-      { discoverWorkflows: jest.fn(), findWorkflow: jest.fn() } as unknown as ThinkTankWorkflowRegistryService,
+      {
+        discoverWorkflows: jest.fn(),
+        findWorkflow: jest.fn(),
+      } as unknown as ThinkTankWorkflowRegistryService,
       { assemblePrompt: jest.fn() } as unknown as ThinkTankPromptAssemblerService,
       sessionRepository as never,
       { emitAudit: jest.fn(), emitTelemetry: jest.fn() } as unknown as AdvisoryEventService,
@@ -249,7 +261,9 @@ describe('Story 5.4 ATDD - Party Mode differentiated frameworks and integrated c
     } as never)
 
     const providerCalls = providerGateway.stream.mock.calls.map((call) => call[0])
-    const advisorProviderCalls = providerCalls.filter((input) => input.metadata?.party_mode_message === true)
+    const advisorProviderCalls = providerCalls.filter(
+      (input) => input.metadata?.party_mode_message === true,
+    )
     expect(advisorProviderCalls).toHaveLength(3)
     expect(
       new Set(advisorProviderCalls.map((input) => input.metadata?.party_mode_analysis_framework)),
@@ -269,8 +283,12 @@ describe('Story 5.4 ATDD - Party Mode differentiated frameworks and integrated c
     const advisorMessageInputs = messageRepository.createMessageWithNextSequence.mock.calls.slice(1)
     expect(advisorMessageInputs.map((call) => call[2].metadata)).toEqual([
       expect.objectContaining({ party_mode_analysis_framework: 'Root cause decomposition' }),
-      expect.objectContaining({ party_mode_analysis_framework: 'Technical feasibility and architecture' }),
-      expect.objectContaining({ party_mode_analysis_framework: 'Product value and prioritization' }),
+      expect.objectContaining({
+        party_mode_analysis_framework: 'Technical feasibility and architecture',
+      }),
+      expect.objectContaining({
+        party_mode_analysis_framework: 'Product value and prioritization',
+      }),
     ])
     expect(advisorMessageInputs.at(-1)?.[2].decisionOptions).toEqual(
       expect.arrayContaining([
@@ -287,7 +305,8 @@ describe('Story 5.4 ATDD - Party Mode differentiated frameworks and integrated c
         ...partyModeMetadata,
         party_mode_selected_advisor_ids: 'architect-1|architect-2|architect-3',
         party_mode_selected_advisor_names: 'Winston|Ada|Linus',
-        party_mode_selected_advisor_roles: 'System Architect|Technical Architect|Engineering Architect',
+        party_mode_selected_advisor_roles:
+          'System Architect|Technical Architect|Engineering Architect',
         party_mode_selected_advisor_perspectives: '技术架构|技术实现|系统设计',
         party_mode_selected_advisor_role_families: 'technical|technical|technical',
       },
@@ -307,9 +326,9 @@ describe('Story 5.4 ATDD - Party Mode differentiated frameworks and integrated c
       (input) => input.metadata?.party_mode_analysis_framework,
     )
     expect(new Set(frameworks).size).toBe(3)
-    expect(JSON.stringify(messageRepository.createMessageWithNextSequence.mock.calls)).not.toContain(
-      'party_mode_framework_instruction',
-    )
+    expect(
+      JSON.stringify(messageRepository.createMessageWithNextSequence.mock.calls),
+    ).not.toContain('party_mode_framework_instruction')
   })
 
   test('[P0][5.4-BE-002][AC2] creates an AI-labeled integrated conclusion from Party Mode viewpoints', async () => {
@@ -351,8 +370,18 @@ describe('Story 5.4 ATDD - Party Mode differentiated frameworks and integrated c
           party_mode_analysis_framework: 'Product value and prioritization',
         },
         decisionOptions: [
-          { key: 'integrate-party-mode', action: 'integrate-party-mode', label: '进入观点整合', enabled: true },
-          { key: 'return-to-workflow', action: 'return-to-workflow', label: '返回工作流', enabled: true },
+          {
+            key: 'integrate-party-mode',
+            action: 'integrate-party-mode',
+            label: '进入观点整合',
+            enabled: true,
+          },
+          {
+            key: 'return-to-workflow',
+            action: 'return-to-workflow',
+            label: '返回工作流',
+            enabled: true,
+          },
         ],
       }),
     ])
@@ -375,7 +404,13 @@ describe('Story 5.4 ATDD - Party Mode differentiated frameworks and integrated c
     expect(integrationProviderCall.system).toEqual(expect.stringContaining('consensus'))
     expect(integrationProviderCall.system).toEqual(expect.stringContaining('disagreements'))
     expect(integrationProviderCall.system).toEqual(expect.stringContaining('risks'))
-    expect(integrationProviderCall.system).toEqual(expect.stringContaining('recommended next steps'))
+    expect(integrationProviderCall.system).toEqual(
+      expect.stringContaining('recommended next steps'),
+    )
+    expect(integrationProviderCall.system).toEqual(
+      expect.stringContaining('Do not output UI choice menus'),
+    )
+    expect(integrationProviderCall.system).toEqual(expect.stringContaining('[A], [R], [M]'))
 
     expect(result.assistantMessage).toEqual(
       expect.objectContaining({
@@ -438,8 +473,18 @@ describe('Story 5.4 ATDD - Party Mode differentiated frameworks and integrated c
           party_mode_analysis_framework: 'Product value and prioritization',
         },
         decisionOptions: [
-          { key: 'integrate-party-mode', action: 'integrate-party-mode', label: '进入观点整合', enabled: true },
-          { key: 'return-to-workflow', action: 'return-to-workflow', label: '返回工作流', enabled: true },
+          {
+            key: 'integrate-party-mode',
+            action: 'integrate-party-mode',
+            label: '进入观点整合',
+            enabled: true,
+          },
+          {
+            key: 'return-to-workflow',
+            action: 'return-to-workflow',
+            label: '返回工作流',
+            enabled: true,
+          },
         ],
       }),
     ])
@@ -491,7 +536,12 @@ describe('Story 5.4 ATDD - Party Mode differentiated frameworks and integrated c
           label: '接受整合结论',
           enabled: true,
         },
-        { key: 'return-to-workflow', action: 'return-to-workflow', label: '返回工作流', enabled: true },
+        {
+          key: 'return-to-workflow',
+          action: 'return-to-workflow',
+          label: '返回工作流',
+          enabled: true,
+        },
       ],
     })
     messageRepository.findMessagesBySession.mockResolvedValue([
@@ -552,6 +602,70 @@ describe('Story 5.4 ATDD - Party Mode differentiated frameworks and integrated c
     )
   })
 
+  test('[P0] removes model-generated choice menus before appending Party Mode conclusions to the report draft', async () => {
+    const integrationMessage = createMessage({
+      id: 'message-integration-with-menu',
+      role: AdvisoryConversationMessageRole.Assistant,
+      content: [
+        '🎙️ Party Mode — 整合结论',
+        '[AI Generated]',
+        '',
+        'Consensus: onboarding is the primary retention blocker.',
+        '',
+        'Risks: instrumentation gaps remain.',
+        '',
+        '### 请选择：',
+        '**[A]** 接受整合结论，返回工作流并更新产品简报',
+        '**[M]** 针对某个观点继续追问',
+        '**[R]** 返回工作流，暂不修改产品简报',
+        '你的选择是？',
+      ].join('\n'),
+      sequence: 5,
+      metadata: {
+        ai_generated: true,
+        party_mode_integration: true,
+        party_mode_integration_status: 'draft',
+        party_mode_source_round: 1,
+        ai_label_visible: '[AI Generated]',
+      },
+      providerMetadata: { provider: 'fake', model: 'fake-thinktank-model' },
+      decisionOptions: [
+        {
+          key: 'accept-party-mode-conclusion',
+          action: 'accept-party-mode-conclusion',
+          label: '接受整合结论',
+          enabled: true,
+        },
+      ],
+    })
+    messageRepository.findMessagesBySession.mockResolvedValue([
+      createMessage({ id: 'message-user-party-entry', sequence: 1 }),
+      integrationMessage,
+    ])
+    messageRepository.findMessageById.mockResolvedValue(integrationMessage as never)
+
+    await service.submitMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: '接受整合结论',
+      decisionAction: 'accept-party-mode-conclusion',
+      addressedMessageId: 'message-integration-with-menu',
+    } as never)
+
+    const appendedSection = outputRepository.appendSection.mock.calls.at(-1)?.[2]
+    expect(appendedSection?.contentMarkdown).toContain(
+      'Consensus: onboarding is the primary retention blocker.',
+    )
+    expect(appendedSection?.contentMarkdown).toContain('Risks: instrumentation gaps remain.')
+    expect(appendedSection?.contentMarkdown).not.toContain('🎙️ Party Mode')
+    expect(appendedSection?.contentMarkdown).not.toContain('请选择')
+    expect(appendedSection?.contentMarkdown).not.toContain('[A]')
+    expect(appendedSection?.contentMarkdown).not.toContain('[M]')
+    expect(appendedSection?.contentMarkdown).not.toContain('[R]')
+    expect(appendedSection?.contentMarkdown).not.toContain('你的选择是')
+  })
+
   test('[P0][5.4-BE-007][AC3] accepts conclusion idempotently when the output section was already appended', async () => {
     const integrationMessage = createMessage({
       id: 'message-integration-1',
@@ -587,7 +701,8 @@ describe('Story 5.4 ATDD - Party Mode differentiated frameworks and integrated c
             id: 'section-existing',
             stepIndex: 2,
             heading: '根因分解 - Party Mode 整合结论',
-            contentMarkdown: '[AI Generated]\n\nConsensus: onboarding is the primary retention blocker.',
+            contentMarkdown:
+              '[AI Generated]\n\nConsensus: onboarding is the primary retention blocker.',
             aiLabel: '[AI Generated]',
             metadata: { source_message_id: 'message-integration-1' },
             createdAt: '2026-05-22T00:00:00.000Z',

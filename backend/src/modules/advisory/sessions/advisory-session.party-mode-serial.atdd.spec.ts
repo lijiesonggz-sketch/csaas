@@ -106,22 +106,34 @@ describe('Story 5.3 ATDD - Party Mode serial expert discussion backend', () => {
           sequence: 2,
           metadata: { ai_generated: true, party_mode_started: true },
           decisionOptions: [
-            { key: 'return-to-workflow', action: 'return-to-workflow', label: '返回工作流', enabled: true },
+            {
+              key: 'continue-party-mode',
+              action: 'continue-party-mode',
+              label: '开始讨论',
+              enabled: true,
+            },
+            {
+              key: 'return-to-workflow',
+              action: 'return-to-workflow',
+              label: '返回工作流',
+              enabled: true,
+            },
           ],
         }),
       ]),
-      createMessageWithNextSequence: jest.fn(async (_tenant, _session, input) =>
-        createMessage({
-          id: `message-${input.role}-${messageRepository.createMessageWithNextSequence.mock.calls.length}`,
-          role: input.role,
-          content: input.content,
-          sequence: messageRepository.createMessageWithNextSequence.mock.calls.length,
-          workflowKey: input.workflowKey,
-          stepIndex: input.stepIndex,
-          decisionOptions: input.decisionOptions ?? [],
-          metadata: input.metadata ?? {},
-          providerMetadata: input.providerMetadata ?? {},
-        }) as never,
+      createMessageWithNextSequence: jest.fn(
+        async (_tenant, _session, input) =>
+          createMessage({
+            id: `message-${input.role}-${messageRepository.createMessageWithNextSequence.mock.calls.length}`,
+            role: input.role,
+            content: input.content,
+            sequence: messageRepository.createMessageWithNextSequence.mock.calls.length,
+            workflowKey: input.workflowKey,
+            stepIndex: input.stepIndex,
+            decisionOptions: input.decisionOptions ?? [],
+            metadata: input.metadata ?? {},
+            providerMetadata: input.providerMetadata ?? {},
+          }) as never,
       ),
       deleteMessage: jest.fn().mockResolvedValue(true),
     }
@@ -139,7 +151,10 @@ describe('Story 5.3 ATDD - Party Mode serial expert discussion backend', () => {
     }
     service = new AdvisorySessionService(
       accessService as never,
-      { discoverWorkflows: jest.fn(), findWorkflow: jest.fn() } as unknown as ThinkTankWorkflowRegistryService,
+      {
+        discoverWorkflows: jest.fn(),
+        findWorkflow: jest.fn(),
+      } as unknown as ThinkTankWorkflowRegistryService,
       { assemblePrompt: jest.fn() } as unknown as ThinkTankPromptAssemblerService,
       sessionRepository as never,
       { emitAudit: jest.fn(), emitTelemetry: jest.fn() } as unknown as AdvisoryEventService,
@@ -158,11 +173,11 @@ describe('Story 5.3 ATDD - Party Mode serial expert discussion backend', () => {
 
     expect(messageRepository.createMessageWithNextSequence).toHaveBeenCalledTimes(4)
     const advisorCalls = messageRepository.createMessageWithNextSequence.mock.calls.slice(1)
-    expect(advisorCalls.map((call) => (call[2].metadata as Record<string, unknown>).party_mode_advisor_id)).toEqual([
-      'creative-problem-solver',
-      'architect',
-      'pm',
-    ])
+    expect(
+      advisorCalls.map(
+        (call) => (call[2].metadata as Record<string, unknown>).party_mode_advisor_id,
+      ),
+    ).toEqual(['creative-problem-solver', 'architect', 'pm'])
     expect(advisorCalls.map((call) => call[2].metadata)).toEqual([
       expect.objectContaining({
         party_mode_message: true,
@@ -177,6 +192,93 @@ describe('Story 5.3 ATDD - Party Mode serial expert discussion backend', () => {
       expect.objectContaining({ party_mode_advisor_name: 'John', party_mode_speaker_index: 3 }),
     ])
     expect(JSON.stringify(result)).not.toContain('<agent>')
+  })
+
+  test('[P0] instructs later Party Mode advisors to cross-talk with prior expert viewpoints', async () => {
+    await service.submitMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: 'Please discuss whether onboarding or pricing is the bigger retention risk.',
+    } as never)
+
+    const firstSystem = providerGateway.stream.mock.calls[0][0].system
+    const secondSystem = providerGateway.stream.mock.calls[1][0].system
+    const thirdSystem = providerGateway.stream.mock.calls[2][0].system
+
+    expect(firstSystem).toContain('open with a clear frame')
+    expect(secondSystem).toContain('Read the prior Party Mode expert messages in this round')
+    expect(secondSystem).toContain('Explicitly reference at least one prior expert')
+    expect(secondSystem).toContain('agree, disagree, reframe, or add a missing angle')
+    expect(secondSystem).toContain('Build on prior points instead of restating')
+    expect(thirdSystem).toContain('You are participating in a natural multi-agent discussion')
+    expect(thirdSystem).toContain('You may ask another expert')
+    expect(thirdSystem).toContain('Do not output UI choice menus')
+    expect(thirdSystem).toContain('[A], [P], [C], [R], [M]')
+  })
+
+  test('[P0] starts the first advisor round from the Party Mode start decision option', async () => {
+    const result = await service.submitMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: '开始讨论',
+      decisionAction: 'continue-party-mode',
+    } as never)
+
+    expect(providerGateway.stream).toHaveBeenCalledTimes(3)
+    expect(result.partyModeTurn?.advisorOrder).toEqual([
+      'creative-problem-solver',
+      'architect',
+      'pm',
+    ])
+    expect(result.decisionOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: 'integrate-party-mode', enabled: true }),
+        expect.objectContaining({ action: 'return-to-workflow', enabled: true }),
+      ]),
+    )
+  })
+
+  test('[P0] streams the first advisor round from the Party Mode start decision option', async () => {
+    const events = []
+    for await (const event of service.streamMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: '开始讨论',
+      decisionAction: 'continue-party-mode',
+    } as never)) {
+      events.push(event)
+    }
+
+    expect(providerGateway.stream).toHaveBeenCalledTimes(3)
+    expect(events.map((event) => event.event)).toEqual([
+      'message.started',
+      'party_mode.current_speaker',
+      'message.delta',
+      'message.completed',
+      'party_mode.current_speaker',
+      'message.delta',
+      'message.completed',
+      'party_mode.current_speaker',
+      'message.delta',
+      'message.completed',
+    ])
+    expect(events.at(-1)?.data).toEqual(
+      expect.objectContaining({
+        partyModeTurnComplete: true,
+        decisionOptions: expect.arrayContaining([
+          expect.objectContaining({ action: 'integrate-party-mode', enabled: true }),
+          expect.objectContaining({
+            action: 'continue-party-mode',
+            label: '继续下一轮',
+            enabled: true,
+          }),
+          expect.objectContaining({ action: 'return-to-workflow', enabled: true }),
+        ]),
+      }),
+    )
   })
 
   test('[P0][5.3-BE-002][AC2] streams current-speaker events before each advisor response', async () => {
@@ -202,9 +304,23 @@ describe('Story 5.3 ATDD - Party Mode serial expert discussion backend', () => {
       'message.delta',
       'message.completed',
     ])
-    expect(events.filter((event) => event.event === 'party_mode.current_speaker').map((event) => event.data)).toEqual([
-      expect.objectContaining({ advisorId: 'creative-problem-solver', advisorName: 'Dr. Quinn', round: 1, speakerIndex: 1 }),
-      expect.objectContaining({ advisorId: 'architect', advisorName: 'Winston', round: 1, speakerIndex: 2 }),
+    expect(
+      events
+        .filter((event) => event.event === 'party_mode.current_speaker')
+        .map((event) => event.data),
+    ).toEqual([
+      expect.objectContaining({
+        advisorId: 'creative-problem-solver',
+        advisorName: 'Dr. Quinn',
+        round: 1,
+        speakerIndex: 1,
+      }),
+      expect.objectContaining({
+        advisorId: 'architect',
+        advisorName: 'Winston',
+        round: 1,
+        speakerIndex: 2,
+      }),
       expect.objectContaining({ advisorId: 'pm', advisorName: 'John', round: 1, speakerIndex: 3 }),
     ])
     expect(
@@ -226,7 +342,12 @@ describe('Story 5.3 ATDD - Party Mode serial expert discussion backend', () => {
         sequence: 2,
         metadata: { ai_generated: true, party_mode_started: true },
         decisionOptions: [
-          { key: 'return-to-workflow', action: 'return-to-workflow', label: '返回工作流', enabled: true },
+          {
+            key: 'return-to-workflow',
+            action: 'return-to-workflow',
+            label: '返回工作流',
+            enabled: true,
+          },
         ],
       }),
       createMessage({
@@ -254,11 +375,11 @@ describe('Story 5.3 ATDD - Party Mode serial expert discussion backend', () => {
     } as never)
 
     const advisorCalls = messageRepository.createMessageWithNextSequence.mock.calls.slice(1)
-    expect(advisorCalls.map((call) => (call[2].metadata as Record<string, unknown>).party_mode_advisor_id)).toEqual([
-      'architect',
-      'creative-problem-solver',
-      'pm',
-    ])
+    expect(
+      advisorCalls.map(
+        (call) => (call[2].metadata as Record<string, unknown>).party_mode_advisor_id,
+      ),
+    ).toEqual(['architect', 'creative-problem-solver', 'pm'])
     expect(advisorCalls[0][2].metadata).toEqual(
       expect.objectContaining({
         party_mode_addressed_advisor_id: 'architect',
@@ -308,21 +429,23 @@ describe('Story 5.3 ATDD - Party Mode serial expert discussion backend', () => {
       }),
     ]
     messageRepository.findMessagesBySession.mockImplementation(async () => storedMessages as never)
-    messageRepository.createMessageWithNextSequence.mockImplementation(async (_tenant, _session, input) => {
-      const message = createMessage({
-        id: `message-${input.role}-${storedMessages.length + 1}`,
-        role: input.role,
-        content: input.content,
-        sequence: storedMessages.length + 1,
-        workflowKey: input.workflowKey,
-        stepIndex: input.stepIndex,
-        decisionOptions: input.decisionOptions ?? [],
-        metadata: input.metadata ?? {},
-        providerMetadata: input.providerMetadata ?? {},
-      })
-      storedMessages.push(message)
-      return message as never
-    })
+    messageRepository.createMessageWithNextSequence.mockImplementation(
+      async (_tenant, _session, input) => {
+        const message = createMessage({
+          id: `message-${input.role}-${storedMessages.length + 1}`,
+          role: input.role,
+          content: input.content,
+          sequence: storedMessages.length + 1,
+          workflowKey: input.workflowKey,
+          stepIndex: input.stepIndex,
+          decisionOptions: input.decisionOptions ?? [],
+          metadata: input.metadata ?? {},
+          providerMetadata: input.providerMetadata ?? {},
+        })
+        storedMessages.push(message)
+        return message as never
+      },
+    )
 
     await Promise.all([
       service.submitMessage({
@@ -354,7 +477,9 @@ describe('Story 5.3 ATDD - Party Mode serial expert discussion backend', () => {
     } as never)
 
     const serializedProviderCalls = JSON.stringify(providerGateway.stream.mock.calls)
-    const serializedMessageInputs = JSON.stringify(messageRepository.createMessageWithNextSequence.mock.calls)
+    const serializedMessageInputs = JSON.stringify(
+      messageRepository.createMessageWithNextSequence.mock.calls,
+    )
     for (const serialized of [serializedProviderCalls, serializedMessageInputs]) {
       expect(serialized).not.toContain('<agent>')
       expect(serialized).not.toContain('_bmad/cis/agents/creative-problem-solver.md')

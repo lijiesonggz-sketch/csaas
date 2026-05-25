@@ -82,6 +82,10 @@ function createFileProvider(
         'problem-solver-source-hash',
       ),
     ],
+    [
+      '_bmad/tea/agents/tea.agent.yaml',
+      descriptor('_bmad/tea/agents/tea.agent.yaml', agentFileContent, 'tea-source-hash'),
+    ],
   ])
   for (const [sourcePath, file] of fileOverrides) {
     files.set(sourcePath, file)
@@ -128,16 +132,18 @@ describe('Story 5.2 ATDD - ThinkTankPartyModeAdvisorPersonaService', () => {
       'creative-problem-solver',
       'architect',
       'pm',
+      'analyst',
     ])
-    expect(new Set(selection.advisors.map((advisor) => advisor.roleFamily)).size).toBe(3)
+    expect(new Set(selection.advisors.map((advisor) => advisor.roleFamily)).size).toBe(4)
     expect(selection.visibleSummary).toContain('ThinkTank 顾问')
     expect(selection.visibleSummary).toContain('Dr. Quinn')
     expect(selection.visibleSummary).toContain('Winston')
     expect(selection.visibleSummary).toContain('John')
+    expect(selection.visibleSummary).toContain('Mary')
     expect(selection.visibleSummary).not.toContain('BMAD')
     expect(selection.visibleSummary).not.toContain('_bmad')
     expect(selection.visibleSummary).not.toContain('<activation>')
-    expect(selection.metadata.party_mode_advisor_count).toBe(3)
+    expect(selection.metadata.party_mode_advisor_count).toBe(4)
     expect(selection.metadata.party_mode_selected_advisor_source_hashes).toContain(
       'problem-solver-source-hash',
     )
@@ -221,6 +227,7 @@ describe('Story 5.2 ATDD - ThinkTankPartyModeAdvisorPersonaService', () => {
       'analyst',
       'creative-problem-solver',
       'architect',
+      'pm',
     ])
     expect(selection.advisors[0].selectionReason).toContain('market research')
   })
@@ -238,7 +245,7 @@ describe('Story 5.2 ATDD - ThinkTankPartyModeAdvisorPersonaService', () => {
       latestUserMessage: 'We need product and business diagnosis.',
     })
 
-    expect(selection.advisors).toHaveLength(3)
+    expect(selection.advisors).toHaveLength(4)
     expect(selection.advisors.map((advisor) => advisor.id)).not.toContain('architect')
     expect(selection.omittedAdvisors).toEqual(
       expect.arrayContaining([
@@ -266,11 +273,9 @@ describe('Story 5.2 ATDD - ThinkTankPartyModeAdvisorPersonaService', () => {
       new ThinkTankBrandMapperService(),
     )
 
-    await expect(service.selectAdvisors({ workflowKey: 'problem-solving' })).rejects.toMatchObject(
-      {
-        code: ThinkTankRuntimeErrorCode.FileOutsideApprovedRoot,
-      },
-    )
+    await expect(service.selectAdvisors({ workflowKey: 'problem-solving' })).rejects.toMatchObject({
+      code: ThinkTankRuntimeErrorCode.FileOutsideApprovedRoot,
+    })
   })
 
   test('[P0][5.2-UNIT-002C][AC1] rejects approved CSV rows that point outside agent definition roots', async () => {
@@ -286,7 +291,10 @@ describe('Story 5.2 ATDD - ThinkTankPartyModeAdvisorPersonaService', () => {
         ],
         [
           '_bmad/cis/teams/default-party.csv',
-          descriptor('_bmad/cis/teams/default-party.csv', 'name,displayName\n'),
+          descriptor(
+            '_bmad/cis/teams/default-party.csv',
+            'name,displayName,path\n"unknown","Unknown",""\n',
+          ),
         ],
         [
           '_bmad/tea/teams/default-party.csv',
@@ -339,7 +347,10 @@ describe('Story 5.2 ATDD - ThinkTankPartyModeAdvisorPersonaService', () => {
       new Map([
         [
           '_bmad/bmm/teams/default-party.csv',
-          descriptor('_bmad/bmm/teams/default-party.csv', 'name,displayName\n"unknown","Unknown"\n'),
+          descriptor(
+            '_bmad/bmm/teams/default-party.csv',
+            'name,displayName\n"unknown","Unknown"\n',
+          ),
         ],
         [
           '_bmad/cis/teams/default-party.csv',
@@ -356,11 +367,9 @@ describe('Story 5.2 ATDD - ThinkTankPartyModeAdvisorPersonaService', () => {
       new ThinkTankBrandMapperService(),
     )
 
-    await expect(service.selectAdvisors({ workflowKey: 'problem-solving' })).rejects.toMatchObject(
-      {
-        code: ThinkTankRuntimeErrorCode.PartyModeAdvisorSetUnavailable,
-      },
-    )
+    await expect(service.selectAdvisors({ workflowKey: 'problem-solving' })).rejects.toMatchObject({
+      code: ThinkTankRuntimeErrorCode.PartyModeAdvisorSetUnavailable,
+    })
   })
 
   test('[P0][5.2-UNIT-003C][AC3] explains invalid team roster rows when the viable advisor set remains', async () => {
@@ -383,7 +392,7 @@ describe('Story 5.2 ATDD - ThinkTankPartyModeAdvisorPersonaService', () => {
 
     const selection = await service.selectAdvisors({ workflowKey: 'problem-solving' })
 
-    expect(selection.advisors).toHaveLength(3)
+    expect(selection.advisors).toHaveLength(4)
     expect(selection.omittedAdvisors).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -393,6 +402,7 @@ describe('Story 5.2 ATDD - ThinkTankPartyModeAdvisorPersonaService', () => {
         }),
       ]),
     )
+    expect(selection.omittedAdvisors.filter((advisor) => advisor.id === 'unknown')).toHaveLength(1)
     expect(selection.visibleSummary).toContain('已略过 Unknown')
   })
 

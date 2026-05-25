@@ -298,9 +298,36 @@ function getLatestDecisionOptions(
   return getLatestDecisionMessage(messages)?.decisionOptions ?? []
 }
 
+function getLatestAssistantMessage(
+  messages: ThinkTankConversationMessage[]
+): ThinkTankConversationMessage | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    if (message.role === 'assistant') {
+      return message
+    }
+  }
+
+  return null
+}
+
 function readSingleKeyShortcut(value: string): string | null {
   const match = value.trim().match(/^\[?([0-9a-z])\]?$/i)
   return match?.[1]?.toLowerCase() ?? null
+}
+
+function contentOffersTextualPartyModeShortcut(content: string, shortcut: string): boolean {
+  if (shortcut !== 'p') return false
+
+  return content.split(/\r?\n/).some((line) => {
+    if (!/(?:^|\s|[-*•])(?:\*\*)?\[\s*p\s*\](?:\*\*)?/i.test(line)) {
+      return false
+    }
+
+    return /party mode|派对模式|多视角|多角色|多专家|团队|复盘|不同角色|利益相关方|技术可行性|合规风险/i.test(
+      line
+    )
+  })
 }
 
 function createPartyModeShortcutSubmitOverride(
@@ -316,12 +343,20 @@ function createPartyModeShortcutSubmitOverride(
       candidate.enabled &&
       candidate.shortcut?.toLowerCase() === shortcut
   )
-  if (!option) return null
+  if (!option) {
+    const latestAssistantMessage = getLatestAssistantMessage(messages)
+    if (
+      !latestAssistantMessage ||
+      !contentOffersTextualPartyModeShortcut(latestAssistantMessage.content, shortcut)
+    ) {
+      return null
+    }
+  }
 
   return {
     content: '启动 Party Mode',
     decisionAction: 'party-mode',
-    selectedDecisionLabel: option.label,
+    selectedDecisionLabel: option?.label ?? 'Party Mode',
   }
 }
 

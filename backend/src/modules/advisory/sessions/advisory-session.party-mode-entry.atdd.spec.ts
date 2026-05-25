@@ -537,6 +537,16 @@ describe('Story 5.1 ATDD - Party Mode entry from workflow', () => {
         decision_action: 'party-mode',
       }),
     )
+    expect(result.decisionOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'continue-party-mode',
+          label: '开始讨论',
+          enabled: true,
+        }),
+        expect.objectContaining({ action: 'return-to-workflow', enabled: true }),
+      ]),
+    )
     expect(JSON.stringify(result.assistantMessage.providerMetadata)).not.toContain(
       'We need to decide',
     )
@@ -545,6 +555,62 @@ describe('Story 5.1 ATDD - Party Mode entry from workflow', () => {
   test('[P0] starts Party Mode from the latest enabled P shortcut when decisionAction is omitted', async () => {
     process.env.THINKTANK_PARTY_MODE_ENABLED = 'true'
     process.env.THINKTANK_PARTY_MODE_TENANTS = tenantId
+
+    const result = await service.submitMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: 'P',
+    })
+
+    expect(providerGateway.stream).not.toHaveBeenCalled()
+    expect(sessionRepository.claimPartyModeStart).toHaveBeenCalledWith(
+      tenantId,
+      sessionId,
+      actorId,
+      expect.objectContaining({
+        party_mode_active: true,
+        party_mode_status: 'starting',
+      }),
+    )
+    expect(result.assistantMessage.metadata).toEqual(
+      expect.objectContaining({
+        party_mode_started: true,
+        decision_action: 'party-mode',
+      }),
+    )
+  })
+
+  test('[P0] starts Party Mode from a textual P multi-perspective option even when persisted options are stale-disabled', async () => {
+    process.env.THINKTANK_PARTY_MODE_ENABLED = 'true'
+    process.env.THINKTANK_PARTY_MODE_TENANTS = tenantId
+    messageRepository.findMessagesBySession.mockResolvedValueOnce([
+      createMessage({ id: 'message-user-previous', sequence: 1 }),
+      createMessage({
+        id: 'message-assistant-textual-party',
+        role: AdvisoryConversationMessageRole.Assistant,
+        content:
+          '**[A]** 深入挖掘\n**[P]** 多视角审视 — 从技术可行性、合规风险角度验证\n**[C]** 继续推进',
+        sequence: 2,
+        decisionOptions: [
+          {
+            key: 'continue',
+            action: 'continue',
+            label: '继续',
+            shortcut: 'C',
+            enabled: true,
+          },
+          {
+            key: 'party-mode',
+            action: 'party-mode',
+            label: 'Party Mode',
+            shortcut: 'P',
+            enabled: false,
+            description: 'Party Mode 未启用；当前仍可使用单顾问流程。',
+          },
+        ],
+      }),
+    ])
 
     const result = await service.submitMessage({
       user,

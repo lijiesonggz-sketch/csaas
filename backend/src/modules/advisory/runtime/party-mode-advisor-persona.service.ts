@@ -36,18 +36,25 @@ const PARTY_MODE_TEAM_PATHS = [
   '_bmad/bmm/teams/default-party.csv',
   '_bmad/tea/teams/default-party.csv',
 ]
-const DEFAULT_TARGET_ADVISOR_COUNT = 3
+const DEFAULT_TARGET_ADVISOR_COUNT = 4
 const DEFAULT_MINIMUM_ADVISOR_COUNT = 3
 
-const WORKFLOW_ADVISOR_PREFERENCES: Record<string, string[]> = {
-  'problem-solving': ['creative-problem-solver', 'architect', 'pm', 'analyst'],
-  'design-thinking': ['design-thinking-coach', 'ux-designer', 'pm', 'architect'],
-  storytelling: ['storyteller', 'presentation-master', 'pm', 'analyst'],
-  prd: ['analyst', 'pm', 'architect', 'ux-designer'],
-  'product-brief': ['analyst', 'pm', 'architect', 'innovation-strategist'],
-  'market-research': ['analyst', 'pm', 'architect', 'innovation-strategist'],
-  'domain-research': ['analyst', 'pm', 'architect', 'creative-problem-solver'],
-  brainstorming: ['brainstorming-coach', 'innovation-strategist', 'pm', 'ux-designer'],
+const WORKFLOW_CONTEXT_HINTS: Record<string, string> = {
+  'problem-solving':
+    'root cause analysis systems thinking constraints solution feasibility product impact',
+  'design-thinking':
+    'user research empathy interaction design prototype validation product value technical feasibility',
+  storytelling:
+    'narrative communication audience presentation positioning market evidence product value',
+  prd: 'requirements stakeholder alignment product value market evidence technical feasibility risk',
+  'product-brief':
+    'market research requirements business model product value stakeholder alignment technical feasibility',
+  'market-research':
+    'market research competitive analysis domain expertise product positioning business model',
+  'domain-research':
+    'domain expertise market research systems thinking root cause requirements technical constraints',
+  brainstorming:
+    'creative ideation innovation business model product opportunity user experience feasibility',
 }
 
 @Injectable()
@@ -68,9 +75,7 @@ export class ThinkTankPartyModeAdvisorPersonaService {
     const candidates = approvedCandidates.candidates
     const orderedCandidates = this.orderCandidatesForWorkflow(candidates, request)
     const selected: ThinkTankPartyModeAdvisorPersona[] = []
-    const omitted: ThinkTankPartyModeAdvisorOmission[] = [
-      ...approvedCandidates.omittedAdvisors,
-    ]
+    const omitted: ThinkTankPartyModeAdvisorOmission[] = [...approvedCandidates.omittedAdvisors]
     const selectedRoleFamilies = new Set<string>()
     const attempted = new Set<string>()
 
@@ -148,6 +153,7 @@ export class ThinkTankPartyModeAdvisorPersonaService {
     )
     const teamCandidates: AdvisorCandidate[] = []
     const omittedAdvisors: ThinkTankPartyModeAdvisorOmission[] = []
+    const omittedAdvisorKeys = new Set<string>()
     let teamRowsSeen = 0
 
     for (const teamPath of PARTY_MODE_TEAM_PATHS) {
@@ -158,11 +164,16 @@ export class ThinkTankPartyModeAdvisorPersonaService {
         const teamCandidate = this.toTeamCandidate(row, manifestByName)
         if (!teamCandidate) {
           const displayName = this.asVisibleText(row.displayName || row.name || 'Unknown Advisor')
-          omittedAdvisors.push({
-            id: this.asVisibleText(row.name).toLowerCase() || 'unknown-advisor',
-            displayName,
-            reason: '顾问来源缺少批准的 agent 定义，已从本次候选集中略过。',
-          })
+          const id = this.asVisibleText(row.name).toLowerCase() || 'unknown-advisor'
+          const omittedKey = `${id}:missing-approved-agent-definition`
+          if (!omittedAdvisorKeys.has(omittedKey)) {
+            omittedAdvisorKeys.add(omittedKey)
+            omittedAdvisors.push({
+              id,
+              displayName,
+              reason: '顾问来源缺少批准的 agent 定义，已从本次候选集中略过。',
+            })
+          }
           continue
         }
 
@@ -280,22 +291,18 @@ export class ThinkTankPartyModeAdvisorPersonaService {
     request: ThinkTankPartyModeAdvisorSelectionRequest,
   ) {
     const normalizedWorkflowKey = request.workflowKey.trim().toLowerCase()
-    const preferences =
-      WORKFLOW_ADVISOR_PREFERENCES[normalizedWorkflowKey] ??
-      WORKFLOW_ADVISOR_PREFERENCES['problem-solving']
-    const preferenceRank = new Map(preferences.map((id, index) => [id, preferences.length - index]))
+    const workflowContextHint =
+      WORKFLOW_CONTEXT_HINTS[normalizedWorkflowKey] ?? normalizedWorkflowKey.replace(/[-_]+/g, ' ')
+    const contextualRequest = {
+      ...request,
+      latestUserMessage: [workflowContextHint, request.latestUserMessage].filter(Boolean).join(' '),
+    }
 
     return [...candidates].sort((left, right) => {
-      const leftScore =
-        (preferenceRank.get(left.id) ?? 0) * 10 + this.toContextRelevanceScore(left, request)
-      const rightScore =
-        (preferenceRank.get(right.id) ?? 0) * 10 + this.toContextRelevanceScore(right, request)
+      const leftScore = this.toContextRelevanceScore(left, contextualRequest)
+      const rightScore = this.toContextRelevanceScore(right, contextualRequest)
       const scoreDelta = rightScore - leftScore
       if (scoreDelta !== 0) return scoreDelta
-
-      const preferenceDelta =
-        (preferenceRank.get(right.id) ?? 0) - (preferenceRank.get(left.id) ?? 0)
-      if (preferenceDelta !== 0) return preferenceDelta
 
       if (left.approvedByTeam !== right.approvedByTeam) return left.approvedByTeam ? -1 : 1
       return left.id.localeCompare(right.id)
@@ -318,9 +325,9 @@ export class ThinkTankPartyModeAdvisorPersonaService {
         continue
       }
 
-      score += this.toSearchTokens(normalizedCapability).filter((token) =>
-        context.includes(token),
-      ).length * 8
+      score +=
+        this.toSearchTokens(normalizedCapability).filter((token) => context.includes(token))
+          .length * 8
     }
 
     const descriptorTokens = this.toSearchTokens(
@@ -333,7 +340,12 @@ export class ThinkTankPartyModeAdvisorPersonaService {
 
   private toRequestContext(request: ThinkTankPartyModeAdvisorSelectionRequest) {
     return this.toSearchTokens(
-      [request.workflowKey, request.currentStepLabel, request.currentStepSourceRef, request.latestUserMessage]
+      [
+        request.workflowKey,
+        request.currentStepLabel,
+        request.currentStepSourceRef,
+        request.latestUserMessage,
+      ]
         .filter(Boolean)
         .join(' '),
     ).join(' ')
@@ -524,7 +536,7 @@ export class ThinkTankPartyModeAdvisorPersonaService {
       sections.push('部分候选顾问未加入：', ...omissionLines)
     }
 
-    sections.push('多角色顾问讨论将在后续步骤基于当前工作流继续，完成后可返回原工作流。')
+    sections.push('选择“开始讨论”即可让多位顾问进入第一轮讨论，完成后可返回原工作流。')
 
     return this.brandMapper.mapVisibleText(sections.join('\n'))
   }
