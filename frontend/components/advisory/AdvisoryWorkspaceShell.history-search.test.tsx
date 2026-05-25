@@ -385,6 +385,64 @@ describe('AdvisoryWorkspaceShell history and search', () => {
     )
   })
 
+  test('[P0] opens a completed session transcript even when its report output is unavailable', async () => {
+    const user = userEvent.setup()
+    mockFetchHistory.mockResolvedValueOnce({
+      items: [
+        createHistoryItem({
+          id: 'session-completed',
+          resultType: 'session',
+          sessionId: 'session-completed',
+          outputId: undefined,
+          title: 'Completed Product Brief',
+          summary: '已完成 - Product Brief Completion',
+          workflowType: 'Product Brief',
+          workflowKey: 'product-brief',
+          status: 'completed',
+          lastStep: { index: 6, label: 'Product Brief Completion', isFinal: true },
+          timestamp: '2026-05-21T01:10:00.000Z',
+          openTarget: 'view-session',
+        }),
+      ],
+      meta: { page: 1, limit: 20, total: 1 },
+    })
+    mockFetchMessages.mockResolvedValueOnce({
+      sessionId: 'session-completed',
+      currentStep: { index: 6, label: 'Product Brief Completion', isFinal: true },
+      messages: [
+        {
+          id: 'message-completed',
+          role: 'assistant',
+          content: 'Final product brief transcript is available.',
+          workflowKey: 'product-brief',
+          stepIndex: 6,
+          decisionOptions: [],
+        },
+      ],
+    })
+    mockFetchOutput.mockRejectedValueOnce(new Error('ThinkTank output draft not found.'))
+
+    render(<AdvisoryWorkspaceShell />)
+
+    const historyRegion = await screen.findByRole('region', { name: '历史记录' })
+    await user.click(
+      within(historyRegion).getByRole('button', { name: /打开会话 Completed Product Brief/ })
+    )
+
+    await waitFor(() => expect(mockFetchMessages).toHaveBeenCalledWith('session-completed'))
+    await waitFor(() =>
+      expect(mockFetchOutput).toHaveBeenCalledWith('session-completed', { outputId: undefined })
+    )
+    expect(await screen.findByRole('heading', { name: 'Product Brief' })).toBeInTheDocument()
+    expect(screen.getByText('Final product brief transcript is available.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Mock document drawer')).toHaveTextContent(
+      'Document drawer closed'
+    )
+    expect(
+      screen.queryByText('暂时无法加载 ThinkTank 历史记录，请稍后重试。')
+    ).not.toBeInTheDocument()
+  })
+
   test('[P0][4.3-FE-012][AC2] uses the existing resume path for active session results', async () => {
     const user = userEvent.setup()
     mockFetchHistory.mockResolvedValueOnce({

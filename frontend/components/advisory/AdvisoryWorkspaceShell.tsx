@@ -1296,17 +1296,20 @@ export default function AdvisoryWorkspaceShell() {
     const isCurrentSession = activeLaunchRef.current?.sessionId === item.sessionId
 
     try {
-      const [messagesResult, outputResult] = await Promise.all([
+      const [messagesResult, outputResult] = await Promise.allSettled([
         fetchThinkTankSessionMessages(item.sessionId),
         fetchThinkTankWorkflowOutput(item.sessionId, { outputId: item.outputId }),
       ])
       if (historyOpenRequestIdRef.current !== openRequestId) return
+      if (messagesResult.status === 'rejected') {
+        throw messagesResult.reason
+      }
 
-      const launch = createHistoryWorkflowLaunch(item, messagesResult.currentStep)
+      const launch = createHistoryWorkflowLaunch(item, messagesResult.value.currentStep)
       activeLaunchRef.current = launch
       skipNextSessionMessagesLoadRef.current = launch.sessionId
       skipNextOutputLoadRef.current = launch.sessionId
-      setSessionMessages(messagesResult.messages)
+      setSessionMessages(messagesResult.value.messages)
       setSessionMessagesStatus('ready')
       setMessageStreamingStatus('idle')
       setStreamingMessageId(null)
@@ -1314,7 +1317,7 @@ export default function AdvisoryWorkspaceShell() {
       setHasUnreadStreamContent(false)
       setShowAllMessages(false)
       setSelectedDecisionLabel(null)
-      setWorkflowOutput(outputResult.output)
+      setWorkflowOutput(outputResult.status === 'fulfilled' ? outputResult.value.output : null)
       setHistoryPreviewOutput(null)
       setHasUnreadDocumentContent(false)
       setOutputAnnouncement('')
