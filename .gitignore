@@ -113,6 +113,7 @@ auth.json
 .agent/
 .codebuddy/
 .codex/
+.codex-logs/
 .continue/
 .cursor/
 .gemini/
