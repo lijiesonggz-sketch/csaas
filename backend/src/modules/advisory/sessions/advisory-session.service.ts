@@ -6854,7 +6854,8 @@ export class AdvisorySessionService {
     enabled: boolean
     description: string
   } {
-    if (!this.isEnabledEnvironmentFlag(process.env.THINKTANK_PARTY_MODE_ENABLED)) {
+    const enabledFlag = process.env.THINKTANK_PARTY_MODE_ENABLED
+    if (typeof enabledFlag === 'string' && !this.isEnabledEnvironmentFlag(enabledFlag)) {
       return {
         enabled: false,
         description: THINKTANK_PARTY_MODE_DISABLED_DESCRIPTION,
@@ -7706,7 +7707,7 @@ export class AdvisorySessionService {
 
   private isTenantAllowedForPartyMode(tenantId: string): boolean {
     const rawAllowlist = process.env.THINKTANK_PARTY_MODE_TENANTS
-    if (typeof rawAllowlist !== 'string') return false
+    if (typeof rawAllowlist !== 'string' || !rawAllowlist.trim()) return true
 
     const allowedTenants = rawAllowlist
       .split(',')

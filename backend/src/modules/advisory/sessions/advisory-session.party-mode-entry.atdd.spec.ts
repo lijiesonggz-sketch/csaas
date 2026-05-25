@@ -368,7 +368,30 @@ describe('Story 5.1 ATDD - Party Mode entry from workflow', () => {
     process.env = originalEnv
   })
 
-  test('[P0][5.1-BE-001][AC1,AC2] exposes Party Mode only when feature flag and tenant allowlist enable it', async () => {
+  test('[P0] exposes Party Mode globally when no feature flag or tenant allowlist is configured', async () => {
+    delete process.env.THINKTANK_PARTY_MODE_ENABLED
+    delete process.env.THINKTANK_PARTY_MODE_TENANTS
+
+    const result = await service.submitMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: 'What should we do next?',
+    })
+
+    expect(result.decisionOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'party-mode',
+          shortcut: 'P',
+          enabled: true,
+          description: expect.stringContaining('多角色'),
+        }),
+      ]),
+    )
+  })
+
+  test('[P0][5.1-BE-001][AC1,AC2] honors explicit Party Mode feature flag and tenant allowlist configuration', async () => {
     process.env.THINKTANK_PARTY_MODE_ENABLED = 'true'
     process.env.THINKTANK_PARTY_MODE_TENANTS = tenantId
 
@@ -395,6 +418,29 @@ describe('Story 5.1 ATDD - Party Mode entry from workflow', () => {
         expect.objectContaining({ action: 'deepen', enabled: true }),
       ]),
     )
+  })
+
+  test('[P0] keeps Party Mode unavailable when the global feature flag is explicitly disabled', async () => {
+    process.env.THINKTANK_PARTY_MODE_ENABLED = 'false'
+    process.env.THINKTANK_PARTY_MODE_TENANTS = '*'
+
+    const result = await service.submitMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: 'Continue with the normal advisor.',
+    })
+
+    expect(result.decisionOptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'party-mode',
+          enabled: false,
+          description: expect.stringContaining('未启用'),
+        }),
+      ]),
+    )
+    expect(providerGateway.stream).toHaveBeenCalled()
   })
 
   test('[P0][5.1-BE-002][AC2] keeps Party Mode unavailable when tenant configuration disables it while single-advisor actions work', async () => {

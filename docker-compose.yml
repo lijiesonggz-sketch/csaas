@@ -51,6 +51,8 @@ services:
       REDIS_PORT: 6379
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
+      THINKTANK_PARTY_MODE_ENABLED: ${THINKTANK_PARTY_MODE_ENABLED:-true}
+      THINKTANK_PARTY_MODE_TENANTS: ${THINKTANK_PARTY_MODE_TENANTS:-*}
     env_file:
       - ./backend/.env.production
     ports:
