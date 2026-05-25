@@ -204,6 +204,17 @@ export class ThinkTankRuntimeFileProviderService {
   }
 
   async listCsvFiles(relativeRoot: string): Promise<string[]> {
+    return this.listRuntimeFiles(relativeRoot, ['.csv'])
+  }
+
+  async listMarkdownFiles(relativeRoot: string): Promise<string[]> {
+    return this.listRuntimeFiles(relativeRoot, ['.md'])
+  }
+
+  async listRuntimeFiles(
+    relativeRoot: string,
+    extensions?: ThinkTankRuntimeFileExtension[],
+  ): Promise<string[]> {
     const { absolutePath: absoluteRoot, repoRelative } =
       this.resolveRepositoryRelativePath(relativeRoot)
     const normalizedRoot = repoRelative.replace(/\/+$/, '')
@@ -211,7 +222,7 @@ export class ThinkTankRuntimeFileProviderService {
     if (!this.isWithinApprovedRoot(normalizedRoot)) {
       throw new ThinkTankRuntimeError(
         ThinkTankRuntimeErrorCode.FileOutsideApprovedRoot,
-        'Runtime CSV listing root is outside approved ThinkTank source roots',
+        'Runtime listing root is outside approved ThinkTank source roots',
         { sourcePath: relativeRoot },
       )
     }
@@ -225,13 +236,18 @@ export class ThinkTankRuntimeFileProviderService {
     if (!this.isWithinRealApprovedRoot(realAbsoluteRoot, realApprovedRoots, realRepoRoot)) {
       throw new ThinkTankRuntimeError(
         ThinkTankRuntimeErrorCode.FileOutsideApprovedRoot,
-        'Runtime CSV listing root resolves outside approved ThinkTank source roots',
+        'Runtime listing root resolves outside approved ThinkTank source roots',
         { sourcePath: normalizedRoot },
       )
     }
 
+    const extensionFilter = extensions ? new Set(extensions) : null
+
     return (await this.listFilesUnderRoot(absoluteRoot))
-      .filter((file) => file.endsWith('.csv'))
+      .filter((file) => {
+        if (!extensionFilter) return true
+        return extensionFilter.has(extname(file).toLowerCase() as ThinkTankRuntimeFileExtension)
+      })
       .sort()
   }
 

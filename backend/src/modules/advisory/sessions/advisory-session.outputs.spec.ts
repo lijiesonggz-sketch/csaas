@@ -42,7 +42,14 @@ const activeSession = {
   workflowDisplayName: 'Problem Solving',
   scenarioLabel: 'Systematic diagnosis and solution design',
   status: AdvisoryWorkflowSessionStatus.Active,
-  currentStep: { index: 1, label: 'Diagnose retention', sourceRef: 'current-step:1' },
+  currentStep: {
+    index: 1,
+    label: 'Diagnose retention',
+    sourceRef: 'current-step:1',
+    totalSteps: 1,
+    isFinal: true,
+    isFinalStep: true,
+  },
   sourceRefs: ['workflow:problem-solving', 'current-step:1'],
   metadata: { workflow_key: 'problem-solving', source_ref_count: 2 },
   failureCode: null,
@@ -521,6 +528,41 @@ describe('AdvisorySessionService workflow outputs (ATDD RED)', () => {
     expect(JSON.stringify(auditInput.metadata)).not.toMatch(
       /Retention drops|content_markdown|contentMarkdown|sections|report|document|prompt/i,
     )
+  })
+
+  test('[P0] refuses explicit completion before the workflow reaches its final step', async () => {
+    sessionRepository.findSessionById.mockResolvedValueOnce({
+      ...activeSession,
+      currentStep: { index: 1, label: 'Diagnose retention', sourceRef: 'current-step:1' },
+      metadata: { workflow_key: 'problem-solving', runtime_step_count: 9 },
+    })
+    outputRepository.findActiveDraftForSession.mockResolvedValueOnce(
+      createOutput({
+        sections: [
+          {
+            id: 'section-1',
+            stepIndex: 1,
+            heading: 'Diagnose retention',
+            contentMarkdown: '[AI Generated]\n\nRetention drops after the second session.',
+            aiLabel: '[AI Generated]',
+            metadata: { ai_generated: true },
+            createdAt: '2026-05-20T00:01:00.000Z',
+          },
+        ],
+      }),
+    )
+
+    await expect(
+      service.completeOutput({
+        user,
+        tenantId,
+        sessionId,
+        outcome: 'success',
+      }),
+    ).rejects.toThrow(BadRequestException)
+
+    expect(outputRepository.completeDraftAndSession).not.toHaveBeenCalled()
+    expect(eventService.emitAudit).not.toHaveBeenCalled()
   })
 
   test('[P1] refuses to complete an output when required AI label metadata is missing', async () => {

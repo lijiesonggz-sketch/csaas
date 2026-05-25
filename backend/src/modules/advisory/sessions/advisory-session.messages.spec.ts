@@ -360,6 +360,59 @@ describe('AdvisorySessionService guided messages', () => {
     )
   })
 
+  test('[P0] streams rehydrated final-step metadata for resumed runtime sessions', async () => {
+    sessionRepository.findSessionById.mockResolvedValueOnce({
+      ...activeSession,
+      workflowKey: 'storytelling',
+      currentStep: {
+        index: 10,
+        label: 'Step 10: Generate final output',
+        sourceRef: 'current-step:10',
+      },
+      metadata: {
+        workflow_key: 'storytelling',
+        runtime_step_count: 10,
+        runtime_current_step_index: 10,
+      },
+    })
+    const events = []
+
+    for await (const event of service.streamMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: '全部确认，生成最终文档。',
+    })) {
+      events.push(event)
+    }
+
+    expect(events[0]).toEqual({
+      event: 'message.started',
+      data: {
+        sessionId,
+        currentStep: expect.objectContaining({
+          index: 10,
+          totalSteps: 10,
+          isFinal: true,
+          isFinalStep: true,
+        }),
+      },
+    })
+    expect(events.at(-1)).toEqual(
+      expect.objectContaining({
+        event: 'message.completed',
+        data: expect.objectContaining({
+          currentStep: expect.objectContaining({
+            index: 10,
+            totalSteps: 10,
+            isFinal: true,
+            isFinalStep: true,
+          }),
+        }),
+      }),
+    )
+  })
+
   test('[P0] emits a stream error instead of completing when the provider returns no content', async () => {
     providerGateway.stream.mockImplementationOnce(async function* () {
       // empty provider stream

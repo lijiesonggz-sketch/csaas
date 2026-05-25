@@ -258,6 +258,64 @@ describe('AdvisorySessionService resume interrupted sessions', () => {
     )
   })
 
+  test('[P0] restores final-step metadata for unfinished resumed sessions', async () => {
+    const finalSession = {
+      ...activeSession,
+      workflowKey: 'storytelling',
+      workflowDisplayName: 'Storytelling',
+      currentStep: {
+        index: 10,
+        label: 'Step 10: Generate final output',
+        sourceRef: 'current-step:10',
+      },
+      metadata: {
+        workflow_key: 'storytelling',
+        runtime_step_count: 10,
+        runtime_current_step_index: 10,
+      },
+    }
+    sessionRepository.findUnfinishedSessionsForActor.mockResolvedValueOnce([finalSession] as never)
+    checkpointService.restoreCheckpoint.mockResolvedValueOnce({
+      source: null,
+      state: null,
+    })
+    outputRepository.findActiveDraftForSession.mockResolvedValueOnce(
+      createOutput({
+        workflowKey: 'storytelling',
+        sections: [
+          {
+            id: 'section-final',
+            stepIndex: 10,
+            heading: 'Step 10: Generate final output',
+            contentMarkdown: '[AI Generated]\n\nFinal narrative.',
+            aiLabel: '[AI Generated]',
+            metadata: {},
+            createdAt: '2026-05-25T01:27:48.000Z',
+          },
+        ],
+        metadata: {
+          section_count: 1,
+          last_step_index: 10,
+        },
+      }),
+    )
+    outputRepository.findLatestCompletedForSession.mockResolvedValueOnce(null)
+    messageRepository.findMessagesBySession.mockResolvedValueOnce([])
+
+    const result = await service.listUnfinishedSessions({ user, tenantId })
+
+    expect(result.sessions).toHaveLength(1)
+    expect(result.sessions[0].lastStep).toEqual(
+      expect.objectContaining({
+        index: 10,
+        label: 'Step 10: Generate final output',
+        totalSteps: 10,
+        isFinal: true,
+        isFinalStep: true,
+      }),
+    )
+  })
+
   test('[P0][4.2-BE-002][AC2] resumes from checkpoint and returns recovery message with continue and document actions', async () => {
     const result = await service.resumeSession({ user, tenantId, sessionId })
 

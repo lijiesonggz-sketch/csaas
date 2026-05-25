@@ -6,6 +6,7 @@ import { ThinkTankPromptAssemblerService } from './prompt-assembler.service'
 import { ThinkTankRuntimeFileProviderService } from './runtime-file-provider.service'
 import { ThinkTankWorkflowParserService } from './workflow-parser.service'
 import { ThinkTankWorkflowRegistryService } from './workflow-registry.service'
+import { ThinkTankWorkflowStepResolverService } from './workflow-step-resolver.service'
 
 describe('AdvisoryModule runtime registration', () => {
   it('registers and exports runtime services from the existing AdvisoryModule', () => {
@@ -16,6 +17,7 @@ describe('AdvisoryModule runtime registration', () => {
       ThinkTankBrandMapperService,
       ThinkTankWorkflowParserService,
       ThinkTankWorkflowRegistryService,
+      ThinkTankWorkflowStepResolverService,
       ThinkTankPromptAssemblerService,
     ]
 
@@ -32,6 +34,7 @@ describe('AdvisoryModule runtime registration', () => {
         ThinkTankBrandMapperService,
         ThinkTankWorkflowParserService,
         ThinkTankWorkflowRegistryService,
+        ThinkTankWorkflowStepResolverService,
         ThinkTankPromptAssemblerService,
       ],
     }).compile()
@@ -45,6 +48,9 @@ describe('AdvisoryModule runtime registration', () => {
     )
     expect(moduleRef.get(ThinkTankWorkflowRegistryService)).toBeInstanceOf(
       ThinkTankWorkflowRegistryService,
+    )
+    expect(moduleRef.get(ThinkTankWorkflowStepResolverService)).toBeInstanceOf(
+      ThinkTankWorkflowStepResolverService,
     )
     expect(moduleRef.get(ThinkTankPromptAssemblerService)).toBeInstanceOf(
       ThinkTankPromptAssemblerService,

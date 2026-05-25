@@ -224,6 +224,82 @@ describe('AdvisorySessionService conversation history and search', () => {
     expect(JSON.stringify(result.items)).not.toContain('_bmad')
   })
 
+  test('[P0] rehydrates final-step metadata for active resumed workflow history items', async () => {
+    const finalSession = createSession({
+      workflowKey: 'storytelling',
+      workflowDisplayName: 'Storytelling',
+      currentStep: {
+        index: 10,
+        label: 'Step 10: Generate final output',
+        sourceRef: 'current-step:10',
+      },
+      metadata: {
+        workflow_key: 'storytelling',
+        runtime_step_count: 10,
+        runtime_current_step_index: 10,
+      },
+    })
+    const finalDraft = createOutput({
+      workflowKey: 'storytelling',
+      status: AdvisoryWorkflowOutputStatus.Draft,
+      title: 'Storytelling Report Draft',
+      summary: '',
+      sections: [
+        {
+          id: 'section-final',
+          stepIndex: 10,
+          heading: 'Step 10: Generate final output',
+          contentMarkdown: '[AI Generated]\n\nFinal narrative.',
+          aiLabel: '[AI Generated]',
+          metadata: {},
+          createdAt: '2026-05-25T01:27:48.000Z',
+        },
+      ],
+      metadata: {
+        section_count: 1,
+        last_step_index: 10,
+      },
+    })
+    sessionRepository.findHistorySessionsForActor.mockResolvedValueOnce({
+      items: [finalSession],
+      total: 1,
+    } as never)
+    outputRepository.findHistoryOutputsForActor.mockResolvedValueOnce({
+      items: [],
+      total: 0,
+    } as never)
+    outputRepository.findLatestPersistedBySessionIds.mockResolvedValueOnce([finalDraft])
+
+    const result = await service.listSessionHistory({
+      user,
+      tenantId,
+      query: {
+        type: 'session',
+        workflowKey: 'storytelling',
+        status: 'active',
+        page: 1,
+        limit: 20,
+      },
+    })
+
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        resultType: 'session',
+        workflowKey: 'storytelling',
+        status: 'active',
+        openTarget: 'resume-session',
+        lastStep: expect.objectContaining({
+          index: 10,
+          label: 'Step 10: Generate final output',
+          totalSteps: 10,
+          isFinal: true,
+          isFinalStep: true,
+        }),
+      }),
+    )
+  })
+
   test('[P0][4.4-BE-016][AC2,AC3,AC4] batch-loads history asset state with current tenant actor and authorized outputs only', async () => {
     const ratingRepository = {
       findStatesForOutputIds: jest.fn().mockResolvedValue([

@@ -62,6 +62,7 @@ import { ThinkTankBrandMapperService } from './runtime/brand-mapper.service'
 import { ThinkTankPartyModeAdvisorPersonaService } from './runtime/party-mode-advisor-persona.service'
 import { ThinkTankPromptAssemblerService } from './runtime/prompt-assembler.service'
 import { ThinkTankRuntimeFileProviderService } from './runtime/runtime-file-provider.service'
+import { ThinkTankWorkflowStepResolverService } from './runtime/workflow-step-resolver.service'
 import { ThinkTankWorkflowParserService } from './runtime/workflow-parser.service'
 import { ThinkTankWorkflowRegistryService } from './runtime/workflow-registry.service'
 import { AdvisorySessionController } from './sessions/advisory-session.controller'
@@ -170,6 +171,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     ThinkTankPartyModeAdvisorPersonaService,
     ThinkTankWorkflowParserService,
     ThinkTankWorkflowRegistryService,
+    ThinkTankWorkflowStepResolverService,
     ThinkTankPromptAssemblerService,
   ],
   exports: [
@@ -206,6 +208,7 @@ import { AdvisorySessionService } from './sessions/advisory-session.service'
     ThinkTankPartyModeAdvisorPersonaService,
     ThinkTankWorkflowParserService,
     ThinkTankWorkflowRegistryService,
+    ThinkTankWorkflowStepResolverService,
     ThinkTankPromptAssemblerService,
   ],
 })

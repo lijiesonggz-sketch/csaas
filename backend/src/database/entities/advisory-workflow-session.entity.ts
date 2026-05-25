@@ -20,6 +20,9 @@ export interface AdvisoryWorkflowSessionCurrentStep {
   index: number
   label: string
   sourceRef?: string
+  isFinal?: boolean
+  isFinalStep?: boolean
+  totalSteps?: number
 }
 
 export type AdvisoryWorkflowSessionMetadata = Record<string, string | number | boolean | null>

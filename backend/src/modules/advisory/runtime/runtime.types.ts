@@ -71,6 +71,45 @@ export interface ThinkTankAssembledPrompt {
   sources: ThinkTankPromptSourceDescriptor[]
 }
 
+export interface ThinkTankWorkflowRuntimeStepSnapshot {
+  index: number
+  label: string
+  sourceRef?: string
+  isFinal?: boolean
+  isFinalStep?: boolean
+  totalSteps?: number
+}
+
+export interface ThinkTankWorkflowRuntimeStep {
+  index: number
+  label: string
+  sourcePath: string
+  sourceRef: string
+  routeKey: string
+  content: string
+  rawContent: string
+  contentHash: string
+}
+
+export interface ThinkTankWorkflowRuntimePlan {
+  workflowKey: string
+  steps: ThinkTankWorkflowRuntimeStep[]
+  firstStep: ThinkTankWorkflowRuntimeStep
+  sourceRefs: string[]
+}
+
+export interface ThinkTankWorkflowRuntimeState {
+  plan: ThinkTankWorkflowRuntimePlan
+  step: ThinkTankWorkflowRuntimeStep
+  currentStep: ThinkTankWorkflowRuntimeStepSnapshot
+  metadata: Record<string, string | number | boolean | null>
+}
+
+export interface ThinkTankWorkflowRuntimeRouteResult extends ThinkTankWorkflowRuntimeState {
+  previousStep: ThinkTankWorkflowRuntimeStepSnapshot
+  routeSource: 'explicit' | 'sequential'
+}
+
 export interface ThinkTankPartyModeAdvisorSelectionRequest {
   workflowKey: string
   currentStepLabel?: string

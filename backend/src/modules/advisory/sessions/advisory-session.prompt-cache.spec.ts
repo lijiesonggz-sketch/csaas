@@ -8,6 +8,7 @@ import { ThinkTankProviderGatewayService } from '../provider-gateway/thinktank-p
 import { ThinkTankProviderStreamChunk } from '../provider-gateway/thinktank-provider-gateway.types'
 import { ThinkTankPromptAssemblerService } from '../runtime/prompt-assembler.service'
 import { ThinkTankWorkflowRegistryService } from '../runtime/workflow-registry.service'
+import { ThinkTankWorkflowStepResolverService } from '../runtime/workflow-step-resolver.service'
 import { AdvisoryConversationMessageRepository } from './advisory-conversation-message.repository'
 import { AdvisorySessionRepository } from './advisory-session.repository'
 import { AdvisorySessionService } from './advisory-session.service'
@@ -163,17 +164,45 @@ const createService = () => {
       yield finalChunk
     }),
   } as unknown as jest.Mocked<Pick<ThinkTankProviderGatewayService, 'stream'>>
+  const workflowStepResolver = {
+    resolveRouteForUserInput: jest.fn().mockResolvedValue(null),
+    resolveCurrentStep: jest.fn().mockResolvedValue({
+      step: {
+        index: 1,
+        label: 'Current step',
+        sourcePath: '_bmad/runtime/problem-solving/steps/step-01.md',
+        sourceRef: 'current-step:1',
+        routeKey: '1',
+        content: 'Stable first prompt.',
+        rawContent: 'Stable first prompt.',
+        contentHash: 'step-hash-210',
+      },
+    }),
+  } as unknown as jest.Mocked<
+    Pick<ThinkTankWorkflowStepResolverService, 'resolveRouteForUserInput' | 'resolveCurrentStep'>
+  >
   const service = new AdvisorySessionService(
     accessService as never,
     {
       discoverWorkflows: jest.fn(),
-      findWorkflow: jest.fn(),
+      findWorkflow: jest.fn().mockResolvedValue(assembledPrompt.workflow),
     } as unknown as ThinkTankWorkflowRegistryService,
     promptAssembler as never,
     sessionRepository as never,
     { emitAudit: jest.fn(), emitTelemetry: jest.fn() } as unknown as AdvisoryEventService,
     messageRepository as never,
     providerGateway as never,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    workflowStepResolver as never,
   )
 
   return { service, promptAssembler, providerGateway, messageRepository }
@@ -197,7 +226,7 @@ describe('AdvisorySessionService prompt cache ATDD', () => {
     })
     expect(providerGateway.stream).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining('# ThinkTank Runtime Workflow: Problem Solving'),
+        system: expect.stringContaining('Current ThinkTank Step Definition (internal)'),
         promptCache: expect.objectContaining({
           strategy: 'provider-auto',
           cacheKey: expect.any(String),

@@ -12,6 +12,9 @@ export interface AdvisoryCheckpointCurrentStep {
   index: number
   label: string
   sourceRef?: string
+  isFinal?: boolean
+  isFinalStep?: boolean
+  totalSteps?: number
 }
 
 export interface AdvisoryCheckpointConversationState {
