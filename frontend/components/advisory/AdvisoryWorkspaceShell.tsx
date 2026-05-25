@@ -153,6 +153,13 @@ type PartyModeReplyTarget = {
   messageId: string
   round?: number
 }
+type DecisionSubmitOverride = {
+  content?: string
+  decisionAction?: string
+  decisionSourceMessageId?: string
+  selectedDecisionLabel?: string
+  addressedExpertHint?: { advisorId: string; messageId?: string }
+}
 type OrganizationContextStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'error'
 type UnfinishedSessionsStatus = 'idle' | 'loading' | 'ready' | 'error'
 type HistoryLoadStatus = 'idle' | 'loading' | 'ready' | 'error'
@@ -266,26 +273,55 @@ function isTextEditingTarget(target: EventTarget | null): boolean {
   return tagName === 'textarea' || tagName === 'input' || target.isContentEditable
 }
 
+function getLatestDecisionMessage(
+  messages: ThinkTankConversationMessage[]
+): ThinkTankConversationMessage | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    if (message.role === 'assistant' && message.decisionOptions?.length) {
+      return message
+    }
+  }
+
+  return null
+}
+
 function getLatestDecisionOptions(
   messages: ThinkTankConversationMessage[]
 ): ThinkTankDecisionOption[] {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index]
-    if (message.role === 'assistant' && message.decisionOptions?.length) {
-      return message.decisionOptions
-    }
-  }
+  return getLatestDecisionMessage(messages)?.decisionOptions ?? []
+}
 
-  return []
+function readSingleKeyShortcut(value: string): string | null {
+  const match = value.trim().match(/^\[?([0-9a-z])\]?$/i)
+  return match?.[1]?.toLowerCase() ?? null
+}
+
+function createPartyModeShortcutSubmitOverride(
+  content: string,
+  messages: ThinkTankConversationMessage[]
+): DecisionSubmitOverride | null {
+  const shortcut = readSingleKeyShortcut(content)
+  if (!shortcut) return null
+
+  const option = getLatestDecisionOptions(messages).find(
+    (candidate) =>
+      candidate.action === 'party-mode' &&
+      candidate.enabled &&
+      candidate.shortcut?.toLowerCase() === shortcut
+  )
+  if (!option) return null
+
+  return {
+    content: '启动 Party Mode',
+    decisionAction: 'party-mode',
+    selectedDecisionLabel: option.label,
+  }
 }
 
 function getLatestDecisionMessageId(messages: ThinkTankConversationMessage[]): string | null {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index]
-    if (message.role === 'assistant' && message.decisionOptions?.length) {
-      return message.id
-    }
-  }
+  const message = getLatestDecisionMessage(messages)
+  if (message) return message.id
 
   return null
 }
@@ -1748,15 +1784,7 @@ export default function AdvisoryWorkspaceShell() {
     return currentStep?.isFinal === true || currentStep?.isFinalStep === true
   }
 
-  const handleSubmitMessage = async (
-    override: {
-      content?: string
-      decisionAction?: string
-      decisionSourceMessageId?: string
-      selectedDecisionLabel?: string
-      addressedExpertHint?: { advisorId: string; messageId?: string }
-    } = {}
-  ) => {
+  const handleSubmitMessage = async (override: DecisionSubmitOverride = {}) => {
     if (
       !activeLaunch ||
       activeLaunch.status !== 'active' ||
@@ -1775,6 +1803,13 @@ export default function AdvisoryWorkspaceShell() {
     if (content.length > THINKTANK_MESSAGE_MAX_LENGTH) {
       setMessageError('内容过长，请精简到 5000 字符以内。')
       return
+    }
+    if (!override.decisionAction) {
+      const shortcutSubmitOverride = createPartyModeShortcutSubmitOverride(content, sessionMessages)
+      if (shortcutSubmitOverride) {
+        setDraft('')
+        return handleSubmitMessage(shortcutSubmitOverride)
+      }
     }
 
     const isDecisionSubmit = Boolean(override.decisionAction)

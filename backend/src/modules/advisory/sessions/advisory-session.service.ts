@@ -1481,18 +1481,18 @@ export class AdvisorySessionService {
       session.actorId,
       history,
     )
-    const isPartyModeAction = this.isPartyModeDecisionAction(context.decisionAction)
-    const isPartyModeReturnAction = this.isPartyModeReturnDecisionAction(context.decisionAction)
-    const isPartyModeIntegrationAction = this.isPartyModeIntegrationDecisionAction(
-      context.decisionAction,
-    )
-    const isPartyModeAcceptConclusionAction = this.isPartyModeAcceptConclusionDecisionAction(
-      context.decisionAction,
-    )
-    const isPartyModeRetryAdvisorAction = this.isPartyModeRetryAdvisorDecisionAction(
-      context.decisionAction,
-    )
-    const isPartyModeContinueAction = this.isPartyModeContinueDecisionAction(context.decisionAction)
+    const decisionAction = this.resolvePartyModeShortcutDecisionAction({
+      content,
+      decisionAction: context.decisionAction,
+      messages: tenantScopedHistory,
+    })
+    const isPartyModeAction = this.isPartyModeDecisionAction(decisionAction)
+    const isPartyModeReturnAction = this.isPartyModeReturnDecisionAction(decisionAction)
+    const isPartyModeIntegrationAction = this.isPartyModeIntegrationDecisionAction(decisionAction)
+    const isPartyModeAcceptConclusionAction =
+      this.isPartyModeAcceptConclusionDecisionAction(decisionAction)
+    const isPartyModeRetryAdvisorAction = this.isPartyModeRetryAdvisorDecisionAction(decisionAction)
+    const isPartyModeContinueAction = this.isPartyModeContinueDecisionAction(decisionAction)
     if (isPartyModeAction) {
       this.assertPartyModeDecisionCanStart(context.tenantId, session, tenantScopedHistory)
       const partyModeResult = await this.startPartyModeFromDecision({
@@ -1502,7 +1502,7 @@ export class AdvisorySessionService {
         messageRepository,
         tenantScopedHistory,
         content,
-        decisionAction: context.decisionAction,
+        decisionAction,
       })
 
       return {
@@ -1535,7 +1535,7 @@ export class AdvisorySessionService {
         messageRepository,
         tenantScopedHistory,
         content,
-        decisionAction: context.decisionAction,
+        decisionAction,
       })
 
       return {
@@ -1567,7 +1567,7 @@ export class AdvisorySessionService {
         messageRepository,
         tenantScopedHistory,
         content,
-        decisionAction: context.decisionAction,
+        decisionAction,
         sourceMessageId: this.optionalText(context.addressedMessageId) ?? undefined,
       })
 
@@ -1600,7 +1600,7 @@ export class AdvisorySessionService {
         messageRepository,
         tenantScopedHistory,
         content,
-        decisionAction: context.decisionAction,
+        decisionAction,
         sourceMessageId: this.optionalText(context.addressedMessageId) ?? undefined,
       })
 
@@ -1624,7 +1624,7 @@ export class AdvisorySessionService {
       const recovery = this.assertPartyModeRecoveryCanStart(
         session,
         tenantScopedHistory,
-        context.decisionAction,
+        decisionAction,
         this.optionalText(context.addressedMessageId) ?? undefined,
       )
       const retryAdvisorId = isPartyModeRetryAdvisorAction
@@ -1632,7 +1632,7 @@ export class AdvisorySessionService {
         : undefined
       const advisorOrderIds = this.createPartyModeRecoveryAdvisorOrderIds({
         sourceMessage: recovery.message,
-        action: context.decisionAction,
+        action: decisionAction,
       })
       const partyModeResult = await this.createPartyModeSerialTurn({
         tenantId: context.tenantId,
@@ -1710,14 +1710,14 @@ export class AdvisorySessionService {
       session,
       tenantScopedHistory,
       content,
-      decisionAction: context.decisionAction,
+      decisionAction,
     })
     const userMessage = await this.createUserMessageWithNextSequence(messageRepository, {
       tenantId: context.tenantId,
       user: context.user,
       session: effectiveSession.session,
       content,
-      decisionAction: context.decisionAction,
+      decisionAction,
     })
     const scopedConversationMessages = [...tenantScopedHistory, userMessage]
 
@@ -1748,7 +1748,7 @@ export class AdvisorySessionService {
           workflow_key: effectiveSession.session.workflowKey,
           step_index: effectiveSession.session.currentStep.index,
           message_count: providerMessages.length,
-          decision_action: context.decisionAction ?? null,
+          decision_action: decisionAction ?? null,
           ...providerPrompt.metadata,
           ...this.toContextCompressionProviderMetadata(contextCompression),
         },
@@ -1854,18 +1854,18 @@ export class AdvisorySessionService {
       session.actorId,
       history,
     )
-    const isPartyModeAction = this.isPartyModeDecisionAction(context.decisionAction)
-    const isPartyModeReturnAction = this.isPartyModeReturnDecisionAction(context.decisionAction)
-    const isPartyModeIntegrationAction = this.isPartyModeIntegrationDecisionAction(
-      context.decisionAction,
-    )
-    const isPartyModeAcceptConclusionAction = this.isPartyModeAcceptConclusionDecisionAction(
-      context.decisionAction,
-    )
-    const isPartyModeRetryAdvisorAction = this.isPartyModeRetryAdvisorDecisionAction(
-      context.decisionAction,
-    )
-    const isPartyModeContinueAction = this.isPartyModeContinueDecisionAction(context.decisionAction)
+    const decisionAction = this.resolvePartyModeShortcutDecisionAction({
+      content,
+      decisionAction: context.decisionAction,
+      messages: tenantScopedHistory,
+    })
+    const isPartyModeAction = this.isPartyModeDecisionAction(decisionAction)
+    const isPartyModeReturnAction = this.isPartyModeReturnDecisionAction(decisionAction)
+    const isPartyModeIntegrationAction = this.isPartyModeIntegrationDecisionAction(decisionAction)
+    const isPartyModeAcceptConclusionAction =
+      this.isPartyModeAcceptConclusionDecisionAction(decisionAction)
+    const isPartyModeRetryAdvisorAction = this.isPartyModeRetryAdvisorDecisionAction(decisionAction)
+    const isPartyModeContinueAction = this.isPartyModeContinueDecisionAction(decisionAction)
     if (isPartyModeAction) {
       this.assertPartyModeDecisionCanStart(context.tenantId, session, tenantScopedHistory)
       if (context.signal?.aborted) {
@@ -1878,7 +1878,7 @@ export class AdvisorySessionService {
         messageRepository,
         tenantScopedHistory,
         content,
-        decisionAction: context.decisionAction,
+        decisionAction,
       })
 
       yield {
@@ -1920,7 +1920,7 @@ export class AdvisorySessionService {
         messageRepository,
         tenantScopedHistory,
         content,
-        decisionAction: context.decisionAction,
+        decisionAction,
       })
 
       yield {
@@ -1968,7 +1968,7 @@ export class AdvisorySessionService {
         messageRepository,
         tenantScopedHistory,
         content,
-        decisionAction: context.decisionAction,
+        decisionAction,
         sourceMessageId: this.optionalText(context.addressedMessageId) ?? undefined,
         signal: context.signal,
       })
@@ -2013,7 +2013,7 @@ export class AdvisorySessionService {
         messageRepository,
         tenantScopedHistory,
         content,
-        decisionAction: context.decisionAction,
+        decisionAction,
         sourceMessageId: this.optionalText(context.addressedMessageId) ?? undefined,
       })
 
@@ -2043,7 +2043,7 @@ export class AdvisorySessionService {
       const recovery = this.assertPartyModeRecoveryCanStart(
         session,
         tenantScopedHistory,
-        context.decisionAction,
+        decisionAction,
         this.optionalText(context.addressedMessageId) ?? undefined,
       )
       if (context.signal?.aborted) {
@@ -2054,7 +2054,7 @@ export class AdvisorySessionService {
         : undefined
       const advisorOrderIds = this.createPartyModeRecoveryAdvisorOrderIds({
         sourceMessage: recovery.message,
-        action: context.decisionAction,
+        action: decisionAction,
       })
       for await (const event of this.streamPartyModeSerialTurn({
         tenantId: context.tenantId,
@@ -2101,14 +2101,14 @@ export class AdvisorySessionService {
       session,
       tenantScopedHistory,
       content,
-      decisionAction: context.decisionAction,
+      decisionAction,
     })
     const userMessage = await this.createUserMessageWithNextSequence(messageRepository, {
       tenantId: context.tenantId,
       user: context.user,
       session: effectiveSession.session,
       content,
-      decisionAction: context.decisionAction,
+      decisionAction,
     })
     const scopedConversationMessages = [...tenantScopedHistory, userMessage]
     const providerGateway = this.requireProviderGateway()
@@ -2155,7 +2155,7 @@ export class AdvisorySessionService {
             workflow_key: effectiveSession.session.workflowKey,
             step_index: effectiveSession.session.currentStep.index,
             message_count: providerMessages.length,
-            decision_action: context.decisionAction ?? null,
+            decision_action: decisionAction ?? null,
             ...providerPrompt.metadata,
             ...this.toContextCompressionProviderMetadata(contextCompression),
           },
@@ -5136,6 +5136,39 @@ export class AdvisorySessionService {
     return value === THINKTANK_PARTY_MODE_CONTINUE_ACTION
   }
 
+  private resolvePartyModeShortcutDecisionAction(context: {
+    content: string
+    decisionAction?: string
+    messages: AdvisoryConversationMessage[]
+  }): string | undefined {
+    const explicitDecisionAction = this.optionalText(context.decisionAction)
+    if (explicitDecisionAction) return explicitDecisionAction
+
+    const shortcut = this.normalizeSingleKeyShortcut(context.content)
+    if (!shortcut) return undefined
+
+    const shortcutMatch = this.findLatestAssistantDecisionOptionByShortcut(
+      context.messages,
+      shortcut,
+    )
+    if (
+      !shortcutMatch?.option.enabled ||
+      shortcutMatch.option.action !== THINKTANK_PARTY_MODE_ACTION
+    ) {
+      return undefined
+    }
+
+    return THINKTANK_PARTY_MODE_ACTION
+  }
+
+  private normalizeSingleKeyShortcut(value: unknown): string | null {
+    const text = this.optionalText(value)
+    if (!text) return null
+
+    const match = text.match(/^\[?([0-9a-z])\]?$/i)
+    return match?.[1]?.toLowerCase() ?? null
+  }
+
   private isPartyModeDiscussionReady(session: AdvisoryWorkflowSession): boolean {
     return (
       session.metadata?.party_mode_active === true &&
@@ -7618,6 +7651,25 @@ export class AdvisorySessionService {
       if (decisionOptions.length === 0) continue
 
       const option = decisionOptions.find((candidate) => candidate.action === action)
+      return option ? { message, option } : null
+    }
+
+    return null
+  }
+
+  private findLatestAssistantDecisionOptionByShortcut(
+    messages: AdvisoryConversationMessage[],
+    shortcut: string,
+  ): PartyModeDecisionMatch | null {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index]
+      if (message.role !== AdvisoryConversationMessageRole.Assistant) continue
+      const decisionOptions = message.decisionOptions ?? []
+      if (decisionOptions.length === 0) continue
+
+      const option = decisionOptions.find(
+        (candidate) => candidate.shortcut?.trim().toLowerCase() === shortcut,
+      )
       return option ? { message, option } : null
     }
 

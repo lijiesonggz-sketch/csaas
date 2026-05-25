@@ -496,6 +496,35 @@ describe('Story 5.1 ATDD - Party Mode entry from workflow', () => {
     )
   })
 
+  test('[P0] starts Party Mode from the latest enabled P shortcut when decisionAction is omitted', async () => {
+    process.env.THINKTANK_PARTY_MODE_ENABLED = 'true'
+    process.env.THINKTANK_PARTY_MODE_TENANTS = tenantId
+
+    const result = await service.submitMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: 'P',
+    })
+
+    expect(providerGateway.stream).not.toHaveBeenCalled()
+    expect(sessionRepository.claimPartyModeStart).toHaveBeenCalledWith(
+      tenantId,
+      sessionId,
+      actorId,
+      expect.objectContaining({
+        party_mode_active: true,
+        party_mode_status: 'starting',
+      }),
+    )
+    expect(result.assistantMessage.metadata).toEqual(
+      expect.objectContaining({
+        party_mode_started: true,
+        decision_action: 'party-mode',
+      }),
+    )
+  })
+
   test('[P0][5.1-BE-005][AC1,AC2] rejects forged or disabled Party Mode actions before persisting workflow history', async () => {
     process.env.THINKTANK_PARTY_MODE_ENABLED = 'true'
     process.env.THINKTANK_PARTY_MODE_TENANTS = tenantId
