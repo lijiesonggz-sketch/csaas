@@ -839,7 +839,7 @@ export default function AdvisoryWorkspaceShell() {
     sessionCard?: ThinkTankUnfinishedSessionCard
   } | null => {
     const launch = activeLaunchRef.current
-    if (launch && launch.sessionId !== targetSessionId) {
+    if (launch?.status === 'active' && launch.sessionId !== targetSessionId) {
       return { sessionId: launch.sessionId, launch }
     }
 

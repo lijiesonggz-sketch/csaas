@@ -6,9 +6,10 @@ import {
   resumeThinkTankSession,
   safeExitThinkTankSession,
 } from '@/lib/advisory/sessions'
-import { launchThinkTankWorkflow } from '@/lib/advisory/workflows'
+import { fetchThinkTankSessionMessages, launchThinkTankWorkflow } from '@/lib/advisory/workflows'
 import { streamThinkTankSessionMessage } from '@/lib/advisory/streaming'
 import { fetchThinkTankWorkflowOutput } from '@/lib/advisory/outputs'
+import { fetchThinkTankSessionHistory } from '@/lib/advisory/history'
 
 let mockSessionData: {
   user: {
@@ -217,6 +218,8 @@ const mockSafeExitSession = safeExitThinkTankSession as jest.Mock
 const mockLaunchWorkflow = launchThinkTankWorkflow as jest.Mock
 const mockStreamMessage = streamThinkTankSessionMessage as jest.Mock
 const mockFetchWorkflowOutput = fetchThinkTankWorkflowOutput as jest.Mock
+const mockFetchSessionMessages = fetchThinkTankSessionMessages as jest.Mock
+const mockFetchHistory = fetchThinkTankSessionHistory as jest.Mock
 
 function createUnfinishedSessionCard(overrides: Record<string, unknown> = {}) {
   return {
@@ -299,6 +302,16 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
     mockFetchUnfinished.mockResolvedValue({
       sessions: [createUnfinishedSessionCard()],
     })
+    mockFetchHistory.mockResolvedValue({
+      items: [],
+      meta: { page: 1, limit: 20, total: 0 },
+    })
+    mockFetchSessionMessages.mockResolvedValue({
+      sessionId: 'session-1',
+      currentStep: { index: 2, label: 'Map constraints', sourceRef: 'current-step:2' },
+      messages: [],
+    })
+    mockFetchWorkflowOutput.mockResolvedValue({ output: null })
     mockResumeSession.mockResolvedValue(createResumeResult())
     mockSafeExitSession.mockResolvedValue({
       sessionId: 'session-1',
@@ -437,6 +450,106 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
     )
     expect((await screen.findAllByText('Market research recovered.')).length).toBeGreaterThan(0)
     expect(screen.queryByText('已有活动 ThinkTank 会话')).not.toBeInTheDocument()
+  })
+
+  test('[P0] resumes an unfinished session directly after viewing a completed history session', async () => {
+    const user = userEvent.setup()
+    const pausedSession = createUnfinishedSessionCard({
+      sessionId: 'session-design-thinking',
+      title: 'Design Thinking Session',
+      workflowKey: 'design-thinking',
+      workflowType: 'Design Thinking',
+      lastStep: { index: 7, label: 'Plan next iteration' },
+      status: 'paused',
+      statusSummary: '未完成 - Plan next iteration',
+    })
+    mockFetchUnfinished.mockResolvedValueOnce({
+      sessions: [pausedSession],
+    })
+    mockFetchHistory.mockResolvedValueOnce({
+      items: [
+        {
+          id: 'session-storytelling-completed',
+          resultType: 'session',
+          sessionId: 'session-storytelling-completed',
+          workflowKey: 'storytelling',
+          workflowType: 'Storytelling',
+          title: 'Completed Storytelling Session',
+          summary: '已完成 - Generate final output',
+          status: 'completed',
+          lastStep: { index: 10, label: 'Generate final output', isFinal: true },
+          timestamp: '2026-05-21T01:10:00.000Z',
+          openTarget: 'view-session',
+        },
+      ],
+      meta: { page: 1, limit: 20, total: 1 },
+    })
+    mockFetchSessionMessages.mockResolvedValueOnce({
+      sessionId: 'session-storytelling-completed',
+      currentStep: { index: 10, label: 'Generate final output', isFinal: true },
+      messages: [
+        {
+          id: 'message-completed-story',
+          role: 'assistant',
+          content: 'Completed storytelling transcript is available.',
+          sequence: 2,
+          workflowKey: 'storytelling',
+          stepIndex: 10,
+          decisionOptions: [],
+        },
+      ],
+    })
+    mockSafeExitSession.mockRejectedValue(new Error('Not Found'))
+    mockResumeSession.mockResolvedValue(
+      createResumeResult({
+        session: {
+          ...pausedSession,
+          status: 'active',
+        },
+        messages: [
+          {
+            id: 'message-design-thinking',
+            role: 'assistant',
+            content: 'Design thinking recovered.',
+            sequence: 2,
+            workflowKey: 'design-thinking',
+            stepIndex: 7,
+            decisionOptions: [
+              { key: 'continue', action: 'continue', label: '继续', enabled: true },
+            ],
+          },
+        ],
+        recoveryMessage: {
+          title: '已恢复未完成会话',
+          content: '已恢复到 Plan next iteration。Design thinking recovered.',
+          lastStep: 'Plan next iteration',
+          keyConclusions: ['Design thinking recovered.'],
+          actions: [
+            { key: 'continue', label: '继续' },
+            { key: 'review-document', label: '先查看文档' },
+          ],
+        },
+      })
+    )
+
+    render(<AdvisoryWorkspaceShell />)
+
+    const historyRegion = await screen.findByRole('region', { name: '历史记录' })
+    await user.click(
+      within(historyRegion).getByRole('button', {
+        name: /打开会话 Completed Storytelling Session/,
+      })
+    )
+    expect(
+      await screen.findByText('Completed storytelling transcript is available.')
+    ).toBeInTheDocument()
+
+    await user.click(await screen.findByRole('button', { name: /继续 Design Thinking Session/ }))
+
+    await waitFor(() => expect(mockResumeSession).toHaveBeenCalledWith('session-design-thinking'))
+    expect(mockSafeExitSession).not.toHaveBeenCalled()
+    expect(await screen.findByRole('heading', { name: 'Design Thinking' })).toBeInTheDocument()
+    expect(screen.getAllByText('Design thinking recovered.').length).toBeGreaterThan(0)
   })
 
   test('[P0] resumes the selected unfinished session when the locally active session is already gone server-side', async () => {
