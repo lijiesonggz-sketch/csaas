@@ -318,6 +318,8 @@ describe('AdvisoryWorkflowOutputRepository (ATDD RED)', () => {
     expect(whereCalls).toContain('LOWER')
     expect(whereCalls).toContain('ESCAPE')
     expect(whereCalls).not.toContain('sections::text')
+    expect(queryBuilder.orderBy).toHaveBeenCalledWith('output.updatedAt', 'DESC')
+    expect(queryBuilder.addOrderBy).toHaveBeenCalledWith('output.createdAt', 'DESC')
     expect(queryBuilder.take).toHaveBeenCalledWith(20)
     expect(queryBuilder.getManyAndCount).toHaveBeenCalled()
     expect(typeormRepository.find).not.toHaveBeenCalled()
@@ -392,6 +394,8 @@ describe('AdvisoryWorkflowOutputRepository (ATDD RED)', () => {
     const whereCalls = JSON.stringify(queryBuilder.andWhere.mock.calls)
     expect(whereCalls).toContain('session_id IN')
     expect(whereCalls).toContain('historyStatuses')
+    expect(queryBuilder.orderBy).toHaveBeenCalledWith('output.sessionId', 'ASC')
+    expect(queryBuilder.addOrderBy).toHaveBeenCalledWith('output.updatedAt', 'DESC')
     expect(queryBuilder.getMany).toHaveBeenCalled()
   })
 

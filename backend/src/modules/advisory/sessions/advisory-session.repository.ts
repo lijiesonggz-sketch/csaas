@@ -146,8 +146,8 @@ export class AdvisorySessionRepository extends BaseRepository<AdvisoryWorkflowSe
     }
 
     queryBuilder
-      .orderBy('session.updated_at', 'DESC')
-      .addOrderBy('session.created_at', 'DESC')
+      .orderBy('session.updatedAt', 'DESC')
+      .addOrderBy('session.createdAt', 'DESC')
       .addOrderBy('session.id', 'ASC')
 
     if (query.skip && query.skip > 0) {
@@ -462,7 +462,7 @@ export class AdvisorySessionRepository extends BaseRepository<AdvisoryWorkflowSe
           .set({
             status: AdvisoryWorkflowOutputStatus.Deleted,
             metadata: () =>
-              `COALESCE("metadata", '{}'::jsonb) || jsonb_build_object('deleted_at', :deletedAt, 'deleted_by', :deletedBy, 'delete_source', :deleteSource, 'previous_status', "status")`,
+              `COALESCE("metadata", '{}'::jsonb) || jsonb_build_object('deleted_at', CAST(:deletedAt AS text), 'deleted_by', CAST(:deletedBy AS text), 'delete_source', CAST(:deleteSource AS text), 'previous_status', "status")`,
           } as never)
           .where('tenant_id = :tenantId', { tenantId: context.tenantId })
           .andWhere('session_id = :sessionId', { sessionId: session.id })

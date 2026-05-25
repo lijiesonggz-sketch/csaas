@@ -181,8 +181,8 @@ export class AdvisoryWorkflowOutputRepository extends BaseRepository<AdvisoryWor
     }
 
     queryBuilder
-      .orderBy('output.updated_at', 'DESC')
-      .addOrderBy('output.created_at', 'DESC')
+      .orderBy('output.updatedAt', 'DESC')
+      .addOrderBy('output.createdAt', 'DESC')
       .addOrderBy('output.id', 'ASC')
 
     if (query.skip && query.skip > 0) {
@@ -216,9 +216,9 @@ export class AdvisoryWorkflowOutputRepository extends BaseRepository<AdvisoryWor
           AdvisoryWorkflowOutputStatus.Completed,
         ],
       })
-      .orderBy('output.session_id', 'ASC')
+      .orderBy('output.sessionId', 'ASC')
       .addOrderBy("CASE WHEN output.status = 'draft' THEN 0 ELSE 1 END", 'ASC')
-      .addOrderBy('output.updated_at', 'DESC')
+      .addOrderBy('output.updatedAt', 'DESC')
       .getMany()
     const latestBySession = new Map<string, AdvisoryWorkflowOutput>()
     outputs.forEach((output) => {

@@ -198,9 +198,7 @@ describe('AdvisorySessionRepository', () => {
 
     expect(result).toBe(session)
     expect(queryBuilder.update).toHaveBeenCalledWith(AdvisoryWorkflowSession)
-    expect(queryBuilder.set.mock.calls[0][0].metadata()).toContain(
-      'COALESCE("metadata"',
-    )
+    expect(queryBuilder.set.mock.calls[0][0].metadata()).toContain('COALESCE("metadata"')
     expect(queryBuilder.where).toHaveBeenCalledWith('"id" = :sessionId')
     expect(queryBuilder.andWhere).toHaveBeenCalledWith('"tenant_id" = :tenantId')
     expect(queryBuilder.andWhere).toHaveBeenCalledWith('"actor_id" = :actorId')
@@ -324,8 +322,9 @@ describe('AdvisorySessionRepository', () => {
     )
 
     const metadataSql = outputQueryBuilder.set.mock.calls[0][0].metadata()
-    expect(metadataSql).toContain(':deletedAt')
-    expect(metadataSql).toContain(':deletedBy')
+    expect(metadataSql).toContain('CAST(:deletedAt AS text)')
+    expect(metadataSql).toContain('CAST(:deletedBy AS text)')
+    expect(metadataSql).toContain('CAST(:deleteSource AS text)')
     expect(metadataSql).not.toContain(deletedAt)
     expect(outputQueryBuilder.setParameters).toHaveBeenCalledWith({
       deletedAt,
@@ -384,6 +383,8 @@ describe('AdvisorySessionRepository', () => {
     expect(JSON.stringify(queryBuilder.andWhere.mock.calls)).toContain('updated_at')
     expect(JSON.stringify(queryBuilder.andWhere.mock.calls)).toContain('LOWER')
     expect(JSON.stringify(queryBuilder.andWhere.mock.calls)).toContain('ESCAPE')
+    expect(queryBuilder.orderBy).toHaveBeenCalledWith('session.updatedAt', 'DESC')
+    expect(queryBuilder.addOrderBy).toHaveBeenCalledWith('session.createdAt', 'DESC')
     expect(queryBuilder.take).toHaveBeenCalledWith(25)
     expect(queryBuilder.getManyAndCount).toHaveBeenCalled()
     expect(typeormRepository.find).not.toHaveBeenCalled()
