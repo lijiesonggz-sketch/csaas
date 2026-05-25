@@ -7,6 +7,10 @@ import {
 } from './thinktank-provider-gateway.config'
 
 describe('ThinkTank provider gateway config', () => {
+  it('matches GLM-5.1 official default max_tokens for document generation headroom', () => {
+    expect(THINKTANK_PROVIDER_GATEWAY_DEFAULT_MAX_OUTPUT_TOKENS).toBe(65536)
+  })
+
   it('defaults automated test execution to fake mode without model API keys', () => {
     const config = resolveThinkTankProviderGatewayConfig({
       NODE_ENV: 'test',

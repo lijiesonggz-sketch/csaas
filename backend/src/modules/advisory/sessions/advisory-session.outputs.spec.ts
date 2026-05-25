@@ -397,6 +397,64 @@ describe('AdvisorySessionService workflow outputs (ATDD RED)', () => {
     )
   })
 
+  test('[P0] accepts long generated report sections above the old 20k character limit', async () => {
+    const longReport = '长期报告段落。'.repeat(3500)
+    const draft = createOutput()
+    outputRepository.findActiveDraftForSession.mockResolvedValueOnce(draft)
+    messageRepository.findMessageById.mockResolvedValueOnce({
+      id: 'assistant-message-long',
+      tenantId,
+      sessionId,
+      actorId,
+      role: AdvisoryConversationMessageRole.Assistant,
+      content: longReport,
+      sequence: 2,
+      workflowKey: 'problem-solving',
+      stepIndex: 1,
+      decisionOptions: [],
+      metadata: { ai_generated: true },
+      providerMetadata: {
+        provider: 'glm',
+        model: 'glm-5.1',
+        output_tokens: 22000,
+        finish_reason: 'end_turn',
+      },
+      createdAt: new Date('2026-05-20T00:00:00.000Z'),
+      updatedAt: new Date('2026-05-20T00:00:00.000Z'),
+    } as never)
+
+    await service.appendOutputSection({
+      user,
+      tenantId,
+      sessionId,
+      stepIndex: 1,
+      stepLabel: 'Long final report',
+      contentMarkdown: 'ignored because source message is authoritative',
+      sourceMessageId: 'assistant-message-long',
+    })
+
+    expect(outputRepository.appendSection).toHaveBeenCalledTimes(1)
+    const [appendTenantId, appendOutputId, section] = outputRepository.appendSection.mock
+      .calls[0] as [
+      string,
+      string,
+      { heading: string; contentMarkdown: string; metadata: Record<string, unknown> },
+    ]
+    expect(appendTenantId).toBe(tenantId)
+    expect(appendOutputId).toBe(draft.id)
+    expect(section.heading).toBe('Long final report')
+    expect(section.contentMarkdown.length).toBeGreaterThan(20000)
+    expect(section.contentMarkdown).toContain(longReport)
+    expect(section.metadata).toEqual(
+      expect.objectContaining({
+        provider: 'glm',
+        model: 'glm-5.1',
+        output_tokens: 22000,
+        finish_reason: 'end_turn',
+      }),
+    )
+  })
+
   test('[P0] rejects cross-tenant output append attempts before touching output records', async () => {
     sessionRepository.findSessionById.mockResolvedValueOnce(null)
 

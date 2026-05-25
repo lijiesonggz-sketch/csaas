@@ -136,7 +136,7 @@ export const THINKTANK_OUTPUT_KNOWLEDGE_BASE_ASSOCIATION_FAILED_MESSAGE =
 export const THINKTANK_SESSION_NOT_FOUND_MESSAGE = 'ThinkTank session not found'
 export const THINKTANK_SESSION_LIFECYCLE_FAILED_MESSAGE = '该会话已不可用，请刷新后重试。'
 export const THINKTANK_OUTPUT_DELETE_FAILED_MESSAGE = '暂时无法删除该报告，请稍后重试。'
-const THINKTANK_OUTPUT_SECTION_MAX_LENGTH = 20000
+const THINKTANK_OUTPUT_SECTION_MAX_LENGTH = 250000
 const THINKTANK_OUTPUT_FEEDBACK_MAX_LENGTH = 2000
 const THINKTANK_WORKFLOW_CATALOG_UNAVAILABLE_MESSAGE =
   '暂时无法加载 ThinkTank 工作流目录，请稍后重试。'
@@ -1349,7 +1349,9 @@ export class AdvisorySessionService {
     const providerMetadata = this.toSafeProviderMetadata({
       ...(context.providerMetadata ?? {}),
       ...(sourceMessage.providerMetadata ?? {}),
-      finish_reason: sourceMessage.metadata?.finish_reason,
+      ...(typeof sourceMessage.metadata?.finish_reason === 'string'
+        ? { finish_reason: sourceMessage.metadata.finish_reason }
+        : {}),
     })
     const section: AdvisoryWorkflowOutputSection = {
       id: randomUUID(),
@@ -3833,7 +3835,9 @@ export class AdvisorySessionService {
     const stepLabel = this.normalizeStepLabel(context.stepLabel, stepIndex)
     const providerMetadata = this.toSafeProviderMetadata({
       ...(context.sourceMessage.providerMetadata ?? {}),
-      finish_reason: context.sourceMessage.metadata?.finish_reason,
+      ...(typeof context.sourceMessage.metadata?.finish_reason === 'string'
+        ? { finish_reason: context.sourceMessage.metadata.finish_reason }
+        : {}),
     })
     const section: AdvisoryWorkflowOutputSection = {
       id: randomUUID(),
