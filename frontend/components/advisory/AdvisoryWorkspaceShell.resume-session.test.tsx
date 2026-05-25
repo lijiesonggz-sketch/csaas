@@ -1,7 +1,11 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdvisoryWorkspaceShell from './AdvisoryWorkspaceShell'
-import { fetchThinkTankUnfinishedSessions, resumeThinkTankSession } from '@/lib/advisory/sessions'
+import {
+  fetchThinkTankUnfinishedSessions,
+  resumeThinkTankSession,
+  safeExitThinkTankSession,
+} from '@/lib/advisory/sessions'
 import { streamThinkTankSessionMessage } from '@/lib/advisory/streaming'
 import { fetchThinkTankWorkflowOutput } from '@/lib/advisory/outputs'
 
@@ -174,6 +178,11 @@ jest.mock('@/lib/advisory/sessions', () => ({
     },
     missingState: [],
   }),
+  safeExitThinkTankSession: jest.fn().mockResolvedValue({
+    sessionId: 'session-1',
+    status: 'paused',
+    updatedAt: '2026-05-21T01:08:00.000Z',
+  }),
   toWorkflowLaunchFromResume: jest.fn((result) => ({
     sessionId: result.session.sessionId,
     workflow: {
@@ -203,6 +212,7 @@ jest.mock('@/lib/advisory/history', () => ({
 
 const mockFetchUnfinished = fetchThinkTankUnfinishedSessions as jest.Mock
 const mockResumeSession = resumeThinkTankSession as jest.Mock
+const mockSafeExitSession = safeExitThinkTankSession as jest.Mock
 const mockStreamMessage = streamThinkTankSessionMessage as jest.Mock
 const mockFetchWorkflowOutput = fetchThinkTankWorkflowOutput as jest.Mock
 
@@ -288,6 +298,11 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
       sessions: [createUnfinishedSessionCard()],
     })
     mockResumeSession.mockResolvedValue(createResumeResult())
+    mockSafeExitSession.mockResolvedValue({
+      sessionId: 'session-1',
+      status: 'paused',
+      updatedAt: '2026-05-21T01:08:00.000Z',
+    })
     mockStreamMessage.mockImplementation(async function* () {
       yield {
         event: 'message.completed',
@@ -352,6 +367,74 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
 
     await user.click(screen.getByRole('button', { name: '继续' }))
     expect(screen.getByRole('textbox', { name: '输入你的回答' })).toHaveFocus()
+  })
+
+  test('[P0][4.2-FE-014][AC1] safe-exits the blocking active session before opening another unfinished session', async () => {
+    const user = userEvent.setup()
+    const activeSession = createUnfinishedSessionCard({
+      sessionId: 'session-active',
+      title: 'PRD Session',
+      workflowKey: 'prd',
+      workflowType: 'PRD',
+      lastStep: { index: 2, label: 'Product Vision Discovery' },
+      status: 'active',
+    })
+    const pausedSession = createUnfinishedSessionCard({
+      sessionId: 'session-paused',
+      title: 'Market Research Session',
+      workflowKey: 'market-research',
+      workflowType: 'Market Research',
+      lastStep: { index: 6, label: 'Research Completion' },
+      status: 'paused',
+      statusSummary: '未完成 - Research Completion',
+    })
+    mockFetchUnfinished.mockResolvedValueOnce({
+      sessions: [activeSession, pausedSession],
+    })
+    mockResumeSession.mockResolvedValueOnce(
+      createResumeResult({
+        session: {
+          ...pausedSession,
+          status: 'active',
+          statusSummary: '未完成 - Research Completion',
+        },
+        messages: [
+          {
+            id: 'message-market-research',
+            role: 'assistant',
+            content: 'Market research recovered.',
+            sequence: 2,
+            workflowKey: 'market-research',
+            stepIndex: 6,
+            decisionOptions: [
+              { key: 'continue', action: 'continue', label: '继续', enabled: true },
+            ],
+          },
+        ],
+        recoveryMessage: {
+          title: '已恢复未完成会话',
+          content: '已恢复到 Research Completion。Market research recovered.',
+          lastStep: 'Research Completion',
+          keyConclusions: ['Market research recovered.'],
+          actions: [
+            { key: 'continue', label: '继续' },
+            { key: 'review-document', label: '先查看文档' },
+          ],
+        },
+      })
+    )
+
+    render(<AdvisoryWorkspaceShell />)
+
+    await user.click(await screen.findByRole('button', { name: /继续 Market Research Session/ }))
+
+    await waitFor(() => expect(mockSafeExitSession).toHaveBeenCalledWith('session-active'))
+    await waitFor(() => expect(mockResumeSession).toHaveBeenCalledWith('session-paused'))
+    expect(mockSafeExitSession.mock.invocationCallOrder[0]).toBeLessThan(
+      mockResumeSession.mock.invocationCallOrder[0]
+    )
+    expect((await screen.findAllByText('Market research recovered.')).length).toBeGreaterThan(0)
+    expect(screen.queryByText('已有活动 ThinkTank 会话')).not.toBeInTheDocument()
   })
 
   test('[P0][4.2-FE-009][AC1] clears recovered session state and reloads unfinished sessions when identity changes', async () => {

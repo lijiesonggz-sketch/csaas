@@ -393,6 +393,15 @@ function getHistoryStatusLabel(status: ThinkTankHistoryItem['status']): string {
   return '草稿'
 }
 
+function getHistoryVisibleActionLabel(
+  item: ThinkTankHistoryItem,
+  state: 'idle' | 'active' | 'busy'
+): string {
+  if (state === 'active') return '已打开'
+  if (item.openTarget === 'resume-session') return state === 'busy' ? '继续中' : '继续'
+  return state === 'busy' ? '打开中' : '打开'
+}
+
 function getLifecycleDialogTitle(action: LifecycleAction | null): string {
   if (action?.type === 'safe-exit') return '退出 ThinkTank 工作流'
   if (action?.type === 'session-delete') return '删除 ThinkTank 会话'
@@ -781,6 +790,37 @@ export default function AdvisoryWorkspaceShell() {
     currentStep: item.lastStep ?? currentStep ?? { index: 1, label: '历史记录' },
   })
 
+  const findBlockingActiveSessionForResume = (
+    targetSessionId: string
+  ): {
+    sessionId: string
+    launch?: ThinkTankWorkflowLaunchResult
+    sessionCard?: ThinkTankUnfinishedSessionCard
+  } | null => {
+    const launch = activeLaunchRef.current
+    if (launch && launch.sessionId !== targetSessionId) {
+      return { sessionId: launch.sessionId, launch }
+    }
+
+    const unfinishedActiveSession = unfinishedSessions.find(
+      (sessionCard) => sessionCard.status === 'active' && sessionCard.sessionId !== targetSessionId
+    )
+    if (unfinishedActiveSession) {
+      return {
+        sessionId: unfinishedActiveSession.sessionId,
+        sessionCard: unfinishedActiveSession,
+      }
+    }
+
+    const historyActiveSession = historyItems.find(
+      (item) =>
+        item.resultType === 'session' &&
+        item.status === 'active' &&
+        item.sessionId !== targetSessionId
+    )
+    return historyActiveSession ? { sessionId: historyActiveSession.sessionId } : null
+  }
+
   useEffect(() => {
     setReadingDensity(readAdvisoryPreferences(userPreferenceIdentity).readingDensity)
   }, [userPreferenceIdentity])
@@ -1084,7 +1124,26 @@ export default function AdvisoryWorkspaceShell() {
     setCheckpointWarningMessage(null)
     setHistoryPreviewOutput(null)
 
+    let failureFallbackMessage = THINKTANK_RESUME_SESSION_FAILED_MESSAGE
+    let switchCheckpointWarning: ThinkTankCheckpointWarning | undefined
+
     try {
+      const blockingActiveSession = findBlockingActiveSessionForResume(sessionId)
+      if (blockingActiveSession) {
+        failureFallbackMessage = THINKTANK_SAFE_EXIT_SESSION_FAILED_MESSAGE
+        const exited = await safeExitThinkTankSession(blockingActiveSession.sessionId)
+        if (resumeRequestIdRef.current !== resumeRequestId) return
+        switchCheckpointWarning = exited.checkpointWarning
+        upsertPausedUnfinishedSession(
+          blockingActiveSession.launch ?? null,
+          exited.updatedAt,
+          blockingActiveSession.sessionCard
+        )
+        updateHistorySessionPaused(blockingActiveSession.sessionId, exited.updatedAt)
+        clearActiveWorkflowStateIfSession(blockingActiveSession.sessionId)
+        failureFallbackMessage = THINKTANK_RESUME_SESSION_FAILED_MESSAGE
+      }
+
       const resumed = await resumeThinkTankSession(sessionId)
       if (resumeRequestIdRef.current !== resumeRequestId) return
       const launch = toWorkflowLaunchFromResume(resumed)
@@ -1111,10 +1170,11 @@ export default function AdvisoryWorkspaceShell() {
       setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
       setWorkspaceMode('workflow')
       setActiveLaunch(launch)
-      showCheckpointWarning(resumed.checkpointWarning)
+      markVisibleSessionResumed(resumed.session)
+      showCheckpointWarning(resumed.checkpointWarning ?? switchCheckpointWarning)
     } catch (error) {
       if (resumeRequestIdRef.current !== resumeRequestId) return
-      setResumeError(readWorkflowErrorMessage(error, THINKTANK_RESUME_SESSION_FAILED_MESSAGE))
+      setResumeError(readWorkflowErrorMessage(error, failureFallbackMessage))
     } finally {
       if (resumeRequestIdRef.current === resumeRequestId) {
         setResumingSessionId(null)
@@ -1327,13 +1387,15 @@ export default function AdvisoryWorkspaceShell() {
 
   const upsertPausedUnfinishedSession = (
     launch: ThinkTankWorkflowLaunchResult | null,
-    updatedAt: string
+    updatedAt: string,
+    fallbackSession?: ThinkTankUnfinishedSessionCard
   ) => {
-    if (!launch) return
+    const sessionId = launch?.sessionId ?? fallbackSession?.sessionId
+    if (!sessionId) return
 
     setUnfinishedSessions((currentSessions) => {
       const updated = currentSessions.map((sessionCard) =>
-        sessionCard.sessionId === launch.sessionId
+        sessionCard.sessionId === sessionId
           ? {
               ...sessionCard,
               status: 'paused' as const,
@@ -1342,9 +1404,21 @@ export default function AdvisoryWorkspaceShell() {
             }
           : sessionCard
       )
-      if (updated.some((sessionCard) => sessionCard.sessionId === launch.sessionId)) {
+      if (updated.some((sessionCard) => sessionCard.sessionId === sessionId)) {
         return updated
       }
+      if (fallbackSession) {
+        return [
+          {
+            ...fallbackSession,
+            status: 'paused' as const,
+            statusSummary: '已安全退出 - 可继续',
+            lastActivityAt: updatedAt,
+          },
+          ...updated,
+        ]
+      }
+      if (!launch) return updated
 
       return [
         {
@@ -1362,6 +1436,33 @@ export default function AdvisoryWorkspaceShell() {
       ]
     })
     setUnfinishedSessionsStatus('ready')
+  }
+
+  const markVisibleSessionResumed = (session: ThinkTankUnfinishedSessionCard) => {
+    setUnfinishedSessions((currentSessions) =>
+      currentSessions.map((sessionCard) =>
+        sessionCard.sessionId === session.sessionId
+          ? {
+              ...sessionCard,
+              ...session,
+              status: 'active' as const,
+            }
+          : sessionCard
+      )
+    )
+    setHistoryItems((currentItems) =>
+      currentItems.map((item) =>
+        item.sessionId === session.sessionId && item.resultType === 'session'
+          ? {
+              ...item,
+              status: 'active' as const,
+              summary: session.statusSummary || item.summary,
+              lastStep: session.lastStep,
+              timestamp: session.lastActivityAt,
+            }
+          : item
+      )
+    )
   }
 
   const updateHistorySessionPaused = (sessionId: string, updatedAt: string) => {
@@ -2887,7 +2988,12 @@ export default function AdvisoryWorkspaceShell() {
                                 </>
                               )}
                               <span aria-hidden="true">·</span>
-                              <span>{isOpening ? '打开中' : isActive ? '已打开' : '打开'}</span>
+                              <span>
+                                {getHistoryVisibleActionLabel(
+                                  item,
+                                  isOpening ? 'busy' : isActive ? 'active' : 'idle'
+                                )}
+                              </span>
                             </span>
                           </button>
                           {canDeleteHistoryItem && (

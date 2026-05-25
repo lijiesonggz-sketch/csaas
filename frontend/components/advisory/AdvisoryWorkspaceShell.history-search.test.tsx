@@ -51,18 +51,14 @@ jest.mock('@/components/advisory/AdvisoryDocumentDrawer', () => ({
 }))
 
 jest.mock('@/components/ui/select', () => {
-  const React = require('react')
+  const React = jest.requireActual<typeof import('react')>('react')
   const SelectItem = ({ children, value }: { children: ReactNode; value: string }) => (
     <option value={value}>{children}</option>
   )
   const SelectContent = ({ children }: { children: ReactNode }) => <>{children}</>
-  const SelectTrigger = ({
-    children,
-    ...props
-  }: {
-    children: ReactNode
-    'aria-label'?: string
-  }) => <>{children}</>
+  const SelectTrigger = ({ children }: { children: ReactNode; 'aria-label'?: string }) => (
+    <>{children}</>
+  )
   const SelectValue = () => null
   const collectItems = (children: ReactNode): ReactElement[] => {
     const items: ReactElement[] = []
@@ -410,9 +406,11 @@ describe('AdvisoryWorkspaceShell history and search', () => {
     render(<AdvisoryWorkspaceShell />)
 
     const historyRegion = await screen.findByRole('region', { name: '历史记录' })
-    await user.click(
-      within(historyRegion).getByRole('button', { name: /继续会话 Active Diagnosis/ })
-    )
+    const activeHistoryButton = within(historyRegion).getByRole('button', {
+      name: /继续会话 Active Diagnosis/,
+    })
+    expect(within(activeHistoryButton).getByText('继续')).toBeInTheDocument()
+    await user.click(activeHistoryButton)
 
     await waitFor(() => expect(mockResumeSession).toHaveBeenCalledWith('session-active'))
     expect(await screen.findByText('Active session recovered.')).toBeInTheDocument()
