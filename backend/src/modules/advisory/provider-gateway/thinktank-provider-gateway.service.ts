@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common'
 import {
   ThinkTankEventName,
@@ -73,7 +73,7 @@ export class ThinkTankProviderGatewayService {
       dependencies.providers.map((adapter) => [adapter.provider, adapter] as const),
     )
     this.eventService = dependencies.eventService as AdvisoryEventService
-    this.defaultProvider = dependencies.defaultProvider ?? 'fake'
+    this.defaultProvider = dependencies.defaultProvider ?? 'glm'
     this.defaultModel =
       dependencies.defaultModel ??
       (this.defaultProvider === 'fake'
@@ -797,7 +797,7 @@ export class ThinkTankProviderGatewayService {
     assignIfDefined(metadata, 'workflow_key', workflowKey)
     assignIfDefined(metadata, 'step_index', stepIndex)
     assignIfDefined(metadata, 'cache_strategy', response.cacheStrategy)
-    assignIfDefined(metadata, 'cache_key', response.cacheKey)
+    assignIfDefined(metadata, 'cache_fingerprint', toTelemetryFingerprint(response.cacheKey))
     assignIfDefined(metadata, 'cache_bypass_reason', response.cacheBypassReason)
     assignIfDefined(metadata, 'cache_source', cacheSource)
     assignIfDefined(metadata, 'cache_read_input_tokens', response.usage.cacheReadInputTokens)
@@ -824,7 +824,8 @@ export class ThinkTankProviderGatewayService {
     try {
       await this.eventService.emitTelemetry(input)
     } catch (error) {
-      this.logger.error('Failed to emit ThinkTank provider telemetry', error)
+      const detail = error instanceof Error ? (error.stack ?? error.message) : String(error)
+      this.logger.error(`Failed to emit ThinkTank provider telemetry: ${detail}`)
     }
   }
 
@@ -894,6 +895,13 @@ function assignIfDefined(target: Record<string, unknown>, key: string, value: un
   if (value !== undefined) {
     target[key] = value
   }
+}
+
+function toTelemetryFingerprint(cacheKey: unknown): string | undefined {
+  const safeCacheKey = readSafeCacheKey(cacheKey)
+  if (!safeCacheKey) return undefined
+
+  return createHash('sha256').update(safeCacheKey).digest('hex').slice(0, 16)
 }
 
 function sleep(delayMs: number): Promise<void> {

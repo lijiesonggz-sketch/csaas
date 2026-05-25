@@ -141,7 +141,7 @@ describe('ThinkTankProviderGatewayService prompt cache ATDD', () => {
           step_index: 1,
           model: 'fake-thinktank-smoke',
           cache_strategy: 'provider-auto',
-          cache_key: '11111111111111111111111111111111',
+          cache_fingerprint: expect.stringMatching(/^[a-f0-9]{16}$/),
           input_tokens: 120,
           output_tokens: 20,
           total_tokens: 140,
@@ -154,8 +154,9 @@ describe('ThinkTankProviderGatewayService prompt cache ATDD', () => {
     )
 
     const cacheEvent = findTelemetryCall(eventService, ThinkTankEventName.PromptCacheHit)
+    expect(cacheEvent?.metadata).not.toHaveProperty('cache_key')
     expect(JSON.stringify(cacheEvent?.metadata)).not.toMatch(
-      /Stable workflow|Continue the workflow|messages|content|report|document/i,
+      /Stable workflow|Continue the workflow|cache_key|messages|content|report|document/i,
     )
   })
 

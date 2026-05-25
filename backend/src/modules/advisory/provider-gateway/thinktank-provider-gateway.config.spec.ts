@@ -1,10 +1,12 @@
 import {
+  THINKTANK_PROVIDER_GATEWAY_DEFAULT_BASE_URL,
+  THINKTANK_PROVIDER_GATEWAY_DEFAULT_TIMEOUT_MS,
   resolveThinkTankProviderGatewayConfig,
   THINKTANK_PROVIDER_GATEWAY_DEFAULT_MODEL,
 } from './thinktank-provider-gateway.config'
 
 describe('ThinkTank provider gateway config', () => {
-  it('defaults automated execution to fake mode without model API keys', () => {
+  it('defaults automated test execution to fake mode without model API keys', () => {
     const config = resolveThinkTankProviderGatewayConfig({
       NODE_ENV: 'test',
       THINKTANK_PROVIDER_MODE: undefined,
@@ -15,7 +17,7 @@ describe('ThinkTank provider gateway config', () => {
     expect(config).toMatchObject({
       providerMode: 'fake',
       model: THINKTANK_PROVIDER_GATEWAY_DEFAULT_MODEL,
-      timeoutMs: 30000,
+      timeoutMs: THINKTANK_PROVIDER_GATEWAY_DEFAULT_TIMEOUT_MS,
       liveProviderEnabled: false,
       anthropicExplicitCacheEnabled: false,
       retry: {
@@ -23,6 +25,59 @@ describe('ThinkTank provider gateway config', () => {
         delayMs: 100,
         backoffMultiplier: 2,
       },
+    })
+  })
+
+  it('does not silently fall back to fake provider in development when GLM is missing', () => {
+    const config = resolveThinkTankProviderGatewayConfig({
+      NODE_ENV: 'development',
+      THINKTANK_PROVIDER_MODE: undefined,
+      GLM_API_KEY: undefined,
+      GLM_BASE_URL: undefined,
+    })
+
+    expect(config).toMatchObject({
+      providerMode: 'glm',
+      apiKey: undefined,
+      baseUrl: undefined,
+      liveProviderEnabled: false,
+    })
+  })
+
+  it('selects live GLM automatically when credentials are configured', () => {
+    const config = resolveThinkTankProviderGatewayConfig({
+      NODE_ENV: 'development',
+      THINKTANK_PROVIDER_MODE: undefined,
+      GLM_API_KEY: 'glm-key',
+      GLM_BASE_URL: 'https://example.test/api/anthropic',
+      GLM_MODEL: 'glm-5.1',
+    })
+
+    expect(config).toMatchObject({
+      providerMode: 'glm',
+      apiKey: 'glm-key',
+      baseUrl: 'https://example.test/api/anthropic',
+      model: 'glm-5.1',
+      timeoutMs: THINKTANK_PROVIDER_GATEWAY_DEFAULT_TIMEOUT_MS,
+      liveProviderEnabled: true,
+    })
+  })
+
+  it('maps existing BigModel OpenAI-compatible settings to live GLM without duplicating secrets', () => {
+    const config = resolveThinkTankProviderGatewayConfig({
+      NODE_ENV: 'development',
+      THINKTANK_PROVIDER_MODE: undefined,
+      OPENAI_API_KEY: 'bigmodel-key',
+      OPENAI_BASE_URL: 'https://open.bigmodel.cn/api/paas/v4/',
+      GLM_MODEL: 'glm-5.1',
+    })
+
+    expect(config).toMatchObject({
+      providerMode: 'glm',
+      apiKey: 'bigmodel-key',
+      baseUrl: THINKTANK_PROVIDER_GATEWAY_DEFAULT_BASE_URL,
+      model: 'glm-5.1',
+      liveProviderEnabled: true,
     })
   })
 

@@ -94,6 +94,24 @@ describe('ThinkTankProviderGatewayService', () => {
     expect(offenders).toEqual([])
   })
 
+  it('does not silently default to the fake provider when runtime config is missing', async () => {
+    const eventService = {
+      emitTelemetry: jest.fn().mockResolvedValue(undefined),
+    } as unknown as AdvisoryEventService
+    const gateway = new ThinkTankProviderGatewayService(
+      [new FakeThinkTankProviderAdapter()],
+      eventService,
+      undefined,
+    )
+    const requestWithoutProvider = { ...request }
+    delete requestWithoutProvider.provider
+
+    await expect(gateway.complete(requestWithoutProvider)).rejects.toMatchObject({
+      code: 'THINKTANK_PROVIDER_NOT_AVAILABLE',
+      provider: 'glm',
+    })
+  })
+
   it('returns deterministic fake smoke responses and emits completed telemetry', async () => {
     const { gateway, eventService } = createGateway(new FakeThinkTankProviderAdapter())
 

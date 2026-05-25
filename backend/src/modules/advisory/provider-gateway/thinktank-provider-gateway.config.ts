@@ -7,7 +7,9 @@ import {
 export const THINKTANK_PROVIDER_GATEWAY_CONFIG = 'THINKTANK_PROVIDER_GATEWAY_CONFIG'
 export const THINKTANK_PROVIDER_GATEWAY_ADAPTERS = 'THINKTANK_PROVIDER_GATEWAY_ADAPTERS'
 export const THINKTANK_PROVIDER_GATEWAY_DEFAULT_MODEL = 'glm-5.1'
+export const THINKTANK_PROVIDER_GATEWAY_DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/anthropic'
 export const THINKTANK_PROVIDER_GATEWAY_FAKE_MODEL = 'fake-thinktank-smoke'
+export const THINKTANK_PROVIDER_GATEWAY_DEFAULT_TIMEOUT_MS = 120000
 
 export interface ThinkTankProviderGatewayConfig {
   providerMode: ThinkTankProviderType
@@ -28,10 +30,14 @@ export function resolveThinkTankProviderGatewayConfig(
   source: ConfigSource = process.env,
 ): ThinkTankProviderGatewayConfig {
   const requestedMode = readString(source, 'THINKTANK_PROVIDER_MODE')
-  const providerMode: ThinkTankProviderType = requestedMode === 'glm' ? 'glm' : 'fake'
-  const apiKey = readString(source, 'GLM_API_KEY')
-  const baseUrl = readString(source, 'GLM_BASE_URL')
-  const timeoutMs = readPositiveInteger(source, 'THINKTANK_PROVIDER_TIMEOUT_MS', 30000)
+  const apiKey = resolveGlmApiKey(source)
+  const baseUrl = resolveGlmBaseUrl(source, Boolean(apiKey))
+  const providerMode = resolveProviderMode(source, requestedMode, Boolean(apiKey && baseUrl))
+  const timeoutMs = readPositiveInteger(
+    source,
+    'THINKTANK_PROVIDER_TIMEOUT_MS',
+    THINKTANK_PROVIDER_GATEWAY_DEFAULT_TIMEOUT_MS,
+  )
   const maxAttempts = readPositiveInteger(source, 'THINKTANK_PROVIDER_RETRY_ATTEMPTS', 2)
   const delayMs = readNonNegativeInteger(source, 'THINKTANK_PROVIDER_RETRY_DELAY_MS', 100)
 
@@ -50,6 +56,48 @@ export function resolveThinkTankProviderGatewayConfig(
     anthropicExplicitCacheEnabled:
       readString(source, 'THINKTANK_ANTHROPIC_EXPLICIT_CACHE_ENABLED') === 'true',
   }
+}
+
+function resolveGlmApiKey(source: ConfigSource): string | null {
+  const explicitGlmApiKey = readString(source, 'GLM_API_KEY')
+  if (explicitGlmApiKey) {
+    return explicitGlmApiKey
+  }
+
+  return isBigModelBaseUrl(readString(source, 'OPENAI_BASE_URL'))
+    ? readString(source, 'OPENAI_API_KEY')
+    : null
+}
+
+function resolveGlmBaseUrl(source: ConfigSource, hasApiKey: boolean): string | null {
+  const explicitGlmBaseUrl = readString(source, 'GLM_BASE_URL')
+  if (explicitGlmBaseUrl) {
+    return explicitGlmBaseUrl
+  }
+
+  return hasApiKey && isBigModelBaseUrl(readString(source, 'OPENAI_BASE_URL'))
+    ? THINKTANK_PROVIDER_GATEWAY_DEFAULT_BASE_URL
+    : null
+}
+
+function isBigModelBaseUrl(baseUrl: string | null): boolean {
+  return baseUrl?.toLowerCase().includes('open.bigmodel.cn') ?? false
+}
+
+function resolveProviderMode(
+  source: ConfigSource,
+  requestedMode: string | null,
+  hasGlmCredentials: boolean,
+): ThinkTankProviderType {
+  if (requestedMode === 'glm' || requestedMode === 'fake') {
+    return requestedMode
+  }
+
+  if (hasGlmCredentials) {
+    return 'glm'
+  }
+
+  return readString(source, 'NODE_ENV') === 'test' ? 'fake' : 'glm'
 }
 
 function readString(source: ConfigSource, key: string): string | null {

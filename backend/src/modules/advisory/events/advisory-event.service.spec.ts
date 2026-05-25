@@ -197,6 +197,7 @@ describe('AdvisoryEventService', () => {
       metadata: {
         status: 'completed',
         model: 'fake-thinktank-smoke',
+        cacheFingerprint: 'abcdef0123456789',
         inputTokens: 12,
         outputTokens: 7,
         totalTokens: 19,
@@ -226,6 +227,7 @@ describe('AdvisoryEventService', () => {
           estimated_cost: 0,
           status: 'completed',
           model: 'fake-thinktank-smoke',
+          cache_fingerprint: 'abcdef0123456789',
           input_tokens: 12,
           output_tokens: 7,
           total_tokens: 19,
@@ -239,5 +241,24 @@ describe('AdvisoryEventService', () => {
     expect(details).not.toHaveProperty('report')
     expect(details).not.toHaveProperty('document')
     expect(details).not.toHaveProperty('enterpriseContext')
+  })
+
+  it('rejects provider telemetry metadata that tries to persist raw cache keys', async () => {
+    await expect(
+      service.emitTelemetry({
+        eventName: 'thinktank.provider.call_completed',
+        tenantId,
+        actorId,
+        subjectType: 'provider_call',
+        subjectId: '990e8400-e29b-41d4-a716-446655440014',
+        outcome: 'success',
+        privacyClassification: 'operational',
+        metadata: {
+          cache_key: '11111111111111111111111111111111',
+        },
+      }),
+    ).rejects.toThrow(/cache_key/i)
+
+    expect(auditLogService.log).not.toHaveBeenCalled()
   })
 })
