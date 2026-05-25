@@ -10,12 +10,10 @@ import type { ThinkTankWorkflowOutput } from './outputs'
 
 export const THINKTANK_UNFINISHED_SESSIONS_LOAD_FAILED_MESSAGE =
   '暂时无法加载未完成的 ThinkTank 会话，请稍后重试。'
-export const THINKTANK_RESUME_SESSION_FAILED_MESSAGE =
-  '暂时无法恢复该 ThinkTank 会话，请稍后重试。'
+export const THINKTANK_RESUME_SESSION_FAILED_MESSAGE = '暂时无法恢复该 ThinkTank 会话，请稍后重试。'
 export const THINKTANK_SAFE_EXIT_SESSION_FAILED_MESSAGE =
   '暂时无法安全退出该 ThinkTank 会话，请稍后重试。'
-export const THINKTANK_DELETE_SESSION_FAILED_MESSAGE =
-  '暂时无法删除该 ThinkTank 会话，请稍后重试。'
+export const THINKTANK_DELETE_SESSION_FAILED_MESSAGE = '暂时无法删除该 ThinkTank 会话，请稍后重试。'
 
 export type ThinkTankResumeCheckpointSource = 'hot' | 'cold' | 'fallback'
 
@@ -67,9 +65,7 @@ export interface ThinkTankSessionLifecycleResult {
   checkpointWarning?: ThinkTankCheckpointWarning
 }
 
-export function toWorkflowLaunchFromResume(
-  result: ThinkTankResumeSessionResult
-): {
+export function toWorkflowLaunchFromResume(result: ThinkTankResumeSessionResult): {
   sessionId: string
   workflow: ThinkTankWorkflowCatalogItem
   status: 'active'
@@ -130,9 +126,7 @@ export async function deleteThinkTankSession(
     throw new Error(readAdvisoryMessage(body) ?? THINKTANK_DELETE_SESSION_FAILED_MESSAGE)
   }
 
-  return normalizeSessionLifecycleResult(body, THINKTANK_DELETE_SESSION_FAILED_MESSAGE, [
-    'deleted',
-  ])
+  return normalizeSessionLifecycleResult(body, THINKTANK_DELETE_SESSION_FAILED_MESSAGE, ['deleted'])
 }
 
 export async function fetchThinkTankUnfinishedSessions(): Promise<ThinkTankUnfinishedSessionsResult> {
@@ -144,9 +138,7 @@ export async function fetchThinkTankUnfinishedSessions(): Promise<ThinkTankUnfin
   const body = await response.json().catch(() => null)
 
   if (!response.ok) {
-    throw new Error(
-      readAdvisoryMessage(body) ?? THINKTANK_UNFINISHED_SESSIONS_LOAD_FAILED_MESSAGE
-    )
+    throw new Error(readAdvisoryMessage(body) ?? THINKTANK_UNFINISHED_SESSIONS_LOAD_FAILED_MESSAGE)
   }
 
   const data = unwrapAdvisoryEnvelope<Partial<ThinkTankUnfinishedSessionsResult>>(body)
@@ -232,8 +224,7 @@ function normalizeUnfinishedSessionCard(value: unknown): ThinkTankUnfinishedSess
   const sessionId = normalizeNonEmptyText(record.sessionId)
   const workflowKey = normalizeWorkflowKey(record.workflowKey)
   const workflowType =
-    normalizeNonEmptyText(record.workflowType) ??
-    normalizeNonEmptyText(record.workflowDisplayName)
+    normalizeNonEmptyText(record.workflowType) ?? normalizeNonEmptyText(record.workflowDisplayName)
   const title = normalizeNonEmptyText(record.title) ?? workflowType
   const lastStep = normalizeCurrentStep(record.lastStep ?? record.currentStep)
   const lastActivityAt =
@@ -357,7 +348,8 @@ function normalizeOutput(value: unknown): ThinkTankWorkflowOutput | null {
   const record = value as Record<string, unknown>
   const id = normalizeNonEmptyText(record.id)
   const workflowKey = normalizeWorkflowKey(record.workflowKey)
-  const status = record.status === 'completed' ? 'completed' : record.status === 'draft' ? 'draft' : null
+  const status =
+    record.status === 'completed' ? 'completed' : record.status === 'draft' ? 'draft' : null
   const title = normalizeNonEmptyText(record.title)
   const aiLabelMetadata = normalizeRecord(record.aiLabelMetadata)
   if (!id || !workflowKey || !status || !title) return null
@@ -370,7 +362,9 @@ function normalizeOutput(value: unknown): ThinkTankWorkflowOutput | null {
     title,
     summary: normalizeNonEmptyText(record.summary) ?? '',
     contentMarkdown: normalizeNonEmptyText(record.contentMarkdown) ?? '',
-    sections: Array.isArray(record.sections) ? (record.sections as ThinkTankWorkflowOutput['sections']) : [],
+    sections: Array.isArray(record.sections)
+      ? (record.sections as ThinkTankWorkflowOutput['sections'])
+      : [],
     aiLabelMetadata:
       Object.keys(aiLabelMetadata).length > 0
         ? aiLabelMetadata
@@ -385,11 +379,16 @@ function normalizeCurrentStep(value: unknown): ThinkTankWorkflowCurrentStep | nu
   const index = normalizeNonNegativeNumber(record.index)
   const label = normalizeNonEmptyText(record.label)
   if (index === null || !label) return null
+  const sourceRef = normalizeNonEmptyText(record.sourceRef)
+  const totalSteps = normalizePositiveNumber(record.totalSteps)
 
   return {
     index,
     label,
-    sourceRef: normalizeNonEmptyText(record.sourceRef),
+    ...(sourceRef ? { sourceRef } : {}),
+    ...(totalSteps ? { totalSteps } : {}),
+    ...(record.isFinal === true ? { isFinal: true } : {}),
+    ...(record.isFinalStep === true ? { isFinalStep: true } : {}),
   }
 }
 
@@ -423,6 +422,10 @@ function normalizeRecord(value: unknown): Record<string, unknown> {
 
 function normalizeNonNegativeNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
+}
+
+function normalizePositiveNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.trunc(value) : null
 }
 
 function normalizeIsoDate(value: unknown): string | null {

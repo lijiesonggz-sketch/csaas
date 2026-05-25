@@ -19,14 +19,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { AdvisoryChatMessage } from '@/components/advisory/AdvisoryChatMessage'
 import { AdvisoryDocumentDrawer } from '@/components/advisory/AdvisoryDocumentDrawer'
@@ -81,10 +73,8 @@ import {
   type ThinkTankCheckpointWarning,
 } from '@/lib/advisory/checkpoints'
 import {
-  THINKTANK_OUTPUT_APPEND_FAILED_MESSAGE,
   THINKTANK_OUTPUT_DELETE_FAILED_MESSAGE,
   THINKTANK_OUTPUT_EXPORT_FAILED_MESSAGE,
-  appendThinkTankWorkflowOutputSection,
   associateThinkTankOutputWithKnowledgeBase,
   completeThinkTankSessionOutput,
   deleteThinkTankSessionOutput,
@@ -227,6 +217,25 @@ function readMessageSubmitErrorMessage(error: unknown): string {
   return message === THINKTANK_STREAM_ERROR_MESSAGE
     ? THINKTANK_MESSAGE_SUBMIT_FAILED_MESSAGE
     : message
+}
+
+function getPublicLaunchPrompt(launch: ThinkTankWorkflowLaunchResult): string {
+  const prompt = launch.firstPrompt.trim()
+  if (prompt && !containsInternalWorkflowPrompt(prompt)) {
+    return prompt
+  }
+
+  return [
+    `${launch.workflow.displayName} 已启动。`,
+    `我会基于 ${launch.workflow.scenarioLabel} 工作流，引导你整理问题背景、目标和约束。`,
+    '请直接输入你要讨论的主题、当前背景，以及希望产出的具体结果。',
+  ].join('\n\n')
+}
+
+function containsInternalWorkflowPrompt(prompt: string): boolean {
+  return /MANDATORY EXECUTION RULES|EXECUTION PROTOCOLS|CONTEXT BOUNDARIES|## YOUR TASK|## Source:|_bmad|Untrusted user-provided context data/i.test(
+    prompt
+  )
 }
 
 function buildDraftStorageKey(userIdentity: string | null, sessionId: string): string {
@@ -425,30 +434,6 @@ function applyHistoryKnowledgeBaseAssociationState(
   return {
     ...item,
     knowledgeBaseAssociation,
-  }
-}
-
-function readProviderMetadata(message: ThinkTankConversationMessage): Record<string, unknown> {
-  const metadata = message.providerMetadata ?? {}
-
-  return {
-    provider: metadata.provider,
-    model: metadata.model,
-    latencyMs: metadata.latencyMs ?? metadata.latency_ms,
-    inputTokens: metadata.inputTokens ?? metadata.input_tokens,
-    outputTokens: metadata.outputTokens ?? metadata.output_tokens,
-    totalTokens: metadata.totalTokens ?? metadata.total_tokens,
-    estimatedCost: metadata.estimatedCost ?? metadata.estimated_cost,
-    cacheStatus: metadata.cacheStatus ?? metadata.cache_status,
-    cacheStrategy: metadata.cacheStrategy ?? metadata.cache_strategy,
-    cacheKey: metadata.cacheKey ?? metadata.cache_key,
-    cacheBypassReason: metadata.cacheBypassReason ?? metadata.cache_bypass_reason,
-    cacheReadInputTokens: metadata.cacheReadInputTokens ?? metadata.cache_read_input_tokens,
-    cacheCreationInputTokens:
-      metadata.cacheCreationInputTokens ?? metadata.cache_creation_input_tokens,
-    cachedInputTokens: metadata.cachedInputTokens ?? metadata.cached_input_tokens,
-    cacheEligibleInputTokens:
-      metadata.cacheEligibleInputTokens ?? metadata.cache_eligible_input_tokens,
   }
 }
 
@@ -672,6 +657,7 @@ export default function AdvisoryWorkspaceShell() {
   const [hasUnreadDocumentContent, setHasUnreadDocumentContent] = useState(false)
   const [outputAnnouncement, setOutputAnnouncement] = useState('')
   const [outputCompletionFeedback, setOutputCompletionFeedback] = useState<string | undefined>()
+  const [isCompletingOutput, setIsCompletingOutput] = useState(false)
   const [outputExportingFormat, setOutputExportingFormat] =
     useState<ThinkTankOutputExportFormat | null>(null)
   const [outputExportError, setOutputExportError] = useState<string | null>(null)
@@ -703,7 +689,6 @@ export default function AdvisoryWorkspaceShell() {
   const messageSubmitInFlightRef = useRef(false)
   const skipNextSessionMessagesLoadRef = useRef<string | null>(null)
   const skipNextOutputLoadRef = useRef<string | null>(null)
-  const appendedOutputSourceMessageIdsRef = useRef<Set<string>>(new Set())
   const outputExportRequestIdRef = useRef(0)
   const messageStreamRequestIdRef = useRef(0)
   const resumeRequestIdRef = useRef(0)
@@ -998,7 +983,6 @@ export default function AdvisoryWorkspaceShell() {
       setOutputExportingFormat(null)
       setOutputExportError(null)
       outputExportRequestIdRef.current += 1
-      appendedOutputSourceMessageIdsRef.current.clear()
       setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
       setWorkspaceMode('workflow')
       setActiveLaunch(launch)
@@ -1088,7 +1072,6 @@ export default function AdvisoryWorkspaceShell() {
       setOutputExportError(null)
       setRecoveryMessage(resumed.recoveryMessage)
       outputExportRequestIdRef.current += 1
-      appendedOutputSourceMessageIdsRef.current.clear()
       setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
       setWorkspaceMode('workflow')
       setActiveLaunch(launch)
@@ -1246,7 +1229,6 @@ export default function AdvisoryWorkspaceShell() {
         setRecoveryMessage(null)
       }
       outputExportRequestIdRef.current += 1
-      appendedOutputSourceMessageIdsRef.current.clear()
       setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
       setWorkspaceMode('workflow')
       setActiveLaunch(launch)
@@ -1284,7 +1266,6 @@ export default function AdvisoryWorkspaceShell() {
     activeLaunchRef.current = null
     skipNextSessionMessagesLoadRef.current = null
     skipNextOutputLoadRef.current = null
-    appendedOutputSourceMessageIdsRef.current.clear()
     setActiveLaunch(null)
     setSessionMessages([])
     setSessionMessagesStatus('idle')
@@ -1435,6 +1416,47 @@ export default function AdvisoryWorkspaceShell() {
     setLifecycleActionError(null)
   }
 
+  useEffect(() => {
+    if (!pendingLifecycleAction) return
+
+    const focusTimer = window.setTimeout(() => {
+      lifecycleCancelButtonRef.current?.focus({ preventScroll: true })
+    }, 0)
+    const dismissIfAllowed = () => {
+      if (!lifecycleActionInFlight) {
+        setPendingLifecycleAction(null)
+        setLifecycleActionError(null)
+      }
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        dismissIfAllowed()
+      }
+    }
+    const handleBodyDismiss = (event: MouseEvent | PointerEvent) => {
+      if (event.target === document.body) {
+        dismissIfAllowed()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('pointerdown', handleBodyDismiss)
+    document.addEventListener('mousedown', handleBodyDismiss)
+    document.addEventListener('click', handleBodyDismiss)
+
+    return () => {
+      window.clearTimeout(focusTimer)
+      window.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('pointerdown', handleBodyDismiss)
+      document.removeEventListener('mousedown', handleBodyDismiss)
+      document.removeEventListener('click', handleBodyDismiss)
+    }
+  }, [pendingLifecycleAction, lifecycleActionInFlight])
+
+  const closeLifecycleDialogBeforeStateTransition = () => {
+    setPendingLifecycleAction(null)
+  }
+
   const handleConfirmLifecycleAction = async () => {
     if (!pendingLifecycleAction || lifecycleActionInFlight) return
 
@@ -1451,6 +1473,7 @@ export default function AdvisoryWorkspaceShell() {
         invalidateWorkflowAsyncWork()
         const result = await safeExitThinkTankSession(action.sessionId)
 
+        closeLifecycleDialogBeforeStateTransition()
         upsertPausedUnfinishedSession(launchSnapshot, result.updatedAt)
         updateHistorySessionPaused(result.sessionId, result.updatedAt)
         clearActiveWorkflowStateIfSession(result.sessionId)
@@ -1465,6 +1488,7 @@ export default function AdvisoryWorkspaceShell() {
         }
         const result = await deleteThinkTankSession(action.sessionId)
 
+        closeLifecycleDialogBeforeStateTransition()
         removeSessionFromVisibleState(result.sessionId)
         setOutputAnnouncement('ThinkTank 会话已删除。')
         toast.success('会话已删除。')
@@ -1476,12 +1500,11 @@ export default function AdvisoryWorkspaceShell() {
         }
         const result = await deleteThinkTankSessionOutput(action.sessionId, action.outputId)
 
+        closeLifecycleDialogBeforeStateTransition()
         removeOutputFromVisibleState(result.outputId, result.sessionId)
         setOutputAnnouncement('ThinkTank 报告已删除。')
         toast.success('报告已删除。')
       }
-
-      setPendingLifecycleAction(null)
     } catch (error) {
       const fallback =
         action.type === 'safe-exit'
@@ -1557,7 +1580,6 @@ export default function AdvisoryWorkspaceShell() {
       setOutputExportError(null)
       setRecoveryMessage(null)
       outputExportRequestIdRef.current += 1
-      appendedOutputSourceMessageIdsRef.current.clear()
       return undefined
     }
 
@@ -1704,46 +1726,26 @@ export default function AdvisoryWorkspaceShell() {
     }
   }
 
-  const appendAssistantOutputSection = async (
-    assistantMessage: ThinkTankConversationMessage,
-    currentStep = activeLaunch?.currentStep
-  ): Promise<ThinkTankWorkflowOutput | null> => {
-    if (!activeLaunch || !currentStep || !assistantMessage.content.trim()) return null
-    if (appendedOutputSourceMessageIdsRef.current.has(assistantMessage.id)) {
-      textareaRef.current?.focus({ preventScroll: true })
-      return workflowOutput
-    }
+  const applyBackendWorkflowOutput = (
+    output: ThinkTankWorkflowOutput | undefined,
+    options: { stepLabel?: string | null } = {}
+  ) => {
+    if (!output) return
 
-    const stepLabel = currentStep.label || `Step ${currentStep.index}`
-    const feedback = `${stepLabel}已完成，报告草稿已更新。`
+    const latestSection = output.sections.at(-1)
+    const stepLabel = options.stepLabel ?? latestSection?.heading ?? null
+    const feedback = stepLabel ? `${stepLabel}已完成，报告草稿已更新。` : '报告草稿已更新。'
+    setWorkflowOutput(output)
+    setHistoryPreviewOutput(null)
+    setHasUnreadDocumentContent(!documentDrawerOpen)
+    setOutputCompletionFeedback(feedback)
+    setOutputAnnouncement(feedback)
+    announceStreamStatus(feedback, { immediate: true })
+  }
 
-    try {
-      const result = await appendThinkTankWorkflowOutputSection(activeLaunch.sessionId, {
-        stepIndex: currentStep.index,
-        stepLabel,
-        contentMarkdown: assistantMessage.content,
-        sourceMessageId: assistantMessage.id,
-        providerMetadata: readProviderMetadata(assistantMessage),
-        aiLabelMetadata: {
-          label: 'AI Generated',
-          visibleLabel: '[AI Generated]',
-        },
-      })
-      appendedOutputSourceMessageIdsRef.current.add(assistantMessage.id)
-      setWorkflowOutput(result.output)
-      setHistoryPreviewOutput(null)
-      setHasUnreadDocumentContent(!documentDrawerOpen)
-      setOutputCompletionFeedback(feedback)
-      setOutputAnnouncement(`已完成：${stepLabel}，报告草稿已更新。`)
-      showCheckpointWarning(result.checkpointWarning)
-      announceStreamStatus(feedback, { immediate: true })
-      textareaRef.current?.focus({ preventScroll: true })
-      return result.output
-    } catch (error) {
-      setMessageError(readWorkflowErrorMessage(error, THINKTANK_OUTPUT_APPEND_FAILED_MESSAGE))
-      announceStreamStatus('报告草稿更新失败。', { immediate: true })
-      return null
-    }
+  const isWorkflowReadyForExplicitCompletion = (launch: ThinkTankWorkflowLaunchResult | null) => {
+    const currentStep = launch?.currentStep
+    return currentStep?.isFinal === true || currentStep?.isFinalStep === true
   }
 
   const handleSubmitMessage = async (
@@ -1757,6 +1759,7 @@ export default function AdvisoryWorkspaceShell() {
   ) => {
     if (
       !activeLaunch ||
+      activeLaunch.status !== 'active' ||
       sessionMessagesStatus !== 'ready' ||
       isSubmittingMessage ||
       messageSubmitInFlightRef.current
@@ -1773,6 +1776,9 @@ export default function AdvisoryWorkspaceShell() {
       setMessageError('内容过长，请精简到 5000 字符以内。')
       return
     }
+
+    const isDecisionSubmit = Boolean(override.decisionAction)
+    const selectedDecisionLabel = override.selectedDecisionLabel ?? null
 
     const userMessage: ThinkTankConversationMessage = {
       id: `local-user-${Date.now()}`,
@@ -1792,7 +1798,6 @@ export default function AdvisoryWorkspaceShell() {
       metadata: { streaming: true },
     }
     const abortController = new AbortController()
-    const isDecisionSubmit = Boolean(override.decisionAction)
     const addressedExpertHint =
       override.addressedExpertHint ??
       (!isDecisionSubmit && partyModeReplyTarget
@@ -1822,7 +1827,7 @@ export default function AdvisoryWorkspaceShell() {
     streamAbortRef.current?.abort()
     streamAbortRef.current = abortController
     setMessageError(null)
-    setSelectedDecisionLabel(override.selectedDecisionLabel ?? null)
+    setSelectedDecisionLabel(selectedDecisionLabel)
     setIsSubmittingMessage(true)
     setMessageStreamingStatus('submitting')
     setStreamingMessageId(assistantMessageId)
@@ -1854,6 +1859,21 @@ export default function AdvisoryWorkspaceShell() {
         const shouldAutoScroll = isConversationNearBottom()
 
         if (event.event === 'message.started') {
+          if (event.data.currentStep) {
+            const startedCurrentStep = event.data.currentStep
+            const nextLaunch = activeLaunchRef.current
+              ? {
+                  ...activeLaunchRef.current,
+                  currentStep: startedCurrentStep,
+                }
+              : null
+            if (nextLaunch) {
+              activeLaunchRef.current = nextLaunch
+            }
+            setActiveLaunch((currentLaunch) =>
+              currentLaunch ? { ...currentLaunch, currentStep: startedCurrentStep } : currentLaunch
+            )
+          }
           setMessageStreamingStatus('streaming')
           announceStreamStatus('正在生成顾问回复。', { immediate: true })
           continue
@@ -1914,9 +1934,10 @@ export default function AdvisoryWorkspaceShell() {
         if (event.event === 'message.delta') {
           receivedDeltaCount += 1
           setMessageStreamingStatus('streaming')
+          const pendingMessageIdForDelta = currentPendingAssistantMessageId
           setSessionMessages((currentMessages) =>
             currentMessages.map((message) =>
-              message.id === currentPendingAssistantMessageId
+              message.id === pendingMessageIdForDelta
                 ? { ...message, content: `${message.content}${event.data.delta}` }
                 : message
             )
@@ -1962,36 +1983,74 @@ export default function AdvisoryWorkspaceShell() {
           if (isTerminalCompletedEvent) {
             streamEndedWithTerminalEvent = true
           }
+          const pendingMessageIdForCompletion = currentPendingAssistantMessageId
           activeStreamMessageIds.add(completedAssistantMessage.id)
           setMessageStreamingStatus(isTerminalCompletedEvent ? 'completing' : 'streaming')
           setSessionMessages((currentMessages) => {
-            const foundPendingMessage = currentMessages.some(
-              (message) => message.id === currentPendingAssistantMessageId
+            const fallbackPendingMessage = currentMessages.find(
+              (message) =>
+                message.metadata?.streaming === true && activeStreamMessageIds.has(message.id)
             )
-            if (!foundPendingMessage) {
-              return [...currentMessages, completedAssistantMessage]
-            }
+            const replacementMessageId =
+              pendingMessageIdForCompletion &&
+              currentMessages.some((message) => message.id === pendingMessageIdForCompletion)
+                ? pendingMessageIdForCompletion
+                : fallbackPendingMessage?.id
+            let replacedMessage = false
+            const nextMessages = currentMessages.flatMap((message) => {
+              if (message.id === completedAssistantMessage.id) {
+                if (replacedMessage) return []
+                replacedMessage = true
+                return [completedAssistantMessage]
+              }
+              if (replacementMessageId && message.id === replacementMessageId) {
+                if (replacedMessage) return []
+                replacedMessage = true
+                return [completedAssistantMessage]
+              }
+              return [message]
+            })
 
-            return currentMessages.map((message) =>
-              message.id === currentPendingAssistantMessageId ? completedAssistantMessage : message
-            )
+            return replacedMessage ? nextMessages : [...currentMessages, completedAssistantMessage]
           })
           currentPendingAssistantMessageId = ''
           if (event.data.currentStep) {
+            const nextLaunch = activeLaunchRef.current
+              ? {
+                  ...activeLaunchRef.current,
+                  currentStep: event.data.currentStep,
+                }
+              : null
+            if (nextLaunch) {
+              activeLaunchRef.current = nextLaunch
+            }
             setActiveLaunch((currentLaunch) =>
-              currentLaunch
-                ? (() => {
-                    const nextLaunch = {
-                      ...currentLaunch,
-                      currentStep: event.data.currentStep ?? currentLaunch.currentStep,
-                    }
-                    activeLaunchRef.current = nextLaunch
-                    return nextLaunch
-                  })()
+              currentLaunch && event.data.currentStep
+                ? { ...currentLaunch, currentStep: event.data.currentStep }
                 : currentLaunch
             )
           }
           showCheckpointWarning(event.data.checkpointWarning)
+          applyBackendWorkflowOutput(event.data.output, {
+            stepLabel:
+              event.data.appendedSection?.heading ??
+              readMetadataText(completedAssistantMessage.metadata?.step_label),
+          })
+          if (event.data.appendedSection && !event.data.output) {
+            try {
+              const result = await fetchThinkTankWorkflowOutput(streamSessionId)
+              if (isCurrentMessageStream()) {
+                applyBackendWorkflowOutput(result.output, {
+                  stepLabel: event.data.appendedSection.heading,
+                })
+                showCheckpointWarning(result.checkpointWarning)
+              }
+            } catch {
+              if (isCurrentMessageStream()) {
+                setOutputCompletionFeedback('报告草稿已更新，但右侧文稿刷新失败。')
+              }
+            }
+          }
           announceStreamStatus('顾问回复已完成。', { immediate: true })
           setStreamingMessageId(isTerminalCompletedEvent ? null : currentPendingAssistantMessageId)
           applyStreamingScrollBehavior(shouldAutoScroll)
@@ -2058,38 +2117,26 @@ export default function AdvisoryWorkspaceShell() {
     }
   }
 
-  const findLatestAssistantMessage = () => {
-    for (let index = sessionMessages.length - 1; index >= 0; index -= 1) {
-      const message = sessionMessages[index]
-      if (message.role === 'assistant') return message
-    }
-
-    return null
-  }
-
-  const isFinalWorkflowStep = (step: ThinkTankWorkflowLaunchResult['currentStep']) => {
-    const metadata = step as typeof step & {
-      isFinal?: boolean
-      isFinalStep?: boolean
-      final?: boolean
-      totalSteps?: number
-    }
-
-    return (
-      metadata.isFinal === true ||
-      metadata.isFinalStep === true ||
-      metadata.final === true ||
-      (typeof metadata.totalSteps === 'number' && metadata.index >= metadata.totalSteps)
-    )
-  }
-
   const completeFinalWorkflowOutput = async () => {
-    if (!activeLaunch) return
+    const launch = activeLaunchRef.current ?? activeLaunch
+    if (
+      !launch ||
+      launch.status !== 'active' ||
+      !isWorkflowReadyForExplicitCompletion(launch) ||
+      workflowOutput?.status === 'completed' ||
+      isCompletingOutput
+    ) {
+      return
+    }
 
+    setIsCompletingOutput(true)
     try {
-      const result = await completeThinkTankSessionOutput(activeLaunch.sessionId, {
+      const result = await completeThinkTankSessionOutput(launch.sessionId, {
         outcome: 'success',
       })
+      const completedLaunch = { ...launch, status: 'completed' as const }
+      activeLaunchRef.current = completedLaunch
+      setActiveLaunch(completedLaunch)
       setWorkflowOutput(result.output)
       setHistoryPreviewOutput(null)
       setHasUnreadDocumentContent(!documentDrawerOpen)
@@ -2101,6 +2148,7 @@ export default function AdvisoryWorkspaceShell() {
       setMessageError(readWorkflowErrorMessage(error, '暂时无法完成报告草稿，请稍后重试。'))
       announceStreamStatus('报告草稿完成失败。', { immediate: true })
     } finally {
+      setIsCompletingOutput(false)
       textareaRef.current?.focus({ preventScroll: true })
     }
   }
@@ -2307,20 +2355,11 @@ export default function AdvisoryWorkspaceShell() {
 
     setSelectedDecisionLabel(option.label)
     if (option.action === 'continue') {
-      const latestAssistantMessage = findLatestAssistantMessage()
-      if (latestAssistantMessage) {
-        void appendAssistantOutputSection(latestAssistantMessage, activeLaunch?.currentStep).then(
-          (output) => {
-            if (
-              output &&
-              activeLaunch?.currentStep &&
-              isFinalWorkflowStep(activeLaunch.currentStep)
-            ) {
-              void completeFinalWorkflowOutput()
-            }
-          }
-        )
-      }
+      void handleSubmitMessage({
+        content: option.shortcut ?? option.label,
+        decisionAction: 'continue',
+        selectedDecisionLabel: option.label,
+      })
     }
     textareaRef.current?.focus({ preventScroll: true })
   }
@@ -2396,6 +2435,13 @@ export default function AdvisoryWorkspaceShell() {
     activeLaunch?.status === 'active' && sessionMessagesStatus === 'ready' && !isSubmittingMessage
   const documentDrawerOutput = historyPreviewOutput ?? workflowOutput
   const hasHistoryPreviewOutput = Boolean(historyPreviewOutput)
+  const canCompleteWorkflowOutput =
+    Boolean(documentDrawerOutput?.sections.length) &&
+    activeLaunch?.status === 'active' &&
+    isWorkflowReadyForExplicitCompletion(activeLaunch) &&
+    !isStreamingActive &&
+    !isSubmittingMessage &&
+    !isCompletingOutput
   const hasMoreHistoryItems = historyItems.length < historyMeta.total
   const showQuickConsult = workspaceMode === 'quick-consult' || !activeLaunch
   const documentColumnWidth = documentDrawerOpen
@@ -2431,54 +2477,77 @@ export default function AdvisoryWorkspaceShell() {
         onSave={handleSaveOrganizationContext}
         onSkip={handleSkipOrganizationContext}
       />
-      <Dialog open={Boolean(pendingLifecycleAction)} onOpenChange={handleLifecycleDialogOpenChange}>
-        <DialogContent
-          role="alertdialog"
-          className="rounded-sm"
-          onOpenAutoFocus={(event) => {
-            event.preventDefault()
-            lifecycleCancelButtonRef.current?.focus({ preventScroll: true })
+      {pendingLifecycleAction && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              handleLifecycleDialogOpenChange(false)
+            }
           }}
         >
-          <DialogHeader>
-            <DialogTitle>{getLifecycleDialogTitle(pendingLifecycleAction)}</DialogTitle>
-            <DialogDescription>
-              {getLifecycleDialogDescription(pendingLifecycleAction)}
-            </DialogDescription>
-          </DialogHeader>
-          {lifecycleActionError && (
-            <p
-              role="alert"
-              className="rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-sm leading-6 text-[hsl(var(--destructive))]"
-            >
-              {lifecycleActionError}
-            </p>
-          )}
-          <DialogFooter>
-            <Button
-              ref={lifecycleCancelButtonRef}
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="thinktank-lifecycle-dialog-title"
+            aria-describedby="thinktank-lifecycle-dialog-description"
+            className="relative grid w-full max-w-lg gap-4 rounded-sm border border-slate-200 bg-white p-6 shadow-lg"
+          >
+            <button
               type="button"
-              variant="outline"
+              aria-label="Close"
               disabled={lifecycleActionInFlight}
               onClick={() => handleLifecycleDialogOpenChange(false)}
+              className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-white transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2 disabled:pointer-events-none"
             >
-              继续编辑
-            </Button>
-            <Button
-              type="button"
-              variant={pendingLifecycleAction?.type === 'safe-exit' ? 'default' : 'destructive'}
-              disabled={lifecycleActionInFlight}
-              onClick={() => {
-                void handleConfirmLifecycleAction()
-              }}
-            >
-              {lifecycleActionInFlight
-                ? '处理中'
-                : getLifecycleConfirmLabel(pendingLifecycleAction)}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <span aria-hidden="true">x</span>
+              <span className="sr-only">Close</span>
+            </button>
+            <div className="flex flex-col space-y-1.5 text-center sm:text-left">
+              <h2
+                id="thinktank-lifecycle-dialog-title"
+                className="text-lg font-semibold leading-none tracking-tight"
+              >
+                {getLifecycleDialogTitle(pendingLifecycleAction)}
+              </h2>
+              <p id="thinktank-lifecycle-dialog-description" className="text-sm text-slate-500">
+                {getLifecycleDialogDescription(pendingLifecycleAction)}
+              </p>
+            </div>
+            {lifecycleActionError && (
+              <p
+                role="alert"
+                className="rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-sm leading-6 text-[hsl(var(--destructive))]"
+              >
+                {lifecycleActionError}
+              </p>
+            )}
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
+              <Button
+                ref={lifecycleCancelButtonRef}
+                type="button"
+                variant="outline"
+                disabled={lifecycleActionInFlight}
+                onClick={() => handleLifecycleDialogOpenChange(false)}
+              >
+                继续编辑
+              </Button>
+              <Button
+                type="button"
+                variant={pendingLifecycleAction?.type === 'safe-exit' ? 'default' : 'destructive'}
+                disabled={lifecycleActionInFlight}
+                onClick={() => {
+                  void handleConfirmLifecycleAction()
+                }}
+              >
+                {lifecycleActionInFlight
+                  ? '处理中'
+                  : getLifecycleConfirmLabel(pendingLifecycleAction)}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <p
         id={ADVISORY_STATE_SUMMARY_ID}
         role="status"
@@ -2511,6 +2580,7 @@ export default function AdvisoryWorkspaceShell() {
         {outputCompletionFeedback ?? ''}
       </p>
       <div
+        aria-hidden={pendingLifecycleAction ? true : undefined}
         className={shellGridVariants({ density: readingDensity })}
         style={{
           gridTemplateColumns: `${ADVISORY_LAYOUT.sidebarWidth}px minmax(${ADVISORY_LAYOUT.chatMinWidth}px, 1fr) ${documentColumnWidth}`,
@@ -3142,7 +3212,7 @@ export default function AdvisoryWorkspaceShell() {
                         </Button>
                       </div>
                       <div className="whitespace-pre-wrap text-[length:inherit] leading-[inherit] text-[hsl(var(--advisory-foreground))]">
-                        {activeLaunch.firstPrompt}
+                        {getPublicLaunchPrompt(activeLaunch)}
                       </div>
                     </article>
 
@@ -3369,6 +3439,7 @@ export default function AdvisoryWorkspaceShell() {
           liveAnnouncement={outputAnnouncement}
           conversationInputRef={textareaRef}
           exportingFormat={hasHistoryPreviewOutput ? null : outputExportingFormat}
+          completingOutput={isCompletingOutput}
           exportError={hasHistoryPreviewOutput ? null : outputExportError}
           onOpenChange={(open) => {
             setDocumentDrawerOpen(open)
@@ -3379,6 +3450,13 @@ export default function AdvisoryWorkspaceShell() {
           onWidthChange={setDocumentDrawerWidth}
           onClearNewContent={() => setHasUnreadDocumentContent(false)}
           onExportOutput={hasHistoryPreviewOutput ? undefined : handleExportOutput}
+          onCompleteOutput={
+            hasHistoryPreviewOutput ||
+            documentDrawerOutput?.status === 'completed' ||
+            !canCompleteWorkflowOutput
+              ? undefined
+              : completeFinalWorkflowOutput
+          }
           onDismissExportError={() => setOutputExportError(null)}
           onSubmitOutputRating={handleSubmitOutputRating}
           onUpdateOutputFavorite={handleUpdateOutputFavorite}

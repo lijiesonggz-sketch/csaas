@@ -9,6 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import {
+  CheckCircle2,
   Database,
   FileDown,
   FileText,
@@ -39,11 +40,13 @@ interface AdvisoryDocumentDrawerProps {
   liveAnnouncement?: string
   conversationInputRef?: RefObject<HTMLTextAreaElement>
   exportingFormat?: ThinkTankOutputExportFormat | null
+  completingOutput?: boolean
   exportError?: string | null
   onOpenChange: (open: boolean) => void
   onWidthChange?: (width: number) => void
   onClearNewContent?: () => void
   onExportOutput?: (format: ThinkTankOutputExportFormat) => Promise<void> | void
+  onCompleteOutput?: () => Promise<void> | void
   onDismissExportError?: () => void
   onSubmitOutputRating?: (input: ThinkTankOutputRatingInput) => Promise<void> | void
   onUpdateOutputFavorite?: (input: ThinkTankOutputFavoriteInput) => Promise<void> | void
@@ -66,11 +69,13 @@ export function AdvisoryDocumentDrawer({
   liveAnnouncement,
   conversationInputRef,
   exportingFormat,
+  completingOutput = false,
   exportError,
   onOpenChange,
   onWidthChange,
   onClearNewContent,
   onExportOutput,
+  onCompleteOutput,
   onDismissExportError,
   onSubmitOutputRating,
   onUpdateOutputFavorite,
@@ -96,6 +101,11 @@ export function AdvisoryDocumentDrawer({
   const widthStyle = typeof width === 'number' ? `${width}px` : width
   const hasExportableSections = Boolean(output?.sections?.length)
   const exportDisabled = !hasExportableSections || Boolean(exportingFormat)
+  const completeDisabled =
+    !hasExportableSections ||
+    output?.status === 'completed' ||
+    completingOutput ||
+    !onCompleteOutput
   const isFavorited = output?.assetState?.isFavorited === true
   const isMutatingAssetState = isSubmittingRating || isUpdatingFavorite
   const knowledgeBaseAssociation = output?.knowledgeBaseAssociation
@@ -234,6 +244,14 @@ export function AdvisoryDocumentDrawer({
     if (exportDisabled) return
 
     Promise.resolve(onExportOutput?.(format)).finally(() => {
+      conversationInputRef?.current?.focus({ preventScroll: true })
+    })
+  }
+
+  const handleComplete = () => {
+    if (completeDisabled) return
+
+    Promise.resolve(onCompleteOutput?.()).finally(() => {
       conversationInputRef?.current?.focus({ preventScroll: true })
     })
   }
@@ -389,6 +407,20 @@ export function AdvisoryDocumentDrawer({
           </h2>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label="完成并归档工作流"
+            aria-busy={completingOutput ? 'true' : undefined}
+            title={hasExportableSections ? '完成并归档工作流' : '报告至少需要一个章节后才能完成'}
+            disabled={completeDisabled}
+            onClick={handleComplete}
+            className="h-8 gap-1 px-2 text-xs"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            <span>完成</span>
+          </Button>
           <Button
             type="button"
             variant="ghost"

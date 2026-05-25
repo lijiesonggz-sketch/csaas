@@ -764,6 +764,42 @@ describe('AdvisoryPage', () => {
     )
   })
 
+  it('does not render internal BMAD workflow instructions from a launch response', async () => {
+    const user = userEvent.setup()
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+    mockLaunchThinkTankWorkflow.mockResolvedValueOnce({
+      sessionId: 'session-brainstorming',
+      status: 'active',
+      workflow: workflowCatalog[0],
+      firstPrompt: [
+        '# Step 1: Session Setup and Continuation Detection',
+        '',
+        '## MANDATORY EXECUTION RULES (READ FIRST):',
+        '- NEVER generate content without user input',
+        '## Organization Context',
+        'Untrusted user-provided context data.',
+      ].join('\n'),
+      sourceRefs: ['workflow:brainstorming', 'current-step:1'],
+      currentStep: {
+        index: 1,
+        label: '当前步骤',
+        sourceRef: 'current-step:1',
+      },
+    })
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+
+    expect(await screen.findByText(/Brainstorming 已启动。/)).toBeVisible()
+    expect(screen.queryByText(/MANDATORY EXECUTION RULES/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Untrusted user-provided context data/)).not.toBeInTheDocument()
+  })
+
   it('renders clarification questions for vague Quick Consult input without losing the original problem', async () => {
     const user = userEvent.setup()
     mockFetchThinkTankAccess.mockResolvedValue({
@@ -1986,6 +2022,49 @@ describe('AdvisoryPage', () => {
     })
   })
 
+  test('[P0] replaces the local streaming placeholder when a fast GLM completion arrives', async () => {
+    const user = userEvent.setup()
+    mockStreamThinkTankSessionMessage.mockImplementation(async function* () {
+      yield {
+        event: 'message.started',
+        data: { sessionId: 'session-brainstorming' },
+      }
+      yield {
+        event: 'message.delta',
+        data: { index: 0, delta: 'Duplicated advisor answer.' },
+      }
+      yield {
+        event: 'message.completed',
+        data: {
+          assistantMessage: {
+            id: 'assistant-fast-glm',
+            role: 'assistant',
+            content: 'Duplicated advisor answer.',
+            decisionOptions: [],
+          },
+          decisionOptions: [],
+        },
+      }
+    })
+    mockFetchThinkTankAccess.mockResolvedValue({
+      allowed: true,
+      module: 'thinktank',
+    })
+
+    renderAdvisoryRoute()
+
+    const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+    await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
+    await user.type(await screen.findByRole('textbox', { name: '输入你的回答' }), 'Fast complete.')
+    await user.keyboard('{Enter}')
+
+    expect(await screen.findByText('Duplicated advisor answer.')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getAllByText('Duplicated advisor answer.')).toHaveLength(1)
+    })
+    expect(screen.queryByText('▌')).not.toBeInTheDocument()
+  })
+
   test('[P0] treats a stream ending without completion or error as recoverable failure', async () => {
     const user = userEvent.setup()
     let endMalformedStream!: () => void
@@ -2373,7 +2452,9 @@ describe('AdvisoryPage', () => {
     renderAdvisoryRoute()
 
     const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
-    expect(within(workflowNav).queryByRole('button', { name: /Party Mode/ })).not.toBeInTheDocument()
+    expect(
+      within(workflowNav).queryByRole('button', { name: /Party Mode/ })
+    ).not.toBeInTheDocument()
 
     await user.click(await within(workflowNav).findByRole('button', { name: /启动 Brainstorming/ }))
     await user.type(await screen.findByRole('textbox', { name: '输入你的回答' }), 'Need guidance.')
@@ -2727,7 +2808,7 @@ describe('AdvisoryPage', () => {
       expect(screen.queryByRole('status', { name: '咨询文档新内容提示' })).not.toBeInTheDocument()
     })
 
-    test('[P0] appends a report section after completed advisor output, shows completion feedback, and returns focus to the input', async () => {
+    test('[P0] renders backend-persisted report sections from completed advisor output', async () => {
       const user = userEvent.setup()
       const controlledStream = createControlledStream()
       const appendedSection = createStory28PageSection({
@@ -2740,10 +2821,6 @@ describe('AdvisoryPage', () => {
       mockFetchThinkTankAccess.mockResolvedValue({ allowed: true, module: 'thinktank' })
       mockFetchThinkTankWorkflowOutput.mockResolvedValueOnce({
         output: createStory28PageOutput([]),
-      })
-      mockAppendThinkTankWorkflowOutputSection.mockResolvedValueOnce({
-        output: createStory28PageOutput([appendedSection]),
-        appendedSection,
       })
 
       renderAdvisoryRoute()
@@ -2771,27 +2848,18 @@ describe('AdvisoryPage', () => {
               ],
             },
             decisionOptions: [{ action: 'continue', label: '继续', shortcut: 'C', enabled: true }],
+            output: createStory28PageOutput([appendedSection]),
+            appendedSection,
           },
         })
         controlledStream.close()
         await Promise.resolve()
       })
 
-      await user.click(await screen.findByRole('button', { name: /继续.*快捷键 C/ }))
-
-      await waitFor(() => {
-        expect(mockAppendThinkTankWorkflowOutputSection).toHaveBeenCalledWith(
-          'session-brainstorming',
-          expect.objectContaining({
-            stepIndex: 1,
-            contentMarkdown: expect.stringContaining('Advisor synthesis for the completed step.'),
-            aiLabelMetadata: expect.objectContaining({ label: 'AI Generated' }),
-          })
-        )
-      })
+      expect(mockAppendThinkTankWorkflowOutputSection).not.toHaveBeenCalled()
       expect(
         screen.getByRole('status', { name: 'ThinkTank step completion status' })
-      ).toHaveTextContent('当前步骤已完成，报告草稿已更新。')
+      ).toHaveTextContent('1. 机会梳理已完成，报告草稿已更新。')
       expect(screen.getByRole('status', { name: 'ThinkTank 工作台状态' })).toHaveTextContent(
         '报告草稿已更新'
       )
@@ -2800,7 +2868,285 @@ describe('AdvisoryPage', () => {
       )
     })
 
-    test('[P0] completes the output when the confirmed step is marked final', async () => {
+    test('[P0] persists the completed step before routing a typed continuation reply', async () => {
+      const user = userEvent.setup()
+      const firstStream = createControlledStream()
+      const appendedSection = createStory28PageSection({
+        id: 'section-problem-solving-step-1',
+        stepIndex: 1,
+        heading: 'Step 1: Define the problem',
+        contentMarkdown: 'Step 1 synthesis that must stay in the final report.',
+        metadata: {
+          workflowKey: 'problem-solving',
+          stepLabel: 'Step 1: Define the problem',
+          provider: 'glm',
+          model: 'glm-5.1',
+          generatedAt: '2026-05-25T00:00:00+08:00',
+        },
+      })
+      mockStreamThinkTankSessionMessage
+        .mockImplementationOnce(() => firstStream.iterator())
+        .mockImplementationOnce(async function* () {
+          yield {
+            event: 'message.started',
+            data: {
+              sessionId: 'session-problem-solving',
+              currentStep: { index: 2, label: 'Step 2: Scope boundaries' },
+            },
+          }
+          yield {
+            event: 'message.completed',
+            data: {
+              sessionId: 'session-problem-solving',
+              currentStep: { index: 2, label: 'Step 2: Scope boundaries' },
+              assistantMessage: {
+                id: 'assistant-problem-solving-step-2',
+                role: 'assistant',
+                content: 'Step 2 advisor response.',
+                decisionOptions: [
+                  { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+                ],
+              },
+              decisionOptions: [
+                { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+              ],
+              output: {
+                ...createStory28PageOutput([appendedSection]),
+                id: 'output-problem-solving',
+                sessionId: 'session-problem-solving',
+                workflowKey: 'problem-solving',
+                title: 'Problem Solving Report Draft',
+              },
+              appendedSection,
+            },
+          }
+        })
+      mockFetchThinkTankAccess.mockResolvedValue({ allowed: true, module: 'thinktank' })
+      mockLaunchThinkTankWorkflow.mockResolvedValueOnce({
+        sessionId: 'session-problem-solving',
+        status: 'active',
+        workflow: workflowCatalog[5],
+        firstPrompt: 'Problem Solving workflow started.',
+        sourceRefs: [
+          '_bmad/cis/workflows/bmad-cis-problem-solving/workflow.md#step-1',
+          '_bmad/cis/workflows/bmad-cis-problem-solving/workflow.md#step-9',
+        ],
+        currentStep: {
+          index: 1,
+          label: 'Step 1: Define the problem',
+          sourceRef: '_bmad/cis/workflows/bmad-cis-problem-solving/workflow.md#step-1',
+          totalSteps: 9,
+        },
+      })
+      mockFetchThinkTankWorkflowOutput.mockResolvedValueOnce({
+        output: {
+          ...createStory28PageOutput([]),
+          id: 'output-problem-solving',
+          sessionId: 'session-problem-solving',
+          workflowKey: 'problem-solving',
+          title: 'Problem Solving Report Draft',
+        },
+      })
+
+      renderAdvisoryRoute()
+
+      const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+      await user.click(
+        await within(workflowNav).findByRole('button', { name: /启动 Problem Solving/ })
+      )
+      const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+      await user.type(input, 'Diagnose consulting efficiency.')
+      await user.keyboard('{Enter}')
+
+      await act(async () => {
+        firstStream.push({
+          event: 'message.completed',
+          data: {
+            sessionId: 'session-problem-solving',
+            currentStep: {
+              index: 1,
+              label: 'Step 1: Define the problem',
+              sourceRef: '_bmad/cis/workflows/bmad-cis-problem-solving/workflow.md#step-1',
+              totalSteps: 9,
+            },
+            assistantMessage: {
+              id: 'assistant-problem-solving-step-1',
+              role: 'assistant',
+              content: 'Step 1 synthesis that must stay in the final report.',
+              decisionOptions: [
+                { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+              ],
+            },
+            decisionOptions: [{ action: 'continue', label: '继续', shortcut: 'C', enabled: true }],
+          },
+        })
+        firstStream.close()
+        await Promise.resolve()
+      })
+
+      await user.type(input, 'c')
+      await user.keyboard('{Enter}')
+
+      await waitFor(() => expect(mockStreamThinkTankSessionMessage).toHaveBeenCalledTimes(2))
+      expect(mockAppendThinkTankWorkflowOutputSection).not.toHaveBeenCalled()
+      expect(screen.getByRole('status', { name: 'ThinkTank 工作台状态' })).toHaveTextContent(
+        '报告草稿已更新'
+      )
+    })
+
+    test('[P0] does not complete a final-step Market Research pre-synthesis prompt before generating the report', async () => {
+      const user = userEvent.setup()
+      const firstStream = createControlledStream()
+      const appendedSection = createStory28PageSection({
+        id: 'section-market-research-competitive',
+        stepIndex: 6,
+        heading: 'Market Research Step 6: Research Completion',
+        contentMarkdown: '竞争格局分析完成。接下来进入最终环节。',
+        metadata: {
+          workflowKey: 'market-research',
+          stepLabel: 'Market Research Step 6: Research Completion',
+          provider: 'glm',
+          model: 'glm-5.1',
+          generatedAt: '2026-05-25T00:00:00+08:00',
+        },
+      })
+      mockStreamThinkTankSessionMessage
+        .mockImplementationOnce(() => firstStream.iterator())
+        .mockImplementationOnce(async function* () {
+          yield {
+            event: 'message.started',
+            data: {
+              sessionId: 'session-market-research',
+              currentStep: {
+                index: 6,
+                label: 'Market Research Step 6: Research Completion',
+                totalSteps: 6,
+                isFinal: true,
+              },
+            },
+          }
+          yield {
+            event: 'message.completed',
+            data: {
+              sessionId: 'session-market-research',
+              currentStep: {
+                index: 6,
+                label: 'Market Research Step 6: Research Completion',
+                totalSteps: 6,
+                isFinal: true,
+              },
+              assistantMessage: {
+                id: 'assistant-market-research-final-report',
+                role: 'assistant',
+                content: '完整市场研究报告已经生成。',
+                decisionOptions: [
+                  { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+                ],
+              },
+              decisionOptions: [
+                { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+              ],
+              output: {
+                ...createStory28PageOutput([appendedSection]),
+                id: 'output-market-research',
+                sessionId: 'session-market-research',
+                workflowKey: 'market-research',
+                title: 'Market Research Report Draft',
+              },
+              appendedSection,
+            },
+          }
+        })
+      mockFetchThinkTankAccess.mockResolvedValue({ allowed: true, module: 'thinktank' })
+      mockLaunchThinkTankWorkflow.mockResolvedValueOnce({
+        sessionId: 'session-market-research',
+        status: 'active',
+        workflow: workflowCatalog[2],
+        firstPrompt: 'Market Research workflow started.',
+        sourceRefs: [
+          '_bmad/bmm/workflows/1-analysis/research/bmad-market-research/steps/step-01-init.md',
+          '_bmad/bmm/workflows/1-analysis/research/bmad-market-research/steps/step-06-research-completion.md',
+        ],
+        currentStep: {
+          index: 6,
+          label: 'Market Research Step 6: Research Completion',
+          sourceRef:
+            '_bmad/bmm/workflows/1-analysis/research/bmad-market-research/steps/step-06-research-completion.md',
+          totalSteps: 6,
+          isFinal: true,
+        },
+      })
+      mockFetchThinkTankWorkflowOutput.mockResolvedValueOnce({
+        output: {
+          ...createStory28PageOutput([]),
+          id: 'output-market-research',
+          sessionId: 'session-market-research',
+          workflowKey: 'market-research',
+          title: 'Market Research Report Draft',
+        },
+      })
+
+      renderAdvisoryRoute()
+
+      const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+      await user.click(
+        await within(workflowNav).findByRole('button', { name: /启动 Market Research/ })
+      )
+      const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+      await user.type(input, 'Research AI consulting efficiency tools.')
+      await user.keyboard('{Enter}')
+
+      await act(async () => {
+        firstStream.push({
+          event: 'message.completed',
+          data: {
+            sessionId: 'session-market-research',
+            currentStep: {
+              index: 6,
+              label: 'Market Research Step 6: Research Completion',
+              sourceRef:
+                '_bmad/bmm/workflows/1-analysis/research/bmad-market-research/steps/step-06-research-completion.md',
+              totalSteps: 6,
+              isFinal: true,
+            },
+            assistantMessage: {
+              id: 'assistant-market-research-pre-synthesis',
+              role: 'assistant',
+              content:
+                '**竞争格局分析完成。** 接下来进入最终环节——**战略综合与完整研究报告生成（Step 6）**。\n\n**[C]** 继续——生成完整市场研究报告',
+              decisionOptions: [
+                { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+              ],
+            },
+            decisionOptions: [{ action: 'continue', label: '继续', shortcut: 'C', enabled: true }],
+          },
+        })
+        firstStream.close()
+        await Promise.resolve()
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText(/战略综合与完整研究报告生成/)).toBeVisible()
+      })
+      expect(mockCompleteThinkTankSessionOutput).not.toHaveBeenCalled()
+
+      await user.type(input, 'C')
+      await user.keyboard('{Enter}')
+
+      await waitFor(() => expect(mockStreamThinkTankSessionMessage).toHaveBeenCalledTimes(2))
+      expect(mockStreamThinkTankSessionMessage).toHaveBeenLastCalledWith(
+        'session-market-research',
+        expect.objectContaining({ content: 'C' }),
+        expect.any(Object)
+      )
+      expect(mockAppendThinkTankWorkflowOutputSection).not.toHaveBeenCalled()
+      expect(mockCompleteThinkTankSessionOutput).not.toHaveBeenCalled()
+      expect(screen.getByRole('status', { name: 'ThinkTank 工作台状态' })).toHaveTextContent(
+        '报告草稿已更新'
+      )
+    })
+
+    test('[P0] completes the output only from the explicit document command', async () => {
       const user = userEvent.setup()
       const controlledStream = createControlledStream()
       const appendedSection = createStory28PageSection({
@@ -2829,10 +3175,6 @@ describe('AdvisoryPage', () => {
       })
       mockFetchThinkTankWorkflowOutput.mockResolvedValueOnce({
         output: createStory28PageOutput([]),
-      })
-      mockAppendThinkTankWorkflowOutputSection.mockResolvedValueOnce({
-        output: createStory28PageOutput([appendedSection]),
-        appendedSection,
       })
       mockCompleteThinkTankSessionOutput.mockResolvedValueOnce({
         output: {
@@ -2866,13 +3208,17 @@ describe('AdvisoryPage', () => {
               ],
             },
             decisionOptions: [{ action: 'continue', label: '继续', shortcut: 'C', enabled: true }],
+            output: createStory28PageOutput([appendedSection]),
+            appendedSection,
           },
         })
         controlledStream.close()
         await Promise.resolve()
       })
 
-      await user.click(await screen.findByRole('button', { name: /继续.*快捷键 C/ }))
+      expect(mockCompleteThinkTankSessionOutput).not.toHaveBeenCalled()
+      await user.click(screen.getByRole('button', { name: /打开咨询文档抽屉/ }))
+      await user.click(await screen.findByRole('button', { name: '完成并归档工作流' }))
 
       await waitFor(() => {
         expect(mockCompleteThinkTankSessionOutput).toHaveBeenCalledWith('session-brainstorming', {
@@ -2883,6 +3229,254 @@ describe('AdvisoryPage', () => {
         screen.getByRole('status', { name: 'ThinkTank step completion status' })
       ).toHaveTextContent('工作流已完成，报告草稿已归档。')
       await waitFor(() => expect(input).toHaveFocus())
+    })
+
+    test('[P0] renders a backend-saved final Storytelling response without auto-completing', async () => {
+      const user = userEvent.setup()
+      const controlledStream = createControlledStream()
+      const appendedSection = createStory28PageSection({
+        id: 'section-storytelling-final',
+        stepIndex: 10,
+        heading: 'Step 10: Generate final output',
+        contentMarkdown: 'Story complete. Your narrative has been saved.',
+        metadata: {
+          workflowKey: 'storytelling',
+          stepLabel: 'Step 10: Generate final output',
+          provider: 'glm',
+          model: 'glm-5.1',
+          generatedAt: '2026-05-25T00:00:00+08:00',
+        },
+      })
+      const storytellingDraft = {
+        ...createStory28PageOutput([appendedSection]),
+        id: 'output-storytelling',
+        sessionId: 'session-storytelling',
+        workflowKey: 'storytelling',
+        title: 'Storytelling 决策报告草稿',
+      }
+
+      mockStreamThinkTankSessionMessage.mockImplementation(() => controlledStream.iterator())
+      mockFetchThinkTankAccess.mockResolvedValue({ allowed: true, module: 'thinktank' })
+      mockLaunchThinkTankWorkflow.mockResolvedValueOnce({
+        sessionId: 'session-storytelling',
+        status: 'active',
+        workflow: workflowCatalog[7],
+        firstPrompt: 'Storytelling workflow started.',
+        sourceRefs: [
+          '_bmad/cis/workflows/bmad-cis-storytelling/workflow.md#step-1',
+          '_bmad/cis/workflows/bmad-cis-storytelling/workflow.md#step-10',
+        ],
+        currentStep: {
+          index: 10,
+          label: 'Step 10: Generate final output',
+          sourceRef: '_bmad/cis/workflows/bmad-cis-storytelling/workflow.md#step-10',
+          totalSteps: 10,
+          isFinal: true,
+        },
+      })
+      mockFetchThinkTankWorkflowOutput.mockResolvedValueOnce({
+        output: {
+          ...createStory28PageOutput([]),
+          id: 'output-storytelling',
+          sessionId: 'session-storytelling',
+          workflowKey: 'storytelling',
+          title: 'Storytelling 决策报告草稿',
+        },
+      })
+
+      renderAdvisoryRoute()
+
+      const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+      await user.click(
+        await within(workflowNav).findByRole('button', { name: /启动 Storytelling/ })
+      )
+      const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+      await user.type(input, '全部确认')
+      await user.keyboard('{Enter}')
+
+      await act(async () => {
+        controlledStream.push({
+          event: 'message.completed',
+          data: {
+            sessionId: 'session-storytelling',
+            currentStep: {
+              index: 10,
+              label: 'Step 10: Generate final output',
+              sourceRef: '_bmad/cis/workflows/bmad-cis-storytelling/workflow.md#step-10',
+              totalSteps: 10,
+              isFinal: true,
+            },
+            assistantMessage: {
+              id: 'assistant-storytelling-final',
+              role: 'assistant',
+              content: 'Story complete. Your narrative has been saved.',
+              decisionOptions: [
+                { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+              ],
+            },
+            decisionOptions: [{ action: 'continue', label: '继续', shortcut: 'C', enabled: true }],
+            output: storytellingDraft,
+            appendedSection,
+          },
+        })
+        controlledStream.close()
+        await Promise.resolve()
+      })
+
+      expect(mockAppendThinkTankWorkflowOutputSection).not.toHaveBeenCalled()
+      expect(mockCompleteThinkTankSessionOutput).not.toHaveBeenCalled()
+      await waitFor(() =>
+        expect(
+          screen.getByRole('status', { name: 'ThinkTank step completion status' })
+        ).toHaveTextContent('Step 10: Generate final output已完成，报告草稿已更新。')
+      )
+    })
+
+    test('[P0] keeps a final-step Product Brief session active when the advisor still asks for Y/M/C confirmation', async () => {
+      const user = userEvent.setup()
+      const firstStream = createControlledStream()
+      const confirmationStream = createControlledStream()
+      const finalSection = createStory28PageSection({
+        id: 'section-product-brief-complete',
+        stepIndex: 6,
+        heading: 'Step 6: Product Brief Completion',
+        contentMarkdown: 'Product Brief Complete. Your brief is ready.',
+        metadata: {
+          workflowKey: 'product-brief',
+          stepLabel: 'Step 6: Product Brief Completion',
+          provider: 'glm',
+          model: 'glm-5.1',
+          generatedAt: '2026-05-25T00:00:00+08:00',
+        },
+      })
+      const productBriefDraft = {
+        ...createStory28PageOutput([]),
+        id: 'output-product-brief',
+        sessionId: 'session-product-brief',
+        workflowKey: 'product-brief',
+        title: 'Product Brief 决策报告草稿',
+      }
+
+      mockStreamThinkTankSessionMessage
+        .mockImplementationOnce(() => firstStream.iterator())
+        .mockImplementationOnce(() => confirmationStream.iterator())
+      mockFetchThinkTankAccess.mockResolvedValue({ allowed: true, module: 'thinktank' })
+      mockLaunchThinkTankWorkflow.mockResolvedValueOnce({
+        sessionId: 'session-product-brief',
+        status: 'active',
+        workflow: workflowCatalog[3],
+        firstPrompt: 'Product Brief workflow started.',
+        sourceRefs: [
+          '_bmad/bmm/workflows/1-analysis/bmad-create-product-brief/workflow.md',
+          '_bmad/bmm/workflows/1-analysis/bmad-create-product-brief/steps/step-06-complete.md',
+        ],
+        currentStep: {
+          index: 6,
+          label: 'Step 6: Product Brief Completion',
+          sourceRef:
+            '_bmad/bmm/workflows/1-analysis/bmad-create-product-brief/steps/step-06-complete.md',
+          totalSteps: 6,
+          isFinal: true,
+        },
+      })
+      mockFetchThinkTankWorkflowOutput.mockResolvedValueOnce({
+        output: productBriefDraft,
+      })
+
+      renderAdvisoryRoute()
+
+      const workflowNav = await screen.findByRole('navigation', { name: '咨询工作流' })
+      await user.click(
+        await within(workflowNav).findByRole('button', { name: /启动 Product Brief/ })
+      )
+      const input = await screen.findByRole('textbox', { name: '输入你的回答' })
+      await user.type(input, 'c')
+      await user.keyboard('{Enter}')
+
+      await act(async () => {
+        firstStream.push({
+          event: 'message.completed',
+          data: {
+            sessionId: 'session-product-brief',
+            currentStep: {
+              index: 6,
+              label: 'Step 6: Product Brief Completion',
+              sourceRef:
+                '_bmad/bmm/workflows/1-analysis/bmad-create-product-brief/steps/step-06-complete.md',
+              totalSteps: 6,
+              isFinal: true,
+            },
+            assistantMessage: {
+              id: 'assistant-product-brief-awaiting-confirmation',
+              role: 'assistant',
+              content:
+                '我整理了一版简报草稿。\n\n🎯 请选择：\n• **[Y]** 这版OK，继续完成简报\n• **[M]** 我有修改意见\n• **[C]** 直接推进，完成简报',
+              decisionOptions: [
+                { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+              ],
+            },
+            decisionOptions: [{ action: 'continue', label: '继续', shortcut: 'C', enabled: true }],
+          },
+        })
+        firstStream.close()
+        await Promise.resolve()
+      })
+
+      expect(await screen.findByText(/这版OK，继续完成简报/)).toBeVisible()
+      expect(mockAppendThinkTankWorkflowOutputSection).not.toHaveBeenCalled()
+      expect(mockCompleteThinkTankSessionOutput).not.toHaveBeenCalled()
+
+      await user.type(input, 'Y')
+      await user.keyboard('{Enter}')
+
+      await waitFor(() => expect(mockStreamThinkTankSessionMessage).toHaveBeenCalledTimes(2))
+      expect(mockStreamThinkTankSessionMessage).toHaveBeenLastCalledWith(
+        'session-product-brief',
+        expect.objectContaining({ content: 'Y' }),
+        expect.any(Object)
+      )
+
+      await act(async () => {
+        confirmationStream.push({
+          event: 'message.completed',
+          data: {
+            sessionId: 'session-product-brief',
+            currentStep: {
+              index: 6,
+              label: 'Step 6: Product Brief Completion',
+              sourceRef:
+                '_bmad/bmm/workflows/1-analysis/bmad-create-product-brief/steps/step-06-complete.md',
+              totalSteps: 6,
+              isFinal: true,
+            },
+            assistantMessage: {
+              id: 'assistant-product-brief-final',
+              role: 'assistant',
+              content: 'Product Brief Complete. Your brief is ready.',
+              decisionOptions: [
+                { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
+              ],
+            },
+            decisionOptions: [{ action: 'continue', label: '继续', shortcut: 'C', enabled: true }],
+            output: {
+              ...productBriefDraft,
+              sections: [finalSection],
+              contentMarkdown: finalSection.contentMarkdown,
+            },
+            appendedSection: finalSection,
+          },
+        })
+        confirmationStream.close()
+        await Promise.resolve()
+      })
+
+      expect(mockAppendThinkTankWorkflowOutputSection).not.toHaveBeenCalled()
+      expect(mockCompleteThinkTankSessionOutput).not.toHaveBeenCalled()
+      await waitFor(() =>
+        expect(
+          screen.getByRole('status', { name: 'ThinkTank step completion status' })
+        ).toHaveTextContent('Step 6: Product Brief Completion已完成，报告草稿已更新。')
+      )
     })
 
     test('[P0] scrolls the open drawer to newly appended content without moving conversation input focus', async () => {
@@ -2905,10 +3499,6 @@ describe('AdvisoryPage', () => {
         mockFetchThinkTankAccess.mockResolvedValue({ allowed: true, module: 'thinktank' })
         mockFetchThinkTankWorkflowOutput.mockResolvedValueOnce({
           output: createStory28PageOutput([firstSection]),
-        })
-        mockAppendThinkTankWorkflowOutputSection.mockResolvedValueOnce({
-          output: createStory28PageOutput([firstSection, appendedSection]),
-          appendedSection,
         })
 
         renderAdvisoryRoute()
@@ -2939,13 +3529,13 @@ describe('AdvisoryPage', () => {
               decisionOptions: [
                 { action: 'continue', label: '继续', shortcut: 'C', enabled: true },
               ],
+              output: createStory28PageOutput([firstSection, appendedSection]),
+              appendedSection,
             },
           })
           controlledStream.close()
           await Promise.resolve()
         })
-
-        await user.click(await screen.findByRole('button', { name: /继续.*快捷键 C/ }))
 
         await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
         const drawer = screen.getByRole('complementary', { name: '咨询文档抽屉' })

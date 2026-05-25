@@ -254,11 +254,15 @@ function normalizeCurrentStep(value: unknown): ThinkTankWorkflowCurrentStep | un
   const label = normalizeNonEmptyText(record.label)
   if (index === null || !label) return undefined
   const sourceRef = normalizeSafeSourceRef(record.sourceRef)
+  const totalSteps = normalizePositiveNumber(record.totalSteps)
 
   return {
     index,
     label,
     ...(sourceRef ? { sourceRef } : {}),
+    ...(totalSteps ? { totalSteps } : {}),
+    ...(record.isFinal === true ? { isFinal: true } : {}),
+    ...(record.isFinalStep === true ? { isFinalStep: true } : {}),
   }
 }
 

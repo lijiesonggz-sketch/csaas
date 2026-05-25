@@ -1,6 +1,7 @@
 import { getAuthHeadersAsync } from '@/lib/utils/jwt'
 import { normalizeThinkTankCheckpointWarning, type ThinkTankCheckpointWarning } from './checkpoints'
 import { readAdvisoryMessage, unwrapAdvisoryEnvelope } from './envelope'
+import type { ThinkTankWorkflowOutput, ThinkTankWorkflowOutputSection } from './outputs'
 
 export const THINKTANK_WORKFLOW_START_FAILED_MESSAGE =
   '暂时无法启动该 ThinkTank 工作流，请稍后重试或选择其他工作流。'
@@ -145,6 +146,8 @@ export interface ThinkTankSessionMessageSubmitResult extends ThinkTankSessionMes
   assistantMessage: ThinkTankConversationMessage
   stream: ThinkTankSessionMessageStreamChunk[]
   decisionOptions: ThinkTankDecisionOption[]
+  output?: ThinkTankWorkflowOutput
+  appendedSection?: ThinkTankWorkflowOutputSection
   checkpointWarning?: ThinkTankCheckpointWarning
 }
 

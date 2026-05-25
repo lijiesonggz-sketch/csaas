@@ -49,7 +49,14 @@ describe('ThinkTank history client', () => {
               title: 'Retention Diagnosis',
               summary: '未完成 - Map constraints',
               status: 'active',
-              lastStep: { index: 2, label: 'Map constraints', sourceRef: '_bmad/private' },
+              lastStep: {
+                index: 2,
+                label: 'Map constraints',
+                sourceRef: '_bmad/private',
+                totalSteps: 2,
+                isFinal: true,
+                isFinalStep: true,
+              },
               timestamp: '2026-05-21T01:06:00.000Z',
               openTarget: 'resume-session',
             },
@@ -70,7 +77,7 @@ describe('ThinkTank history client', () => {
         limit: 20,
         tenantId: 'attacker-tenant',
         actorId: 'attacker-actor',
-      } as never),
+      } as never)
     ).resolves.toEqual({
       items: [
         {
@@ -82,7 +89,13 @@ describe('ThinkTank history client', () => {
           title: 'Retention Diagnosis',
           summary: '未完成 - Map constraints',
           status: 'active',
-          lastStep: { index: 2, label: 'Map constraints' },
+          lastStep: {
+            index: 2,
+            label: 'Map constraints',
+            totalSteps: 2,
+            isFinal: true,
+            isFinalStep: true,
+          },
           timestamp: '2026-05-21T01:06:00.000Z',
           openTarget: 'resume-session',
         },
@@ -94,7 +107,7 @@ describe('ThinkTank history client', () => {
       {
         headers: { Authorization: 'Bearer session-token' },
         cache: 'no-store',
-      },
+      }
     )
     expect(mockFetch.mock.calls[0][0]).not.toContain('attacker')
   })
@@ -129,7 +142,7 @@ describe('ThinkTank history client', () => {
         q: 'setup guidance',
         type: 'output',
         status: 'completed',
-      }),
+      })
     ).resolves.toEqual({
       items: [
         expect.objectContaining({
@@ -147,7 +160,7 @@ describe('ThinkTank history client', () => {
       {
         headers: { Authorization: 'Bearer session-token' },
         cache: 'no-store',
-      },
+      }
     )
   })
 
@@ -163,7 +176,7 @@ describe('ThinkTank history client', () => {
       json: async () => null,
     })
     await expect(searchThinkTankHistory({ q: 'setup' })).rejects.toThrow(
-      THINKTANK_HISTORY_SEARCH_FAILED_MESSAGE,
+      THINKTANK_HISTORY_SEARCH_FAILED_MESSAGE
     )
     expect(THINKTANK_HISTORY_LOAD_FAILED_MESSAGE).toContain('历史')
   })

@@ -1,8 +1,5 @@
 import { getAuthHeadersAsync } from '@/lib/utils/jwt'
-import {
-  fetchThinkTankUnfinishedSessions,
-  resumeThinkTankSession,
-} from './sessions'
+import { fetchThinkTankUnfinishedSessions, resumeThinkTankSession } from './sessions'
 
 jest.mock('@/lib/utils/jwt', () => ({
   getAuthHeadersAsync: jest.fn(),
@@ -42,7 +39,13 @@ describe('ThinkTank session resume client', () => {
               workflowKey: 'problem-solving',
               workflowType: 'Problem Solving',
               title: 'Retention Diagnosis',
-              lastStep: { index: 2, label: 'Map constraints' },
+              lastStep: {
+                index: 2,
+                label: 'Map constraints',
+                totalSteps: 2,
+                isFinal: true,
+                isFinalStep: true,
+              },
               status: 'active',
               statusSummary: '未完成 - 可继续',
               lastActivityAt: '2026-05-21T01:06:00.000Z',
@@ -71,7 +74,13 @@ describe('ThinkTank session resume client', () => {
           workflowKey: 'problem-solving',
           workflowType: 'Problem Solving',
           title: 'Retention Diagnosis',
-          lastStep: { index: 2, label: 'Map constraints' },
+          lastStep: {
+            index: 2,
+            label: 'Map constraints',
+            totalSteps: 2,
+            isFinal: true,
+            isFinalStep: true,
+          },
           status: 'active',
           statusSummary: '未完成 - 可继续',
           lastActivityAt: '2026-05-21T01:06:00.000Z',
@@ -95,7 +104,13 @@ describe('ThinkTank session resume client', () => {
             workflowKey: 'problem-solving',
             workflowType: 'Problem Solving',
             title: 'Retention Diagnosis',
-            lastStep: { index: 2, label: 'Map constraints' },
+            lastStep: {
+              index: 2,
+              label: 'Map constraints',
+              totalSteps: 2,
+              isFinal: true,
+              isFinalStep: true,
+            },
             status: 'active',
             statusSummary: '未完成 - 可继续',
             lastActivityAt: '2026-05-21T01:06:00.000Z',
