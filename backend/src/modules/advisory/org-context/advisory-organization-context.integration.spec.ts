@@ -264,9 +264,33 @@ describe('Advisory organization context integration', () => {
         }),
       }),
     )
-    expect(result.firstPrompt).toContain('Organization Context')
-    expect(result.firstPrompt).toContain('Tenant A Security Group')
-    expect(result.firstPrompt).toContain('Data security')
+    expect(result.firstPrompt).toContain('已加载企业背景')
+    expect(result.firstPrompt).not.toContain('Organization Context')
+    expect(result.firstPrompt).not.toContain('Tenant A Security Group')
+    expect(result.firstPrompt).not.toContain('Data security')
     expect(result.firstPrompt).not.toContain('Tenant B Holdings')
+
+    const launchInput = dependencies.sessionRepository.createLaunchSession.mock.calls[0][1]
+    const providerPrompt = await (
+      service as unknown as {
+        createProviderPromptContext(session: {
+          tenantId: string
+          actorId: string
+          workflowKey: string
+          currentStep: unknown
+          metadata: Record<string, unknown>
+        }): Promise<{ system: string }>
+      }
+    ).createProviderPromptContext({
+      tenantId: tenantA,
+      actorId: actorA,
+      workflowKey: 'design-thinking',
+      currentStep: launchInput.currentStep,
+      metadata: launchInput.metadata as Record<string, unknown>,
+    })
+    expect(providerPrompt.system).toContain('Organization Context')
+    expect(providerPrompt.system).toContain('Tenant A Security Group')
+    expect(providerPrompt.system).toContain('Data security')
+    expect(providerPrompt.system).not.toContain('Tenant B Holdings')
   })
 })
