@@ -41,6 +41,33 @@ const activeSession = {
   updatedAt: new Date('2026-05-20T00:00:00.000Z'),
 }
 
+function createResearchWebSearchResult() {
+  return {
+    provider: 'bigmodel-web-search',
+    searchedAt: '2026-05-26T00:00:00.000Z',
+    searchEngine: 'search_std',
+    queries: [
+      {
+        query: '企业 AI 咨询市场 最新趋势',
+        requestId: 'search-request-1',
+        results: [],
+      },
+    ],
+    results: [
+      {
+        ref: 'W1',
+        query: '企业 AI 咨询市场 最新趋势',
+        title: 'Enterprise AI consulting market trends',
+        url: 'https://example.com/ai-consulting-market',
+        snippet: 'Recent enterprise AI consulting adoption is shaped by budget scrutiny.',
+        source: 'Example Research',
+        publishedAt: '2026-05-20',
+      },
+    ],
+    errors: [],
+  }
+}
+
 describe('AdvisorySessionService guided messages', () => {
   let accessService: jest.Mocked<Pick<AdvisoryAccessService, 'assertThinkTankModuleAvailable'>>
   let sessionRepository: jest.Mocked<
@@ -53,6 +80,10 @@ describe('AdvisorySessionService guided messages', () => {
     >
   >
   let providerGateway: jest.Mocked<Pick<ThinkTankProviderGatewayService, 'stream'>>
+  let researchWebSearchService: {
+    isAvailable: jest.Mock<boolean, []>
+    search: jest.Mock
+  }
   let outputRepository: jest.Mocked<
     Pick<
       AdvisoryWorkflowOutputRepository,
@@ -122,6 +153,10 @@ describe('AdvisorySessionService guided messages', () => {
         }
       }),
     }
+    researchWebSearchService = {
+      isAvailable: jest.fn().mockReturnValue(true),
+      search: jest.fn().mockResolvedValue(createResearchWebSearchResult()),
+    }
     outputRepository = {
       findActiveDraftForSession: jest.fn().mockResolvedValue({
         id: 'output-draft-1',
@@ -187,6 +222,11 @@ describe('AdvisorySessionService guided messages', () => {
       providerGateway as never,
       outputRepository as never,
     )
+    ;(
+      service as unknown as {
+        researchWebSearchService?: typeof researchWebSearchService
+      }
+    ).researchWebSearchService = researchWebSearchService
   })
 
   test('[P0] persists a user answer, streams the advisor response, and stores AI decision options', async () => {
@@ -279,6 +319,144 @@ describe('AdvisorySessionService guided messages', () => {
             delta: 'Summary: retention is likely blocked by onboarding friction.',
           }),
         ]),
+      }),
+    )
+  })
+
+  test.each(['domain-research', 'market-research'])(
+    '[P0] blocks %s when verified web search is unavailable',
+    async (workflowKey) => {
+      researchWebSearchService.isAvailable.mockReturnValueOnce(false)
+      sessionRepository.findSessionById.mockResolvedValueOnce({
+        ...activeSession,
+        workflowKey,
+        workflowDisplayName:
+          workflowKey === 'domain-research' ? 'Domain Research' : 'Market Research',
+        scenarioLabel:
+          workflowKey === 'domain-research'
+            ? 'Domain and industry research'
+            : 'Market, competitor, and customer research',
+        metadata: { workflow_key: workflowKey, source_ref_count: 2 },
+      })
+
+      await expect(
+        service.submitMessage({
+          user,
+          tenantId,
+          sessionId,
+          content: '请研究企业 AI 咨询市场的最新趋势。',
+        }),
+      ).rejects.toThrow('BMAD Research 工作流需要真实 Web search 服务')
+
+      expect(providerGateway.stream).not.toHaveBeenCalled()
+      expect(messageRepository.createMessageWithNextSequence).not.toHaveBeenCalled()
+    },
+  )
+
+  test('[P0] blocks streaming market research before persisting messages when web search is unavailable', async () => {
+    researchWebSearchService.isAvailable.mockReturnValueOnce(false)
+    sessionRepository.findSessionById.mockResolvedValueOnce({
+      ...activeSession,
+      workflowKey: 'market-research',
+      workflowDisplayName: 'Market Research',
+      scenarioLabel: 'Market, competitor, and customer research',
+      metadata: { workflow_key: 'market-research', source_ref_count: 2 },
+    })
+
+    await expect(
+      (async () => {
+        for await (const event of service.streamMessage({
+          user,
+          tenantId,
+          sessionId,
+          content: '请研究企业 AI 咨询市场的最新趋势。',
+        })) {
+          void event
+          // Exhaust the stream so thrown setup failures are observed by the test.
+        }
+      })(),
+    ).rejects.toThrow('BMAD Research 工作流需要真实 Web search 服务')
+
+    expect(providerGateway.stream).not.toHaveBeenCalled()
+    expect(messageRepository.createMessageWithNextSequence).not.toHaveBeenCalled()
+  })
+
+  test('[P0] injects verified research web search results into market research provider prompts', async () => {
+    sessionRepository.findSessionById.mockResolvedValueOnce({
+      ...activeSession,
+      workflowKey: 'market-research',
+      workflowDisplayName: 'Market Research',
+      scenarioLabel: 'Market, competitor, and customer research',
+      metadata: { workflow_key: 'market-research', source_ref_count: 2 },
+    })
+
+    await service.submitMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: '请研究企业 AI 咨询市场的最新趋势。',
+    })
+
+    expect(researchWebSearchService.search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflowKey: 'market-research',
+        tenantId,
+        actorId,
+        sessionId,
+        topic: '请研究企业 AI 咨询市场的最新趋势。',
+      }),
+    )
+    const providerRequest = providerGateway.stream.mock.calls[0][0]
+    expect(providerRequest.system).toContain('Verified Web Search Results (server-side)')
+    expect(providerRequest.system).toContain('https://example.com/ai-consulting-market')
+    expect(providerRequest.system).toContain('Do not invent URLs')
+    expect(providerRequest.metadata).toEqual(
+      expect.objectContaining({
+        research_web_search_provider: 'bigmodel-web-search',
+        research_web_search_query_count: 1,
+        research_web_search_result_count: 1,
+      }),
+    )
+  })
+
+  test('[P0] uses the prior research topic for web search when the user continues with C', async () => {
+    messageRepository.findMessagesBySession.mockResolvedValueOnce([
+      {
+        id: 'message-user-topic',
+        tenantId,
+        sessionId,
+        actorId,
+        role: AdvisoryConversationMessageRole.User,
+        content: '企业 AI 咨询市场的最新趋势',
+        sequence: 1,
+        workflowKey: 'market-research',
+        stepIndex: 1,
+        decisionOptions: [],
+        metadata: { workflow_key: 'market-research', step_index: 1 },
+        providerMetadata: {},
+        createdAt: new Date('2026-05-20T00:00:00.000Z'),
+        updatedAt: new Date('2026-05-20T00:00:00.000Z'),
+      },
+    ])
+    sessionRepository.findSessionById.mockResolvedValueOnce({
+      ...activeSession,
+      workflowKey: 'market-research',
+      workflowDisplayName: 'Market Research',
+      scenarioLabel: 'Market, competitor, and customer research',
+      metadata: { workflow_key: 'market-research', source_ref_count: 2 },
+    })
+
+    await service.submitMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: 'C',
+    })
+
+    expect(researchWebSearchService.search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflowKey: 'market-research',
+        topic: '企业 AI 咨询市场的最新趋势',
       }),
     )
   })

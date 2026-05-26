@@ -172,6 +172,10 @@ describe('AdvisorySessionService workflow runtime runner', () => {
       undefined,
       undefined,
       stepResolver,
+      {
+        isAvailable: jest.fn().mockReturnValue(true),
+        search: jest.fn().mockResolvedValue(createResearchWebSearchResult()),
+      } as never,
     )
   })
 
@@ -572,6 +576,33 @@ function createSession(input: {
     createdAt: new Date('2026-05-24T00:00:00.000Z'),
     updatedAt: new Date('2026-05-24T00:00:00.000Z'),
   } as AdvisoryWorkflowSession
+}
+
+function createResearchWebSearchResult() {
+  return {
+    provider: 'bigmodel-web-search',
+    searchedAt: '2026-05-26T00:00:00.000Z',
+    searchEngine: 'search_std',
+    queries: [
+      {
+        query: 'AI consulting market',
+        requestId: 'search-request-1',
+        results: [],
+      },
+    ],
+    results: [
+      {
+        ref: 'W1',
+        query: 'AI consulting market',
+        title: 'AI consulting market trends',
+        url: 'https://example.com/ai-consulting-market',
+        snippet: 'Enterprise AI consulting demand is changing.',
+        source: 'Example Research',
+        publishedAt: '2026-05-20',
+      },
+    ],
+    errors: [],
+  }
 }
 
 function createAssistantMessage(input: {
