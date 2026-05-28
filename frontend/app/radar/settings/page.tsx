@@ -16,17 +16,7 @@ export const dynamic = 'force-dynamic'
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import {
-  TrendingUp,
-  Building2,
-  Plus,
-  Trash2,
-  ChevronRight,
-  Save,
-  Clock,
-  SlidersHorizontal,
-  X,
-} from 'lucide-react'
+import { Plus, Trash2, ChevronRight, Save, Clock, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -72,6 +62,15 @@ import {
 import { message } from '@/lib/message'
 import { cn } from '@/lib/utils'
 
+function extractOrganizationId(payload: unknown): string | null {
+  const data = payload as {
+    data?: { organization?: { id?: string } }
+    organization?: { id?: string }
+  } | null
+
+  return data?.data?.organization?.id || data?.organization?.id || null
+}
+
 // 预设技术领域选项
 const PRESET_TOPICS = [
   { name: '云原生', desc: '容器化、微服务、Kubernetes等' },
@@ -87,6 +86,7 @@ const PRESET_TOPICS = [
 export default function RadarSettingsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const urlOrgId = searchParams?.get('orgId') ?? null
   const [topics, setTopics] = useState<WatchedTopic[]>([])
   const [loading, setLoading] = useState(true)
   const [addModalVisible, setAddModalVisible] = useState(false)
@@ -124,27 +124,49 @@ export default function RadarSettingsPage() {
   const [dailyPushLimit, setDailyPushLimit] = useState<number>(5)
   const [relevanceFilter, setRelevanceFilter] = useState<'high_only' | 'high_medium'>('high_only')
 
-  // 获取 organizationId：优先从 URL 参数，其次从 localStorage
+  // 获取 organizationId：以后端当前用户组织为准，避免复用 localStorage 中的旧组织 ID。
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // 优先从 URL 参数获取
-      const urlOrgId = searchParams?.get('orgId')
-      if (urlOrgId) {
-        setOrganizationId(urlOrgId)
-        // 同时保存到 localStorage 以便后续使用
-        localStorage.setItem('organizationId', urlOrgId)
-      } else {
-        // 如果 URL 没有，尝试从 localStorage 获取
-        const storedOrgId = localStorage.getItem('organizationId')
-        if (storedOrgId) {
-          setOrganizationId(storedOrgId)
-        } else {
-          setAuthError(true)
-          message.error('未找到组织信息，请从雷达首页进入')
+    if (typeof window === 'undefined') return
+
+    let active = true
+
+    const resolveOrganization = async () => {
+      try {
+        const response = await fetch('/api/organizations/me', { cache: 'no-store' })
+
+        if (!response.ok) {
+          throw new Error('未找到组织信息，请从雷达首页进入')
         }
+
+        const currentOrgId = extractOrganizationId(await response.json())
+
+        if (!currentOrgId) {
+          throw new Error('未找到组织信息，请从雷达首页进入')
+        }
+
+        if (!active) return
+
+        setOrganizationId(currentOrgId)
+        localStorage.setItem('organizationId', currentOrgId)
+
+        if (urlOrgId && urlOrgId !== currentOrgId) {
+          router.replace(`/radar/settings?orgId=${currentOrgId}`)
+        }
+      } catch (error) {
+        if (!active) return
+
+        localStorage.removeItem('organizationId')
+        setAuthError(true)
+        message.error(error instanceof Error ? error.message : '未找到组织信息，请从雷达首页进入')
       }
     }
-  }, [searchParams])
+
+    void resolveOrganization()
+
+    return () => {
+      active = false
+    }
+  }, [router, urlOrgId])
 
   const loadTopics = useCallback(async () => {
     if (!organizationId) return

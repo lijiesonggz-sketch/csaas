@@ -56,7 +56,7 @@ describe('GET /api/organizations/me', () => {
     mockGetServerSession.mockResolvedValue({ accessToken: 'access-token' })
     mockFetch.mockResolvedValue({
       ok: true,
-      json: async () => organization,
+      text: async () => JSON.stringify(organization),
     })
 
     const { GET } = await import('./route')
@@ -79,6 +79,7 @@ describe('GET /api/organizations/me', () => {
     mockFetch.mockResolvedValue({
       ok: false,
       status: 503,
+      text: async () => JSON.stringify({ message: 'Backend unavailable' }),
     })
 
     const { GET } = await import('./route')
@@ -86,6 +87,21 @@ describe('GET /api/organizations/me', () => {
     const body = await response.json()
 
     expect(response.status).toBe(503)
-    expect(body).toEqual({ message: 'Failed to fetch organization' })
+    expect(body).toEqual({ message: 'Backend unavailable' })
+  })
+
+  it('returns a JSON proxy error when the backend returns an empty 200 response', async () => {
+    mockGetServerSession.mockResolvedValue({ accessToken: 'access-token' })
+    mockFetch.mockResolvedValue({
+      ok: true,
+      text: async () => '',
+    })
+
+    const { GET } = await import('./route')
+    const response = await GET()
+    const body = await response.json()
+
+    expect(response.status).toBe(502)
+    expect(body).toEqual({ message: 'Backend returned an empty organization response' })
   })
 })

@@ -1,11 +1,8 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import OrganizationProfilePage from '../page'
-import {
-  OrganizationProfileRequestError,
-  organizationsApi,
-} from '@/lib/api/organizations'
+import { OrganizationProfileRequestError, organizationsApi } from '@/lib/api/organizations'
 
 jest.mock('next-auth/react', () => ({
   useSession: jest.fn(),
@@ -19,12 +16,12 @@ jest.mock('next/navigation', () => ({
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Mock shadcn/ui Select: make Select render a real <select>, flatten children into it
 jest.mock('@/components/ui/select', () => {
-  const React = require('react')
+  const mockReact = jest.requireActual<typeof import('react')>('react')
 
   const collectOptions = (children) => {
     const options = []
-    React.Children.forEach(children, (child) => {
-      if (!React.isValidElement(child)) return
+    mockReact.Children.forEach(children, (child) => {
+      if (!mockReact.isValidElement(child)) return
       if (child.type === SelectItem) {
         options.push(child)
       } else if (child.props?.children) {
@@ -42,6 +39,7 @@ jest.mock('@/components/ui/select', () => {
         disabled={disabled || false}
         onChange={(e) => onValueChange?.(e.target.value)}
       >
+        <option value="" />
         {options}
       </select>
     )
@@ -50,22 +48,18 @@ jest.mock('@/components/ui/select', () => {
   const SelectContent = ({ children }) => <>{children}</>
   const SelectItem = ({ children, value }) => <option value={value}>{children}</option>
 
-  const SelectTrigger = React.forwardRef(({ children, id, className, ...rest }, ref) => (
-    <div
-      id={id}
-      className={className}
-      ref={ref}
-      aria-label={id}
-      data-testid={id}
-      {...rest}
-    >
-      {children}
-    </div>
-  ))
+  const SelectTrigger = mockReact.forwardRef(function SelectTrigger(
+    { children, id, className, ...rest },
+    ref
+  ) {
+    return (
+      <div id={id} className={className} ref={ref} aria-label={id} data-testid={id} {...rest}>
+        {children}
+      </div>
+    )
+  })
 
-  const SelectValue = ({ placeholder }) => (
-    <span>{placeholder || ''}</span>
-  )
+  const SelectValue = ({ placeholder }) => <span>{placeholder || ''}</span>
 
   return { Select, SelectContent, SelectItem, SelectTrigger, SelectValue }
 })
@@ -140,7 +134,9 @@ function getSelectElement(label) {
   if (htmlFor) {
     const trigger = document.getElementById(htmlFor)
     if (trigger) {
-      const select = trigger.parentElement?.querySelector('select') || trigger.closest('div')?.querySelector('select')
+      const select =
+        trigger.parentElement?.querySelector('select') ||
+        trigger.closest('div')?.querySelector('select')
       if (select) return select
     }
   }
@@ -220,7 +216,7 @@ describe('OrganizationProfilePage', () => {
 
   it('treats backend 404 as first-time configuration and renders a blank editable form', async () => {
     organizationsApi.getOrganizationProfile.mockRejectedValue(
-      new OrganizationProfileRequestError('机构画像不存在', 'not_found', 404),
+      new OrganizationProfileRequestError('机构画像不存在', 'not_found', 404)
     )
 
     renderPage()
@@ -235,7 +231,7 @@ describe('OrganizationProfilePage', () => {
 
   it('blocks save when required fields are missing and highlights the invalid fields', async () => {
     organizationsApi.getOrganizationProfile.mockRejectedValue(
-      new OrganizationProfileRequestError('机构画像不存在', 'not_found', 404),
+      new OrganizationProfileRequestError('机构画像不存在', 'not_found', 404)
     )
 
     renderPage()
@@ -253,7 +249,7 @@ describe('OrganizationProfilePage', () => {
 
   it('persists the profile through organizationsApi and surfaces updatedAt after save', async () => {
     organizationsApi.getOrganizationProfile.mockRejectedValue(
-      new OrganizationProfileRequestError('机构画像不存在', 'not_found', 404),
+      new OrganizationProfileRequestError('机构画像不存在', 'not_found', 404)
     )
     organizationsApi.upsertOrganizationProfile.mockResolvedValue({
       ...completeProfile,
@@ -278,7 +274,7 @@ describe('OrganizationProfilePage', () => {
           assetBucket: 'large',
           hasPersonalInfo: true,
           recentMajorIncident: false,
-        }),
+        })
       )
     })
 
@@ -288,9 +284,7 @@ describe('OrganizationProfilePage', () => {
   })
 
   it('renders a non-empty error state with retry when profile loading fails', async () => {
-    organizationsApi.getOrganizationProfile.mockRejectedValueOnce(
-      new Error('网络超时'),
-    )
+    organizationsApi.getOrganizationProfile.mockRejectedValueOnce(new Error('网络超时'))
     organizationsApi.getOrganizationProfile.mockResolvedValueOnce(completeProfile)
 
     renderPage()
@@ -309,11 +303,7 @@ describe('OrganizationProfilePage', () => {
   it('shows a conflict message instead of silently overwriting when save returns 409', async () => {
     organizationsApi.getOrganizationProfile.mockResolvedValue(completeProfile)
     organizationsApi.upsertOrganizationProfile.mockRejectedValue(
-      new OrganizationProfileRequestError(
-        '机构画像已被其他用户更新，请刷新后重试',
-        'conflict',
-        409,
-      ),
+      new OrganizationProfileRequestError('机构画像已被其他用户更新，请刷新后重试', 'conflict', 409)
     )
 
     renderPage()
@@ -326,7 +316,7 @@ describe('OrganizationProfilePage', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存画像' }))
 
     expect(
-      await screen.findByText('机构画像已被其他用户更新，请刷新后重新编辑。'),
+      await screen.findByText('机构画像已被其他用户更新，请刷新后重新编辑。')
     ).toBeInTheDocument()
   })
 
@@ -346,9 +336,7 @@ describe('OrganizationProfilePage', () => {
 
     renderPage()
 
-    expect(
-      await screen.findByText('当前账号仅可查看机构画像，不能修改。'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('当前账号仅可查看机构画像，不能修改。')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '保存画像' })).not.toBeInTheDocument()
     // The mocked select has aria-disabled when disabled
     const industrySelect = getSelectElement('所属行业')

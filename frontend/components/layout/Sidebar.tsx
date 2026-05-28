@@ -46,18 +46,6 @@ const allMenuItems: MenuItem[] = [
     label: '项目管理',
   },
   {
-    key: '/organizations/profile',
-    icon: <Building2 className="w-5 h-5" />,
-    label: '机构画像',
-    requiresOrganization: true,
-  },
-  {
-    key: '/organizations/applicable-controls',
-    icon: <ClipboardCheck className="w-5 h-5" />,
-    label: '适用控制点',
-    requiresOrganization: true,
-  },
-  {
     key: '/radar',
     icon: <Radar className="w-5 h-5" />,
     label: '技术雷达',
@@ -84,6 +72,18 @@ const allMenuItems: MenuItem[] = [
     label: '系统管理',
     adminOnly: true,
     children: [
+      {
+        key: '/organizations/profile',
+        icon: <Building2 className="w-4 h-4" />,
+        label: '机构画像',
+        requiresOrganization: true,
+      },
+      {
+        key: '/organizations/applicable-controls',
+        icon: <ClipboardCheck className="w-4 h-4" />,
+        label: '适用控制点',
+        requiresOrganization: true,
+      },
       {
         key: '/admin/advisory',
         icon: <BrainCircuit className="w-4 h-4" />,
@@ -209,14 +209,19 @@ export default function Sidebar({
     }
   }, [userRole])
 
-  const visibleMenuItems = allMenuItems.filter((item) => {
+  const canShowMenuItem = (item: MenuItem) => {
     if (item.adminOnly && !isAdmin) return false
     if (item.requiresOrganization && !organizationId) return false
     if (item.thinkTankOnly && (!canAccessThinkTank(userRole) || thinkTankAccessAllowed === false)) {
       return false
     }
     return true
-  })
+  }
+
+  const visibleMenuItems = allMenuItems.filter(canShowMenuItem).map((item) => ({
+    ...item,
+    children: item.children?.filter(canShowMenuItem),
+  }))
 
   const handleToggleCollapse = () => {
     onCollapseChange?.(!collapsed)
@@ -280,11 +285,6 @@ export default function Sidebar({
     return currentPathname === key || currentPathname.startsWith(`${key}/`)
   }
 
-  const isChildSelected = (key: string) => {
-    const currentPathname = pathname ?? ''
-    return currentPathname === key || currentPathname.startsWith(`${key}/`)
-  }
-
   const currentWidth = isMobile ? width : collapsed ? collapsedWidth : width
 
   return (
@@ -300,8 +300,9 @@ export default function Sidebar({
         <div className="flex-1 pt-2">
           {visibleMenuItems.map((item) => {
             const hasChildren = item.children && item.children.length > 0
-            const selected = isSelected(item.key)
-            const expanded = expandedKeys.includes(item.key)
+            const childSelected = item.children?.some((child) => isSelected(child.key)) ?? false
+            const selected = isSelected(item.key) || childSelected
+            const expanded = expandedKeys.includes(item.key) || childSelected
 
             if (hasChildren) {
               return (
@@ -336,7 +337,7 @@ export default function Sidebar({
                           key={child.key}
                           onClick={() => handleNavigation(child.key)}
                           className={`w-full cursor-pointer flex items-center gap-2 pl-12 pr-5 py-2.5 text-[13px] transition-colors ${
-                            isChildSelected(child.key)
+                            isSelected(child.key)
                               ? 'Mui-selected text-emerald-400 font-medium bg-white/5'
                               : 'text-white/60 hover:text-white hover:bg-white/5'
                           }`}

@@ -16,7 +16,7 @@ describe('Providers dialog cleanup', () => {
     document.body.removeAttribute('style')
   })
 
-  it('clears stale pointer-events and removes orphaned radix overlays when no dialog is open', async () => {
+  it('clears stale pointer-events and disables orphaned radix overlays when no dialog is open', async () => {
     render(
       <Providers>
         <div>content</div>
@@ -31,7 +31,10 @@ describe('Providers dialog cleanup', () => {
 
     await waitFor(() => {
       expect(document.body.style.pointerEvents).toBe('')
-      expect(document.querySelector('[data-radix-overlay="true"]')).not.toBeInTheDocument()
+      expect(document.querySelector('[data-radix-overlay="true"]')).toBeInTheDocument()
+      expect(overlay.style.pointerEvents).toBe('none')
+      expect(overlay.style.display).toBe('none')
+      expect(overlay).toHaveAttribute('data-csaas-orphaned-overlay', 'true')
     })
   })
 

@@ -59,13 +59,13 @@ describe('Sidebar', () => {
 
     expect(screen.getByText('工作台')).toBeInTheDocument()
     expect(screen.getByText('项目管理')).toBeInTheDocument()
-    expect(screen.getByText('机构画像')).toBeInTheDocument()
-    expect(screen.getByText('适用控制点')).toBeInTheDocument()
     expect(screen.getByText('技术雷达')).toBeInTheDocument()
     expect(screen.getByText('ThinkTank')).toBeInTheDocument()
     expect(screen.getByText('报告中心')).toBeInTheDocument()
     expect(screen.getByText('团队管理')).toBeInTheDocument()
     expect(screen.getByText('系统管理')).toBeInTheDocument()
+    expect(screen.queryByText('机构画像')).not.toBeInTheDocument()
+    expect(screen.queryByText('适用控制点')).not.toBeInTheDocument()
   })
 
   it('highlights current route', () => {
@@ -92,6 +92,8 @@ describe('Sidebar', () => {
 
     // Child items should be visible
     await waitFor(() => {
+      expect(screen.getByText('机构画像')).toBeInTheDocument()
+      expect(screen.getByText('适用控制点')).toBeInTheDocument()
       expect(screen.getByText('运营仪表板')).toBeInTheDocument()
       expect(screen.getByText('内容质量管理')).toBeInTheDocument()
       expect(screen.getByText('客户管理')).toBeInTheDocument()
@@ -268,6 +270,8 @@ describe('Sidebar', () => {
   it('navigates to organization profile using the current organization id', () => {
     render(<Sidebar />)
 
+    fireEvent.click(screen.getByText('系统管理').closest('button')!)
+
     const profileText = screen.getByText('机构画像')
     const profileButton = profileText.closest('button')
     fireEvent.click(profileButton!)
@@ -277,6 +281,8 @@ describe('Sidebar', () => {
 
   it('navigates to applicable controls using the current organization id', () => {
     render(<Sidebar />)
+
+    fireEvent.click(screen.getByText('系统管理').closest('button')!)
 
     const controlsText = screen.getByText('适用控制点')
     const controlsButton = controlsText.closest('button')

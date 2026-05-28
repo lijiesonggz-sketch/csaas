@@ -144,6 +144,60 @@ describe('OrganizationsController - Profile Routes (http)', () => {
     })
   })
 
+  describe('GET /organizations/me', () => {
+    it('should return the existing current user organization', async () => {
+      const organization = {
+        id: ORG_ID,
+        name: '测试机构',
+        tenantId: '00000000-0000-0000-0000-000000000001',
+        createdAt: new Date('2026-05-29T00:00:00.000Z'),
+        updatedAt: new Date('2026-05-29T00:00:00.000Z'),
+      }
+
+      mockOrganizationsService.getUserOrganization.mockResolvedValue({
+        organization,
+        role: 'admin',
+      })
+
+      const response = await request(app.getHttpServer()).get('/organizations/me').expect(200)
+
+      expect(response.body).toMatchObject({
+        organization: {
+          id: ORG_ID,
+          name: '测试机构',
+          tenantId: '00000000-0000-0000-0000-000000000001',
+        },
+        role: 'admin',
+      })
+      expect(mockOrganizationAutoCreateService.ensureOrganizationForProject).not.toHaveBeenCalled()
+    })
+
+    it('should auto-create a default organization when the user has no organization', async () => {
+      mockOrganizationsService.getUserOrganization.mockResolvedValue(null)
+      mockOrganizationAutoCreateService.ensureOrganizationForProject.mockResolvedValue({
+        id: ORG_ID,
+        name: '用户的默认组织',
+        tenantId: '00000000-0000-0000-0000-000000000001',
+        createdAt: new Date('2026-05-29T00:00:00.000Z'),
+        updatedAt: new Date('2026-05-29T00:00:00.000Z'),
+      })
+
+      const response = await request(app.getHttpServer()).get('/organizations/me').expect(200)
+
+      expect(mockOrganizationAutoCreateService.ensureOrganizationForProject).toHaveBeenCalledWith(
+        USER_ID,
+      )
+      expect(response.body).toMatchObject({
+        organization: {
+          id: ORG_ID,
+          name: '用户的默认组织',
+          tenantId: '00000000-0000-0000-0000-000000000001',
+        },
+        role: 'admin',
+      })
+    })
+  })
+
   describe('GET /organizations/:id/profile/completeness', () => {
     it('should return profile completeness for a valid organization member', async () => {
       mockOrganizationsService.getOrganizationProfileCompleteness.mockResolvedValue({
@@ -167,7 +221,9 @@ describe('OrganizationsController - Profile Routes (http)', () => {
         isComplete: false,
         completionRatio: '14/16',
       })
-      expect(mockOrganizationsService.getOrganizationProfileCompleteness).toHaveBeenCalledWith(ORG_ID)
+      expect(mockOrganizationsService.getOrganizationProfileCompleteness).toHaveBeenCalledWith(
+        ORG_ID,
+      )
     })
 
     it('should reject access to completeness details when organization ownership guard denies the request', async () => {

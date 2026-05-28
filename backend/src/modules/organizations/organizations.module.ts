@@ -15,7 +15,7 @@ import { Project } from '../../database/entities/project.entity'
 import { WeaknessSnapshot } from '../../database/entities/weakness-snapshot.entity'
 import { WatchedTopic } from '../../database/entities/watched-topic.entity'
 import { WatchedPeer } from '../../database/entities/watched-peer.entity'
-import { TasksGateway } from '../ai-tasks/gateways/tasks.gateway'
+import { AITasksModule } from '../ai-tasks/ai-tasks.module'
 import { OrganizationRepository, ProjectRepository } from '../../database/repositories'
 
 const auditLogPlaceholderLogger = new Logger('AuditLogPlaceholder')
@@ -30,6 +30,7 @@ const auditLogPlaceholderLogger = new Logger('AuditLogPlaceholder')
  */
 @Module({
   imports: [
+    AITasksModule,
     TypeOrmModule.forFeature([
       Organization,
       OrganizationProfile,
@@ -49,7 +50,6 @@ const auditLogPlaceholderLogger = new Logger('AuditLogPlaceholder')
     TenantGuard,
     OrganizationGuard,
     OrganizationOwnershipGuard,
-    TasksGateway,
     OrganizationRepository,
     ProjectRepository,
     {

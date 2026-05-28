@@ -29,10 +29,7 @@ import {
   ORGANIZATION_PROFILE_REGULATORY_ATTENTION_LEVEL_OPTIONS,
   UpsertOrganizationProfilePayload,
 } from '@/lib/types/organization'
-import {
-  OrganizationProfileRequestError,
-  organizationsApi,
-} from '@/lib/api/organizations'
+import { OrganizationProfileRequestError, organizationsApi } from '@/lib/api/organizations'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -108,7 +105,11 @@ const FIELD_SECTIONS: Array<{ title: string; fields: SelectFieldConfig[] }> = [
         label: '法人主体类型',
         options: ORGANIZATION_PROFILE_LEGAL_PERSON_TYPE_OPTIONS,
       },
-      { key: 'assetBucket', label: '资产规模档位', options: ORGANIZATION_PROFILE_ASSET_BUCKET_OPTIONS },
+      {
+        key: 'assetBucket',
+        label: '资产规模档位',
+        options: ORGANIZATION_PROFILE_ASSET_BUCKET_OPTIONS,
+      },
       {
         key: 'regulatoryAttentionLevel',
         label: '监管关注等级',
@@ -205,7 +206,7 @@ function validateForm(formState: ProfileFormState): Partial<Record<FieldKey, str
 
 function toPayload(
   formState: ProfileFormState,
-  expectedUpdatedAt?: string,
+  expectedUpdatedAt?: string
 ): UpsertOrganizationProfilePayload {
   return {
     industry: formState.industry as OrganizationProfileIndustry,
@@ -234,11 +235,7 @@ function canEditProfile(role?: string, organizationRole?: string): boolean {
     return false
   }
 
-  return (
-    role === UserRole.ADMIN ||
-    role === UserRole.CONSULTANT ||
-    organizationRole === 'admin'
-  )
+  return role === UserRole.ADMIN || role === UserRole.CONSULTANT || organizationRole === 'admin'
 }
 
 function formatUpdatedAt(updatedAt: string): string {
@@ -276,7 +273,7 @@ export default function OrganizationProfilePage() {
   const activeOrgId = routeOrgId || session?.user?.organizationId || ''
   const isReadOnly = useMemo(
     () => !canEditProfile(session?.user?.role, session?.user?.organizationRole),
-    [session?.user?.organizationRole, session?.user?.role],
+    [session?.user?.organizationRole, session?.user?.role]
   )
 
   const [formState, setFormState] = useState<ProfileFormState>(EMPTY_FORM_STATE)
@@ -307,10 +304,7 @@ export default function OrganizationProfilePage() {
       setIsFirstTimeConfig(false)
       setLastUpdatedAt(profile.updatedAt)
     } catch (error) {
-      if (
-        error instanceof OrganizationProfileRequestError &&
-        error.code === 'not_found'
-      ) {
+      if (error instanceof OrganizationProfileRequestError && error.code === 'not_found') {
         setFormState(EMPTY_FORM_STATE)
         setErrors({})
         setIsFirstTimeConfig(true)
@@ -365,7 +359,7 @@ export default function OrganizationProfilePage() {
     try {
       const savedProfile = await organizationsApi.upsertOrganizationProfile(
         activeOrgId,
-        toPayload(formState, lastUpdatedAt),
+        toPayload(formState, lastUpdatedAt)
       )
       setFormState(toFormState(savedProfile))
       setIsFirstTimeConfig(false)
@@ -393,11 +387,7 @@ export default function OrganizationProfilePage() {
         {/* Header */}
         <div>
           <div className="mb-4">
-            <Button
-              variant="outline"
-              onClick={() => router.back()}
-              className="rounded-sm"
-            >
+            <Button variant="outline" onClick={() => router.back()} className="rounded-sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               返回
             </Button>
@@ -464,14 +454,14 @@ export default function OrganizationProfilePage() {
               {saveSuccessMessage && (
                 <Alert className="rounded-sm border-[#059669] bg-[#F0FDF4]">
                   <CheckCircle2 className="h-4 w-4 text-[#059669]" />
-                  <AlertDescription className="text-[#059669]">{saveSuccessMessage}</AlertDescription>
+                  <AlertDescription className="text-[#059669]">
+                    {saveSuccessMessage}
+                  </AlertDescription>
                 </Alert>
               )}
 
               {lastUpdatedAt && (
-                <p className="text-sm text-[#94A3B8]">
-                  最近保存：{formatUpdatedAt(lastUpdatedAt)}
-                </p>
+                <p className="text-sm text-[#94A3B8]">最近保存：{formatUpdatedAt(lastUpdatedAt)}</p>
               )}
 
               {FIELD_SECTIONS.map((section) => (
@@ -501,7 +491,6 @@ export default function OrganizationProfilePage() {
                             <SelectValue placeholder={`请选择${field.label}`} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">{`请选择${field.label}`}</SelectItem>
                             {field.options.map((option) => (
                               <SelectItem key={option.value} value={option.value}>
                                 {option.label}

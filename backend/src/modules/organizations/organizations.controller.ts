@@ -8,7 +8,6 @@ import {
   Body,
   Param,
   UseGuards,
-  Request,
   Query,
   Logger,
   ParseIntPipe,
@@ -25,9 +24,7 @@ import { OrganizationOwnershipGuard } from './guards/organization-ownership.guar
 import { OrganizationGuard } from './guards/organization.guard'
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard'
 import { CurrentUser } from '../../modules/auth/decorators/current-user.decorator'
-import { CurrentOrg } from './decorators/current-org.decorator'
 import {
-  CreateOrganizationDto,
   UpdateOrganizationDto,
   OrganizationStatsDto,
   UserOrganizationResponse,
@@ -69,7 +66,24 @@ export class OrganizationsController {
     @CurrentUser() user: any,
   ): Promise<UserOrganizationResponse | null> {
     const userId = user.userId || user.id
-    return this.organizationsService.getUserOrganization(userId)
+    const existingOrganization = await this.organizationsService.getUserOrganization(userId)
+
+    if (existingOrganization) {
+      return existingOrganization
+    }
+
+    const organization = await this.orgAutoCreateService.ensureOrganizationForProject(userId)
+
+    return {
+      organization: {
+        id: organization.id,
+        name: organization.name,
+        tenantId: organization.tenantId,
+        createdAt: organization.createdAt,
+        updatedAt: organization.updatedAt,
+      },
+      role: 'admin',
+    }
   }
 
   /**
@@ -199,10 +213,7 @@ export class OrganizationsController {
    */
   @Post(':id/members')
   @UseGuards(OrganizationGuard)
-  async addMember(
-    @Param('id') orgId: string,
-    @Body() body: AddMemberDto,
-  ) {
+  async addMember(@Param('id') orgId: string, @Body() body: AddMemberDto) {
     return this.organizationsService.addMember(orgId, body.userId, body.role || 'member')
   }
 

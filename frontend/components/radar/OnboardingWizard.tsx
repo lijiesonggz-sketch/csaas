@@ -12,24 +12,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Stepper } from '@/components/ui/stepper'
-import {
-  TrendingUp,
-  Building2,
-  CheckCircle,
-  Plus,
-  X,
-  Loader2,
-} from 'lucide-react'
+import { TrendingUp, Building2, CheckCircle, Plus, X, Loader2 } from 'lucide-react'
 import { apiFetch } from '@/lib/utils/api'
 import { useOnboarding } from '@/lib/hooks/useOnboarding'
 import { useWeaknesses, WeaknessCategory } from '@/lib/hooks/useWeaknesses'
@@ -48,7 +33,16 @@ const PRESET_TOPICS = [
 ]
 
 // Use banking presets from unified constant file
-const PRESET_PEERS = INSTITUTION_PRESETS.banking.map(p => p.name)
+const PRESET_PEERS = INSTITUTION_PRESETS.banking.map((p) => p.name)
+
+function getApiErrorStatus(error: unknown): number | undefined {
+  if (typeof error === 'object' && error !== null && 'status' in error) {
+    const status = (error as { status?: unknown }).status
+    return typeof status === 'number' ? status : undefined
+  }
+
+  return undefined
+}
 
 interface OnboardingWizardProps {
   orgId: string
@@ -129,61 +123,42 @@ export default function OnboardingWizard({
     try {
       // Save watched topics
       if (selectedTopics.length > 0) {
-        const topicsResponse = await apiFetch(
-          `/organizations/${orgId}/watched-topics/batch`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ names: selectedTopics }),
-          },
-        )
-
-        if (topicsResponse.status === 401) {
-          throw new Error('请先登录后再激活 Radar Service')
-        }
-
-        if (!topicsResponse.ok) {
-          throw new Error('Failed to save watched topics')
-        }
+        await apiFetch(`/organizations/${orgId}/watched-topics/batch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names: selectedTopics }),
+        })
       }
 
       // Save watched peers
       if (selectedPeers.length > 0) {
-        const peersResponse = await apiFetch(
-          `/organizations/${orgId}/watched-peers/batch`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ names: selectedPeers }),
-          },
-        )
-
-        if (peersResponse.status === 401) {
-          throw new Error('请先登录后再激活 Radar Service')
-        }
-
-        if (!peersResponse.ok) {
-          throw new Error('Failed to save watched peers')
-        }
+        await apiFetch(`/organizations/${orgId}/watched-peers/batch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ names: selectedPeers }),
+        })
       }
 
       // Activate radar service
-      const activateResponse = await apiFetch(
-        `/organizations/${orgId}/radar-activate`,
-        {
+      try {
+        await apiFetch(`/organizations/${orgId}/radar-activate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-        },
-      )
+        })
+      } catch (error) {
+        const status = getApiErrorStatus(error)
 
-      if (activateResponse.status === 401) {
-        throw new Error('请先登录后再激活 Radar Service')
-      }
+        if (status === 401) {
+          throw new Error('请先登录后再激活 Radar Service')
+        }
 
-      // Allow activation to succeed even if API fails (for testing)
-      let activationSucceeded = activateResponse.ok
-      if (!activateResponse.ok && activateResponse.status !== 403) {
-        console.warn('[OnboardingWizard] Activation API failed, but proceeding with localStorage update')
+        if (status === 403) {
+          throw error
+        }
+
+        console.warn(
+          '[OnboardingWizard] Activation API failed, but proceeding with localStorage update'
+        )
       }
 
       // Mark onboarding as complete in localStorage
@@ -192,16 +167,19 @@ export default function OnboardingWizard({
       // Update radar activated status in localStorage (always do this)
       const radarActivatedKey = `radar_activated_${orgId}`
       localStorage.setItem(radarActivatedKey, 'true')
-      console.log('[OnboardingWizard] Set radar activated in localStorage:', radarActivatedKey, '=', 'true')
+      console.log(
+        '[OnboardingWizard] Set radar activated in localStorage:',
+        radarActivatedKey,
+        '=',
+        'true'
+      )
 
       // Notify parent component
       onComplete()
       onClose()
     } catch (error) {
       console.error('Failed to complete onboarding:', error)
-      setSubmitError(
-        error instanceof Error ? error.message : 'Failed to complete onboarding',
-      )
+      setSubmitError(error instanceof Error ? error.message : 'Failed to complete onboarding')
     } finally {
       setIsSubmitting(false)
     }
@@ -243,9 +221,7 @@ export default function OnboardingWizard({
       case 0:
         return (
           <div>
-            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-2">
-              系统已自动识别您的薄弱项
-            </h3>
+            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-2">系统已自动识别您的薄弱项</h3>
             <p className="text-sm text-[#94A3B8] mb-4">
               Radar Service将优先推送与这些薄弱项相关的技术趋势、行业标杆和合规预警。
             </p>
@@ -269,9 +245,7 @@ export default function OnboardingWizard({
                       >
                         等级 {weakness.level}
                       </Badge>
-                      <span className="text-xs text-[#94A3B8]">
-                        {weakness.count} 项
-                      </span>
+                      <span className="text-xs text-[#94A3B8]">{weakness.count} 项</span>
                     </div>
                   </div>
                 ))}
@@ -289,22 +263,17 @@ export default function OnboardingWizard({
       case 1:
         return (
           <div>
-            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-2">
-              选择您关注的技术领域
-            </h3>
+            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-2">选择您关注的技术领域</h3>
             <p className="text-sm text-[#94A3B8] mb-4">
-              Radar Service将推送这些领域的技术趋势、最佳实践和供应商推荐。您也可以自定义添加其他领域。
+              Radar
+              Service将推送这些领域的技术趋势、最佳实践和供应商推荐。您也可以自定义添加其他领域。
             </p>
 
             {/* 已选择的主题 */}
             {selectedTopics.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {selectedTopics.map((topic) => (
-                  <Badge
-                    key={topic}
-                    variant="secondary"
-                    className="rounded-sm pl-2 pr-1 py-1"
-                  >
+                  <Badge key={topic} variant="secondary" className="rounded-sm pl-2 pr-1 py-1">
                     {topic}
                     <button
                       type="button"
@@ -331,10 +300,10 @@ export default function OnboardingWizard({
                   }}
                   disabled={selectedTopics.includes(topic)}
                   className={cn(
-                    "w-full p-3 text-left border rounded-sm transition-colors",
+                    'w-full p-3 text-left border rounded-sm transition-colors',
                     selectedTopics.includes(topic)
-                      ? "border-[#059669] bg-green-50"
-                      : "border-[#E2E8F0] hover:bg-slate-50"
+                      ? 'border-[#059669] bg-green-50'
+                      : 'border-[#E2E8F0] hover:bg-slate-50'
                   )}
                 >
                   <div className="flex justify-between items-center">
@@ -398,22 +367,17 @@ export default function OnboardingWizard({
       case 2:
         return (
           <div>
-            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-2">
-              选择您关注的同业机构
-            </h3>
+            <h3 className="text-lg font-semibold text-[#1E3A5F] mb-2">选择您关注的同业机构</h3>
             <p className="text-sm text-[#94A3B8] mb-4">
-              Radar Service将推送这些机构的技术实践案例、招聘信息和机构动态。您也可以自定义添加其他机构。
+              Radar
+              Service将推送这些机构的技术实践案例、招聘信息和机构动态。您也可以自定义添加其他机构。
             </p>
 
             {/* 已选择的机构 */}
             {selectedPeers.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {selectedPeers.map((peer) => (
-                  <Badge
-                    key={peer}
-                    variant="secondary"
-                    className="rounded-sm pl-2 pr-1 py-1"
-                  >
+                  <Badge key={peer} variant="secondary" className="rounded-sm pl-2 pr-1 py-1">
                     {peer}
                     <button
                       type="button"
@@ -440,10 +404,10 @@ export default function OnboardingWizard({
                   }}
                   disabled={selectedPeers.includes(peer)}
                   className={cn(
-                    "w-full p-3 text-left border rounded-sm transition-colors",
+                    'w-full p-3 text-left border rounded-sm transition-colors',
                     selectedPeers.includes(peer)
-                      ? "border-[#059669] bg-green-50"
-                      : "border-[#E2E8F0] hover:bg-slate-50"
+                      ? 'border-[#059669] bg-green-50'
+                      : 'border-[#E2E8F0] hover:bg-slate-50'
                   )}
                 >
                   <div className="flex justify-between items-center">
@@ -517,9 +481,7 @@ export default function OnboardingWizard({
             <CheckCircle className="w-6 h-6 text-[#059669]" />
             <DialogTitle>欢迎使用 Radar Service！</DialogTitle>
           </div>
-          <DialogDescription>
-            让我们设置您的雷达偏好，只需3步即可完成配置
-          </DialogDescription>
+          <DialogDescription>让我们设置您的雷达偏好，只需3步即可完成配置</DialogDescription>
         </DialogHeader>
 
         <div className="mb-6">
@@ -543,12 +505,7 @@ export default function OnboardingWizard({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="ghost"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="rounded-sm"
-          >
+          <Button variant="ghost" onClick={onClose} disabled={isSubmitting} className="rounded-sm">
             跳过
           </Button>
           <Button

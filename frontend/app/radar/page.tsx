@@ -16,10 +16,18 @@ import { useOnboarding } from '@/lib/hooks/useOnboarding'
 import { ErrorBoundary } from '@/components/error-boundary/ErrorBoundary'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { buildRadarHistoryRoute } from '@/lib/api/radar'
 import { useRadarUnreadCount } from '@/lib/hooks/useRadarUnreadCount'
 import { cn } from '@/lib/utils'
+
+function extractOrganizationId(payload: unknown): string | null {
+  const data = payload as {
+    data?: { organization?: { id?: string } }
+    organization?: { id?: string }
+  } | null
+
+  return data?.data?.organization?.id || data?.organization?.id || null
+}
 
 /**
  * Radar Dashboard Page
@@ -33,19 +41,48 @@ function RadarDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const orgId = searchParams?.get('orgId') ?? null
+  const [resolvedOrgId, setResolvedOrgId] = useState<string | null>(orgId)
+  const effectiveOrgId = orgId || resolvedOrgId
 
-  const { isOnboarded, radarActivated, isLoading, refetch } = useOnboarding(orgId)
+  const { isOnboarded, radarActivated, isLoading, refetch } = useOnboarding(effectiveOrgId)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const { unreadCount } = useRadarUnreadCount({
-    enabled: Boolean(orgId),
+    enabled: Boolean(effectiveOrgId),
   })
+
+  useEffect(() => {
+    if (orgId) {
+      setResolvedOrgId(orgId)
+      return
+    }
+
+    let active = true
+
+    fetch('/api/organizations/me', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) return null
+        return extractOrganizationId(await response.json())
+      })
+      .then((currentOrgId) => {
+        if (!active || !currentOrgId) return
+        setResolvedOrgId(currentOrgId)
+        router.replace(`/radar?orgId=${currentOrgId}`)
+      })
+      .catch(() => {
+        if (active) setResolvedOrgId(null)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [orgId, router])
 
   // Show onboarding wizard if not completed and radar not activated
   useEffect(() => {
-    if (!isLoading && !isOnboarded && !radarActivated && orgId) {
+    if (!isLoading && !isOnboarded && !radarActivated && effectiveOrgId) {
       setShowOnboarding(true)
     }
-  }, [isLoading, isOnboarded, radarActivated, orgId])
+  }, [isLoading, isOnboarded, radarActivated, effectiveOrgId])
 
   // Handle onboarding completion
   const handleOnboardingComplete = async () => {
@@ -60,7 +97,7 @@ function RadarDashboardContent() {
       title: '技术雷达',
       icon: <TrendingUp className="w-6 h-6" />,
       description: '基于薄弱项推送技术趋势，包含ROI分析、优先级排序和供应商推荐',
-      route: `/radar/tech${orgId ? `?orgId=${orgId}` : ''}`,
+      route: `/radar/tech${effectiveOrgId ? `?orgId=${effectiveOrgId}` : ''}`,
       color: 'bg-blue-600',
     },
     {
@@ -68,7 +105,7 @@ function RadarDashboardContent() {
       title: '行业雷达',
       icon: <Building2 className="w-6 h-6" />,
       description: '同业标杆学习，推送技术实践案例、招聘信息和机构动态',
-      route: `/radar/industry${orgId ? `?orgId=${orgId}` : ''}`,
+      route: `/radar/industry${effectiveOrgId ? `?orgId=${effectiveOrgId}` : ''}`,
       color: 'bg-amber-500',
     },
     {
@@ -76,7 +113,7 @@ function RadarDashboardContent() {
       title: '合规雷达',
       icon: <AlertTriangle className="w-6 h-6" />,
       description: '合规风险预警，提供应对剧本、自查清单和整改方案对比',
-      route: `/radar/compliance${orgId ? `?orgId=${orgId}` : ''}`,
+      route: `/radar/compliance${effectiveOrgId ? `?orgId=${effectiveOrgId}` : ''}`,
       color: 'bg-red-600',
     },
   ]
@@ -84,9 +121,9 @@ function RadarDashboardContent() {
   return (
     <>
       {/* Onboarding Wizard */}
-      {orgId && (
+      {effectiveOrgId && (
         <OnboardingWizard
-          orgId={orgId}
+          orgId={effectiveOrgId}
           open={showOnboarding}
           onClose={() => setShowOnboarding(false)}
           onComplete={handleOnboardingComplete}
@@ -110,7 +147,7 @@ function RadarDashboardContent() {
                 <Button
                   variant="outline"
                   size="default"
-                  onClick={() => router.push(buildRadarHistoryRoute(orgId ?? undefined))}
+                  onClick={() => router.push(buildRadarHistoryRoute(effectiveOrgId ?? undefined))}
                   className="border-white text-white hover:bg-white/10 rounded-sm"
                 >
                   <div className="relative">
@@ -125,7 +162,11 @@ function RadarDashboardContent() {
                 </Button>
                 <Button
                   size="default"
-                  onClick={() => router.push(`/radar/settings${orgId ? `?orgId=${orgId}` : ''}`)}
+                  onClick={() =>
+                    router.push(
+                      `/radar/settings${effectiveOrgId ? `?orgId=${effectiveOrgId}` : ''}`
+                    )
+                  }
                   className="bg-white text-[#1E3A5F] hover:bg-white/90 rounded-sm"
                 >
                   <Settings className="w-4 h-4 mr-2" />
@@ -137,7 +178,7 @@ function RadarDashboardContent() {
         </Card>
 
         {/* Radar activation status badge */}
-        {orgId && !isLoading && (
+        {effectiveOrgId && !isLoading && (
           <div className="mb-6">
             <Button
               size="sm"
@@ -192,11 +233,13 @@ function RadarDashboardContent() {
               <p className="text-sm text-[#1E3A5F] font-[var(--font-inter)]">
                 <strong>提示：</strong>
                 Radar Service会根据您的评估结果自动识别薄弱项，并推送相关内容。
-                {orgId ? (
+                {effectiveOrgId ? (
                   <>
                     {' '}
                     您的组织ID:{' '}
-                    <code className="px-2 py-1 bg-slate-100 rounded-sm text-xs">{orgId}</code>
+                    <code className="px-2 py-1 bg-slate-100 rounded-sm text-xs">
+                      {effectiveOrgId}
+                    </code>
                   </>
                 ) : (
                   '请先选择组织。'

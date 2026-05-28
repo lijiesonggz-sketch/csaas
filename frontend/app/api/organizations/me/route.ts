@@ -4,6 +4,22 @@ import { authOptions } from '@/lib/auth/auth-options'
 
 export const dynamic = 'force-dynamic'
 
+function parseJsonBody(text: string): unknown {
+  if (!text.trim()) {
+    return null
+  }
+
+  return JSON.parse(text)
+}
+
+function parseJsonBodySafely(text: string): unknown {
+  try {
+    return parseJsonBody(text)
+  } catch {
+    return null
+  }
+}
+
 /**
  * GET /api/organizations/me
  *
@@ -33,13 +49,24 @@ export async function GET() {
     })
 
     if (!response.ok) {
+      const text = await response.text().catch(() => '')
+      const errorBody = parseJsonBodySafely(text) as { message?: string } | null
+
       return NextResponse.json(
-        { message: 'Failed to fetch organization' },
+        { message: errorBody?.message || 'Failed to fetch organization' },
         { status: response.status }
       )
     }
 
-    const data = await response.json()
+    const text = await response.text()
+    const data = parseJsonBody(text)
+
+    if (!data) {
+      return NextResponse.json(
+        { message: 'Backend returned an empty organization response' },
+        { status: 502 }
+      )
+    }
 
     return NextResponse.json(data)
   } catch (error) {
