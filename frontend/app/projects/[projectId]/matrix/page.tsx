@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
-import { Grid3X3, Sparkles, AlertCircle, CheckCircle, ArrowLeft, Loader2 } from 'lucide-react'
+import { Grid3X3, Sparkles, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { AITasksAPI, AITask } from '@/lib/api/ai-tasks'
-import { useTaskProgress } from '@/lib/hooks/useTaskProgress'
+import { useTaskProgressPolling } from '@/lib/hooks/useTaskProgressPolling'
 import { useAITaskCache } from '@/lib/hooks/useAITaskCache'
 import MatrixResultDisplay from '@/components/features/MatrixResultDisplay'
 import RerunTaskDialog from '@/components/projects/RerunTaskDialog'
@@ -32,12 +32,22 @@ export default function MatrixPage() {
 
   const cache = useAITaskCache()
 
-  const {
-    progress,
-    message: progressMessage,
-    isCompleted,
-    isFailed,
-  } = useTaskProgress(currentTask?.id || null)
+  const { progress: taskProgress } = useTaskProgressPolling({
+    taskId: currentTask?.id || undefined,
+    enabled: !!currentTask?.id && loading && !generationResult,
+    pollingInterval: 5000,
+  })
+
+  const progressValue =
+    typeof taskProgress?.progress?.percentage === 'number'
+      ? taskProgress.progress.percentage
+      : currentTask?.progress || 0
+  const progressMessage =
+    taskProgress?.details?.stageMessage || taskProgress?.message || '正在生成成熟度矩阵...'
+  const emptyStateTitle = loading ? '正在生成成熟度矩阵' : '还没有生成成熟度矩阵'
+  const emptyStateDescription = loading
+    ? '任务已在后台运行，离开或刷新页面后会继续恢复当前进度'
+    : '点击下方按钮开始生成成熟度矩阵'
 
   useEffect(() => {
     loadExistingTasks()
@@ -59,16 +69,32 @@ export default function MatrixPage() {
 
       const tasks = await AITasksAPI.getTasksByProject(projectId)
       const matrixTask = tasks
-        .filter((t) => t.type === 'matrix' && t.status === 'completed')
+        .filter((t) => t.type === 'matrix')
         .sort(
           (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
         )[0]
 
-      if (matrixTask && matrixTask.result) {
+      if (!matrixTask) {
+        return
+      }
+
+      setCurrentTask(matrixTask)
+
+      if (matrixTask.status === 'completed' && matrixTask.result) {
         setCurrentTask(matrixTask)
         const result = TaskAdapter.toGenerationResult(matrixTask)
         setGenerationResult(result)
+        setLoading(false)
+        setError(null)
         cache.set(projectId, 'matrix', matrixTask.id, result)
+      } else if (matrixTask.status === 'processing' || matrixTask.status === 'pending') {
+        setGenerationResult(null)
+        setLoading(true)
+        setError(null)
+      } else if (matrixTask.status === 'failed') {
+        setGenerationResult(null)
+        setLoading(false)
+        setError(matrixTask.errorMessage || '成熟度矩阵生成失败')
       }
     } catch (err: any) {
       console.error('Failed to load tasks:', err)
@@ -122,20 +148,6 @@ export default function MatrixPage() {
     [projectId]
   )
 
-  useEffect(() => {
-    if (isCompleted && currentTask?.id) {
-      loadTaskResult(currentTask.id)
-      setLoading(false)
-    }
-  }, [isCompleted])
-
-  useEffect(() => {
-    if (isFailed) {
-      setError(progressMessage || '生成失败')
-      setLoading(false)
-    }
-  }, [isFailed, progressMessage])
-
   const loadTaskResult = useCallback(
     async (taskId: string) => {
       try {
@@ -151,6 +163,20 @@ export default function MatrixPage() {
     },
     [projectId, cache]
   )
+
+  useEffect(() => {
+    if (!currentTask?.id || !taskProgress) {
+      return
+    }
+
+    if (taskProgress.status === 'completed') {
+      loadTaskResult(currentTask.id)
+      setLoading(false)
+    } else if (taskProgress.status === 'failed') {
+      setError(taskProgress.message || '生成失败')
+      setLoading(false)
+    }
+  }, [currentTask?.id, loadTaskResult, taskProgress])
 
   const handleRerunComplete = useCallback(() => {
     setCurrentTask(null)
@@ -219,16 +245,16 @@ export default function MatrixPage() {
             <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-6 h-6 text-[#1E3A5F]" />
             </div>
-            <h3 className="text-xl font-semibold text-[#94A3B8]900 mb-2">还没有生成成熟度矩阵</h3>
-            <p className="text-sm text-[#94A3B8]500 mb-8">点击下方按钮开始生成成熟度矩阵</p>
+            <h3 className="text-xl font-semibold text-[#94A3B8]900 mb-2">{emptyStateTitle}</h3>
+            <p className="text-sm text-[#94A3B8]500 mb-8">{emptyStateDescription}</p>
 
-            {loading && progress > 0 ? (
+            {loading ? (
               <div className="max-w-md mx-auto">
                 <div className="flex justify-between mb-2">
                   <span className="text-sm text-[#94A3B8]500">生成进度</span>
-                  <span className="text-sm font-semibold text-[#1E3A5F]">{progress}%</span>
+                  <span className="text-sm font-semibold text-[#1E3A5F]">{progressValue}%</span>
                 </div>
-                <Progress value={progress} className="h-3" />
+                <Progress value={progressValue} className="h-3" />
                 {progressMessage && (
                   <p className="text-sm text-[#94A3B8]500 mt-2">{progressMessage}</p>
                 )}

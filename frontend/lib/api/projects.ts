@@ -75,6 +75,29 @@ export interface RollbackTaskRequest {
   type: 'summary' | 'clustering' | 'matrix' | 'questionnaire' | 'action_plan'
 }
 
+function formatApiErrorMessage(error: any, fallback: string): string {
+  const normalize = (value: any): string[] => {
+    if (!value) return []
+    if (typeof value === 'string') return [value]
+    if (Array.isArray(value)) return value.flatMap((item) => normalize(item))
+    if (typeof value === 'object') {
+      if (value.constraints && typeof value.constraints === 'object') {
+        return Object.values(value.constraints).filter(
+          (item): item is string => typeof item === 'string' && item.trim().length > 0
+        )
+      }
+      if (value.message) return normalize(value.message)
+      if (value.error) return normalize(value.error)
+      if (Array.isArray(value.children))
+        return value.children.flatMap((item: any) => normalize(item))
+    }
+    return []
+  }
+
+  const messages = normalize(error?.message ?? error)
+  return messages.length > 0 ? messages.join('；') : fallback
+}
+
 export class ProjectsAPI {
   /**
    * 获取认证headers
@@ -141,10 +164,7 @@ export class ProjectsAPI {
   /**
    * 更新项目
    */
-  static async updateProject(
-    projectId: string,
-    request: UpdateProjectRequest,
-  ): Promise<Project> {
+  static async updateProject(projectId: string, request: UpdateProjectRequest): Promise<Project> {
     const response = await fetch(`${API_BASE_URL}/projects/${projectId}`, {
       method: 'PATCH',
       headers: await this.getAuthHeaders(),
@@ -198,7 +218,7 @@ export class ProjectsAPI {
    */
   static async addProjectMember(
     projectId: string,
-    request: AddProjectMemberRequest,
+    request: AddProjectMemberRequest
   ): Promise<ProjectMember> {
     const response = await fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
       method: 'POST',
@@ -221,16 +241,13 @@ export class ProjectsAPI {
   static async updateMemberRole(
     projectId: string,
     userId: string,
-    role: 'OWNER' | 'EDITOR' | 'VIEWER',
+    role: 'OWNER' | 'EDITOR' | 'VIEWER'
   ): Promise<ProjectMember> {
-    const response = await fetch(
-      `${API_BASE_URL}/projects/${projectId}/members/${userId}`,
-      {
-        method: 'PATCH',
-        headers: await this.getAuthHeaders(),
-        body: JSON.stringify({ role }),
-      },
-    )
+    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/members/${userId}`, {
+      method: 'PATCH',
+      headers: await this.getAuthHeaders(),
+      body: JSON.stringify({ role }),
+    })
 
     if (!response.ok) {
       const error = await response.json()
@@ -245,13 +262,10 @@ export class ProjectsAPI {
    * 移除项目成员
    */
   static async removeMember(projectId: string, userId: string): Promise<void> {
-    const response = await fetch(
-      `${API_BASE_URL}/projects/${projectId}/members/${userId}`,
-      {
-        method: 'DELETE',
-        headers: await this.getAuthHeaders(),
-      },
-    )
+    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/members/${userId}`, {
+      method: 'DELETE',
+      headers: await this.getAuthHeaders(),
+    })
 
     if (!response.ok) {
       const error = await response.json()
@@ -262,19 +276,16 @@ export class ProjectsAPI {
   /**
    * 重跑任务（with备份）
    */
-  static async rerunTask(
-    projectId: string,
-    request: RerunTaskRequest,
-  ): Promise<any> {
+  static async rerunTask(projectId: string, request: RerunTaskRequest): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/projects/${projectId}/rerun`, {
       method: 'POST',
       headers: await this.getAuthHeaders(),
-      body: JSON.stringify(request),
+      body: JSON.stringify({ projectId, ...request }),
     })
 
     if (!response.ok) {
       const error = await response.json()
-      throw new Error(error.message || 'Failed to rerun task')
+      throw new Error(formatApiErrorMessage(error, 'Failed to rerun task'))
     }
 
     const result = await response.json()
@@ -284,10 +295,7 @@ export class ProjectsAPI {
   /**
    * 回退到备份版本
    */
-  static async rollbackTask(
-    projectId: string,
-    request: RollbackTaskRequest,
-  ): Promise<any> {
+  static async rollbackTask(projectId: string, request: RollbackTaskRequest): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/projects/${projectId}/rollback`, {
       method: 'POST',
       headers: await this.getAuthHeaders(),
@@ -307,13 +315,10 @@ export class ProjectsAPI {
    * 获取备份信息
    */
   static async getBackupInfo(projectId: string, taskType: string): Promise<any> {
-    const response = await fetch(
-      `${API_BASE_URL}/projects/${projectId}/backup/${taskType}`,
-      {
-        method: 'GET',
-        headers: await this.getAuthHeaders(),
-      },
-    )
+    const response = await fetch(`${API_BASE_URL}/projects/${projectId}/backup/${taskType}`, {
+      method: 'GET',
+      headers: await this.getAuthHeaders(),
+    })
 
     if (!response.ok) {
       const error = await response.json()

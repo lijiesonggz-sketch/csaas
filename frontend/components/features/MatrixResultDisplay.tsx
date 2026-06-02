@@ -13,7 +13,14 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { CheckCircle, Edit, Save, X, PieChart } from 'lucide-react'
 import type { GenerationResult } from '@/lib/types/ai-generation'
 
@@ -41,12 +48,13 @@ interface MatrixResultDisplayProps {
 
 export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps) {
   const [editingCell, setEditingCell] = useState<{ rowId: string; levelKey: string } | null>(null)
-  const [editedMatrix, setEditedMatrix] = useState<MatrixRow[]>(
-    result.selectedResult?.matrix || []
-  )
+  const [editedMatrix, setEditedMatrix] = useState<MatrixRow[]>(result.selectedResult?.matrix || [])
 
   const matrixData: MatrixRow[] = editedMatrix
   const modelDescription = result.selectedResult?.maturity_model_description || ''
+  const isOriginalMaturityModel =
+    result.selectedResult?.generation_mode === 'original_maturity_model'
+  const extractionSummary = result.selectedResult?.extraction_summary
 
   // 复制任务ID到剪贴板
   const handleCopyTaskId = () => {
@@ -151,11 +159,7 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
   }
 
   // 更新关键实践
-  const handleUpdatePractices = (
-    rowId: string,
-    levelKey: string,
-    newPractices: string[]
-  ) => {
+  const handleUpdatePractices = (rowId: string, levelKey: string, newPractices: string[]) => {
     setEditedMatrix((prevMatrix) =>
       prevMatrix.map((row) => {
         if (row.cluster_id === rowId) {
@@ -178,8 +182,7 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
   // 渲染单元格内容
   const renderCellContent = (row: MatrixRow, levelKey: string) => {
     const level = row.levels[levelKey as keyof typeof row.levels]
-    const isEditing =
-      editingCell?.rowId === row.cluster_id && editingCell?.levelKey === levelKey
+    const isEditing = editingCell?.rowId === row.cluster_id && editingCell?.levelKey === levelKey
 
     if (!level) {
       return <p className="text-sm text-gray-600 dark:text-gray-400">暂无数据</p>
@@ -188,9 +191,7 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
     return (
       <div className="flex flex-col gap-2">
         <div className="flex justify-between items-start">
-          <p className="text-sm font-semibold flex-1">
-            {level.name}
-          </p>
+          <p className="text-sm font-semibold flex-1">{level.name}</p>
           {!isEditing && (
             <Button
               size="sm"
@@ -209,9 +210,7 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
               <Input
                 id="description"
                 value={level.description}
-                onChange={(e) =>
-                  handleUpdateDescription(row.cluster_id, levelKey, e.target.value)
-                }
+                onChange={(e) => handleUpdateDescription(row.cluster_id, levelKey, e.target.value)}
                 placeholder="级别描述"
                 className="min-h-[80px]"
               />
@@ -233,18 +232,11 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
               />
             </div>
             <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={handleSaveCell}
-              >
+              <Button size="sm" onClick={handleSaveCell}>
                 <Save className="w-4 h-4 mr-2" />
                 保存
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCancelEdit}
-              >
+              <Button size="sm" variant="outline" onClick={handleCancelEdit}>
                 <X className="w-4 h-4 mr-2" />
                 取消
               </Button>
@@ -252,9 +244,7 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
           </div>
         ) : (
           <>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {level.description}
-            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{level.description}</p>
             <div>
               <p className="text-xs font-semibold mb-1">关键实践：</p>
               <ul className="pl-4 m-0 space-y-1">
@@ -291,7 +281,9 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
         <CheckCircle className="w-5 h-5" />
         <AlertDescription>
           <p className="font-semibold mb-3">
-            矩阵生成完成！下一步：生成调研问卷
+            {isOriginalMaturityModel
+              ? '成熟度模型提取完成！下一步：生成调研问卷'
+              : '矩阵生成完成！下一步：生成调研问卷'}
           </p>
           <div className="flex flex-col gap-3">
             <p className="text-sm text-gray-700 dark:text-gray-300">任务ID：</p>
@@ -307,13 +299,36 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
               <Button className="flex-1" onClick={handleGenerateQuestionnaire}>
                 生成调研问卷
               </Button>
-              <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={handleExportCSV}>
+              <Button
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={handleExportCSV}
+              >
                 导出CSV
               </Button>
             </div>
           </div>
         </AlertDescription>
       </Alert>
+
+      {isOriginalMaturityModel && (
+        <Alert className="bg-blue-50 text-blue-900 border-blue-200 dark:bg-blue-950/30 dark:text-blue-200 dark:border-blue-800">
+          <PieChart className="w-5 h-5" />
+          <AlertDescription>
+            <p className="font-semibold mb-1">已按原始标准成熟度模型提取</p>
+            <p className="text-sm">
+              系统检测到原标准内置成熟度等级，已按原文提取
+              {extractionSummary?.row_count ?? matrixData.length}
+              行成熟度模型，未调用AI重新生成等级定义。
+            </p>
+            {typeof extractionSummary?.skipped_process_description_clusters === 'number' && (
+              <p className="mt-1 text-xs text-blue-800 dark:text-blue-300">
+                已跳过 {extractionSummary.skipped_process_description_clusters} 个过程描述条目，
+                仅保留等级标准进入后续问卷和差距分析。
+              </p>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* 元数据信息 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -325,9 +340,13 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-xs text-gray-600 dark:text-gray-400">选中模型</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">
+              {isOriginalMaturityModel ? '生成方式' : '选中模型'}
+            </p>
             <div className="mt-1">
-              <Badge variant="outline">{result.selectedModel}</Badge>
+              <Badge variant="outline">
+                {isOriginalMaturityModel ? '原文提取' : result.selectedModel}
+              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -387,9 +406,7 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
             <h3 className="text-lg font-semibold">成熟度模型说明</h3>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {modelDescription}
-            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{modelDescription}</p>
           </CardContent>
         </Card>
       )}
@@ -416,28 +433,14 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
                 {matrixData.map((row) => (
                   <TableRow key={row.cluster_id}>
                     <TableCell className="align-top">
-                      <p className="text-sm font-semibold">
-                        {row.cluster_name}
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {row.cluster_id}
-                      </p>
+                      <p className="text-sm font-semibold">{row.cluster_name}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">{row.cluster_id}</p>
                     </TableCell>
-                    <TableCell className="align-top">
-                      {renderCellContent(row, 'level_1')}
-                    </TableCell>
-                    <TableCell className="align-top">
-                      {renderCellContent(row, 'level_2')}
-                    </TableCell>
-                    <TableCell className="align-top">
-                      {renderCellContent(row, 'level_3')}
-                    </TableCell>
-                    <TableCell className="align-top">
-                      {renderCellContent(row, 'level_4')}
-                    </TableCell>
-                    <TableCell className="align-top">
-                      {renderCellContent(row, 'level_5')}
-                    </TableCell>
+                    <TableCell className="align-top">{renderCellContent(row, 'level_1')}</TableCell>
+                    <TableCell className="align-top">{renderCellContent(row, 'level_2')}</TableCell>
+                    <TableCell className="align-top">{renderCellContent(row, 'level_3')}</TableCell>
+                    <TableCell className="align-top">{renderCellContent(row, 'level_4')}</TableCell>
+                    <TableCell className="align-top">{renderCellContent(row, 'level_5')}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

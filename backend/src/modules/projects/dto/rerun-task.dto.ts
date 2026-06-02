@@ -1,10 +1,10 @@
-import { IsString, IsEnum, IsOptional, IsNotEmpty } from 'class-validator'
+import { IsString, IsEnum, IsOptional } from 'class-validator'
 import { AITaskType } from '../../../database/entities/ai-task.entity'
 
 export class RerunTaskDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  projectId: string
+  projectId?: string
 
   @IsEnum(AITaskType)
   type: AITaskType

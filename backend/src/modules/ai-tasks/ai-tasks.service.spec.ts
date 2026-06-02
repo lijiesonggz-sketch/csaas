@@ -8,7 +8,6 @@ import { AIOrchestrator } from '../ai-clients/ai-orchestrator.service'
 import { TasksGateway } from './gateways/tasks.gateway'
 import { ResultAggregatorService } from '../result-aggregation/result-aggregator.service'
 import { QualityValidationService } from '../quality-validation/quality-validation.service'
-import { Queue } from 'bullmq'
 
 /**
  * 问卷断点续跑功能的测试套件
@@ -27,14 +26,6 @@ describe('Questionnaire Resume Generation (TDD)', () => {
   const mockTaskId = 'test-task-id'
   const mockProjectId = 'test-project-id'
   const mockMatrixTaskId = 'test-matrix-task-id'
-
-  const mockMatrixResult = {
-    matrix: [
-      { cluster_id: 'cluster_1', cluster_name: '聚类1' },
-      { cluster_id: 'cluster_2', cluster_name: '聚类2' },
-      { cluster_id: 'cluster_3', cluster_name: '聚类3' },
-    ],
-  }
 
   const mockPartialResult = {
     questionnaire: [
@@ -215,11 +206,6 @@ describe('Questionnaire Resume Generation (TDD)', () => {
       const clusterId = 'cluster_1'
       aiTaskRepo.findOne = jest.fn().mockResolvedValue(mockCompletedTask)
 
-      const newQuestions = [
-        { question_id: 'Q001', cluster_id: clusterId, question_text: '新问题1' },
-        { question_id: 'Q002', cluster_id: clusterId, question_text: '新问题2' },
-      ]
-
       // Act
       const result = await service.regenerateCluster(mockTaskId, clusterId)
 
@@ -327,6 +313,104 @@ describe('Questionnaire Resume Generation (TDD)', () => {
     })
   })
   describe('Standard Interpretation Status Messaging', () => {
+    it('should mark stale standard interpretation extraction task as failed instead of reporting processing', async () => {
+      const taskId = 'stale-standard-extraction-task-id'
+      aiTaskRepo.findOne = jest.fn().mockResolvedValue({
+        id: taskId,
+        projectId: mockProjectId,
+        type: 'standard_interpretation',
+        status: 'processing',
+        generationStage: 'generating_models',
+        createdAt: new Date(Date.now() - 120 * 60000).toISOString(),
+        updatedAt: new Date(Date.now() - 45 * 60000).toISOString(),
+        completedAt: null,
+        errorMessage: null,
+        progressDetails: {
+          gpt4: {
+            status: 'generating',
+            message: '正在提取条款清单...',
+          },
+          totalClauses: 161,
+          totalBatches: 0,
+          currentBatch: 0,
+          phase: 'extraction',
+          stage: 'extracting_clauses',
+          stageMessage: '检测到161个条款，开始提取...',
+          percentage: 5,
+        },
+      })
+
+      const status = await service.getTaskStatus(taskId)
+
+      expect(status.status).toBe('failed')
+      expect(status.stage).toBe('failed')
+      expect(status.message).toContain('标准解读失败')
+      expect(status.message).toContain('任务已中断')
+      expect(status.details?.phase).toBe('extraction')
+      expect(status.details?.totalClauses).toBe(161)
+      expect(aiTaskRepo.update).toHaveBeenCalledWith(
+        taskId,
+        expect.objectContaining({
+          status: 'failed',
+          generationStage: 'failed',
+          errorMessage: expect.stringContaining('任务已中断'),
+        }),
+      )
+      const persistedUpdate = (aiTaskRepo.update as jest.Mock).mock.calls[0][1]
+      expect(persistedUpdate.progressDetails.phase).toBe('extraction')
+      expect(persistedUpdate.progressDetails.gpt4.status).toBe('failed')
+      expect(persistedUpdate.progressDetails.gpt4.error).toContain('任务已中断')
+    })
+
+    it('should mark stale standard interpretation batch task as failed instead of reporting processing', async () => {
+      const taskId = 'stale-standard-task-id'
+      aiTaskRepo.findOne = jest.fn().mockResolvedValue({
+        id: taskId,
+        projectId: mockProjectId,
+        type: 'standard_interpretation',
+        status: 'processing',
+        generationStage: 'generating_models',
+        createdAt: new Date(Date.now() - 120 * 60000).toISOString(),
+        updatedAt: new Date(Date.now() - 45 * 60000).toISOString(),
+        completedAt: null,
+        errorMessage: null,
+        progressDetails: {
+          gpt4: {
+            status: 'generating',
+            message: 'Zhipu AI 批次 18/33 完成',
+          },
+          totalClauses: 161,
+          totalBatches: 33,
+          currentBatch: 18,
+          phase: 'interpretation',
+          stage: 'interpreting_batches',
+          stageMessage: '批次进度: 18/33',
+          percentage: 59,
+        },
+      })
+
+      const status = await service.getTaskStatus(taskId)
+
+      expect(status.status).toBe('failed')
+      expect(status.stage).toBe('failed')
+      expect(status.message).toContain('标准解读失败')
+      expect(status.message).toContain('任务已中断')
+      expect(status.details?.currentBatch).toBe(18)
+      expect(status.details?.totalBatches).toBe(33)
+      expect(aiTaskRepo.update).toHaveBeenCalledWith(
+        taskId,
+        expect.objectContaining({
+          status: 'failed',
+          generationStage: 'failed',
+          errorMessage: expect.stringContaining('任务已中断'),
+        }),
+      )
+      const persistedUpdate = (aiTaskRepo.update as jest.Mock).mock.calls[0][1]
+      expect(persistedUpdate.progressDetails.currentBatch).toBe(18)
+      expect(persistedUpdate.progressDetails.gpt4.status).toBe('failed')
+      expect(persistedUpdate.progressDetails.gpt4.error).toContain('任务已中断')
+    })
+
     it('should return interpretation-specific processing message when progress details are still minimal', async () => {
       aiTaskRepo.findOne = jest.fn().mockResolvedValue({
         id: 'standard-task-id',
@@ -352,6 +436,33 @@ describe('Questionnaire Resume Generation (TDD)', () => {
       expect(status.message).toBe('正在解读标准内容...')
       expect(status.stage).toBe('generating_models')
       expect(status.progress.percentage).toBe(15)
+    })
+
+    it('should return matrix-specific progress message when matrix generation is running', async () => {
+      aiTaskRepo.findOne = jest.fn().mockResolvedValue({
+        id: 'matrix-task-id',
+        projectId: mockProjectId,
+        type: 'matrix',
+        status: 'processing',
+        generationStage: 'generating_models',
+        createdAt: new Date(Date.now() - 60000).toISOString(),
+        progressDetails: {
+          percentage: 58,
+          stage: 'generating_matrix',
+          stageMessage: '正在生成成熟度矩阵 (1/2)：8.1.2 过程描述',
+          currentCluster: 1,
+          totalClusters: 2,
+          clusterName: '8.1.2 过程描述',
+        },
+      })
+
+      const status = await service.getTaskStatus('matrix-task-id')
+
+      expect(status.status).toBe('processing')
+      expect(status.message).toBe('正在生成成熟度矩阵 (1/2)：8.1.2 过程描述')
+      expect(status.progress.percentage).toBe(58)
+      expect(status.details?.currentCluster).toBe(1)
+      expect(status.details?.totalClusters).toBe(2)
     })
   })
 })

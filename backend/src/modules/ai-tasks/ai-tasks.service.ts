@@ -3,7 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { InjectQueue } from '@nestjs/bullmq'
 import { Queue } from 'bullmq'
-import { AITask, TaskStatus } from '../../database/entities/ai-task.entity'
+import {
+  AITask,
+  AITaskType,
+  GenerationStage,
+  TaskProgressDetails,
+  TaskStatus,
+} from '../../database/entities/ai-task.entity'
 import { AI_TASK_QUEUE, AITaskJobType } from './constants/queue.constants'
 import { AITaskJobData } from './interfaces/queue-job.interface'
 import { AIModel } from '../../database/entities/ai-generation-event.entity'
@@ -12,6 +18,7 @@ import { CreateAITaskDto } from './dto/create-ai-task.dto'
 @Injectable()
 export class AITasksService {
   private readonly logger = new Logger(AITasksService.name)
+  private static readonly STANDARD_INTERPRETATION_STALE_MS = 20 * 60 * 1000
 
   constructor(
     @InjectRepository(AITask)
@@ -82,6 +89,75 @@ export class AITasksService {
     return task
   }
 
+  private isStaleStandardInterpretationTask(task: AITask): boolean {
+    if (task.type !== AITaskType.STANDARD_INTERPRETATION) {
+      return false
+    }
+
+    if (task.status !== TaskStatus.PROCESSING) {
+      return false
+    }
+
+    const details = task.progressDetails || {}
+    const isBatchInterpretation =
+      details.phase === 'interpretation' ||
+      details.stage === 'interpreting_batches' ||
+      typeof details.currentBatch === 'number'
+
+    if (!isBatchInterpretation) {
+      return false
+    }
+
+    const updatedAt = task.updatedAt ?? task.createdAt
+    const updatedAtMs = updatedAt ? new Date(updatedAt).getTime() : NaN
+
+    return (
+      Number.isFinite(updatedAtMs) &&
+      Date.now() - updatedAtMs >= AITasksService.STANDARD_INTERPRETATION_STALE_MS
+    )
+  }
+
+  private async markStaleStandardInterpretationTaskFailed(task: AITask): Promise<AITask> {
+    if (!this.isStaleStandardInterpretationTask(task)) {
+      return task
+    }
+
+    const now = new Date()
+    const staleMinutes = Math.floor(AITasksService.STANDARD_INTERPRETATION_STALE_MS / 60000)
+    const errorMessage = `标准解读任务已中断：后台执行进程停止或超过 ${staleMinutes} 分钟未更新进度，请重新生成。`
+    const progressDetails: TaskProgressDetails = {
+      ...(task.progressDetails || {}),
+      gpt4: {
+        ...(task.progressDetails?.gpt4 || {}),
+        status: 'failed',
+        error: errorMessage,
+        completed_at: now.toISOString(),
+      },
+      stageMessage: errorMessage,
+    }
+
+    await this.aiTaskRepo.update(task.id, {
+      status: TaskStatus.FAILED,
+      generationStage: GenerationStage.FAILED,
+      errorMessage,
+      completedAt: now,
+      progressDetails,
+    })
+
+    this.logger.warn(
+      `Marked stale standard interpretation task ${task.id} as failed after no progress update since ${task.updatedAt}`,
+    )
+
+    return {
+      ...task,
+      status: TaskStatus.FAILED,
+      generationStage: GenerationStage.FAILED,
+      errorMessage,
+      completedAt: now,
+      progressDetails,
+    }
+  }
+
   async getTaskStatus(taskId: string): Promise<{
     status: string
     stage: string
@@ -99,18 +175,23 @@ export class AITasksService {
       totalClauses?: number
       totalBatches?: number
       currentBatch?: number
+      totalClusters?: number
+      currentCluster?: number
+      clusterName?: string
       phase?: 'extraction' | 'interpretation'
       stage?: string
       stageMessage?: string
     }
   }> {
-    const task = await this.aiTaskRepo.findOne({
+    let task = await this.aiTaskRepo.findOne({
       where: { id: taskId },
     })
 
     if (!task) {
       throw new NotFoundException(`Task ${taskId} not found`)
     }
+
+    task = await this.markStaleStandardInterpretationTaskFailed(task)
 
     // 计算总耗时
     const elapsed = Date.now() - new Date(task.createdAt).getTime()
@@ -176,6 +257,9 @@ export class AITasksService {
       totalClauses: details.totalClauses,
       totalBatches: details.totalBatches,
       currentBatch: details.currentBatch,
+      totalClusters: details.totalClusters,
+      currentCluster: details.currentCluster,
+      clusterName: details.clusterName,
       phase: details.phase,
       stage: details.stage,
       stageMessage: details.stageMessage,
@@ -187,27 +271,31 @@ export class AITasksService {
 
     // 针对标准解读任务的特殊消息
     if (task.type === 'standard_interpretation') {
-      if (details.totalClauses > 0 && details.phase === 'extraction') {
-        message = `🔍 第一阶段：条款提取 - 共识别 ${details.totalClauses} 个条款`
-      } else if (details.totalClauses > 0 && details.phase === 'interpretation') {
-        message = `📊 第二阶段：批量解读 - 批次 ${details.currentBatch || 0}/${details.totalBatches || 0}`
-      } else if (task.status === TaskStatus.COMPLETED) {
+      if (task.status === TaskStatus.COMPLETED) {
         message = '✅ 标准解读完成'
       } else if (task.status === TaskStatus.FAILED) {
         message = `❌ 标准解读失败: ${task.errorMessage || '未知错误'}`
+      } else if (details.totalClauses > 0 && details.phase === 'extraction') {
+        message = `🔍 第一阶段：条款提取 - 共识别 ${details.totalClauses} 个条款`
+      } else if (details.totalClauses > 0 && details.phase === 'interpretation') {
+        message = `📊 第二阶段：批量解读 - 批次 ${details.currentBatch || 0}/${details.totalBatches || 0}`
       } else {
         message = details.stageMessage || '正在解读标准内容...'
       }
     } else {
       switch (stage) {
         case 'generating_models':
-          const generatingCount = Object.values(details).filter(
-            (m: any) => m && m.status === 'generating',
-          ).length
+          if (details.stageMessage) {
+            message = details.stageMessage
+            break
+          }
           const completedCount = Object.values(details).filter(
             (m: any) => m && m.status === 'completed',
           ).length
-          message = `正在生成聚类结果... (${completedCount}/3 模型完成)`
+          message =
+            task.type === 'matrix'
+              ? `正在生成成熟度矩阵... (${completedCount}/3 模型完成)`
+              : `正在生成聚类结果... (${completedCount}/3 模型完成)`
           break
         case 'quality_validation':
           message = '正在进行质量验证...'

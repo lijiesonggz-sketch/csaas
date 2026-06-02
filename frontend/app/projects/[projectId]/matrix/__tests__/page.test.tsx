@@ -25,6 +25,17 @@ jest.mock('@/lib/hooks/useTaskProgress', () => ({
   })),
 }))
 
+jest.mock('@/lib/hooks/useTaskProgressPolling', () => ({
+  useTaskProgressPolling: jest.fn(() => ({
+    progress: {
+      status: 'processing',
+      stage: 'generating_models',
+      progress: { percentage: 42 },
+      message: '正在生成成熟度矩阵 (20/48)',
+    },
+  })),
+}))
+
 jest.mock('@/lib/hooks/useAITaskCache', () => ({
   useAITaskCache: jest.fn(() => ({
     get: jest.fn(),
@@ -70,5 +81,30 @@ describe('MatrixPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /返回/ }))
     expect(mockBack).toHaveBeenCalledTimes(1)
+  })
+
+  it('resumes the latest processing matrix task after page reload', async () => {
+    const { AITasksAPI } = await import('@/lib/api/ai-tasks')
+    ;(AITasksAPI.getTasksByProject as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'matrix-task-1',
+        projectId: 'project-1',
+        type: 'matrix',
+        status: 'processing',
+        input: { clusteringTaskId: 'clustering-task-1' },
+        result: null,
+        progress: 0,
+        createdAt: '2026-06-02T13:34:33.859Z',
+        updatedAt: '2026-06-02T13:34:33.920Z',
+      },
+    ])
+
+    render(<MatrixPage />)
+
+    expect(await screen.findByRole('heading', { name: '正在生成成熟度矩阵' })).toBeInTheDocument()
+    expect(screen.getByText(/正在生成成熟度矩阵 \(20\/48\)/)).toBeInTheDocument()
+    expect(screen.queryByText('点击下方按钮开始生成成熟度矩阵')).not.toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '42')
+    expect(screen.queryByRole('button', { name: '生成矩阵' })).not.toBeInTheDocument()
   })
 })

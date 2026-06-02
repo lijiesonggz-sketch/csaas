@@ -20,14 +20,41 @@ export interface TaskProgress {
     totalClauses?: number
     totalBatches?: number
     currentBatch?: number
+    totalClusters?: number
+    currentCluster?: number
+    clusterName?: string
+    stage?: string
+    stageMessage?: string
   }
   progress: {
-    gpt4?: { status: string; message: string; error?: string; duration_ms?: number; percentage?: number; details?: { current: number; total: number } }
-    claude?: { status: string; message: string; error?: string; duration_ms?: number; percentage?: number; details?: { current: number; total: number } }
-    domestic?: { status: string; message: string; error?: string; duration_ms?: number; percentage?: number; details?: { current: number; total: number } }
+    gpt4?: {
+      status: string
+      message: string
+      error?: string
+      duration_ms?: number
+      percentage?: number
+      details?: { current: number; total: number }
+    }
+    claude?: {
+      status: string
+      message: string
+      error?: string
+      duration_ms?: number
+      percentage?: number
+      details?: { current: number; total: number }
+    }
+    domestic?: {
+      status: string
+      message: string
+      error?: string
+      duration_ms?: number
+      percentage?: number
+      details?: { current: number; total: number }
+    }
     validation_stage?: string
     aggregation_stage?: string
     total_elapsed_ms?: number
+    percentage?: number
   }
   message: string
 }
@@ -41,13 +68,7 @@ export interface UseTaskProgressPollingOptions {
 }
 
 export function useTaskProgressPolling(options: UseTaskProgressPollingOptions = {}) {
-  const {
-    taskId,
-    enabled = true,
-    pollingInterval = 5000,
-    onComplete,
-    onError,
-  } = options
+  const { taskId, enabled = true, pollingInterval = 5000, onComplete, onError } = options
 
   const [progress, setProgress] = useState<TaskProgress | null>(null)
   const [isLoading, setIsLoading] = useState(false)

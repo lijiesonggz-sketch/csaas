@@ -192,6 +192,7 @@ export class AITaskProcessor extends WorkerHost {
         // 准备输入
         const clusteringInput = {
           documents: processedInput.documents,
+          clusteringMode: processedInput.clusteringMode || 'auto',
           temperature: 0.7,
           maxTokens: processedInput.maxTokens || 60000,
         }
@@ -367,7 +368,32 @@ export class AITaskProcessor extends WorkerHost {
 
         // 调用MatrixGenerator.generate()（三模型并行）
         this.logger.log(`Step 1/3: Generating matrix results with 3 models...`)
-        const matrixResults = await this.matrixGenerator.generate(matrixInput)
+        const matrixResults = await this.matrixGenerator.generate(matrixInput, async (progress) => {
+          const percentage = Math.max(
+            30,
+            Math.min(85, 30 + Math.round((progress.current / Math.max(progress.total, 1)) * 55)),
+          )
+          const progressDetails = {
+            percentage,
+            stage: 'generating_matrix',
+            stageMessage: progress.message,
+            currentCluster: progress.current,
+            totalClusters: progress.total,
+            clusterName: progress.clusterName,
+          }
+
+          await this.aiTaskRepo.update(taskId, {
+            progress: percentage,
+            progressDetails,
+          })
+
+          this.tasksGateway.emitTaskProgress({
+            taskId,
+            progress: percentage,
+            message: progress.message,
+            currentStep: 'generating_matrix',
+          })
+        })
 
         // Step 2: 质量验证
         this.logger.log(`Step 2/3: Validating quality of 3 models...`)

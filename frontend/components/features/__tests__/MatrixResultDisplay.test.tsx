@@ -132,4 +132,29 @@ describe('MatrixResultDisplay', () => {
     expect(screen.getByText('置信度')).toBeInTheDocument()
     expect(screen.getByText('矩阵规模')).toBeInTheDocument()
   })
+
+  it('displays original maturity model extraction notice', () => {
+    render(
+      <MatrixResultDisplay
+        result={{
+          ...mockResult,
+          selectedResult: {
+            ...mockResult.selectedResult,
+            generation_mode: 'original_maturity_model',
+            extraction_summary: {
+              detected: true,
+              row_count: 1,
+              skipped_process_description_clusters: 2,
+            },
+          },
+        }}
+      />
+    )
+
+    expect(screen.getByText('成熟度模型提取完成！下一步：生成调研问卷')).toBeInTheDocument()
+    expect(screen.getByText('已按原始标准成熟度模型提取')).toBeInTheDocument()
+    expect(screen.getByText(/未调用AI重新生成等级定义/)).toBeInTheDocument()
+    expect(screen.getByText('生成方式')).toBeInTheDocument()
+    expect(screen.getByText('原文提取')).toBeInTheDocument()
+  })
 })

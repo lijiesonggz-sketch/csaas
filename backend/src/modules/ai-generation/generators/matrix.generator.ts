@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config'
 import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
 import { AIClientRequest } from '../../ai-clients/interfaces/ai-client.interface'
 import { AIModel } from '../../../database/entities/ai-generation-event.entity'
-import { fillMatrixPrompt, fillSingleClusterMatrixPrompt } from '../prompts/matrix.prompts'
+import { fillSingleClusterMatrixPrompt } from '../prompts/matrix.prompts'
 import { ClusteringGenerationOutput } from './clustering.generator'
 
 /**
@@ -36,6 +36,17 @@ export interface MatrixRow {
 export interface MatrixGenerationOutput {
   matrix: MatrixRow[] // 矩阵数据（N行 × 5列）
   maturity_model_description: string // 成熟度模型说明
+  generation_mode?: 'ai' | 'original_maturity_model'
+  extraction_summary?: {
+    detected: boolean
+    source: 'document_structure'
+    row_count: number
+    extracted_capability_level_clusters: number
+    extracted_overall_level_categories: number
+    skipped_process_description_clusters: number
+    warning_count: number
+    warnings: string[]
+  }
 }
 
 /**
@@ -45,6 +56,29 @@ export interface MatrixGenerationInput {
   clusteringResult: ClusteringGenerationOutput
   temperature?: number
   maxTokens?: number
+}
+
+export interface MatrixGenerationProgress {
+  current: number
+  total: number
+  clusterName: string
+  message: string
+}
+
+const ORIGINAL_MATURITY_LEVEL_NAMES: Record<number, string> = {
+  1: '初始级',
+  2: '受管理级',
+  3: '稳健级',
+  4: '量化管理级',
+  5: '优化级',
+}
+
+const LEVEL_LETTER_MAP: Record<string, number> = {
+  a: 1,
+  b: 2,
+  c: 3,
+  d: 4,
+  e: 5,
 }
 
 /**
@@ -73,7 +107,10 @@ export class MatrixGenerator {
    * @param input 生成输入
    * @returns 生成输出（三模型结果）
    */
-  async generate(input: MatrixGenerationInput): Promise<{
+  async generate(
+    input: MatrixGenerationInput,
+    onProgress?: (progress: MatrixGenerationProgress) => Promise<void> | void,
+  ): Promise<{
     gpt4: MatrixGenerationOutput
     claude: MatrixGenerationOutput
     domestic: MatrixGenerationOutput
@@ -85,6 +122,25 @@ export class MatrixGenerator {
     // 验证输入
     if (!clusteringResult || !clusteringResult.categories) {
       throw new Error('Valid clustering result is required for matrix generation')
+    }
+
+    const originalMaturityModel = this.tryExtractOriginalMaturityModel(clusteringResult)
+    if (originalMaturityModel) {
+      this.logger.log(
+        `Original maturity model detected. Extracted ${originalMaturityModel.matrix.length} matrix rows without AI regeneration.`,
+      )
+      await onProgress?.({
+        current: originalMaturityModel.matrix.length,
+        total: originalMaturityModel.matrix.length,
+        clusterName: '原始成熟度模型',
+        message: `检测到标准已内置成熟度等级，已按原文提取成熟度模型（${originalMaturityModel.matrix.length} 行）`,
+      })
+
+      return {
+        gpt4: originalMaturityModel,
+        claude: originalMaturityModel,
+        domestic: originalMaturityModel,
+      }
     }
 
     // 提取所有聚类
@@ -107,6 +163,12 @@ export class MatrixGenerator {
     for (let i = 0; i < allClusters.length; i++) {
       const cluster = allClusters[i]
       this.logger.log(`Processing cluster ${i + 1}/${totalClusters}: ${cluster.name}`)
+      await onProgress?.({
+        current: i,
+        total: totalClusters,
+        clusterName: cluster.name,
+        message: `正在生成成熟度矩阵 (${i + 1}/${totalClusters})：${cluster.name}`,
+      })
 
       try {
         // 调用单聚类生成方法
@@ -118,6 +180,12 @@ export class MatrixGenerator {
         domesticRows.push(singleResult.domestic)
 
         this.logger.log(`Completed cluster ${i + 1}/${totalClusters}`)
+        await onProgress?.({
+          current: i + 1,
+          total: totalClusters,
+          clusterName: cluster.name,
+          message: `正在生成成熟度矩阵 (${i + 1}/${totalClusters})：${cluster.name}`,
+        })
       } catch (error) {
         this.logger.error(
           `Failed to generate maturity for cluster ${cluster.name}: ${error.message}`,
@@ -159,6 +227,276 @@ export class MatrixGenerator {
       claude: claudeResult,
       domestic: domesticResult,
     }
+  }
+
+  private tryExtractOriginalMaturityModel(
+    clusteringResult: ClusteringGenerationOutput,
+  ): MatrixGenerationOutput | null {
+    const categories = clusteringResult.categories || []
+    const rows: MatrixRow[] = []
+    const warnings: string[] = []
+    let extractedCapabilityLevelClusters = 0
+    let extractedOverallLevelCategories = 0
+    let skippedProcessDescriptionClusters = 0
+    let explicitCapabilityLevelClusters = 0
+
+    for (const category of categories) {
+      const clusters = Array.isArray(category.clusters) ? category.clusters : []
+      skippedProcessDescriptionClusters += clusters.filter((cluster) =>
+        this.isProcessDescriptionCluster(cluster),
+      ).length
+
+      const overallRow = this.tryBuildOverallMaturityRow(category)
+      if (overallRow) {
+        rows.push(overallRow)
+        extractedOverallLevelCategories += 1
+        continue
+      }
+
+      const capabilityLevelClusters = clusters.filter((cluster) =>
+        this.isCapabilityLevelCluster(cluster),
+      )
+
+      for (const cluster of capabilityLevelClusters) {
+        const row = this.tryBuildCapabilityMaturityRow(category, cluster)
+        if (!row) {
+          warnings.push(`未能从 ${cluster.name} 提取至少 3 个成熟度等级`)
+          continue
+        }
+
+        rows.push(row)
+        extractedCapabilityLevelClusters += 1
+        if (/能力等级标准|成熟度等级标准|等级标准/.test(cluster.name || '')) {
+          explicitCapabilityLevelClusters += 1
+        }
+      }
+    }
+
+    const hasStructuredDocumentSignal =
+      clusteringResult.generation_mode === 'structured' ||
+      /原始层级|结构化|按原始|标准文档/.test(clusteringResult.clustering_logic || '')
+    const strongMaturitySignal =
+      extractedOverallLevelCategories > 0 ||
+      extractedCapabilityLevelClusters >= 2 ||
+      (hasStructuredDocumentSignal && explicitCapabilityLevelClusters >= 1)
+
+    if (rows.length === 0 || !strongMaturitySignal) {
+      return null
+    }
+
+    return {
+      matrix: rows,
+      maturity_model_description:
+        '检测到原标准文档已内置成熟度等级定义，系统按原文结构提取成熟度模型，未调用AI重新生成等级定义。矩阵内容保留原始标准条款语义，可用于后续问卷生成、证据清单和差距分析。',
+      generation_mode: 'original_maturity_model',
+      extraction_summary: {
+        detected: true,
+        source: 'document_structure',
+        row_count: rows.length,
+        extracted_capability_level_clusters: extractedCapabilityLevelClusters,
+        extracted_overall_level_categories: extractedOverallLevelCategories,
+        skipped_process_description_clusters: skippedProcessDescriptionClusters,
+        warning_count: warnings.length,
+        warnings,
+      },
+    }
+  }
+
+  private tryBuildOverallMaturityRow(category: any): MatrixRow | null {
+    if (!/成熟度.*等级|等级.*成熟度/.test(category.name || '')) {
+      return null
+    }
+
+    const levels = this.createEmptyLevelBuckets()
+    const clusters = Array.isArray(category.clusters) ? category.clusters : []
+
+    for (const cluster of clusters) {
+      const levelNumber = this.detectLevelNumber(
+        `${cluster.name || ''} ${cluster.description || ''}`,
+      )
+      if (!levelNumber) {
+        continue
+      }
+
+      levels[levelNumber].name = this.detectLevelName(
+        `${cluster.name || ''} ${cluster.description || ''}`,
+        levelNumber,
+      )
+      levels[levelNumber].clauses.push(...(Array.isArray(cluster.clauses) ? cluster.clauses : []))
+    }
+
+    if (this.countPopulatedLevels(levels) < 3) {
+      return null
+    }
+
+    return {
+      cluster_id: category.id,
+      cluster_name: category.name,
+      levels: this.buildMatrixLevels(levels),
+    }
+  }
+
+  private tryBuildCapabilityMaturityRow(category: any, cluster: any): MatrixRow | null {
+    const levels = this.createEmptyLevelBuckets()
+    const clauses = Array.isArray(cluster.clauses) ? cluster.clauses : []
+
+    for (const clause of clauses) {
+      const text = String(clause.clause_text || '')
+      const levelNumber = this.detectLevelNumberFromClause(clause)
+      if (!levelNumber) {
+        continue
+      }
+
+      levels[levelNumber].name = this.detectLevelName(text, levelNumber)
+      levels[levelNumber].clauses.push(clause)
+    }
+
+    if (this.countPopulatedLevels(levels) < 3) {
+      return null
+    }
+
+    return {
+      cluster_id: category.id || cluster.id,
+      cluster_name: category.name || cluster.name,
+      levels: this.buildMatrixLevels(levels),
+    }
+  }
+
+  private createEmptyLevelBuckets(): Record<number, { name: string; clauses: any[] }> {
+    return {
+      1: { name: ORIGINAL_MATURITY_LEVEL_NAMES[1], clauses: [] },
+      2: { name: ORIGINAL_MATURITY_LEVEL_NAMES[2], clauses: [] },
+      3: { name: ORIGINAL_MATURITY_LEVEL_NAMES[3], clauses: [] },
+      4: { name: ORIGINAL_MATURITY_LEVEL_NAMES[4], clauses: [] },
+      5: { name: ORIGINAL_MATURITY_LEVEL_NAMES[5], clauses: [] },
+    }
+  }
+
+  private buildMatrixLevels(
+    levelBuckets: Record<number, { name: string; clauses: any[] }>,
+  ): MatrixRow['levels'] {
+    return {
+      level_1: this.buildMaturityLevel(1, levelBuckets[1]),
+      level_2: this.buildMaturityLevel(2, levelBuckets[2]),
+      level_3: this.buildMaturityLevel(3, levelBuckets[3]),
+      level_4: this.buildMaturityLevel(4, levelBuckets[4]),
+      level_5: this.buildMaturityLevel(5, levelBuckets[5]),
+    }
+  }
+
+  private buildMaturityLevel(
+    levelNumber: number,
+    levelBucket: { name: string; clauses: any[] },
+  ): MaturityLevel {
+    const practices = levelBucket.clauses
+      .map((clause) => this.cleanOriginalRequirementText(String(clause.clause_text || '')))
+      .filter(Boolean)
+
+    if (practices.length === 0) {
+      return {
+        name: levelBucket.name || ORIGINAL_MATURITY_LEVEL_NAMES[levelNumber],
+        description: `原文未明确提供第 ${levelNumber} 级要求。`,
+        key_practices: [`原文未明确提供第 ${levelNumber} 级要求。`],
+      }
+    }
+
+    return {
+      name: levelBucket.name || ORIGINAL_MATURITY_LEVEL_NAMES[levelNumber],
+      description: `原文第 ${levelNumber} 级要求：${practices.join('；')}`,
+      key_practices: practices,
+    }
+  }
+
+  private isCapabilityLevelCluster(cluster: any): boolean {
+    if (/能力等级标准|成熟度等级标准|等级标准/.test(cluster.name || '')) {
+      return true
+    }
+
+    const clauses = Array.isArray(cluster.clauses) ? cluster.clauses : []
+    const detectedLevels = new Set(
+      clauses.map((clause) => this.detectLevelNumberFromClause(clause)).filter(Boolean),
+    )
+
+    return detectedLevels.size >= 3
+  }
+
+  private isProcessDescriptionCluster(cluster: any): boolean {
+    return /过程描述/.test(cluster.name || '')
+  }
+
+  private countPopulatedLevels(levels: Record<number, { name: string; clauses: any[] }>): number {
+    return Object.values(levels).filter((level) => level.clauses.length > 0).length
+  }
+
+  private detectLevelNumberFromClause(clause: any): number | null {
+    const textLevel = this.detectLevelNumber(String(clause.clause_text || ''))
+    if (textLevel) {
+      return textLevel
+    }
+
+    const idMatch = String(clause.clause_id || '').match(/-([a-eA-E])(?:-\d+)?$/)
+    if (!idMatch) {
+      return null
+    }
+
+    return LEVEL_LETTER_MAP[idMatch[1].toLowerCase()] || null
+  }
+
+  private detectLevelNumber(value: string): number | null {
+    const normalized = value.replace(/\s+/g, ' ')
+    const numericMatch = normalized.match(/第\s*([1-5一二三四五])\s*级/)
+    if (numericMatch) {
+      return this.parseLevelNumber(numericMatch[1])
+    }
+
+    if (/初始级/.test(normalized)) return 1
+    if (/受管理级|可重复级/.test(normalized)) return 2
+    if (/稳健级|已定义级|规范级/.test(normalized)) return 3
+    if (/量化管理级|可管理级/.test(normalized)) return 4
+    if (/优化级/.test(normalized)) return 5
+
+    return null
+  }
+
+  private detectLevelName(value: string, levelNumber: number): string {
+    const normalized = value.replace(/\s+/g, ' ')
+    const explicitName = normalized.match(
+      /第\s*[1-5一二三四五]\s*级\s*[，,、:：]\s*([^，,、:：；;。\n\s]+级)/,
+    )?.[1]
+    if (explicitName) {
+      return explicitName
+    }
+
+    const knownName = normalized.match(
+      /(初始级|受管理级|可重复级|稳健级|已定义级|规范级|量化管理级|可管理级|优化级)/,
+    )?.[1]
+    return knownName || ORIGINAL_MATURITY_LEVEL_NAMES[levelNumber]
+  }
+
+  private parseLevelNumber(value: string): number | null {
+    const chineseMap: Record<string, number> = {
+      一: 1,
+      二: 2,
+      三: 3,
+      四: 4,
+      五: 5,
+    }
+    const parsed = Number(value)
+    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 5) {
+      return parsed
+    }
+    return chineseMap[value] || null
+  }
+
+  private cleanOriginalRequirementText(value: string): string {
+    return value
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .replace(/\s+/g, ' ')
+      .replace(/^[a-eA-E]\)\s*/, '')
+      .replace(/^第\s*[1-5一二三四五]\s*级\s*[，,、:：]\s*[^:：]*[:：]\s*/, '')
+      .replace(/^\d+\)\s*/, '')
+      .trim()
   }
 
   /**
@@ -214,7 +552,6 @@ export class MatrixGenerator {
     ])
 
     const gpt4Response = results[0].status === 'fulfilled' ? results[0].value : null
-    const claudeResponse = null // ⚠️ 临时禁用Claude
     const domesticResponse = results[1].status === 'fulfilled' ? results[1].value : null // 注意索引变化
 
     // 统计成功数量
@@ -230,7 +567,7 @@ export class MatrixGenerator {
 
     if (gpt4Response) {
       try {
-        const parsed = this.parseSingleClusterResponse(gpt4Response.content, cluster)
+        const parsed = this.parseSingleClusterResponse(gpt4Response.content)
         gpt4Row = parsed
       } catch (error) {
         this.logger.error(`Failed to parse GPT-4 single cluster response: ${error.message}`)
@@ -249,7 +586,7 @@ export class MatrixGenerator {
 
     if (domesticResponse) {
       try {
-        const parsed = this.parseSingleClusterResponse(domesticResponse.content, cluster)
+        const parsed = this.parseSingleClusterResponse(domesticResponse.content)
         domesticRow = parsed
       } catch (error) {
         this.logger.error(
@@ -278,7 +615,7 @@ export class MatrixGenerator {
   /**
    * 解析单聚类响应
    */
-  private parseSingleClusterResponse(content: string, cluster: any): MatrixRow {
+  private parseSingleClusterResponse(content: string): MatrixRow {
     try {
       // 1. 移除markdown代码块标记
       let cleanedContent = content.trim()
@@ -297,7 +634,7 @@ export class MatrixGenerator {
       parsed = this.fixEscapedArrays(parsed)
 
       // 5. 验证单聚类行结构
-      this.validateMatrixRow(parsed, cluster)
+      this.validateMatrixRow(parsed)
 
       return parsed as MatrixRow
     } catch (error) {
@@ -311,7 +648,7 @@ export class MatrixGenerator {
           extractedContent = this.sanitizeJsonString(extractedContent)
           let parsed = JSON.parse(extractedContent)
           parsed = this.fixEscapedArrays(parsed)
-          this.validateMatrixRow(parsed, cluster)
+          this.validateMatrixRow(parsed)
           return parsed as MatrixRow
         } catch (e) {
           this.logger.error(`Failed to extract and parse: ${e.message}`)
@@ -325,7 +662,7 @@ export class MatrixGenerator {
   /**
    * 验证单个矩阵行的结构
    */
-  private validateMatrixRow(row: any, cluster: any): void {
+  private validateMatrixRow(row: any): void {
     // 检查必需字段
     if (!row.cluster_id || !row.cluster_name || !row.levels) {
       throw new Error('Missing required fields: cluster_id, cluster_name, or levels')
@@ -380,8 +717,9 @@ export class MatrixGenerator {
     timeoutMs: number,
     modelName: string,
   ): Promise<T> {
+    let timeoutHandle: NodeJS.Timeout | undefined
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
+      timeoutHandle = setTimeout(() => {
         reject(
           new Error(
             `${modelName} matrix generation timeout after ${(timeoutMs / 1000).toFixed(1)}s`,
@@ -390,7 +728,13 @@ export class MatrixGenerator {
       }, timeoutMs)
     })
 
-    return Promise.race([promise, timeoutPromise])
+    try {
+      return await Promise.race([promise, timeoutPromise])
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle)
+      }
+    }
   }
 
   /**
@@ -559,7 +903,7 @@ export class MatrixGenerator {
             try {
               fixed[key] = this.fixEscapedArrays(JSON.parse(value))
               this.logger.debug(`Fixed escaped ${key} field`)
-            } catch (e) {
+            } catch {
               fixed[key] = value
             }
           } else {

@@ -302,7 +302,7 @@ export class ProjectsController {
       }
     }
 
-    const newTask = await this.taskRerunService.rerunWithBackup(projectId, dto.type)
+    const newTask = await this.taskRerunService.rerunWithBackup(projectId, dto.type, userId)
     return {
       success: true,
       data: newTask,

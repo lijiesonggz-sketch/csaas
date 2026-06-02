@@ -16,6 +16,7 @@ import { ControlPoint } from '../../database/entities/control-point.entity'
 import { RegulationClause } from '../../database/entities/regulation-clause.entity'
 import { AIGenerationModule } from '../ai-generation/ai-generation.module'
 import { AIClientsModule } from '../ai-clients/ai-clients.module'
+import { AITasksModule } from '../ai-tasks/ai-tasks.module'
 import { OrganizationsModule } from '../organizations/organizations.module'
 import { ProjectReviewController } from './controllers/project-review.controller'
 import { ProjectReviewService } from './services/project-review.service'
@@ -33,6 +34,7 @@ import { ProjectReviewService } from './services/project-review.service'
     ]),
     AIGenerationModule,
     AIClientsModule,
+    AITasksModule,
     OrganizationsModule,
   ],
   controllers: [ProjectsController, ProjectReviewController, TestDebugController],

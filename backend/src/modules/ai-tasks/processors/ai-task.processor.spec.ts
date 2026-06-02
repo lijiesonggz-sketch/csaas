@@ -162,4 +162,111 @@ describe('AITaskProcessor document loading', () => {
       expect.any(Function),
     )
   })
+
+  it('应该把聚类生成模式传递给 ClusteringGenerator', async () => {
+    const { processor, mocks } = createProcessor()
+
+    await processor.process({
+      data: {
+        taskId: 'task-1',
+        type: AITaskType.CLUSTERING,
+        projectId: 'project-1',
+        input: {
+          documentIds: ['doc-1'],
+          maxTokens: 60000,
+          clusteringMode: 'ai',
+        },
+      },
+      updateProgress: jest.fn().mockResolvedValue(undefined),
+    } as any)
+
+    expect(mocks.clusteringGenerator.generate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clusteringMode: 'ai',
+      }),
+      'task-1',
+      expect.any(Function),
+    )
+  })
+
+  it('应该在矩阵逐聚类生成时写入可恢复进度', async () => {
+    const matrixGenerator = {
+      generate: jest.fn(async (_input, onProgress) => {
+        await onProgress({
+          current: 1,
+          total: 2,
+          clusterName: '8.1.2 过程描述',
+          message: '正在生成成熟度矩阵 (1/2)：8.1.2 过程描述',
+        })
+
+        return {
+          gpt4: { matrix: [] },
+          claude: { matrix: [] },
+          domestic: { matrix: [] },
+        }
+      }),
+    }
+    const resultAggregator = {
+      aggregate: jest.fn().mockResolvedValue({
+        selectedModel: 'gpt4',
+        selectedResult: {
+          matrix: [],
+          maturity_model_description: 'test model',
+        },
+        qualityScores: {},
+        confidenceLevel: 'high',
+        consistencyReport: {},
+      }),
+    }
+    const { processor, mocks } = createProcessor({
+      matrixGenerator,
+      resultAggregator,
+    })
+
+    mocks.aiTaskRepo.findOne.mockResolvedValue({
+      id: 'clustering-task-1',
+      result: {
+        categories: [
+          {
+            clusters: [{ id: 'cluster-1', name: '8.1.2 过程描述', clauses: [] }],
+          },
+        ],
+      },
+    })
+
+    await processor.process({
+      data: {
+        taskId: 'matrix-task-1',
+        type: AITaskType.MATRIX,
+        projectId: 'project-1',
+        input: {
+          clusteringTaskId: 'clustering-task-1',
+        },
+      },
+      updateProgress: jest.fn().mockResolvedValue(undefined),
+    } as any)
+
+    expect(mocks.aiTaskRepo.update).toHaveBeenCalledWith(
+      'matrix-task-1',
+      expect.objectContaining({
+        progress: 58,
+        progressDetails: expect.objectContaining({
+          percentage: 58,
+          stage: 'generating_matrix',
+          stageMessage: '正在生成成熟度矩阵 (1/2)：8.1.2 过程描述',
+          currentCluster: 1,
+          totalClusters: 2,
+          clusterName: '8.1.2 过程描述',
+        }),
+      }),
+    )
+    expect(mocks.tasksGateway.emitTaskProgress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: 'matrix-task-1',
+        progress: 58,
+        message: '正在生成成熟度矩阵 (1/2)：8.1.2 过程描述',
+        currentStep: 'generating_matrix',
+      }),
+    )
+  })
 })

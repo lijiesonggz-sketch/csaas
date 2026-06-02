@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { AITask, AITaskType, TaskStatus } from '@/database/entities'
-import { AIGenerationService } from '../../ai-generation/ai-generation.service'
+import { AITasksService } from '../../ai-tasks/ai-tasks.service'
 
 @Injectable()
 export class TaskRerunService {
@@ -11,7 +11,7 @@ export class TaskRerunService {
   constructor(
     @InjectRepository(AITask)
     private readonly aiTaskRepo: Repository<AITask>,
-    private readonly aiGenerationService: AIGenerationService,
+    private readonly aiTasksService: AITasksService,
   ) {}
 
   /**
@@ -31,28 +31,41 @@ export class TaskRerunService {
       throw new NotFoundException('没有可重跑的任务')
     }
 
+    let backupResult: Record<string, any> | null = null
+    let backupCreatedAt: Date | null = null
+
     // 2. 将当前结果存入backup_result
     if (currentTask.result) {
-      currentTask.backupResult = currentTask.result
-      currentTask.backupCreatedAt = new Date()
+      backupResult = currentTask.result
+      backupCreatedAt = new Date()
+      currentTask.backupResult = backupResult
+      currentTask.backupCreatedAt = backupCreatedAt
       await this.aiTaskRepo.save(currentTask)
       this.logger.log(`Backup created for task ${currentTask.id}`)
     }
 
-    // 3. 创建新任务（调用现有AI生成逻辑）
-    const newTask = await this.aiGenerationService.generateContent({
-      taskId: projectId,
-      generationType: taskType,
-      input: currentTask.input, // 使用相同的输入
-    })
+    // 3. 创建新的队列任务，沿用当前任务输入
+    const newTask = await this.aiTasksService.createTask(
+      {
+        projectId,
+        type: taskType,
+        input: currentTask.input,
+      },
+      userId || 'system',
+    )
+
+    if (backupResult && backupCreatedAt) {
+      await this.aiTaskRepo.update(newTask.id, {
+        backupResult,
+        backupCreatedAt,
+      })
+      newTask.backupResult = backupResult
+      newTask.backupCreatedAt = backupCreatedAt
+    }
 
     this.logger.log(`Rerun task ${taskType} for project ${projectId}`)
 
-    // 返回创建的任务
-    return this.aiTaskRepo.findOne({
-      where: { projectId, type: taskType },
-      order: { createdAt: 'DESC' },
-    }) as Promise<AITask>
+    return newTask
   }
 
   /**

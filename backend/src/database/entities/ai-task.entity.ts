@@ -69,6 +69,9 @@ export interface TaskProgressDetails {
   totalClauses?: number
   totalBatches?: number
   currentBatch?: number
+  totalClusters?: number
+  currentCluster?: number
+  clusterName?: string
   phase?: 'extraction' | 'interpretation'
   stage?: string
   stageMessage?: string
