@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AdvisoryWorkspaceShell from './AdvisoryWorkspaceShell'
 import { fetchThinkTankSessionHistory, searchThinkTankHistory } from '@/lib/advisory/history'
-import { resumeThinkTankSession } from '@/lib/advisory/sessions'
+import { fetchThinkTankUnfinishedSessions, resumeThinkTankSession } from '@/lib/advisory/sessions'
 import {
   fetchThinkTankSessionMessages,
   type ThinkTankWorkflowLaunchResult,
@@ -223,9 +223,24 @@ jest.mock('@/lib/advisory/history', () => ({
 
 const mockFetchHistory = fetchThinkTankSessionHistory as jest.Mock
 const mockSearchHistory = searchThinkTankHistory as jest.Mock
+const mockFetchUnfinished = fetchThinkTankUnfinishedSessions as jest.Mock
 const mockResumeSession = resumeThinkTankSession as jest.Mock
 const mockFetchMessages = fetchThinkTankSessionMessages as jest.Mock
 const mockFetchOutput = fetchThinkTankWorkflowOutput as jest.Mock
+
+async function openSidebarTab(
+  user: ReturnType<typeof userEvent.setup>,
+  tabName: '工作' | '产物' | '新建'
+) {
+  const navigation = await screen.findByRole('navigation', { name: '咨询工作流' })
+  await user.click(await within(navigation).findByRole('tab', { name: tabName }))
+  return navigation
+}
+
+async function openAssetsRegion(user: ReturnType<typeof userEvent.setup>) {
+  await openSidebarTab(user, '产物')
+  return screen.findByRole('region', { name: '历史记录' })
+}
 
 function createHistoryItem(overrides: Record<string, unknown> = {}) {
   return {
@@ -319,7 +334,7 @@ describe('AdvisoryWorkspaceShell history and search', () => {
     const user = userEvent.setup()
     render(<AdvisoryWorkspaceShell />)
 
-    const historyRegion = await screen.findByRole('region', { name: '历史记录' })
+    const historyRegion = await openAssetsRegion(user)
     expect(
       within(historyRegion).getByRole('button', { name: /打开报告 Retention Diagnosis/ })
     ).toBeInTheDocument()
@@ -330,7 +345,7 @@ describe('AdvisoryWorkspaceShell history and search', () => {
     await user.selectOptions(within(historyRegion).getByLabelText('历史状态'), 'completed')
     await user.selectOptions(within(historyRegion).getByLabelText('历史工作流'), 'problem-solving')
     await user.type(within(historyRegion).getByRole('searchbox', { name: '搜索历史记录' }), 'setup')
-    await user.click(within(historyRegion).getByRole('button', { name: '搜索历史' }))
+    await user.click(within(historyRegion).getByRole('button', { name: '搜索产物' }))
 
     await waitFor(() =>
       expect(mockSearchHistory).toHaveBeenLastCalledWith(
@@ -365,11 +380,10 @@ describe('AdvisoryWorkspaceShell history and search', () => {
     })
     render(<AdvisoryWorkspaceShell />)
 
-    const historyRegion = await screen.findByRole('region', { name: '历史记录' })
-    await user.click(
-      within(historyRegion).getByRole('button', { name: /继续会话 Active Diagnosis/ })
-    )
-    expect(await screen.findByText('Active session recovered.')).toBeInTheDocument()
+    const historyRegion = await openAssetsRegion(user)
+    expect(
+      within(historyRegion).queryByRole('button', { name: /继续会话 Active Diagnosis/ })
+    ).not.toBeInTheDocument()
 
     await user.click(
       within(historyRegion).getByRole('button', { name: /打开报告 Retention Diagnosis/ })
@@ -379,9 +393,81 @@ describe('AdvisoryWorkspaceShell history and search', () => {
       expect(mockFetchOutput).toHaveBeenCalledWith('session-1', { outputId: 'output-1' })
     )
     expect(mockFetchMessages).not.toHaveBeenCalledWith('session-1')
-    expect(screen.getByText('Active session recovered.')).toBeInTheDocument()
     expect(screen.getByLabelText('Mock document drawer')).toHaveTextContent(
       'Document drawer open: Retention Diagnosis'
+    )
+  })
+
+  test('[P0] opens a draft report history item with its session transcript on first ThinkTank visit', async () => {
+    const user = userEvent.setup()
+    mockFetchHistory.mockResolvedValueOnce({
+      items: [
+        createHistoryItem({
+          id: 'output-draft-1',
+          sessionId: 'session-draft-1',
+          outputId: 'output-draft-1',
+          workflowKey: 'brainstorming',
+          workflowType: 'Brainstorming',
+          title: 'Brainstorming Report Draft',
+          summary: 'Brainstorming ideas are still being drafted.',
+          status: 'draft',
+          lastStep: { index: 3, label: 'Diverge ideas' },
+          timestamp: '2026-05-21T01:11:00.000Z',
+          openTarget: 'view-output',
+        }),
+      ],
+      meta: { page: 1, limit: 20, total: 1 },
+    })
+    mockFetchMessages.mockResolvedValueOnce({
+      sessionId: 'session-draft-1',
+      currentStep: { index: 3, label: 'Diverge ideas', sourceRef: 'current-step:3' },
+      messages: [
+        {
+          id: 'message-draft-1',
+          role: 'assistant',
+          content: 'Draft brainstorming transcript is available.',
+          workflowKey: 'brainstorming',
+          stepIndex: 3,
+          decisionOptions: [],
+        },
+      ],
+    })
+    mockFetchOutput.mockResolvedValueOnce({
+      sessionId: 'session-draft-1',
+      output: {
+        id: 'output-draft-1',
+        sessionId: 'session-draft-1',
+        workflowKey: 'brainstorming',
+        status: 'draft',
+        title: 'Brainstorming Report Draft',
+        summary: 'Brainstorming ideas are still being drafted.',
+        contentMarkdown: '# Brainstorming Report Draft',
+        sections: [],
+        aiLabelMetadata: { visible_label: '[AI Generated]' },
+        metadata: {},
+      },
+    })
+
+    render(<AdvisoryWorkspaceShell />)
+
+    const historyRegion = await openAssetsRegion(user)
+    expect(screen.getByText('Quick Consult Ready')).toBeInTheDocument()
+
+    await user.click(
+      within(historyRegion).getByRole('button', { name: /打开报告 Brainstorming Report Draft/ })
+    )
+
+    await waitFor(() => expect(mockFetchMessages).toHaveBeenCalledWith('session-draft-1'))
+    await waitFor(() =>
+      expect(mockFetchOutput).toHaveBeenCalledWith('session-draft-1', {
+        outputId: 'output-draft-1',
+      })
+    )
+    expect(await screen.findByRole('heading', { name: 'Brainstorming' })).toBeInTheDocument()
+    expect(screen.getByText('Draft brainstorming transcript is available.')).toBeInTheDocument()
+    expect(screen.queryByText('Quick Consult Ready')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Mock document drawer')).toHaveTextContent(
+      'Document drawer open: Brainstorming Report Draft'
     )
   })
 
@@ -424,7 +510,7 @@ describe('AdvisoryWorkspaceShell history and search', () => {
 
     render(<AdvisoryWorkspaceShell />)
 
-    const historyRegion = await screen.findByRole('region', { name: '历史记录' })
+    const historyRegion = await openAssetsRegion(user)
     await user.click(
       within(historyRegion).getByRole('button', { name: /打开会话 Completed Product Brief/ })
     )
@@ -445,6 +531,21 @@ describe('AdvisoryWorkspaceShell history and search', () => {
 
   test('[P0][4.3-FE-012][AC2] uses the existing resume path for active session results', async () => {
     const user = userEvent.setup()
+    mockFetchUnfinished.mockResolvedValueOnce({
+      sessions: [
+        {
+          sessionId: 'session-active',
+          workflowKey: 'problem-solving',
+          workflowType: 'Problem Solving',
+          title: 'Active Diagnosis',
+          lastStep: { index: 2, label: 'Map constraints' },
+          status: 'active',
+          statusSummary: '未完成 - Map constraints',
+          lastActivityAt: '2026-05-21T01:06:00.000Z',
+          checkpointSource: 'hot',
+        },
+      ],
+    })
     mockFetchHistory.mockResolvedValueOnce({
       items: [
         createHistoryItem({
@@ -463,9 +564,17 @@ describe('AdvisoryWorkspaceShell history and search', () => {
     })
     render(<AdvisoryWorkspaceShell />)
 
-    const historyRegion = await screen.findByRole('region', { name: '历史记录' })
-    const activeHistoryButton = within(historyRegion).getByRole('button', {
-      name: /继续会话 Active Diagnosis/,
+    const historyRegion = await openAssetsRegion(user)
+    expect(
+      within(historyRegion).queryByRole('button', {
+        name: /继续会话 Active Diagnosis/,
+      })
+    ).not.toBeInTheDocument()
+
+    await openSidebarTab(user, '工作')
+    const workRegion = await screen.findByRole('region', { name: '当前任务' })
+    const activeHistoryButton = within(workRegion).getByRole('button', {
+      name: /继续 Active Diagnosis/,
     })
     expect(within(activeHistoryButton).getByText('继续')).toBeInTheDocument()
     await user.click(activeHistoryButton)
@@ -483,19 +592,20 @@ describe('AdvisoryWorkspaceShell history and search', () => {
 
     render(<AdvisoryWorkspaceShell />)
 
-    const historyRegion = await screen.findByRole('region', { name: '历史记录' })
-    expect(within(historyRegion).getByText('暂无历史记录')).toBeInTheDocument()
-    const startButton = within(historyRegion).getByRole('button', { name: '开始第一次咨询' })
-    startButton.focus()
-    expect(startButton).toHaveFocus()
+    const historyRegion = await openAssetsRegion(user)
+    expect(within(historyRegion).getByText('暂无产物')).toBeInTheDocument()
+    const newTab = screen.getByRole('tab', { name: '新建' })
+    newTab.focus()
+    expect(newTab).toHaveFocus()
 
     await user.keyboard('{Enter}')
-    expect(screen.getByRole('button', { name: 'Quick Consult' })).toHaveFocus()
-    expect(screen.getByText('Quick Consult Ready')).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: '新建工作流' })).toBeInTheDocument()
   })
 
   test('[P0][4.3-FE-014][AC1] clears stale history when signed-in identity changes', async () => {
+    const user = userEvent.setup()
     const { rerender } = render(<AdvisoryWorkspaceShell />)
+    await openSidebarTab(user, '产物')
     expect(
       await screen.findByRole('button', { name: /打开报告 Retention Diagnosis/ })
     ).toBeInTheDocument()
@@ -525,6 +635,7 @@ describe('AdvisoryWorkspaceShell history and search', () => {
     rerender(<AdvisoryWorkspaceShell />)
 
     await waitFor(() => expect(mockFetchHistory).toHaveBeenCalledTimes(2))
+    await openSidebarTab(user, '产物')
     expect(
       await screen.findByRole('button', { name: /打开报告 Tenant Two Report/ })
     ).toBeInTheDocument()

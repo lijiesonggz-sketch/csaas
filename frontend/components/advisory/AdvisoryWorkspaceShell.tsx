@@ -9,7 +9,9 @@ import {
   FileText,
   History as HistoryIcon,
   LogOut,
+  Maximize2,
   MessageSquareText,
+  Minimize2,
   RotateCcw,
   Search,
   SendHorizontal,
@@ -164,6 +166,7 @@ type OrganizationContextStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'erro
 type UnfinishedSessionsStatus = 'idle' | 'loading' | 'ready' | 'error'
 type HistoryLoadStatus = 'idle' | 'loading' | 'ready' | 'error'
 type HistoryTimeFilter = 'all' | '7d' | '30d'
+type SidebarTab = 'work' | 'assets' | 'new'
 type LifecycleAction =
   | { type: 'safe-exit'; sessionId: string; title: string }
   | { type: 'session-delete'; sessionId: string; title: string }
@@ -709,6 +712,7 @@ export default function AdvisoryWorkspaceShell() {
   const [historyStatusFilter, setHistoryStatusFilter] = useState<ThinkTankHistoryStatus>('all')
   const [historyWorkflowFilter, setHistoryWorkflowFilter] = useState('all')
   const [historyTimeFilter, setHistoryTimeFilter] = useState<HistoryTimeFilter>('all')
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('new')
   const [openingHistoryItemKey, setOpeningHistoryItemKey] = useState<string | null>(null)
   const [resumingSessionId, setResumingSessionId] = useState<string | null>(null)
   const [resumeError, setResumeError] = useState<string | null>(null)
@@ -716,6 +720,7 @@ export default function AdvisoryWorkspaceShell() {
   const [launchingWorkflowKey, setLaunchingWorkflowKey] = useState<string | null>(null)
   const [launchError, setLaunchError] = useState<string | null>(null)
   const [activeLaunch, setActiveLaunch] = useState<ThinkTankWorkflowLaunchResult | null>(null)
+  const [focusMode, setFocusMode] = useState(false)
   const [sessionMessagesStatus, setSessionMessagesStatus] = useState<SessionMessagesStatus>('idle')
   const [sessionMessages, setSessionMessages] = useState<ThinkTankConversationMessage[]>([])
   const [messageError, setMessageError] = useState<string | null>(null)
@@ -911,6 +916,8 @@ export default function AdvisoryWorkspaceShell() {
     setLifecycleActionError(null)
     setLifecycleActionInFlight(false)
     setActiveLaunch(null)
+    setSidebarTab('new')
+    setFocusMode(false)
     activeLaunchRef.current = null
     setHistoryPreviewOutput(null)
     streamAbortRef.current?.abort()
@@ -940,6 +947,14 @@ export default function AdvisoryWorkspaceShell() {
       .then((result) => {
         if (isCancelled) return
         setUnfinishedSessions(result.sessions)
+        setSidebarTab(
+          activeLaunchRef.current ||
+            result.sessions.some(
+              (sessionCard) => sessionCard.status === 'active' || sessionCard.status === 'paused'
+            )
+            ? 'work'
+            : 'new'
+        )
         setUnfinishedSessionsStatus('ready')
       })
       .catch((error) => {
@@ -1102,6 +1117,7 @@ export default function AdvisoryWorkspaceShell() {
       outputExportRequestIdRef.current += 1
       setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
       setWorkspaceMode('workflow')
+      setSidebarTab('work')
       setActiveLaunch(launch)
       showCheckpointWarning(launch.checkpointWarning)
     } catch (error) {
@@ -1226,6 +1242,7 @@ export default function AdvisoryWorkspaceShell() {
       outputExportRequestIdRef.current += 1
       setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
       setWorkspaceMode('workflow')
+      setSidebarTab('work')
       setActiveLaunch(launch)
       markVisibleSessionResumed(resumed.session)
       showCheckpointWarning(resumed.checkpointWarning ?? switchCheckpointWarning)
@@ -1316,6 +1333,72 @@ export default function AdvisoryWorkspaceShell() {
       setOpeningHistoryItemKey(getHistoryItemKey(item))
       setHistoryError(null)
 
+      if (item.status === 'draft') {
+        streamAbortRef.current?.abort()
+        streamAbortRef.current = null
+        messageStreamRequestIdRef.current += 1
+        messageSubmitInFlightRef.current = false
+        setIsSubmittingMessage(false)
+        setMessageStreamingStatus('idle')
+        setStreamingMessageId(null)
+        setLaunchError(null)
+        setMessageError(null)
+        setCheckpointWarningMessage(null)
+        const isCurrentSession = activeLaunchRef.current?.sessionId === item.sessionId
+
+        try {
+          const [messagesResult, outputResult] = await Promise.allSettled([
+            fetchThinkTankSessionMessages(item.sessionId),
+            fetchThinkTankWorkflowOutput(item.sessionId, {
+              outputId: item.outputId,
+            }),
+          ])
+          if (historyOpenRequestIdRef.current !== openRequestId) return
+          if (messagesResult.status === 'rejected') {
+            throw messagesResult.reason
+          }
+          if (outputResult.status === 'rejected') {
+            throw outputResult.reason
+          }
+
+          const launch = createHistoryWorkflowLaunch(item, messagesResult.value.currentStep)
+          activeLaunchRef.current = launch
+          skipNextSessionMessagesLoadRef.current = launch.sessionId
+          skipNextOutputLoadRef.current = launch.sessionId
+          setSessionMessages(messagesResult.value.messages)
+          setSessionMessagesStatus('ready')
+          setMessageStreamingStatus('idle')
+          setStreamingMessageId(null)
+          setStreamAnnouncement('')
+          setHasUnreadStreamContent(false)
+          setShowAllMessages(false)
+          setSelectedDecisionLabel(null)
+          setWorkflowOutput(outputResult.value.output)
+          setHistoryPreviewOutput(null)
+          setHasUnreadDocumentContent(false)
+          setOutputAnnouncement(`已打开历史报告：${item.title}`)
+          setOutputCompletionFeedback(undefined)
+          setOutputExportingFormat(null)
+          setOutputExportError(null)
+          if (!isCurrentSession) {
+            setRecoveryMessage(null)
+          }
+          outputExportRequestIdRef.current += 1
+          setDraft(readStoredDraft(userPreferenceIdentity, launch.sessionId))
+          setWorkspaceMode('workflow')
+          setActiveLaunch(launch)
+          setDocumentDrawerOpen(true)
+        } catch (error) {
+          if (historyOpenRequestIdRef.current !== openRequestId) return
+          setHistoryError(readWorkflowErrorMessage(error, THINKTANK_HISTORY_LOAD_FAILED_MESSAGE))
+        } finally {
+          if (historyOpenRequestIdRef.current === openRequestId) {
+            setOpeningHistoryItemKey(null)
+          }
+        }
+        return
+      }
+
       try {
         const outputResult = await fetchThinkTankWorkflowOutput(item.sessionId, {
           outputId: item.outputId,
@@ -1399,6 +1482,46 @@ export default function AdvisoryWorkspaceShell() {
     }
   }
 
+  const handleOpenSessionReport = async (sessionId: string, title: string, outputId?: string) => {
+    if (activeLaunchRef.current?.sessionId === sessionId && workflowOutput) {
+      setHistoryPreviewOutput(null)
+      setDocumentDrawerOpen(true)
+      setHasUnreadDocumentContent(false)
+      return
+    }
+
+    const openRequestId = historyOpenRequestIdRef.current + 1
+    historyOpenRequestIdRef.current = openRequestId
+    setOpeningHistoryItemKey(`session-output:${sessionId}`)
+    setHistoryError(null)
+    setResumeError(null)
+
+    try {
+      const outputResult = await fetchThinkTankWorkflowOutput(sessionId, { outputId })
+      if (historyOpenRequestIdRef.current !== openRequestId) return
+      setHistoryPreviewOutput(outputResult.output)
+      setDocumentDrawerOpen(true)
+      setHasUnreadDocumentContent(false)
+      setOutputAnnouncement(`已打开报告：${title}`)
+    } catch (error) {
+      if (historyOpenRequestIdRef.current !== openRequestId) return
+      setResumeError(readWorkflowErrorMessage(error, THINKTANK_HISTORY_LOAD_FAILED_MESSAGE))
+    } finally {
+      if (historyOpenRequestIdRef.current === openRequestId) {
+        setOpeningHistoryItemKey(null)
+      }
+    }
+  }
+
+  const enterFocusMode = () => {
+    if (!activeLaunchRef.current) return
+    setWorkspaceMode('workflow')
+    if (workflowOutput) {
+      setDocumentDrawerOpen(true)
+    }
+    setFocusMode(true)
+  }
+
   const invalidateWorkflowAsyncWork = () => {
     streamAbortRef.current?.abort()
     streamAbortRef.current = null
@@ -1420,6 +1543,7 @@ export default function AdvisoryWorkspaceShell() {
     if (activeLaunchRef.current?.sessionId !== sessionId) return
 
     activeLaunchRef.current = null
+    setFocusMode(false)
     skipNextSessionMessagesLoadRef.current = null
     skipNextOutputLoadRef.current = null
     setActiveLaunch(null)
@@ -1764,6 +1888,12 @@ export default function AdvisoryWorkspaceShell() {
     setOrganizationContextError(null)
     setOrganizationContextDialogOpen(true)
   }
+
+  useEffect(() => {
+    if (!activeLaunch) {
+      setFocusMode(false)
+    }
+  }, [activeLaunch])
 
   useEffect(() => {
     if (!activeSessionId) {
@@ -2639,12 +2769,27 @@ export default function AdvisoryWorkspaceShell() {
     !isSubmittingMessage &&
     !isCompletingOutput
   const hasMoreHistoryItems = historyItems.length < historyMeta.total
+  const currentTaskSession =
+    unfinishedSessions.find((sessionCard) => sessionCard.status === 'active') ?? null
+  const currentTaskLaunch =
+    !currentTaskSession && activeLaunch?.status === 'active' ? activeLaunch : null
+  const currentTaskSessionId = currentTaskSession?.sessionId ?? currentTaskLaunch?.sessionId ?? null
+  const otherUnfinishedSessions = unfinishedSessions.filter(
+    (sessionCard) =>
+      sessionCard.status === 'paused' && sessionCard.sessionId !== currentTaskSessionId
+  )
+  const assetHistoryItems = historyItems.filter(
+    (item) => item.resultType === 'output' || item.status === 'completed'
+  )
   const showQuickConsult = workspaceMode === 'quick-consult' || !activeLaunch
   const documentColumnWidth = documentDrawerOpen
     ? typeof documentDrawerWidth === 'number'
       ? `${documentDrawerWidth}px`
       : documentDrawerWidth
     : `${ADVISORY_LAYOUT.documentRailWidth}px`
+  const workspaceGridTemplateColumns = focusMode
+    ? `minmax(${ADVISORY_LAYOUT.chatMinWidth}px, 1fr) ${documentColumnWidth}`
+    : `${ADVISORY_LAYOUT.sidebarWidth}px minmax(${ADVISORY_LAYOUT.chatMinWidth}px, 1fr) ${documentColumnWidth}`
   const savedOrganizationContext: OrganizationContextSaved | null =
     organizationContext && isOrganizationContextUsable(organizationContext)
       ? organizationContext
@@ -2779,520 +2924,823 @@ export default function AdvisoryWorkspaceShell() {
         aria-hidden={pendingLifecycleAction ? true : undefined}
         className={shellGridVariants({ density: readingDensity })}
         style={{
-          gridTemplateColumns: `${ADVISORY_LAYOUT.sidebarWidth}px minmax(${ADVISORY_LAYOUT.chatMinWidth}px, 1fr) ${documentColumnWidth}`,
+          gridTemplateColumns: workspaceGridTemplateColumns,
         }}
       >
-        <aside
-          aria-label="咨询工作流导航"
-          className="flex min-w-0 flex-col overflow-y-auto border-r border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-muted-bg))]"
-        >
-          <div className="border-b border-[hsl(var(--advisory-border))] p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-sm bg-[hsl(var(--advisory-foreground))]">
-                <BrainCircuit className="h-5 w-5 text-[hsl(var(--advisory-panel))]" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-[hsl(var(--advisory-foreground))]">
-                  ThinkTank
-                </p>
-                <p className="text-xs text-[hsl(var(--advisory-muted-foreground))]">咨询工作台</p>
+        {!focusMode && (
+          <aside
+            aria-label="咨询工作流导航"
+            className="flex min-w-0 flex-col overflow-y-auto border-r border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-muted-bg))]"
+          >
+            <div className="border-b border-[hsl(var(--advisory-border))] p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-sm bg-[hsl(var(--advisory-foreground))]">
+                  <BrainCircuit className="h-5 w-5 text-[hsl(var(--advisory-panel))]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-[hsl(var(--advisory-foreground))]">
+                    ThinkTank
+                  </p>
+                  <p className="text-xs text-[hsl(var(--advisory-muted-foreground))]">咨询工作台</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <nav aria-label="咨询工作流" className="flex-1 p-4">
-            <button
-              ref={quickConsultButtonRef}
-              type="button"
-              aria-label="Quick Consult"
-              aria-pressed={workspaceMode === 'quick-consult'}
-              onClick={() => setWorkspaceMode('quick-consult')}
-              className={cn(
-                'mb-4 flex min-h-14 w-full items-center gap-3 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-left text-sm text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]',
-                workspaceMode === 'quick-consult' &&
-                  'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
-              )}
-            >
-              <MessageSquareText className="h-4 w-4 shrink-0" />
-              <span className="min-w-0">
-                <span className="block font-medium">Quick Consult</span>
-                <span className="mt-1 block text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]">
-                  Problem intake
-                </span>
-              </span>
-            </button>
-            <section
-              role="region"
-              aria-label="历史记录"
-              className="mb-4 border-b border-[hsl(var(--advisory-border))] pb-4"
-            >
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase text-[hsl(var(--advisory-muted-foreground))]">
-                <HistoryIcon className="h-4 w-4" />
-                ThinkTank 历史
-              </div>
-              <form
-                role="search"
-                aria-label="搜索历史记录"
-                className="space-y-2"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  void handleSearchHistory()
-                }}
+            <nav aria-label="咨询工作流" className="flex-1 p-4">
+              <button
+                ref={quickConsultButtonRef}
+                type="button"
+                aria-label="Quick Consult"
+                aria-pressed={workspaceMode === 'quick-consult'}
+                onClick={() => setWorkspaceMode('quick-consult')}
+                className={cn(
+                  'mb-4 flex min-h-14 w-full items-center gap-3 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-left text-sm text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]',
+                  workspaceMode === 'quick-consult' &&
+                    'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
+                )}
               >
-                <Input
-                  type="search"
-                  role="searchbox"
-                  aria-label="搜索历史记录"
-                  value={historySearchDraft}
-                  onChange={(event) => setHistorySearchDraft(event.target.value)}
-                  placeholder="搜索历史"
-                  className="h-8 rounded-sm bg-[hsl(var(--advisory-panel))] text-xs"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <Label className="text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
-                    时间范围
-                    <Select
-                      value={historyTimeFilter}
-                      onValueChange={(value) => setHistoryTimeFilter(value as HistoryTimeFilter)}
-                    >
-                      <SelectTrigger
-                        aria-label="历史时间范围"
-                        className="mt-1 h-8 rounded-sm border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-2 text-xs"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">全部</SelectItem>
-                        <SelectItem value="7d">近7天</SelectItem>
-                        <SelectItem value="30d">近30天</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Label>
-                  <Label className="text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
-                    类型
-                    <Select
-                      value={historyTypeFilter}
-                      onValueChange={(value) => setHistoryTypeFilter(value as ThinkTankHistoryType)}
-                    >
-                      <SelectTrigger
-                        aria-label="历史类型"
-                        className="mt-1 h-8 rounded-sm border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-2 text-xs"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">全部</SelectItem>
-                        <SelectItem value="session">会话</SelectItem>
-                        <SelectItem value="output">报告</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Label>
-                  <Label className="text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
-                    工作流
-                    <Select value={historyWorkflowFilter} onValueChange={setHistoryWorkflowFilter}>
-                      <SelectTrigger
-                        aria-label="历史工作流"
-                        className="mt-1 h-8 rounded-sm border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-2 text-xs"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">全部</SelectItem>
-                        {workflows.map((workflow) => (
-                          <SelectItem key={workflow.key} value={workflow.key}>
-                            {workflow.displayName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Label>
-                  <Label className="text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
-                    状态
-                    <Select
-                      value={historyStatusFilter}
-                      onValueChange={(value) =>
-                        setHistoryStatusFilter(value as ThinkTankHistoryStatus)
-                      }
-                    >
-                      <SelectTrigger
-                        aria-label="历史状态"
-                        className="mt-1 h-8 rounded-sm border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-2 text-xs"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">全部</SelectItem>
-                        <SelectItem value="active">进行中</SelectItem>
-                        <SelectItem value="paused">已暂停</SelectItem>
-                        <SelectItem value="completed">已完成</SelectItem>
-                        <SelectItem value="draft">草稿</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Label>
-                </div>
-                <Button
-                  type="submit"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 w-full rounded-sm px-3 text-xs"
-                >
-                  <Search className="h-3.5 w-3.5" />
-                  搜索历史
-                </Button>
-              </form>
-              <div className="mt-3">
-                {historyStatus === 'loading' && (
-                  <div
-                    role="status"
-                    aria-live="polite"
-                    className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]"
-                  >
-                    正在加载历史记录
-                  </div>
-                )}
-                {historyStatus === 'error' && historyError && (
-                  <p
-                    role="alert"
-                    className="rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
-                  >
-                    {historyError}
-                  </p>
-                )}
-                {historyStatus === 'ready' && historyItems.length === 0 && (
-                  <div
-                    role="status"
-                    aria-label="ThinkTank 历史空状态"
-                    className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]"
-                  >
-                    <p className="font-medium text-[hsl(var(--advisory-foreground))]">
-                      暂无历史记录
-                    </p>
-                    <p className="mt-1">从 Quick Consult 开始第一次咨询后，历史会显示在这里。</p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={openFirstConsult}
-                      className="mt-3 h-8 rounded-sm px-3 text-xs"
-                    >
-                      开始第一次咨询
-                    </Button>
-                  </div>
-                )}
-                {historyItems.length > 0 && (
-                  <ul className="space-y-2">
-                    {historyItems.map((item) => {
-                      const itemKey = getHistoryItemKey(item)
-                      const isOpening = openingHistoryItemKey === itemKey
-                      const isActive = activeLaunch?.sessionId === item.sessionId
-                      const canDeleteHistoryItem =
-                        item.resultType === 'output' ||
-                        item.status === 'active' ||
-                        item.status === 'paused'
+                <MessageSquareText className="h-4 w-4 shrink-0" />
+                <span className="min-w-0">
+                  <span className="block font-medium">Quick Consult</span>
+                  <span className="mt-1 block text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]">
+                    Problem intake
+                  </span>
+                </span>
+              </button>
 
-                      return (
-                        <li key={itemKey} className="relative">
-                          <button
-                            type="button"
-                            aria-label={getHistoryActionLabel(item)}
-                            aria-pressed={isActive && workspaceMode === 'workflow'}
-                            disabled={Boolean(openingHistoryItemKey) || Boolean(resumingSessionId)}
-                            onClick={() => {
-                              void handleOpenHistoryItem(item)
-                            }}
-                            className={cn(
-                              'flex min-h-24 w-full flex-col gap-2 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 pr-11 text-left text-xs text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-60',
-                              isActive &&
-                                workspaceMode === 'workflow' &&
-                                'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
-                            )}
-                          >
-                            <span className="flex w-full items-start justify-between gap-2">
-                              <span className="min-w-0">
-                                <span className="block truncate text-sm font-medium">
-                                  {item.title}
-                                </span>
-                                <span className="mt-1 block truncate text-[11px] text-[hsl(var(--advisory-muted-foreground))]">
-                                  {item.workflowType}
-                                </span>
-                              </span>
-                              <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-[hsl(var(--advisory-muted-foreground))]">
-                                <FileText className="h-3 w-3" />
-                                {getHistoryResultTypeLabel(item)}
-                              </span>
-                            </span>
-                            <span className="line-clamp-2 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
-                              {item.summary}
-                            </span>
-                            <span className="flex items-center gap-1 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
-                              <Clock3 className="h-3 w-3" />
-                              <span>{getHistoryStatusLabel(item.status)}</span>
-                              <span aria-hidden="true">·</span>
-                              <span>{formatSessionActivityTime(item.timestamp)}</span>
-                              {item.assetState?.isFavorited && (
-                                <>
-                                  <span aria-hidden="true">·</span>
-                                  <span>已收藏</span>
-                                </>
-                              )}
-                              {item.knowledgeBaseAssociation?.status && (
-                                <>
-                                  <span aria-hidden="true">·</span>
-                                  <span>
-                                    {item.knowledgeBaseAssociation.status === 'associated'
-                                      ? '已关联知识库'
-                                      : item.knowledgeBaseAssociation.status === 'failed'
-                                        ? '知识库关联失败'
-                                        : '知识库待同步'}
-                                  </span>
-                                </>
-                              )}
-                              <span aria-hidden="true">·</span>
-                              <span>
-                                {getHistoryVisibleActionLabel(
-                                  item,
-                                  isOpening ? 'busy' : isActive ? 'active' : 'idle'
-                                )}
-                              </span>
-                            </span>
-                          </button>
-                          {canDeleteHistoryItem && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              aria-label={
-                                item.resultType === 'output'
-                                  ? `删除报告 ${item.title}`
-                                  : `删除会话 ${item.title}`
-                              }
-                              title={item.resultType === 'output' ? '删除报告' : '删除会话'}
-                              disabled={
-                                Boolean(openingHistoryItemKey) ||
-                                Boolean(resumingSessionId) ||
-                                lifecycleActionInFlight
-                              }
-                              onClick={() =>
-                                openLifecycleDialog(
-                                  item.resultType === 'output' && item.outputId
-                                    ? {
-                                        type: 'output-delete',
-                                        sessionId: item.sessionId,
-                                        outputId: item.outputId,
-                                        title: item.title,
-                                      }
-                                    : {
-                                        type: 'session-delete',
-                                        sessionId: item.sessionId,
-                                        title: item.title,
-                                      }
-                                )
-                              }
-                              className="absolute right-2 top-2 h-7 w-7 rounded-sm text-[hsl(var(--destructive))]"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-                {hasMoreHistoryItems && (
-                  <Button
+              <div
+                role="tablist"
+                aria-label="ThinkTank 侧栏视图"
+                className="mb-4 grid grid-cols-3 gap-1 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-icon-bg))] p-1"
+              >
+                {[
+                  { key: 'work' as const, label: '工作' },
+                  { key: 'assets' as const, label: '产物' },
+                  { key: 'new' as const, label: '新建' },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={historyLoadingMore}
-                    onClick={() => {
-                      void handleLoadMoreHistory()
-                    }}
-                    className="mt-2 h-8 w-full rounded-sm px-3 text-xs"
+                    role="tab"
+                    aria-selected={sidebarTab === tab.key}
+                    onClick={() => setSidebarTab(tab.key)}
+                    className={cn(
+                      'min-h-8 rounded-sm px-2 text-xs font-semibold text-[hsl(var(--advisory-muted-foreground))] transition-colors hover:text-[hsl(var(--advisory-foreground))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]',
+                      sidebarTab === tab.key &&
+                        'bg-[hsl(var(--advisory-panel))] text-[hsl(var(--advisory-foreground))] shadow-sm'
+                    )}
                   >
-                    {historyLoadingMore ? '加载中' : '加载更多历史'}
-                  </Button>
-                )}
+                    {tab.label}
+                  </button>
+                ))}
               </div>
-            </section>
-            {(unfinishedSessionsStatus === 'loading' ||
-              unfinishedSessions.length > 0 ||
-              resumeError) && (
-              <div className="mb-4">
-                <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase text-[hsl(var(--advisory-muted-foreground))]">
-                  <RotateCcw className="h-4 w-4" />
-                  未完成会话
-                </div>
-                {unfinishedSessionsStatus === 'loading' && (
-                  <div
-                    role="status"
-                    aria-live="polite"
-                    className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]"
-                  >
-                    正在加载未完成会话
-                  </div>
-                )}
-                {unfinishedSessionsStatus === 'error' && unfinishedSessionsError && (
-                  <p
-                    role="alert"
-                    className="rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
-                  >
-                    {unfinishedSessionsError}
-                  </p>
-                )}
-                {unfinishedSessions.length > 0 && (
-                  <ul className="space-y-2">
-                    {unfinishedSessions.map((sessionCard) => {
-                      const isResuming = resumingSessionId === sessionCard.sessionId
-                      const isActive = activeLaunch?.sessionId === sessionCard.sessionId
 
-                      return (
-                        <li key={sessionCard.sessionId} className="relative">
-                          <button
+              {sidebarTab === 'work' && (
+                <>
+                  <section
+                    role="region"
+                    aria-label="当前任务"
+                    className="mb-4 border-b border-[hsl(var(--advisory-border))] pb-4"
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-xs font-medium uppercase text-[hsl(var(--advisory-muted-foreground))]">
+                        <RotateCcw className="h-4 w-4" />
+                        当前任务
+                      </div>
+                      <span className="text-[11px] text-[hsl(var(--advisory-muted-foreground))]">
+                        最多 1 个
+                      </span>
+                    </div>
+
+                    {unfinishedSessionsStatus === 'loading' && !currentTaskLaunch && (
+                      <div
+                        role="status"
+                        aria-live="polite"
+                        className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]"
+                      >
+                        正在加载当前任务
+                      </div>
+                    )}
+
+                    {currentTaskSession && (
+                      <article
+                        aria-label={`当前任务 ${currentTaskSession.title}`}
+                        className={cn(
+                          'rounded-sm border border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))] px-3 py-3 text-xs text-[hsl(var(--advisory-foreground))]',
+                          activeLaunch?.sessionId === currentTaskSession.sessionId &&
+                            workspaceMode === 'workflow' &&
+                            'ring-1 ring-[hsl(var(--advisory-success-border))]'
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {currentTaskSession.title}
+                            </p>
+                            <p className="mt-1 truncate text-[11px] text-[hsl(var(--advisory-muted-foreground))]">
+                              {currentTaskSession.workflowType}
+                            </p>
+                          </div>
+                          <span className="shrink-0 rounded-full border border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-panel))] px-2 py-0.5 text-[11px] font-medium text-[hsl(var(--advisory-success-foreground))]">
+                            Active
+                          </span>
+                        </div>
+                        <p className="mt-2 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                          {currentTaskSession.lastStep.label}
+                        </p>
+                        <p className="mt-2 flex items-center gap-1 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                          <Clock3 className="h-3 w-3" />
+                          <span>{currentTaskSession.statusSummary}</span>
+                          <span aria-hidden="true">·</span>
+                          <span>
+                            {formatSessionActivityTime(currentTaskSession.lastActivityAt)}
+                          </span>
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button
                             type="button"
-                            aria-label={`继续 ${sessionCard.title}`}
-                            aria-pressed={isActive && workspaceMode === 'workflow'}
+                            size="sm"
+                            aria-pressed={
+                              activeLaunch?.sessionId === currentTaskSession.sessionId &&
+                              workspaceMode === 'workflow'
+                            }
+                            aria-label={
+                              activeLaunch?.sessionId === currentTaskSession.sessionId
+                                ? `查看 ${currentTaskSession.title}`
+                                : `继续 ${currentTaskSession.title}`
+                            }
                             disabled={Boolean(resumingSessionId)}
                             onClick={() => {
-                              void handleResumeSession(sessionCard.sessionId)
+                              if (activeLaunch?.sessionId === currentTaskSession.sessionId) {
+                                setWorkspaceMode('workflow')
+                                return
+                              }
+                              void handleResumeSession(currentTaskSession.sessionId)
                             }}
-                            className={cn(
-                              'flex min-h-24 w-full flex-col gap-2 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 pr-11 text-left text-xs text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-60',
-                              isActive &&
-                                workspaceMode === 'workflow' &&
-                                'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
-                            )}
+                            className="h-8 rounded-sm px-3 text-xs"
                           >
-                            <span className="flex w-full items-start justify-between gap-2">
-                              <span className="min-w-0">
-                                <span className="block truncate text-sm font-medium">
-                                  {sessionCard.title}
-                                </span>
-                                <span className="mt-1 block truncate text-[11px] text-[hsl(var(--advisory-muted-foreground))]">
-                                  {sessionCard.workflowType}
-                                </span>
-                              </span>
-                              <span className="shrink-0 text-[11px] font-medium text-[hsl(var(--advisory-muted-foreground))]">
-                                {isResuming ? '恢复中' : isActive ? '已打开' : '继续'}
-                              </span>
-                            </span>
-                            <span className="block text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
-                              {sessionCard.lastStep.label}
-                            </span>
-                            <span className="flex items-center gap-1 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
-                              <Clock3 className="h-3 w-3" />
-                              <span>{sessionCard.statusSummary}</span>
-                              <span aria-hidden="true">·</span>
-                              <span>{formatSessionActivityTime(sessionCard.lastActivityAt)}</span>
-                            </span>
-                          </button>
+                            {resumingSessionId === currentTaskSession.sessionId
+                              ? '恢复中'
+                              : activeLaunch?.sessionId === currentTaskSession.sessionId
+                                ? '查看'
+                                : '继续'}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            aria-label={`打开报告 ${currentTaskSession.title}`}
+                            disabled={
+                              openingHistoryItemKey ===
+                              `session-output:${currentTaskSession.sessionId}`
+                            }
+                            onClick={() =>
+                              void handleOpenSessionReport(
+                                currentTaskSession.sessionId,
+                                currentTaskSession.title
+                              )
+                            }
+                            className="h-8 rounded-sm px-3 text-xs"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            报告
+                          </Button>
+                          {activeLaunch?.sessionId === currentTaskSession.sessionId && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              aria-label={`专注全屏 ${currentTaskSession.title}`}
+                              onClick={enterFocusMode}
+                              className="h-8 rounded-sm px-3 text-xs"
+                            >
+                              <Maximize2 className="h-3.5 w-3.5" />
+                              专注
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            aria-label={`移除会话 ${sessionCard.title}`}
+                            aria-label={`移除会话 ${currentTaskSession.title}`}
                             title="移除会话"
                             disabled={Boolean(resumingSessionId) || lifecycleActionInFlight}
                             onClick={() =>
                               openLifecycleDialog({
                                 type: 'session-delete',
-                                sessionId: sessionCard.sessionId,
-                                title: sessionCard.title,
+                                sessionId: currentTaskSession.sessionId,
+                                title: currentTaskSession.title,
                               })
                             }
-                            className="absolute right-2 top-2 h-7 w-7 rounded-sm text-[hsl(var(--destructive))]"
+                            className="ml-auto h-8 w-8 rounded-sm text-[hsl(var(--destructive))]"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                )}
-                {resumeError && (
-                  <p
-                    role="alert"
-                    className="mt-2 rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
-                  >
-                    {resumeError}
-                  </p>
-                )}
-              </div>
-            )}
-            <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase text-[hsl(var(--advisory-muted-foreground))]">
-              <Workflow className="h-4 w-4" />
-              工作流
-            </div>
-            {workflowCatalogStatus === 'loading' && (
-              <div className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-4 text-sm leading-6 text-[hsl(var(--advisory-muted-foreground))]">
-                正在加载工作流目录
-              </div>
-            )}
-            {workflowCatalogStatus === 'error' && (
-              <div
-                role="alert"
-                className="rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-4 text-sm leading-6 text-[hsl(var(--destructive))]"
-              >
-                {catalogError ?? WORKFLOW_CATALOG_ERROR_MESSAGE}
-              </div>
-            )}
-            {workflowCatalogStatus === 'ready' && (
-              <ul className="space-y-2">
-                {workflows.map((workflow) => {
-                  const isActive = activeLaunch?.workflow.key === workflow.key
-                  const isLaunching = launchingWorkflowKey === workflow.key
-                  const isDisabled =
-                    Boolean(launchingWorkflowKey) || (Boolean(activeLaunch) && !isActive)
+                        </div>
+                      </article>
+                    )}
 
-                  return (
-                    <li key={workflow.key}>
-                      <button
-                        type="button"
-                        aria-label={`${isActive ? '查看' : '启动'} ${workflow.displayName}（${workflow.scenarioLabel}）`}
-                        aria-pressed={isActive && workspaceMode === 'workflow'}
-                        disabled={isDisabled}
-                        onClick={() => {
-                          if (isActive) {
-                            setWorkspaceMode('workflow')
-                            return
-                          }
-                          void handleLaunchWorkflow(workflow.key)
-                        }}
-                        className={cn(
-                          'flex min-h-16 w-full items-start justify-between gap-3 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-left text-sm text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-60',
-                          isActive &&
-                            workspaceMode === 'workflow' &&
-                            'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
-                        )}
+                    {currentTaskLaunch && (
+                      <article
+                        aria-label={`当前任务 ${currentTaskLaunch.workflow.displayName}`}
+                        className="rounded-sm border border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))] px-3 py-3 text-xs text-[hsl(var(--advisory-foreground))] ring-1 ring-[hsl(var(--advisory-success-border))]"
                       >
-                        <span className="min-w-0">
-                          <span className="block font-medium">{workflow.displayName}</span>
-                          <span className="mt-1 block text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]">
-                            {workflow.scenarioLabel}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {currentTaskLaunch.workflow.displayName}
+                            </p>
+                            <p className="mt-1 truncate text-[11px] text-[hsl(var(--advisory-muted-foreground))]">
+                              {currentTaskLaunch.workflow.scenarioLabel}
+                            </p>
+                          </div>
+                          <span className="shrink-0 rounded-full border border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-panel))] px-2 py-0.5 text-[11px] font-medium text-[hsl(var(--advisory-success-foreground))]">
+                            Active
                           </span>
-                        </span>
-                        <span className="shrink-0 text-xs font-medium text-[hsl(var(--advisory-muted-foreground))]">
-                          {isLaunching ? '启动中' : isActive ? '查看' : '启动'}
-                        </span>
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-            {launchError && (
-              <p
-                role="alert"
-                className="mt-3 rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
-              >
-                {launchError}
-              </p>
-            )}
-          </nav>
+                        </div>
+                        <p className="mt-2 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                          {currentTaskLaunch.currentStep.label}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            aria-pressed={workspaceMode === 'workflow'}
+                            aria-label={`查看 ${currentTaskLaunch.workflow.displayName}`}
+                            onClick={() => setWorkspaceMode('workflow')}
+                            className="h-8 rounded-sm px-3 text-xs"
+                          >
+                            查看
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            aria-label={`打开报告 ${currentTaskLaunch.workflow.displayName}`}
+                            onClick={() => setDocumentDrawerOpen(true)}
+                            className="h-8 rounded-sm px-3 text-xs"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            报告
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            aria-label={`专注全屏 ${currentTaskLaunch.workflow.displayName}`}
+                            onClick={enterFocusMode}
+                            className="h-8 rounded-sm px-3 text-xs"
+                          >
+                            <Maximize2 className="h-3.5 w-3.5" />
+                            专注
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            aria-label={`安全退出 ${currentTaskLaunch.workflow.displayName}`}
+                            onClick={() =>
+                              openLifecycleDialog({
+                                type: 'safe-exit',
+                                sessionId: currentTaskLaunch.sessionId,
+                                title: currentTaskLaunch.workflow.displayName,
+                              })
+                            }
+                            className="h-8 rounded-sm px-3 text-xs"
+                          >
+                            <LogOut className="h-3.5 w-3.5" />
+                            暂停
+                          </Button>
+                        </div>
+                      </article>
+                    )}
 
-          <div className="border-t border-[hsl(var(--advisory-border))] p-4 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]">
-            {activeLaunch ? `活动会话：${activeLaunch.workflow.displayName}` : '暂无活动会话'}
-          </div>
-        </aside>
+                    {!currentTaskSession &&
+                      !currentTaskLaunch &&
+                      unfinishedSessionsStatus !== 'loading' && (
+                        <div
+                          role="status"
+                          aria-label="当前任务空状态"
+                          className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]"
+                        >
+                          暂无当前任务。恢复一个未完成会话或新建工作流后，它会显示在这里。
+                        </div>
+                      )}
+                  </section>
+
+                  {(unfinishedSessionsStatus === 'loading' ||
+                    otherUnfinishedSessions.length > 0 ||
+                    unfinishedSessionsError ||
+                    resumeError) && (
+                    <section
+                      role="region"
+                      aria-label="其他未完成"
+                      className="mb-4 border-b border-[hsl(var(--advisory-border))] pb-4"
+                    >
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-xs font-medium uppercase text-[hsl(var(--advisory-muted-foreground))]">
+                          <Clock3 className="h-4 w-4" />
+                          其他未完成
+                        </div>
+                        <span className="text-[11px] text-[hsl(var(--advisory-muted-foreground))]">
+                          {otherUnfinishedSessions.length} 个
+                        </span>
+                      </div>
+                      {unfinishedSessionsStatus === 'loading' && (
+                        <div
+                          role="status"
+                          aria-live="polite"
+                          className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]"
+                        >
+                          正在加载未完成会话
+                        </div>
+                      )}
+                      {unfinishedSessionsStatus === 'error' && unfinishedSessionsError && (
+                        <p
+                          role="alert"
+                          className="rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
+                        >
+                          {unfinishedSessionsError}
+                        </p>
+                      )}
+                      {otherUnfinishedSessions.length > 0 && (
+                        <ul className="space-y-2">
+                          {otherUnfinishedSessions.map((sessionCard) => {
+                            const isResuming = resumingSessionId === sessionCard.sessionId
+
+                            return (
+                              <li key={sessionCard.sessionId} className="relative">
+                                <article className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 pr-11 text-xs text-[hsl(var(--advisory-foreground))]">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <p className="truncate text-sm font-medium">
+                                        {sessionCard.title}
+                                      </p>
+                                      <p className="mt-1 truncate text-[11px] text-[hsl(var(--advisory-muted-foreground))]">
+                                        {sessionCard.workflowType}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      aria-label={`继续 ${sessionCard.title}`}
+                                      disabled={Boolean(resumingSessionId)}
+                                      onClick={() => {
+                                        void handleResumeSession(sessionCard.sessionId)
+                                      }}
+                                      className="h-7 shrink-0 rounded-sm px-2 text-xs"
+                                    >
+                                      {isResuming ? '恢复中' : '恢复'}
+                                    </Button>
+                                  </div>
+                                  <p className="mt-2 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                                    {sessionCard.lastStep.label}
+                                  </p>
+                                  <p className="mt-2 flex items-center gap-1 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                                    <Clock3 className="h-3 w-3" />
+                                    <span>{sessionCard.statusSummary}</span>
+                                    <span aria-hidden="true">·</span>
+                                    <span>
+                                      {formatSessionActivityTime(sessionCard.lastActivityAt)}
+                                    </span>
+                                  </p>
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      aria-label={`打开报告 ${sessionCard.title}`}
+                                      disabled={
+                                        openingHistoryItemKey ===
+                                        `session-output:${sessionCard.sessionId}`
+                                      }
+                                      onClick={() =>
+                                        void handleOpenSessionReport(
+                                          sessionCard.sessionId,
+                                          sessionCard.title
+                                        )
+                                      }
+                                      className="h-8 rounded-sm px-3 text-xs"
+                                    >
+                                      <FileText className="h-3.5 w-3.5" />
+                                      报告
+                                    </Button>
+                                  </div>
+                                </article>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={`移除会话 ${sessionCard.title}`}
+                                  title="移除会话"
+                                  disabled={Boolean(resumingSessionId) || lifecycleActionInFlight}
+                                  onClick={() =>
+                                    openLifecycleDialog({
+                                      type: 'session-delete',
+                                      sessionId: sessionCard.sessionId,
+                                      title: sessionCard.title,
+                                    })
+                                  }
+                                  className="absolute right-2 top-2 h-7 w-7 rounded-sm text-[hsl(var(--destructive))]"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                      {resumeError && (
+                        <p
+                          role="alert"
+                          className="mt-2 rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
+                        >
+                          {resumeError}
+                        </p>
+                      )}
+                    </section>
+                  )}
+                </>
+              )}
+
+              {sidebarTab === 'assets' && (
+                <section
+                  role="region"
+                  aria-label="历史记录"
+                  className="mb-4 border-b border-[hsl(var(--advisory-border))] pb-4"
+                >
+                  <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase text-[hsl(var(--advisory-muted-foreground))]">
+                    <HistoryIcon className="h-4 w-4" />
+                    产物
+                  </div>
+                  <form
+                    role="search"
+                    aria-label="搜索历史记录"
+                    className="space-y-2"
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      void handleSearchHistory()
+                    }}
+                  >
+                    <Input
+                      type="search"
+                      role="searchbox"
+                      aria-label="搜索历史记录"
+                      value={historySearchDraft}
+                      onChange={(event) => setHistorySearchDraft(event.target.value)}
+                      placeholder="搜索报告、历史会话"
+                      className="h-8 rounded-sm bg-[hsl(var(--advisory-panel))] text-xs"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Label className="text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                        时间范围
+                        <Select
+                          value={historyTimeFilter}
+                          onValueChange={(value) =>
+                            setHistoryTimeFilter(value as HistoryTimeFilter)
+                          }
+                        >
+                          <SelectTrigger
+                            aria-label="历史时间范围"
+                            className="mt-1 h-8 rounded-sm border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-2 text-xs"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">全部</SelectItem>
+                            <SelectItem value="7d">近7天</SelectItem>
+                            <SelectItem value="30d">近30天</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Label>
+                      <Label className="text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                        类型
+                        <Select
+                          value={historyTypeFilter}
+                          onValueChange={(value) =>
+                            setHistoryTypeFilter(value as ThinkTankHistoryType)
+                          }
+                        >
+                          <SelectTrigger
+                            aria-label="历史类型"
+                            className="mt-1 h-8 rounded-sm border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-2 text-xs"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">全部</SelectItem>
+                            <SelectItem value="session">会话</SelectItem>
+                            <SelectItem value="output">报告</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Label>
+                      <Label className="text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                        工作流
+                        <Select
+                          value={historyWorkflowFilter}
+                          onValueChange={setHistoryWorkflowFilter}
+                        >
+                          <SelectTrigger
+                            aria-label="历史工作流"
+                            className="mt-1 h-8 rounded-sm border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-2 text-xs"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">全部</SelectItem>
+                            {workflows.map((workflow) => (
+                              <SelectItem key={workflow.key} value={workflow.key}>
+                                {workflow.displayName}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Label>
+                      <Label className="text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                        状态
+                        <Select
+                          value={historyStatusFilter}
+                          onValueChange={(value) =>
+                            setHistoryStatusFilter(value as ThinkTankHistoryStatus)
+                          }
+                        >
+                          <SelectTrigger
+                            aria-label="历史状态"
+                            className="mt-1 h-8 rounded-sm border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-2 text-xs"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">全部</SelectItem>
+                            <SelectItem value="active">进行中</SelectItem>
+                            <SelectItem value="paused">已暂停</SelectItem>
+                            <SelectItem value="completed">已完成</SelectItem>
+                            <SelectItem value="draft">草稿</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Label>
+                    </div>
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-full rounded-sm px-3 text-xs"
+                    >
+                      <Search className="h-3.5 w-3.5" />
+                      搜索产物
+                    </Button>
+                  </form>
+                  <div className="mt-3">
+                    {historyStatus === 'loading' && (
+                      <div
+                        role="status"
+                        aria-live="polite"
+                        className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]"
+                      >
+                        正在加载产物
+                      </div>
+                    )}
+                    {historyStatus === 'error' && historyError && (
+                      <p
+                        role="alert"
+                        className="rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
+                      >
+                        {historyError}
+                      </p>
+                    )}
+                    {historyStatus === 'ready' && assetHistoryItems.length === 0 && (
+                      <div
+                        role="status"
+                        aria-label="ThinkTank 历史空状态"
+                        className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]"
+                      >
+                        <p className="font-medium text-[hsl(var(--advisory-foreground))]">
+                          暂无产物
+                        </p>
+                        <p className="mt-1">完成工作流或生成报告后，产物会显示在这里。</p>
+                      </div>
+                    )}
+                    {assetHistoryItems.length > 0 && (
+                      <ul className="space-y-2">
+                        {assetHistoryItems.map((item) => {
+                          const itemKey = getHistoryItemKey(item)
+                          const isOpening = openingHistoryItemKey === itemKey
+                          const isActive = activeLaunch?.sessionId === item.sessionId
+                          const canDeleteHistoryItem =
+                            item.resultType === 'output' ||
+                            item.status === 'active' ||
+                            item.status === 'paused'
+
+                          return (
+                            <li key={itemKey} className="relative">
+                              <button
+                                type="button"
+                                aria-label={getHistoryActionLabel(item)}
+                                aria-pressed={isActive && workspaceMode === 'workflow'}
+                                disabled={
+                                  Boolean(openingHistoryItemKey) || Boolean(resumingSessionId)
+                                }
+                                onClick={() => {
+                                  void handleOpenHistoryItem(item)
+                                }}
+                                className={cn(
+                                  'flex min-h-24 w-full flex-col gap-2 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 pr-11 text-left text-xs text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-60',
+                                  isActive &&
+                                    workspaceMode === 'workflow' &&
+                                    'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
+                                )}
+                              >
+                                <span className="flex w-full items-start justify-between gap-2">
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-sm font-medium">
+                                      {item.title}
+                                    </span>
+                                    <span className="mt-1 block truncate text-[11px] text-[hsl(var(--advisory-muted-foreground))]">
+                                      {item.workflowType}
+                                    </span>
+                                  </span>
+                                  <span className="flex shrink-0 items-center gap-1 text-[11px] font-medium text-[hsl(var(--advisory-muted-foreground))]">
+                                    <FileText className="h-3 w-3" />
+                                    {getHistoryResultTypeLabel(item)}
+                                  </span>
+                                </span>
+                                <span className="line-clamp-2 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                                  {item.summary}
+                                </span>
+                                <span className="flex items-center gap-1 text-[11px] leading-4 text-[hsl(var(--advisory-muted-foreground))]">
+                                  <Clock3 className="h-3 w-3" />
+                                  <span>{getHistoryStatusLabel(item.status)}</span>
+                                  <span aria-hidden="true">·</span>
+                                  <span>{formatSessionActivityTime(item.timestamp)}</span>
+                                  {item.assetState?.isFavorited && (
+                                    <>
+                                      <span aria-hidden="true">·</span>
+                                      <span>已收藏</span>
+                                    </>
+                                  )}
+                                  {item.knowledgeBaseAssociation?.status && (
+                                    <>
+                                      <span aria-hidden="true">·</span>
+                                      <span>
+                                        {item.knowledgeBaseAssociation.status === 'associated'
+                                          ? '已关联知识库'
+                                          : item.knowledgeBaseAssociation.status === 'failed'
+                                            ? '知识库关联失败'
+                                            : '知识库待同步'}
+                                      </span>
+                                    </>
+                                  )}
+                                  <span aria-hidden="true">·</span>
+                                  <span>
+                                    {getHistoryVisibleActionLabel(
+                                      item,
+                                      isOpening ? 'busy' : isActive ? 'active' : 'idle'
+                                    )}
+                                  </span>
+                                </span>
+                              </button>
+                              {canDeleteHistoryItem && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={
+                                    item.resultType === 'output'
+                                      ? `删除报告 ${item.title}`
+                                      : `删除会话 ${item.title}`
+                                  }
+                                  title={item.resultType === 'output' ? '删除报告' : '删除会话'}
+                                  disabled={
+                                    Boolean(openingHistoryItemKey) ||
+                                    Boolean(resumingSessionId) ||
+                                    lifecycleActionInFlight
+                                  }
+                                  onClick={() =>
+                                    openLifecycleDialog(
+                                      item.resultType === 'output' && item.outputId
+                                        ? {
+                                            type: 'output-delete',
+                                            sessionId: item.sessionId,
+                                            outputId: item.outputId,
+                                            title: item.title,
+                                          }
+                                        : {
+                                            type: 'session-delete',
+                                            sessionId: item.sessionId,
+                                            title: item.title,
+                                          }
+                                    )
+                                  }
+                                  className="absolute right-2 top-2 h-7 w-7 rounded-sm text-[hsl(var(--destructive))]"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                    {hasMoreHistoryItems && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={historyLoadingMore}
+                        onClick={() => {
+                          void handleLoadMoreHistory()
+                        }}
+                        className="mt-2 h-8 w-full rounded-sm px-3 text-xs"
+                      >
+                        {historyLoadingMore ? '加载中' : '加载更多产物'}
+                      </Button>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {sidebarTab === 'new' && (
+                <section role="region" aria-label="新建工作流">
+                  <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase text-[hsl(var(--advisory-muted-foreground))]">
+                    <Workflow className="h-4 w-4" />
+                    新建工作流
+                  </div>
+                  {workflowCatalogStatus === 'loading' && (
+                    <div className="rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-4 text-sm leading-6 text-[hsl(var(--advisory-muted-foreground))]">
+                      正在加载工作流目录
+                    </div>
+                  )}
+                  {workflowCatalogStatus === 'error' && (
+                    <div
+                      role="alert"
+                      className="rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-4 text-sm leading-6 text-[hsl(var(--destructive))]"
+                    >
+                      {catalogError ?? WORKFLOW_CATALOG_ERROR_MESSAGE}
+                    </div>
+                  )}
+                  {workflowCatalogStatus === 'ready' && (
+                    <ul className="space-y-2">
+                      {workflows.map((workflow) => {
+                        const isActive = activeLaunch?.workflow.key === workflow.key
+                        const isLaunching = launchingWorkflowKey === workflow.key
+                        const isDisabled =
+                          Boolean(launchingWorkflowKey) || (Boolean(activeLaunch) && !isActive)
+
+                        return (
+                          <li key={workflow.key}>
+                            <button
+                              type="button"
+                              aria-label={`${isActive ? '查看' : '启动'} ${workflow.displayName}（${workflow.scenarioLabel}）`}
+                              aria-pressed={isActive && workspaceMode === 'workflow'}
+                              disabled={isDisabled}
+                              onClick={() => {
+                                if (isActive) {
+                                  setWorkspaceMode('workflow')
+                                  return
+                                }
+                                void handleLaunchWorkflow(workflow.key)
+                              }}
+                              className={cn(
+                                'flex min-h-16 w-full items-start justify-between gap-3 rounded-sm border border-[hsl(var(--advisory-border))] bg-[hsl(var(--advisory-panel))] px-3 py-3 text-left text-sm text-[hsl(var(--advisory-foreground))] transition-colors hover:bg-[hsl(var(--advisory-icon-bg))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))] disabled:cursor-not-allowed disabled:opacity-60',
+                                isActive &&
+                                  workspaceMode === 'workflow' &&
+                                  'border-[hsl(var(--advisory-success-border))] bg-[hsl(var(--advisory-success-bg))]'
+                              )}
+                            >
+                              <span className="min-w-0">
+                                <span className="block font-medium">{workflow.displayName}</span>
+                                <span className="mt-1 block text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]">
+                                  {workflow.scenarioLabel}
+                                </span>
+                              </span>
+                              <span className="shrink-0 text-xs font-medium text-[hsl(var(--advisory-muted-foreground))]">
+                                {isLaunching ? '启动中' : isActive ? '查看' : '启动'}
+                              </span>
+                            </button>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  )}
+                </section>
+              )}
+
+              {launchError && (
+                <p
+                  role="alert"
+                  className="mt-3 rounded-sm border border-[hsl(var(--destructive))] bg-[hsl(var(--advisory-panel))] px-3 py-2 text-xs leading-5 text-[hsl(var(--destructive))]"
+                >
+                  {launchError}
+                </p>
+              )}
+            </nav>
+
+            <div className="border-t border-[hsl(var(--advisory-border))] p-4 text-xs leading-5 text-[hsl(var(--advisory-muted-foreground))]">
+              {activeLaunch ? `活动会话：${activeLaunch.workflow.displayName}` : '暂无活动会话'}
+            </div>
+          </aside>
+        )}
 
         <section
           aria-label="咨询对话工作区"
@@ -3310,6 +3758,28 @@ export default function AdvisoryWorkspaceShell() {
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-label={focusMode ? '退出专注全屏' : '专注全屏'}
+                  title={focusMode ? '退出专注全屏' : '专注全屏'}
+                  disabled={!activeLaunch}
+                  onClick={() => {
+                    if (focusMode) {
+                      setFocusMode(false)
+                      return
+                    }
+                    enterFocusMode()
+                  }}
+                  className="h-9 rounded-sm px-3 text-xs"
+                >
+                  {focusMode ? (
+                    <Minimize2 className="mr-2 h-4 w-4" />
+                  ) : (
+                    <Maximize2 className="mr-2 h-4 w-4" />
+                  )}
+                  {focusMode ? '退出专注' : '专注全屏'}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"

@@ -221,6 +221,20 @@ const mockFetchWorkflowOutput = fetchThinkTankWorkflowOutput as jest.Mock
 const mockFetchSessionMessages = fetchThinkTankSessionMessages as jest.Mock
 const mockFetchHistory = fetchThinkTankSessionHistory as jest.Mock
 
+async function openSidebarTab(
+  user: ReturnType<typeof userEvent.setup>,
+  tabName: '工作' | '产物' | '新建'
+) {
+  const navigation = await screen.findByRole('navigation', { name: '咨询工作流' })
+  await user.click(await within(navigation).findByRole('tab', { name: tabName }))
+  return navigation
+}
+
+async function openAssetsRegion(user: ReturnType<typeof userEvent.setup>) {
+  await openSidebarTab(user, '产物')
+  return screen.findByRole('region', { name: '历史记录' })
+}
+
 function createUnfinishedSessionCard(overrides: Record<string, unknown> = {}) {
   return {
     sessionId: 'session-1',
@@ -343,20 +357,24 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
   })
 
   test('[P0][4.2-FE-007][AC1] prioritizes unfinished sessions in the sidebar before workflow catalog', async () => {
+    const user = userEvent.setup()
     render(<AdvisoryWorkspaceShell />)
 
     const resumeButton = await screen.findByRole('button', { name: /继续 Retention Diagnosis/ })
-    const workflowButton = await screen.findByRole('button', {
-      name: /启动 Design Thinking（Improve onboarding）/,
-    })
     expect(resumeButton).toBeInTheDocument()
     expect(screen.getByText('Problem Solving')).toBeInTheDocument()
     expect(screen.getByText('Map constraints')).toBeInTheDocument()
     expect(screen.getByText('未完成 - 可继续')).toBeInTheDocument()
     expect(screen.getByText(/05\/21.*09:06/)).toBeInTheDocument()
     expect(
-      resumeButton.compareDocumentPosition(workflowButton) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
+      screen.queryByRole('button', { name: /启动 Design Thinking（Improve onboarding）/ })
+    ).not.toBeInTheDocument()
+    const workflowNavigation = await openSidebarTab(user, '新建')
+    expect(
+      await within(workflowNavigation).findByRole('button', {
+        name: /启动 Design Thinking（Improve onboarding）/,
+      })
+    ).toBeInTheDocument()
     expect(mockFetchUnfinished).toHaveBeenCalledTimes(1)
   })
 
@@ -534,7 +552,7 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
 
     render(<AdvisoryWorkspaceShell />)
 
-    const historyRegion = await screen.findByRole('region', { name: '历史记录' })
+    const historyRegion = await openAssetsRegion(user)
     await user.click(
       within(historyRegion).getByRole('button', {
         name: /打开会话 Completed Storytelling Session/,
@@ -544,6 +562,7 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
       await screen.findByText('Completed storytelling transcript is available.')
     ).toBeInTheDocument()
 
+    await openSidebarTab(user, '工作')
     await user.click(await screen.findByRole('button', { name: /继续 Design Thinking Session/ }))
 
     await waitFor(() => expect(mockResumeSession).toHaveBeenCalledWith('session-design-thinking'))
@@ -615,8 +634,11 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
 
     render(<AdvisoryWorkspaceShell />)
 
-    await user.click(await screen.findByRole('button', { name: /启动 Design Thinking/ }))
-    expect(await screen.findByText('Product Brief')).toBeInTheDocument()
+    const workflowNavigation = await openSidebarTab(user, '新建')
+    await user.click(
+      await within(workflowNavigation).findByRole('button', { name: /启动 Design Thinking/ })
+    )
+    expect(await screen.findByRole('heading', { name: 'Product Brief' })).toBeInTheDocument()
 
     await user.click(await screen.findByRole('button', { name: /继续 Market Research Session/ }))
 
@@ -720,6 +742,49 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
   test('[P0][4.2-FE-010][AC2] aborts an in-flight stream before resuming a session again', async () => {
     const user = userEvent.setup()
     let streamSignal: AbortSignal | undefined
+    const nextSession = createUnfinishedSessionCard({
+      sessionId: 'session-2',
+      title: 'Pricing Diagnosis',
+      workflowKey: 'pricing',
+      workflowType: 'Pricing',
+      lastStep: { index: 4, label: 'Model tradeoffs' },
+      status: 'paused',
+      statusSummary: '未完成 - Model tradeoffs',
+    })
+    mockFetchUnfinished.mockResolvedValueOnce({
+      sessions: [createUnfinishedSessionCard(), nextSession],
+    })
+    mockResumeSession.mockResolvedValueOnce(createResumeResult()).mockResolvedValueOnce(
+      createResumeResult({
+        session: {
+          ...nextSession,
+          status: 'active',
+        },
+        messages: [
+          {
+            id: 'message-pricing',
+            role: 'assistant',
+            content: 'Pricing recovered.',
+            sequence: 2,
+            workflowKey: 'pricing',
+            stepIndex: 4,
+            decisionOptions: [
+              { key: 'continue', action: 'continue', label: '继续', enabled: true },
+            ],
+          },
+        ],
+        recoveryMessage: {
+          title: '已恢复未完成会话',
+          content: '已恢复到 Model tradeoffs。Pricing recovered.',
+          lastStep: 'Model tradeoffs',
+          keyConclusions: ['Pricing recovered.'],
+          actions: [
+            { key: 'continue', label: '继续' },
+            { key: 'review-document', label: '先查看文档' },
+          ],
+        },
+      })
+    )
 
     mockStreamMessage.mockImplementation(async function* (
       _sessionId: string,
@@ -744,12 +809,12 @@ describe('AdvisoryWorkspaceShell resume interrupted sessions', () => {
     await waitFor(() => expect(mockStreamMessage).toHaveBeenCalledTimes(1))
     expect(streamSignal?.aborted).toBe(false)
 
-    await user.click(screen.getByRole('button', { name: /继续 Retention Diagnosis/ }))
+    await user.click(await screen.findByRole('button', { name: /继续 Pricing Diagnosis/ }))
 
     await waitFor(() => expect(streamSignal?.aborted).toBe(true))
     await waitFor(() => expect(mockResumeSession).toHaveBeenCalledTimes(2))
     expect(screen.queryByText('stale stream delta')).not.toBeInTheDocument()
-    expect(screen.getByText('Key conclusion: setup guidance is missing.')).toBeInTheDocument()
+    expect(screen.getAllByText('Pricing recovered.').length).toBeGreaterThan(0)
   })
 
   test('[P0][5.3-FE-006][AC2] removes completed Party Mode advisor messages when the same stream fails later', async () => {

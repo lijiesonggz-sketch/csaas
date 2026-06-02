@@ -1928,6 +1928,7 @@ describe('AdvisoryPage', () => {
     expect(screen.getByRole('status', { name: 'ThinkTank 工作台状态' })).toHaveTextContent(
       '活动会话：Brainstorming'
     )
+    await user.click(within(workflowNav).getByRole('tab', { name: '新建' }))
     expect(within(workflowNav).getByRole('button', { name: /查看 Brainstorming/ })).toBeEnabled()
     within(workflowNav)
       .getAllByRole('button', { name: /启动 / })
