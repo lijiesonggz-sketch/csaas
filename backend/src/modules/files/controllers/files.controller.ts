@@ -127,15 +127,20 @@ export class FilesController {
           // 尝试 UTF-8 解码，替换无效字符
           const decoder = new TextDecoder('utf-8', { fatal: false, ignoreBOM: false })
           content = decoder.decode(file.buffer)
-
-          // 移除 null 字节和其他控制字符（保留换行符 \n 和 \r）
-          content = content.replace(/\x00/g, '') // null 字节
-          content = content.replace(/[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '') // 其他控制字符
         } catch (decodeError) {
           this.logger.error('文件解码失败:', decodeError)
           throw new BadRequestException('文件编码错误，请确保文件是 UTF-8 编码')
         }
       }
+
+      content = this.filesService.sanitizeTextForDatabase(content)
+      const sanitizedOriginalName = this.filesService.sanitizeTextForDatabase(
+        file.originalname || '',
+      )
+      const sanitizedStandardName = standardName
+        ? this.filesService.sanitizeTextForDatabase(standardName).trim()
+        : ''
+      const documentName = sanitizedStandardName || sanitizedOriginalName || '未命名文档'
 
       if (!content || content.trim().length === 0) {
         throw new BadRequestException('文件内容为空')
@@ -143,11 +148,11 @@ export class FilesController {
 
       // 保存到标准文档表
       const doc = this.standardDocumentRepo.create({
-        name: standardName || file.originalname,
+        name: documentName,
         content,
         projectId,
         metadata: {
-          original_filename: file.originalname,
+          original_filename: sanitizedOriginalName,
           mime_type: file.mimetype,
           size: file.size,
           uploaded_at: new Date().toISOString(),
@@ -165,7 +170,7 @@ export class FilesController {
           {
             id: doc.id,
             name: doc.name,
-            filename: file.originalname,
+            filename: sanitizedOriginalName,
             content: doc.content,
             uploadedAt: doc.createdAt,
           },
@@ -246,6 +251,7 @@ export class FilesController {
         filename,
         size: Number(metadata.size ?? 0),
         charCount: doc.content.length,
+        content: doc.content,
         createdAt: doc.createdAt,
         metadata,
       }
@@ -264,6 +270,7 @@ export class FilesController {
           filename: String(doc.filename ?? metadata.original_filename ?? name),
           size: Number(doc.size ?? metadata.size ?? Buffer.byteLength(content, 'utf8')),
           charCount: Number(doc.charCount ?? content.length),
+          content,
           createdAt: doc.createdAt ?? doc.uploadedAt ?? metadata.uploaded_at ?? project?.createdAt,
           metadata: {
             ...metadata,

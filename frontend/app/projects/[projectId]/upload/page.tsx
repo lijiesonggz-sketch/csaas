@@ -271,7 +271,7 @@ export default function UploadPage() {
             <div>
               <h1 className="text-2xl font-bold font-[var(--font-plus-jakarta)]">上传文档</h1>
               <p className="text-sm text-white/80 font-[var(--font-inter)]">
-                上传项目相关文档，支持 PDF、Word、Excel 等格式
+                上传项目相关文档，支持 PDF、TXT、MD、DOCX 格式
               </p>
             </div>
           </div>

@@ -6,6 +6,14 @@ export class FilesService {
   private readonly logger = new Logger(FilesService.name)
   private readonly MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
+  sanitizeTextForDatabase(value: string): string {
+    if (!value) {
+      return value
+    }
+
+    return value.replace(/\x00/g, '').replace(/[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
+  }
+
   /**
    * Parse PDF file and extract text content
    * @param fileBuffer Buffer containing PDF file data
@@ -31,7 +39,7 @@ export class FilesService {
       this.logger.log(`开始解析PDF，大小: ${fileBuffer.length} bytes`)
 
       // 延迟加载 pdf-parse，避免模块导入阶段在测试环境中留下原生句柄。
-      const pdfParseModule = require('pdf-parse')
+      const pdfParseModule = await import('pdf-parse')
 
       // 使用pdf-parse v2解析PDF
       // 必须传入{ data: buffer }参数
@@ -106,7 +114,7 @@ export class FilesService {
       this.logger.error('DOCX解析失败:', error)
 
       throw new BadRequestException(
-        `DOCX解析失败: ${error instanceof Error ? error.message : '未知错误'}`
+        `DOCX解析失败: ${error instanceof Error ? error.message : '未知错误'}`,
       )
     }
   }

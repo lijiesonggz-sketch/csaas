@@ -37,7 +37,7 @@ describe('UploadPage', () => {
 
     expect(screen.getByText('上传文档')).toBeInTheDocument()
     expect(screen.getByText('选择文件或拖拽到此处')).toBeInTheDocument()
-    expect(screen.getByText(/支持 PDF、TXT、MD、DOCX 格式/)).toBeInTheDocument()
+    expect(screen.getAllByText(/支持 PDF、TXT、MD、DOCX 格式/).length).toBeGreaterThan(0)
   })
 
   it('renders the current file input contract', () => {
