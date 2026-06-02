@@ -20,7 +20,7 @@
 ## CONTEXT BOUNDARIES:
 
 - Session context from Step 1 available for journey design
-- Brain techniques CSV with 36+ techniques across 7 categories
+- Brain techniques CSV is the source of truth for the current technique count and category count
 - User wants systematic, comprehensive idea development
 - Must design natural progression from divergent to convergent thinking
 
@@ -67,7 +67,9 @@ Explain the value of systematic creative progression:
 **Load CSV and parse:**
 
 - Read `../brain-methods.csv`
-- Parse: category, technique_name, description, facilitation_prompts, best_for, energy_level, typical_duration
+- Parse available columns. Current minimum columns are: category, technique_name, description
+- If optional columns such as facilitation_prompts, best_for, energy_level, or typical_duration are absent, derive concise journey-design guidance from description instead of inventing missing metadata
+- Count all rows with a non-empty technique_name and group by CSV category before designing the journey
 - Map techniques to each phase of the creative journey
 
 ### 2. Design Phase-Specific Technique Selection

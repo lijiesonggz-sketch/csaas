@@ -20,7 +20,7 @@
 ## CONTEXT BOUNDARIES:
 
 - Session context from Step 1 available for basic filtering
-- Brain techniques CSV with 36+ techniques across 7 categories
+- Brain techniques CSV is the source of truth for the current technique count and category count
 - User wants surprise and unexpected creative methods
 - Randomness should create complementary, not contradictory, combinations
 
@@ -48,7 +48,9 @@ Create anticipation for serendipitous technique discovery:
 **Load CSV and parse:**
 
 - Read `../brain-methods.csv`
-- Parse: category, technique_name, description, facilitation_prompts, best_for, energy_level, typical_duration
+- Parse available columns. Current minimum columns are: category, technique_name, description
+- If optional columns such as facilitation_prompts, best_for, energy_level, or typical_duration are absent, derive concise selection guidance from description instead of inventing missing metadata
+- Count all rows with a non-empty technique_name and group by CSV category before random selection
 - Prepare for intelligent random selection
 
 ### 2. Intelligent Random Selection
@@ -56,7 +58,7 @@ Create anticipation for serendipitous technique discovery:
 Perform random selection with basic intelligence for good combinations:
 
 **Selection Process:**
-"I'm now randomly selecting 3 complementary techniques from our library of 36+ methods. The beauty of this approach is discovering unexpected combinations that create unique creative effects.
+"I'm now randomly selecting 3 complementary techniques from our library of [total_count] methods across [category_count] categories. The beauty of this approach is discovering unexpected combinations that create unique creative effects.
 
 **Randomizing Technique Selection...**"
 
@@ -165,7 +167,7 @@ stepsCompleted: [1, 2]
 ## Technique Selection
 
 **Approach:** Random Technique Selection
-**Selection Method:** Serendipitous discovery from 36+ techniques
+**Selection Method:** Serendipitous discovery from [total_count] techniques across [category_count] categories
 
 **Randomly Selected Techniques:**
 

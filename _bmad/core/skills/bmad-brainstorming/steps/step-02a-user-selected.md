@@ -20,7 +20,7 @@
 ## CONTEXT BOUNDARIES:
 
 - Session context from Step 1 is available
-- Brain techniques CSV contains 36+ techniques across 7 categories
+- Brain techniques CSV is the source of truth for the current technique count and category count
 - User wants full control over technique selection
 - May need to present techniques by category or search capability
 
@@ -41,51 +41,40 @@ Load techniques from CSV on-demand:
 **Load CSV and parse:**
 
 - Read `../brain-methods.csv`
-- Parse: category, technique_name, description, facilitation_prompts, best_for, energy_level, typical_duration
-- Organize by categories for browsing
+- Parse available columns. Current minimum columns are: category, technique_name, description
+- If optional columns such as facilitation_prompts, best_for, energy_level, or typical_duration are absent, derive concise browsing guidance from description instead of inventing missing metadata
+- Count all rows with a non-empty technique_name
+- Organize by category exactly as present in the CSV, preserving first-seen category order
 
 ### 2. Present Technique Categories
 
-Show available categories with brief descriptions:
+Show available categories dynamically from the CSV. Do not use stale hard-coded counts.
 
-"**Our Brainstorming Technique Library - 36+ Techniques Across 7 Categories:**
+"**Our Brainstorming Technique Library - [total_count] Techniques Across [category_count] Categories:**
 
-**[1] Structured Thinking** (6 techniques)
+For each category, present:
 
-- Systematic frameworks for thorough exploration and organized analysis
-- Includes: SCAMPER, Six Thinking Hats, Mind Mapping, Resource Constraints
+- **[number] [Category Label]** ([category_count] techniques)
+- [One concise description inferred from the category and its technique descriptions]
+- Includes: [first 3-5 technique names from that category]
 
-**[2] Creative Innovation** (7 techniques)
+**Category label guidance:**
 
-- Innovative approaches for breakthrough thinking and paradigm shifts
-- Includes: What If Scenarios, Analogical Thinking, Reversal Inversion
+- structured → Structured Thinking
+- creative → Creative Innovation
+- collaborative → Collaborative Methods
+- deep → Deep Analysis
+- theatrical → Theatrical Exploration
+- wild → Wild Thinking
+- introspective_delight → Introspective Delight
+- biomimetic → Biomimetic Inspiration
+- cultural → Cultural Patterns
+- quantum → Quantum Thinking
+- Unknown categories → Title Case the raw category value
 
-**[3] Collaborative Methods** (4 techniques)
+After listing all categories:
 
-- Group dynamics and team ideation approaches for inclusive participation
-- Includes: Yes And Building, Brain Writing Round Robin, Role Playing
-
-**[4] Deep Analysis** (5 techniques)
-
-- Analytical methods for root cause and strategic insight discovery
-- Includes: Five Whys, Morphological Analysis, Provocation Technique
-
-**[5] Theatrical Exploration** (5 techniques)
-
-- Playful exploration for radical perspectives and creative breakthroughs
-- Includes: Time Travel Talk Show, Alien Anthropologist, Dream Fusion
-
-**[6] Wild Thinking** (5 techniques)
-
-- Extreme thinking for pushing boundaries and breakthrough innovation
-- Includes: Chaos Engineering, Guerrilla Gardening Ideas, Pirate Code
-
-**[7] Introspective Delight** (5 techniques)
-
-- Inner wisdom and authentic exploration approaches
-- Includes: Inner Child Conference, Shadow Work Mining, Values Archaeology
-
-**Which category interests you most? Enter 1-7, or tell me what type of thinking you're drawn to.**"
+**Which category interests you most? Enter a category number, search for a technique name, or tell me what type of thinking you're drawn to.**"
 
 **HALT — wait for user selection before proceeding.**
 

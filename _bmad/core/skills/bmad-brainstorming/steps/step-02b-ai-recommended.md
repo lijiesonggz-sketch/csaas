@@ -20,7 +20,7 @@
 ## CONTEXT BOUNDARIES:
 
 - Session context (`session_topic`, `session_goals`, constraints) from Step 1
-- Brain techniques CSV with 36+ techniques across 7 categories
+- Brain techniques CSV is the source of truth for the current technique count and category count
 - User wants expert guidance in technique selection
 - Must analyze multiple factors for optimal matching
 
@@ -48,7 +48,9 @@ Load techniques from CSV for analysis:
 **Load CSV and parse:**
 
 - Read `../brain-methods.csv`
-- Parse: category, technique_name, description, facilitation_prompts, best_for, energy_level, typical_duration
+- Parse available columns. Current minimum columns are: category, technique_name, description
+- If optional columns such as facilitation_prompts, best_for, energy_level, or typical_duration are absent, derive concise recommendation guidance from description instead of inventing missing metadata
+- Count all rows with a non-empty technique_name and group by CSV category before recommending
 
 ### 2. Context Analysis for Technique Matching
 

@@ -34,6 +34,12 @@
 - "记住全自动"
 - "你做完所有，我再手工验收测试"
 
+### Windows 命令环境
+
+- ✅ 当前项目运行环境是 **Windows + PowerShell**，执行 Python 脚本或 inline Python 时默认使用 `python`。
+- ❌ **不要使用 `python3`**，除非用户明确说明当前 shell/环境已经配置了 `python3`。
+- ✅ 示例：使用 `@'\nprint("hello")\n'@ | python -`，而不是 `python3 -`。
+
 ## BMAD Workflow Hard Rules                                                                                                                                   
                                                                                                                                                                 
 - 当用户显式调用 `$bmad-*`、指定 skill 名称、或要求执行某个 BMAD workflow 时，必须先完整读取对应 `SKILL.md` 以及其引用的 `workflow.md` / `steps/*.md`，不得凭记忆或经验简化执行。                                                                                                                                          
