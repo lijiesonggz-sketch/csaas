@@ -1,11 +1,13 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Layers, Sparkles, AlertCircle, ArrowLeft, Loader2 } from 'lucide-react'
+import { Layers, Sparkles, AlertCircle, ArrowLeft, Loader2, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { AIGenerationAPI } from '@/lib/api/ai-generation'
 import { apiFetch } from '@/lib/utils/api'
 import { useProject } from '@/lib/contexts/ProjectContext'
@@ -13,6 +15,8 @@ import ClusteringResultDisplay from '@/components/features/ClusteringResultDispl
 import type { GenerationResult } from '@/lib/types/ai-generation'
 import { useTaskProgressPolling } from '@/lib/hooks/useTaskProgressPolling'
 import { Progress } from '@/components/ui/progress'
+import { cn } from '@/lib/utils'
+import { extractClauseIdsFromContent } from '@/lib/utils/clauseIds'
 
 interface UploadedDocument {
   id: string
@@ -21,11 +25,32 @@ interface UploadedDocument {
   filename?: string
 }
 
+type ClusteringMode = 'structured' | 'ai'
+
+const LEAF_REQUIREMENT_ID_PATTERN = /^\d{1,2}(?:\.\d{1,2}){1,3}-[a-z](?:-\d{1,2})?$/
+
+function analyzeStructuredStandard(documents: UploadedDocument[]) {
+  if (documents.length !== 1 || !documents[0]?.content) {
+    return {
+      isStructured: false,
+      leafRequirementCount: 0,
+    }
+  }
+
+  const clauseIds = extractClauseIdsFromContent(documents[0].content)
+  const leafRequirementCount = clauseIds.filter((id) => LEAF_REQUIREMENT_ID_PATTERN.test(id)).length
+
+  return {
+    isStructured: leafRequirementCount > 0,
+    leafRequirementCount,
+  }
+}
+
 export default function ClusteringPage() {
   const params = useParams<{ projectId: string }>()
   const router = useRouter()
   const projectId = params?.projectId ?? ''
-  const { project } = useProject()
+  const { project, refreshProject } = useProject()
 
   const [taskId, setTaskId] = useState<string | null>(null)
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null)
@@ -33,6 +58,13 @@ export default function ClusteringPage() {
   const [loading, setLoading] = useState(false)
   const [initializing, setInitializing] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [clusteringMode, setClusteringMode] = useState<ClusteringMode>('ai')
+
+  const structuredAnalysis = useMemo(() => analyzeStructuredStandard(documents), [documents])
+
+  useEffect(() => {
+    setClusteringMode(structuredAnalysis.isStructured ? 'structured' : 'ai')
+  }, [structuredAnalysis.isStructured])
 
   const { progress } = useTaskProgressPolling({
     taskId: taskId || undefined,
@@ -104,6 +136,16 @@ export default function ClusteringPage() {
     return fallbackDocs
   }, [project?.metadata?.uploadedDocuments, projectId])
 
+  const loadLatestProject = useCallback(async () => {
+    try {
+      const latestProject = await apiFetch<any>(`/projects/${projectId}`)
+      return latestProject?.id ? latestProject : project
+    } catch (err) {
+      console.warn('⚠️ [Clustering] 项目详情刷新失败，回退到当前上下文:', err)
+      return project
+    }
+  }, [project, projectId])
+
   const loadSavedClusteringTask = useCallback(async () => {
     if (!project) return
 
@@ -113,7 +155,8 @@ export default function ClusteringPage() {
       const docs = await loadProjectDocuments()
       setDocuments(docs)
 
-      const clusteringTaskId = project.metadata?.clusteringTaskId
+      const latestProject = await loadLatestProject()
+      const clusteringTaskId = latestProject?.metadata?.clusteringTaskId
       if (typeof clusteringTaskId === 'string' && clusteringTaskId.length > 0) {
         const savedTaskId: string = clusteringTaskId
         setTaskId(savedTaskId)
@@ -191,7 +234,7 @@ export default function ClusteringPage() {
     } finally {
       setInitializing(false)
     }
-  }, [loadProjectDocuments, project])
+  }, [loadLatestProject, loadProjectDocuments, project])
 
   const handleGenerate = async () => {
     if (!project) return
@@ -202,6 +245,10 @@ export default function ClusteringPage() {
 
       const currentDocuments = documents.length > 0 ? documents : await loadProjectDocuments()
       setDocuments(currentDocuments)
+      const currentStructuredAnalysis = analyzeStructuredStandard(currentDocuments)
+      const effectiveClusteringMode: ClusteringMode = currentStructuredAnalysis.isStructured
+        ? clusteringMode
+        : 'ai'
 
       if (!Array.isArray(currentDocuments) || currentDocuments.length < 1) {
         setError('聚类分析至少需要1个文档，请先上传文档')
@@ -216,6 +263,7 @@ export default function ClusteringPage() {
         input: {
           documentIds: currentDocuments.map((doc) => doc.id),
           maxTokens: 60000,
+          clusteringMode: effectiveClusteringMode,
         },
       })
 
@@ -229,6 +277,11 @@ export default function ClusteringPage() {
           },
         }),
       })
+      try {
+        await refreshProject()
+      } catch (refreshErr) {
+        console.warn('⚠️ [Clustering] 项目上下文刷新失败，任务已创建:', refreshErr)
+      }
     } catch (err) {
       console.error('❌ [Clustering] 生成失败:', err)
       setError(err instanceof Error ? err.message : '生成失败')
@@ -329,6 +382,72 @@ export default function ClusteringPage() {
             </div>
             <h3 className="text-xl font-semibold text-[#1E3A5F] mb-2">还没有生成聚类</h3>
             <p className="text-sm text-[#94A3B8] mb-8">点击下方按钮开始生成聚类分析</p>
+            <div className="max-w-2xl mx-auto mb-8 text-left">
+              {structuredAnalysis.isStructured && (
+                <Alert className="mb-4 border-[#BBF7D0] bg-[#F0FDF4]">
+                  <CheckCircle className="w-4 h-4 text-[#059669]" />
+                  <AlertTitle className="text-[#065F46]">检测到结构化标准</AlertTitle>
+                  <AlertDescription className="text-[#065F46]">
+                    识别出 {structuredAnalysis.leafRequirementCount}{' '}
+                    个叶子要求项，建议按原始层级生成。
+                  </AlertDescription>
+                </Alert>
+              )}
+              <RadioGroup
+                value={clusteringMode}
+                onValueChange={(value) => setClusteringMode(value as ClusteringMode)}
+                className="grid gap-3"
+              >
+                {structuredAnalysis.isStructured && (
+                  <div
+                    className={cn(
+                      'flex gap-3 rounded-sm border p-4',
+                      clusteringMode === 'structured'
+                        ? 'border-[#059669] bg-[#F0FDF4]'
+                        : 'border-[#E2E8F0] bg-white'
+                    )}
+                  >
+                    <RadioGroupItem
+                      id="clustering-mode-structured"
+                      value="structured"
+                      className="mt-1"
+                    />
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="clustering-mode-structured"
+                        className="cursor-pointer font-semibold text-[#1E3A5F]"
+                      >
+                        按原始层级生成
+                      </Label>
+                      <p className="text-sm text-[#64748B]">
+                        保留标准原有能力项、关键活动和要求项，适合 AIMM 这类层级清晰的单文档。
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <div
+                  className={cn(
+                    'flex gap-3 rounded-sm border p-4',
+                    clusteringMode === 'ai'
+                      ? 'border-[#1E3A5F] bg-[#EFF6FF]'
+                      : 'border-[#E2E8F0] bg-white'
+                  )}
+                >
+                  <RadioGroupItem id="clustering-mode-ai" value="ai" className="mt-1" />
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor="clustering-mode-ai"
+                      className="cursor-pointer font-semibold text-[#1E3A5F]"
+                    >
+                      AI语义聚类
+                    </Label>
+                    <p className="text-sm text-[#64748B]">
+                      由 AI 按语义重新归并主题，适合非结构化文档、多标准合并或需要重组目录的场景。
+                    </p>
+                  </div>
+                </div>
+              </RadioGroup>
+            </div>
             <Button
               onClick={handleGenerate}
               disabled={loading}

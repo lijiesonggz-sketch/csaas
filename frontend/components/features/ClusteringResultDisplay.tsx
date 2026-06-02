@@ -5,7 +5,7 @@
  * 显示聚类树形结构、覆盖率统计和高风险条款
  */
 
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +31,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { GenerationResult } from '@/lib/types/ai-generation'
+import {
+  calculateCoverageFromClauseIds,
+  extractClauseIdsFromContent,
+  normalizeCoverageSummary,
+  type CoverageGranularity,
+} from '@/lib/utils/clauseIds'
 import MissingClausesHandler from './MissingClausesHandler'
 
 interface StandardDocument {
@@ -66,6 +72,7 @@ interface Category {
 interface ClusteringResult {
   categories: Category[] // 第一层：大归类
   clustering_logic: string
+  generation_mode?: 'structured' | 'ai'
   coverage_summary: {
     by_document: Record<
       string,
@@ -73,12 +80,14 @@ interface ClusteringResult {
         total_clauses: number
         clustered_clauses: number
         missing_clause_ids: string[]
+        coverage_granularity?: CoverageGranularity
       }
     >
     overall: {
       total_clauses: number
       clustered_clauses: number
       coverage_rate: number
+      coverage_granularity?: CoverageGranularity
     }
   }
 }
@@ -88,32 +97,105 @@ interface Props {
   documents?: StandardDocument[] // 添加可选标记
 }
 
+function getCoverageGranularityLabel(granularity?: CoverageGranularity): string {
+  switch (granularity) {
+    case 'leaf_requirement':
+      return '叶子要求项'
+    case 'article':
+      return '条款'
+    case 'section':
+      return '章节'
+    case 'generated':
+      return '聚类生成ID'
+    default:
+      return ''
+  }
+}
+
+function getGenerationModeLabel(mode?: ClusteringResult['generation_mode']): string {
+  switch (mode) {
+    case 'structured':
+      return '原始层级映射'
+    case 'ai':
+      return 'AI语义聚类'
+    default:
+      return ''
+  }
+}
+
 export default function ClusteringResultDisplay({ result, documents = [] }: Props) {
   // 解析聚类结果 - 支持新旧两种数据格式
-  let clusteringResult: ClusteringResult
+  const parsedResult = useMemo(() => {
+    try {
+      // 新格式：result.content 包含 JSON 字符串
+      if (result.content) {
+        return {
+          clusteringResult:
+            typeof result.content === 'string'
+              ? (JSON.parse(result.content) as ClusteringResult)
+              : (result.content as ClusteringResult),
+          parseError: null,
+        }
+      }
 
-  try {
-    // 新格式：result.content 包含 JSON 字符串
-    if (result.content) {
-      if (typeof result.content === 'string') {
-        clusteringResult = JSON.parse(result.content) as ClusteringResult
-      } else {
-        clusteringResult = result.content as ClusteringResult
+      // 旧格式：result.selectedResult
+      if (result.selectedResult) {
+        return {
+          clusteringResult:
+            typeof result.selectedResult === 'string'
+              ? (JSON.parse(result.selectedResult) as ClusteringResult)
+              : (result.selectedResult as ClusteringResult),
+          parseError: null,
+        }
+      }
+
+      // 直接就是聚类结果
+      return {
+        clusteringResult: result as unknown as ClusteringResult,
+        parseError: null,
+      }
+    } catch (error) {
+      return {
+        clusteringResult: null,
+        parseError: error as Error,
       }
     }
-    // 旧格式：result.selectedResult
-    else if (result.selectedResult) {
-      if (typeof result.selectedResult === 'string') {
-        clusteringResult = JSON.parse(result.selectedResult) as ClusteringResult
-      } else {
-        clusteringResult = result.selectedResult as ClusteringResult
-      }
+  }, [result])
+
+  const clusteringResult = parsedResult.clusteringResult
+  const storedCoverage = useMemo(
+    () => normalizeCoverageSummary(clusteringResult?.coverage_summary),
+    [clusteringResult]
+  )
+  const initialCoverage = useMemo(() => {
+    if (!clusteringResult) {
+      return undefined
     }
-    // 直接就是聚类结果
-    else {
-      clusteringResult = result as unknown as ClusteringResult
+
+    if (
+      !clusteringResult.categories ||
+      clusteringResult.generation_mode === 'structured' ||
+      documents.length === 0
+    ) {
+      return storedCoverage
     }
-  } catch (parseError) {
+
+    return recalculateCoverage(clusteringResult.categories, documents)
+  }, [clusteringResult, documents, storedCoverage])
+  const [categories, setCategories] = useState<Category[]>(() => clusteringResult?.categories ?? [])
+  const [coverageSummary, setCoverageSummary] = useState(initialCoverage)
+
+  useEffect(() => {
+    if (!clusteringResult?.categories) {
+      return
+    }
+
+    setCategories(clusteringResult.categories)
+    setCoverageSummary(initialCoverage)
+  }, [clusteringResult, initialCoverage])
+
+  if (parsedResult.parseError) {
+    const parseError = parsedResult.parseError
     console.error('Failed to parse clustering result:', parseError)
     return (
       <Alert className="border-[#FECACA] bg-[#FEF2F2]">
@@ -139,9 +221,7 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
       <Alert className="border-[#FECACA] bg-[#FEF2F2]">
         <AlertTriangle className="h-4 w-4 text-[#DC2626]" />
         <AlertTitle className="text-[#991B1B]">数据为空</AlertTitle>
-        <AlertDescription className="text-[#7F1D1D]">
-          聚类结果数据为空
-        </AlertDescription>
+        <AlertDescription className="text-[#7F1D1D]">聚类结果数据为空</AlertDescription>
       </Alert>
     )
   }
@@ -166,27 +246,33 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
     )
   }
 
-  const { clustering_logic, coverage_summary: initialCoverage } = clusteringResult
-  const [categories, setCategories] = useState<Category[]>(clusteringResult.categories)
-  const [coverageSummary, setCoverageSummary] = useState(initialCoverage)
+  const { clustering_logic } = clusteringResult
 
   // 风险级别颜色映射
   const getRiskColor = (level: string): string => {
     switch (level) {
-      case 'HIGH': return 'bg-[#FECACA] text-[#991B1B] border-[#DC2626]'
-      case 'MEDIUM': return 'bg-[#FEF3C7] text-[#92400E] border-[#F59E0B]'
-      case 'LOW': return 'bg-[#D1FAE5] text-[#065F46] border-[#059669]'
-      default: return 'bg-[#F3F4F6] text-[#64748B] border-[#E2E8F0]'
+      case 'HIGH':
+        return 'bg-[#FECACA] text-[#991B1B] border-[#DC2626]'
+      case 'MEDIUM':
+        return 'bg-[#FEF3C7] text-[#92400E] border-[#F59E0B]'
+      case 'LOW':
+        return 'bg-[#D1FAE5] text-[#065F46] border-[#059669]'
+      default:
+        return 'bg-[#F3F4F6] text-[#64748B] border-[#E2E8F0]'
     }
   }
 
   // 重要性颜色映射
   const getImportanceColor = (level: string): string => {
     switch (level) {
-      case 'HIGH': return 'bg-[#8B5CF6] text-white border-[#7C3AED]'
-      case 'MEDIUM': return 'bg-[#1E3A5F] text-white border-[#0F2847]'
-      case 'LOW': return 'bg-[#E2E8F0] text-[#64748B] border-[#CBD5E1]'
-      default: return 'bg-[#F3F4F6] text-[#64748B] border-[#E2E8F0]'
+      case 'HIGH':
+        return 'bg-[#8B5CF6] text-white border-[#7C3AED]'
+      case 'MEDIUM':
+        return 'bg-[#1E3A5F] text-white border-[#0F2847]'
+      case 'LOW':
+        return 'bg-[#E2E8F0] text-[#64748B] border-[#CBD5E1]'
+      default:
+        return 'bg-[#F3F4F6] text-[#64748B] border-[#E2E8F0]'
     }
   }
 
@@ -211,7 +297,9 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
       const csvRows: string[] = []
 
       // CSV Header
-      csvRows.push('Category ID,Category Name,Cluster ID,Cluster Name,Importance,Risk Level,Clause ID,Source Document,Clause Text,Rationale')
+      csvRows.push(
+        'Category ID,Category Name,Cluster ID,Cluster Name,Importance,Risk Level,Clause ID,Source Document,Clause Text,Rationale'
+      )
 
       // 遍历三层结构导出数据
       categories.forEach((category) => {
@@ -264,12 +352,12 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
 
         if (result.content) {
           // 尝试从content中提取taskId
-          const contentData = typeof result.content === 'string'
-            ? JSON.parse(result.content)
-            : result.content
+          const contentData =
+            typeof result.content === 'string' ? JSON.parse(result.content) : result.content
 
           // 尝试从多个可能的字段获取taskId
-          clusteringTaskId = contentData.taskId || result.id || result.taskId || (result as any).clusteringTaskId
+          clusteringTaskId =
+            contentData.taskId || result.id || result.taskId || (result as any).clusteringTaskId
         } else {
           // 如果没有content，直接使用result.id
           clusteringTaskId = result.id || result.taskId
@@ -314,10 +402,10 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
   }
 
   // 重新计算覆盖率
-  const recalculateCoverage = (
+  function recalculateCoverage(
     cats: Category[],
-    docs: StandardDocument[],
-  ): ClusteringResult['coverage_summary'] => {
+    docs: StandardDocument[]
+  ): ClusteringResult['coverage_summary'] {
     const byDocument: Record<string, any> = {}
 
     docs.forEach((doc) => {
@@ -327,10 +415,7 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
         .flatMap((cluster) => cluster.clauses || [])
         .filter((clause: any) => clause.source_document_id === doc.id)
 
-      // 统计文档实际条款数（去重）
-      const allClauseMatches = doc.content.match(/第[一二三四五六七八九十百千]+条/g) || []
-      const allClauseIds = Array.from(new Set(allClauseMatches)) // 去重
-      const actualClauseCount = allClauseIds.length
+      const allClauseIds = extractClauseIdsFromContent(doc.content)
 
       // 统计唯一提取的条款（从聚类中）
       const uniqueClusteredIds = new Set<string>()
@@ -338,24 +423,31 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
         uniqueClusteredIds.add(clause.clause_id)
       })
 
-      // 过滤掉AI生成的、文档中不存在的条款
-      const validClusteredIds = Array.from(uniqueClusteredIds).filter(id =>
-        allClauseIds.includes(id)
-      )
-      const finalClusteredCount = validClusteredIds.length
-
-      // 找出缺失的条款
-      const missingClauseIds = allClauseIds.filter((id) => !uniqueClusteredIds.has(id))
+      const coverage = calculateCoverageFromClauseIds(allClauseIds, Array.from(uniqueClusteredIds))
 
       byDocument[doc.id] = {
-        total_clauses: actualClauseCount,
-        clustered_clauses: finalClusteredCount,
-        missing_clause_ids: missingClauseIds,
+        total_clauses: coverage.total_clauses,
+        clustered_clauses: coverage.clustered_clauses,
+        missing_clause_ids: coverage.missing_clause_ids,
+        coverage_granularity: coverage.coverage_granularity,
       }
     })
 
-    const totalClauses = Object.values(byDocument).reduce((sum: number, doc: any) => sum + doc.total_clauses, 0)
-    const clusteredClauses = Object.values(byDocument).reduce((sum: number, doc: any) => sum + doc.clustered_clauses, 0)
+    const totalClauses = Object.values(byDocument).reduce(
+      (sum: number, doc: any) => sum + doc.total_clauses,
+      0
+    )
+    const clusteredClauses = Object.values(byDocument).reduce(
+      (sum: number, doc: any) => sum + doc.clustered_clauses,
+      0
+    )
+    const coverageGranularities = Array.from(
+      new Set(
+        Object.values(byDocument)
+          .map((coverage: any) => coverage.coverage_granularity as CoverageGranularity | undefined)
+          .filter(Boolean)
+      )
+    )
 
     return {
       by_document: byDocument,
@@ -363,11 +455,19 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
         total_clauses: totalClauses,
         clustered_clauses: clusteredClauses,
         coverage_rate: totalClauses > 0 ? clusteredClauses / totalClauses : 0,
+        coverage_granularity:
+          coverageGranularities.length === 1 ? coverageGranularities[0] : undefined,
       },
     }
   }
 
-  const coverageRate = coverageSummary?.overall?.coverage_rate ? (coverageSummary.overall.coverage_rate * 100) : 0
+  const coverageRate = coverageSummary?.overall?.coverage_rate
+    ? coverageSummary.overall.coverage_rate * 100
+    : 0
+  const coverageGranularityLabel = getCoverageGranularityLabel(
+    coverageSummary?.overall?.coverage_granularity
+  )
+  const generationModeLabel = getGenerationModeLabel(clusteringResult.generation_mode)
 
   return (
     <div className="flex flex-col gap-6">
@@ -427,14 +527,18 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
               <p className="text-sm text-[#64748B]">聚类数量</p>
             </div>
             <div className="text-center">
-              <CheckCircle className={cn(
-                'h-6 w-6 mx-auto mb-2',
-                coverageRate >= 95 ? 'text-[#059669]' : 'text-[#F59E0B]'
-              )} />
-              <p className={cn(
-                'text-2xl font-semibold',
-                coverageRate >= 95 ? 'text-[#059669]' : 'text-[#F59E0B]'
-              )}>
+              <CheckCircle
+                className={cn(
+                  'h-6 w-6 mx-auto mb-2',
+                  coverageRate >= 95 ? 'text-[#059669]' : 'text-[#F59E0B]'
+                )}
+              />
+              <p
+                className={cn(
+                  'text-2xl font-semibold',
+                  coverageRate >= 95 ? 'text-[#059669]' : 'text-[#F59E0B]'
+                )}
+              >
                 {coverageRate.toFixed(1)}%
               </p>
               <p className="text-sm text-[#64748B]">覆盖率</p>
@@ -446,7 +550,9 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
             </div>
             <div className="text-center">
               <Bot className="h-6 w-6 mx-auto mb-2 text-[#64748B]" />
-              <p className="text-2xl font-semibold text-[#1E3A5F]">{(result as any).selectedModel || 'GPT4'}</p>
+              <p className="text-2xl font-semibold text-[#1E3A5F]">
+                {(result as any).selectedModel || 'GPT4'}
+              </p>
               <p className="text-sm text-[#64748B]">AI模型</p>
             </div>
           </div>
@@ -481,7 +587,7 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
                       stroke="currentColor"
                       strokeWidth="8"
                       fill="none"
-                      strokeDasharray={`${(result.qualityScores.structural * 100) * 2.26} 226`}
+                      strokeDasharray={`${result.qualityScores.structural * 100 * 2.26} 226`}
                       className="text-[#059669]"
                       style={{ strokeDashoffset: 0 }}
                     />
@@ -511,7 +617,7 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
                       stroke="currentColor"
                       strokeWidth="8"
                       fill="none"
-                      strokeDasharray={`${(result.qualityScores.semantic * 100) * 2.26} 226`}
+                      strokeDasharray={`${result.qualityScores.semantic * 100 * 2.26} 226`}
                       className="text-[#1E3A5F]"
                       style={{ strokeDashoffset: 0 }}
                     />
@@ -541,7 +647,7 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
                       stroke="currentColor"
                       strokeWidth="8"
                       fill="none"
-                      strokeDasharray={`${(result.qualityScores.detail * 100) * 2.26} 226`}
+                      strokeDasharray={`${result.qualityScores.detail * 100 * 2.26} 226`}
                       className="text-[#8B5CF6]"
                       style={{ strokeDashoffset: 0 }}
                     />
@@ -568,50 +674,54 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
               <p className="text-sm font-semibold text-[#1E3A5F] mb-2">总体覆盖率</p>
               <Progress
                 value={coverageRate}
-                className={cn(
-                  'h-2.5',
-                  coverageRate >= 95 ? 'bg-[#059669]' : 'bg-[#1E3A5F]'
-                )}
+                className={cn('h-2.5', coverageRate >= 95 ? 'bg-[#059669]' : 'bg-[#1E3A5F]')}
               />
               <p className="text-xs text-[#64748B] mt-1">
-                {coverageRate.toFixed(1)}% ({coverageSummary?.overall?.clustered_clauses || 0}/{coverageSummary?.overall?.total_clauses || 0})
+                {coverageRate.toFixed(1)}% ({coverageSummary?.overall?.clustered_clauses || 0}/
+                {coverageSummary?.overall?.total_clauses || 0})
               </p>
+              {coverageGranularityLabel && (
+                <p className="text-xs text-[#64748B] mt-1">覆盖粒度：{coverageGranularityLabel}</p>
+              )}
+              {generationModeLabel && (
+                <p className="text-xs text-[#64748B] mt-1">生成方式：{generationModeLabel}</p>
+              )}
             </div>
 
             {/* 按文档覆盖率 */}
             <div>
               <p className="text-sm font-semibold text-[#1E3A5F] mb-2">各文档覆盖率</p>
-              {coverageSummary?.by_document && Object.entries(coverageSummary.by_document).map(([docId, stats]) => {
-                const doc = documents.find((d) => d.id === docId)
-                const docCoverageRate = stats.total_clauses > 0
-                  ? (stats.clustered_clauses / stats.total_clauses) * 100
-                  : 0
+              {coverageSummary?.by_document &&
+                Object.entries(coverageSummary.by_document).map(([docId, stats]) => {
+                  const doc = documents.find((d) => d.id === docId)
+                  const docCoverageRate =
+                    stats.total_clauses > 0
+                      ? (stats.clustered_clauses / stats.total_clauses) * 100
+                      : 0
 
-                return (
-                  <div key={docId} className="mb-3">
-                    <div className="flex justify-between items-center mb-1">
-                      <p className="text-sm font-medium text-[#1E3A5F]">
-                        {doc?.name || docId}
-                      </p>
-                      <p className="text-xs text-[#64748B]">
-                        {stats.clustered_clauses}/{stats.total_clauses}
-                      </p>
-                    </div>
-                    <Progress
-                      value={docCoverageRate}
-                      className={cn(
-                        'h-1.5',
-                        docCoverageRate >= 95 ? 'bg-[#059669]' : 'bg-[#1E3A5F]'
+                  return (
+                    <div key={docId} className="mb-3">
+                      <div className="flex justify-between items-center mb-1">
+                        <p className="text-sm font-medium text-[#1E3A5F]">{doc?.name || docId}</p>
+                        <p className="text-xs text-[#64748B]">
+                          {stats.clustered_clauses}/{stats.total_clauses}
+                        </p>
+                      </div>
+                      <Progress
+                        value={docCoverageRate}
+                        className={cn(
+                          'h-1.5',
+                          docCoverageRate >= 95 ? 'bg-[#059669]' : 'bg-[#1E3A5F]'
+                        )}
+                      />
+                      {stats.missing_clause_ids?.length > 0 && (
+                        <p className="text-xs text-[#DC2626] mt-1">
+                          遗漏条款: {stats.missing_clause_ids.join(', ')}
+                        </p>
                       )}
-                    />
-                    {stats.missing_clause_ids?.length > 0 && (
-                      <p className="text-xs text-[#DC2626] mt-1">
-                        遗漏条款: {stats.missing_clause_ids.join(', ')}
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
+                    </div>
+                  )
+                })}
             </div>
           </div>
         </CardContent>
@@ -623,9 +733,7 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
           <CardTitle className="text-lg">聚类逻辑</CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          <p className="text-sm whitespace-pre-wrap text-[#64748B]">
-            {clustering_logic}
-          </p>
+          <p className="text-sm whitespace-pre-wrap text-[#64748B]">{clustering_logic}</p>
         </CardContent>
       </Card>
 
@@ -648,7 +756,9 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
                     <span className="font-semibold text-[#1E3A5F]">{category.name}</span>
                     <Badge className="bg-[#8B5CF6] text-white">大类</Badge>
                     <div className="flex-1" />
-                    <Badge className="bg-[#1E3A5F] text-white">{category.clusters.length}个聚类</Badge>
+                    <Badge className="bg-[#1E3A5F] text-white">
+                      {category.clusters.length}个聚类
+                    </Badge>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
@@ -673,11 +783,15 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
                                 {cluster.importance}
                               </Badge>
                               <Badge className={getRiskColor(cluster.risk_level)}>
-                                {cluster.risk_level === 'HIGH' && <AlertTriangle className="h-3 w-3 mr-1" />}
+                                {cluster.risk_level === 'HIGH' && (
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                )}
                                 {`风险: ${cluster.risk_level}`}
                               </Badge>
                               <div className="flex-1" />
-                              <Badge className="bg-[#E2E8F0] text-[#64748B]">{cluster.clauses.length}个条款</Badge>
+                              <Badge className="bg-[#E2E8F0] text-[#64748B]">
+                                {cluster.clauses.length}个条款
+                              </Badge>
                             </div>
                           </AccordionTrigger>
                           <AccordionContent>
@@ -692,7 +806,9 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
 
                               {/* 条款列表 */}
                               <div>
-                                <p className="text-sm font-semibold text-[#1E3A5F] mb-3">包含条款：</p>
+                                <p className="text-sm font-semibold text-[#1E3A5F] mb-3">
+                                  包含条款：
+                                </p>
                                 <div className="space-y-3">
                                   {cluster.clauses.map((clause) => (
                                     <Card
@@ -711,8 +827,12 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
                                           {/* 条款头部 */}
                                           <div className="flex justify-between items-start">
                                             <div className="flex items-center gap-2">
-                                              <Badge className="bg-[#1E3A5F] text-white">{clause.source_document_name}</Badge>
-                                              <span className="font-mono font-bold text-sm">{clause.clause_id}</span>
+                                              <Badge className="bg-[#1E3A5F] text-white">
+                                                {clause.source_document_name}
+                                              </Badge>
+                                              <span className="font-mono font-bold text-sm">
+                                                {clause.clause_id}
+                                              </span>
                                             </div>
                                             {cluster.risk_level === 'HIGH' && (
                                               <Badge className="bg-[#DC2626] text-white">
@@ -730,7 +850,8 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
                                           {/* 归类理由 */}
                                           <div className="bg-[#F3F4F6] p-3 rounded-sm">
                                             <p className="text-xs text-[#64748B]">
-                                              <strong>归类理由：</strong>{clause.rationale}
+                                              <strong>归类理由：</strong>
+                                              {clause.rationale}
                                             </p>
                                           </div>
                                         </div>

@@ -27,6 +27,11 @@ import { Project, ProjectStatus } from '../../database/entities/project.entity'
 import { User, UserRole } from '../../database/entities/user.entity'
 import { SurveyResponse } from '../../database/entities/survey-response.entity'
 import { ReviewStatus } from '../../database/entities/ai-generation-result.entity'
+import {
+  calculateCoverageFromClauseIds,
+  extractClauseIdsFromContent,
+  type CoverageGranularity,
+} from './utils/clause-id-utils'
 
 export interface GenerationRequest {
   taskId: string
@@ -1967,10 +1972,7 @@ export class AIGenerationService {
         .flatMap((cluster: any) => cluster.clauses || [])
         .filter((clause: any) => clause.source_document_id === doc.id)
 
-      // 统计文档实际条款数（去重）
-      const allClauseMatches = doc.content.match(/第[一二三四五六七八九十百千]+条/g) || []
-      const allClauseIds = [...new Set(allClauseMatches)] as string[]
-      const actualClauseCount = allClauseIds.length
+      const allClauseIds = extractClauseIdsFromContent(doc.content)
 
       // 统计唯一提取的条款（从聚类中）
       const uniqueClusteredIds = new Set<string>()
@@ -1978,19 +1980,13 @@ export class AIGenerationService {
         uniqueClusteredIds.add(clause.clause_id)
       })
 
-      // 过滤掉AI生成的、文档中不存在的条款
-      const validClusteredIds = Array.from(uniqueClusteredIds).filter((id) =>
-        allClauseIds.includes(id),
-      )
-      const finalClusteredCount = validClusteredIds.length
-
-      // 找出缺失的条款
-      const missingClauseIds = allClauseIds.filter((id) => !uniqueClusteredIds.has(id))
+      const coverage = calculateCoverageFromClauseIds(allClauseIds, Array.from(uniqueClusteredIds))
 
       byDocument[doc.id] = {
-        total_clauses: actualClauseCount,
-        clustered_clauses: finalClusteredCount,
-        missing_clause_ids: missingClauseIds,
+        total_clauses: coverage.total_clauses,
+        clustered_clauses: coverage.clustered_clauses,
+        missing_clause_ids: coverage.missing_clause_ids,
+        coverage_granularity: coverage.coverage_granularity,
       }
     })
 
@@ -2002,6 +1998,13 @@ export class AIGenerationService {
       (sum: number, doc: any) => sum + doc.clustered_clauses,
       0,
     )
+    const coverageGranularities = Array.from(
+      new Set(
+        Object.values(byDocument)
+          .map((coverage: any) => coverage.coverage_granularity as CoverageGranularity | undefined)
+          .filter(Boolean),
+      ),
+    )
 
     return {
       by_document: byDocument,
@@ -2009,6 +2012,8 @@ export class AIGenerationService {
         total_clauses: totalClauses,
         clustered_clauses: clusteredClauses,
         coverage_rate: totalClauses > 0 ? clusteredClauses / totalClauses : 0,
+        coverage_granularity:
+          coverageGranularities.length === 1 ? coverageGranularities[0] : undefined,
       },
     }
   }

@@ -7,6 +7,13 @@ import { AIClientRequest, AIClientResponse } from '../../ai-clients/interfaces/a
 import { AIModel } from '../../../database/entities/ai-generation-event.entity'
 import { AIGenerationEvent } from '../../../database/entities/ai-generation-event.entity'
 import { fillClusteringPrompt } from '../prompts/clustering.prompts'
+import {
+  calculateCoverageFromClauseIds,
+  extractClauseIdsFromContent,
+  extractStructuredLeafRequirementsFromContent,
+  type StructuredRequirementSection,
+  type CoverageGranularity,
+} from '../utils/clause-id-utils'
 
 /**
  * 输入文档接口
@@ -20,8 +27,11 @@ export interface StandardDocument {
 /**
  * 聚类生成输入
  */
+export type ClusteringMode = 'auto' | 'structured' | 'ai'
+
 export interface ClusteringGenerationInput {
   documents: StandardDocument[]
+  clusteringMode?: ClusteringMode
   temperature?: number
   maxTokens?: number
 }
@@ -67,6 +77,7 @@ export interface DocumentCoverage {
   total_clauses: number
   clustered_clauses: number
   missing_clause_ids: string[]
+  coverage_granularity?: CoverageGranularity
 }
 
 /**
@@ -78,6 +89,7 @@ export interface CoverageSummary {
     total_clauses: number
     clustered_clauses: number
     coverage_rate: number
+    coverage_granularity?: CoverageGranularity
   }
 }
 
@@ -87,6 +99,7 @@ export interface CoverageSummary {
 export interface ClusteringGenerationOutput {
   categories: Category[] // 第一层：大归类
   clustering_logic: string
+  generation_mode?: Exclude<ClusteringMode, 'auto'>
   coverage_summary: CoverageSummary
 }
 
@@ -145,11 +158,43 @@ export class ClusteringGenerator {
       })
     }
 
-    const { documents, temperature = 0.7, maxTokens = 80000 } = input
+    const { documents, clusteringMode = 'auto', temperature = 0.7, maxTokens = 80000 } = input
 
     // 验证输入
     if (!documents || documents.length === 0) {
       throw new Error('At least one document is required for clustering')
+    }
+
+    if (clusteringMode !== 'ai') {
+      const structuredClustering = this.tryGenerateStructuredClustering(documents)
+      if (structuredClustering) {
+        this.logger.log(
+          `Structured standard detected. Generated deterministic clustering with ${structuredClustering.coverage_summary.overall.clustered_clauses}/${structuredClustering.coverage_summary.overall.total_clauses} leaf requirements.`,
+        )
+
+        if (onProgress) {
+          onProgress({
+            stage: 'structured_mapping',
+            status: 'completed',
+            details: {
+              message: '检测到结构化标准，已按原始层级自动生成聚类结果',
+              coverage: structuredClustering.coverage_summary.overall,
+            },
+          })
+        }
+
+        return {
+          gpt4: structuredClustering,
+          claude: structuredClustering,
+          domestic: structuredClustering,
+        }
+      }
+
+      if (clusteringMode === 'structured') {
+        throw new Error(
+          '无法按原始层级生成聚类：未识别到完整的结构化叶子要求项，请改用AI语义聚类。',
+        )
+      }
     }
 
     // 填充Prompt模板
@@ -196,8 +241,6 @@ export class ClusteringGenerator {
     const generationElapsed = Date.now() - generationStartTime
 
     const gpt4Response = results[0].status === 'fulfilled' ? results[0].value : null
-    // const claudeResponse = results[1].status === 'fulfilled' ? results[1].value : null // 禁用Claude
-    const claudeResponse = null // ⚠️ 临时禁用
     const domesticResponse = results[1].status === 'fulfilled' ? results[1].value : null // 注意索引变化
 
     // 统计成功数量
@@ -232,6 +275,7 @@ export class ClusteringGenerator {
 
     try {
       gpt4Result = this.parseJsonResponse(gpt4Response.content, documents)
+      gpt4Result.generation_mode = 'ai'
     } catch (error) {
       this.logger.error(`Failed to parse GPT-4 response: ${error.message}`)
     }
@@ -245,6 +289,7 @@ export class ClusteringGenerator {
 
     try {
       domesticResult = this.parseJsonResponse(domesticResponse.content, documents)
+      domesticResult.generation_mode = 'ai'
     } catch (error) {
       this.logger.error(`Failed to parse Qwen response: ${error.message}`)
     }
@@ -588,7 +633,7 @@ export class ClusteringGenerator {
             try {
               fixed[key] = this.fixEscapedArrays(JSON.parse(value))
               this.logger.debug(`Fixed escaped ${key} field`)
-            } catch (e) {
+            } catch {
               // 不是有效JSON，保持原样
               fixed[key] = value
             }
@@ -764,48 +809,49 @@ export class ClusteringGenerator {
         .flatMap((cluster) => cluster.clauses || [])
         .filter((clause: any) => clause.source_document_id === doc.id)
 
-      // ✅ 修复：统计文档中实际的条款数（通过"第XX条"匹配，并去重）
-      const allClauseMatches = doc.content.match(/第[一二三四五六七八九十百千]+条/g) || []
-      const allClauseIds = [...new Set(allClauseMatches)] // 去重
-      const actualClauseCount = allClauseIds.length // ✅ 修复：使用去重后的数量
+      const allClauseIds = extractClauseIdsFromContent(doc.content)
 
       // ✅ 修复：去重统计唯一clause_id（同一条款可能在多个聚类）
       const uniqueClauseIds = new Set<string>()
-      const clauseIdMap = new Map<string, any>() // clause_id → clause
 
       docClauses.forEach((clause: any) => {
         uniqueClauseIds.add(clause.clause_id)
-        clauseIdMap.set(clause.clause_id, clause)
       })
 
-      const uniqueClusteredCount = uniqueClauseIds.size
-
-      // ✅ 找出缺失的clause_id
-      const missingClauseIds = allClauseIds.filter((id) => !uniqueClauseIds.has(id))
+      const coverage = calculateCoverageFromClauseIds(allClauseIds, Array.from(uniqueClauseIds))
 
       byDocument[doc.id] = {
-        total_clauses: actualClauseCount, // ✅ 修复：文档实际唯一条款数（去重）
-        clustered_clauses: uniqueClusteredCount, // ✅ 唯一提取的条款数（去重）
-        missing_clause_ids: missingClauseIds, // ✅ 缺失的条款ID
+        total_clauses: coverage.total_clauses,
+        clustered_clauses: coverage.clustered_clauses,
+        missing_clause_ids: coverage.missing_clause_ids,
+        coverage_granularity: coverage.coverage_granularity,
       }
 
-      totalClauses += actualClauseCount
-      clusteredClauses += uniqueClusteredCount
+      totalClauses += coverage.total_clauses
+      clusteredClauses += coverage.clustered_clauses
 
       // ⚠️ 如果覆盖率过低，记录警告
-      const coverageRate = actualClauseCount > 0 ? uniqueClusteredCount / actualClauseCount : 0
+      const coverageRate =
+        coverage.total_clauses > 0 ? coverage.clustered_clauses / coverage.total_clauses : 0
       if (coverageRate < 0.95) {
         // ✅ 阈值提高到95%
         this.logger.warn(
-          `⚠️ 文档 "${doc.name}" 覆盖率不足: ${(coverageRate * 100).toFixed(1)}% (${uniqueClusteredCount}/${actualClauseCount} 条款被提取)`,
+          `⚠️ 文档 "${doc.name}" 覆盖率不足: ${(coverageRate * 100).toFixed(1)}% (${coverage.clustered_clauses}/${coverage.total_clauses} 条款被提取)`,
         )
-        if (missingClauseIds.length > 0 && missingClauseIds.length <= 10) {
-          this.logger.warn(`   缺失条款: ${missingClauseIds.join(', ')}`)
+        if (coverage.missing_clause_ids.length > 0 && coverage.missing_clause_ids.length <= 10) {
+          this.logger.warn(`   缺失条款: ${coverage.missing_clause_ids.join(', ')}`)
         }
       }
     }
 
     const overallCoverageRate = totalClauses > 0 ? clusteredClauses / totalClauses : 0
+    const coverageGranularities = Array.from(
+      new Set(
+        Object.values(byDocument)
+          .map((coverage) => coverage.coverage_granularity)
+          .filter(Boolean),
+      ),
+    )
 
     // ⚠️ 整体覆盖率警告
     if (overallCoverageRate < 0.9) {
@@ -820,8 +866,114 @@ export class ClusteringGenerator {
         total_clauses: totalClauses,
         clustered_clauses: clusteredClauses,
         coverage_rate: overallCoverageRate,
+        coverage_granularity:
+          coverageGranularities.length === 1 ? coverageGranularities[0] : undefined,
       },
     }
+  }
+
+  private tryGenerateStructuredClustering(
+    documents: StandardDocument[],
+  ): ClusteringGenerationOutput | null {
+    if (documents.length !== 1) {
+      return null
+    }
+
+    const [document] = documents
+    const structuredSections = extractStructuredLeafRequirementsFromContent(document.content)
+    const requirementCount = structuredSections.reduce(
+      (sum, section) => sum + section.requirements.length,
+      0,
+    )
+
+    if (requirementCount === 0) {
+      return null
+    }
+
+    const categories = this.buildCategoriesFromStructuredSections(document, structuredSections)
+    const output: ClusteringGenerationOutput = {
+      categories,
+      clustering_logic:
+        '检测到单个结构化标准文档，系统未调用AI重新聚类，而是按原始层级自动映射：第一层保留上级能力项/章节，第二层保留具体关键活动或标准小节，第三层保留每个叶子要求项及原文溯源。该路径用于避免AI自由聚类漏条款或改写条款编号。',
+      generation_mode: 'structured',
+      coverage_summary: this.generateDefaultCoverage(categories, documents),
+    }
+
+    const coverage = output.coverage_summary.by_document[document.id]
+    if (
+      !coverage ||
+      coverage.coverage_granularity !== 'leaf_requirement' ||
+      coverage.total_clauses !== coverage.clustered_clauses
+    ) {
+      this.logger.warn(
+        `Structured mapping rejected because coverage is not complete: ${coverage?.clustered_clauses || 0}/${coverage?.total_clauses || 0}`,
+      )
+      return null
+    }
+
+    return output
+  }
+
+  private buildCategoriesFromStructuredSections(
+    document: StandardDocument,
+    structuredSections: StructuredRequirementSection[],
+  ): Category[] {
+    const categoriesByParentId = new Map<string, Category>()
+
+    for (const section of structuredSections) {
+      const categoryIdSource = section.parentId || section.id
+      const category = this.getOrCreateStructuredCategory(
+        categoriesByParentId,
+        categoryIdSource,
+        section.parentTitle || section.title,
+      )
+
+      category.clusters.push({
+        id: this.toStableId('cluster', section.id),
+        name: `${section.id} ${section.title}`.trim(),
+        description: `保留原标准小节 ${section.id} ${section.title} 下的叶子要求项。`,
+        importance: 'MEDIUM',
+        risk_level: 'MEDIUM',
+        clauses: section.requirements.map((requirement) => ({
+          source_document_id: document.id,
+          source_document_name: document.name,
+          clause_id: requirement.id,
+          clause_text: requirement.text,
+          rationale: `保留原标准结构：${section.id} ${section.title}`,
+        })),
+      })
+    }
+
+    return Array.from(categoriesByParentId.values())
+  }
+
+  private getOrCreateStructuredCategory(
+    categoriesByParentId: Map<string, Category>,
+    parentId: string,
+    parentTitle: string,
+  ): Category {
+    const existing = categoriesByParentId.get(parentId)
+    if (existing) {
+      return existing
+    }
+
+    const category: Category = {
+      id: this.toStableId('category', parentId),
+      name: `${parentId} ${parentTitle}`.trim(),
+      description: `按原标准结构保留 ${parentId} ${parentTitle} 下的要求项。`,
+      clusters: [],
+    }
+    categoriesByParentId.set(parentId, category)
+    return category
+  }
+
+  private toStableId(prefix: string, value: string): string {
+    const normalized = value
+      .replace(/[^a-zA-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toLowerCase()
+
+    return `${prefix}_${normalized || 'structured'}`
   }
 
   /**

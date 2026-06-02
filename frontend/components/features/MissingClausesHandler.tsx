@@ -31,6 +31,11 @@ import { Badge } from '@/components/ui/badge'
 import { Plus, CheckCircle, AlertTriangle } from 'lucide-react'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import {
+  calculateCoverageFromClauseIds,
+  extractClauseIdsFromContent,
+  normalizeClauseId,
+} from '@/lib/utils/clauseIds'
 
 interface ClusterClause {
   source_document_id: string
@@ -77,6 +82,205 @@ interface Props {
   onUpdateClustering: (updatedCategories: Category[]) => void
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+const CLAUSE_TEXT_NOT_FOUND = '条款内容未找到'
+const MAX_CLAUSE_TEXT_LENGTH = 300
+const NUMERIC_LEAF_ID_PATTERN = /^(\d{1,2}(?:\.\d{1,2}){1,3})-([a-z])(?:-(\d{1,2}))?$/
+const NUMERIC_SECTION_ID_PATTERN = /^\d{1,2}(?:\.\d{1,2}){1,3}$/
+
+interface DocumentLine {
+  raw: string
+  normalized: string
+}
+
+function normalizeTextForMatching(value: string): string {
+  return value
+    .replace(/[．。]/g, '.')
+    .replace(/[（]/g, '(')
+    .replace(/[）]/g, ')')
+    .replace(/(\d+)\s*[.]\s*(\d+)/g, '$1.$2')
+    .replace(/\t/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function toDocumentLines(content: string): DocumentLine[] {
+  return (content || '').split(/\r?\n/).map((line) => ({
+    raw: line.trim(),
+    normalized: normalizeTextForMatching(line),
+  }))
+}
+
+function parseNumberedHeadingId(line: string): string | null {
+  if (!line || /\.{3,}|…{2,}/.test(line)) {
+    return null
+  }
+
+  const match = line.match(/^(\d{1,2}(?:\.\d{1,2}){1,3})(?:\s+|$)(.*)$/)
+  if (!match) {
+    return null
+  }
+
+  const title = match[2].trim()
+  if (!title || /^\d+$/.test(title)) {
+    return null
+  }
+
+  return normalizeClauseId(match[1])
+}
+
+function findNumberedSectionLines(lines: DocumentLine[], sectionId: string): DocumentLine[] | null {
+  const normalizedSectionId = normalizeClauseId(sectionId)
+  const startIndex = lines.findIndex(
+    (line) => parseNumberedHeadingId(line.normalized) === normalizedSectionId
+  )
+
+  if (startIndex < 0) {
+    return null
+  }
+
+  const nextHeadingIndex = lines.findIndex(
+    (line, index) => index > startIndex && parseNumberedHeadingId(line.normalized) !== null
+  )
+
+  return lines.slice(startIndex + 1, nextHeadingIndex > -1 ? nextHeadingIndex : lines.length)
+}
+
+function parseLetterBullet(line: string): string | null {
+  return line.match(/^([a-zA-Z])\)\s*(.+)$/)?.[1]?.toLowerCase() ?? null
+}
+
+function parseNumberBullet(line: string): string | null {
+  return line.match(/^(\d{1,2})\)\s*(.+)$/)?.[1] ?? null
+}
+
+function formatExtractedClauseText(text: string): string {
+  const trimmed = text.replace(/\s+/g, ' ').trim()
+  if (!trimmed) {
+    return CLAUSE_TEXT_NOT_FOUND
+  }
+
+  return trimmed.length > MAX_CLAUSE_TEXT_LENGTH
+    ? `${trimmed.substring(0, MAX_CLAUSE_TEXT_LENGTH)}...`
+    : trimmed
+}
+
+function joinClauseLines(lines: DocumentLine[]): string {
+  return lines
+    .map((line) => line.raw)
+    .filter(Boolean)
+    .join('\n')
+}
+
+function extractNumericLeafClauseText(content: string, clauseId: string): string | null {
+  const normalizedClauseId = normalizeClauseId(clauseId)
+  const leafMatch = normalizedClauseId.match(NUMERIC_LEAF_ID_PATTERN)
+  if (!leafMatch) {
+    return null
+  }
+
+  const [, sectionId, letterId, nestedNumberId] = leafMatch
+  const sectionLines = findNumberedSectionLines(toDocumentLines(content), sectionId)
+  if (!sectionLines) {
+    return null
+  }
+
+  const letterIndex = sectionLines.findIndex(
+    (line) => parseLetterBullet(line.normalized) === letterId
+  )
+  if (letterIndex < 0) {
+    return null
+  }
+
+  const nextLetterIndex = sectionLines.findIndex(
+    (line, index) => index > letterIndex && parseLetterBullet(line.normalized) !== null
+  )
+  const letterLines = sectionLines.slice(
+    letterIndex,
+    nextLetterIndex > -1 ? nextLetterIndex : sectionLines.length
+  )
+
+  if (!nestedNumberId) {
+    return formatExtractedClauseText(joinClauseLines(letterLines))
+  }
+
+  const nestedNumberIndex = letterLines.findIndex(
+    (line) => parseNumberBullet(line.normalized) === nestedNumberId
+  )
+  if (nestedNumberIndex < 0) {
+    return null
+  }
+
+  const nextNestedNumberIndex = letterLines.findIndex(
+    (line, index) => index > nestedNumberIndex && parseNumberBullet(line.normalized) !== null
+  )
+
+  return formatExtractedClauseText(
+    joinClauseLines(
+      letterLines.slice(
+        nestedNumberIndex,
+        nextNestedNumberIndex > -1 ? nextNestedNumberIndex : letterLines.length
+      )
+    )
+  )
+}
+
+function extractNumericSectionClauseText(content: string, clauseId: string): string | null {
+  const normalizedClauseId = normalizeClauseId(clauseId)
+  if (!NUMERIC_SECTION_ID_PATTERN.test(normalizedClauseId)) {
+    return null
+  }
+
+  const sectionLines = findNumberedSectionLines(toDocumentLines(content), normalizedClauseId)
+  if (!sectionLines) {
+    return null
+  }
+
+  return formatExtractedClauseText(joinClauseLines(sectionLines))
+}
+
+function extractDirectClauseText(
+  content: string,
+  clauseId: string,
+  allClauseIds: string[]
+): string | null {
+  const candidates = Array.from(new Set([clauseId, normalizeClauseId(clauseId)].filter(Boolean)))
+  const nextClausePattern = Array.from(
+    new Set(allClauseIds.flatMap((id) => [id, normalizeClauseId(id)]).filter(Boolean))
+  )
+    .map(escapeRegExp)
+    .join('|')
+
+  for (const candidate of candidates) {
+    const regex = new RegExp(
+      `${escapeRegExp(candidate)}([\\s\\S]*?)(?=${nextClausePattern || '$'}|$)`,
+      'i'
+    )
+    const match = content.match(regex)
+    if (match) {
+      return formatExtractedClauseText(match[1])
+    }
+  }
+
+  return null
+}
+
+function extractClauseTextFromDocument(
+  content: string,
+  clauseId: string,
+  allClauseIds: string[]
+): string {
+  return (
+    extractNumericLeafClauseText(content, clauseId) ??
+    extractNumericSectionClauseText(content, clauseId) ??
+    extractDirectClauseText(content, clauseId, allClauseIds) ??
+    CLAUSE_TEXT_NOT_FOUND
+  )
+}
+
 export default function MissingClausesHandler({
   taskId,
   coverageByDocument,
@@ -105,9 +309,7 @@ export default function MissingClausesHandler({
 
     // 遍历每个文档
     documents.forEach((doc) => {
-      // 从文档内容中提取所有条款ID
-      const allClauseMatches = doc.content.match(/第[一二三四五六七八九十百千]+条/g) || []
-      const allClauseIds = [...new Set(allClauseMatches)] // 去重
+      const allClauseIds = extractClauseIdsFromContent(doc.content)
 
       // 从categories中提取该文档已聚类的条款ID
       const clusteredClauseIds = new Set<string>()
@@ -115,36 +317,22 @@ export default function MissingClausesHandler({
         category.clusters.forEach((cluster) => {
           cluster.clauses.forEach((clause) => {
             if (clause.source_document_id === doc.id) {
-              clusteredClauseIds.add(clause.clause_id)
+              clusteredClauseIds.add(normalizeClauseId(clause.clause_id))
             }
           })
         })
       })
 
-      // 找出缺失的条款
-      const missingIds = allClauseIds.filter((id) => !clusteredClauseIds.has(id))
+      const coverage = calculateCoverageFromClauseIds(allClauseIds, Array.from(clusteredClauseIds))
+      const missingIds = coverage.missing_clause_ids
 
       if (missingIds.length > 0) {
         missingIds.forEach((clauseId) => {
-          // 从文档内容中提取条款文本（修复：从条款标题提取到下一个条款标题之前）
-          const regex = new RegExp(`${clauseId}([\\s\\S]*?)(?=第[一二三四五六七八九十百千]+条|$)`, 'i')
-          const match = doc.content.match(regex)
-          let clauseText = '条款内容未找到'
-
-          if (match) {
-            // 提取内容并截断到合理长度（最多300字）
-            clauseText = match[1].trim().substring(0, 300)
-            // 如果截断了，添加省略号
-            if (match[1].trim().length > 300) {
-              clauseText += '...'
-            }
-          }
-
           missingClauses.push({
             clauseId,
             documentId: doc.id,
             documentName: doc.name,
-            clauseText,
+            clauseText: extractClauseTextFromDocument(doc.content, clauseId, allClauseIds),
           })
         })
       }
@@ -157,7 +345,8 @@ export default function MissingClausesHandler({
 
   // 检查是否有覆盖率不完整的情况
   const hasIncompleteCoverage = Object.values(coverageByDocument).some(
-    (stats) => (stats.missing_clause_ids?.length || 0) > 0 || stats.clustered_clauses < stats.total_clauses
+    (stats) =>
+      (stats.missing_clause_ids?.length || 0) > 0 || stats.clustered_clauses < stats.total_clauses
   )
   const getClusterOptions = () => {
     return categories.flatMap((category) => ({
@@ -349,7 +538,7 @@ export default function MissingClausesHandler({
                 ))}
               </ul>
               <p className="mt-2 text-sm text-[#64748B]">
-                注意：文档中所有"第XX条"格式的条款都已被聚类。差异可能来自统计方法或非标准格式的条款。
+                注意：文档中所有“第XX条”格式的条款都已被聚类。差异可能来自统计方法或非标准格式的条款。
               </p>
             </div>
           </AlertDescription>
@@ -372,7 +561,8 @@ export default function MissingClausesHandler({
       <Alert className="border-[#FEF3C7] bg-[#FFFBEB]">
         <AlertTriangle className="h-4 w-4 text-[#F59E0B]" />
         <AlertDescription className="text-[#92400E]">
-          发现缺失条款 - 共发现 {missingClauses.length} 个缺失条款，您可以手动将其分配到现有聚类或新建聚类
+          发现缺失条款 - 共发现 {missingClauses.length}{' '}
+          个缺失条款，您可以手动将其分配到现有聚类或新建聚类
         </AlertDescription>
       </Alert>
 
@@ -388,10 +578,7 @@ export default function MissingClausesHandler({
               return (
                 <Card
                   key={missingClause.clauseId}
-                  className={cn(
-                    'border',
-                    isAssigned && 'border-[#059669] bg-[#D1FAE5]'
-                  )}
+                  className={cn('border', isAssigned && 'border-[#059669] bg-[#D1FAE5]')}
                 >
                   <CardContent className="p-4">
                     <div className="space-y-3">
@@ -400,7 +587,9 @@ export default function MissingClausesHandler({
                           <Badge variant="outline" className="border-[#1E3A5F] text-[#1E3A5F]">
                             {missingClause.documentName}
                           </Badge>
-                          <span className="font-mono font-semibold text-sm">{missingClause.clauseId}</span>
+                          <span className="font-mono font-semibold text-sm">
+                            {missingClause.clauseId}
+                          </span>
                           {isAssigned && (
                             <Badge className="bg-[#059669] text-white">
                               <CheckCircle className="h-3 w-3 mr-1" />
@@ -460,7 +649,9 @@ export default function MissingClausesHandler({
       <Dialog open={assignModalVisible} onOpenChange={setAssignModalVisible}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle className="text-[#1E3A5F]">分配条款到聚类: {selectedMissingClause?.clauseId}</DialogTitle>
+            <DialogTitle className="text-[#1E3A5F]">
+              分配条款到聚类: {selectedMissingClause?.clauseId}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {selectedMissingClause && (
@@ -502,10 +693,7 @@ export default function MissingClausesHandler({
             >
               取消
             </Button>
-            <Button
-              onClick={confirmAssign}
-              className="bg-[#1E3A5F] hover:bg-[#0F2847] text-white"
-            >
+            <Button onClick={confirmAssign} className="bg-[#1E3A5F] hover:bg-[#0F2847] text-white">
               确定
             </Button>
           </DialogFooter>
@@ -516,7 +704,9 @@ export default function MissingClausesHandler({
       <Dialog open={newClusterModalVisible} onOpenChange={setNewClusterModalVisible}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle className="text-[#1E3A5F]">新建聚类: {selectedMissingClause?.clauseId}</DialogTitle>
+            <DialogTitle className="text-[#1E3A5F]">
+              新建聚类: {selectedMissingClause?.clauseId}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {selectedMissingClause && (
@@ -528,7 +718,9 @@ export default function MissingClausesHandler({
                 </Alert>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="cluster-name">聚类名称 <span className="text-[#DC2626]">*</span></Label>
+                    <Label htmlFor="cluster-name">
+                      聚类名称 <span className="text-[#DC2626]">*</span>
+                    </Label>
                     <Input
                       id="cluster-name"
                       placeholder="例如：访问控制管理"
@@ -543,7 +735,9 @@ export default function MissingClausesHandler({
                       rows={3}
                       placeholder="描述该聚类的作用和范围（可选）"
                       value={formData.clusterDescription}
-                      onChange={(e) => setFormData({ ...formData, clusterDescription: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, clusterDescription: e.target.value })
+                      }
                     />
                   </div>
                   <div className="space-y-2">
@@ -561,7 +755,12 @@ export default function MissingClausesHandler({
                       <Label htmlFor="importance">重要性</Label>
                       <Select
                         value={formData.importance}
-                        onValueChange={(value) => setFormData({ ...formData, importance: value as 'HIGH' | 'MEDIUM' | 'LOW' })}
+                        onValueChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            importance: value as 'HIGH' | 'MEDIUM' | 'LOW',
+                          })
+                        }
                       >
                         <SelectTrigger id="importance">
                           <SelectValue />
@@ -577,7 +776,12 @@ export default function MissingClausesHandler({
                       <Label htmlFor="risk-level">风险级别</Label>
                       <Select
                         value={formData.riskLevel}
-                        onValueChange={(value) => setFormData({ ...formData, riskLevel: value as 'HIGH' | 'MEDIUM' | 'LOW' })}
+                        onValueChange={(value) =>
+                          setFormData({
+                            ...formData,
+                            riskLevel: value as 'HIGH' | 'MEDIUM' | 'LOW',
+                          })
+                        }
                       >
                         <SelectTrigger id="risk-level">
                           <SelectValue />
@@ -599,7 +803,13 @@ export default function MissingClausesHandler({
               variant="outline"
               onClick={() => {
                 setNewClusterModalVisible(false)
-                setFormData({ clusterName: '', clusterDescription: '', rationale: '', importance: 'MEDIUM', riskLevel: 'MEDIUM' })
+                setFormData({
+                  clusterName: '',
+                  clusterDescription: '',
+                  rationale: '',
+                  importance: 'MEDIUM',
+                  riskLevel: 'MEDIUM',
+                })
                 setSelectedMissingClause(null)
               }}
               className="border-[#E2E8F0] text-[#64748B]"

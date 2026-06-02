@@ -133,6 +133,76 @@ describe('MissingClausesHandler', () => {
   })
 
   describe('有缺失条款', () => {
+    it('应该用规范化条款ID计算AIMM叶子要求项缺失列表并提取原文内容', () => {
+      const aimmDocuments = [
+        {
+          id: 'doc1',
+          name: 'AIMM文档',
+          content: [
+            '5.1.2 数据治理',
+            'a) 应建立数据治理组织机制。',
+            'b) 应制定并持续改进数据治理制度。',
+            '5.1.3 模型治理',
+            'a) 应建立模型风险管理机制。',
+          ].join('\n'),
+        },
+      ]
+      const aimmCategories = [
+        {
+          id: 'cat1',
+          name: '治理能力',
+          description: '治理能力相关要求',
+          clusters: [
+            {
+              id: 'cluster1',
+              name: '数据治理机制',
+              description: '数据治理机制相关要求',
+              clauses: [
+                {
+                  source_document_id: 'doc1',
+                  source_document_name: 'AIMM文档',
+                  clause_id: '5.1.2 a)',
+                  clause_text: '应建立数据治理组织机制。',
+                  rationale: '测试理由',
+                },
+                {
+                  source_document_id: 'doc1',
+                  source_document_name: 'AIMM文档',
+                  clause_id: '5.1.3-a',
+                  clause_text: '应建立模型风险管理机制。',
+                  rationale: '测试理由',
+                },
+              ],
+              importance: 'HIGH' as const,
+              risk_level: 'HIGH' as const,
+            },
+          ],
+        },
+      ]
+
+      render(
+        <MissingClausesHandler
+          taskId="task1"
+          coverageByDocument={{
+            doc1: {
+              total_clauses: 3,
+              clustered_clauses: 2,
+              missing_clause_ids: ['5.1.2-b'],
+            },
+          }}
+          documents={aimmDocuments}
+          categories={aimmCategories}
+          onUpdateClustering={mockOnUpdateClustering}
+        />
+      )
+
+      expect(screen.getByText(/共发现 1 个缺失条款/)).toBeInTheDocument()
+      expect(screen.getByText('5.1.2-b')).toBeInTheDocument()
+      expect(screen.queryByText('5.1.2-a')).not.toBeInTheDocument()
+      expect(screen.getByText(/应制定并持续改进数据治理制度/)).toBeInTheDocument()
+      expect(screen.queryByText('条款内容未找到')).not.toBeInTheDocument()
+    })
+
     it('应该显示缺失条款警告', () => {
       render(
         <MissingClausesHandler

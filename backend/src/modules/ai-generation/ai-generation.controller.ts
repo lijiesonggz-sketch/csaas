@@ -9,7 +9,15 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common'
-import { IsString, IsNumber, IsOptional, MinLength, IsArray, ValidateNested } from 'class-validator'
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  MinLength,
+  IsArray,
+  ValidateNested,
+  IsIn,
+} from 'class-validator'
 import { Type } from 'class-transformer'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
@@ -61,6 +69,11 @@ export class GenerateClusteringDto {
   @ValidateNested({ each: true })
   @Type(() => StandardDocumentDto)
   documents: StandardDocumentDto[]
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['auto', 'structured', 'ai'])
+  clusteringMode?: 'auto' | 'structured' | 'ai'
 
   @IsOptional()
   @IsString()
@@ -350,6 +363,7 @@ export class AIGenerationController {
         projectId: dto.projectId, // 传递projectId
         input: {
           documents: dto.documents,
+          clusteringMode: dto.clusteringMode || 'auto',
           temperature: dto.temperature,
           maxTokens: dto.maxTokens,
         },
