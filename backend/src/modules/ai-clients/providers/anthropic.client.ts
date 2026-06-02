@@ -48,10 +48,12 @@ export class AnthropicClient implements IAIClient {
             content: request.prompt,
           },
         ],
-        // 禁用 Extended Thinking 功能（针对 Sonnet 4.5+）
-        thinking: {
+      }
+
+      if (this.supportsClaudeThinkingControl(model)) {
+        createParams.thinking = {
           type: 'disabled',
-        },
+        }
       }
 
       // 如果需要JSON输出，添加系统提示强制JSON格式
@@ -118,6 +120,10 @@ export class AnthropicClient implements IAIClient {
   isAvailable(): boolean {
     const apiKey = this.configService.get<string>('ANTHROPIC_API_KEY')
     return !!apiKey && apiKey !== 'dummy-key'
+  }
+
+  private supportsClaudeThinkingControl(model: string): boolean {
+    return model.toLowerCase().startsWith('claude-')
   }
 
   /**
