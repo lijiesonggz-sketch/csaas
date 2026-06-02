@@ -1707,6 +1707,7 @@ export class AdvisorySessionService {
       }
     }
     if (partyModeRoute.kind === 'active-discussion') {
+      const addressedAdvisorId = this.optionalText(context.addressedAdvisorId) ?? undefined
       const partyModeResult = await this.createPartyModeSerialTurn({
         tenantId: context.tenantId,
         user: context.user,
@@ -1714,8 +1715,10 @@ export class AdvisorySessionService {
         messageRepository,
         tenantScopedHistory,
         content,
-        addressedAdvisorId: this.optionalText(context.addressedAdvisorId) ?? undefined,
-        addressedMessageId: this.optionalText(context.addressedMessageId) ?? undefined,
+        addressedAdvisorId,
+        addressedMessageId: addressedAdvisorId
+          ? (this.optionalText(context.addressedMessageId) ?? undefined)
+          : undefined,
       })
       const assistantMessage = partyModeResult.advisorMessages.at(-1) ?? partyModeResult.userMessage
 
@@ -2113,6 +2116,7 @@ export class AdvisorySessionService {
       if (context.signal?.aborted) {
         return
       }
+      const addressedAdvisorId = this.optionalText(context.addressedAdvisorId) ?? undefined
       for await (const event of this.streamPartyModeSerialTurn({
         tenantId: context.tenantId,
         user: context.user,
@@ -2120,8 +2124,10 @@ export class AdvisorySessionService {
         messageRepository,
         tenantScopedHistory,
         content,
-        addressedAdvisorId: this.optionalText(context.addressedAdvisorId) ?? undefined,
-        addressedMessageId: this.optionalText(context.addressedMessageId) ?? undefined,
+        addressedAdvisorId,
+        addressedMessageId: addressedAdvisorId
+          ? (this.optionalText(context.addressedMessageId) ?? undefined)
+          : undefined,
         signal: context.signal,
       })) {
         yield event
@@ -7277,28 +7283,38 @@ export class AdvisorySessionService {
       return { kind: 'initial-continue', decisionAction: context.decisionAction }
     }
 
-    if (
-      this.isPartyModeRetryAdvisorDecisionAction(context.decisionAction) ||
-      this.isPartyModeContinueDecisionAction(context.decisionAction)
-    ) {
+    if (this.isPartyModeContinueDecisionAction(context.decisionAction)) {
+      if (this.isPartyModeRecoveryContinueCandidate(context.messages)) {
+        const recovery = this.assertPartyModeRecoveryCanStart(
+          context.session,
+          context.messages,
+          context.decisionAction,
+          sourceMessageId,
+        )
+        return this.createPartyModeRecoveryDecisionRoute(context.decisionAction, recovery)
+      }
+
+      if (
+        this.isPartyModeContinueDiscussionAvailable(
+          context.session,
+          context.messages,
+          sourceMessageId,
+        )
+      ) {
+        return { kind: 'active-discussion', decisionAction: context.decisionAction }
+      }
+
+      throw new ConflictException(THINKTANK_PARTY_MODE_UNAVAILABLE_MESSAGE)
+    }
+
+    if (this.isPartyModeRetryAdvisorDecisionAction(context.decisionAction)) {
       const recovery = this.assertPartyModeRecoveryCanStart(
         context.session,
         context.messages,
         context.decisionAction,
         sourceMessageId,
       )
-      return {
-        kind: 'recovery',
-        decisionAction: context.decisionAction,
-        retryAdvisorId: this.isPartyModeRetryAdvisorDecisionAction(context.decisionAction)
-          ? (this.optionalText(recovery.message.metadata?.party_mode_failed_advisor_id) ??
-            undefined)
-          : undefined,
-        advisorOrderIds: this.createPartyModeRecoveryAdvisorOrderIds({
-          sourceMessage: recovery.message,
-          action: context.decisionAction,
-        }),
-      }
+      return this.createPartyModeRecoveryDecisionRoute(context.decisionAction, recovery)
     }
 
     if (this.isPartyModeDiscussionReady(context.session)) {
@@ -7306,6 +7322,23 @@ export class AdvisorySessionService {
     }
 
     return { kind: 'none', decisionAction: context.decisionAction }
+  }
+
+  private createPartyModeRecoveryDecisionRoute(
+    action: string,
+    recovery: PartyModeDecisionMatch,
+  ): PartyModeDecisionRoute {
+    return {
+      kind: 'recovery',
+      decisionAction: action,
+      retryAdvisorId: this.isPartyModeRetryAdvisorDecisionAction(action)
+        ? (this.optionalText(recovery.message.metadata?.party_mode_failed_advisor_id) ?? undefined)
+        : undefined,
+      advisorOrderIds: this.createPartyModeRecoveryAdvisorOrderIds({
+        sourceMessage: recovery.message,
+        action,
+      }),
+    }
   }
 
   private assertPartyModeReturnCanStart(
@@ -7377,6 +7410,53 @@ export class AdvisorySessionService {
       !this.findLatestPartyModeAdvisorRound(messages) &&
       (!sourceMessageId || continueMessage?.id === sourceMessageId) &&
       continueMessage?.metadata?.party_mode_started === true
+    )
+  }
+
+  private isPartyModeRecoveryContinueCandidate(messages: AdvisoryConversationMessage[]): boolean {
+    const latestContinueOption = this.findLatestAssistantDecisionOptionMatch(
+      messages,
+      THINKTANK_PARTY_MODE_CONTINUE_ACTION,
+    )
+    const metadata = latestContinueOption?.message.metadata
+
+    return metadata?.party_mode_failure === true || metadata?.party_mode_budget_exceeded === true
+  }
+
+  private isPartyModeContinueDiscussionAvailable(
+    session: AdvisoryWorkflowSession,
+    messages: AdvisoryConversationMessage[],
+    sourceMessageId?: string,
+  ): boolean {
+    const latestContinueOption = this.findLatestAssistantDecisionOptionMatch(
+      messages,
+      THINKTANK_PARTY_MODE_CONTINUE_ACTION,
+    )
+    const continueMessage = latestContinueOption?.message
+    if (
+      session.metadata?.party_mode_active !== true ||
+      session.metadata?.party_mode_status !== 'context-created' ||
+      latestContinueOption?.option.enabled !== true ||
+      !continueMessage ||
+      (sourceMessageId && continueMessage.id !== sourceMessageId) ||
+      continueMessage.metadata?.party_mode_failure === true ||
+      continueMessage.metadata?.party_mode_budget_exceeded === true
+    ) {
+      return false
+    }
+
+    if (
+      continueMessage.metadata?.party_mode_integration === true &&
+      continueMessage.metadata?.party_mode_integration_status === 'draft'
+    ) {
+      return true
+    }
+
+    const latestRound = this.findLatestPartyModeAdvisorRound(messages)
+
+    return (
+      continueMessage.metadata?.party_mode_message === true &&
+      latestRound?.messages.at(-1)?.id === continueMessage.id
     )
   }
 

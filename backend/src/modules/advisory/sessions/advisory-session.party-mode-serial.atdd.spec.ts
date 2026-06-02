@@ -281,6 +281,120 @@ describe('Story 5.3 ATDD - Party Mode serial expert discussion backend', () => {
     )
   })
 
+  test('[P0] streams the next advisor round from the explicit continue Party Mode decision option', async () => {
+    messageRepository.findMessagesBySession.mockResolvedValue([
+      createMessage({ id: 'message-user-party-entry', sequence: 1 }),
+      createMessage({
+        id: 'message-assistant-party-intro',
+        role: AdvisoryConversationMessageRole.Assistant,
+        content: 'Party Mode 上下文已创建。Dr. Quinn、Winston、John 将加入。',
+        sequence: 2,
+        metadata: { ai_generated: true, party_mode_started: true },
+      }),
+      createMessage({
+        id: 'message-advisor-creative-problem-solver',
+        role: AdvisoryConversationMessageRole.Assistant,
+        content: 'Dr. Quinn says onboarding is the sharper diagnostic path.',
+        sequence: 3,
+        metadata: {
+          party_mode_message: true,
+          party_mode_round: 1,
+          party_mode_speaker_index: 1,
+          party_mode_advisor_id: 'creative-problem-solver',
+          party_mode_advisor_name: 'Dr. Quinn',
+          party_mode_advisor_role: 'Systematic Problem-Solving Expert',
+        },
+      }),
+      createMessage({
+        id: 'message-advisor-architect',
+        role: AdvisoryConversationMessageRole.Assistant,
+        content: 'Winston says the architecture risk is measurable.',
+        sequence: 4,
+        metadata: {
+          party_mode_message: true,
+          party_mode_round: 1,
+          party_mode_speaker_index: 2,
+          party_mode_advisor_id: 'architect',
+          party_mode_advisor_name: 'Winston',
+          party_mode_advisor_role: 'System Architect',
+        },
+      }),
+      createMessage({
+        id: 'message-advisor-pm',
+        role: AdvisoryConversationMessageRole.Assistant,
+        content: 'John says prioritize the highest retention leverage first.',
+        sequence: 5,
+        metadata: {
+          party_mode_message: true,
+          party_mode_round: 1,
+          party_mode_speaker_index: 3,
+          party_mode_advisor_id: 'pm',
+          party_mode_advisor_name: 'John',
+          party_mode_advisor_role: 'Product Manager',
+        },
+        decisionOptions: [
+          {
+            key: 'integrate-party-mode',
+            action: 'integrate-party-mode',
+            label: '进入观点整合',
+            enabled: true,
+          },
+          {
+            key: 'continue-party-mode',
+            action: 'continue-party-mode',
+            label: '继续下一轮',
+            enabled: true,
+          },
+          {
+            key: 'return-to-workflow',
+            action: 'return-to-workflow',
+            label: '返回工作流',
+            enabled: true,
+          },
+        ],
+      }),
+    ])
+
+    const events = []
+    for await (const event of service.streamMessage({
+      user,
+      tenantId,
+      sessionId,
+      content: '继续下一轮',
+      decisionAction: 'continue-party-mode',
+      addressedMessageId: 'message-advisor-pm',
+    } as never)) {
+      events.push(event)
+    }
+
+    expect(providerGateway.stream).toHaveBeenCalledTimes(3)
+    expect(
+      events
+        .filter((event) => event.event === 'party_mode.current_speaker')
+        .map((event) => event.data),
+    ).toEqual([
+      expect.objectContaining({ advisorId: 'creative-problem-solver', round: 2, speakerIndex: 1 }),
+      expect.objectContaining({ advisorId: 'architect', round: 2, speakerIndex: 2 }),
+      expect.objectContaining({ advisorId: 'pm', round: 2, speakerIndex: 3 }),
+    ])
+    const advisorMessageInputs = messageRepository.createMessageWithNextSequence.mock.calls
+      .map((call) => call[2])
+      .filter((input) => input.metadata?.party_mode_message === true)
+    expect(advisorMessageInputs.map((input) => input.metadata?.party_mode_round)).toEqual([2, 2, 2])
+    expect(events.at(-1)?.data).toEqual(
+      expect.objectContaining({
+        partyModeTurnComplete: true,
+        decisionOptions: expect.arrayContaining([
+          expect.objectContaining({
+            action: 'continue-party-mode',
+            label: '继续下一轮',
+            enabled: true,
+          }),
+        ]),
+      }),
+    )
+  })
+
   test('[P0][5.3-BE-002][AC2] streams current-speaker events before each advisor response', async () => {
     const events = []
     for await (const event of service.streamMessage({
