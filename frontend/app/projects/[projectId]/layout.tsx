@@ -34,7 +34,7 @@ function ProjectWorkbenchContent({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col min-h-screen bg-[#FEFDFB]">
       {/* Top breadcrumb bar */}
       <div className="border-b border-[#E2E8F0] bg-white">
-        <div className="max-w-[1400px] mx-auto px-6 h-12 flex items-center gap-3">
+        <div className="w-full max-w-[1400px] mx-auto px-6 h-12 flex items-center gap-3">
           <button
             onClick={() => router.push('/projects')}
             className="p-1 rounded hover:bg-gray-100 transition-colors"
@@ -45,12 +45,18 @@ function ProjectWorkbenchContent({ children }: { children: React.ReactNode }) {
 
           {/* Breadcrumb */}
           <nav className="flex items-center gap-1.5 text-sm">
-            <Link href="/dashboard" className="flex items-center gap-1 text-[#64748b] hover:text-[#1E3A5F] transition-colors">
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1 text-[#64748b] hover:text-[#1E3A5F] transition-colors"
+            >
               <LayoutDashboard className="w-3.5 h-3.5" />
               <span>工作台</span>
             </Link>
             <ChevronRight className="w-3.5 h-3.5 text-[#94A3B8]" />
-            <Link href="/projects" className="flex items-center gap-1 text-[#64748b] hover:text-[#1E3A5F] transition-colors">
+            <Link
+              href="/projects"
+              className="flex items-center gap-1 text-[#64748b] hover:text-[#1E3A5F] transition-colors"
+            >
               <Home className="w-3.5 h-3.5" />
               <span>项目列表</span>
             </Link>
@@ -71,14 +77,12 @@ function ProjectWorkbenchContent({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Step navigation */}
-      <div className="max-w-[1400px] mx-auto px-6 mt-4">
+      <div className="w-full max-w-[1400px] mx-auto px-6 mt-4">
         <StepsTabNavigator projectId={project.id} steps={steps} />
       </div>
 
       {/* Main content */}
-      <div className="max-w-[1400px] mx-auto px-6 py-4 flex-1">
-        {children}
-      </div>
+      <div className="w-full max-w-[1400px] mx-auto px-6 py-4 flex-1">{children}</div>
     </div>
   )
 }
