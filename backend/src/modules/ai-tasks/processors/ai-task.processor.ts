@@ -1,9 +1,10 @@
 import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq'
-import { Logger, Inject } from '@nestjs/common'
+import { Logger } from '@nestjs/common'
 import { Job } from 'bullmq'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
+import { In } from 'typeorm'
 import { AI_TASK_QUEUE } from '../constants/queue.constants'
 import { AITaskJobData, AITaskJobResult } from '../interfaces/queue-job.interface'
 import {
@@ -15,6 +16,7 @@ import {
 import { AIGenerationEvent } from '../../../database/entities/ai-generation-event.entity'
 import { AICostTracking } from '../../../database/entities/ai-cost-tracking.entity'
 import { Project } from '../../../database/entities/project.entity'
+import { StandardDocument } from '../../../database/entities/standard-document.entity'
 import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
 import { TasksGateway } from '../gateways/tasks.gateway'
 import { CostMonitoringService } from '../services/cost-monitoring.service'
@@ -62,6 +64,8 @@ export class AITaskProcessor extends WorkerHost {
     private readonly costRepo: Repository<AICostTracking>,
     @InjectRepository(Project)
     private readonly projectRepo: Repository<Project>,
+    @InjectRepository(StandardDocument)
+    private readonly standardDocumentRepo: Repository<StandardDocument>,
     private readonly aiOrchestrator: AIOrchestrator,
     private readonly tasksGateway: TasksGateway,
     private readonly costMonitoring: CostMonitoringService,
@@ -91,41 +95,29 @@ export class AITaskProcessor extends WorkerHost {
     }, 25000) // 25秒更新一次，小于默认的30秒stalledInterval
 
     try {
-      // 处理 documentIds - 从项目 metadata 加载完整文档
+      // 处理 documentIds - 从项目 metadata 和标准文档表加载完整文档
       const processedInput = { ...input }
       if (input.documentIds && projectId) {
         this.logger.log(`Loading ${input.documentIds.length} documents from project ${projectId}`)
-        const project = await this.projectRepo.findOne({
-          where: { id: projectId },
-          select: ['metadata'],
-        })
+        const documents = await this.loadProjectDocumentsByIds(projectId, input.documentIds)
 
-        if (project?.metadata?.uploadedDocuments) {
-          const allDocs = project.metadata.uploadedDocuments as any[]
-          const documents = input.documentIds
-            .map((docId: string) => allDocs.find((doc: any) => doc.id === docId))
-            .filter((doc: any) => doc)
-
-          if (documents.length === input.documentIds.length) {
-            processedInput.documents = documents
-            // 为标准解读等任务设置 standardDocument
-            if (documents.length > 0 && !processedInput.standardDocument) {
-              processedInput.standardDocument = {
-                id: documents[0].id,
-                name: documents[0].name,
-                content: documents[0].content,
-              }
-              this.logger.log(`Set standardDocument from first document: ${documents[0].name}`)
+        if (documents.length === input.documentIds.length) {
+          processedInput.documents = documents
+          // 为标准解读等任务设置 standardDocument
+          if (documents.length > 0 && !processedInput.standardDocument) {
+            processedInput.standardDocument = {
+              id: documents[0].id,
+              name: documents[0].name,
+              content: documents[0].content,
             }
-            delete processedInput.documentIds
-            this.logger.log(`Successfully loaded ${documents.length} documents`)
-          } else {
-            throw new Error(
-              `Failed to load all documents: found ${documents.length} of ${input.documentIds.length}`,
-            )
+            this.logger.log(`Set standardDocument from first document: ${documents[0].name}`)
           }
+          delete processedInput.documentIds
+          this.logger.log(`Successfully loaded ${documents.length} documents`)
         } else {
-          throw new Error('Project has no uploadedDocuments in metadata')
+          throw new Error(
+            `Failed to load all documents: found ${documents.length} of ${input.documentIds.length}`,
+          )
         }
       }
 
@@ -1167,6 +1159,53 @@ export class AITaskProcessor extends WorkerHost {
       // 清理keep-alive定时器
       clearInterval(keepAliveInterval)
     }
+  }
+
+  private async loadProjectDocumentsByIds(projectId: string, documentIds: string[]) {
+    const project = await this.projectRepo.findOne({
+      where: { id: projectId },
+      select: ['metadata'],
+    })
+
+    const metadataDocs = Array.isArray((project?.metadata as any)?.uploadedDocuments)
+      ? ((project?.metadata as any).uploadedDocuments as any[])
+      : []
+
+    const standardDocs =
+      documentIds.length > 0
+        ? await this.standardDocumentRepo.find({
+            where: {
+              id: In(documentIds),
+              projectId,
+            },
+          })
+        : []
+
+    const metadataById = new Map(metadataDocs.map((doc) => [String(doc.id), doc]))
+    const standardById = new Map(standardDocs.map((doc) => [doc.id, doc]))
+
+    return documentIds
+      .map((docId) => {
+        const metadataDoc = metadataById.get(String(docId))
+        const standardDoc = standardById.get(String(docId))
+        const metadataContent =
+          typeof metadataDoc?.content === 'string' && metadataDoc.content.length > 0
+            ? metadataDoc.content
+            : undefined
+        const content = metadataContent ?? standardDoc?.content
+
+        if (!content) {
+          return null
+        }
+
+        return {
+          id: String(docId),
+          name: String(metadataDoc?.name ?? metadataDoc?.filename ?? standardDoc?.name ?? docId),
+          content,
+          metadata: standardDoc?.metadata ?? metadataDoc?.metadata,
+        }
+      })
+      .filter((doc): doc is { id: string; name: string; content: string; metadata: any } => !!doc)
   }
 
   @OnWorkerEvent('active')

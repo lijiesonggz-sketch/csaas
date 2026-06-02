@@ -21,8 +21,27 @@ import { JwtAuthGuard } from '@/modules/auth/guards/jwt-auth.guard'
 
 describe('FilesController (e2e)', () => {
   let app: INestApplication
+  let standardDocumentRepo: {
+    create: jest.Mock
+    save: jest.Mock
+    find: jest.Mock
+  }
+  let projectRepo: {
+    findOne: jest.Mock
+    save: jest.Mock
+  }
 
   beforeAll(async () => {
+    standardDocumentRepo = {
+      create: jest.fn(),
+      save: jest.fn(),
+      find: jest.fn(),
+    }
+    projectRepo = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+    }
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [FilesController],
       imports: [
@@ -46,18 +65,11 @@ describe('FilesController (e2e)', () => {
         },
         {
           provide: getRepositoryToken(StandardDocument),
-          useValue: {
-            create: jest.fn(),
-            save: jest.fn(),
-            find: jest.fn(),
-          },
+          useValue: standardDocumentRepo,
         },
         {
           provide: getRepositoryToken(Project),
-          useValue: {
-            findOne: jest.fn(),
-            save: jest.fn(),
-          },
+          useValue: projectRepo,
         },
       ],
     })
@@ -72,6 +84,12 @@ describe('FilesController (e2e)', () => {
 
   afterAll(async () => {
     await app.close()
+  })
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    standardDocumentRepo.find.mockResolvedValue([])
+    projectRepo.findOne.mockResolvedValue(null)
   })
 
   describe('POST /files/parse-pdf', () => {
@@ -142,7 +160,6 @@ describe('FilesController (e2e)', () => {
     it('应该成功解析多页PDF', async () => {
       // Arrange
       const testPdfPath = path.join(__dirname, '../../../test-fixtures/multipage.pdf')
-      const pdfBuffer = fs.readFileSync(testPdfPath)
 
       // Act
       const response = await request(app.getHttpServer())
@@ -154,6 +171,117 @@ describe('FilesController (e2e)', () => {
       expect(response.body.success).toBe(true)
       expect(response.body.data.filename).toBe('multipage.pdf')
       expect(response.body.data.text).toContain('Sample PDF content')
+    })
+  })
+
+  describe('GET /files/projects/:projectId/documents/list', () => {
+    it('应该从项目 metadata 兼容返回历史上传文档', async () => {
+      standardDocumentRepo.find.mockResolvedValue([])
+      projectRepo.findOne.mockResolvedValue({
+        id: 'project-1',
+        createdAt: new Date('2026-06-01T00:00:00.000Z'),
+        metadata: {
+          uploadedDocuments: [
+            {
+              id: 'doc_legacy-1',
+              name: '银行保险机构数据安全管理办法',
+              content: '银行保险机构数据安全管理办法正文',
+              uploadedAt: '2026-06-01T08:00:00.000Z',
+            },
+          ],
+        },
+      })
+
+      const response = await request(app.getHttpServer())
+        .get('/files/projects/project-1/documents/list')
+        .expect(200)
+
+      expect(response.body).toMatchObject({
+        success: true,
+        data: [
+          {
+            id: 'doc_legacy-1',
+            name: '银行保险机构数据安全管理办法',
+            filename: '银行保险机构数据安全管理办法',
+            charCount: 16,
+            metadata: {
+              legacySource: 'projects.metadata.uploadedDocuments',
+            },
+          },
+        ],
+      })
+    })
+
+    it('应该为标准文档列表补齐文件名和大小字段', async () => {
+      standardDocumentRepo.find.mockResolvedValue([
+        {
+          id: 'doc-1',
+          name: 'ISO 27001',
+          content: 'standard content',
+          createdAt: new Date('2026-06-01T08:00:00.000Z'),
+          metadata: {
+            original_filename: 'iso27001.pdf',
+            size: 1024,
+          },
+        },
+      ])
+      projectRepo.findOne.mockResolvedValue({
+        id: 'project-1',
+        metadata: {
+          uploadedDocuments: [],
+        },
+      })
+
+      const response = await request(app.getHttpServer())
+        .get('/files/projects/project-1/documents/list')
+        .expect(200)
+
+      expect(response.body.data).toEqual([
+        expect.objectContaining({
+          id: 'doc-1',
+          name: 'ISO 27001',
+          filename: 'iso27001.pdf',
+          size: 1024,
+          charCount: 16,
+        }),
+      ])
+    })
+  })
+
+  describe('POST /files/projects/:projectId/documents/list', () => {
+    it('应该兼容前端当前的 POST 文档列表请求', async () => {
+      standardDocumentRepo.find.mockResolvedValue([
+        {
+          id: 'doc-1',
+          name: 'GB/T 33136',
+          content: 'standard content',
+          createdAt: new Date('2026-06-02T06:13:44.796Z'),
+          metadata: {
+            original_filename: 'GBT+33136-2024.pdf',
+            size: 8186606,
+          },
+        },
+      ])
+      projectRepo.findOne.mockResolvedValue({
+        id: 'project-1',
+        metadata: {
+          uploadedDocuments: [],
+        },
+      })
+
+      const response = await request(app.getHttpServer())
+        .post('/files/projects/project-1/documents/list')
+        .expect(200)
+
+      expect(response.body.data).toEqual([
+        expect.objectContaining({
+          id: 'doc-1',
+          name: 'GB/T 33136',
+          filename: 'GBT+33136-2024.pdf',
+          size: 8186606,
+          charCount: 16,
+        }),
+      ])
     })
   })
 })

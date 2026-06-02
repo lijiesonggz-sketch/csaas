@@ -54,4 +54,28 @@ describe('UploadPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /返回/ }))
     expect(mockBack).toHaveBeenCalledTimes(1)
   })
+
+  it('renders previously uploaded documents returned by the list API', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: 'doc_legacy-1',
+            name: '银行保险机构数据安全管理办法',
+            filename: '银行保险机构数据安全管理办法',
+            size: 1024,
+            charCount: 17,
+            createdAt: '2026-06-01T08:00:00.000Z',
+          },
+        ],
+      }),
+    })
+
+    render(<UploadPage />)
+
+    expect(await screen.findByText('已上传文档 (1)')).toBeInTheDocument()
+    expect(screen.getByText('银行保险机构数据安全管理办法')).toBeInTheDocument()
+  })
 })

@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Delete,
   UseInterceptors,
   UploadedFile,
@@ -8,7 +9,7 @@ import {
   Logger,
   Body,
   Param,
-  Req,
+  HttpCode,
   UseGuards,
   NotFoundException,
 } from '@nestjs/common'
@@ -115,7 +116,9 @@ export class FilesController {
       let content = ''
       if (file.mimetype === 'application/pdf') {
         content = await this.filesService.parsePdf(file.buffer)
-      } else if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      } else if (
+        file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ) {
         // DOCX 文件 - 使用 mammoth 解析
         content = await this.filesService.parseDocx(file.buffer)
       } else {
@@ -126,9 +129,8 @@ export class FilesController {
           content = decoder.decode(file.buffer)
 
           // 移除 null 字节和其他控制字符（保留换行符 \n 和 \r）
-          content = content.replace(/\x00/g, '')  // null 字节
+          content = content.replace(/\x00/g, '') // null 字节
           content = content.replace(/[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '') // 其他控制字符
-
         } catch (decodeError) {
           this.logger.error('文件解码失败:', decodeError)
           throw new BadRequestException('文件编码错误，请确保文件是 UTF-8 编码')
@@ -173,7 +175,9 @@ export class FilesController {
           uploadedDocuments: updatedDocs,
         }
         await this.projectRepo.save(project)
-        this.logger.log(`已更新项目 ${projectId} 的 uploadedDocuments，现有 ${updatedDocs.length} 个文档`)
+        this.logger.log(
+          `已更新项目 ${projectId} 的 uploadedDocuments，现有 ${updatedDocs.length} 个文档`,
+        )
       }
 
       this.logger.log(`文档上传成功: docId=${doc.id}, 字数=${content.length}`)
@@ -203,10 +207,24 @@ export class FilesController {
 
   /**
    * Get documents for a project
-   * GET /files/projects/:projectId/documents
+   * GET /files/projects/:projectId/documents/list
+   */
+  @Get('projects/:projectId/documents/list')
+  async getProjectDocuments(@Param('projectId') projectId: string) {
+    return this.listProjectDocuments(projectId)
+  }
+
+  /**
+   * Compatibility endpoint for existing frontend callers.
+   * POST /files/projects/:projectId/documents/list
    */
   @Post('projects/:projectId/documents/list')
-  async getProjectDocuments(@Param('projectId') projectId: string) {
+  @HttpCode(200)
+  async postProjectDocuments(@Param('projectId') projectId: string) {
+    return this.listProjectDocuments(projectId)
+  }
+
+  private async listProjectDocuments(projectId: string) {
     this.logger.log(`获取项目文档列表: projectId=${projectId}`)
 
     const docs = await this.standardDocumentRepo.find({
@@ -214,15 +232,49 @@ export class FilesController {
       order: { createdAt: 'DESC' },
     })
 
-    return {
-      success: true,
-      data: docs.map((doc) => ({
+    const project = await this.projectRepo.findOne({ where: { id: projectId } })
+    const legacyDocs = Array.isArray((project?.metadata as any)?.uploadedDocuments)
+      ? ((project?.metadata as any).uploadedDocuments as any[])
+      : []
+
+    const persistedDocs = docs.map((doc) => {
+      const metadata = doc.metadata ?? {}
+      const filename = metadata.original_filename ?? doc.name
+      return {
         id: doc.id,
         name: doc.name,
+        filename,
+        size: Number(metadata.size ?? 0),
         charCount: doc.content.length,
         createdAt: doc.createdAt,
-        metadata: doc.metadata,
-      })),
+        metadata,
+      }
+    })
+
+    const persistedIds = new Set(persistedDocs.map((doc) => doc.id))
+    const legacyOnlyDocs = legacyDocs
+      .filter((doc) => doc?.id && !persistedIds.has(String(doc.id)))
+      .map((doc, index) => {
+        const metadata = doc.metadata ?? {}
+        const content = typeof doc.content === 'string' ? doc.content : ''
+        const name = String(doc.name ?? doc.filename ?? `历史文档 ${index + 1}`)
+        return {
+          id: String(doc.id),
+          name,
+          filename: String(doc.filename ?? metadata.original_filename ?? name),
+          size: Number(doc.size ?? metadata.size ?? Buffer.byteLength(content, 'utf8')),
+          charCount: Number(doc.charCount ?? content.length),
+          createdAt: doc.createdAt ?? doc.uploadedAt ?? metadata.uploaded_at ?? project?.createdAt,
+          metadata: {
+            ...metadata,
+            legacySource: 'projects.metadata.uploadedDocuments',
+          },
+        }
+      })
+
+    return {
+      success: true,
+      data: [...persistedDocs, ...legacyOnlyDocs],
     }
   }
 
@@ -231,10 +283,7 @@ export class FilesController {
    * DELETE /files/projects/:projectId/documents/:docId
    */
   @Delete('projects/:projectId/documents/:docId')
-  async deleteDocument(
-    @Param('projectId') projectId: string,
-    @Param('docId') docId: string,
-  ) {
+  async deleteDocument(@Param('projectId') projectId: string, @Param('docId') docId: string) {
     this.logger.log(`删除文档请求: projectId=${projectId}, docId=${docId}`)
 
     // 查找文档

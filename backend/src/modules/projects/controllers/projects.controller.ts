@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Put,
   Delete,
   Body,
   Param,
@@ -146,6 +147,20 @@ export class ProjectsController {
       success: true,
       data: project,
     }
+  }
+
+  /**
+   * 兼容旧前端构建
+   * PUT /projects/:id
+   */
+  @Put(':projectId')
+  @UseGuards(ProjectAccessGuard)
+  async updatePutCompatibility(
+    @Param('projectId') projectId: string,
+    @Body() dto: UpdateProjectDto,
+    @Req() req: any,
+  ) {
+    return this.update(projectId, dto, req)
   }
 
   /**

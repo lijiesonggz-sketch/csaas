@@ -18,6 +18,7 @@ interface UploadedDocument {
   id: string
   name: string
   content: string
+  filename?: string
 }
 
 export default function ClusteringPage() {
@@ -62,25 +63,54 @@ export default function ClusteringPage() {
     },
   })
 
+  const loadProjectDocuments = useCallback(async (): Promise<UploadedDocument[]> => {
+    const metadataDocuments = project?.metadata?.uploadedDocuments
+    const fallbackDocs: UploadedDocument[] = Array.isArray(metadataDocuments)
+      ? metadataDocuments
+          .filter(
+            (doc): doc is { id: string; name?: string; filename?: string; content?: string } =>
+              typeof doc?.id === 'string'
+          )
+          .map((doc) => ({
+            id: doc.id,
+            name: doc.name ?? doc.filename ?? '',
+            filename: doc.filename,
+            content: doc.content ?? '',
+          }))
+      : []
+
+    try {
+      const docs = await apiFetch<UploadedDocument[]>(
+        `/files/projects/${projectId}/documents/list`,
+        {
+          method: 'GET',
+        }
+      )
+
+      if (Array.isArray(docs) && docs.length > 0) {
+        return docs
+          .filter((doc): doc is UploadedDocument => typeof doc?.id === 'string')
+          .map((doc) => ({
+            id: doc.id,
+            name: doc.name ?? doc.filename ?? '',
+            filename: doc.filename,
+            content: doc.content ?? '',
+          }))
+      }
+    } catch (err) {
+      console.warn('⚠️ [Clustering] 文档列表接口加载失败，回退到项目 metadata:', err)
+    }
+
+    return fallbackDocs
+  }, [project?.metadata?.uploadedDocuments, projectId])
+
   const loadSavedClusteringTask = useCallback(async () => {
     if (!project) return
 
     try {
       setInitializing(true)
 
-      const uploadedDocuments = project.metadata?.uploadedDocuments
-      const docs: UploadedDocument[] = Array.isArray(uploadedDocuments)
-        ? uploadedDocuments
-            .filter(
-              (doc): doc is { id: string; name?: string; content?: string } =>
-                typeof doc?.id === 'string'
-            )
-            .map((doc) => ({
-              id: doc.id,
-              name: doc.name ?? '',
-              content: doc.content ?? '',
-            }))
-        : []
+      const docs = await loadProjectDocuments()
       setDocuments(docs)
 
       const clusteringTaskId = project.metadata?.clusteringTaskId
@@ -161,7 +191,7 @@ export default function ClusteringPage() {
     } finally {
       setInitializing(false)
     }
-  }, [project])
+  }, [loadProjectDocuments, project])
 
   const handleGenerate = async () => {
     if (!project) return
@@ -170,21 +200,10 @@ export default function ClusteringPage() {
       setLoading(true)
       setError(null)
 
-      const uploadedDocuments = project.metadata?.uploadedDocuments
-      const documents: UploadedDocument[] = Array.isArray(uploadedDocuments)
-        ? uploadedDocuments
-            .filter(
-              (doc): doc is { id: string; name?: string; content?: string } =>
-                typeof doc?.id === 'string'
-            )
-            .map((doc) => ({
-              id: doc.id,
-              name: doc.name ?? '',
-              content: doc.content ?? '',
-            }))
-        : []
+      const currentDocuments = documents.length > 0 ? documents : await loadProjectDocuments()
+      setDocuments(currentDocuments)
 
-      if (!Array.isArray(documents) || documents.length < 1) {
+      if (!Array.isArray(currentDocuments) || currentDocuments.length < 1) {
         setError('聚类分析至少需要1个文档，请先上传文档')
         setLoading(false)
         return
@@ -195,7 +214,7 @@ export default function ClusteringPage() {
         projectId,
         type: 'clustering',
         input: {
-          documentIds: documents.map((doc) => doc.id),
+          documentIds: currentDocuments.map((doc) => doc.id),
           maxTokens: 60000,
         },
       })
@@ -203,7 +222,7 @@ export default function ClusteringPage() {
       setTaskId(task.id)
 
       await apiFetch(`/projects/${projectId}`, {
-        method: 'PUT',
+        method: 'PATCH',
         body: JSON.stringify({
           metadata: {
             clusteringTaskId: task.id,
