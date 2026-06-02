@@ -1141,10 +1141,8 @@ export class StandardInterpretationGenerator {
     })
 
     // 选择最佳提取结果
-    const selectedExtraction = this.clauseExtractionGenerator.selectBestExtraction(
-      extractionResults,
-      expectedClauseCount,
-    )
+    const selectedExtraction =
+      this.clauseExtractionGenerator.selectBestExtraction(extractionResults)
 
     if (!selectedExtraction) {
       throw new Error('All AI models failed to extract clauses')
