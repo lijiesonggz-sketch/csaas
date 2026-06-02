@@ -599,6 +599,19 @@ interface WorkflowRuntimePreparationResult {
   outputPersistence?: WorkflowOutputPersistenceResult
 }
 
+interface PublicMethodLibraryCategorySummary {
+  key: string
+  label: string
+  methodCount: number
+  sampleMethodNames: string[]
+}
+
+interface PublicMethodLibrarySummary {
+  methodCount: number
+  categoryCount: number
+  categories: PublicMethodLibraryCategorySummary[]
+}
+
 @Injectable()
 export class AdvisorySessionService {
   private readonly checkpointActivityClock = new Map<string, number>()
@@ -702,6 +715,10 @@ export class AdvisorySessionService {
         assembledPrompt,
         manualChoiceInput,
       })
+      const methodLibrarySummary = this.createPublicMethodLibrarySummary({
+        workflow,
+        assembledPrompt,
+      })
       const manualQuickConsultContext = await this.resolveManualQuickConsultContext({
         tenantId: context.tenantId,
         actorId: context.user.id,
@@ -717,6 +734,7 @@ export class AdvisorySessionService {
         acceptedQuickConsultContext,
         manualQuickConsultContext,
         organizationContext,
+        methodLibrarySummary,
       )
       const rawSourceRefs = this.mergeSourceRefs(
         assembledPrompt.sourceRefs,
@@ -8631,16 +8649,121 @@ export class AdvisorySessionService {
     acceptedQuickConsultContext: AcceptedQuickConsultLaunchContext | null,
     manualQuickConsultContext: ManualQuickConsultLaunchContext | null,
     organizationContext?: AdvisoryOrganizationPromptContext | null,
+    methodLibrarySummary?: PublicMethodLibrarySummary | null,
   ): string {
     return [
       `${workflow.displayName} 已启动。`,
       `我会基于 ${workflow.scenarioLabel} 工作流，引导你把问题背景、目标和约束整理清楚。`,
+      ...(methodLibrarySummary
+        ? this.formatPublicMethodLibrarySummary(workflow, methodLibrarySummary)
+        : []),
       ...(organizationContext ? ['已加载企业背景，后续建议会结合该组织上下文。'] : []),
       ...(acceptedQuickConsultContext || manualQuickConsultContext
         ? ['已加载 Quick Consult 背景，后续会作为分析输入使用。']
         : []),
       '请直接输入你要讨论的主题、当前背景，以及希望产出的具体结果。',
     ].join('\n\n')
+  }
+
+  private createPublicMethodLibrarySummary(context: {
+    workflow: ThinkTankWorkflowMetadata
+    assembledPrompt: ThinkTankAssembledPrompt
+  }): PublicMethodLibrarySummary | null {
+    if (context.workflow.key !== 'brainstorming' || !this.workflowParser) {
+      return null
+    }
+
+    const methodLibraryPaths = new Set(context.workflow.methodLibraryPaths)
+    const categories = new Map<string, PublicMethodLibraryCategorySummary>()
+    let methodCount = 0
+
+    for (const source of context.assembledPrompt.sources) {
+      if (!methodLibraryPaths.has(source.relativePath)) continue
+
+      const methodLibrary = this.workflowParser.parseMethodLibrary({
+        ...source,
+        absolutePath: '',
+      })
+
+      for (const row of methodLibrary.rows) {
+        const methodName = this.readManualMethodName(row)
+        if (!methodName) continue
+
+        const categoryKey =
+          this.optionalText(row.category) ?? this.optionalText(row.phase) ?? '其他'
+        const existing =
+          categories.get(categoryKey) ??
+          ({
+            key: categoryKey,
+            label: this.toPublicMethodCategoryLabel(categoryKey),
+            methodCount: 0,
+            sampleMethodNames: [],
+          } satisfies PublicMethodLibraryCategorySummary)
+
+        methodCount += 1
+        existing.methodCount += 1
+        if (existing.sampleMethodNames.length < 3) {
+          existing.sampleMethodNames.push(methodName)
+        }
+        categories.set(categoryKey, existing)
+      }
+    }
+
+    if (methodCount === 0 || categories.size === 0) {
+      return null
+    }
+
+    return {
+      methodCount,
+      categoryCount: categories.size,
+      categories: [...categories.values()],
+    }
+  }
+
+  private formatPublicMethodLibrarySummary(
+    workflow: ThinkTankWorkflowMetadata,
+    summary: PublicMethodLibrarySummary,
+  ): string[] {
+    if (workflow.key !== 'brainstorming') return []
+
+    return [
+      `Brainstorming 方法库已加载：${summary.methodCount} 个方法，覆盖 ${summary.categoryCount} 类。`,
+      [
+        '分类概览：',
+        ...summary.categories.map((category) =>
+          [
+            `- ${category.label}（${category.key}，${category.methodCount} 个）`,
+            category.sampleMethodNames.length > 0
+              ? `：${category.sampleMethodNames.join('、')}`
+              : '',
+          ].join(''),
+        ),
+      ].join('\n'),
+      '准备选择方法时，可以浏览完整方法库、让我按目标推荐、随机抽取，或使用渐进式流程。',
+    ]
+  }
+
+  private toPublicMethodCategoryLabel(category: string): string {
+    const labels: Record<string, string> = {
+      biomimetic: 'Biomimetic Inspiration',
+      collaborative: 'Collaborative Methods',
+      creative: 'Creative Innovation',
+      cultural: 'Cultural Patterns',
+      deep: 'Deep Analysis',
+      introspective_delight: 'Introspective Delight',
+      quantum: 'Quantum Thinking',
+      structured: 'Structured Thinking',
+      theatrical: 'Theatrical Exploration',
+      wild: 'Wild Thinking',
+    }
+
+    if (labels[category]) return labels[category]
+
+    return category
+      .split(/[_\s-]+/)
+      .filter(Boolean)
+      .map((segment) => `${segment.charAt(0).toUpperCase()}${segment.slice(1)}`)
+      .join(' ')
   }
 
   private createOrganizationContextBlock(context: AdvisoryOrganizationPromptContext): string {

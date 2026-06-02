@@ -208,6 +208,17 @@ describe('AdvisorySessionService workflow runtime runner', () => {
     expect(result.firstPrompt).not.toMatch(/_bmad|MANDATORY EXECUTION RULES|## Source/i)
   })
 
+  it('surfaces the full Brainstorming method library scale from CSV in the public launch prompt', async () => {
+    const result = await service.launchWorkflow({ user, tenantId, workflowKey: 'brainstorming' })
+
+    expect(result.firstPrompt).toContain('Brainstorming 方法库已加载：61 个方法，覆盖 10 类')
+    expect(result.firstPrompt).toContain('Creative Innovation（creative，11 个）')
+    expect(result.firstPrompt).toContain('Quantum Thinking（quantum，3 个）')
+    expect(result.firstPrompt).toContain('What If Scenarios')
+    expect(result.firstPrompt).toContain('准备选择方法时，可以浏览完整方法库')
+    expect(result.firstPrompt).not.toMatch(/_bmad|brain-methods\.csv|runtime_source|## Source/i)
+  })
+
   it('injects the current executable step into provider prompts as private guidance', async () => {
     await service.launchWorkflow({ user, tenantId, workflowKey: 'brainstorming' })
     const launchInput = repository.createLaunchSession.mock.calls.at(-1)?.[1]
