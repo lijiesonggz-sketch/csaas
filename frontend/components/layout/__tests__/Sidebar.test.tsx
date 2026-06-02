@@ -4,13 +4,14 @@ import Sidebar from '../Sidebar'
 import { fetchThinkTankAccess } from '@/lib/advisory/access'
 
 const mockPush = jest.fn()
+let mockPathnameValue = '/dashboard'
 
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: mockPush,
   }),
-  usePathname: () => '/dashboard',
+  usePathname: () => mockPathnameValue,
 }))
 
 // Mock next-auth/react
@@ -33,6 +34,7 @@ describe('Sidebar', () => {
 
   beforeEach(() => {
     mockPush.mockReset()
+    mockPathnameValue = '/dashboard'
     mockFetchThinkTankAccess.mockResolvedValue({
       allowed: true,
       module: 'thinktank',
@@ -128,6 +130,26 @@ describe('Sidebar', () => {
     // Child items should be hidden after collapse
     await waitFor(() => {
       expect(screen.queryByText('运营仪表板')).not.toBeInTheDocument()
+    })
+  })
+
+  it('allows the active admin submenu to be manually collapsed', async () => {
+    mockPathnameValue = '/admin/clients'
+
+    render(<Sidebar />)
+
+    expect(screen.getByText('客户管理')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('系统管理').closest('button')!)
+
+    await waitFor(() => {
+      expect(screen.queryByText('客户管理')).not.toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('系统管理').closest('button')!)
+
+    await waitFor(() => {
+      expect(screen.getByText('客户管理')).toBeInTheDocument()
     })
   })
 

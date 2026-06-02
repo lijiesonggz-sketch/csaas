@@ -219,6 +219,25 @@ describe('LoginPage', () => {
       })
     })
 
+    it('should redirect to a safe callbackUrl after successful login', async () => {
+      mockSignIn.mockResolvedValue({ ok: true, error: null, url: null, status: 200 })
+      window.history.replaceState({}, '', '/login?callbackUrl=%2Fprojects')
+
+      render(<LoginPage />)
+
+      const emailInput = screen.getByLabelText('邮箱')
+      const passwordInput = screen.getByLabelText('密码')
+      const submitButton = screen.getByRole('button', { name: '登录' })
+
+      await userEvent.type(emailInput, 'test@example.com')
+      await userEvent.type(passwordInput, 'password123')
+      fireEvent.click(submitButton)
+
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith('/projects')
+      })
+    })
+
     it('should show error message when login fails', async () => {
       mockSignIn.mockResolvedValue({
         ok: false,

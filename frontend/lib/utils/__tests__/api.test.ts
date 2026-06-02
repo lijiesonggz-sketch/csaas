@@ -1,3 +1,4 @@
+import { AUTH_SESSION_EXPIRED_EVENT } from '@/lib/auth/session-expiry'
 import { apiFetch, clearTokenCache, getAuthToken } from '../api'
 
 const mockFetch = jest.fn()
@@ -52,5 +53,45 @@ describe('auth token cache', () => {
     const [, requestInit] = mockFetch.mock.calls[2] as [string, RequestInit]
     expect(mockFetch.mock.calls[2][0]).toBe('http://api.test/projects')
     expect(new Headers(requestInit.headers).get('Authorization')).toBe('Bearer fresh-token')
+  })
+
+  it('notifies the app to sign out when a protected API returns 401 after token refresh', async () => {
+    const expiredEvents: CustomEvent[] = []
+    const handleExpired = (event: Event) => expiredEvents.push(event as CustomEvent)
+    window.history.replaceState({}, '', '/projects')
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleExpired)
+
+    mockFetch
+      .mockResolvedValueOnce(jsonResponse({ accessToken: 'expired-token' }))
+      .mockResolvedValueOnce(jsonResponse({ message: 'Unauthorized' }, 401))
+      .mockResolvedValueOnce(jsonResponse({ accessToken: 'expired-token' }))
+
+    await expect(apiFetch('/projects')).rejects.toThrow('Unauthorized')
+
+    expect(expiredEvents).toHaveLength(1)
+    expect(expiredEvents[0].detail.callbackUrl).toBe('/projects')
+
+    window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleExpired)
+  })
+
+  it('does not notify sign out when a refreshed token receives a non-401 authorization error', async () => {
+    const expiredEvents: CustomEvent[] = []
+    const handleExpired = (event: Event) => expiredEvents.push(event as CustomEvent)
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleExpired)
+
+    mockFetch
+      .mockResolvedValueOnce(jsonResponse({ accessToken: 'expired-token' }))
+      .mockResolvedValueOnce(jsonResponse({ message: 'Unauthorized' }, 401))
+      .mockResolvedValueOnce(jsonResponse({ accessToken: 'fresh-token' }))
+      .mockResolvedValueOnce(jsonResponse({ message: 'Forbidden' }, 403))
+
+    await expect(apiFetch('/projects')).rejects.toMatchObject({
+      message: 'Forbidden',
+      status: 403,
+    })
+
+    expect(expiredEvents).toHaveLength(0)
+
+    window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleExpired)
   })
 })

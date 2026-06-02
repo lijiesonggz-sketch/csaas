@@ -179,6 +179,7 @@ export default function Sidebar({
   const router = useRouter()
   const { data: session } = useSession()
   const [expandedKeys, setExpandedKeys] = useState<string[]>([])
+  const [collapsedKeys, setCollapsedKeys] = useState<string[]>([])
   const [thinkTankAccessAllowed, setThinkTankAccessAllowed] = useState<boolean | null>(null)
   const organizationId = session?.user?.organizationId
   const userRole = session?.user?.role
@@ -227,8 +228,15 @@ export default function Sidebar({
     onCollapseChange?.(!collapsed)
   }
 
-  const handleExpandToggle = (key: string) => {
-    setExpandedKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]))
+  const handleExpandToggle = (key: string, isCurrentlyExpanded: boolean) => {
+    if (isCurrentlyExpanded) {
+      setExpandedKeys((prev) => prev.filter((k) => k !== key))
+      setCollapsedKeys((prev) => (prev.includes(key) ? prev : [...prev, key]))
+      return
+    }
+
+    setExpandedKeys((prev) => (prev.includes(key) ? prev : [...prev, key]))
+    setCollapsedKeys((prev) => prev.filter((k) => k !== key))
   }
 
   const handleNavigation = async (key: string) => {
@@ -302,13 +310,15 @@ export default function Sidebar({
             const hasChildren = item.children && item.children.length > 0
             const childSelected = item.children?.some((child) => isSelected(child.key)) ?? false
             const selected = isSelected(item.key) || childSelected
-            const expanded = expandedKeys.includes(item.key) || childSelected
+            const manuallyCollapsed = collapsedKeys.includes(item.key)
+            const expanded =
+              expandedKeys.includes(item.key) || (childSelected && !manuallyCollapsed)
 
             if (hasChildren) {
               return (
                 <div key={item.key}>
                   <button
-                    onClick={() => handleExpandToggle(item.key)}
+                    onClick={() => handleExpandToggle(item.key, expanded)}
                     className={`w-full cursor-pointer flex items-center gap-3 px-5 py-3 text-sm transition-colors ${
                       selected
                         ? 'Mui-selected bg-white/10 text-white font-semibold'

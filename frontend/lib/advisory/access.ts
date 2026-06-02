@@ -1,4 +1,5 @@
 import { UserRole } from '@/lib/auth/types'
+import { notifyAuthSessionExpired } from '@/lib/auth/session-expiry'
 import { getAuthHeadersAsync } from '@/lib/utils/jwt'
 import { readAdvisoryMessage, unwrapAdvisoryEnvelope } from './envelope'
 
@@ -31,6 +32,11 @@ export async function fetchThinkTankAccess(): Promise<ThinkTankAccessResult> {
     cache: 'no-store',
   })
   const body = await response.json().catch(() => null)
+
+  if (response.status === 401) {
+    notifyAuthSessionExpired()
+    throw new Error('登录状态已过期，请重新登录。')
+  }
 
   if (response.status === 403) {
     return {

@@ -4,6 +4,9 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { notifyAuthSessionExpired } from '@/lib/auth/session-expiry'
+import { clearSessionCache } from './jwt'
+
 // Token缓存
 interface TokenCache {
   token: string | null
@@ -65,6 +68,7 @@ export async function getAuthToken(forceRefresh = false): Promise<string | null>
  */
 export function clearTokenCache() {
   tokenCache = null
+  clearSessionCache()
 }
 
 /**
@@ -79,6 +83,13 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
 }
 
 async function apiFetchInternal(endpoint: string, options: RequestInit = {}): Promise<unknown> {
+  let authExpiredNotified = false
+  const notifyAuthExpiredOnce = () => {
+    if (authExpiredNotified) return
+    authExpiredNotified = true
+    notifyAuthSessionExpired()
+  }
+
   const url = endpoint.startsWith('http')
     ? endpoint
     : `${process.env.NEXT_PUBLIC_API_URL || ''}${endpoint}`
@@ -103,6 +114,7 @@ async function apiFetchInternal(endpoint: string, options: RequestInit = {}): Pr
     ...options,
     headers,
   })
+  let finalResponse = response
 
   // 如果是401错误，清除token缓存并重试一次
   if (response.status === 401 && tokenCache) {
@@ -116,21 +128,32 @@ async function apiFetchInternal(endpoint: string, options: RequestInit = {}): Pr
         ...options,
         headers,
       })
+      finalResponse = retryResponse
 
       if (retryResponse.ok) {
         return handleResponse(retryResponse)
       }
+
+      if (retryResponse.status === 401) {
+        clearTokenCache()
+        notifyAuthExpiredOnce()
+      }
     }
   }
 
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({ message: 'API request failed' }))
+  if (finalResponse.status === 401) {
+    clearTokenCache()
+    notifyAuthExpiredOnce()
+  }
+
+  if (!finalResponse.ok) {
+    const body = await finalResponse.json().catch(() => ({ message: 'API request failed' }))
     const error: any = new Error(body.message || 'API request failed')
-    error.status = response.status
+    error.status = finalResponse.status
     throw error
   }
 
-  return handleResponse(response)
+  return handleResponse(finalResponse)
 }
 
 /**

@@ -44,6 +44,8 @@ import {
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 
+const ALL_FILTER_VALUE = 'all'
+
 /**
  * 客户管理页面
  *
@@ -337,14 +339,16 @@ export default function ClientsPage() {
                   行业类型
                 </Label>
                 <Select
-                  value={filterIndustry}
-                  onValueChange={(value) => setFilterIndustry(value as IndustryType | '')}
+                  value={filterIndustry || ALL_FILTER_VALUE}
+                  onValueChange={(value) =>
+                    setFilterIndustry(value === ALL_FILTER_VALUE ? '' : (value as IndustryType))
+                  }
                 >
                   <SelectTrigger id="industry" data-testid="industry-filter">
                     <SelectValue placeholder="全部行业" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部</SelectItem>
+                    <SelectItem value={ALL_FILTER_VALUE}>全部</SelectItem>
                     <SelectItem data-testid="industry-option-banking" value={IndustryType.BANKING}>
                       银行
                     </SelectItem>
@@ -374,14 +378,16 @@ export default function ClientsPage() {
                   状态
                 </Label>
                 <Select
-                  value={filterStatus}
-                  onValueChange={(value) => setFilterStatus(value as OrganizationStatus | '')}
+                  value={filterStatus || ALL_FILTER_VALUE}
+                  onValueChange={(value) =>
+                    setFilterStatus(value === ALL_FILTER_VALUE ? '' : (value as OrganizationStatus))
+                  }
                 >
                   <SelectTrigger id="status" data-testid="status-filter">
                     <SelectValue placeholder="全部状态" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">全部</SelectItem>
+                    <SelectItem value={ALL_FILTER_VALUE}>全部</SelectItem>
                     <SelectItem
                       data-testid="status-option-active"
                       value={OrganizationStatus.ACTIVE}

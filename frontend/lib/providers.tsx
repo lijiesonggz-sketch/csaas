@@ -1,8 +1,14 @@
 'use client'
 
-import { useEffect } from 'react'
-import { SessionProvider } from 'next-auth/react'
+import { useEffect, useRef } from 'react'
+import { SessionProvider, signOut } from 'next-auth/react'
 import { BrandProvider } from '@/components/layout/BrandProvider'
+import {
+  AUTH_SESSION_EXPIRED_EVENT,
+  AuthSessionExpiredDetail,
+  buildLoginUrl,
+  getCurrentAuthCallbackUrl,
+} from '@/lib/auth/session-expiry'
 
 /**
  * Radix UI Dialog 在 React StrictMode + Next.js App Router 下存在已知 bug：
@@ -16,6 +22,29 @@ function useRadixDialogCleanup() {
     const hasOpenDialog = () =>
       Boolean(document.querySelector('[role="dialog"][data-state="open"]'))
 
+    const cleanupOrphanedScrollLock = () => {
+      const body = document.body
+      const root = document.documentElement
+      const hasScrollLockMarker =
+        body.hasAttribute('data-scroll-locked') || root.hasAttribute('data-scroll-locked')
+      const hasBodyScrollLock = body.style.overflow === 'hidden' || body.style.overflow === 'clip'
+      const hasRootScrollLock = root.style.overflow === 'hidden' || root.style.overflow === 'clip'
+
+      if (hasBodyScrollLock) {
+        body.style.removeProperty('overflow')
+      }
+      if (hasRootScrollLock) {
+        root.style.removeProperty('overflow')
+      }
+      if (hasScrollLockMarker) {
+        body.removeAttribute('data-scroll-locked')
+        root.removeAttribute('data-scroll-locked')
+        body.style.removeProperty('padding-right')
+        body.style.removeProperty('margin-right')
+        body.style.removeProperty('--removed-body-scroll-bar-size')
+      }
+    }
+
     const cleanupOrphanedDialogState = () => {
       if (hasOpenDialog()) {
         return
@@ -23,8 +52,9 @@ function useRadixDialogCleanup() {
 
       const body = document.body
       if (body.style.pointerEvents === 'none') {
-        body.style.pointerEvents = ''
+        body.style.removeProperty('pointer-events')
       }
+      cleanupOrphanedScrollLock()
 
       document.querySelectorAll<HTMLElement>('[data-radix-overlay="true"]').forEach((overlay) => {
         if (overlay.getAttribute('data-csaas-orphaned-overlay') === 'true') {
@@ -41,19 +71,48 @@ function useRadixDialogCleanup() {
 
     cleanupOrphanedDialogState()
 
-    observer.observe(document.body, {
+    const observerOptions: MutationObserverInit = {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['style', 'data-state'],
+      attributeFilter: ['style', 'data-state', 'data-scroll-locked'],
+    }
+
+    observer.observe(document.body, observerOptions)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['style', 'data-scroll-locked'],
     })
 
     return () => observer.disconnect()
   }, [])
 }
 
+function useAuthSessionExpiryRedirect() {
+  const signingOutRef = useRef(false)
+
+  useEffect(() => {
+    const handleSessionExpired = (event: Event) => {
+      if (signingOutRef.current) return
+
+      signingOutRef.current = true
+      const detail =
+        event instanceof CustomEvent
+          ? (event.detail as AuthSessionExpiredDetail | undefined)
+          : undefined
+      const callbackUrl = detail?.callbackUrl ?? getCurrentAuthCallbackUrl()
+
+      void signOut({ callbackUrl: buildLoginUrl(callbackUrl) })
+    }
+
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired)
+    return () => window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired)
+  }, [])
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   useRadixDialogCleanup()
+  useAuthSessionExpiryRedirect()
 
   return (
     <SessionProvider>

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { message } from '@/lib/message'
+import { isSafeInternalCallbackUrl } from '@/lib/auth/session-expiry'
 import { clearTokenCache } from '@/lib/utils/api'
 
 export default function LoginPage() {
@@ -86,7 +87,8 @@ export default function LoginPage() {
       } else {
         clearTokenCache()
         message.success('登录成功!')
-        router.push('/dashboard')
+        const callbackUrl = new URL(window.location.href).searchParams.get('callbackUrl')
+        router.push(isSafeInternalCallbackUrl(callbackUrl) ? callbackUrl : '/dashboard')
       }
     } catch (error) {
       setLoginError('登录失败，请重试')
