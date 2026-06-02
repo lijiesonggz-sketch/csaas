@@ -2,10 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
 import { AIClientRequest } from '../../ai-clients/interfaces/ai-client.interface'
 import { AIModel } from '../../../database/entities/ai-generation-event.entity'
-import {
-  fillQuestionnairePrompt,
-  fillSingleClusterQuestionnairePrompt,
-} from '../prompts/questionnaire.prompts'
+import { fillSingleClusterQuestionnairePrompt } from '../prompts/questionnaire.prompts'
 import { MatrixGenerationOutput } from './matrix.generator'
 
 /**
@@ -246,46 +243,58 @@ export class QuestionnaireGenerator {
       responseFormat: { type: 'json_object' },
     }
 
-    // 并行调用三模型生成
-    const [gpt4Response, claudeResponse, domesticResponse] = await Promise.all([
+    // 并行调用三模型生成；单个模型失败不能拖垮整个聚类
+    const [gpt4Result, claudeResult, domesticResult] = await Promise.allSettled([
       this.generateWithModel(aiRequest, AIModel.GPT4),
       this.generateWithModel(aiRequest, AIModel.CLAUDE),
       this.generateWithModel(aiRequest, AIModel.DOMESTIC),
     ])
+
+    const gpt4Response = gpt4Result.status === 'fulfilled' ? gpt4Result.value : null
+    const claudeResponse = claudeResult.status === 'fulfilled' ? claudeResult.value : null
+    const domesticResponse = domesticResult.status === 'fulfilled' ? domesticResult.value : null
 
     // 解析JSON结果
     let gpt4Questions: Question[] | null = null
     let claudeQuestions: Question[] | null = null
     let domesticQuestions: Question[] | null = null
 
-    try {
-      gpt4Questions = this.parseSingleClusterResponse(
-        gpt4Response.content,
-        cluster,
-        startQuestionId,
-      )
-    } catch (error) {
-      this.logger.error(`Failed to parse GPT-4 single cluster response: ${error.message}`)
+    if (gpt4Response) {
+      try {
+        gpt4Questions = this.parseSingleClusterResponse(
+          gpt4Response.content,
+          cluster,
+          startQuestionId,
+        )
+      } catch (error) {
+        this.logger.error(`Failed to parse GPT-4 single cluster response: ${error.message}`)
+      }
     }
 
-    try {
-      claudeQuestions = this.parseSingleClusterResponse(
-        claudeResponse.content,
-        cluster,
-        startQuestionId,
-      )
-    } catch (error) {
-      this.logger.error(`Failed to parse Claude single cluster response: ${error.message}`)
+    if (claudeResponse) {
+      try {
+        claudeQuestions = this.parseSingleClusterResponse(
+          claudeResponse.content,
+          cluster,
+          startQuestionId,
+        )
+      } catch (error) {
+        this.logger.error(`Failed to parse Claude single cluster response: ${error.message}`)
+      }
     }
 
-    try {
-      domesticQuestions = this.parseSingleClusterResponse(
-        domesticResponse.content,
-        cluster,
-        startQuestionId,
-      )
-    } catch (error) {
-      this.logger.error(`Failed to parse Domestic model single cluster response: ${error.message}`)
+    if (domesticResponse) {
+      try {
+        domesticQuestions = this.parseSingleClusterResponse(
+          domesticResponse.content,
+          cluster,
+          startQuestionId,
+        )
+      } catch (error) {
+        this.logger.error(
+          `Failed to parse Domestic model single cluster response: ${error.message}`,
+        )
+      }
     }
 
     // 如果所有模型都失败，抛出错误
@@ -419,10 +428,7 @@ export class QuestionnaireGenerator {
   /**
    * 解析JSON响应
    */
-  private parseJsonResponse(
-    content: string,
-    expectedClusters: number,
-  ): QuestionnaireGenerationOutput {
+  private parseJsonResponse(content: string): QuestionnaireGenerationOutput {
     try {
       // 1. 移除markdown代码块标记（如果存在）
       let cleanedContent = content.trim()
@@ -442,7 +448,7 @@ export class QuestionnaireGenerator {
       parsed = this.fixEscapedArrays(parsed)
 
       // 5. 验证必需字段
-      this.validateQuestionnaireOutput(parsed, expectedClusters)
+      this.validateQuestionnaireOutput(parsed)
 
       return parsed as QuestionnaireGenerationOutput
     } catch (error) {
@@ -466,7 +472,7 @@ export class QuestionnaireGenerator {
 
           let parsed = JSON.parse(extractedContent)
           parsed = this.fixEscapedArrays(parsed)
-          this.validateQuestionnaireOutput(parsed, expectedClusters)
+          this.validateQuestionnaireOutput(parsed)
 
           this.logger.log('Successfully parsed JSON after extraction and repair')
           return parsed as QuestionnaireGenerationOutput
@@ -580,7 +586,7 @@ export class QuestionnaireGenerator {
             try {
               fixed[key] = this.fixEscapedArrays(JSON.parse(value))
               this.logger.debug(`Fixed escaped ${key} field`)
-            } catch (e) {
+            } catch {
               fixed[key] = value
             }
           } else {
@@ -599,7 +605,7 @@ export class QuestionnaireGenerator {
   /**
    * 验证问卷输出的结构
    */
-  private validateQuestionnaireOutput(output: any, expectedClusters: number): void {
+  private validateQuestionnaireOutput(output: any): void {
     // 验证顶层字段
     if (!output.questionnaire) {
       throw new Error('Missing required field: questionnaire')
@@ -607,10 +613,7 @@ export class QuestionnaireGenerator {
 
     if (!output.questionnaire_metadata) {
       this.logger.warn('Missing questionnaire_metadata, generating default metadata')
-      output.questionnaire_metadata = this.generateDefaultMetadata(
-        output.questionnaire,
-        expectedClusters,
-      )
+      output.questionnaire_metadata = this.generateDefaultMetadata(output.questionnaire)
     }
 
     // 验证questionnaire数组
@@ -710,10 +713,7 @@ export class QuestionnaireGenerator {
   /**
    * 生成默认元数据（当AI未返回时）
    */
-  private generateDefaultMetadata(
-    questions: any[],
-    expectedClusters: number,
-  ): QuestionnaireMetadata {
+  private generateDefaultMetadata(questions: any[]): QuestionnaireMetadata {
     const coverageMap: Record<string, number> = {}
 
     for (const question of questions) {
