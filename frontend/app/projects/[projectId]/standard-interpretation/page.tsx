@@ -181,6 +181,9 @@ export default function StandardInterpretationPage() {
             setResult(interpretationResult)
           } else if (task.status === 'processing' || task.status === 'pending') {
             setLoading(true)
+          } else if (task.status === 'failed') {
+            setError(task.errorMessage || '标准解读任务失败，请重新生成。')
+            setLoading(false)
           }
         } catch (err) {
           console.log('Failed to load saved task:', err)
@@ -240,7 +243,7 @@ export default function StandardInterpretationPage() {
           },
           interpretationMode: 'enterprise',
           useTwoPhaseMode: true,
-          batchSize: 5,
+          batchSize: 10,
         },
       })
 

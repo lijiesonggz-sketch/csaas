@@ -112,4 +112,130 @@ describe('StandardInterpretationPage', () => {
     expect(screen.getByRole('button', { name: '开始解读' })).toBeEnabled()
     expect(AITasksAPI.getTask).not.toHaveBeenCalled()
   })
+
+  it('should show saved failed task reason instead of analysis-in-progress state', async () => {
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          id: 'user-1',
+        },
+      },
+      status: 'authenticated',
+    })
+
+    mockApiFetch.mockImplementation(async (endpoint: string) => {
+      if (endpoint.includes('/documents/list')) {
+        return [
+          {
+            id: 'doc-1',
+            name: '标准文档.docx',
+            content: 'A'.repeat(200),
+          },
+        ]
+      }
+
+      if (endpoint === '/projects/project-1') {
+        return {
+          id: 'project-1',
+          name: '测试项目',
+          metadata: {
+            standardInterpretationTaskId: 'failed-task-1',
+          },
+        }
+      }
+
+      throw new Error(`Unexpected endpoint: ${endpoint}`)
+    })
+    ;(AITasksAPI.getTask as jest.Mock).mockResolvedValue({
+      id: 'failed-task-1',
+      status: 'failed',
+      errorMessage: '标准解读任务已中断：后台执行进程停止或超过 20 分钟未更新进度，请重新生成。',
+    })
+
+    render(<StandardInterpretationPage />)
+
+    expect(
+      await screen.findByText(
+        '标准解读任务已中断：后台执行进程停止或超过 20 分钟未更新进度，请重新生成。'
+      )
+    ).toBeInTheDocument()
+    expect(screen.queryByText('分析中...')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '开始解读' })).toBeEnabled()
+  })
+
+  it('should start two-phase interpretation with a larger batch size', async () => {
+    mockUseSession.mockReturnValue({
+      data: {
+        user: {
+          id: 'user-1',
+        },
+      },
+      status: 'authenticated',
+    })
+
+    const document = {
+      id: 'doc-1',
+      name: '标准文档.docx',
+      content: '标准正文'.repeat(100),
+    }
+
+    mockApiFetch.mockImplementation(async (endpoint: string, options?: RequestInit) => {
+      if (endpoint.includes('/documents/list')) {
+        return [document]
+      }
+
+      if (endpoint === '/projects/project-1' && options?.method === 'PATCH') {
+        return {
+          id: 'project-1',
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        }
+      }
+
+      if (endpoint === '/projects/project-1') {
+        return {
+          id: 'project-1',
+          name: '测试项目',
+          metadata: {
+            uploadedDocuments: [document],
+          },
+        }
+      }
+
+      throw new Error(`Unexpected endpoint: ${endpoint}`)
+    })
+    ;(AITasksAPI.createTask as jest.Mock).mockResolvedValue({
+      id: 'task-1',
+    })
+
+    render(<StandardInterpretationPage />)
+
+    fireEvent.click(await screen.findByRole('button', { name: '开始解读' }))
+
+    await waitFor(() => {
+      expect(AITasksAPI.createTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectId: 'project-1',
+          type: 'standard_interpretation',
+          input: expect.objectContaining({
+            useTwoPhaseMode: true,
+            batchSize: 10,
+          }),
+        })
+      )
+    })
+
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/projects/project-1',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          metadata: {
+            standardInterpretationTaskId: 'task-1',
+          },
+        }),
+      })
+    )
+  })
 })

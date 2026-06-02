@@ -7,6 +7,7 @@ import {
   ClauseExtractionOutput,
   ClauseExtractionInput,
 } from '../prompts/clause-extraction.prompts'
+import { extractStructuredLeafRequirementsFromContent } from '../utils/clause-id-utils'
 
 /**
  * 清理JSON字符串，尝试修复常见的JSON格式问题
@@ -46,7 +47,7 @@ function extractPartialJson(jsonStr: string): any {
 
   try {
     return JSON.parse(cleaned)
-  } catch (e) {
+  } catch {
     // 如果还是失败，尝试找到最后一个完整的对象
     // 查找clauses数组的最后一个完整元素
     const clausesMatch = cleaned.match(/"clauses":\s*\[([\s\S]*)/)
@@ -141,6 +142,18 @@ export class ClauseExtractionGenerator {
         `(expected: ${expectedClauseCount || 'unknown'})...`,
     )
 
+    const structuredExtraction = this.extractStructuredLeafRequirements(standardDocument)
+    if (structuredExtraction) {
+      this.logger.log(
+        `Using deterministic structured clause extraction: ${structuredExtraction.total_clauses} leaf requirements`,
+      )
+      return {
+        gpt4: structuredExtraction,
+        claude: null,
+        domestic: null,
+      }
+    }
+
     // 构建Prompt
     const prompt = fillClauseExtractionPrompt(standardDocument, expectedClauseCount)
 
@@ -149,21 +162,23 @@ export class ClauseExtractionGenerator {
 
     // 只调用智谱AI（OpenAI配置已切换到智谱）
     this.logger.log('[1/1] Calling Zhipu AI for clause extraction...')
-    this.logger.log(`Request params: temperature=${temperature}, maxTokens=${maxTokens}, promptLength=${prompt.length}`)
+    this.logger.log(
+      `Request params: temperature=${temperature}, maxTokens=${maxTokens}, promptLength=${prompt.length}`,
+    )
 
     let openaiResult = null
     try {
       openaiResult = await this.aiOrchestrator.generate(openaiRequest, AIModel.GPT4)
-      this.logger.log(`Zhipu AI extraction completed: ${openaiResult.content?.substring(0, 100)}...`)
+      this.logger.log(
+        `Zhipu AI extraction completed: ${openaiResult.content?.substring(0, 100)}...`,
+      )
     } catch (err) {
       this.logger.error(`Zhipu AI extraction failed: ${err.message}`, err.stack)
       throw new Error(`条款提取AI调用失败: ${err.message}`)
     }
 
     // 解析结果
-    const openaiOutput = openaiResult
-      ? this.parseExtractionResponse(openaiResult.content)
-      : null
+    const openaiOutput = openaiResult ? this.parseExtractionResponse(openaiResult.content) : null
 
     // 验证提取的完整性
     if (expectedClauseCount) {
@@ -271,14 +286,11 @@ export class ClauseExtractionGenerator {
    * 选择最佳提取结果
    * 使用智谱AI (GPT4) 的结果
    */
-  selectBestExtraction(
-    results: {
-      gpt4: ClauseExtractionOutput | null
-      claude: ClauseExtractionOutput | null
-      domestic: ClauseExtractionOutput | null
-    },
-    expectedCount?: number,
-  ): ClauseExtractionOutput | null {
+  selectBestExtraction(results: {
+    gpt4: ClauseExtractionOutput | null
+    claude: ClauseExtractionOutput | null
+    domestic: ClauseExtractionOutput | null
+  }): ClauseExtractionOutput | null {
     // 使用智谱AI的结果（通过OpenAI客户端调用）
     if (results.gpt4) {
       this.logger.log(`Selected extraction: ${results.gpt4.total_clauses} clauses (from Zhipu AI)`)
@@ -287,5 +299,47 @@ export class ClauseExtractionGenerator {
 
     this.logger.error('智谱AI提取条款失败')
     return null
+  }
+
+  private extractStructuredLeafRequirements(standardDocument: {
+    id: string
+    name: string
+    content: string
+  }): ClauseExtractionOutput | null {
+    const structuredSections = extractStructuredLeafRequirementsFromContent(
+      standardDocument.content,
+    )
+    const clauses = structuredSections.flatMap((section) =>
+      section.requirements.map((requirement) => {
+        const chapter = [
+          section.parentId && section.parentTitle
+            ? `${section.parentId} ${section.parentTitle}`
+            : undefined,
+          `${section.id} ${section.title}`.trim(),
+        ]
+          .filter(Boolean)
+          .join(' > ')
+
+        return {
+          clause_id: requirement.id,
+          clause_full_text: requirement.text,
+          chapter,
+        }
+      }),
+    )
+
+    if (clauses.length === 0) {
+      return null
+    }
+
+    return {
+      total_clauses: clauses.length,
+      clauses,
+      extraction_metadata: {
+        document_length: standardDocument.content.length,
+        extraction_method: 'structured_leaf_requirement',
+        confidence: 1,
+      },
+    }
   }
 }

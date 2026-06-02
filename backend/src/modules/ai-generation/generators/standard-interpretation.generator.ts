@@ -8,11 +8,14 @@ import {
   fillRelatedStandardSearchForClausePrompt,
   fillVersionComparePrompt,
   fillBatchInterpretationPrompt,
-  BatchInterpretationInput,
 } from '../prompts/standard-interpretation.prompts'
 import { ClauseExtractionGenerator } from './clause-extraction.generator'
 import { ClauseCoverageService } from '../services/clause-coverage.service'
 import { ClauseExtractionOutput } from '../prompts/clause-extraction.prompts'
+import {
+  calculateCoverageFromClauseIds,
+  extractClauseIdsFromContent,
+} from '../utils/clause-id-utils'
 
 /**
  * 标准解读输出接口（优化版）
@@ -267,7 +270,7 @@ export class StandardInterpretationGenerator {
     this.logger.debug(`Prompt ending (last 500 chars):\n${prompt.substring(prompt.length - 500)}`)
 
     // Write full prompt to file for debugging
-    const fs = require('fs')
+    const fs = await import('fs')
     const debugPath = `./debug-interpretation-${Date.now()}.txt`
     try {
       fs.writeFileSync(debugPath, prompt)
@@ -772,7 +775,10 @@ export class StandardInterpretationGenerator {
 
       // 2. 修复属性之间缺少逗号的情况
       // 例如: "key1": "value1"\n  "key2": "value2" -> "key1": "value1",\n  "key2": "value2"
-      jsonText = jsonText.replace(/("[^"]*"\s*:\s*(?:"[^"]*"|\[[^\]]*\]|\{[^}]*\}|\d+|true|false|null))\s*\n\s*(?=")/g, '$1,')
+      jsonText = jsonText.replace(
+        /("[^"]*"\s*:\s*(?:"[^"]*"|\[[^\]]*\]|\{[^}]*\}|\d+|true|false|null))\s*\n\s*(?=")/g,
+        '$1,',
+      )
 
       // 3. 修复未闭合的字符串
       jsonText = this.fixUnclosedStrings(jsonText)
@@ -839,7 +845,7 @@ export class StandardInterpretationGenerator {
    */
   private tryTruncateAndParse(jsonText: string): StandardInterpretationOutput | null {
     // 尝试从后往前找到可以成功解析的位置
-    let truncatePositions: number[] = []
+    const truncatePositions: number[] = []
 
     // 收集可能的截断点（对象或数组的结束位置）
     let braceCount = 0
@@ -885,7 +891,7 @@ export class StandardInterpretationGenerator {
         const parsed = JSON.parse(truncated)
         this.logger.log(`Successfully parsed after truncation at position ${truncatePositions[i]}`)
         return parsed as StandardInterpretationOutput
-      } catch (e) {
+      } catch {
         // 继续尝试下一个位置
       }
     }
@@ -1146,22 +1152,42 @@ export class StandardInterpretationGenerator {
 
     this.logger.log(`Selected extraction: ${selectedExtraction.total_clauses} clauses`)
 
-    // 验证提取完整性
-    const validation = this.clauseCoverageService.validateCoverage(
-      standardDocument.content,
-      selectedExtraction,
-    )
+    if (
+      selectedExtraction.extraction_metadata?.extraction_method === 'structured_leaf_requirement'
+    ) {
+      const documentClauseIds = extractClauseIdsFromContent(standardDocument.content)
+      const extractedClauseIds = selectedExtraction.clauses.map((clause) => clause.clause_id)
+      const coverage = calculateCoverageFromClauseIds(documentClauseIds, extractedClauseIds)
 
-    // 如果有缺失条款，自动补全
-    if (!validation.isComplete) {
-      this.logger.warn(`Found ${validation.missingClauseIds.length} missing clauses, filling...`)
-      selectedExtraction.clauses = this.clauseCoverageService.fillMissingClauses(
-        standardDocument.content,
-        selectedExtraction.clauses,
-        validation.missingClauseIds,
+      this.logger.log(
+        `Structured extraction coverage: ${coverage.clustered_clauses}/${coverage.total_clauses} (${coverage.coverage_granularity})`,
       )
-      selectedExtraction.total_clauses = selectedExtraction.clauses.length
-      this.logger.log(`After filling: ${selectedExtraction.total_clauses} clauses (100% coverage)`)
+
+      if (coverage.missing_clause_ids.length > 0) {
+        this.logger.warn(
+          `Structured extraction has ${coverage.missing_clause_ids.length} missing ids: ${coverage.missing_clause_ids.slice(0, 10).join(', ')}`,
+        )
+      }
+    } else {
+      // 验证提取完整性
+      const validation = this.clauseCoverageService.validateCoverage(
+        standardDocument.content,
+        selectedExtraction,
+      )
+
+      // 如果有缺失条款，自动补全
+      if (!validation.isComplete) {
+        this.logger.warn(`Found ${validation.missingClauseIds.length} missing clauses, filling...`)
+        selectedExtraction.clauses = this.clauseCoverageService.fillMissingClauses(
+          standardDocument.content,
+          selectedExtraction.clauses,
+          validation.missingClauseIds,
+        )
+        selectedExtraction.total_clauses = selectedExtraction.clauses.length
+        this.logger.log(
+          `After filling: ${selectedExtraction.total_clauses} clauses (100% coverage)`,
+        )
+      }
     }
 
     onProgress?.({
@@ -1171,6 +1197,34 @@ export class StandardInterpretationGenerator {
       totalBatches: 0,
       message: `条款提取完成：${selectedExtraction.total_clauses}个条款`,
     })
+
+    if (
+      selectedExtraction.extraction_metadata?.extraction_method === 'structured_leaf_requirement'
+    ) {
+      this.logger.log(
+        `Using deterministic structured interpretation: ${selectedExtraction.clauses.length} clauses`,
+      )
+
+      const deterministicResult = this.buildStructuredLeafInterpretation(
+        standardDocument,
+        selectedExtraction.clauses,
+        interpretationMode,
+      )
+
+      onProgress?.({
+        current: 100,
+        total: 100,
+        batch: 1,
+        totalBatches: 1,
+        message: `结构化标准解读完成：${selectedExtraction.clauses.length}个条款`,
+      })
+
+      return {
+        gpt4: deterministicResult,
+        claude: null,
+        domestic: null,
+      }
+    }
 
     // ============================================================
     // 阶段2：批量解读
@@ -1294,7 +1348,7 @@ export class StandardInterpretationGenerator {
 
     // 检查是否有任何成功的模型
     const successModels = Object.entries(results)
-      .filter(([_, result]) => result !== null)
+      .filter(([, result]) => result !== null)
       .map(([name, result]) => `${name}(${result!.key_requirements.length}条款)`)
 
     this.logger.log(
@@ -1399,5 +1453,149 @@ export class StandardInterpretationGenerator {
     }
 
     return result
+  }
+
+  private buildStructuredLeafInterpretation(
+    standardDocument: { id: string; name: string; content: string },
+    clauses: ClauseExtractionOutput['clauses'],
+    interpretationMode: 'basic' | 'detailed' | 'enterprise',
+  ): StandardInterpretationOutput {
+    const interpretedClauses = clauses.map((clause, index) =>
+      this.buildStructuredRequirementInterpretation(clause, index, standardDocument.content),
+    )
+    const result = this.buildCompleteInterpretation(
+      standardDocument,
+      interpretedClauses,
+      interpretationMode,
+    )
+
+    result.overview = {
+      ...result.overview,
+      background: `${standardDocument.name}基于结构化条款清单生成标准解读，保留原始层级和条款原文。`,
+      scope: '适用于使用该成熟度模型开展自评、第三方评估、整改规划和证据收集的组织。',
+      core_objectives: [
+        '逐项呈现标准中的叶子级要求',
+        '保留条款编号、章节层级和原文内容',
+        '为成熟度评估、问卷生成和证据核验提供可追溯条款清单',
+      ],
+      target_audience: ['企业管理层', '评估负责人', '合规与数字化团队', '外部咨询或审核人员'],
+    }
+
+    if (interpretationMode === 'enterprise') {
+      result.overview.key_changes = '结构化解读基于当前上传文档原文生成，未进行版本差异比对。'
+    }
+
+    return result
+  }
+
+  private buildStructuredRequirementInterpretation(
+    clause: ClauseExtractionOutput['clauses'][number],
+    index: number,
+    documentContent: string,
+  ): StandardInterpretationOutput['key_requirements'][number] {
+    const clauseText = this.normalizeText(clause.clause_full_text)
+    const summary = this.summarizeClauseText(clauseText)
+    const chapter =
+      clause.chapter || this.inferChapterFromClauseId(documentContent, clause.clause_id)
+
+    return {
+      clause_id: clause.clause_id,
+      chapter,
+      clause_full_text: clauseText,
+      clause_summary: summary,
+      clause_text: clauseText,
+      interpretation: {
+        what: `该条款要求组织落实：${summary}`,
+        why: '用于明确该能力项在对应成熟度层级下的达标边界，使评估结果可追溯、可核验。',
+        how: '按条款原文建立责任分工、流程机制和证据记录，并在自评或审核时逐项核对落实情况。',
+      },
+      compliance_criteria: [
+        '保留能够证明该要求已落实的制度、流程、记录或系统证据',
+        '将该要求纳入对应能力项的自评或第三方评估检查表',
+        '对未满足项形成整改计划、责任人和完成记录',
+      ],
+      priority: this.inferStructuredRequirementPriority(clauseText),
+      risk_assessment: {
+        non_compliance_risks: [
+          {
+            risk: '条款要求缺少可验证证据',
+            consequence: '成熟度评估时无法证明该能力项已满足要求',
+            probability: '中',
+            mitigation: '建立证据目录并按条款编号归档制度、记录和系统截图',
+          },
+        ],
+        implementation_risks: [
+          {
+            risk: '只做文字声明，未形成可执行流程',
+            consequence: '实际评估得分偏低，整改责任难以落地',
+            prevention: '把条款拆解为流程、责任人、检查频率和证据模板',
+          },
+        ],
+      },
+      implementation_order: index + 1,
+      estimated_effort: '纳入对应能力项评估计划',
+      dependencies: [],
+      best_practices: [
+        '按条款编号建立证据索引',
+        '将要求映射到责任部门和现有流程',
+        '定期复核证据有效性',
+      ],
+      common_mistakes: [
+        '只保留制度文件但缺少执行记录',
+        '证据无法对应到具体条款编号',
+        '整改项没有责任人和完成时限',
+      ],
+      references: [],
+    }
+  }
+
+  private inferStructuredRequirementPriority(
+    clauseText: string,
+  ): StandardInterpretationOutput['key_requirements'][number]['priority'] {
+    if (/安全|风险|伦理|应急|合规|审计|权限|可控|治理/.test(clauseText)) {
+      return 'HIGH'
+    }
+
+    if (/参考|建议|可选/.test(clauseText)) {
+      return 'LOW'
+    }
+
+    return 'MEDIUM'
+  }
+
+  private inferChapterFromClauseId(content: string, clauseId: string): string | undefined {
+    const sectionId = clauseId.split('-')[0]
+    if (!sectionId) {
+      return undefined
+    }
+
+    const lines = (content || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+    for (const rawLine of lines) {
+      const line = this.normalizeText(rawLine).replace(/[．。]/g, '.')
+      const match = line.match(/^(\d{1,2}(?:\.\d{1,2}){1,3})(?:\s+|$)(.*)$/)
+      if (!match || match[1] !== sectionId) {
+        continue
+      }
+
+      const title = match[2].trim()
+      if (title && !/^\d+$/.test(title) && !/\.{3,}|…{2,}/.test(title)) {
+        return `${sectionId} ${title}`
+      }
+    }
+
+    return undefined
+  }
+
+  private summarizeClauseText(text: string): string {
+    const normalized = this.normalizeText(text)
+      .replace(/^[a-zA-Z]\)\s*/, '')
+      .replace(/^(\d{1,2})\)\s*/, '')
+      .trim()
+
+    return normalized.length > 100 ? `${normalized.substring(0, 100)}...` : normalized
+  }
+
+  private normalizeText(text: string): string {
+    return (text || '').replace(/\s+/g, ' ').trim()
   }
 }
