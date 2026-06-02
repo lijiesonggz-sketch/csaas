@@ -149,6 +149,26 @@ function adaptDisplayQuestionsToSnapshot(
   })
 }
 
+const KG_DYNAMIC_QUESTIONNAIRE_SNAPSHOT_KIND = 'kg_dynamic_questionnaire'
+
+function isKgQuestionnaireSnapshotTask(task: AITask): boolean {
+  return (
+    task.input?.snapshotKind === KG_DYNAMIC_QUESTIONNAIRE_SNAPSHOT_KIND ||
+    task.result?.snapshotKind === KG_DYNAMIC_QUESTIONNAIRE_SNAPSHOT_KIND
+  )
+}
+
+function findLatestCompletedMatrixTask(tasks: AITask[]): AITask | null {
+  return (
+    tasks
+      .filter((task) => task.type === 'matrix' && task.status === 'completed')
+      .sort(
+        (left, right) =>
+          new Date(right.createdAt || 0).getTime() - new Date(left.createdAt || 0).getTime()
+      )[0] ?? null
+  )
+}
+
 export default function QuestionnairePage() {
   const params = useParams<{ projectId: string }>()
   const searchParams = useSearchParams()
@@ -156,6 +176,10 @@ export default function QuestionnairePage() {
   const { data: session } = useSession()
   const projectId = params?.projectId ?? ''
   const matrixTaskId = searchParams?.get('matrixTaskId') || null
+  const questionnaireSource =
+    searchParams?.get('questionnaireSource') || searchParams?.get('source') || null
+  const useKgQuestionnaireSnapshot =
+    questionnaireSource === 'kg' || questionnaireSource === 'snapshot'
   const organizationId = session?.user?.organizationId || ''
 
   const [currentTask, setCurrentTask] = useState<AITask | null>(null)
@@ -286,7 +310,14 @@ export default function QuestionnairePage() {
       }
 
       const tasks = await AITasksAPI.getTasksByProject(projectId)
-      const questionnaireTasks = tasks.filter((t) => t.type === 'questionnaire')
+      const latestMatrixTask = findLatestCompletedMatrixTask(tasks)
+      const questionnaireTasks = tasks.filter(
+        (task) =>
+          task.type === 'questionnaire' &&
+          !isKgQuestionnaireSnapshotTask(task) &&
+          typeof task.input?.matrixTaskId === 'string' &&
+          (!latestMatrixTask || task.input.matrixTaskId === latestMatrixTask.id)
+      )
       const questionnaireTask = questionnaireTasks.sort(
         (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
       )[0]
@@ -318,18 +349,20 @@ export default function QuestionnairePage() {
   }, [projectId, cache])
 
   const loadExistingQuestionnaire = useCallback(async () => {
-    try {
-      const snapshot = await SurveyAPI.getProjectQuestionnaireSnapshot(projectId)
-      syncSnapshotState(snapshot)
-      return
-    } catch (err: any) {
-      if (err?.status !== 404) {
-        console.warn('Snapshot lookup failed, falling back to legacy questionnaire flow:', err)
+    if (useKgQuestionnaireSnapshot) {
+      try {
+        const snapshot = await SurveyAPI.getProjectQuestionnaireSnapshot(projectId)
+        syncSnapshotState(snapshot)
+        return
+      } catch (err: any) {
+        if (err?.status !== 404) {
+          console.warn('Snapshot lookup failed, falling back to legacy questionnaire flow:', err)
+        }
       }
     }
 
     await loadLegacyTasks()
-  }, [loadLegacyTasks, projectId, syncSnapshotState])
+  }, [loadLegacyTasks, projectId, syncSnapshotState, useKgQuestionnaireSnapshot])
 
   useEffect(() => {
     loadExistingQuestionnaire()
@@ -373,6 +406,28 @@ export default function QuestionnairePage() {
       try {
         setLoading(true)
         setError(null)
+
+        if (!useKgQuestionnaireSnapshot) {
+          if (matrixTaskId) {
+            await handleGenerateLegacyQuestionnaire(matrixTaskId)
+            setRerunDialogOpen(false)
+            return
+          }
+
+          const tasks = await AITasksAPI.getTasksByProject(projectId)
+          const matrixTask = findLatestCompletedMatrixTask(tasks)
+
+          if (!matrixTask) {
+            setError('问卷生成需要先完成成熟度矩阵，请先生成成熟度矩阵后再回来生成问卷。')
+            setLoading(false)
+            return
+          }
+
+          await handleGenerateLegacyQuestionnaire(matrixTask.id)
+          setRerunDialogOpen(false)
+          return
+        }
+
         const snapshot = await SurveyAPI.createProjectQuestionnaireSnapshot({
           projectId,
           regenerate,
@@ -388,11 +443,7 @@ export default function QuestionnairePage() {
         }
 
         const tasks = await AITasksAPI.getTasksByProject(projectId)
-        const matrixTask = tasks
-          .filter((t) => t.type === 'matrix' && t.status === 'completed')
-          .sort(
-            (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-          )[0]
+        const matrixTask = findLatestCompletedMatrixTask(tasks)
 
         if (!matrixTask) {
           setError(err.message || '无法生成 KG 问卷快照，且未找到可回退的矩阵任务')
@@ -403,7 +454,13 @@ export default function QuestionnairePage() {
         await handleGenerateLegacyQuestionnaire(matrixTask.id)
       }
     },
-    [handleGenerateLegacyQuestionnaire, projectId, syncSnapshotState]
+    [
+      handleGenerateLegacyQuestionnaire,
+      matrixTaskId,
+      projectId,
+      syncSnapshotState,
+      useKgQuestionnaireSnapshot,
+    ]
   )
 
   const persistDraft =
@@ -453,7 +510,7 @@ export default function QuestionnairePage() {
     } finally {
       setPublishPending(false)
     }
-  }, [hasUnsavedChanges, persistDraft, projectId, snapshotInfo, syncSnapshotState])
+  }, [hasUnsavedChanges, persistDraft, projectId, snapshotInfo])
 
   const handleConfirmPublish = useCallback(async () => {
     try {

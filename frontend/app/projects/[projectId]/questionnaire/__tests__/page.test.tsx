@@ -57,7 +57,7 @@ jest.mock('@/components/features/QuestionnaireResultDisplay', () => ({
               sourceQuestions.map((question: any) => ({
                 ...question,
                 question_text: '已编辑的问题文本',
-              })),
+              }))
             )
           }
         >
@@ -74,8 +74,7 @@ jest.mock('@/components/features/QuestionnaireProgressDisplay', () => ({
 
 jest.mock('@/components/projects/RerunTaskDialog', () => ({
   __esModule: true,
-  default: ({ open }: any) =>
-    open ? <div data-testid="rerun-dialog">Rerun Dialog</div> : null,
+  default: ({ open }: any) => (open ? <div data-testid="rerun-dialog">Rerun Dialog</div> : null),
 }))
 
 jest.mock('@/components/projects/RollbackButton', () => ({
@@ -121,7 +120,10 @@ describe('QuestionnairePage', () => {
       },
       status: 'authenticated',
     })
-    SurveyAPI.getProjectQuestionnaireSnapshot.mockRejectedValue({ status: 404, message: 'not found' })
+    SurveyAPI.getProjectQuestionnaireSnapshot.mockRejectedValue({
+      status: 404,
+      message: 'not found',
+    })
     SurveyAPI.saveProjectQuestionnaireSnapshotDraft.mockResolvedValue(undefined)
     SurveyAPI.publishProjectQuestionnaireSnapshot.mockResolvedValue(undefined)
     SurveyAPI.getProjectQuestionnairePublishImpact.mockResolvedValue({
@@ -180,7 +182,170 @@ describe('QuestionnairePage', () => {
     })
   })
 
-  it('should prefer questionnaire snapshot when it exists', async () => {
+  it('should generate the project questionnaire from the latest completed matrix task instead of KG snapshot', async () => {
+    SurveyAPI.getProjectQuestionnaireSnapshot.mockResolvedValue({
+      projectId: 'project-1',
+      organizationId: 'org-1',
+      questionnaireTaskId: 'snapshot-task-1',
+      generatedAt: '2026-03-26T10:00:00.000Z',
+      snapshotVersion: 2,
+      resolvedControlSetVersion: 'resolved-controls@2026-03-26T10:00:00.000Z',
+      questionSetVersion: 'question-set@2026-03-26T10:00:00.000Z',
+      sourceControlIds: ['ctrl-1'],
+      missingQuestionControlIds: [],
+      reusedExisting: true,
+      lifecycleStatus: 'published',
+      publishedSnapshotTaskId: 'snapshot-task-1',
+      baseSnapshotTaskId: null,
+      editVersion: 0,
+      lastEditedAt: '2026-03-26T10:00:00.000Z',
+      lastEditedBy: null,
+      questions: [
+        {
+          question_id: 'Q-KG-001',
+          question_template_id: 'question-yes-no',
+          control_id: 'ctrl-1',
+          cluster_id: 'ctrl-1',
+          cluster_name: 'KG 通用控制点',
+          question_text: '这是组织级通用题库问题',
+          question_type: 'SINGLE_CHOICE',
+          options: [
+            { option_id: 'A', text: '已建立', score: 5 },
+            { option_id: 'B', text: '未建立', score: 0 },
+          ],
+          required: true,
+          guidance: '此题为必答题，请选择最符合当前控制现状的选项。',
+          display_order: 1,
+          scoring_rule: null,
+          is_project_custom: false,
+        },
+      ],
+    })
+    AITasksAPI.getTasksByProject.mockResolvedValue([
+      {
+        id: 'kg-snapshot-task',
+        type: 'questionnaire',
+        status: 'completed',
+        createdAt: '2026-03-26T12:00:00.000Z',
+        input: { snapshotKind: 'kg_dynamic_questionnaire' },
+        result: { snapshotKind: 'kg_dynamic_questionnaire' },
+      },
+      {
+        id: 'matrix-task-new',
+        type: 'matrix',
+        status: 'completed',
+        createdAt: '2026-03-26T11:00:00.000Z',
+        result: { matrix: [{ cluster_id: 'cluster-1', cluster_name: 'AIMM 能力项' }] },
+      },
+      {
+        id: 'matrix-task-old',
+        type: 'matrix',
+        status: 'completed',
+        createdAt: '2026-03-26T10:00:00.000Z',
+        result: { matrix: [{ cluster_id: 'cluster-old', cluster_name: '旧矩阵' }] },
+      },
+    ])
+    AITasksAPI.createTask.mockResolvedValue({
+      id: 'questionnaire-task-1',
+      projectId: 'project-1',
+      type: 'questionnaire',
+      status: 'pending',
+      input: { matrixTaskId: 'matrix-task-new' },
+      result: null,
+      progress: 0,
+      createdAt: '2026-03-26T12:30:00.000Z',
+      updatedAt: '2026-03-26T12:30:00.000Z',
+    })
+
+    render(<QuestionnairePage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('生成问卷')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('生成问卷'))
+
+    await waitFor(() => {
+      expect(AITasksAPI.createTask).toHaveBeenCalledWith({
+        projectId: 'project-1',
+        type: 'questionnaire',
+        input: { matrixTaskId: 'matrix-task-new' },
+      })
+    })
+    expect(SurveyAPI.createProjectQuestionnaireSnapshot).not.toHaveBeenCalled()
+  })
+
+  it('should ignore stale matrix questionnaires that were generated from an older matrix task', async () => {
+    AITasksAPI.getTasksByProject.mockResolvedValue([
+      {
+        id: 'questionnaire-from-old-matrix',
+        type: 'questionnaire',
+        status: 'completed',
+        createdAt: '2026-03-26T12:00:00.000Z',
+        input: { matrixTaskId: 'matrix-task-old' },
+        result: {
+          questionnaire: [
+            {
+              question_id: 'Q001',
+              cluster_id: 'old-cluster',
+              cluster_name: '旧矩阵能力项',
+              question_text: '旧矩阵生成的问题',
+              question_type: 'SINGLE_CHOICE',
+              options: [],
+              required: true,
+              guidance: '',
+            },
+          ],
+          questionnaire_metadata: { total_questions: 1 },
+        },
+      },
+      {
+        id: 'matrix-task-new',
+        type: 'matrix',
+        status: 'completed',
+        createdAt: '2026-03-26T11:00:00.000Z',
+        result: { matrix: [{ cluster_id: 'cluster-1', cluster_name: '最新 AIMM 能力项' }] },
+      },
+      {
+        id: 'matrix-task-old',
+        type: 'matrix',
+        status: 'completed',
+        createdAt: '2026-03-26T10:00:00.000Z',
+        result: { matrix: [{ cluster_id: 'old-cluster', cluster_name: '旧矩阵能力项' }] },
+      },
+    ])
+    AITasksAPI.createTask.mockResolvedValue({
+      id: 'questionnaire-task-1',
+      projectId: 'project-1',
+      type: 'questionnaire',
+      status: 'pending',
+      input: { matrixTaskId: 'matrix-task-new' },
+      result: null,
+      progress: 0,
+      createdAt: '2026-03-26T12:30:00.000Z',
+      updatedAt: '2026-03-26T12:30:00.000Z',
+    })
+
+    render(<QuestionnairePage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('生成问卷')).toBeInTheDocument()
+    })
+    expect(screen.queryByTestId('questionnaire-result')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('生成问卷'))
+
+    await waitFor(() => {
+      expect(AITasksAPI.createTask).toHaveBeenCalledWith({
+        projectId: 'project-1',
+        type: 'questionnaire',
+        input: { matrixTaskId: 'matrix-task-new' },
+      })
+    })
+  })
+
+  it('should prefer questionnaire snapshot when KG source is explicitly requested', async () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('source=kg'))
     SurveyAPI.getProjectQuestionnaireSnapshot.mockResolvedValue({
       projectId: 'project-1',
       organizationId: 'org-1',
@@ -253,6 +418,7 @@ describe('QuestionnairePage', () => {
   })
 
   it('should save questionnaire draft and clear dirty state', async () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('source=kg'))
     SurveyAPI.getProjectQuestionnaireSnapshot.mockResolvedValue({
       projectId: 'project-1',
       organizationId: 'org-1',
@@ -351,6 +517,7 @@ describe('QuestionnairePage', () => {
   })
 
   it('should publish questionnaire after persisting local changes', async () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('source=kg'))
     SurveyAPI.getProjectQuestionnaireSnapshot.mockResolvedValue({
       projectId: 'project-1',
       organizationId: 'org-1',
@@ -489,6 +656,7 @@ describe('QuestionnairePage', () => {
   })
 
   it('should show leave confirmation when there are unsaved changes', async () => {
+    mockUseSearchParams.mockReturnValue(new URLSearchParams('source=kg'))
     SurveyAPI.getProjectQuestionnaireSnapshot.mockResolvedValue({
       projectId: 'project-1',
       organizationId: 'org-1',
