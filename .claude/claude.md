@@ -40,6 +40,65 @@
 - ❌ **不要使用 `python3`**，除非用户明确说明当前 shell/环境已经配置了 `python3`。
 - ✅ 示例：使用 `@'\nprint("hello")\n'@ | python -`，而不是 `python3 -`。
 
+### Node.js 工具链路径（关键）
+
+**问题**：在 bash shell 中直接运行 `node`、`npm`、`npx` 会报错 `'node' 不是内部或外部命令`。
+
+**根因**：本机 Node.js 安装在 `D:\Program Files\nodejs`（D 盘，不是 C 盘），bash 的默认 PATH 找不到。
+
+- ✅ **每次执行 npm/npx/node 前先设置 PATH**：
+
+  ```bash
+  export PATH="/d/Program Files/nodejs:$PATH"
+  ```
+
+- ✅ **可执行文件的真实位置**：
+  - node: `/d/Program Files/nodejs/node`
+  - npm: `/d/Program Files/nodejs/npm`
+  - npx: `/d/Program Files/nodejs/npx`
+
+- ❌ **不要假设** node 在 `C:\Program Files\nodejs` 或全局 PATH 里
+- ❌ **不要用** `which node` 失败就放弃，直接 `export PATH` 后重试
+
+**典型场景**：
+
+```bash
+# ❌ 错误：直接运行会失败
+cd frontend && npx tsc --noEmit
+
+# ✅ 正确：先设置 PATH
+export PATH="/d/Program Files/nodejs:$PATH"
+cd /d/Csaas/frontend && npx tsc --noEmit
+```
+
+### Write 工具调用规则（关键）
+
+**问题**：Write 工具报错 `InputValidationError: Write failed - The required parameter file_path is missing, The required parameter content is missing`。
+
+**根因**：当 Write 工具的内容超过 Claude 单次输出 token 限制（约 8K tokens）时，工具调用的 JSON 参数会被截断，导致 `file_path` 和 `content` 字段丢失，看起来像是参数缺失，实际是输出超长。
+
+- ✅ **单次 Write 内容控制在 50 行以内**（约 2-3KB）
+- ✅ **超过 50 行的文件分段写入**：
+  1. 先 Write 创建文件（前 50 行内容，最后留一个唯一占位符如 `// __APPEND_HERE__`）
+  2. 用 Edit 工具替换占位符为下一段内容（最多 50 行）
+  3. 重复 Edit 直到完成
+  4. 最后一次 Edit 时移除占位符
+- ✅ **大文件写入的备选方案**：用 Bash 的 heredoc 分段追加：
+
+  ```bash
+  cat > file.tsx << 'EOF'
+  [前半部分内容]
+  EOF
+  cat >> file.tsx << 'EOF'
+  [后半部分内容]
+  EOF
+  ```
+
+- ❌ **不要重试相同的大内容 Write**：会反复报同样的错
+- ❌ **不要忽略报错继续别的命令**：先确认文件是否真的写入了（用 `wc -l` 检查行数）
+
+**判断方法**：当 Write 报 `parameter missing` 错误时，立刻评估内容长度，超过 50 行就改用分段策略。
+
 ## BMAD Workflow Hard Rules                                                                                                                                   
                                                                                                                                                                 
 - 当用户显式调用 `$bmad-*`、指定 skill 名称、或要求执行某个 BMAD workflow 时，必须先完整读取对应 `SKILL.md` 以及其引用的 `workflow.md` / `steps/*.md`，不得凭记忆或经验简化执行。                                                                                                                                          
@@ -310,6 +369,14 @@ npm run test -- [测试文件路径]
 - **选择器问题** → 读取实际页面代码，更新选择器
 - **时序问题** → 添加适当的 `waitFor` 调用
 - **数据问题** → 检查测试数据设置脚本
+
+## 数据库 Schema 关键事实（避免 migration 踩坑）
+
+- **ai_tasks.type 列是 varchar + CHECK 约束**（`ai_tasks_type_enum_check`），**不是** PostgreSQL enum 类型。entity 里的 `AITaskType` enum 只是 TS 层定义。
+- ✅ **新增任务类型的正确做法**：migration 里 `DROP CONSTRAINT` + `ADD CONSTRAINT` 重建 CHECK 约束（参考 `1772000000043-AddCrossCompareToTypeCheck.ts`）
+- ❌ **不要用** `ALTER TYPE ... ADD VALUE`（会报 type does not exist）
+- ✅ **改 schema 前先查实际结构**：`SELECT udt_name FROM information_schema.columns WHERE table_name='X' AND column_name='Y'`，不要相信 entity 定义或旧 migration
+- 数据库连接：`127.0.0.1:5432`，user/password 均为 `postgres`，库名 `csaas`。psql 不可用，用 `node -e` + pg 包查询。
 
 ---
 

@@ -62,6 +62,7 @@ frontend.log
 
 # Temp files
 nul
+.tmp/
 
 # Test results & reports
 test-results/
