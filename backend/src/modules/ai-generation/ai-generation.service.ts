@@ -82,6 +82,21 @@ export class AIGenerationService {
     private readonly tasksGateway: TasksGateway,
   ) {}
 
+  private getDisplayModelName(model: string): string {
+    switch ((model || '').toLowerCase()) {
+      case 'gpt4':
+      case 'gpt-4':
+        return 'DeepSeek'
+      case 'claude':
+        return 'Claude'
+      case 'domestic':
+      case 'tongyi':
+        return 'Tongyi'
+      default:
+        return model
+    }
+  }
+
   /**
    * 执行AI生成任务
    * @param request 生成请求
@@ -201,7 +216,7 @@ export class AIGenerationService {
       }
 
       this.logger.log(
-        `Summary generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}`,
+        `Summary generation completed: confidence=${response.confidenceLevel}, model=${this.getDisplayModelName(response.selectedModel)}`,
       )
 
       // 更新数据库中的任务状态为completed
@@ -378,7 +393,7 @@ export class AIGenerationService {
       }
 
       this.logger.log(
-        `Clustering generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, clusters=${response.selectedResult.clusters?.length || 0}`,
+        `Clustering generation completed: confidence=${response.confidenceLevel}, model=${this.getDisplayModelName(response.selectedModel)}, clusters=${response.selectedResult.clusters?.length || 0}`,
       )
 
       // 更新数据库中的任务状态为completed
@@ -523,7 +538,7 @@ export class AIGenerationService {
       }
 
       this.logger.log(
-        `Matrix generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, rows=${response.selectedResult.matrix?.length || 0}`,
+        `Matrix generation completed: confidence=${response.confidenceLevel}, model=${this.getDisplayModelName(response.selectedModel)}, rows=${response.selectedResult.matrix?.length || 0}`,
       )
 
       // 更新数据库中的任务状态为completed
@@ -664,7 +679,7 @@ export class AIGenerationService {
       }
 
       this.logger.log(
-        `Questionnaire generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, questions=${response.selectedResult.questionnaire?.length || 0}`,
+        `Questionnaire generation completed: confidence=${response.confidenceLevel}, model=${this.getDisplayModelName(response.selectedModel)}, questions=${response.selectedResult.questionnaire?.length || 0}`,
       )
 
       // 更新数据库中的任务状态为completed
@@ -809,7 +824,7 @@ export class AIGenerationService {
       }
 
       this.logger.log(
-        `Binary questionnaire generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, questions=${response.selectedResult.questionnaire?.length || 0}`,
+        `Binary questionnaire generation completed: confidence=${response.confidenceLevel}, model=${this.getDisplayModelName(response.selectedModel)}, questions=${response.selectedResult.questionnaire?.length || 0}`,
       )
 
       // 更新数据库中的任务状态为completed
@@ -948,7 +963,7 @@ export class AIGenerationService {
       }
 
       this.logger.log(
-        `Binary gap action plan generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, actions=${response.selectedResult.action_plan?.length || 0}`,
+        `Binary gap action plan generation completed: confidence=${response.confidenceLevel}, model=${this.getDisplayModelName(response.selectedModel)}, actions=${response.selectedResult.action_plan?.length || 0}`,
       )
 
       // 更新数据库中的任务状态为completed
@@ -1088,7 +1103,7 @@ export class AIGenerationService {
       }
 
       this.logger.log(
-        `Quick gap analysis completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, gaps=${response.selectedResult.gap_details?.length || 0}`,
+        `Quick gap analysis completed: confidence=${response.confidenceLevel}, model=${this.getDisplayModelName(response.selectedModel)}, gaps=${response.selectedResult.gap_details?.length || 0}`,
       )
 
       // 更新数据库中的任务状态为completed
@@ -1234,7 +1249,7 @@ export class AIGenerationService {
       }
 
       this.logger.log(
-        `Standard interpretation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, requirements=${response.selectedResult.key_requirements?.length || 0}`,
+        `Standard interpretation completed: confidence=${response.confidenceLevel}, model=${this.getDisplayModelName(response.selectedModel)}, requirements=${response.selectedResult.key_requirements?.length || 0}`,
       )
 
       // 更新数据库中的任务状态为completed
@@ -1374,7 +1389,7 @@ export class AIGenerationService {
 
       this.logger.log(
         `Two-phase standard interpretation completed: confidence=${response.confidenceLevel}, ` +
-          `model=${response.selectedModel}, requirements=${response.selectedResult.key_requirements?.length || 0}`,
+          `model=${this.getDisplayModelName(response.selectedModel)}, requirements=${response.selectedResult.key_requirements?.length || 0}`,
       )
 
       // 更新数据库中的任务状态为completed
@@ -1518,7 +1533,7 @@ export class AIGenerationService {
       }
 
       this.logger.log(
-        `Related standards search completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, standards=${response.selectedResult.related_standards?.length || 0}`,
+        `Related standards search completed: confidence=${response.confidenceLevel}, model=${this.getDisplayModelName(response.selectedModel)}, standards=${response.selectedResult.related_standards?.length || 0}`,
       )
 
       // 更新数据库中的任务状态为completed
@@ -1656,7 +1671,7 @@ export class AIGenerationService {
       }
 
       this.logger.log(
-        `Version comparison completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, added=${response.selectedResult.added_clauses?.length || 0}, modified=${response.selectedResult.modified_clauses?.length || 0}, deleted=${response.selectedResult.deleted_clauses?.length || 0}`,
+        `Version comparison completed: confidence=${response.confidenceLevel}, model=${this.getDisplayModelName(response.selectedModel)}, added=${response.selectedResult.added_clauses?.length || 0}, modified=${response.selectedResult.modified_clauses?.length || 0}, deleted=${response.selectedResult.deleted_clauses?.length || 0}`,
       )
 
       // 更新数据库中的任务状态为completed
@@ -1837,7 +1852,7 @@ export class AIGenerationService {
       }
 
       this.logger.log(
-        `Action plan generation completed: confidence=${response.confidenceLevel}, model=${response.selectedModel}, actions=${response.selectedResult.action_plan?.length || 0}`,
+        `Action plan generation completed: confidence=${response.confidenceLevel}, model=${this.getDisplayModelName(response.selectedModel)}, actions=${response.selectedResult.action_plan?.length || 0}`,
       )
 
       // 更新数据库中的任务状态为completed

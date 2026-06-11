@@ -124,7 +124,7 @@ export class BinaryQuestionnaireGenerator {
     const domesticOutput = this.parseResponse(domesticResult.content)
 
     this.logger.log(
-      `Binary questionnaire generation completed. GPT4: ${gpt4Output.questionnaire.length} questions, Claude: ${claudeOutput.questionnaire.length} questions, Domestic: ${domesticOutput.questionnaire.length} questions`,
+      `Binary questionnaire generation completed. DeepSeek: ${gpt4Output.questionnaire.length} questions, Claude: ${claudeOutput.questionnaire.length} questions, Domestic: ${domesticOutput.questionnaire.length} questions`,
     )
 
     return {

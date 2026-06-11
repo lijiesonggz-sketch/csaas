@@ -77,7 +77,6 @@ export class QuickGapAnalyzer {
     const {
       currentStateDescription,
       standardDocument,
-      clusteringResult,
       temperature = 0.7,
       maxTokens = 12000,
     } = input
@@ -124,7 +123,7 @@ export class QuickGapAnalyzer {
     const domesticOutput = this.parseResponse(domesticResult.content)
 
     this.logger.log(
-      `Quick gap analysis completed. GPT4: ${gpt4Output.gap_details?.length || 0} gaps, Claude: ${claudeOutput.gap_details?.length || 0} gaps, Domestic: ${domesticOutput.gap_details?.length || 0} gaps`,
+      `Quick gap analysis completed. DeepSeek: ${gpt4Output.gap_details?.length || 0} gaps, Claude: ${claudeOutput.gap_details?.length || 0} gaps, Domestic: ${domesticOutput.gap_details?.length || 0} gaps`,
     )
 
     return {

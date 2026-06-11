@@ -3,6 +3,7 @@ import { AIOrchestrator } from '../../ai-clients/ai-orchestrator.service'
 import { AIClientRequest } from '../../ai-clients/interfaces/ai-client.interface'
 import { AIModel } from '../../../database/entities/ai-generation-event.entity'
 // import { fillActionPlanPrompt } from '../prompts/action-plan.prompts' // 已废弃,使用新的 action-plan-generation.service.ts
+import { fillBinaryActionPlanPrompt } from '../prompts/binary-action-plan.prompts'
 import { MatrixGenerationOutput } from './matrix.generator'
 import { QuestionnaireGenerationOutput } from './questionnaire.generator'
 
@@ -244,9 +245,6 @@ export class ActionPlanGenerator {
   }> {
     this.logger.log('Starting binary gap action plan generation...')
 
-    // 导入prompt填充函数
-    const { fillBinaryActionPlanPrompt } = require('../prompts/binary-action-plan.prompts')
-
     // 构建prompt
     const prompt = fillBinaryActionPlanPrompt(gapAnalysisResult, clusteringResult)
 
@@ -258,7 +256,7 @@ export class ActionPlanGenerator {
     ])
 
     this.logger.log(
-      `Binary action plan generation completed. GPT4: ${gpt4Result.action_plan?.length || 0} actions, Claude: ${claudeResult.action_plan?.length || 0} actions, Domestic: ${domesticResult.action_plan?.length || 0} actions`,
+      `Binary action plan generation completed. DeepSeek: ${gpt4Result.action_plan?.length || 0} actions, Claude: ${claudeResult.action_plan?.length || 0} actions, Domestic: ${domesticResult.action_plan?.length || 0} actions`,
     )
 
     return {

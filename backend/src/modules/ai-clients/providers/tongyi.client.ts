@@ -62,31 +62,40 @@ export class TongyiClient implements IAIClient {
       const model = request.model || this.defaultModel
 
       // 根据模型设置最大 token 限制
+      // qwen3.6-flash: 输出最大 64k
       // qwen-long: 输出最大 32768
       // qwen3-max / Qwen3-Max-2026-01-23: 输出最大 32768（新旗舰模型）
       // qwen-max: 输出最大 8192
       // qwen-plus/turbo: 输出最大 6144
       const modelMaxTokens =
-        model === 'qwen-long'
-          ? 32768
-          : model === 'qwen3-max' || model === 'Qwen3-Max-2026-01-23'
+        model === 'qwen3.6-flash' || model === 'qwen3.6-flash-2026-04-16'
+          ? 64000
+          : model === 'qwen-long'
             ? 32768
-            : model === 'qwen-max'
-              ? 8192
-              : 6144
+            : model === 'qwen3-max' || model === 'Qwen3-Max-2026-01-23'
+              ? 32768
+              : model === 'qwen-max'
+                ? 8192
+                : 6144
       const maxTokens = Math.min(request.maxTokens ?? 5000, modelMaxTokens)
 
       this.logger.debug(
         `Calling Tongyi API with model ${model}, prompt length: ${request.prompt.length}, maxTokens: ${maxTokens}`,
       )
 
-      const completion = await this.client.chat.completions.create({
+      const completionParams: any = {
         model,
         messages,
         temperature: request.temperature ?? 0.7,
         max_tokens: maxTokens,
         ...(request.responseFormat && { response_format: request.responseFormat }),
-      })
+      }
+
+      if (this.shouldDisableThinking(model)) {
+        completionParams.extra_body = { enable_thinking: false }
+      }
+
+      const completion = await this.client.chat.completions.create(completionParams)
 
       const executionTime = Date.now() - startTime
 
@@ -132,6 +141,10 @@ export class TongyiClient implements IAIClient {
     return this.defaultModel
   }
 
+  private shouldDisableThinking(model: string): boolean {
+    return model === 'qwen3.6-flash' || model === 'qwen3.6-flash-2026-04-16'
+  }
+
   isAvailable(): boolean {
     const apiKey = this.configService.get<string>('TONGYI_API_KEY')
     const model = this.configService.get<string>('TONGYI_MODEL')
@@ -156,6 +169,11 @@ export class TongyiClient implements IAIClient {
     const pricing: Record<string, { prompt: number; completion: number }> = {
       'qwen-plus': { prompt: 0.004 / 1000, completion: 0.012 / 1000 }, // 普通版
       'qwen-turbo': { prompt: 0.002 / 1000, completion: 0.006 / 1000 }, // 快速版
+      'qwen3.6-flash': { prompt: 0.0012 / 1000, completion: 0.0072 / 1000 }, // 0-256K档
+      'qwen3.6-flash-2026-04-16': {
+        prompt: 0.0012 / 1000,
+        completion: 0.0072 / 1000,
+      },
       'qwen3-max': { prompt: 0.02 / 1000, completion: 0.06 / 1000 }, // 新旗舰版（与qwen-max定价相同）
       'Qwen3-Max-2026-01-23': { prompt: 0.02 / 1000, completion: 0.06 / 1000 }, // 最新旗舰版
       'qwen-max': { prompt: 0.02 / 1000, completion: 0.06 / 1000 }, // 旗舰版

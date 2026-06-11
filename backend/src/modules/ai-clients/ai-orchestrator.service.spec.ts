@@ -33,7 +33,8 @@ describe('AIOrchestrator', () => {
             isAvailable: jest.fn(),
             generate: jest.fn(),
             // 使用mock返回动态模型名称，而不是硬编码
-            getModelName: jest.fn().mockReturnValue('gpt-4'),
+            getModelName: jest.fn().mockReturnValue('deepseek-v4-flash'),
+            getProviderName: jest.fn().mockReturnValue('DeepSeek'),
           },
         },
         {
@@ -68,7 +69,7 @@ describe('AIOrchestrator', () => {
   })
 
   describe('generate', () => {
-    it('should successfully generate with preferred model (GPT-4)', async () => {
+    it('should successfully generate with preferred first model (DeepSeek/gpt4 slot)', async () => {
       jest.spyOn(openaiClient, 'isAvailable').mockReturnValue(true)
       jest.spyOn(openaiClient, 'generate').mockResolvedValue(mockResponse)
 
@@ -143,7 +144,7 @@ describe('AIOrchestrator', () => {
 
     it('should throw error when all providers fail', async () => {
       jest.spyOn(openaiClient, 'isAvailable').mockReturnValue(true)
-      jest.spyOn(openaiClient, 'generate').mockRejectedValue(new Error('OpenAI failed'))
+      jest.spyOn(openaiClient, 'generate').mockRejectedValue(new Error('DeepSeek failed'))
 
       jest.spyOn(anthropicClient, 'isAvailable').mockReturnValue(true)
       jest.spyOn(anthropicClient, 'generate').mockRejectedValue(new Error('Anthropic failed'))
@@ -199,12 +200,13 @@ describe('AIOrchestrator', () => {
 
       // 使用实际的模型名称（从getModelName获取）
       const openaiModel = openaiClient.getModelName()
+      const openaiProvider = openaiClient.getProviderName()
       const anthropicModel = anthropicClient.getModelName()
       const tongyiModel = tongyiClient.getModelName()
 
       expect(providers).toHaveLength(3)
       expect(providers[0]).toEqual({
-        name: 'OpenAI',
+        name: openaiProvider,
         model: openaiModel,
         available: true,
       })

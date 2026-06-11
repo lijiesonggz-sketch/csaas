@@ -67,7 +67,7 @@ export class AIOrchestrator {
     switch (preferredModel) {
       case AIModel.GPT4:
         return [
-          { name: 'OpenAI', client: this.openaiClient },
+          { name: this.openaiClient.getProviderName(), client: this.openaiClient },
           { name: 'Anthropic', client: this.anthropicClient },
           { name: 'Tongyi', client: this.tongyiClient },
         ]
@@ -75,7 +75,7 @@ export class AIOrchestrator {
       case AIModel.CLAUDE:
         return [
           { name: 'Anthropic', client: this.anthropicClient },
-          { name: 'OpenAI', client: this.openaiClient },
+          { name: this.openaiClient.getProviderName(), client: this.openaiClient },
           { name: 'Tongyi', client: this.tongyiClient },
         ]
 
@@ -85,7 +85,7 @@ export class AIOrchestrator {
 
       default:
         return [
-          { name: 'OpenAI', client: this.openaiClient },
+          { name: this.openaiClient.getProviderName(), client: this.openaiClient },
           { name: 'Anthropic', client: this.anthropicClient },
           { name: 'Tongyi', client: this.tongyiClient },
         ]
@@ -102,7 +102,7 @@ export class AIOrchestrator {
   }> {
     return [
       {
-        name: 'OpenAI',
+        name: this.openaiClient.getProviderName(),
         model: this.openaiClient.getModelName(),
         available: this.openaiClient.isAvailable(),
       },

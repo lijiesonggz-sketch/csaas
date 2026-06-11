@@ -200,7 +200,7 @@ export class QuestionnaireGenerator {
     }
 
     this.logger.log(
-      `Questionnaire generation completed: GPT-4(${gpt4Questions.length}), Claude(${claudeQuestions.length}), Domestic(${domesticQuestions.length})`,
+      `Questionnaire generation completed: DeepSeek(${gpt4Questions.length}), Claude(${claudeQuestions.length}), Domestic(${domesticQuestions.length})`,
     )
 
     return {
@@ -267,7 +267,7 @@ export class QuestionnaireGenerator {
           startQuestionId,
         )
       } catch (error) {
-        this.logger.error(`Failed to parse GPT-4 single cluster response: ${error.message}`)
+        this.logger.error(`Failed to parse DeepSeek single cluster response: ${error.message}`)
       }
     }
 

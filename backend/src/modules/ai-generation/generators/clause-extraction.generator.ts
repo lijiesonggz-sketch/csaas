@@ -157,11 +157,11 @@ export class ClauseExtractionGenerator {
     // 构建Prompt
     const prompt = fillClauseExtractionPrompt(standardDocument, expectedClauseCount)
 
-    // 准备智谱AI的请求
+    // 准备 DeepSeek 请求（兼容历史 gpt4 槽位）
     const openaiRequest: AIClientRequest = { prompt, temperature, maxTokens }
 
-    // 只调用智谱AI（OpenAI配置已切换到智谱）
-    this.logger.log('[1/1] Calling Zhipu AI for clause extraction...')
+    // 只调用第一模型槽位（当前配置为 DeepSeek）
+    this.logger.log('[1/1] Calling DeepSeek for clause extraction...')
     this.logger.log(
       `Request params: temperature=${temperature}, maxTokens=${maxTokens}, promptLength=${prompt.length}`,
     )
@@ -170,10 +170,10 @@ export class ClauseExtractionGenerator {
     try {
       openaiResult = await this.aiOrchestrator.generate(openaiRequest, AIModel.GPT4)
       this.logger.log(
-        `Zhipu AI extraction completed: ${openaiResult.content?.substring(0, 100)}...`,
+        `DeepSeek extraction completed: ${openaiResult.content?.substring(0, 100)}...`,
       )
     } catch (err) {
-      this.logger.error(`Zhipu AI extraction failed: ${err.message}`, err.stack)
+      this.logger.error(`DeepSeek extraction failed: ${err.message}`, err.stack)
       throw new Error(`条款提取AI调用失败: ${err.message}`)
     }
 
@@ -185,11 +185,11 @@ export class ClauseExtractionGenerator {
       this.logger.log(
         `Validating extraction results against expected count: ${expectedClauseCount}`,
       )
-      this.validateExtractionCount(openaiOutput, expectedClauseCount, 'Zhipu AI')
+      this.validateExtractionCount(openaiOutput, expectedClauseCount, 'DeepSeek')
     }
 
     this.logger.log(
-      `Clause extraction completed. ` + `Zhipu AI: ${openaiOutput?.total_clauses || 0} clauses`,
+      `Clause extraction completed. ` + `DeepSeek: ${openaiOutput?.total_clauses || 0} clauses`,
     )
 
     return {
@@ -284,20 +284,20 @@ export class ClauseExtractionGenerator {
 
   /**
    * 选择最佳提取结果
-   * 使用智谱AI (GPT4) 的结果
+   * 使用第一模型槽位（当前配置为 DeepSeek）的结果
    */
   selectBestExtraction(results: {
     gpt4: ClauseExtractionOutput | null
     claude: ClauseExtractionOutput | null
     domestic: ClauseExtractionOutput | null
   }): ClauseExtractionOutput | null {
-    // 使用智谱AI的结果（通过OpenAI客户端调用）
+    // 使用第一模型槽位的结果（通过 OpenAI-compatible 客户端调用）
     if (results.gpt4) {
-      this.logger.log(`Selected extraction: ${results.gpt4.total_clauses} clauses (from Zhipu AI)`)
+      this.logger.log(`Selected extraction: ${results.gpt4.total_clauses} clauses (from DeepSeek)`)
       return results.gpt4
     }
 
-    this.logger.error('智谱AI提取条款失败')
+    this.logger.error('DeepSeek提取条款失败')
     return null
   }
 

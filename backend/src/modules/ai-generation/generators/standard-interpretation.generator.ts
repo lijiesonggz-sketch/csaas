@@ -279,31 +279,31 @@ export class StandardInterpretationGenerator {
       this.logger.warn(`Could not write debug prompt file: ${err.message}`)
     }
 
-    // 准备智谱AI的请求
+    // 准备 DeepSeek 请求（兼容历史 gpt4 槽位）
     const openaiRequest: AIClientRequest = {
       prompt,
       temperature,
       maxTokens,
     }
 
-    this.logger.log('Calling Zhipu AI (GLM) model for interpretation...')
+    this.logger.log('Calling DeepSeek model for interpretation...')
 
-    // 只调用智谱AI（OpenAI配置已切换到智谱）
-    this.logger.log('[1/1] Calling 智谱AI GLM...')
+    // 只调用第一模型槽位（当前配置为 DeepSeek）
+    this.logger.log('[1/1] Calling DeepSeek...')
     const openaiResult = await this.aiOrchestrator
       .generate(openaiRequest, AIModel.GPT4)
       .catch((err) => {
-        this.logger.error(`智谱AI调用失败: ${err.message}`)
+        this.logger.error(`DeepSeek 调用失败: ${err.message}`)
         return {
           content: '',
           tokens: { input: 0, output: 0, total: 0 },
           cost: 0,
-          model: 'glm-failed',
+          model: 'deepseek-failed',
         }
       })
 
     // Log response lengths
-    this.logger.log(`AI call completed. GLM: ${openaiResult.content.length} chars`)
+    this.logger.log(`AI call completed. DeepSeek: ${openaiResult.content.length} chars`)
 
     // 解析结果
     this.logger.log('Parsing interpretation results...')
@@ -313,7 +313,7 @@ export class StandardInterpretationGenerator {
     // 检查模型是否成功
     if (openaiOutput) {
       this.logger.log(
-        `Interpretation parsing completed. GLM: ${openaiOutput.key_requirements?.length || 0}条款`,
+        `Interpretation parsing completed. DeepSeek: ${openaiOutput.key_requirements?.length || 0}条款`,
       )
     } else {
       this.logger.log('Interpretation parsing completed. No valid results')
@@ -321,7 +321,7 @@ export class StandardInterpretationGenerator {
 
     // 如果模型失败，抛出异常
     if (!openaiOutput) {
-      throw new Error('智谱AI模型生成解读结果失败')
+      throw new Error('DeepSeek模型生成解读结果失败')
     }
 
     // 返回结果（其他模型为null）
@@ -393,12 +393,12 @@ export class StandardInterpretationGenerator {
     const gpt4Result = await this.aiOrchestrator
       .generate(gpt4Request, AIModel.GPT4)
       .catch((err) => {
-        this.logger.error(`GPT4 call failed: ${err.message}`)
+        this.logger.error(`DeepSeek call failed: ${err.message}`)
         return {
           content: '',
           tokens: { input: 0, output: 0, total: 0 },
           cost: 0,
-          model: 'gpt4-failed',
+          model: 'deepseek-failed',
         }
       })
 
@@ -438,7 +438,7 @@ export class StandardInterpretationGenerator {
     const domesticOutput = this.parseRelatedStandardsResponse(domesticResult.content)
 
     this.logger.log(
-      `Related standards search completed. GPT4: ${gpt4Output.related_standards?.length || 0} clauses, Claude: ${claudeOutput.related_standards?.length || 0} clauses, Domestic: ${domesticOutput.related_standards?.length || 0} clauses`,
+      `Related standards search completed. DeepSeek: ${gpt4Output.related_standards?.length || 0} clauses, Claude: ${claudeOutput.related_standards?.length || 0} clauses, Domestic: ${domesticOutput.related_standards?.length || 0} clauses`,
     )
 
     return {
@@ -496,7 +496,7 @@ export class StandardInterpretationGenerator {
         // 并行调用三个模型
         const [gpt4Result, claudeResult, domesticResult] = await Promise.all([
           this.aiOrchestrator.generate(gpt4Request, AIModel.GPT4).catch((err) => {
-            this.logger.error(`GPT4 failed for clause ${clause.clause_id}: ${err.message}`)
+            this.logger.error(`DeepSeek failed for clause ${clause.clause_id}: ${err.message}`)
             return null
           }),
           this.aiOrchestrator.generate(claudeRequest, AIModel.CLAUDE).catch((err) => {
@@ -524,7 +524,7 @@ export class StandardInterpretationGenerator {
         }
 
         this.logger.log(
-          `Clause ${clause.clause_id} completed: GPT4=${!!gpt4Result}, Claude=${!!claudeResult}, Domestic=${!!domesticResult}`,
+          `Clause ${clause.clause_id} completed: DeepSeek=${!!gpt4Result}, Claude=${!!claudeResult}, Domestic=${!!domesticResult}`,
         )
       } catch (error) {
         this.logger.error(`Failed to process clause ${clause.clause_id}: ${error.message}`)
@@ -556,7 +556,7 @@ export class StandardInterpretationGenerator {
     })
 
     this.logger.log(
-      `Related standards search completed. GPT4: ${results.gpt4.length} clauses, Claude: ${results.claude.length} clauses, Domestic: ${results.domestic.length} clauses`,
+      `Related standards search completed. DeepSeek: ${results.gpt4.length} clauses, Claude: ${results.claude.length} clauses, Domestic: ${results.domestic.length} clauses`,
     )
 
     return {
@@ -639,12 +639,12 @@ export class StandardInterpretationGenerator {
     const gpt4Result = await this.aiOrchestrator
       .generate(gpt4Request, AIModel.GPT4)
       .catch((err) => {
-        this.logger.error(`GPT4 call failed: ${err.message}`)
+        this.logger.error(`DeepSeek call failed: ${err.message}`)
         return {
           content: '',
           tokens: { input: 0, output: 0, total: 0 },
           cost: 0,
-          model: 'gpt4-failed',
+          model: 'deepseek-failed',
         }
       })
 
@@ -684,7 +684,7 @@ export class StandardInterpretationGenerator {
     const domesticOutput = this.parseVersionCompareResponse(domesticResult.content)
 
     this.logger.log(
-      `Version comparison completed. GPT4: ${gpt4Output.statistics?.total_added || 0} added, ${gpt4Output.statistics?.total_modified || 0} modified, ${gpt4Output.statistics?.total_deleted || 0} deleted`,
+      `Version comparison completed. DeepSeek: ${gpt4Output.statistics?.total_added || 0} added, ${gpt4Output.statistics?.total_modified || 0} modified, ${gpt4Output.statistics?.total_deleted || 0} deleted`,
     )
 
     return {
@@ -1249,8 +1249,8 @@ export class StandardInterpretationGenerator {
       domestic: null as StandardInterpretationOutput | null,
     }
 
-    // 只使用智谱AI大模型（OpenAI配置已切换到智谱）
-    const models = [{ name: 'Zhipu AI', model: AIModel.GPT4, key: 'gpt4' as const }]
+    // 只使用第一模型槽位（当前配置为 DeepSeek，兼容历史 gpt4 key）
+    const models = [{ name: 'DeepSeek', model: AIModel.GPT4, key: 'gpt4' as const }]
 
     for (const modelInfo of models) {
       this.logger.log(`[Batch Interpretation] Processing ${modelInfo.name}...`)
@@ -1354,7 +1354,7 @@ export class StandardInterpretationGenerator {
     )
 
     if (!results.gpt4) {
-      throw new Error('智谱AI模型生成批量解读结果失败')
+      throw new Error('DeepSeek模型生成批量解读结果失败')
     }
 
     return results
