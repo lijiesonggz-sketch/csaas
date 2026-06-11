@@ -48,6 +48,23 @@ describe('ClusteringPage', () => {
     'a) 利益相关者分析，明确利益相关者的需求；',
     'b) 战略需求评估，明确人工智能战略需求范围；',
   ].join('\n')
+  const appendixStructuredDocumentContent = [
+    '10.3 残余风险分析',
+    '评估人员根据数据处理者决定的风险处置措施，形成记录。',
+    '附 录 A',
+    '(规范性)',
+    '数据安全风险识别内容',
+    'A. 1 数据安全管理',
+    'A. 1. 1 安全管理制度',
+    'A. 1. 1. 1 数据安全制度体系',
+    'a) 数据安全总体策略、方针、目标和原则制定情况;',
+    'd) 关键岗位的数据安全管理操作规程建设情况;',
+    'A. 1. 1. 2 数据安全制度落实',
+    'a) 网络安全责任制、数据安全责任制落实情况。',
+    'g) 针对重要数据处理者，还应评估以下内容。',
+    '1) 对数据处理活动定期开展数据安全风险评估的情况。',
+    '2) 向有关部门报送评估报告情况。',
+  ].join('\n')
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -223,6 +240,30 @@ describe('ClusteringPage', () => {
         },
       })
     })
+  })
+
+  it('结构化检测会把附录层级叶子要求计入提示数量', async () => {
+    ;(useProject as jest.Mock).mockReturnValue({
+      project: {
+        id: 'project-1',
+        metadata: {
+          uploadedDocuments: [
+            {
+              id: 'doc-appendix',
+              name: 'GB/T 45577',
+              content: appendixStructuredDocumentContent,
+            },
+          ],
+        },
+      },
+      refreshProject: mockRefreshProject,
+    })
+
+    render(<ClusteringPage />)
+
+    expect(await screen.findByText(/检测到结构化标准/)).toBeInTheDocument()
+    expect(screen.getByText(/识别出 5 个叶子要求项/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/按原始层级生成/)).toBeChecked()
   })
 
   it('用户可以改选AI语义聚类并传递 ai 模式', async () => {

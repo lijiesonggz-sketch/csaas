@@ -51,34 +51,26 @@ describe('SummaryResultDisplay', () => {
   })
 
   it('[P0] renders result information correctly', () => {
-    render(
-      <SummaryResultDisplay
-        result={mockResult}
-        onReviewComplete={mockOnReviewComplete}
-      />
-    )
+    render(<SummaryResultDisplay result={mockResult} onReviewComplete={mockOnReviewComplete} />)
 
     // Check task info
     expect(screen.getByText('test-task-123')).toBeInTheDocument()
-    expect(screen.getByText('GPT-4')).toBeInTheDocument()
+    expect(screen.getByText('DeepSeek')).toBeInTheDocument()
 
     // Check review status
     expect(screen.getByText('待审核')).toBeInTheDocument()
   })
 
   it('[P0] displays summary content', () => {
-    render(
-      <SummaryResultDisplay
-        result={mockResult}
-        onReviewComplete={mockOnReviewComplete}
-      />
-    )
+    render(<SummaryResultDisplay result={mockResult} onReviewComplete={mockOnReviewComplete} />)
 
     // Check title
     expect(screen.getByText('ISO 27001 信息安全综述')).toBeInTheDocument()
 
     // Check overview
-    expect(screen.getByText('这是一份关于ISO 27001信息安全管理体系的综述文档。')).toBeInTheDocument()
+    expect(
+      screen.getByText('这是一份关于ISO 27001信息安全管理体系的综述文档。')
+    ).toBeInTheDocument()
 
     // Check key areas
     expect(screen.getByText('安全策略')).toBeInTheDocument()
@@ -86,24 +78,14 @@ describe('SummaryResultDisplay', () => {
   })
 
   it('[P0] displays approve and reject buttons when pending', () => {
-    render(
-      <SummaryResultDisplay
-        result={mockResult}
-        onReviewComplete={mockOnReviewComplete}
-      />
-    )
+    render(<SummaryResultDisplay result={mockResult} onReviewComplete={mockOnReviewComplete} />)
 
     expect(screen.getByRole('button', { name: '批准' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '驳回' })).toBeInTheDocument()
   })
 
   it('[P1] handles approve action', () => {
-    render(
-      <SummaryResultDisplay
-        result={mockResult}
-        onReviewComplete={mockOnReviewComplete}
-      />
-    )
+    render(<SummaryResultDisplay result={mockResult} onReviewComplete={mockOnReviewComplete} />)
 
     fireEvent.click(screen.getByRole('button', { name: '批准' }))
 
@@ -111,12 +93,7 @@ describe('SummaryResultDisplay', () => {
   })
 
   it('[P1] handles reject action', () => {
-    render(
-      <SummaryResultDisplay
-        result={mockResult}
-        onReviewComplete={mockOnReviewComplete}
-      />
-    )
+    render(<SummaryResultDisplay result={mockResult} onReviewComplete={mockOnReviewComplete} />)
 
     fireEvent.click(screen.getByRole('button', { name: '驳回' }))
 
@@ -126,12 +103,7 @@ describe('SummaryResultDisplay', () => {
   })
 
   it('[P1] displays quality scores when available', () => {
-    render(
-      <SummaryResultDisplay
-        result={mockResult}
-        onReviewComplete={mockOnReviewComplete}
-      />
-    )
+    render(<SummaryResultDisplay result={mockResult} onReviewComplete={mockOnReviewComplete} />)
 
     expect(screen.getByText('质量评分')).toBeInTheDocument()
     // The labels include threshold requirements in parentheses
@@ -146,12 +118,7 @@ describe('SummaryResultDisplay', () => {
   })
 
   it('[P1] displays key requirements list', () => {
-    render(
-      <SummaryResultDisplay
-        result={mockResult}
-        onReviewComplete={mockOnReviewComplete}
-      />
-    )
+    render(<SummaryResultDisplay result={mockResult} onReviewComplete={mockOnReviewComplete} />)
 
     expect(screen.getByText('关键要求')).toBeInTheDocument()
     expect(screen.getByText('风险评估')).toBeInTheDocument()
@@ -160,36 +127,21 @@ describe('SummaryResultDisplay', () => {
   })
 
   it('[P1] displays scope section', () => {
-    render(
-      <SummaryResultDisplay
-        result={mockResult}
-        onReviewComplete={mockOnReviewComplete}
-      />
-    )
+    render(<SummaryResultDisplay result={mockResult} onReviewComplete={mockOnReviewComplete} />)
 
     expect(screen.getByText('适用范围')).toBeInTheDocument()
     expect(screen.getByText('适用于所有处理敏感信息的部门')).toBeInTheDocument()
   })
 
   it('[P1] displays compliance level', () => {
-    render(
-      <SummaryResultDisplay
-        result={mockResult}
-        onReviewComplete={mockOnReviewComplete}
-      />
-    )
+    render(<SummaryResultDisplay result={mockResult} onReviewComplete={mockOnReviewComplete} />)
 
     expect(screen.getByText('合规级别说明')).toBeInTheDocument()
     expect(screen.getByText('符合ISO 27001:2013标准要求')).toBeInTheDocument()
   })
 
   it('[P1] displays export button', () => {
-    render(
-      <SummaryResultDisplay
-        result={mockResult}
-        onReviewComplete={mockOnReviewComplete}
-      />
-    )
+    render(<SummaryResultDisplay result={mockResult} onReviewComplete={mockOnReviewComplete} />)
 
     expect(screen.getByRole('button', { name: '导出Word' })).toBeInTheDocument()
   })
@@ -201,10 +153,7 @@ describe('SummaryResultDisplay', () => {
     }
 
     render(
-      <SummaryResultDisplay
-        result={resultWithString}
-        onReviewComplete={mockOnReviewComplete}
-      />
+      <SummaryResultDisplay result={resultWithString} onReviewComplete={mockOnReviewComplete} />
     )
 
     // Should still display the title from parsed JSON
@@ -212,12 +161,7 @@ describe('SummaryResultDisplay', () => {
   })
 
   it('[P2] displays correct importance labels', () => {
-    render(
-      <SummaryResultDisplay
-        result={mockResult}
-        onReviewComplete={mockOnReviewComplete}
-      />
-    )
+    render(<SummaryResultDisplay result={mockResult} onReviewComplete={mockOnReviewComplete} />)
 
     // HIGH importance should show "高"
     expect(screen.getByText('高')).toBeInTheDocument()

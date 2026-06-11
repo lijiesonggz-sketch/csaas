@@ -107,9 +107,7 @@ export default function QuestionnaireGenerationPage() {
                 <div key={index} className="flex-1 flex flex-col items-center">
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      currentStep >= index
-                        ? 'bg-[#1E3A5F] text-white'
-                        : 'bg-[#94A3B8] text-white'
+                      currentStep >= index ? 'bg-[#1E3A5F] text-white' : 'bg-[#94A3B8] text-white'
                     }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -145,7 +143,7 @@ export default function QuestionnaireGenerationPage() {
                 className="mt-2 rounded-sm"
               />
               <p className="text-sm text-[#94A3B8] mt-2">
-                请先在"成熟度矩阵"页面完成矩阵生成，然后将任务ID复制到此处
+                请先在“成熟度矩阵”页面完成矩阵生成，然后将任务ID复制到此处
               </p>
             </div>
 
@@ -184,7 +182,7 @@ export default function QuestionnaireGenerationPage() {
             <div className="flex flex-col items-center gap-4 py-8">
               <Loader2 className="w-12 h-12 animate-spin text-[#1E3A5F]" />
               <p className="text-[#94A3B8]">
-                系统正在使用GPT-4、Claude和通义千问三个模型并行生成调研问卷，这可能需要3-5分钟...
+                系统正在使用DeepSeek、Claude和通义千问三个模型并行生成调研问卷，这可能需要3-5分钟...
               </p>
               <Button
                 variant="outline"

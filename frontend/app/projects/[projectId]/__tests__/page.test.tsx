@@ -1,10 +1,11 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 import ProjectWorkbenchPage from '../page'
 import { useParams, useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/utils/api'
 import { AITasksAPI } from '@/lib/api/ai-tasks'
+import { SurveyAPI } from '@/lib/api/survey'
 
 jest.mock('next/navigation', () => ({
   useParams: jest.fn(),
@@ -21,12 +22,19 @@ jest.mock('@/lib/api/ai-tasks', () => ({
   },
 }))
 
+jest.mock('@/lib/api/survey', () => ({
+  SurveyAPI: {
+    getSurveysByQuestionnaireTask: jest.fn(),
+  },
+}))
+
 describe('ProjectWorkbenchPage', () => {
   const mockPush = jest.fn()
   const mockUseParams = useParams as jest.Mock
   const mockUseRouter = useRouter as jest.Mock
   const mockApiFetch = apiFetch as jest.Mock
   const mockGetTasksByProject = AITasksAPI.getTasksByProject as jest.Mock
+  const mockGetSurveysByQuestionnaireTask = SurveyAPI.getSurveysByQuestionnaireTask as jest.Mock
 
   const mockProject = {
     id: 'project-1',
@@ -50,6 +58,7 @@ describe('ProjectWorkbenchPage', () => {
     mockUseRouter.mockReturnValue({ push: mockPush })
     mockApiFetch.mockResolvedValue(mockProject)
     mockGetTasksByProject.mockResolvedValue([])
+    mockGetSurveysByQuestionnaireTask.mockResolvedValue({ success: true, data: [] })
   })
 
   it('shows the current loading state before data is ready', () => {
@@ -134,6 +143,60 @@ describe('ProjectWorkbenchPage', () => {
 
     await waitFor(() => {
       expect(screen.getAllByText('查看').length).toBeGreaterThan(0)
+    })
+  })
+
+  it('does not mark gap analysis completed just because questionnaire generation completed', async () => {
+    mockGetTasksByProject.mockResolvedValueOnce([
+      {
+        id: 'questionnaire-task-1',
+        type: 'questionnaire',
+        status: 'completed',
+        createdAt: '2024-01-02T00:00:00Z',
+      },
+    ])
+    mockGetSurveysByQuestionnaireTask.mockResolvedValueOnce({ success: true, data: [] })
+
+    render(<ProjectWorkbenchPage />)
+
+    const questionnaireCard = await screen.findByRole('link', { name: /^问卷生成 -/ })
+
+    await waitFor(() => {
+      expect(within(questionnaireCard).getByText('已完成')).toBeInTheDocument()
+    })
+
+    const gapAnalysisCard = screen.getByRole('link', { name: /^差距分析 -/ })
+    expect(within(gapAnalysisCard).getByText('待开始')).toBeInTheDocument()
+    expect(within(gapAnalysisCard).queryByText('已完成')).not.toBeInTheDocument()
+  })
+
+  it('marks gap analysis completed only when a questionnaire response has been submitted', async () => {
+    mockGetTasksByProject.mockResolvedValueOnce([
+      {
+        id: 'questionnaire-task-1',
+        type: 'questionnaire',
+        status: 'completed',
+        createdAt: '2024-01-02T00:00:00Z',
+      },
+    ])
+    mockGetSurveysByQuestionnaireTask.mockResolvedValueOnce({
+      success: true,
+      data: [
+        {
+          id: 'survey-1',
+          questionnaireTaskId: 'questionnaire-task-1',
+          status: 'submitted',
+        },
+      ],
+    })
+
+    render(<ProjectWorkbenchPage />)
+
+    const gapAnalysisCard = await screen.findByRole('link', { name: /^差距分析 -/ })
+
+    await waitFor(() => {
+      expect(mockGetSurveysByQuestionnaireTask).toHaveBeenCalledWith('questionnaire-task-1')
+      expect(within(gapAnalysisCard).getByText('已完成')).toBeInTheDocument()
     })
   })
 })

@@ -50,4 +50,59 @@ describe('TaskAdapter matrix result metadata', () => {
       })
     )
   })
+
+  it('uses real task quality scores instead of hard-coded fallback values', () => {
+    const task = {
+      id: 'questionnaire-task-1',
+      projectId: 'project-1',
+      type: 'questionnaire',
+      status: 'completed',
+      input: {},
+      progress: 100,
+      createdAt: '2026-06-02T00:00:00.000Z',
+      updatedAt: '2026-06-02T00:00:00.000Z',
+      result: {
+        questionnaire: [],
+        questionnaire_metadata: {},
+        qualityScores: {
+          structural: 1,
+          semantic: 0.7178,
+          detail: 0.998,
+        },
+        selectedModel: 'claude',
+        confidenceLevel: 'high',
+      },
+    }
+
+    const result = TaskAdapter.toGenerationResult(task)
+
+    expect(result.selectedModel).toBe('claude')
+    expect(result.confidenceLevel).toBe('HIGH')
+    expect(result.qualityScores).toEqual({
+      structural: 1,
+      semantic: 0.7178,
+      detail: 0.998,
+    })
+  })
+
+  it('does not invent quality scores when backend does not provide them', () => {
+    const task = {
+      id: 'questionnaire-task-2',
+      projectId: 'project-1',
+      type: 'questionnaire',
+      status: 'completed',
+      input: {},
+      progress: 100,
+      createdAt: '2026-06-02T00:00:00.000Z',
+      updatedAt: '2026-06-02T00:00:00.000Z',
+      result: {
+        questionnaire: [],
+        questionnaire_metadata: {},
+      },
+    }
+
+    const result = TaskAdapter.toGenerationResult(task)
+
+    expect(result.qualityScores).toBeNull()
+  })
 })

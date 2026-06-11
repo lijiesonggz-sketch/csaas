@@ -158,6 +158,16 @@ function isKgQuestionnaireSnapshotTask(task: AITask): boolean {
   )
 }
 
+function hasPersistedQuestionnaireResult(task: AITask): boolean {
+  const directQuestions = task.result?.questionnaire
+  const selectedQuestions = task.result?.selectedResult?.questionnaire
+
+  return (
+    (Array.isArray(directQuestions) && directQuestions.length > 0) ||
+    (Array.isArray(selectedQuestions) && selectedQuestions.length > 0)
+  )
+}
+
 function findLatestCompletedMatrixTask(tasks: AITask[]): AITask | null {
   return (
     tasks
@@ -298,6 +308,26 @@ export default function QuestionnairePage() {
     Boolean(snapshotInfo) &&
     normalizeQuestionsForComparison(editableQuestions) !==
       normalizeQuestionsForComparison(snapshotInfo?.questions ?? [])
+  const isQuestionnaireTaskRunning =
+    currentTask?.status === 'pending' || currentTask?.status === 'processing'
+  const hasClusterProgress = Boolean(clusterStatus && clusterStatus.totalClusters > 0)
+  const displayedProgress = progress > 0 ? progress : currentTask?.progress || 0
+  const displayedProgressMessage =
+    progressMessage || (isQuestionnaireTaskRunning ? '问卷正在生成中，请等待当前任务完成。' : '')
+  const emptyStateTitle = isQuestionnaireTaskRunning
+    ? '问卷正在生成中'
+    : hasClusterProgress
+      ? '问卷生成未完成'
+      : '还没有生成问卷'
+  const emptyStateDescription = isQuestionnaireTaskRunning
+    ? '系统正在基于成熟度矩阵生成题目，完成后会自动显示问卷。'
+    : hasClusterProgress
+      ? '请在上方查看聚类进度，并继续生成未完成的聚类。'
+      : '点击下方按钮开始生成问卷'
+  const hasDisplayableQuestions =
+    (questionnaireDisplayResult?.selectedResult?.questionnaire?.length || 0) > 0
+  const resultPanelTitle =
+    currentTask?.status === 'failed' && hasDisplayableQuestions ? '已生成题目' : '问卷生成完成'
 
   const loadLegacyTasks = useCallback(async () => {
     try {
@@ -318,17 +348,20 @@ export default function QuestionnairePage() {
           typeof task.input?.matrixTaskId === 'string' &&
           (!latestMatrixTask || task.input.matrixTaskId === latestMatrixTask.id)
       )
-      const questionnaireTask = questionnaireTasks.sort(
+      const sortedQuestionnaireTasks = questionnaireTasks.sort(
         (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-      )[0]
+      )
+      const questionnaireTask = sortedQuestionnaireTasks[0]
+      const displayableQuestionnaireTask =
+        sortedQuestionnaireTasks.find(hasPersistedQuestionnaireResult) || null
 
       if (questionnaireTask) {
         setCurrentTask(questionnaireTask)
 
-        if (questionnaireTask.result) {
-          const result = TaskAdapter.toGenerationResult(questionnaireTask)
+        if (displayableQuestionnaireTask) {
+          const result = TaskAdapter.toGenerationResult(displayableQuestionnaireTask)
           setGenerationResult(result)
-          cache.set(projectId, 'questionnaire', questionnaireTask.id, result)
+          cache.set(projectId, 'questionnaire', displayableQuestionnaireTask.id, result)
         }
 
         if (questionnaireTask.clusterGenerationStatus) {
@@ -341,6 +374,10 @@ export default function QuestionnairePage() {
           if (hasPartialResult && questionnaireTask.result?.questionnaire?.length > 0) {
             setShowPartialResult(true)
           }
+        }
+
+        if (questionnaireTask.status === 'failed' && questionnaireTask.errorMessage) {
+          setError(questionnaireTask.errorMessage)
         }
       }
     } catch (err: any) {
@@ -717,6 +754,7 @@ export default function QuestionnairePage() {
           taskId={currentTask?.id || ''}
           projectId={projectId}
           clusterStatus={clusterStatus}
+          taskStatus={currentTask?.status}
         />
       )}
 
@@ -745,10 +783,23 @@ export default function QuestionnairePage() {
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center mx-auto mb-4">
               <Sparkles className="w-6 h-6 text-[#1E3A5F]" />
             </div>
-            <h3 className="text-xl font-semibold text-[#1E3A5F] mb-2">还没有生成问卷</h3>
-            <p className="text-sm text-[#94A3B8] mb-8">点击下方按钮开始生成问卷</p>
+            <h3 className="text-xl font-semibold text-[#1E3A5F] mb-2">{emptyStateTitle}</h3>
+            <p className="text-sm text-[#94A3B8] mb-8">{emptyStateDescription}</p>
 
-            {loading && progress > 0 ? (
+            {isQuestionnaireTaskRunning ? (
+              <div className="max-w-md mx-auto">
+                <div className="flex justify-between mb-2">
+                  <span className="text-sm text-[#94A3B8]">生成进度</span>
+                  <span className="text-sm font-semibold text-[#1E3A5F]">{displayedProgress}%</span>
+                </div>
+                <Progress value={displayedProgress} className="h-3" />
+                {displayedProgressMessage && (
+                  <p className="text-sm text-[#94A3B8] mt-2">{displayedProgressMessage}</p>
+                )}
+              </div>
+            ) : hasClusterProgress ? (
+              <p className="text-sm text-[#64748B]">未完成聚类处理完毕后，问卷题目才会展示。</p>
+            ) : loading && progress > 0 ? (
               <div className="max-w-md mx-auto">
                 <div className="flex justify-between mb-2">
                   <span className="text-sm text-[#94A3B8]">生成进度</span>
@@ -776,7 +827,7 @@ export default function QuestionnairePage() {
           <CardContent className="p-6">
             <div className="flex items-center gap-3 mb-4 pb-4 border-b border-[#E2E8F0]">
               <CheckCircle className="w-6 h-6 text-emerald-500" />
-              <h3 className="text-xl font-semibold text-[#1E3A5F]">问卷生成完成</h3>
+              <h3 className="text-xl font-semibold text-[#1E3A5F]">{resultPanelTitle}</h3>
               {snapshotInfo && (
                 <>
                   <span className="ml-2 text-sm text-[#1E3A5F]">

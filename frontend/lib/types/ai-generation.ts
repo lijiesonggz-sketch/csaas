@@ -64,7 +64,7 @@ export interface GenerationResult {
   selectedResult: Record<string, any>
   selectedModel: SelectedModel
   confidenceLevel: ConfidenceLevel
-  qualityScores: QualityScores
+  qualityScores?: QualityScores | null
   consistencyReport: ConsistencyReport
   coverageReport?: CoverageReport
   reviewStatus: ReviewStatus

@@ -9,7 +9,16 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
 export interface CreateAITaskRequest {
   projectId: string
-  type: 'summary' | 'clustering' | 'matrix' | 'questionnaire' | 'action_plan' | 'standard_interpretation' | 'standard_related_search' | 'standard_version_compare'
+  type:
+    | 'summary'
+    | 'clustering'
+    | 'matrix'
+    | 'questionnaire'
+    | 'action_plan'
+    | 'standard_interpretation'
+    | 'standard_related_search'
+    | 'standard_version_compare'
+    | 'standard_cross_compare'
   input: any
 }
 
@@ -31,16 +40,19 @@ export interface AITask {
     completedClusters: string[]
     failedClusters: string[]
     pendingClusters: string[]
-    clusterProgress: Record<string, {
-      clusterId: string
-      clusterName: string
-      status: 'pending' | 'generating' | 'completed' | 'failed'
-      questionsGenerated: number
-      questionsExpected: number
-      startedAt?: string
-      completedAt?: string
-      error?: string
-    }>
+    clusterProgress: Record<
+      string,
+      {
+        clusterId: string
+        clusterName: string
+        status: 'pending' | 'generating' | 'completed' | 'failed'
+        questionsGenerated: number
+        questionsExpected: number
+        startedAt?: string
+        completedAt?: string
+        error?: string
+      }
+    >
   }
 }
 
@@ -95,9 +107,30 @@ export class AITasksAPI {
     status: string
     stage: string
     progress: {
-      gpt4?: { status: string; message: string; error?: string; duration_ms?: number; tokens?: number; cost?: number }
-      claude?: { status: string; message: string; error?: string; duration_ms?: number; tokens?: number; cost?: number }
-      domestic?: { status: string; message: string; error?: string; duration_ms?: number; tokens?: number; cost?: number }
+      gpt4?: {
+        status: string
+        message: string
+        error?: string
+        duration_ms?: number
+        tokens?: number
+        cost?: number
+      }
+      claude?: {
+        status: string
+        message: string
+        error?: string
+        duration_ms?: number
+        tokens?: number
+        cost?: number
+      }
+      domestic?: {
+        status: string
+        message: string
+        error?: string
+        duration_ms?: number
+        tokens?: number
+        cost?: number
+      }
       validation_stage?: string
       aggregation_stage?: string
       total_elapsed_ms?: number
@@ -179,16 +212,19 @@ export class AITasksAPI {
     completedClusters: string[]
     failedClusters: string[]
     pendingClusters: string[]
-    clusterProgress: Record<string, {
-      clusterId: string
-      clusterName: string
-      status: 'pending' | 'generating' | 'completed' | 'failed'
-      questionsGenerated: number
-      questionsExpected: number
-      startedAt?: string
-      completedAt?: string
-      error?: string
-    }>
+    clusterProgress: Record<
+      string,
+      {
+        clusterId: string
+        clusterName: string
+        status: 'pending' | 'generating' | 'completed' | 'failed'
+        questionsGenerated: number
+        questionsExpected: number
+        startedAt?: string
+        completedAt?: string
+        error?: string
+      }
+    >
   }> {
     const response = await fetch(`${API_BASE_URL}/ai-tasks/${taskId}/cluster-status`, {
       method: 'GET',
@@ -232,7 +268,10 @@ export class AITasksAPI {
   /**
    * ✅ 重新生成单个聚类的问题
    */
-  static async regenerateCluster(taskId: string, clusterId: string): Promise<{
+  static async regenerateCluster(
+    taskId: string,
+    clusterId: string
+  ): Promise<{
     newTaskId: string
     originalTaskId: string
     clusterId: string

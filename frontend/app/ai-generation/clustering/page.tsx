@@ -153,9 +153,7 @@ export default function ClusteringGenerationPage() {
                 <div key={index} className="flex-1 flex flex-col items-center">
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      currentStep >= index
-                        ? 'bg-[#1E3A5F] text-white'
-                        : 'bg-[#94A3B8] text-white'
+                      currentStep >= index ? 'bg-[#1E3A5F] text-white' : 'bg-[#94A3B8] text-white'
                     }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -283,7 +281,7 @@ export default function ClusteringGenerationPage() {
             <div className="flex flex-col items-center gap-4 py-8">
               <Loader2 className="w-12 h-12 animate-spin text-[#1E3A5F]" />
               <p className="text-[#94A3B8]">
-                系统正在使用GPT-4、Claude和通义千问三个模型并行分析
+                系统正在使用DeepSeek、Claude和通义千问三个模型并行分析
                 {documents.length}个文档，这可能需要3-5分钟...
               </p>
               <Button

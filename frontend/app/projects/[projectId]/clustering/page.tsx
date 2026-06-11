@@ -27,7 +27,8 @@ interface UploadedDocument {
 
 type ClusteringMode = 'structured' | 'ai'
 
-const LEAF_REQUIREMENT_ID_PATTERN = /^\d{1,2}(?:\.\d{1,2}){1,3}-[a-z](?:-\d{1,2})?$/
+const LEAF_REQUIREMENT_ID_PATTERN =
+  /^(?:\d{1,2}(?:\.\d{1,2}){1,3}|[A-Z](?:\.\d{1,2}){1,4})-[a-z](?:-\d{1,2})?$/
 
 function analyzeStructuredStandard(documents: UploadedDocument[]) {
   if (documents.length !== 1 || !documents[0]?.content) {
@@ -522,7 +523,7 @@ export default function ClusteringPage() {
                                   : 'bg-slate-400'
                           }`}
                         />
-                        <span className="text-sm font-medium">GPT-4</span>
+                        <span className="text-sm font-medium">DeepSeek</span>
                       </div>
                       <span className="text-sm text-[#94A3B8]">
                         {progress.progress.gpt4.message}

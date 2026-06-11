@@ -19,14 +19,30 @@ import {
   ArrowLeft,
   Building2,
   FileSearch,
+  GitCompare,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { apiFetch } from '@/lib/utils/api'
 import { AITasksAPI } from '@/lib/api/ai-tasks'
+import { SurveyAPI } from '@/lib/api/survey'
 import { Project } from '@/lib/api/projects'
-import { cn } from '@/lib/utils'
+
+type WorkbenchTaskStatus = 'completed' | 'processing' | 'pending' | 'failed'
+type ProjectTaskSummary = {
+  id?: string
+  type: string
+  status: WorkbenchTaskStatus
+  createdAt?: string
+}
+
+const sortByNewest = (tasks: ProjectTaskSummary[]) =>
+  [...tasks].sort((a, b) => {
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0
+    return bTime - aTime
+  })
 
 export default function ProjectWorkbenchPage() {
   const router = useRouter()
@@ -35,12 +51,14 @@ export default function ProjectWorkbenchPage() {
 
   const [project, setProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)
-  const [taskStatuses, setTaskStatuses] = useState<
-    Record<string, 'completed' | 'processing' | 'pending' | 'failed'>
-  >({})
+  const [taskStatuses, setTaskStatuses] = useState<Record<string, WorkbenchTaskStatus>>({})
 
   const projectCacheRef = useRef<{ projectId: string; data: Project } | null>(null)
-  const tasksCacheRef = useRef<{ projectId: string; data: any[]; timestamp: number } | null>(null)
+  const tasksCacheRef = useRef<{
+    projectId: string
+    data: ProjectTaskSummary[]
+    timestamp: number
+  } | null>(null)
   const CACHE_DURATION = 5000
 
   const loadProject = useCallback(async () => {
@@ -62,67 +80,110 @@ export default function ProjectWorkbenchPage() {
     }
   }, [projectId])
 
+  const resolveGapAnalysisStatus = useCallback(
+    async (
+      tasks: ProjectTaskSummary[],
+      fallbackStatus: WorkbenchTaskStatus
+    ): Promise<WorkbenchTaskStatus> => {
+      if (fallbackStatus !== 'pending') {
+        return fallbackStatus
+      }
+
+      const latestQuestionnaireTask = sortByNewest(
+        tasks.filter(
+          (task) =>
+            (task.type === 'questionnaire' || task.type === 'binary_questionnaire') &&
+            task.status === 'completed' &&
+            task.id
+        )
+      )[0]
+
+      if (!latestQuestionnaireTask?.id) {
+        return 'pending'
+      }
+
+      try {
+        const response = await SurveyAPI.getSurveysByQuestionnaireTask(latestQuestionnaireTask.id)
+        const surveys = Array.isArray(response?.data) ? response.data : []
+
+        if (
+          surveys.some((survey) => survey.status === 'submitted' || survey.status === 'completed')
+        ) {
+          return 'completed'
+        }
+
+        if (surveys.some((survey) => survey.status === 'draft')) {
+          return 'processing'
+        }
+      } catch (error) {
+        console.error('❌ Failed to load gap analysis status:', error)
+      }
+
+      return 'pending'
+    },
+    []
+  )
+
+  const computeTaskStatuses = useCallback(
+    async (tasks: ProjectTaskSummary[]) => {
+      const stepToTaskType: Record<string, string[]> = {
+        summary: ['summary'],
+        clustering: ['clustering'],
+        matrix: ['matrix'],
+        questionnaire: ['questionnaire', 'binary_questionnaire'],
+        'gap-analysis': ['binary_gap_analysis'],
+        'action-plan': ['action_plan'],
+        'standard-interpretation': ['standard_interpretation', 'standard_related_search'],
+        'version-compare': ['standard_version_compare'],
+        'quick-gap-analysis': ['quick_gap_analysis'],
+      }
+
+      const statuses: Record<string, WorkbenchTaskStatus> = {}
+
+      Object.entries(stepToTaskType).forEach(([stepId, taskTypes]) => {
+        const relatedTasks = tasks.filter((task) => taskTypes.includes(task.type))
+
+        if (relatedTasks.length === 0) {
+          statuses[stepId] = 'pending'
+          return
+        }
+
+        const latestTask = sortByNewest(relatedTasks)[0]
+
+        if (latestTask.status === 'completed') {
+          statuses[stepId] = 'completed'
+        } else if (latestTask.status === 'processing' || latestTask.status === 'pending') {
+          statuses[stepId] = 'processing'
+        } else if (latestTask.status === 'failed') {
+          statuses[stepId] = 'failed'
+        } else {
+          statuses[stepId] = 'pending'
+        }
+      })
+      statuses['gap-analysis'] = await resolveGapAnalysisStatus(tasks, statuses['gap-analysis'])
+      setTaskStatuses(statuses)
+    },
+    [resolveGapAnalysisStatus]
+  )
+
   const loadTaskStatuses = useCallback(async () => {
     const now = Date.now()
     if (
       tasksCacheRef.current?.projectId === projectId &&
       now - tasksCacheRef.current.timestamp < CACHE_DURATION
     ) {
-      computeTaskStatuses(tasksCacheRef.current.data)
+      await computeTaskStatuses(tasksCacheRef.current.data)
       return
     }
 
     try {
       const tasks = await AITasksAPI.getTasksByProject(projectId)
       tasksCacheRef.current = { projectId, data: tasks, timestamp: now }
-      computeTaskStatuses(tasks)
+      await computeTaskStatuses(tasks)
     } catch (error) {
       console.error('❌ Failed to load task statuses:', error)
     }
-  }, [projectId])
-
-  const computeTaskStatuses = useCallback((tasks: any[]) => {
-    const stepToTaskType: Record<string, string[]> = {
-      summary: ['summary'],
-      clustering: ['clustering'],
-      matrix: ['matrix'],
-      questionnaire: ['questionnaire', 'binary_questionnaire'],
-      'gap-analysis': ['questionnaire'],
-      'action-plan': ['action_plan'],
-      'standard-interpretation': [
-        'standard_interpretation',
-        'standard_related_search',
-        'standard_version_compare',
-      ],
-      'quick-gap-analysis': ['quick_gap_analysis'],
-    }
-
-    const statuses: Record<string, 'completed' | 'processing' | 'pending' | 'failed'> = {}
-
-    Object.entries(stepToTaskType).forEach(([stepId, taskTypes]) => {
-      const relatedTasks = tasks.filter((task) => taskTypes.includes(task.type))
-
-      if (relatedTasks.length === 0) {
-        statuses[stepId] = 'pending'
-        return
-      }
-
-      const latestTask = relatedTasks.sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      )[0]
-
-      if (latestTask.status === 'completed') {
-        statuses[stepId] = 'completed'
-      } else if (latestTask.status === 'processing' || latestTask.status === 'pending') {
-        statuses[stepId] = 'processing'
-      } else if (latestTask.status === 'failed') {
-        statuses[stepId] = 'failed'
-      } else {
-        statuses[stepId] = 'pending'
-      }
-    })
-    setTaskStatuses(statuses)
-  }, [])
+  }, [projectId, computeTaskStatuses])
 
   useEffect(() => {
     loadProject()
@@ -137,8 +198,8 @@ export default function ProjectWorkbenchPage() {
         icon: CloudUpload,
         route: `/projects/${projectId}/upload`,
         status: (() => {
-          const uploadedDocs = (project?.metadata as any)?.uploadedDocuments
-          return uploadedDocs && uploadedDocs.length > 0
+          const uploadedDocs = project?.metadata?.uploadedDocuments
+          return Array.isArray(uploadedDocs) && uploadedDocs.length > 0
             ? ('completed' as const)
             : ('pending' as const)
         })(),
@@ -178,7 +239,19 @@ export default function ProjectWorkbenchPage() {
           | 'processing'
           | 'pending'
           | 'failed',
-        description: '深度解读标准内容、搜索关联标准、版本比对',
+        description: '深度解读标准内容、搜索关联标准',
+      },
+      {
+        id: 'version-compare',
+        name: '版本比对',
+        icon: GitCompare,
+        route: `/projects/${projectId}/version-compare`,
+        status: (taskStatuses['version-compare'] || 'pending') as
+          | 'completed'
+          | 'processing'
+          | 'pending'
+          | 'failed',
+        description: '比较两个标准文档的差异，识别新增、修改、删除的条款',
       },
       {
         id: 'review',
@@ -274,7 +347,7 @@ export default function ProjectWorkbenchPage() {
         description: '技术趋势、行业标杆、合规预警 - 智能推送',
       },
     ],
-    [projectId, project?.metadata, taskStatuses]
+    [projectId, project?.metadata, project?.organizationId, taskStatuses]
   )
 
   const getProjectStatusConfig = (status: string | undefined) => {

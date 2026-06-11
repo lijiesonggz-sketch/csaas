@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { clearTokenCache } from '@/lib/utils/api'
 import { buildRadarHistoryRoute } from '@/lib/api/radar'
 import { useRadarUnreadCount } from '@/lib/hooks/useRadarUnreadCount'
+import { clearAuthNavigationUiArtifacts } from '@/lib/auth/session-expiry'
 
 interface HeaderProps {
   onMenuToggle?: () => void
@@ -38,6 +39,7 @@ export default function Header({ onMenuToggle, showMenuButton = false }: HeaderP
 
   const handleLogout = () => {
     clearTokenCache()
+    clearAuthNavigationUiArtifacts()
     signOut({ callbackUrl: '/login' })
   }
 

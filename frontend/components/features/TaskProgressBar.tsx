@@ -54,19 +54,13 @@ export default function TaskProgressBar({ taskId, onCompleted, onFailed }: TaskP
           <h3 className="text-lg font-semibold text-[#1E3A5F]">
             {isCompleted ? '✅ 生成完成' : isFailed ? '❌ 生成失败' : '🔄 正在生成...'}
           </h3>
-          <p className="text-sm text-[#64748B]">
-            {message || '准备中...'}
-          </p>
+          <p className="text-sm text-[#64748B]">{message || '准备中...'}</p>
         </div>
       </div>
 
       <Progress
         value={progress}
-        className={cn(
-          'mb-3 h-2',
-          isCompleted && 'bg-[#059669]',
-          isFailed && 'bg-[#DC2626]'
-        )}
+        className={cn('mb-3 h-2', isCompleted && 'bg-[#059669]', isFailed && 'bg-[#DC2626]')}
       />
 
       {currentStep && !isCompleted && !isFailed && (
@@ -96,34 +90,19 @@ export default function TaskProgressBar({ taskId, onCompleted, onFailed }: TaskP
 
       {!isCompleted && !isFailed && (
         <div className="grid grid-cols-3 gap-3 text-center">
-          <div
-            className={cn(
-              'p-3 rounded-sm',
-              progress >= 33 ? 'bg-[#D1FAE5]' : 'bg-[#F3F4F6]'
-            )}
-          >
-            <p className="text-sm font-semibold text-[#1E3A5F]">GPT-4</p>
+          <div className={cn('p-3 rounded-sm', progress >= 33 ? 'bg-[#D1FAE5]' : 'bg-[#F3F4F6]')}>
+            <p className="text-sm font-semibold text-[#1E3A5F]">DeepSeek</p>
             <p className="text-xs text-[#64748B]">
               {progress >= 33 ? '已完成' : progress > 0 ? '处理中...' : '等待中'}
             </p>
           </div>
-          <div
-            className={cn(
-              'p-3 rounded-sm',
-              progress >= 66 ? 'bg-[#D1FAE5]' : 'bg-[#F3F4F6]'
-            )}
-          >
+          <div className={cn('p-3 rounded-sm', progress >= 66 ? 'bg-[#D1FAE5]' : 'bg-[#F3F4F6]')}>
             <p className="text-sm font-semibold text-[#1E3A5F]">Claude</p>
             <p className="text-xs text-[#64748B]">
               {progress >= 66 ? '已完成' : progress > 33 ? '处理中...' : '等待中'}
             </p>
           </div>
-          <div
-            className={cn(
-              'p-3 rounded-sm',
-              progress >= 100 ? 'bg-[#D1FAE5]' : 'bg-[#F3F4F6]'
-            )}
-          >
+          <div className={cn('p-3 rounded-sm', progress >= 100 ? 'bg-[#D1FAE5]' : 'bg-[#F3F4F6]')}>
             <p className="text-sm font-semibold text-[#1E3A5F]">通义千问</p>
             <p className="text-xs text-[#64748B]">
               {progress >= 100 ? '已完成' : progress > 66 ? '处理中...' : '等待中'}

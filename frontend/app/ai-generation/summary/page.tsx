@@ -86,7 +86,7 @@ export default function SummaryGenerationPage() {
           AI 综述生成
         </h1>
         <p className="text-[#94A3B8] mt-2">
-          上传或粘贴IT标准文档，系统将使用三个AI模型（GPT-4、Claude、通义千问）并行生成高质量综述
+          上传或粘贴IT标准文档，系统将使用三个AI模型（DeepSeek、Claude、通义千问）并行生成高质量综述
         </p>
       </div>
 
@@ -100,9 +100,7 @@ export default function SummaryGenerationPage() {
                 <div key={index} className="flex-1 flex flex-col items-center">
                   <div
                     className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      currentStep >= index
-                        ? 'bg-[#1E3A5F] text-white'
-                        : 'bg-[#94A3B8] text-white'
+                      currentStep >= index ? 'bg-[#1E3A5F] text-white' : 'bg-[#94A3B8] text-white'
                     }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -138,9 +136,7 @@ export default function SummaryGenerationPage() {
                 rows={12}
                 className="mt-2 rounded-sm resize-none"
               />
-              <p className="text-sm text-[#94A3B8] mt-2">
-                最少100字符
-              </p>
+              <p className="text-sm text-[#94A3B8] mt-2">最少100字符</p>
             </div>
 
             <div className="flex justify-between items-center">
@@ -182,7 +178,7 @@ export default function SummaryGenerationPage() {
             <div className="flex flex-col items-center gap-4 py-8">
               <Loader2 className="w-12 h-12 animate-spin text-[#1E3A5F]" />
               <p className="text-[#94A3B8]">
-                系统正在使用GPT-4、Claude和通义千问三个模型并行生成综述，这可能需要1-3分钟...
+                系统正在使用DeepSeek、Claude和通义千问三个模型并行生成综述，这可能需要1-3分钟...
               </p>
               <Button
                 variant="outline"

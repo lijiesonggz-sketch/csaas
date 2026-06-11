@@ -3,6 +3,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import MatrixPage from '../page'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 
+const mockCacheGet = jest.fn()
+const mockCacheSet = jest.fn()
+
 jest.mock('next/navigation', () => ({
   useParams: jest.fn(),
   useSearchParams: jest.fn(),
@@ -38,14 +41,14 @@ jest.mock('@/lib/hooks/useTaskProgressPolling', () => ({
 
 jest.mock('@/lib/hooks/useAITaskCache', () => ({
   useAITaskCache: jest.fn(() => ({
-    get: jest.fn(),
-    set: jest.fn(),
+    get: mockCacheGet,
+    set: mockCacheSet,
   })),
 }))
 
 jest.mock('@/components/features/MatrixResultDisplay', () => ({
   __esModule: true,
-  default: () => <div data-testid="matrix-result">Matrix Result Display</div>,
+  default: ({ result }: any) => <div data-testid="matrix-result">{result.taskId}</div>,
 }))
 
 jest.mock('@/components/projects/RerunTaskDialog', () => ({
@@ -63,6 +66,7 @@ describe('MatrixPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    mockCacheGet.mockReturnValue(null)
     ;(useParams as jest.Mock).mockReturnValue({ projectId: 'project-1' })
     ;(useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams())
     ;(useRouter as jest.Mock).mockReturnValue({ back: mockBack, push: jest.fn() })
@@ -106,5 +110,35 @@ describe('MatrixPage', () => {
     expect(screen.queryByText('点击下方按钮开始生成成熟度矩阵')).not.toBeInTheDocument()
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '42')
     expect(screen.queryByRole('button', { name: '生成矩阵' })).not.toBeInTheDocument()
+  })
+
+  it('does not render stale cached matrix before confirming the latest matrix task', async () => {
+    const { AITasksAPI } = await import('@/lib/api/ai-tasks')
+    mockCacheGet.mockReturnValue({
+      taskId: 'matrix-task-old',
+      selectedResult: {
+        matrix: [
+          {
+            cluster_id: 'category_5_1',
+            cluster_name: '5.1 战略规划',
+            levels: {
+              level_1: {
+                name: '初始级',
+                description: '旧过程描述',
+                key_practices: ['利益相关者分析，明确利益相关者的需求；'],
+              },
+            },
+          },
+        ],
+      },
+    })
+    ;(AITasksAPI.getTasksByProject as jest.Mock).mockImplementationOnce(() => new Promise(() => {}))
+
+    render(<MatrixPage />)
+
+    await waitFor(() => expect(AITasksAPI.getTasksByProject).toHaveBeenCalled())
+
+    expect(screen.queryByText('matrix-task-old')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '还没有生成成熟度矩阵' })).toBeInTheDocument()
   })
 })

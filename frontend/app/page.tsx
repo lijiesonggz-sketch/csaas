@@ -25,7 +25,10 @@ export default function Home() {
   ]
 
   const highlights = [
-    { icon: <CheckCircle className="w-5 h-5 text-emerald-600" />, text: 'GPT-4 + Claude + 国产模型' },
+    {
+      icon: <CheckCircle className="w-5 h-5 text-emerald-600" />,
+      text: 'DeepSeek + Claude + 国产模型',
+    },
     { icon: <CheckCircle className="w-5 h-5 text-emerald-600" />, text: '智能合规分析' },
     { icon: <CheckCircle className="w-5 h-5 text-emerald-600" />, text: '实时技术雷达' },
   ]
@@ -129,7 +132,11 @@ export default function Home() {
               {[
                 { icon: <BookOpen className="w-7 h-7" />, title: '上传文档', desc: '上传标准文档' },
                 { icon: <BarChart3 className="w-7 h-7" />, title: 'AI解读', desc: '智能分析条款' },
-                { icon: <TrendingUp className="w-7 h-7" />, title: '获取报告', desc: '生成评估结果' },
+                {
+                  icon: <TrendingUp className="w-7 h-7" />,
+                  title: '获取报告',
+                  desc: '生成评估结果',
+                },
               ].map((step, idx) => (
                 <div key={idx} className="text-center relative">
                   <div className="w-16 h-16 rounded-sm bg-[#059669] text-white flex items-center justify-center mx-auto mb-5 shadow-sm">

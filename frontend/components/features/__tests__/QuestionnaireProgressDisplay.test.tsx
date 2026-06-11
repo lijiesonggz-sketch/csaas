@@ -56,7 +56,7 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={mockClusterStatus}
-        />,
+        />
       )
 
       // Assert
@@ -71,7 +71,7 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={mockClusterStatus}
-        />,
+        />
       )
 
       // Assert - 实际DOM中"已完成"等文本可能出现多次（统计区和聚类详情区）
@@ -90,7 +90,7 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={mockClusterStatus}
-        />,
+        />
       )
 
       // Assert - shadcn/ui Progress uses role="progressbar"
@@ -107,7 +107,7 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={mockClusterStatus}
-        />,
+        />
       )
 
       // Assert
@@ -123,7 +123,7 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={mockClusterStatus}
-        />,
+        />
       )
 
       // Assert
@@ -139,7 +139,7 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={mockClusterStatus}
-        />,
+        />
       )
 
       // Assert
@@ -154,7 +154,7 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={mockClusterStatus}
-        />,
+        />
       )
 
       // Assert
@@ -171,7 +171,7 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={mockClusterStatus}
-        />,
+        />
       )
 
       // Assert - 按钮文本是"继续生成"，信息文本是"还有 2 个聚类未完成"
@@ -196,11 +196,25 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={allCompletedStatus}
-        />,
+        />
       )
 
       // Assert
       expect(screen.queryByText(/继续生成/)).not.toBeInTheDocument()
+    })
+
+    it('任务仍在运行中时不应该显示继续生成入口', () => {
+      render(
+        <QuestionnaireProgressDisplay
+          taskId={mockTaskId}
+          projectId={mockProjectId}
+          clusterStatus={mockClusterStatus}
+          taskStatus="processing"
+        />
+      )
+
+      expect(screen.getByText('任务正在生成中')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /继续生成/ })).not.toBeInTheDocument()
     })
   })
 
@@ -212,7 +226,7 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={mockClusterStatus}
-        />,
+        />
       )
 
       // Assert
@@ -227,15 +241,32 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={mockClusterStatus}
-        />,
+        />
       )
 
       // Assert
       const buttons = screen.getAllByRole('button')
-      const regenerateButton = buttons.find(btn =>
-        btn.getAttribute('aria-label')?.includes('重新生成'),
+      const regenerateButton = buttons.find((btn) =>
+        btn.getAttribute('aria-label')?.includes('重新生成')
       )
       expect(regenerateButton).toBeInTheDocument()
+    })
+
+    it('任务仍在运行中时不应该允许单聚类重新生成', () => {
+      render(
+        <QuestionnaireProgressDisplay
+          taskId={mockTaskId}
+          projectId={mockProjectId}
+          clusterStatus={mockClusterStatus}
+          taskStatus="processing"
+        />
+      )
+
+      const regenerateButtons = screen.getAllByRole('button', { name: /重新生成聚类/ })
+      expect(regenerateButtons).toHaveLength(3)
+      regenerateButtons.forEach((button) => {
+        expect(button).toBeDisabled()
+      })
     })
   })
 
@@ -247,7 +278,7 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={mockClusterStatus}
-        />,
+        />
       )
 
       // Assert - data-status属性标识聚类状态，内部元素包含对应颜色类
@@ -273,7 +304,7 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={mockClusterStatus}
-        />,
+        />
       )
 
       // Assert
@@ -291,7 +322,7 @@ describe('QuestionnaireProgressDisplay - TDD', () => {
           taskId={mockTaskId}
           projectId={mockProjectId}
           clusterStatus={mockClusterStatus}
-        />,
+        />
       )
 
       // Assert

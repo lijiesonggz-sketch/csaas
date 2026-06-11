@@ -40,6 +40,46 @@ describe('clauseIds', () => {
     })
   })
 
+  it('extracts appendix leaf requirements under their original appendix section ids', () => {
+    const content = [
+      '10.3 残余风险分析',
+      '评估人员根据数据处理者决定的风险处置措施，形成记录。',
+      '附 录 A',
+      '(规范性)',
+      '数据安全风险识别内容',
+      'A. 1 数据安全管理',
+      'A. 1. 1 安全管理制度',
+      'A. 1. 1. 1 数据安全制度体系',
+      '针对数据安全制度体系建设情况，应重点评估如下方面:',
+      'a) 数据安全总体策略、方针、目标和原则制定情况;',
+      'd) 关键岗位的数据安全管理操作规程建设情况;',
+      'A. 1. 1. 2 数据安全制度落实',
+      '针对被评估方数据安全制度落实情况，应重点评估如下方面。',
+      'a) 网络安全责任制、数据安全责任制落实情况。',
+      'g) 针对重要数据处理者，还应评估以下内容。',
+      '1) 对数据处理活动定期开展数据安全风险评估的情况。',
+      '2) 向有关部门报送评估报告情况。',
+    ].join('\n')
+
+    expect(extractClauseIdsFromContent(content)).toEqual([
+      'A.1.1.1-a',
+      'A.1.1.1-d',
+      'A.1.1.2-a',
+      'A.1.1.2-g-1',
+      'A.1.1.2-g-2',
+    ])
+    expect(normalizeClauseId('A.1.1.2 g) 2)')).toBe('A.1.1.2-g-2')
+  })
+
+  it('does not use generated fallback when leaf requirement ids are replaced by appendix ids', () => {
+    expect(calculateCoverageFromClauseIds(['5.2-a', '5.2-b'], ['A.1.1.1'])).toEqual({
+      total_clauses: 2,
+      clustered_clauses: 0,
+      missing_clause_ids: ['5.2-a', '5.2-b'],
+      coverage_granularity: 'leaf_requirement',
+    })
+  })
+
   it('keeps article-level coverage for documents without leaf requirements', () => {
     const ids = extractClauseIdsFromContent('第十条 建立管理制度。\n第十一条 定期开展评审。')
 
@@ -48,6 +88,15 @@ describe('clauseIds', () => {
       total_clauses: 2,
       clustered_clauses: 1,
       missing_clause_ids: ['第十一条'],
+      coverage_granularity: 'article',
+    })
+  })
+
+  it('does not use generated fallback when article ids are replaced by generated ids', () => {
+    expect(calculateCoverageFromClauseIds(['第一条', '第二条'], ['policy-summary-1'])).toEqual({
+      total_clauses: 2,
+      clustered_clauses: 0,
+      missing_clause_ids: ['第一条', '第二条'],
       coverage_granularity: 'article',
     })
   })

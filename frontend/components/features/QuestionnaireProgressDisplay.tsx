@@ -32,6 +32,7 @@ interface QuestionnaireProgressDisplayProps {
   taskId: string
   projectId: string
   clusterStatus: ClusterStatus
+  taskStatus?: string
   onResumeComplete?: () => void
   onRegenerateComplete?: () => void
 }
@@ -49,6 +50,7 @@ export function QuestionnaireProgressDisplay({
   taskId,
   projectId,
   clusterStatus,
+  taskStatus,
   onResumeComplete,
   onRegenerateComplete,
 }: QuestionnaireProgressDisplayProps) {
@@ -57,18 +59,20 @@ export function QuestionnaireProgressDisplay({
 
   // 计算进度百分比
   const progressPercentage = Math.round(
-    (clusterStatus.completedClusters.length / clusterStatus.totalClusters) * 100,
+    (clusterStatus.completedClusters.length / clusterStatus.totalClusters) * 100
   )
 
   // 计算剩余聚类数量（待生成 + 失败）
-  const remainingClusters = clusterStatus.pendingClusters.length + clusterStatus.failedClusters.length
+  const remainingClusters =
+    clusterStatus.pendingClusters.length + clusterStatus.failedClusters.length
 
   // 估算剩余时间（假设每个聚类需要5分钟）
   const estimatedTime = Math.ceil(remainingClusters * 5)
+  const isTaskRunning = taskStatus === 'pending' || taskStatus === 'processing'
 
   // 继续生成处理
   const handleResume = async () => {
-    if (isResuming) return
+    if (isResuming || isTaskRunning || !taskId) return
 
     try {
       setIsResuming(true)
@@ -92,7 +96,7 @@ export function QuestionnaireProgressDisplay({
 
   // 单聚类重新生成处理
   const handleRegenerateCluster = async (clusterId: string) => {
-    if (regeneratingCluster) return
+    if (regeneratingCluster || isTaskRunning) return
 
     try {
       setRegeneratingCluster(clusterId)
@@ -162,19 +166,13 @@ export function QuestionnaireProgressDisplay({
       {/* 总进度概览 */}
       <Card>
         <CardContent className="pt-6">
-          <h3 className="text-lg font-semibold mb-4">
-            生成进度
-          </h3>
+          <h3 className="text-lg font-semibold mb-4">生成进度</h3>
 
           {/* 进度条 */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                总进度
-              </span>
-              <span className="text-sm font-medium">
-                {progressPercentage}%
-              </span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">总进度</span>
+              <span className="text-sm font-medium">{progressPercentage}%</span>
             </div>
             <Progress value={progressPercentage} className="h-3" />
           </div>
@@ -184,35 +182,39 @@ export function QuestionnaireProgressDisplay({
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-500" />
               <span className="text-gray-600 dark:text-gray-400">已完成</span>
-              <span className="font-medium">
-                {clusterStatus.completedClusters.length}
-              </span>
+              <span className="font-medium">{clusterStatus.completedClusters.length}</span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-gray-400" />
               <span className="text-gray-600 dark:text-gray-400">待生成</span>
-              <span className="font-medium">
-                {clusterStatus.pendingClusters.length}
-              </span>
+              <span className="font-medium">{clusterStatus.pendingClusters.length}</span>
             </div>
             <div className="flex items-center gap-2">
               <XCircle className="w-4 h-4 text-red-500" />
               <span className="text-gray-600 dark:text-gray-400">失败</span>
-              <span className="font-medium">
-                {clusterStatus.failedClusters.length}
-              </span>
+              <span className="font-medium">{clusterStatus.failedClusters.length}</span>
             </div>
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-blue-500" />
               <span className="text-gray-600 dark:text-gray-400">总计</span>
-              <span className="font-medium">
-                {clusterStatus.totalClusters}
-              </span>
+              <span className="font-medium">{clusterStatus.totalClusters}</span>
             </div>
           </div>
 
           {/* 继续生成按钮 */}
-          {remainingClusters > 0 && (
+          {remainingClusters > 0 && isTaskRunning && (
+            <div className="mt-6 flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-sm border border-blue-200 dark:border-blue-800">
+              <div>
+                <p className="font-medium text-blue-900 dark:text-blue-100">任务正在生成中</p>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                  当前任务完成前不能继续生成或单独重生成聚类
+                </p>
+              </div>
+              <RefreshCw className="w-5 h-5 text-blue-500 animate-spin" />
+            </div>
+          )}
+
+          {remainingClusters > 0 && !isTaskRunning && (
             <div className="mt-6 flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-sm border border-blue-200 dark:border-blue-800">
               <div>
                 <p className="font-medium text-blue-900 dark:text-blue-100">
@@ -247,9 +249,7 @@ export function QuestionnaireProgressDisplay({
       {/* 聚类详情列表 */}
       <Card>
         <CardContent className="pt-6">
-          <h3 className="text-lg font-semibold mb-4">
-            聚类详情
-          </h3>
+          <h3 className="text-lg font-semibold mb-4">聚类详情</h3>
 
           <div
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
@@ -264,13 +264,8 @@ export function QuestionnaireProgressDisplay({
                 {/* 聚类标题和状态 */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <h4 className="font-medium mb-1">
-                      {cluster.clusterName}
-                    </h4>
-                    <Badge
-                      variant="outline"
-                      className={getClusterStatusBadgeColor(cluster.status)}
-                    >
+                    <h4 className="font-medium mb-1">{cluster.clusterName}</h4>
+                    <Badge variant="outline" className={getClusterStatusBadgeColor(cluster.status)}>
                       {getClusterStatusIcon(cluster.status)}
                       <span className="ml-1">{getClusterStatusText(cluster.status)}</span>
                     </Badge>
@@ -288,9 +283,7 @@ export function QuestionnaireProgressDisplay({
                       ✗ 失败: {cluster.error || '未知错误'}
                     </span>
                   ) : cluster.status === 'generating' ? (
-                    <span className="text-blue-600 dark:text-blue-400">
-                      ⏳ 生成中...
-                    </span>
+                    <span className="text-blue-600 dark:text-blue-400">⏳ 生成中...</span>
                   ) : (
                     <span className="text-gray-500 dark:text-gray-500">
                       ⏸️ 等待生成 (0/{cluster.questionsExpected} 题)
@@ -302,7 +295,9 @@ export function QuestionnaireProgressDisplay({
                 <Button
                   onClick={() => handleRegenerateCluster(cluster.clusterId)}
                   disabled={
-                    regeneratingCluster === cluster.clusterId || cluster.status === 'generating'
+                    isTaskRunning ||
+                    regeneratingCluster === cluster.clusterId ||
+                    cluster.status === 'generating'
                   }
                   aria-label={`重新生成聚类: ${cluster.clusterName}`}
                   variant="outline"

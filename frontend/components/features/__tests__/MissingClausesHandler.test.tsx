@@ -133,6 +133,53 @@ describe('MissingClausesHandler', () => {
   })
 
   describe('有缺失条款', () => {
+    it('不同文档存在相同缺失条款号时不应该产生重复key警告', () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+      render(
+        <MissingClausesHandler
+          taskId="task1"
+          coverageByDocument={{
+            doc1: {
+              total_clauses: 1,
+              clustered_clauses: 0,
+              missing_clause_ids: ['第一条'],
+            },
+            doc2: {
+              total_clauses: 1,
+              clustered_clauses: 0,
+              missing_clause_ids: ['第一条'],
+            },
+          }}
+          documents={[
+            {
+              id: 'doc1',
+              name: '文档一',
+              content: '第一条 文档一的缺失条款',
+            },
+            {
+              id: 'doc2',
+              name: '文档二',
+              content: '第一条 文档二的缺失条款',
+            },
+          ]}
+          categories={[]}
+          onUpdateClustering={mockOnUpdateClustering}
+        />
+      )
+
+      expect(screen.getByText(/共发现 2 个缺失条款/)).toBeInTheDocument()
+      expect(
+        consoleErrorSpy.mock.calls.some((call) =>
+          call.some((message) =>
+            String(message).includes('Encountered two children with the same key')
+          )
+        )
+      ).toBe(false)
+
+      consoleErrorSpy.mockRestore()
+    })
+
     it('应该用规范化条款ID计算AIMM叶子要求项缺失列表并提取原文内容', () => {
       const aimmDocuments = [
         {

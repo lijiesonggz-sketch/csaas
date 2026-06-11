@@ -97,6 +97,21 @@ interface Props {
   documents?: StandardDocument[] // 添加可选标记
 }
 
+function getDisplayModelName(model?: string): string {
+  switch ((model || '').toLowerCase()) {
+    case 'gpt4':
+    case 'gpt-4':
+      return 'DeepSeek'
+    case 'claude':
+      return 'Claude'
+    case 'domestic':
+    case 'tongyi':
+      return '通义千问'
+    default:
+      return model || 'DeepSeek'
+  }
+}
+
 function getCoverageGranularityLabel(granularity?: CoverageGranularity): string {
   switch (granularity) {
     case 'leaf_requirement':
@@ -551,7 +566,7 @@ export default function ClusteringResultDisplay({ result, documents = [] }: Prop
             <div className="text-center">
               <Bot className="h-6 w-6 mx-auto mb-2 text-[#64748B]" />
               <p className="text-2xl font-semibold text-[#1E3A5F]">
-                {(result as any).selectedModel || 'GPT4'}
+                {getDisplayModelName((result as any).selectedModel)}
               </p>
               <p className="text-sm text-[#64748B]">AI模型</p>
             </div>

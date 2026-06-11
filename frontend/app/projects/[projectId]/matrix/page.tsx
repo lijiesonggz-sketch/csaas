@@ -62,10 +62,7 @@ export default function MatrixPage() {
 
   const loadExistingTasks = useCallback(async () => {
     try {
-      const cachedMatrix = cache.get(projectId, 'matrix')
-      if (cachedMatrix) {
-        setGenerationResult(cachedMatrix)
-      }
+      setGenerationResult(null)
 
       const tasks = await AITasksAPI.getTasksByProject(projectId)
       const matrixTask = tasks

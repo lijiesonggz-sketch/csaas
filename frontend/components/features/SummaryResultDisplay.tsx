@@ -20,10 +20,14 @@ interface SummaryResultDisplayProps {
   onReviewComplete?: () => void
 }
 
-export default function SummaryResultDisplay({ result, onReviewComplete }: SummaryResultDisplayProps) {
-  const summaryResult: SummaryResult = typeof result.selectedResult === 'string'
-    ? JSON.parse(result.selectedResult)
-    : result.selectedResult as SummaryResult
+export default function SummaryResultDisplay({
+  result,
+  onReviewComplete,
+}: SummaryResultDisplayProps) {
+  const summaryResult: SummaryResult =
+    typeof result.selectedResult === 'string'
+      ? JSON.parse(result.selectedResult)
+      : (result.selectedResult as SummaryResult)
 
   const handleApprove = async () => {
     try {
@@ -45,7 +49,7 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
 
   const handleExportWord = () => {
     try {
-      let htmlContent = `
+      const htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
@@ -72,19 +76,23 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
           <p>${summaryResult.overview}</p>
 
           <h2>关键领域</h2>
-          ${summaryResult.key_areas.map(area => `
+          ${summaryResult.key_areas
+            .map(
+              (area) => `
             <div class="key-area">
               <h4>${area.name} (${area.importance === 'HIGH' ? '高重要性' : area.importance === 'MEDIUM' ? '中重要性' : '低重要性'})</h4>
               <p>${area.description}</p>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
 
           <h2>适用范围</h2>
           <p>${summaryResult.scope}</p>
 
           <h2>关键要求</h2>
           <ul>
-            ${summaryResult.key_requirements.map(req => `<li>${req}</li>`).join('')}
+            ${summaryResult.key_requirements.map((req) => `<li>${req}</li>`).join('')}
           </ul>
         </body>
         </html>
@@ -120,7 +128,7 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
   const getModelName = (model: string) => {
     switch (model) {
       case 'gpt4':
-        return 'GPT-4'
+        return 'DeepSeek'
       case 'claude':
         return 'Claude'
       case 'domestic':
@@ -162,8 +170,12 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4">
-            <p className="text-sm"><strong>任务ID:</strong> {result.taskId}</p>
-            <p className="text-sm"><strong>生成时间:</strong> {new Date(result.createdAt).toLocaleString('zh-CN')}</p>
+            <p className="text-sm">
+              <strong>任务ID:</strong> {result.taskId}
+            </p>
+            <p className="text-sm">
+              <strong>生成时间:</strong> {new Date(result.createdAt).toLocaleString('zh-CN')}
+            </p>
             <p className="text-sm">
               <strong>选中模型:</strong>{' '}
               <Badge variant="outline">{getModelName(result.selectedModel)}</Badge>
@@ -176,12 +188,30 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
             </p>
             <p className="text-sm">
               <strong>审核状态:</strong>
-              {result.reviewStatus === 'PENDING' && <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200">待审核</Badge>}
-              {result.reviewStatus === 'APPROVED' && <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200">已批准</Badge>}
-              {result.reviewStatus === 'MODIFIED' && <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">已修改</Badge>}
-              {result.reviewStatus === 'REJECTED' && <Badge className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200">已拒绝</Badge>}
+              {result.reviewStatus === 'PENDING' && (
+                <Badge className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-200">
+                  待审核
+                </Badge>
+              )}
+              {result.reviewStatus === 'APPROVED' && (
+                <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200">
+                  已批准
+                </Badge>
+              )}
+              {result.reviewStatus === 'MODIFIED' && (
+                <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200">
+                  已修改
+                </Badge>
+              )}
+              {result.reviewStatus === 'REJECTED' && (
+                <Badge className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200">
+                  已拒绝
+                </Badge>
+              )}
             </p>
-            <p className="text-sm"><strong>版本:</strong> v{result.version}</p>
+            <p className="text-sm">
+              <strong>版本:</strong> v{result.version}
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -197,33 +227,51 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
               <div>
                 <div className="flex justify-between mb-2">
                   <p className="text-sm">结构一致性 (要求 ≥90%)</p>
-                  <p className="text-sm font-semibold">{((result.qualityScores?.structural || 0) * 100).toFixed(1)}%</p>
+                  <p className="text-sm font-semibold">
+                    {((result.qualityScores?.structural || 0) * 100).toFixed(1)}%
+                  </p>
                 </div>
                 <Progress
                   value={parseFloat(((result.qualityScores?.structural || 0) * 100).toFixed(1))}
-                  className={(result.qualityScores?.structural || 0) >= 0.9 ? '[&>div]:bg-green-500' : '[&>div]:bg-red-500'}
+                  className={
+                    (result.qualityScores?.structural || 0) >= 0.9
+                      ? '[&>div]:bg-green-500'
+                      : '[&>div]:bg-red-500'
+                  }
                 />
               </div>
 
               <div>
                 <div className="flex justify-between mb-2">
                   <p className="text-sm">语义一致性 (要求 ≥80%)</p>
-                  <p className="text-sm font-semibold">{((result.qualityScores?.semantic || 0) * 100).toFixed(1)}%</p>
+                  <p className="text-sm font-semibold">
+                    {((result.qualityScores?.semantic || 0) * 100).toFixed(1)}%
+                  </p>
                 </div>
                 <Progress
                   value={parseFloat(((result.qualityScores?.semantic || 0) * 100).toFixed(1))}
-                  className={(result.qualityScores?.semantic || 0) >= 0.8 ? '[&>div]:bg-green-500' : '[&>div]:bg-red-500'}
+                  className={
+                    (result.qualityScores?.semantic || 0) >= 0.8
+                      ? '[&>div]:bg-green-500'
+                      : '[&>div]:bg-red-500'
+                  }
                 />
               </div>
 
               <div>
                 <div className="flex justify-between mb-2">
                   <p className="text-sm">细节一致性 (要求 ≥60%)</p>
-                  <p className="text-sm font-semibold">{((result.qualityScores?.detail || 0) * 100).toFixed(1)}%</p>
+                  <p className="text-sm font-semibold">
+                    {((result.qualityScores?.detail || 0) * 100).toFixed(1)}%
+                  </p>
                 </div>
                 <Progress
                   value={parseFloat(((result.qualityScores?.detail || 0) * 100).toFixed(1))}
-                  className={(result.qualityScores?.detail || 0) >= 0.6 ? '[&>div]:bg-green-500' : '[&>div]:bg-red-500'}
+                  className={
+                    (result.qualityScores?.detail || 0) >= 0.6
+                      ? '[&>div]:bg-green-500'
+                      : '[&>div]:bg-red-500'
+                  }
                 />
               </div>
             </div>
@@ -262,15 +310,24 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
 
             {/* 关键领域 */}
             <div>
-              <h4 className="text-lg font-semibold mb-4 text-blue-600 dark:text-blue-400">关键领域</h4>
+              <h4 className="text-lg font-semibold mb-4 text-blue-600 dark:text-blue-400">
+                关键领域
+              </h4>
               <div className="space-y-4">
                 {summaryResult.key_areas.map((area, index) => (
-                  <Card key={index} className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                  <Card
+                    key={index}
+                    className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-2">
                         <p className="font-semibold">{area.name}</p>
                         <Badge className={getImportanceColor(area.importance)} variant="outline">
-                          {area.importance === 'HIGH' ? '高' : area.importance === 'MEDIUM' ? '中' : '低'}
+                          {area.importance === 'HIGH'
+                            ? '高'
+                            : area.importance === 'MEDIUM'
+                              ? '中'
+                              : '低'}
                         </Badge>
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">{area.description}</p>
@@ -284,7 +341,9 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
 
             {/* 适用范围 */}
             <div>
-              <h4 className="text-lg font-semibold mb-2 text-blue-600 dark:text-blue-400">适用范围</h4>
+              <h4 className="text-lg font-semibold mb-2 text-blue-600 dark:text-blue-400">
+                适用范围
+              </h4>
               <p>{summaryResult.scope}</p>
             </div>
 
@@ -292,7 +351,9 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
 
             {/* 关键要求 */}
             <div>
-              <h4 className="text-lg font-semibold mb-4 text-blue-600 dark:text-blue-400">关键要求</h4>
+              <h4 className="text-lg font-semibold mb-4 text-blue-600 dark:text-blue-400">
+                关键要求
+              </h4>
               <ul className="space-y-2">
                 {summaryResult.key_requirements.map((req, index) => (
                   <li key={index} className="flex items-start gap-2">
@@ -307,7 +368,9 @@ export default function SummaryResultDisplay({ result, onReviewComplete }: Summa
 
             {/* 合规级别 */}
             <div>
-              <h4 className="text-lg font-semibold mb-2 text-blue-600 dark:text-blue-400">合规级别说明</h4>
+              <h4 className="text-lg font-semibold mb-2 text-blue-600 dark:text-blue-400">
+                合规级别说明
+              </h4>
               <p>{summaryResult.compliance_level}</p>
             </div>
           </div>

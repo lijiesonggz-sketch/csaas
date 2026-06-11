@@ -88,8 +88,11 @@ function escapeRegExp(value: string): string {
 
 const CLAUSE_TEXT_NOT_FOUND = '条款内容未找到'
 const MAX_CLAUSE_TEXT_LENGTH = 300
-const NUMERIC_LEAF_ID_PATTERN = /^(\d{1,2}(?:\.\d{1,2}){1,3})-([a-z])(?:-(\d{1,2}))?$/
-const NUMERIC_SECTION_ID_PATTERN = /^\d{1,2}(?:\.\d{1,2}){1,3}$/
+const STRUCTURED_SECTION_ID_SOURCE = String.raw`(?:\d{1,2}(?:\.\d{1,2}){1,3}|[A-Z](?:\.\d{1,2}){1,4})`
+const STRUCTURED_LEAF_ID_PATTERN = new RegExp(
+  `^(${STRUCTURED_SECTION_ID_SOURCE})-([a-z])(?:-(\\d{1,2}))?$`
+)
+const STRUCTURED_SECTION_ID_PATTERN = new RegExp(`^${STRUCTURED_SECTION_ID_SOURCE}$`)
 
 interface DocumentLine {
   raw: string
@@ -101,7 +104,7 @@ function normalizeTextForMatching(value: string): string {
     .replace(/[．。]/g, '.')
     .replace(/[（]/g, '(')
     .replace(/[）]/g, ')')
-    .replace(/(\d+)\s*[.]\s*(\d+)/g, '$1.$2')
+    .replace(/([A-Za-z0-9])\s*[.]\s*(?=\d)/g, '$1.')
     .replace(/\t/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -119,7 +122,7 @@ function parseNumberedHeadingId(line: string): string | null {
     return null
   }
 
-  const match = line.match(/^(\d{1,2}(?:\.\d{1,2}){1,3})(?:\s+|$)(.*)$/)
+  const match = line.match(new RegExp(`^(${STRUCTURED_SECTION_ID_SOURCE})(?:\\s+|$)(.*)$`, 'i'))
   if (!match) {
     return null
   }
@@ -177,7 +180,7 @@ function joinClauseLines(lines: DocumentLine[]): string {
 
 function extractNumericLeafClauseText(content: string, clauseId: string): string | null {
   const normalizedClauseId = normalizeClauseId(clauseId)
-  const leafMatch = normalizedClauseId.match(NUMERIC_LEAF_ID_PATTERN)
+  const leafMatch = normalizedClauseId.match(STRUCTURED_LEAF_ID_PATTERN)
   if (!leafMatch) {
     return null
   }
@@ -230,7 +233,7 @@ function extractNumericLeafClauseText(content: string, clauseId: string): string
 
 function extractNumericSectionClauseText(content: string, clauseId: string): string | null {
   const normalizedClauseId = normalizeClauseId(clauseId)
-  if (!NUMERIC_SECTION_ID_PATTERN.test(normalizedClauseId)) {
+  if (!STRUCTURED_SECTION_ID_PATTERN.test(normalizedClauseId)) {
     return null
   }
 
@@ -281,6 +284,10 @@ function extractClauseTextFromDocument(
   )
 }
 
+function getMissingClauseKey(missingClause: Pick<MissingClauseInfo, 'documentId' | 'clauseId'>) {
+  return `${missingClause.documentId}::${missingClause.clauseId}`
+}
+
 export default function MissingClausesHandler({
   taskId,
   coverageByDocument,
@@ -292,7 +299,7 @@ export default function MissingClausesHandler({
   const [newClusterModalVisible, setNewClusterModalVisible] = useState(false)
   const [selectedMissingClause, setSelectedMissingClause] = useState<MissingClauseInfo | null>(null)
   const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null)
-  const [assignments, setAssignments] = useState<Record<string, string>>({}) // clauseId -> clusterId
+  const [assignments, setAssignments] = useState<Record<string, string>>({}) // documentId::clauseId -> clusterId
   const [saving, setSaving] = useState(false) // 保存到后端的状态
   const [saveError, setSaveError] = useState<string | null>(null) // 保存错误
   const [formData, setFormData] = useState({
@@ -368,7 +375,7 @@ export default function MissingClausesHandler({
     // 更新分配记录
     setAssignments({
       ...assignments,
-      [selectedMissingClause.clauseId]: selectedClusterId,
+      [getMissingClauseKey(selectedMissingClause)]: selectedClusterId,
     })
 
     setAssignModalVisible(false)
@@ -423,7 +430,7 @@ export default function MissingClausesHandler({
       // 移除已处理的缺失条款
       setAssignments({
         ...assignments,
-        [selectedMissingClause.clauseId]: newCluster.id,
+        [getMissingClauseKey(selectedMissingClause)]: newCluster.id,
       })
 
       // 通知父组件更新
@@ -456,8 +463,10 @@ export default function MissingClausesHandler({
           // 找到应该分配到这个聚类的缺失条款
           const newClauses = Object.entries(assignments)
             .filter(([_, clusterId]) => clusterId === cluster.id)
-            .map(([clauseId, _]) => {
-              const missingClause = missingClauses.find((mc) => mc.clauseId === clauseId)
+            .map(([missingClauseKey, _]) => {
+              const missingClause = missingClauses.find(
+                (mc) => getMissingClauseKey(mc) === missingClauseKey
+              )
               if (!missingClause) return null
 
               return {
@@ -572,12 +581,13 @@ export default function MissingClausesHandler({
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {missingClauses.map((missingClause, index) => {
-              const isAssigned = assignments[missingClause.clauseId]
+            {missingClauses.map((missingClause) => {
+              const missingClauseKey = getMissingClauseKey(missingClause)
+              const isAssigned = assignments[missingClauseKey]
 
               return (
                 <Card
-                  key={missingClause.clauseId}
+                  key={missingClauseKey}
                   className={cn('border', isAssigned && 'border-[#059669] bg-[#D1FAE5]')}
                 >
                   <CardContent className="p-4">

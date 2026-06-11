@@ -333,12 +333,7 @@ export class TaskAdapter {
         selectedResult = task.result
     }
 
-    // 提取质量评分（从实际结果中获取，如果不存在则使用默认值）
-    const actualQualityScores = task.result?.qualityScores || {
-      structural: 0.85,
-      semantic: 0.8,
-      detail: 0.75,
-    }
+    const actualQualityScores = TaskAdapter.normalizeQualityScores(task.result?.qualityScores)
 
     return {
       id: task.id,
@@ -346,8 +341,8 @@ export class TaskAdapter {
       projectId: task.projectId, // ✅ 添加 projectId
       generationType,
       selectedResult,
-      selectedModel: (task.result?.selectedModel || 'gpt4') as SelectedModel,
-      confidenceLevel: (task.result?.confidenceLevel || 'MEDIUM') as ConfidenceLevel,
+      selectedModel: TaskAdapter.normalizeSelectedModel(task.result?.selectedModel),
+      confidenceLevel: TaskAdapter.normalizeConfidenceLevel(task.result?.confidenceLevel),
       qualityScores: actualQualityScores,
       consistencyReport: task.result?.consistencyReport || {
         agreements: [],
@@ -366,6 +361,60 @@ export class TaskAdapter {
       reviewStatus: 'APPROVED',
       version: 1,
       createdAt: task.createdAt,
+    }
+  }
+
+  private static normalizeQualityScores(scores: any) {
+    if (!scores || typeof scores !== 'object') {
+      return null
+    }
+
+    const normalizeScore = (value: unknown): number | null => {
+      const numericValue = Number(value)
+      if (!Number.isFinite(numericValue)) {
+        return null
+      }
+      return numericValue > 1 ? numericValue / 100 : numericValue
+    }
+
+    const structural = normalizeScore(scores.structural)
+    const semantic = normalizeScore(scores.semantic)
+    const detail = normalizeScore(scores.detail)
+
+    if (structural === null || semantic === null || detail === null) {
+      return null
+    }
+
+    return {
+      structural,
+      semantic,
+      detail,
+    }
+  }
+
+  private static normalizeSelectedModel(model: unknown): SelectedModel {
+    switch (String(model || '').toLowerCase()) {
+      case 'claude':
+        return 'claude'
+      case 'domestic':
+      case 'tongyi':
+        return 'domestic'
+      case 'gpt-4':
+      case 'gpt4':
+      default:
+        return 'gpt4'
+    }
+  }
+
+  private static normalizeConfidenceLevel(level: unknown): ConfidenceLevel {
+    switch (String(level || '').toUpperCase()) {
+      case 'HIGH':
+        return 'HIGH'
+      case 'LOW':
+        return 'LOW'
+      case 'MEDIUM':
+      default:
+        return 'MEDIUM'
     }
   }
 }

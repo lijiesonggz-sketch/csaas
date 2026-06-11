@@ -51,6 +51,7 @@ jest.mock('@/components/features/QuestionnaireResultDisplay', () => ({
     return (
       <div data-testid="questionnaire-result">
         {editable ? 'editable' : 'readonly'}
+        <span>{sourceQuestions.length} questions</span>
         <button
           onClick={() =>
             onQuestionsChange?.(
@@ -69,7 +70,11 @@ jest.mock('@/components/features/QuestionnaireResultDisplay', () => ({
 }))
 
 jest.mock('@/components/features/QuestionnaireProgressDisplay', () => ({
-  QuestionnaireProgressDisplay: () => <div data-testid="progress-display">Progress Display</div>,
+  QuestionnaireProgressDisplay: ({ taskStatus }: { taskStatus?: string }) => (
+    <div data-testid="progress-display" data-task-status={taskStatus}>
+      Progress Display
+    </div>
+  ),
 }))
 
 jest.mock('@/components/projects/RerunTaskDialog', () => ({
@@ -342,6 +347,135 @@ describe('QuestionnairePage', () => {
         input: { matrixTaskId: 'matrix-task-new' },
       })
     })
+  })
+
+  it('should show an in-progress questionnaire task instead of the empty generate state', async () => {
+    AITasksAPI.getTasksByProject.mockResolvedValue([
+      {
+        id: 'questionnaire-running-task',
+        projectId: 'project-1',
+        type: 'questionnaire',
+        status: 'processing',
+        createdAt: '2026-03-26T12:00:00.000Z',
+        updatedAt: '2026-03-26T12:05:00.000Z',
+        input: { matrixTaskId: 'matrix-task-new' },
+        result: null,
+        progress: 35,
+        clusterGenerationStatus: {
+          totalClusters: 2,
+          completedClusters: ['cluster-1__row_1'],
+          failedClusters: [],
+          pendingClusters: ['cluster-2__row_2'],
+          clusterProgress: {
+            'cluster-1__row_1': {
+              clusterId: 'cluster-1__row_1',
+              clusterName: '能力项一',
+              status: 'completed',
+              questionsGenerated: 5,
+              questionsExpected: 5,
+            },
+            'cluster-2__row_2': {
+              clusterId: 'cluster-2__row_2',
+              clusterName: '能力项二',
+              status: 'generating',
+              questionsGenerated: 0,
+              questionsExpected: 5,
+            },
+          },
+        },
+      },
+      {
+        id: 'matrix-task-new',
+        type: 'matrix',
+        status: 'completed',
+        createdAt: '2026-03-26T11:00:00.000Z',
+        result: { matrix: [{ cluster_id: 'cluster-1', cluster_name: '最新 AIMM 能力项' }] },
+      },
+    ])
+
+    render(<QuestionnairePage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('progress-display')).toHaveAttribute(
+        'data-task-status',
+        'processing'
+      )
+    })
+
+    expect(screen.getByText('问卷正在生成中')).toBeInTheDocument()
+    expect(screen.queryByText('还没有生成问卷')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^生成问卷$/ })).not.toBeInTheDocument()
+  })
+
+  it('should still show persisted questions when the newest questionnaire task failed without a result', async () => {
+    AITasksAPI.getTasksByProject.mockResolvedValue([
+      {
+        id: 'failed-progress-only-task',
+        projectId: 'project-1',
+        type: 'questionnaire',
+        status: 'failed',
+        createdAt: '2026-03-26T12:10:00.000Z',
+        updatedAt: '2026-03-26T12:20:00.000Z',
+        errorMessage: '问卷生成任务已中断',
+        input: { matrixTaskId: 'matrix-task-new' },
+        result: null,
+        progress: 35,
+        clusterGenerationStatus: {
+          totalClusters: 2,
+          completedClusters: ['cluster-1__row_1'],
+          failedClusters: [],
+          pendingClusters: ['cluster-2__row_2'],
+          clusterProgress: {
+            'cluster-1__row_1': {
+              clusterId: 'cluster-1__row_1',
+              clusterName: '能力项一',
+              status: 'completed',
+              questionsGenerated: 5,
+              questionsExpected: 5,
+            },
+          },
+        },
+      },
+      {
+        id: 'completed-questionnaire-task',
+        projectId: 'project-1',
+        type: 'questionnaire',
+        status: 'completed',
+        createdAt: '2026-03-26T12:00:00.000Z',
+        updatedAt: '2026-03-26T12:05:00.000Z',
+        input: { matrixTaskId: 'matrix-task-new', targetClusters: ['cluster-1'] },
+        result: {
+          questionnaire: [
+            {
+              question_id: 'Q001',
+              cluster_id: 'cluster-1',
+              cluster_name: '能力项一',
+              question_text: '已生成的问题',
+              question_type: 'SINGLE_CHOICE',
+              options: [],
+              required: true,
+              guidance: '',
+            },
+          ],
+          questionnaire_metadata: { total_questions: 1 },
+        },
+      },
+      {
+        id: 'matrix-task-new',
+        type: 'matrix',
+        status: 'completed',
+        createdAt: '2026-03-26T11:00:00.000Z',
+        result: { matrix: [{ cluster_id: 'cluster-1', cluster_name: '最新 AIMM 能力项' }] },
+      },
+    ])
+
+    render(<QuestionnairePage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('questionnaire-result')).toHaveTextContent('1 questions')
+    })
+    expect(screen.getByTestId('progress-display')).toHaveAttribute('data-task-status', 'failed')
+    expect(screen.getByText('问卷生成任务已中断')).toBeInTheDocument()
   })
 
   it('should prefer questionnaire snapshot when KG source is explicitly requested', async () => {

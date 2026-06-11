@@ -98,7 +98,7 @@ describe('MatrixResultDisplay', () => {
 
     expect(screen.getByText('质量评分')).toBeInTheDocument()
     expect(screen.getByText('结构质量')).toBeInTheDocument()
-    expect(screen.getByText('语义质量')).toBeInTheDocument()
+    expect(screen.getByText('一致性评分')).toBeInTheDocument()
     expect(screen.getByText('细节质量')).toBeInTheDocument()
   })
 
@@ -129,6 +129,7 @@ describe('MatrixResultDisplay', () => {
 
     expect(screen.getByText('任务ID')).toBeInTheDocument()
     expect(screen.getByText('选中模型')).toBeInTheDocument()
+    expect(screen.getByText('DeepSeek')).toBeInTheDocument()
     expect(screen.getByText('置信度')).toBeInTheDocument()
     expect(screen.getByText('矩阵规模')).toBeInTheDocument()
   })
@@ -156,5 +157,38 @@ describe('MatrixResultDisplay', () => {
     expect(screen.getByText(/未调用AI重新生成等级定义/)).toBeInTheDocument()
     expect(screen.getByText('生成方式')).toBeInTheDocument()
     expect(screen.getByText('原文提取')).toBeInTheDocument()
+  })
+
+  it('shows original level requirements without duplicated descriptions in original maturity model mode', () => {
+    render(
+      <MatrixResultDisplay
+        result={{
+          ...mockResult,
+          selectedResult: {
+            ...mockResult.selectedResult,
+            generation_mode: 'original_maturity_model',
+            matrix: [
+              {
+                ...mockResult.selectedResult.matrix[0],
+                levels: {
+                  ...mockResult.selectedResult.matrix[0].levels,
+                  level_1: {
+                    name: '初始级',
+                    description: '原文第 1 级要求：实践1；实践2',
+                    key_practices: ['实践1', '实践2'],
+                  },
+                },
+              },
+            ],
+          },
+        }}
+      />
+    )
+
+    expect(screen.getAllByText('原文等级要求：').length).toBeGreaterThan(0)
+    expect(screen.queryByText('原文第 1 级要求：实践1；实践2')).not.toBeInTheDocument()
+    expect(screen.getByText('实践1')).toBeInTheDocument()
+    expect(screen.getByText('实践2')).toBeInTheDocument()
+    expect(screen.queryByText('关键实践：')).not.toBeInTheDocument()
   })
 })

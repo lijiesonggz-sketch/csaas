@@ -183,6 +183,7 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
   const renderCellContent = (row: MatrixRow, levelKey: string) => {
     const level = row.levels[levelKey as keyof typeof row.levels]
     const isEditing = editingCell?.rowId === row.cluster_id && editingCell?.levelKey === levelKey
+    const practicesLabel = isOriginalMaturityModel ? '原文等级要求' : '关键实践'
 
     if (!level) {
       return <p className="text-sm text-gray-600 dark:text-gray-400">暂无数据</p>
@@ -205,18 +206,22 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
 
         {isEditing ? (
           <div className="flex flex-col gap-2">
+            {!isOriginalMaturityModel && (
+              <div className="space-y-2">
+                <Label htmlFor="description">级别描述</Label>
+                <Input
+                  id="description"
+                  value={level.description}
+                  onChange={(e) =>
+                    handleUpdateDescription(row.cluster_id, levelKey, e.target.value)
+                  }
+                  placeholder="级别描述"
+                  className="min-h-[80px]"
+                />
+              </div>
+            )}
             <div className="space-y-2">
-              <Label htmlFor="description">级别描述</Label>
-              <Input
-                id="description"
-                value={level.description}
-                onChange={(e) => handleUpdateDescription(row.cluster_id, levelKey, e.target.value)}
-                placeholder="级别描述"
-                className="min-h-[80px]"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="practices">关键实践（每行一条）</Label>
+              <Label htmlFor="practices">{practicesLabel}（每行一条）</Label>
               <Input
                 id="practices"
                 value={level.key_practices.join('\n')}
@@ -227,7 +232,7 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
                     e.target.value.split('\n').filter((p) => p.trim())
                   )
                 }
-                placeholder="关键实践（每行一条）"
+                placeholder={`${practicesLabel}（每行一条）`}
                 className="min-h-[100px]"
               />
             </div>
@@ -244,9 +249,11 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
           </div>
         ) : (
           <>
-            <p className="text-sm text-gray-600 dark:text-gray-400">{level.description}</p>
+            {!isOriginalMaturityModel && (
+              <p className="text-sm text-gray-600 dark:text-gray-400">{level.description}</p>
+            )}
             <div>
-              <p className="text-xs font-semibold mb-1">关键实践：</p>
+              <p className="text-xs font-semibold mb-1">{practicesLabel}：</p>
               <ul className="pl-4 m-0 space-y-1">
                 {level.key_practices.map((practice, index) => (
                   <li key={index} className="text-xs text-gray-600 dark:text-gray-400">
@@ -271,6 +278,21 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
         return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200'
       default:
         return 'bg-gray-100 text-gray-700'
+    }
+  }
+
+  const getDisplayModelName = (model?: string) => {
+    switch ((model || '').toLowerCase()) {
+      case 'gpt4':
+      case 'gpt-4':
+        return 'DeepSeek'
+      case 'claude':
+        return 'Claude'
+      case 'domestic':
+      case 'tongyi':
+        return '通义千问'
+      default:
+        return model || 'DeepSeek'
     }
   }
 
@@ -345,7 +367,7 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
             </p>
             <div className="mt-1">
               <Badge variant="outline">
-                {isOriginalMaturityModel ? '原文提取' : result.selectedModel}
+                {isOriginalMaturityModel ? '原文提取' : getDisplayModelName(result.selectedModel)}
               </Badge>
             </div>
           </CardContent>
@@ -383,7 +405,7 @@ export default function MatrixResultDisplay({ result }: MatrixResultDisplayProps
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">语义质量</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">一致性评分</p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {(result.qualityScores.semantic * 100).toFixed(1)}%
                 </p>

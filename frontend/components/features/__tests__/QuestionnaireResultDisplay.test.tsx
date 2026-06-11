@@ -74,6 +74,7 @@ describe('QuestionnaireResultDisplay', () => {
 
     expect(screen.getByText('任务ID')).toBeInTheDocument()
     expect(screen.getByText('选中模型')).toBeInTheDocument()
+    expect(screen.getByText('DeepSeek')).toBeInTheDocument()
     expect(screen.getByText('置信度')).toBeInTheDocument()
     expect(screen.getByText('总题数')).toBeInTheDocument()
     // These appear multiple times
@@ -96,7 +97,7 @@ describe('QuestionnaireResultDisplay', () => {
 
     expect(screen.getByText('质量评分')).toBeInTheDocument()
     expect(screen.getByText('结构质量')).toBeInTheDocument()
-    expect(screen.getByText('语义质量')).toBeInTheDocument()
+    expect(screen.getByText('一致性评分')).toBeInTheDocument()
     expect(screen.getByText('细节质量')).toBeInTheDocument()
   })
 
