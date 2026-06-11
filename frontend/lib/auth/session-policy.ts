@@ -1,0 +1,2 @@
+export const AUTH_IDLE_TIMEOUT_MS = 2 * 60 * 60 * 1000
+export const AUTH_ABSOLUTE_SESSION_MAX_AGE_SECONDS = 8 * 60 * 60

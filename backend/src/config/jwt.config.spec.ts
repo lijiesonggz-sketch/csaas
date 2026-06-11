@@ -1,4 +1,9 @@
-import { jwtConfig, validateJwtConfig } from './jwt.config'
+import { validateJwtConfig } from './jwt.config'
+
+function loadFreshJwtConfig(): typeof import('./jwt.config') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require('./jwt.config') as typeof import('./jwt.config')
+}
 
 describe('JWT Configuration', () => {
   const originalEnv = process.env
@@ -18,7 +23,7 @@ describe('JWT Configuration', () => {
       process.env.JWT_SECRET = 'test-secret-key-that-is-at-least-32-characters'
 
       // Re-import to get fresh config
-      const { jwtConfig: freshConfig } = require('./jwt.config')
+      const { jwtConfig: freshConfig } = loadFreshJwtConfig()
 
       expect(freshConfig.secret).toBe('test-secret-key-that-is-at-least-32-characters')
     })
@@ -26,7 +31,7 @@ describe('JWT Configuration', () => {
     it('should not have default secret (secret should be undefined when env not set)', () => {
       delete process.env.JWT_SECRET
 
-      const { jwtConfig: freshConfig } = require('./jwt.config')
+      const { jwtConfig: freshConfig } = loadFreshJwtConfig()
 
       expect(freshConfig.secret).toBeUndefined()
     })
@@ -34,17 +39,17 @@ describe('JWT Configuration', () => {
     it('should use JWT_EXPIRES_IN from environment variable', () => {
       process.env.JWT_EXPIRES_IN = '1h'
 
-      const { jwtConfig: freshConfig } = require('./jwt.config')
+      const { jwtConfig: freshConfig } = loadFreshJwtConfig()
 
       expect(freshConfig.signOptions.expiresIn).toBe('1h')
     })
 
-    it('should default to 2h when JWT_EXPIRES_IN is not set', () => {
+    it('should default to 8h when JWT_EXPIRES_IN is not set', () => {
       delete process.env.JWT_EXPIRES_IN
 
-      const { jwtConfig: freshConfig } = require('./jwt.config')
+      const { jwtConfig: freshConfig } = loadFreshJwtConfig()
 
-      expect(freshConfig.signOptions.expiresIn).toBe('2h')
+      expect(freshConfig.signOptions.expiresIn).toBe('8h')
     })
   })
 
@@ -71,13 +76,17 @@ describe('JWT Configuration', () => {
     it('should throw error when JWT_SECRET is less than 32 characters', () => {
       process.env.JWT_SECRET = 'short-secret'
 
-      expect(() => validateJwtConfig()).toThrow('JWT_SECRET must be at least 32 characters long, got 12 characters')
+      expect(() => validateJwtConfig()).toThrow(
+        'JWT_SECRET must be at least 32 characters long, got 12 characters',
+      )
     })
 
     it('should throw error when JWT_SECRET is exactly 31 characters', () => {
       process.env.JWT_SECRET = 'this-is-exactly-31-characters!!'
 
-      expect(() => validateJwtConfig()).toThrow('JWT_SECRET must be at least 32 characters long, got 31 characters')
+      expect(() => validateJwtConfig()).toThrow(
+        'JWT_SECRET must be at least 32 characters long, got 31 characters',
+      )
     })
 
     it('should not throw error when JWT_SECRET is exactly 32 characters', () => {
@@ -95,7 +104,9 @@ describe('JWT Configuration', () => {
     it('should throw error when JWT_SECRET exceeds 512 characters', () => {
       process.env.JWT_SECRET = 'a'.repeat(513)
 
-      expect(() => validateJwtConfig()).toThrow('JWT_SECRET must not exceed 512 characters, got 513 characters')
+      expect(() => validateJwtConfig()).toThrow(
+        'JWT_SECRET must not exceed 512 characters, got 513 characters',
+      )
     })
 
     it('should accept secrets with exactly 512 characters', () => {

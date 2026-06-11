@@ -7,10 +7,12 @@
  * @module backend/src/config/jwt.config
  */
 
+export const DEFAULT_JWT_EXPIRES_IN = '8h'
+
 export const jwtConfig = {
   secret: process.env.JWT_SECRET,
   signOptions: {
-    expiresIn: process.env.JWT_EXPIRES_IN || '2h',
+    expiresIn: process.env.JWT_EXPIRES_IN || DEFAULT_JWT_EXPIRES_IN,
   },
 }
 
@@ -28,7 +30,9 @@ export function validateJwtConfig(): void {
   }
 
   if (secret.length < 32) {
-    throw new Error(`JWT_SECRET must be at least 32 characters long, got ${secret.length} characters`)
+    throw new Error(
+      `JWT_SECRET must be at least 32 characters long, got ${secret.length} characters`,
+    )
   }
 
   if (secret.length > 512) {

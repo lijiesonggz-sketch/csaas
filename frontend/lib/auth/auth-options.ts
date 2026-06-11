@@ -1,6 +1,7 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { UserRole } from './types'
+import { AUTH_ABSOLUTE_SESSION_MAX_AGE_SECONDS } from './session-policy'
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -43,7 +44,7 @@ export const authOptions: NextAuthOptions = {
           console.log('[NextAuth] Backend response data:', {
             success: data.success,
             hasUser: !!data.data?.user,
-            hasToken: !!data.data?.access_token
+            hasToken: !!data.data?.access_token,
           })
 
           if (!res.ok) {
@@ -67,7 +68,7 @@ export const authOptions: NextAuthOptions = {
             id: user.id,
             email: user.email,
             tenantId: user.tenantId,
-            hasAccessToken: !!user.accessToken
+            hasAccessToken: !!user.accessToken,
           })
 
           return user
@@ -80,7 +81,7 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: 'jwt',
-    maxAge: 2 * 60 * 60, // 2 hours
+    maxAge: AUTH_ABSOLUTE_SESSION_MAX_AGE_SECONDS,
   },
   callbacks: {
     async jwt({ token, user }) {

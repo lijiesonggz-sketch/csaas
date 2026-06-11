@@ -1,14 +1,17 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { SessionProvider, signOut } from 'next-auth/react'
+import { SessionProvider, signOut, useSession } from 'next-auth/react'
 import { BrandProvider } from '@/components/layout/BrandProvider'
 import {
   AUTH_SESSION_EXPIRED_EVENT,
   AuthSessionExpiredDetail,
   buildLoginUrl,
+  clearAuthNavigationUiArtifacts,
   getCurrentAuthCallbackUrl,
 } from '@/lib/auth/session-expiry'
+import { AUTH_IDLE_TIMEOUT_MS } from '@/lib/auth/session-policy'
+import { clearTokenCache } from '@/lib/utils/api'
 
 /**
  * Radix UI Dialog 在 React StrictMode + Next.js App Router 下存在已知 bug：
@@ -102,6 +105,8 @@ function useAuthSessionExpiryRedirect() {
           : undefined
       const callbackUrl = detail?.callbackUrl ?? getCurrentAuthCallbackUrl()
 
+      clearTokenCache()
+      clearAuthNavigationUiArtifacts()
       void signOut({ callbackUrl: buildLoginUrl(callbackUrl) })
     }
 
@@ -110,13 +115,81 @@ function useAuthSessionExpiryRedirect() {
   }, [])
 }
 
-export function Providers({ children }: { children: React.ReactNode }) {
+function useAuthIdleTimeout() {
+  const { status } = useSession()
+  const signingOutRef = useRef(false)
+
+  useEffect(() => {
+    if (status !== 'authenticated') {
+      signingOutRef.current = false
+      return
+    }
+
+    let timeoutId: number | null = null
+
+    const expireIdleSession = () => {
+      if (signingOutRef.current) return
+
+      signingOutRef.current = true
+      clearTokenCache()
+      clearAuthNavigationUiArtifacts()
+      void signOut({ callbackUrl: buildLoginUrl(getCurrentAuthCallbackUrl()) })
+    }
+
+    const resetIdleTimer = () => {
+      if (signingOutRef.current) return
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+      timeoutId = window.setTimeout(expireIdleSession, AUTH_IDLE_TIMEOUT_MS)
+    }
+
+    const resetWhenVisible = () => {
+      if (document.visibilityState === 'visible') {
+        resetIdleTimer()
+      }
+    }
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      'click',
+      'keydown',
+      'mousemove',
+      'mousedown',
+      'touchstart',
+      'scroll',
+      'wheel',
+    ]
+
+    resetIdleTimer()
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, resetIdleTimer, { passive: true })
+    })
+    document.addEventListener('visibilitychange', resetWhenVisible)
+
+    return () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, resetIdleTimer)
+      })
+      document.removeEventListener('visibilitychange', resetWhenVisible)
+    }
+  }, [status])
+}
+
+function AuthRuntime({ children }: { children: React.ReactNode }) {
   useRadixDialogCleanup()
   useAuthSessionExpiryRedirect()
+  useAuthIdleTimeout()
 
+  return <BrandProvider>{children}</BrandProvider>
+}
+
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
-      <BrandProvider>{children}</BrandProvider>
+    <SessionProvider refetchOnWindowFocus refetchInterval={5 * 60} refetchWhenOffline={false}>
+      <AuthRuntime>{children}</AuthRuntime>
     </SessionProvider>
   )
 }

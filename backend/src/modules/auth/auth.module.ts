@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 import { JwtModule } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import { User, OrganizationMember } from '@/database/entities'
+import { DEFAULT_JWT_EXPIRES_IN } from '@/config/jwt.config'
 import { AuthController } from './auth.controller'
 import { AuthService } from './auth.service'
 import { JwtStrategy } from './strategies/jwt.strategy'
@@ -15,12 +16,18 @@ import { JwtStrategy } from './strategies/jwt.strategy'
       useFactory: (configService: ConfigService) => {
         const secret = configService.get<string>('JWT_SECRET')
         if (!secret) {
-          throw new Error('JWT_SECRET is not configured. Ensure validateJwtConfig() is called before AuthModule initialization.')
+          throw new Error(
+            'JWT_SECRET is not configured. Ensure validateJwtConfig() is called before AuthModule initialization.',
+          )
         }
         return {
           secret,
           signOptions: {
-            expiresIn: (configService.get<string>('JWT_EXPIRES_IN') || '2h') as `${number}h` | `${number}d` | `${number}m` | `${number}s`,
+            expiresIn: (configService.get<string>('JWT_EXPIRES_IN') || DEFAULT_JWT_EXPIRES_IN) as
+              | `${number}h`
+              | `${number}d`
+              | `${number}m`
+              | `${number}s`,
           },
         }
       },

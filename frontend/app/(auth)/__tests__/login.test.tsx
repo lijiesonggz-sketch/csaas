@@ -25,6 +25,15 @@ jest.mock('@/lib/message', () => ({
 }))
 
 import { message } from '@/lib/message'
+import { clearAuthNavigationUiArtifacts } from '@/lib/auth/session-expiry'
+
+jest.mock('@/lib/auth/session-expiry', () => {
+  const actual = jest.requireActual('@/lib/auth/session-expiry')
+  return {
+    ...actual,
+    clearAuthNavigationUiArtifacts: jest.fn(),
+  }
+})
 
 describe('LoginPage', () => {
   const mockPush = jest.fn()
@@ -213,6 +222,8 @@ describe('LoginPage', () => {
       await waitFor(() => {
         expect(message.success).toHaveBeenCalledWith('登录成功!')
       })
+
+      expect(clearAuthNavigationUiArtifacts).toHaveBeenCalled()
 
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith('/dashboard')
