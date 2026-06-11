@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository } from 'typeorm'
+import { In, Repository } from 'typeorm'
 import { InjectQueue } from '@nestjs/bullmq'
 import { Queue } from 'bullmq'
 import {
@@ -13,16 +13,20 @@ import {
 import { AI_TASK_QUEUE, AITaskJobType } from './constants/queue.constants'
 import { AITaskJobData } from './interfaces/queue-job.interface'
 import { AIModel } from '../../database/entities/ai-generation-event.entity'
+import { AIGenerationResult } from '../../database/entities/ai-generation-result.entity'
 import { CreateAITaskDto } from './dto/create-ai-task.dto'
 
 @Injectable()
 export class AITasksService {
   private readonly logger = new Logger(AITasksService.name)
   private static readonly STANDARD_INTERPRETATION_STALE_MS = 20 * 60 * 1000
+  private static readonly QUESTIONNAIRE_STALE_MS = 20 * 60 * 1000
 
   constructor(
     @InjectRepository(AITask)
     private readonly aiTaskRepo: Repository<AITask>,
+    @InjectRepository(AIGenerationResult)
+    private readonly generationResultRepo: Repository<AIGenerationResult>,
     @InjectQueue(AI_TASK_QUEUE)
     private readonly aiTaskQueue: Queue<AITaskJobData>,
   ) {}
@@ -42,7 +46,7 @@ export class AITasksService {
 
     // 添加到队列
     // 对于clustering/matrix/questionnaire类型，不设置model参数（让Processor使用对应的Generator进行三模型并行）
-    // 对于其他类型，使用dto.model或默认的GPT4
+    // 对于其他类型，使用dto.model或默认第一模型槽位（当前配置为 DeepSeek）
     const isMultiModelTask = [
       'clustering',
       'matrix',
@@ -50,6 +54,7 @@ export class AITasksService {
       'standard_interpretation',
       'standard_related_search',
       'standard_version_compare',
+      'standard_cross_compare',
     ].includes(dto.type)
 
     const jobData: AITaskJobData = {
@@ -73,20 +78,22 @@ export class AITasksService {
 
     this.logger.log(`Added task ${task.id} to queue`)
 
-    return task
+    return this.normalizeQuestionnaireTask(task)
   }
 
   async getTask(taskId: string): Promise<AITask> {
-    const task = await this.aiTaskRepo.findOne({
+    let task = await this.aiTaskRepo.findOne({
       where: { id: taskId },
-      relations: ['events', 'costs'],
     })
 
     if (!task) {
       throw new NotFoundException(`Task ${taskId} not found`)
     }
 
-    return task
+    task = await this.markStaleQuestionnaireTaskFailed(task)
+    task = await this.attachGenerationResultMetadata(task)
+
+    return this.normalizeQuestionnaireTask(task)
   }
 
   private isStaleStandardInterpretationTask(task: AITask): boolean {
@@ -115,6 +122,234 @@ export class AITasksService {
       Number.isFinite(updatedAtMs) &&
       Date.now() - updatedAtMs >= AITasksService.STANDARD_INTERPRETATION_STALE_MS
     )
+  }
+
+  private normalizeQuestionnaireClusterStatus(status: any) {
+    if (!status) {
+      return status
+    }
+
+    const clusterProgress = status.clusterProgress || {}
+    const normalizedProgress: Record<string, any> = {}
+    const completedClusters: string[] = []
+    const failedClusters: string[] = []
+    const pendingClusters: string[] = []
+
+    for (const [key, progress] of Object.entries(clusterProgress)) {
+      const normalized = {
+        ...(progress as any),
+        clusterId: String((progress as any)?.clusterId || key),
+      }
+      normalizedProgress[normalized.clusterId] = normalized
+
+      if (normalized.status === 'completed') {
+        completedClusters.push(normalized.clusterId)
+      } else if (normalized.status === 'failed') {
+        failedClusters.push(normalized.clusterId)
+      } else {
+        pendingClusters.push(normalized.clusterId)
+      }
+    }
+
+    if (Object.keys(normalizedProgress).length === 0) {
+      return {
+        ...status,
+        completedClusters: Array.from(new Set(status.completedClusters || [])),
+        failedClusters: Array.from(new Set(status.failedClusters || [])),
+        pendingClusters: Array.from(new Set(status.pendingClusters || [])),
+      }
+    }
+
+    return {
+      ...status,
+      totalClusters: status.totalClusters || Object.keys(normalizedProgress).length,
+      completedClusters,
+      failedClusters,
+      pendingClusters,
+      clusterProgress: normalizedProgress,
+    }
+  }
+
+  private hasPersistedQuestionnaireResult(task: AITask): boolean {
+    const result = task.result as any
+
+    return Array.isArray(result?.questionnaire) && result.questionnaire.length > 0
+  }
+
+  private resetUnpersistedQuestionnaireClusterStatus(status: any) {
+    const normalizedStatus = this.normalizeQuestionnaireClusterStatus(status)
+
+    if (!normalizedStatus?.clusterProgress) {
+      return normalizedStatus
+    }
+
+    const clusterProgress: Record<string, any> = {}
+
+    for (const [key, progress] of Object.entries(normalizedStatus.clusterProgress)) {
+      clusterProgress[key] = {
+        ...(progress as any),
+        status: 'pending',
+        questionsGenerated: 0,
+        error: undefined,
+      }
+    }
+
+    return this.normalizeQuestionnaireClusterStatus({
+      ...normalizedStatus,
+      clusterProgress,
+    })
+  }
+
+  private normalizeQuestionnaireTask(task: AITask): AITask {
+    if (task.type !== AITaskType.QUESTIONNAIRE || !task.clusterGenerationStatus) {
+      return task
+    }
+
+    const clusterGenerationStatus =
+      task.status === TaskStatus.FAILED && !this.hasPersistedQuestionnaireResult(task)
+        ? this.resetUnpersistedQuestionnaireClusterStatus(task.clusterGenerationStatus)
+        : this.normalizeQuestionnaireClusterStatus(task.clusterGenerationStatus)
+
+    return {
+      ...task,
+      clusterGenerationStatus,
+    }
+  }
+
+  private async attachGenerationResultMetadata(task: AITask): Promise<AITask> {
+    const generationResult = await this.generationResultRepo.findOne({
+      where: { taskId: task.id },
+      order: { updatedAt: 'DESC', createdAt: 'DESC' },
+    })
+
+    return this.mergeGenerationResultMetadata(task, generationResult)
+  }
+
+  private async attachGenerationResultMetadataToTasks(tasks: AITask[]): Promise<AITask[]> {
+    const taskIds = tasks.map((task) => task.id)
+
+    if (taskIds.length === 0) {
+      return tasks
+    }
+
+    const generationResults = await this.generationResultRepo.find({
+      where: { taskId: In(taskIds) },
+      order: { updatedAt: 'DESC', createdAt: 'DESC' },
+    })
+
+    const latestByTaskId = new Map<string, AIGenerationResult>()
+    for (const generationResult of generationResults) {
+      if (!latestByTaskId.has(generationResult.taskId)) {
+        latestByTaskId.set(generationResult.taskId, generationResult)
+      }
+    }
+
+    return tasks.map((task) =>
+      this.mergeGenerationResultMetadata(task, latestByTaskId.get(task.id)),
+    )
+  }
+
+  private mergeGenerationResultMetadata(
+    task: AITask,
+    generationResult?: AIGenerationResult | null,
+  ): AITask {
+    if (!generationResult) {
+      return task
+    }
+
+    const existingResult =
+      task.result && typeof task.result === 'object' && !Array.isArray(task.result)
+        ? task.result
+        : null
+    const baseResult = existingResult || generationResult.selectedResult
+
+    if (!baseResult) {
+      return task
+    }
+
+    return {
+      ...task,
+      result: {
+        ...baseResult,
+        ...(baseResult.qualityScores
+          ? {}
+          : generationResult.qualityScores
+            ? { qualityScores: generationResult.qualityScores }
+            : {}),
+        ...(baseResult.consistencyReport
+          ? {}
+          : generationResult.consistencyReport
+            ? { consistencyReport: generationResult.consistencyReport }
+            : {}),
+        ...(baseResult.coverageReport
+          ? {}
+          : generationResult.coverageReport
+            ? { coverageReport: generationResult.coverageReport }
+            : {}),
+        ...(baseResult.selectedModel
+          ? {}
+          : generationResult.selectedModel
+            ? { selectedModel: generationResult.selectedModel }
+            : {}),
+        ...(baseResult.confidenceLevel
+          ? {}
+          : generationResult.confidenceLevel
+            ? { confidenceLevel: generationResult.confidenceLevel }
+            : {}),
+      },
+    }
+  }
+
+  private isStaleQuestionnaireTask(task: AITask): boolean {
+    if (task.type !== AITaskType.QUESTIONNAIRE) {
+      return false
+    }
+
+    if (task.status !== TaskStatus.PROCESSING) {
+      return false
+    }
+
+    const updatedAt = task.updatedAt ?? task.createdAt
+    const updatedAtMs = updatedAt ? new Date(updatedAt).getTime() : NaN
+
+    return (
+      Number.isFinite(updatedAtMs) &&
+      Date.now() - updatedAtMs >= AITasksService.QUESTIONNAIRE_STALE_MS
+    )
+  }
+
+  private async markStaleQuestionnaireTaskFailed(task: AITask): Promise<AITask> {
+    if (!this.isStaleQuestionnaireTask(task)) {
+      return task
+    }
+
+    const now = new Date()
+    const staleMinutes = Math.floor(AITasksService.QUESTIONNAIRE_STALE_MS / 60000)
+    const errorMessage = `问卷生成任务已中断：后台执行进程停止或超过 ${staleMinutes} 分钟未更新进度，请继续生成或重新生成。`
+    const clusterGenerationStatus = this.resetUnpersistedQuestionnaireClusterStatus(
+      task.clusterGenerationStatus,
+    )
+
+    await this.aiTaskRepo.update(task.id, {
+      status: TaskStatus.FAILED,
+      generationStage: GenerationStage.FAILED,
+      errorMessage,
+      completedAt: now,
+      clusterGenerationStatus,
+    })
+
+    this.logger.warn(
+      `Marked stale questionnaire task ${task.id} as failed after no progress update since ${task.updatedAt}`,
+    )
+
+    return {
+      ...task,
+      status: TaskStatus.FAILED,
+      generationStage: GenerationStage.FAILED,
+      errorMessage,
+      completedAt: now,
+      clusterGenerationStatus,
+    }
   }
 
   private async markStaleStandardInterpretationTaskFailed(task: AITask): Promise<AITask> {
@@ -192,6 +427,7 @@ export class AITasksService {
     }
 
     task = await this.markStaleStandardInterpretationTaskFailed(task)
+    task = await this.markStaleQuestionnaireTaskFailed(task)
 
     // 计算总耗时
     const elapsed = Date.now() - new Date(task.createdAt).getTime()
@@ -324,11 +560,17 @@ export class AITasksService {
   }
 
   async getTasksByProject(projectId: string): Promise<AITask[]> {
-    return this.aiTaskRepo.find({
+    const tasks = await this.aiTaskRepo.find({
       where: { projectId },
       order: { createdAt: 'DESC' },
-      relations: ['events', 'costs'],
     })
+
+    const currentTasks = await Promise.all(
+      tasks.map((task) => this.markStaleQuestionnaireTaskFailed(task)),
+    )
+    const enrichedTasks = await this.attachGenerationResultMetadataToTasks(currentTasks)
+
+    return enrichedTasks.map((task) => this.normalizeQuestionnaireTask(task))
   }
 
   async retryFailedTask(taskId: string): Promise<void> {
@@ -350,7 +592,7 @@ export class AITasksService {
       projectId: task.projectId,
       type: task.type,
       input: task.input,
-      model: AIModel.GPT4, // TODO: 从任务历史中获取上次使用的模型
+      model: AIModel.GPT4, // TODO: 从任务历史中获取上次使用的模型；当前第一模型槽位为 DeepSeek
       priority: task.priority,
     }
 
@@ -420,7 +662,7 @@ export class AITasksService {
       }
     }
 
-    return task.clusterGenerationStatus
+    return this.normalizeQuestionnaireClusterStatus(task.clusterGenerationStatus)
   }
 
   /**
@@ -437,12 +679,17 @@ export class AITasksService {
       throw new Error('该任务没有聚类生成状态信息，无法继续生成')
     }
 
-    const status = task.clusterGenerationStatus
+    const status = this.normalizeQuestionnaireClusterStatus(task.clusterGenerationStatus)
     const pendingClusters = status.pendingClusters || []
     const failedClusters = status.failedClusters || []
+    const hasPersistedQuestionnaire =
+      Array.isArray((task.result as any)?.questionnaire) &&
+      (task.result as any).questionnaire.length > 0
 
     // ✅ 合并待生成和失败的聚类
-    const clustersToGenerate = [...pendingClusters, ...failedClusters]
+    const clustersToGenerate = hasPersistedQuestionnaire
+      ? [...pendingClusters, ...failedClusters]
+      : Object.keys(status.clusterProgress || {})
 
     if (clustersToGenerate.length === 0) {
       throw new Error('所有聚类已生成完成，无需继续')

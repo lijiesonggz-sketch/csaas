@@ -897,6 +897,7 @@ export class ProjectReviewService {
       [AITaskType.STANDARD_INTERPRETATION]: '标准解读',
       [AITaskType.STANDARD_RELATED_SEARCH]: '关联标准搜索',
       [AITaskType.STANDARD_VERSION_COMPARE]: '标准版本比对',
+      [AITaskType.STANDARD_CROSS_COMPARE]: '多标准交叉分析',
       [AITaskType.BINARY_QUESTIONNAIRE]: '判断题问卷',
       [AITaskType.BINARY_GAP_ANALYSIS]: '判断题差距分析',
       [AITaskType.QUICK_GAP_ANALYSIS]: '超简版差距分析',

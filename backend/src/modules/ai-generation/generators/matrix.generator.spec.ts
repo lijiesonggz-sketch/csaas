@@ -57,6 +57,21 @@ describe('MatrixGenerator original maturity model extraction', () => {
                       clause_id: '5.1.2-a',
                       clause_text: 'a) 利益相关者分析，明确利益相关者的需求；',
                     },
+                    {
+                      ...baseClause,
+                      clause_id: '5.1.2-b',
+                      clause_text: 'b) 战略需求评估，对组织内外部环境和数字化现状进行评估；',
+                    },
+                    {
+                      ...baseClause,
+                      clause_id: '5.1.2-c',
+                      clause_text: 'c) 战略制定，结合外部环境和业务发展要求梳理人工智能需求范围；',
+                    },
+                    {
+                      ...baseClause,
+                      clause_id: '5.1.2-d',
+                      clause_text: 'd) 战略发布和宣贯，推动战略在组织内部达成共识。',
+                    },
                   ],
                 },
                 {
@@ -116,6 +131,7 @@ describe('MatrixGenerator original maturity model extraction', () => {
     expect(result.gpt4.matrix[0].levels.level_4.name).toBe('量化管理级')
     expect(result.gpt4.matrix[0].levels.level_5.name).toBe('优化级')
     expect(result.gpt4.matrix[0].levels.level_1.key_practices[0]).toContain('个别人员意识到')
+    expect(JSON.stringify(result.gpt4.matrix[0].levels)).not.toContain('战略发布和宣贯')
     expect(result.gpt4.extraction_summary?.skipped_process_description_clusters).toBe(1)
     expect(onProgress).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -124,6 +140,178 @@ describe('MatrixGenerator original maturity model extraction', () => {
         message: expect.stringContaining('按原文提取成熟度模型'),
       }),
     )
+  })
+
+  it('should not treat lettered process-description activities as maturity levels', async () => {
+    const { generator, aiOrchestrator } = createGenerator()
+    const row = {
+      cluster_id: 'cluster_5_1_2',
+      cluster_name: '5.1.2 过程描述',
+      levels: {
+        level_1: { name: '初始级', description: 'AI生成初始级', key_practices: ['实践1'] },
+        level_2: { name: '受管理级', description: 'AI生成受管理级', key_practices: ['实践2'] },
+        level_3: { name: '稳健级', description: 'AI生成稳健级', key_practices: ['实践3'] },
+        level_4: {
+          name: '量化管理级',
+          description: 'AI生成量化管理级',
+          key_practices: ['实践4'],
+        },
+        level_5: { name: '优化级', description: 'AI生成优化级', key_practices: ['实践5'] },
+      },
+    }
+    aiOrchestrator.generate.mockResolvedValue({
+      content: JSON.stringify(row),
+      tokens: { total: 10 },
+      cost: 0,
+    })
+
+    const result = await generator.generate({
+      clusteringResult: {
+        generation_mode: 'structured',
+        clustering_logic: '按原始层级自动映射',
+        coverage_summary: {
+          by_document: {},
+          overall: {
+            total_clauses: 4,
+            clustered_clauses: 4,
+            coverage_rate: 1,
+            coverage_granularity: 'leaf_requirement',
+          },
+        },
+        categories: [
+          {
+            id: 'category_5_1',
+            name: '5.1 战略规划',
+            description: '按原标准结构保留 5.1 战略规划 下的要求项。',
+            clusters: [
+              {
+                id: 'cluster_5_1_2',
+                name: '5.1.2 过程描述',
+                description: '过程描述如下',
+                importance: 'MEDIUM',
+                risk_level: 'MEDIUM',
+                clauses: [
+                  {
+                    ...baseClause,
+                    clause_id: '5.1.2-a',
+                    clause_text: 'a) 利益相关者分析，明确利益相关者的需求；',
+                  },
+                  {
+                    ...baseClause,
+                    clause_id: '5.1.2-b',
+                    clause_text: 'b) 战略需求评估，对组织内外部环境和数字化现状进行评估；',
+                  },
+                  {
+                    ...baseClause,
+                    clause_id: '5.1.2-c',
+                    clause_text: 'c) 战略制定，对组织人工智能发展开展系统性规划；',
+                  },
+                  {
+                    ...baseClause,
+                    clause_id: '5.1.2-d',
+                    clause_text: 'd) 战略发布和宣贯，推动战略在组织内部达成共识。',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    })
+
+    expect(aiOrchestrator.generate).toHaveBeenCalledTimes(2)
+    expect(result.gpt4.generation_mode).toBeUndefined()
+    expect(result.gpt4.matrix).toHaveLength(1)
+    expect(result.gpt4.matrix[0].cluster_id).toBe('cluster_5_1_2')
+  })
+
+  it('should recover capability levels when next level headings are attached to previous clauses', async () => {
+    const { generator, aiOrchestrator } = createGenerator()
+
+    const result = await generator.generate({
+      clusteringResult: {
+        generation_mode: 'structured',
+        clustering_logic: '按原始层级自动映射',
+        coverage_summary: {
+          by_document: {},
+          overall: {
+            total_clauses: 8,
+            clustered_clauses: 8,
+            coverage_rate: 1,
+            coverage_granularity: 'leaf_requirement',
+          },
+        },
+        categories: [
+          {
+            id: 'category_6_1',
+            name: '6.1 组织机制',
+            description: '按原标准结构保留 6.1 组织机制 下的要求项。',
+            clusters: [
+              {
+                id: 'cluster_6_1_3',
+                name: '6.1.3 能力等级标准',
+                description: '能力等级标准',
+                importance: 'MEDIUM',
+                risk_level: 'MEDIUM',
+                clauses: [
+                  {
+                    ...baseClause,
+                    clause_id: '6.1.3-a-1',
+                    clause_text:
+                      'a) 第 1 级，初始级：\n1) 在具体项目中体现推进人工智能专项技术应用的岗位、角色和职责；',
+                  },
+                  {
+                    ...baseClause,
+                    clause_id: '6.1.3-a-2',
+                    clause_text:
+                      'a) 第 1 级，初始级：\n2) 各项目的技术骨干按个人经验开展人工智能技术应用；\n第 2 级，受管理级：',
+                  },
+                  {
+                    ...baseClause,
+                    clause_id: '6.1.3-a-1',
+                    clause_text:
+                      'a) 第 1 级，初始级：\n1) 在部门层面设置人工智能应用推进的专职岗位，明确岗位职责；',
+                  },
+                  {
+                    ...baseClause,
+                    clause_id: '6.1.3-a-2',
+                    clause_text:
+                      'a) 第 1 级，初始级：\n2) 在部门层面开展人工智能发展建设支撑人员绩效评价；\n第 3 级，稳健级：',
+                  },
+                  {
+                    ...baseClause,
+                    clause_id: '6.1.3-a-1',
+                    clause_text:
+                      'a) 第 1 级，初始级：\n1) 在组织层面建立独立的人工智能管理归口部门；\n第 4 级，量化管理级：',
+                  },
+                  {
+                    ...baseClause,
+                    clause_id: '6.1.3-a-1',
+                    clause_text:
+                      'a) 第 1 级，初始级：\n1) 组建复合型人工智能发展建设团队；\n第 5 级，优化级：',
+                  },
+                  {
+                    ...baseClause,
+                    clause_id: '6.1.3-a-1',
+                    clause_text:
+                      'a) 第 1 级，初始级：\n1) 建立全员参与的责任体系，推动人工智能与业务的融合；',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    })
+
+    expect(aiOrchestrator.generate).not.toHaveBeenCalled()
+    expect(result.gpt4.generation_mode).toBe('original_maturity_model')
+    expect(result.gpt4.matrix).toHaveLength(1)
+    expect(result.gpt4.matrix[0].cluster_name).toBe('6.1 组织机制')
+    expect(result.gpt4.matrix[0].levels.level_2.name).toBe('受管理级')
+    expect(result.gpt4.matrix[0].levels.level_2.key_practices[0]).toContain('部门层面')
+    expect(result.gpt4.matrix[0].levels.level_5.key_practices[0]).toContain('全员参与')
+    expect(JSON.stringify(result.gpt4.matrix[0].levels)).not.toContain('第 2 级，受管理级')
   })
 
   it('should extract the overall maturity-level definition row from maturity level categories', async () => {

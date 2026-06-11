@@ -24,6 +24,7 @@ export enum ConfidenceLevel {
 }
 
 export enum SelectedModel {
+  // 历史兼容值：数据库 enum 仍为 gpt4，展示层映射为 DeepSeek。
   GPT4 = 'gpt4',
   CLAUDE = 'claude',
   DOMESTIC = 'domestic',

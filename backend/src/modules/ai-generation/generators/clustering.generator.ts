@@ -9,11 +9,15 @@ import { AIGenerationEvent } from '../../../database/entities/ai-generation-even
 import { fillClusteringPrompt } from '../prompts/clustering.prompts'
 import {
   calculateCoverageFromClauseIds,
+  extractClauseInventoryFromContent,
   extractClauseIdsFromContent,
   extractStructuredLeafRequirementsFromContent,
+  normalizeClauseId,
+  type ClauseInventoryItem,
   type StructuredRequirementSection,
   type CoverageGranularity,
 } from '../utils/clause-id-utils'
+import { scoreTextSimilarity } from '../utils/text-similarity.util'
 
 /**
  * 输入文档接口
@@ -102,6 +106,14 @@ export interface ClusteringGenerationOutput {
   generation_mode?: Exclude<ClusteringMode, 'auto'>
   coverage_summary: CoverageSummary
 }
+
+interface MissingClauseResolutionStats {
+  assignedToExistingClusters: number
+  backfilledClusters: number
+  totalResolved: number
+}
+
+const MIN_EXISTING_CLUSTER_MATCH_SCORE = 4
 
 /**
  * 聚类生成器
@@ -218,13 +230,13 @@ export class ClusteringGenerator {
       domestic: { status: 'pending' as const, started_at: new Date().toISOString() },
     }
 
-    // ⚠️ 临时禁用Claude模型，只使用GPT-4和Qwen（因为Claude API返回404）
+    // ⚠️ 临时禁用Claude模型，只使用DeepSeek（兼容 gpt4 槽位）和Qwen（因为Claude API返回404）
     // 并行调用两模型生成，添加超时控制
     const results = await Promise.allSettled([
       this.addTimeout(
         this.generateWithModel(aiRequest, AIModel.GPT4, taskId, onProgress, modelProgress),
         this.generationTimeout,
-        'GPT-4',
+        'DeepSeek',
       ),
       // this.addTimeout(
       //   this.generateWithModel(aiRequest, AIModel.CLAUDE, taskId, onProgress, modelProgress),
@@ -253,7 +265,7 @@ export class ClusteringGenerator {
     // 记录失败的模型
     if (!gpt4Response) {
       this.logger.warn(
-        `GPT-4 model generation failed: ${results[0].status === 'rejected' ? results[0].reason : 'unknown error'}`,
+        `DeepSeek model generation failed: ${results[0].status === 'rejected' ? results[0].reason : 'unknown error'}`,
       )
     }
     // ⚠️ Claude已禁用，跳过检查
@@ -277,7 +289,7 @@ export class ClusteringGenerator {
       gpt4Result = this.parseJsonResponse(gpt4Response.content, documents)
       gpt4Result.generation_mode = 'ai'
     } catch (error) {
-      this.logger.error(`Failed to parse GPT-4 response: ${error.message}`)
+      this.logger.error(`Failed to parse DeepSeek response: ${error.message}`)
     }
 
     // ⚠️ Claude已禁用，跳过解析
@@ -294,16 +306,16 @@ export class ClusteringGenerator {
       this.logger.error(`Failed to parse Qwen response: ${error.message}`)
     }
 
-    // 如果所有模型都失败，抛出错误（只检查GPT-4和Qwen）
+    // 如果所有模型都失败，抛出错误（只检查DeepSeek和Qwen）
     if (!gpt4Result && !domesticResult) {
       throw new Error('All available models failed to generate valid clustering results')
     }
 
-    // 使用成功的结果填充失败的模型（优先使用GPT-4，然后Qwen）
+    // 使用成功的结果填充失败的模型（优先使用DeepSeek，然后Qwen）
     const fallbackResult = gpt4Result || domesticResult
 
     this.logger.log(
-      'Clustering generation completed for available models (GPT-4 + Qwen, Claude disabled)',
+      'Clustering generation completed for available models (DeepSeek + Qwen, Claude disabled)',
     )
 
     return {
@@ -762,9 +774,30 @@ export class ClusteringGenerator {
       `Validated ${validCategories.length} categories with ${totalClusters} total clusters`,
     )
 
+    const repairedDocumentRefs = this.normalizeClauseDocumentReferences(
+      output.categories,
+      documents,
+    )
+    if (repairedDocumentRefs > 0) {
+      this.logger.warn(
+        `Repaired ${repairedDocumentRefs} AI clause source_document_id references before coverage calculation`,
+      )
+    }
+
     // ✅ 总是重新计算coverage_summary，确保准确性（AI返回的可能不准确）
     this.logger.debug('Recalculating coverage_summary to ensure accuracy')
-    output.coverage_summary = this.generateDefaultCoverage(output.categories, documents)
+    output.coverage_summary = this.generateDefaultCoverage(output.categories, documents, false)
+
+    const resolutionStats = this.resolveMissingCanonicalClauses(output, documents)
+    if (resolutionStats.totalResolved > 0) {
+      output.coverage_summary = this.generateDefaultCoverage(output.categories, documents, false)
+      if (!output.clustering_logic.includes('系统自动归并')) {
+        output.clustering_logic = `${output.clustering_logic}\n\n系统自动归并/补齐：检测到AI聚类结果遗漏canonical条款ID，系统已优先按同章节、同主题和条款文本相似度将缺失条款归并到已有语义聚类；仅在无法确定归属时才创建未匹配条款自动补齐聚类。`
+      }
+      this.logger.log(
+        `Resolved ${resolutionStats.totalResolved} missing canonical clauses: assigned=${resolutionStats.assignedToExistingClusters}, backfilled=${resolutionStats.backfilledClusters}`,
+      )
+    }
 
     // ✅ 验证覆盖率：如果任何文档覆盖率<95%，记录错误（但不拒绝，允许人工审核）
     const coverageIssues: string[] = []
@@ -797,6 +830,7 @@ export class ClusteringGenerator {
   private generateDefaultCoverage(
     categories: Category[],
     documents: StandardDocument[],
+    logWarnings = true,
   ): CoverageSummary {
     const byDocument: Record<string, DocumentCoverage> = {}
     let totalClauses = 0
@@ -833,7 +867,7 @@ export class ClusteringGenerator {
       // ⚠️ 如果覆盖率过低，记录警告
       const coverageRate =
         coverage.total_clauses > 0 ? coverage.clustered_clauses / coverage.total_clauses : 0
-      if (coverageRate < 0.95) {
+      if (logWarnings && coverageRate < 0.95) {
         // ✅ 阈值提高到95%
         this.logger.warn(
           `⚠️ 文档 "${doc.name}" 覆盖率不足: ${(coverageRate * 100).toFixed(1)}% (${coverage.clustered_clauses}/${coverage.total_clauses} 条款被提取)`,
@@ -854,7 +888,7 @@ export class ClusteringGenerator {
     )
 
     // ⚠️ 整体覆盖率警告
-    if (overallCoverageRate < 0.9) {
+    if (logWarnings && overallCoverageRate < 0.9) {
       this.logger.warn(
         `⚠️ 整体覆盖率过低: ${(overallCoverageRate * 100).toFixed(1)}% (${clusteredClauses}/${totalClauses} 条款被提取)`,
       )
@@ -870,6 +904,387 @@ export class ClusteringGenerator {
           coverageGranularities.length === 1 ? coverageGranularities[0] : undefined,
       },
     }
+  }
+
+  private normalizeClauseDocumentReferences(
+    categories: Category[],
+    documents: StandardDocument[],
+  ): number {
+    const resolver = this.buildDocumentReferenceResolver(documents)
+    let repairedCount = 0
+
+    categories.forEach((category) => {
+      category.clusters.forEach((cluster) => {
+        cluster.clauses.forEach((clause) => {
+          const matchedDocument = this.resolveClauseDocument(clause, documents, resolver)
+          if (!matchedDocument || clause.source_document_id === matchedDocument.id) {
+            return
+          }
+
+          const originalDocumentId = clause.source_document_id
+          clause.source_document_id = matchedDocument.id
+          clause.source_document_name = matchedDocument.name
+          repairedCount += 1
+
+          this.logger.debug(
+            `Repaired clause document reference ${originalDocumentId} -> ${matchedDocument.id} for clause ${clause.clause_id}`,
+          )
+        })
+      })
+    })
+
+    return repairedCount
+  }
+
+  private buildDocumentReferenceResolver(
+    documents: StandardDocument[],
+  ): Map<string, StandardDocument | null> {
+    const resolver = new Map<string, StandardDocument | null>()
+
+    const registerAlias = (alias: string, document: StandardDocument) => {
+      const aliases = this.expandDocumentReferenceAliases(alias)
+      aliases.forEach((normalizedAlias) => {
+        if (!normalizedAlias) {
+          return
+        }
+
+        const existing = resolver.get(normalizedAlias)
+        if (existing && existing.id !== document.id) {
+          resolver.set(normalizedAlias, null)
+          return
+        }
+
+        if (!resolver.has(normalizedAlias)) {
+          resolver.set(normalizedAlias, document)
+        }
+      })
+    }
+
+    documents.forEach((document) => {
+      registerAlias(document.id, document)
+      registerAlias(document.name, document)
+      this.inferDocumentAliases(document).forEach((alias) => registerAlias(alias, document))
+    })
+
+    return resolver
+  }
+
+  private resolveClauseDocument(
+    clause: ClusterClause,
+    documents: StandardDocument[],
+    resolver: Map<string, StandardDocument | null>,
+  ): StandardDocument | null {
+    const existing = documents.find((document) => document.id === clause.source_document_id)
+    if (existing) {
+      return existing
+    }
+
+    for (const candidate of [clause.source_document_id, clause.source_document_name]) {
+      const direct = this.lookupDocumentReference(candidate, resolver)
+      if (direct) {
+        return direct
+      }
+    }
+
+    const sourceNameKey = this.normalizeDocumentReferenceKey(clause.source_document_name)
+    if (!sourceNameKey || sourceNameKey.length < 3) {
+      return null
+    }
+
+    const fuzzyMatches = documents.filter((document) => {
+      const documentNameKey = this.normalizeDocumentReferenceKey(document.name)
+      return (
+        documentNameKey.length >= 3 &&
+        (documentNameKey.includes(sourceNameKey) || sourceNameKey.includes(documentNameKey))
+      )
+    })
+
+    return fuzzyMatches.length === 1 ? fuzzyMatches[0] : null
+  }
+
+  private lookupDocumentReference(
+    value: string | undefined,
+    resolver: Map<string, StandardDocument | null>,
+  ): StandardDocument | null {
+    for (const alias of this.expandDocumentReferenceAliases(value || '')) {
+      const document = resolver.get(alias)
+      if (document) {
+        return document
+      }
+    }
+
+    return null
+  }
+
+  private expandDocumentReferenceAliases(value: string): string[] {
+    const normalized = this.normalizeDocumentReferenceKey(value)
+    if (!normalized) {
+      return []
+    }
+
+    const aliases = new Set<string>([normalized])
+    const stripped = normalized.replace(/^(doc|document|standard|std)/, '')
+    if (stripped && stripped !== normalized) {
+      aliases.add(stripped)
+    }
+
+    return Array.from(aliases)
+  }
+
+  private normalizeDocumentReferenceKey(value: string): string {
+    return (value || '')
+      .toLowerCase()
+      .replace(/[\s_\-:：.\/\\()[\]{}<>（）【】《》"'`]+/g, '')
+      .trim()
+  }
+
+  private inferDocumentAliases(document: StandardDocument): string[] {
+    const text = `${document.name}\n${document.content.substring(0, 5000)}`
+    const aliases: string[] = []
+
+    if (/gb\s*\/?\s*t|gbt|国家标准|推荐性国家标准/i.test(text)) {
+      aliases.push('gbt', 'gb', 'doc_gbt', 'doc_gb_t')
+    }
+
+    if (/pboc|中国人民银行|人民银行|央行/i.test(text)) {
+      aliases.push('pboc', 'doc_pboc', 'people_bank_of_china')
+    }
+
+    if (/nfra|国家金融监督管理总局|金融监管总局|银保监|中国银行保险监督管理委员会/i.test(text)) {
+      aliases.push('nfra', 'doc_nfra', 'financial_regulatory_administration')
+    }
+
+    return aliases
+  }
+
+  private resolveMissingCanonicalClauses(
+    output: ClusteringGenerationOutput,
+    documents: StandardDocument[],
+  ): MissingClauseResolutionStats {
+    const missingEntries = this.collectMissingCanonicalClauses(output.coverage_summary)
+    const stats: MissingClauseResolutionStats = {
+      assignedToExistingClusters: 0,
+      backfilledClusters: 0,
+      totalResolved: 0,
+    }
+
+    if (missingEntries.length === 0) {
+      return stats
+    }
+
+    const existingClauseKeys = this.collectExistingClauseKeys(output.categories)
+    let backfillCategory: Category | null = null
+
+    for (const doc of documents) {
+      const missingIds = output.coverage_summary.by_document[doc.id]?.missing_clause_ids || []
+      if (missingIds.length === 0) {
+        continue
+      }
+
+      const inventoryById = this.getClauseInventoryById(doc)
+      for (const missingId of missingIds) {
+        const normalizedMissingId = normalizeClauseId(missingId)
+        const clauseKey = this.toClauseKey(doc.id, normalizedMissingId)
+        if (existingClauseKeys.has(clauseKey)) {
+          continue
+        }
+
+        const inventoryItem = inventoryById.get(normalizedMissingId) || {
+          id: normalizedMissingId,
+          text: normalizedMissingId,
+        }
+        const existingCluster = this.findBestClusterForMissingClause(
+          output.categories,
+          doc,
+          inventoryItem,
+        )
+
+        if (existingCluster) {
+          existingCluster.clauses.push(this.buildResolvedClause(doc, inventoryItem, true))
+          existingClauseKeys.add(clauseKey)
+          stats.assignedToExistingClusters += 1
+          stats.totalResolved += 1
+          continue
+        }
+
+        backfillCategory = backfillCategory || this.getOrCreateBackfillCategory(output.categories)
+        backfillCategory.clusters.push(this.buildBackfillCluster(doc, inventoryItem))
+        existingClauseKeys.add(clauseKey)
+        stats.backfilledClusters += 1
+        stats.totalResolved += 1
+      }
+    }
+
+    return stats
+  }
+
+  private collectMissingCanonicalClauses(coverageSummary: CoverageSummary): string[] {
+    return Object.values(coverageSummary.by_document).flatMap(
+      (coverage) => coverage.missing_clause_ids || [],
+    )
+  }
+
+  private collectExistingClauseKeys(categories: Category[]): Set<string> {
+    const keys = new Set<string>()
+
+    categories.forEach((category) => {
+      category.clusters.forEach((cluster) => {
+        cluster.clauses.forEach((clause) => {
+          keys.add(this.toClauseKey(clause.source_document_id, normalizeClauseId(clause.clause_id)))
+        })
+      })
+    })
+
+    return keys
+  }
+
+  private getClauseInventoryById(document: StandardDocument): Map<string, ClauseInventoryItem> {
+    const inventory = extractClauseInventoryFromContent(document.content)
+    const byId = new Map<string, ClauseInventoryItem>()
+
+    inventory.forEach((item) => {
+      const normalizedId = normalizeClauseId(item.id)
+      if (normalizedId && !byId.has(normalizedId)) {
+        byId.set(normalizedId, {
+          id: normalizedId,
+          text: item.text,
+        })
+      }
+    })
+
+    return byId
+  }
+
+  private getOrCreateBackfillCategory(categories: Category[]): Category {
+    const existing = categories.find((category) => category.id === 'category_coverage_backfill')
+    if (existing) {
+      return existing
+    }
+
+    const category: Category = {
+      id: 'category_coverage_backfill',
+      name: '未匹配条款自动补齐',
+      description:
+        'AI语义聚类未覆盖但原文canonical条款清单存在的要求。系统将这些条款单独补齐，后续可由人工审核并合并到更合适的语义聚类。',
+      clusters: [],
+    }
+    categories.push(category)
+    return category
+  }
+
+  private findBestClusterForMissingClause(
+    categories: Category[],
+    document: StandardDocument,
+    inventoryItem: ClauseInventoryItem,
+  ): Cluster | null {
+    let bestCluster: Cluster | null = null
+    let bestScore = 0
+
+    for (const category of categories) {
+      if (category.id === 'category_coverage_backfill') {
+        continue
+      }
+
+      for (const cluster of category.clusters) {
+        const score = this.scoreClusterForMissingClause(category, cluster, document, inventoryItem)
+        if (score > bestScore) {
+          bestScore = score
+          bestCluster = cluster
+        }
+      }
+    }
+
+    return bestCluster && bestScore >= MIN_EXISTING_CLUSTER_MATCH_SCORE ? bestCluster : null
+  }
+
+  private scoreClusterForMissingClause(
+    category: Category,
+    cluster: Cluster,
+    document: StandardDocument,
+    inventoryItem: ClauseInventoryItem,
+  ): number {
+    const missingSectionId = this.getNumericClauseSectionId(inventoryItem.id)
+    const hasSameDocumentClause = cluster.clauses.some(
+      (clause) => clause.source_document_id === document.id,
+    )
+
+    let score = hasSameDocumentClause ? 1 : 0
+
+    for (const clause of cluster.clauses) {
+      if (clause.source_document_id !== document.id) {
+        continue
+      }
+
+      const clauseSectionId = this.getNumericClauseSectionId(clause.clause_id)
+      if (missingSectionId && clauseSectionId === missingSectionId) {
+        score += 100
+      }
+    }
+
+    const missingText = `${inventoryItem.id} ${inventoryItem.text}`
+    const clusterText = [
+      category.name,
+      category.description,
+      cluster.name,
+      cluster.description,
+      ...cluster.clauses.flatMap((clause) => [
+        clause.clause_id,
+        clause.clause_text,
+        clause.rationale,
+      ]),
+    ].join(' ')
+
+    score += scoreTextSimilarity(missingText, clusterText)
+    return score
+  }
+
+  private getNumericClauseSectionId(clauseId: string): string | null {
+    const normalized = normalizeClauseId(clauseId)
+    const match = normalized.match(/^(\d{1,2}(?:\.\d{1,2}){1,3})(?:-|$)/)
+    return match?.[1] || null
+  }
+
+  private buildResolvedClause(
+    document: StandardDocument,
+    inventoryItem: ClauseInventoryItem,
+    assignedToExistingCluster: boolean,
+  ): ClusterClause {
+    return {
+      source_document_id: document.id,
+      source_document_name: document.name,
+      clause_id: inventoryItem.id,
+      clause_text: this.truncateClauseText(inventoryItem.text),
+      rationale: assignedToExistingCluster
+        ? 'AI聚类未显式列出该canonical条款，系统根据同章节、同主题或条款文本相似度自动归并到本语义聚类。'
+        : 'AI聚类未覆盖该canonical条款，系统按原文条款清单自动补齐。',
+    }
+  }
+
+  private buildBackfillCluster(
+    document: StandardDocument,
+    inventoryItem: ClauseInventoryItem,
+  ): Cluster {
+    return {
+      id: this.toStableUniqueId('cluster_backfill', document.id, inventoryItem.id),
+      name: `${inventoryItem.id} 自动补齐条款`,
+      description: `AI语义聚类结果遗漏了 ${document.name} 的canonical条款 ${inventoryItem.id}。系统按原文条款清单自动补齐该要求，保证覆盖率校验和后续问卷、矩阵生成不会丢失该条款。`,
+      importance: 'MEDIUM',
+      risk_level: 'MEDIUM',
+      clauses: [this.buildResolvedClause(document, inventoryItem, false)],
+    }
+  }
+
+  private truncateClauseText(text: string): string {
+    const normalized = (text || '').replace(/\s+/g, ' ').trim()
+    if (normalized.length <= 800) {
+      return normalized
+    }
+
+    return `${normalized.substring(0, 800)}...`
+  }
+
+  private toClauseKey(documentId: string, clauseId: string): string {
+    return `${documentId}::${clauseId}`
   }
 
   private tryGenerateStructuredClustering(
@@ -974,6 +1389,28 @@ export class ClusteringGenerator {
       .toLowerCase()
 
     return `${prefix}_${normalized || 'structured'}`
+  }
+
+  private toStableUniqueId(prefix: string, ...values: string[]): string {
+    const source = values.join('_')
+    const readable = source
+      .replace(/[^a-zA-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toLowerCase()
+      .substring(0, 48)
+    const hash = this.hashStableId(source)
+
+    return `${prefix}_${readable || 'item'}_${hash}`
+  }
+
+  private hashStableId(value: string): string {
+    let hash = 0
+
+    for (let index = 0; index < value.length; index++) {
+      hash = (hash * 31 + value.charCodeAt(index)) >>> 0
+    }
+
+    return hash.toString(36)
   }
 
   /**

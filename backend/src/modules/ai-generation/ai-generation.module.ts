@@ -10,6 +10,8 @@ import { BinaryQuestionnaireGenerator } from './generators/binary-questionnaire.
 import { QuickGapAnalyzer } from './generators/quick-gap-analyzer.generator'
 import { ActionPlanGenerator } from './generators/action-plan.generator'
 import { StandardInterpretationGenerator } from './generators/standard-interpretation.generator'
+import { VersionCompareGenerator } from './generators/version-compare.generator'
+import { CrossStandardGenerator } from './generators/cross-standard.generator'
 import { ClauseExtractionGenerator } from './generators/clause-extraction.generator'
 import { ClauseCoverageService } from './services/clause-coverage.service'
 import { AIClientsModule } from '../ai-clients/ai-clients.module'
@@ -58,6 +60,8 @@ import { CurrentStateDescription } from '../../database/entities/current-state-d
     QuickGapAnalyzer,
     ActionPlanGenerator,
     StandardInterpretationGenerator,
+    VersionCompareGenerator,
+    CrossStandardGenerator,
     ClauseExtractionGenerator,
     ClauseCoverageService,
   ],
@@ -69,6 +73,8 @@ import { CurrentStateDescription } from '../../database/entities/current-state-d
     BinaryQuestionnaireGenerator,
     QuickGapAnalyzer,
     StandardInterpretationGenerator,
+    VersionCompareGenerator,
+    CrossStandardGenerator,
   ],
 })
 export class AIGenerationModule {}

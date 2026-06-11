@@ -101,7 +101,7 @@ export class QualityValidationService {
     // 基础质量验证
     const baseReport = await this.validateQuality(results)
 
-    // 选择最佳聚类结果进行覆盖率检查（简化：使用GPT-4的结果）
+    // 选择最佳聚类结果进行覆盖率检查（简化：使用第一模型 DeepSeek/gpt4 槽位的结果）
     const bestClustering = results.gpt4 as ClusteringResult
 
     // 覆盖率检查

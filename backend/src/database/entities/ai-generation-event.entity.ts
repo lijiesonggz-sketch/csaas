@@ -9,6 +9,7 @@ import {
 import { AITask } from './ai-task.entity'
 
 export enum AIModel {
+  // 历史兼容值：数据库 enum 仍为 gpt4，运行时第一模型槽位当前配置为 DeepSeek。
   GPT4 = 'gpt4',
   CLAUDE = 'claude',
   DOMESTIC = 'domestic',

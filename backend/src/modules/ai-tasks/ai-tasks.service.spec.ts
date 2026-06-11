@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { AITasksService } from './ai-tasks.service'
 import { AITask } from '../../database/entities/ai-task.entity'
+import { AIGenerationResult } from '../../database/entities/ai-generation-result.entity'
 import { QuestionnaireGenerator } from '../ai-generation/generators/questionnaire.generator'
 import { AIOrchestrator } from '../ai-clients/ai-orchestrator.service'
 import { TasksGateway } from './gateways/tasks.gateway'
@@ -21,6 +22,7 @@ import { QualityValidationService } from '../quality-validation/quality-validati
 describe('Questionnaire Resume Generation (TDD)', () => {
   let service: AITasksService
   let aiTaskRepo: Repository<AITask>
+  let generationResultRepo: Repository<AIGenerationResult>
 
   // Mock数据
   const mockTaskId = 'test-task-id'
@@ -89,6 +91,10 @@ describe('Questionnaire Resume Generation (TDD)', () => {
       update: jest.fn(),
       create: jest.fn(),
     }
+    const mockGenerationResultRepo = {
+      findOne: jest.fn().mockResolvedValue(null),
+      find: jest.fn().mockResolvedValue([]),
+    }
 
     // Mock save to return the task
     mockRepo.save.mockImplementation((task) => Promise.resolve(task))
@@ -101,6 +107,10 @@ describe('Questionnaire Resume Generation (TDD)', () => {
         {
           provide: getRepositoryToken(AITask),
           useValue: mockRepo,
+        },
+        {
+          provide: getRepositoryToken(AIGenerationResult),
+          useValue: mockGenerationResultRepo,
         },
         {
           provide: 'BullQueue_ai-tasks',
@@ -139,6 +149,48 @@ describe('Questionnaire Resume Generation (TDD)', () => {
 
     service = module.get<AITasksService>(AITasksService)
     aiTaskRepo = module.get<Repository<AITask>>(getRepositoryToken(AITask))
+    generationResultRepo = module.get<Repository<AIGenerationResult>>(
+      getRepositoryToken(AIGenerationResult),
+    )
+  })
+
+  describe('GET /ai-tasks/:id - 结果质量元数据', () => {
+    it('should merge latest generation quality metadata into task result when task result lacks it', async () => {
+      aiTaskRepo.findOne = jest.fn().mockResolvedValue({
+        ...mockCompletedTask,
+        result: mockPartialResult,
+      })
+      generationResultRepo.findOne = jest.fn().mockResolvedValue({
+        taskId: mockTaskId,
+        selectedModel: 'claude',
+        confidenceLevel: 'medium',
+        qualityScores: {
+          structural: 1,
+          semantic: 0.7178,
+          detail: 0.998,
+        },
+        consistencyReport: {
+          agreements: ['Field questionnaire: structurally aligned'],
+          disagreements: [],
+          highRiskDisagreements: [],
+        },
+        selectedResult: {
+          questionnaire: [{ question_id: 'Q001' }],
+        },
+      })
+
+      const task = await service.getTask(mockTaskId)
+
+      expect(task.result?.questionnaire).toEqual(mockPartialResult.questionnaire)
+      expect(task.result?.qualityScores).toEqual({
+        structural: 1,
+        semantic: 0.7178,
+        detail: 0.998,
+      })
+      expect(task.result?.selectedModel).toBe('claude')
+      expect(task.result?.confidenceLevel).toBe('medium')
+      expect(task.result?.consistencyReport?.agreements).toHaveLength(1)
+    })
   })
 
   describe('POST /ai-tasks/:id/resume - 继续生成问卷', () => {
@@ -177,6 +229,22 @@ describe('Questionnaire Resume Generation (TDD)', () => {
           ...mockCompletedTask.clusterGenerationStatus,
           completedClusters: ['cluster_1', 'cluster_2', 'cluster_3'],
           pendingClusters: [],
+          clusterProgress: {
+            cluster_1: {
+              ...mockCompletedTask.clusterGenerationStatus.clusterProgress.cluster_1,
+              status: 'completed',
+            },
+            cluster_2: {
+              ...mockCompletedTask.clusterGenerationStatus.clusterProgress.cluster_2,
+              status: 'completed',
+              questionsGenerated: 5,
+            },
+            cluster_3: {
+              ...mockCompletedTask.clusterGenerationStatus.clusterProgress.cluster_3,
+              status: 'completed',
+              questionsGenerated: 5,
+            },
+          },
         },
       }
       aiTaskRepo.findOne = jest.fn().mockResolvedValue(allCompletedTask)
@@ -197,6 +265,19 @@ describe('Questionnaire Resume Generation (TDD)', () => {
       // Assert
       expect(result.nextClusterId).toBe('cluster_2')
       expect(result.message).toContain('继续生成 2 个聚类')
+    })
+
+    it('当任务没有持久化题目结果时应该重新生成全部聚类', async () => {
+      const interruptedTask = {
+        ...mockCompletedTask,
+        result: null,
+      }
+      aiTaskRepo.findOne = jest.fn().mockResolvedValue(interruptedTask)
+
+      const result = await service.resumeQuestionnaireGeneration(mockTaskId)
+
+      expect(result.clustersToGenerate).toEqual(['cluster_1', 'cluster_2', 'cluster_3'])
+      expect(result.nextClusterId).toBe('cluster_1')
     })
   })
 
@@ -279,6 +360,49 @@ describe('Questionnaire Resume Generation (TDD)', () => {
       const progressPercentage = Math.round((completedCount / totalCount) * 100)
 
       expect(progressPercentage).toBe(33) // 1/3 ≈ 33%
+    })
+
+    it('应该规范化重复或过期的聚类状态列表', async () => {
+      const dirtyStatusTask = {
+        ...mockCompletedTask,
+        clusterGenerationStatus: {
+          totalClusters: 3,
+          completedClusters: ['cluster_1'],
+          failedClusters: [],
+          pendingClusters: ['cluster_1', 'cluster_2', 'cluster_2', 'cluster_3'],
+          clusterProgress: {
+            cluster_1: {
+              clusterId: 'cluster_1',
+              clusterName: '聚类1',
+              status: 'completed',
+              questionsGenerated: 5,
+              questionsExpected: 5,
+            },
+            cluster_2: {
+              clusterId: 'cluster_2',
+              clusterName: '聚类2',
+              status: 'pending',
+              questionsGenerated: 0,
+              questionsExpected: 5,
+            },
+            cluster_3: {
+              clusterId: 'cluster_3',
+              clusterName: '聚类3',
+              status: 'failed',
+              questionsGenerated: 0,
+              questionsExpected: 5,
+              error: 'AI调用失败',
+            },
+          },
+        },
+      }
+      aiTaskRepo.findOne = jest.fn().mockResolvedValue(dirtyStatusTask)
+
+      const status = await service.getClusterGenerationStatus(mockTaskId)
+
+      expect(status.completedClusters).toEqual(['cluster_1'])
+      expect(status.pendingClusters).toEqual(['cluster_2'])
+      expect(status.failedClusters).toEqual(['cluster_3'])
     })
   })
 
@@ -377,7 +501,7 @@ describe('Questionnaire Resume Generation (TDD)', () => {
         progressDetails: {
           gpt4: {
             status: 'generating',
-            message: 'Zhipu AI 批次 18/33 完成',
+            message: 'DeepSeek 批次 18/33 完成',
           },
           totalClauses: 161,
           totalBatches: 33,
@@ -463,6 +587,118 @@ describe('Questionnaire Resume Generation (TDD)', () => {
       expect(status.progress.percentage).toBe(58)
       expect(status.details?.currentCluster).toBe(1)
       expect(status.details?.totalClusters).toBe(2)
+    })
+  })
+
+  describe('Questionnaire stale task handling', () => {
+    it('should mark stale questionnaire task as failed when loading project tasks', async () => {
+      const taskId = 'stale-questionnaire-task-id'
+      aiTaskRepo.find = jest.fn().mockResolvedValue([
+        {
+          id: taskId,
+          projectId: mockProjectId,
+          type: 'questionnaire',
+          status: 'processing',
+          generationStage: 'generating_models',
+          input: { matrixTaskId: mockMatrixTaskId },
+          result: null,
+          createdAt: new Date(Date.now() - 120 * 60000).toISOString(),
+          updatedAt: new Date(Date.now() - 45 * 60000).toISOString(),
+          clusterGenerationStatus: {
+            totalClusters: 2,
+            completedClusters: ['cluster_1__row_1'],
+            failedClusters: [],
+            pendingClusters: ['cluster_2__row_2'],
+            clusterProgress: {
+              cluster_1__row_1: {
+                clusterId: 'cluster_1__row_1',
+                clusterName: '聚类1',
+                status: 'completed',
+                questionsGenerated: 5,
+                questionsExpected: 5,
+              },
+              cluster_2__row_2: {
+                clusterId: 'cluster_2__row_2',
+                clusterName: '聚类2',
+                status: 'generating',
+                questionsGenerated: 0,
+                questionsExpected: 5,
+              },
+            },
+          },
+        },
+      ])
+
+      const tasks = await service.getTasksByProject(mockProjectId)
+
+      expect(tasks[0].status).toBe('failed')
+      expect(tasks[0].generationStage).toBe('failed')
+      expect(tasks[0].errorMessage).toContain('问卷生成任务已中断')
+      expect(tasks[0].clusterGenerationStatus?.pendingClusters).toEqual([
+        'cluster_1__row_1',
+        'cluster_2__row_2',
+      ])
+      expect(aiTaskRepo.update).toHaveBeenCalledWith(
+        taskId,
+        expect.objectContaining({
+          status: 'failed',
+          generationStage: 'failed',
+          errorMessage: expect.stringContaining('问卷生成任务已中断'),
+        }),
+      )
+    })
+
+    it('should not report completed questionnaire clusters when failed task has no persisted questions', async () => {
+      aiTaskRepo.find = jest.fn().mockResolvedValue([
+        {
+          id: 'failed-with-progress-only',
+          projectId: mockProjectId,
+          type: 'questionnaire',
+          status: 'failed',
+          generationStage: 'failed',
+          input: { matrixTaskId: mockMatrixTaskId },
+          result: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          clusterGenerationStatus: {
+            totalClusters: 2,
+            completedClusters: ['cluster_1__row_1'],
+            failedClusters: [],
+            pendingClusters: ['cluster_2__row_2'],
+            clusterProgress: {
+              cluster_1__row_1: {
+                clusterId: 'cluster_1__row_1',
+                clusterName: '聚类1',
+                status: 'completed',
+                questionsGenerated: 5,
+                questionsExpected: 5,
+              },
+              cluster_2__row_2: {
+                clusterId: 'cluster_2__row_2',
+                clusterName: '聚类2',
+                status: 'generating',
+                questionsGenerated: 0,
+                questionsExpected: 5,
+              },
+            },
+          },
+        },
+      ])
+
+      const tasks = await service.getTasksByProject(mockProjectId)
+
+      expect(tasks[0].clusterGenerationStatus?.completedClusters).toEqual([])
+      expect(tasks[0].clusterGenerationStatus?.failedClusters).toEqual([])
+      expect(tasks[0].clusterGenerationStatus?.pendingClusters).toEqual([
+        'cluster_1__row_1',
+        'cluster_2__row_2',
+      ])
+      expect(tasks[0].clusterGenerationStatus?.clusterProgress.cluster_1__row_1.status).toBe(
+        'pending',
+      )
+      expect(
+        tasks[0].clusterGenerationStatus?.clusterProgress.cluster_1__row_1.questionsGenerated,
+      ).toBe(0)
     })
   })
 })

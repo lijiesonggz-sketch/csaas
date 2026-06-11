@@ -2,8 +2,9 @@ export type CoverageGranularity = 'leaf_requirement' | 'article' | 'section' | '
 
 const CHINESE_ARTICLE_PATTERN = /第[零一二三四五六七八九十百千万\d]+条/g
 const CHINESE_STRUCTURAL_PATTERN = /第[零一二三四五六七八九十百千万\d]+[章节篇]/g
-const NUMERIC_SECTION_PATTERN = /^\d{1,2}(?:\.\d{1,2}){1,3}$/
-const NUMERIC_LEAF_PATTERN = /^\d{1,2}(?:\.\d{1,2}){1,3}-[a-z](?:-\d{1,2})?$/
+const STRUCTURED_SECTION_ID_SOURCE = String.raw`(?:\d{1,2}(?:\.\d{1,2}){1,3}|[A-Z](?:\.\d{1,2}){1,4})`
+const STRUCTURED_SECTION_PATTERN = new RegExp(`^${STRUCTURED_SECTION_ID_SOURCE}$`)
+const STRUCTURED_LEAF_PATTERN = new RegExp(`^${STRUCTURED_SECTION_ID_SOURCE}-[a-z](?:-\\d{1,2})?$`)
 
 export interface StructuredLeafRequirement {
   id: string
@@ -20,6 +21,11 @@ export interface StructuredRequirementSection {
   requirements: StructuredLeafRequirement[]
 }
 
+export interface ClauseInventoryItem {
+  id: string
+  text: string
+}
+
 export function normalizeClauseId(value: string): string {
   if (!value) {
     return value
@@ -33,20 +39,26 @@ export function normalizeClauseId(value: string): string {
     .trim()
 
   const alreadyCanonicalLeaf = compact.match(
-    /^(\d{1,2}(?:\.\d{1,2}){1,3})-([a-zA-Z])(?:-(\d{1,2}))?$/,
+    new RegExp(`^(${STRUCTURED_SECTION_ID_SOURCE})-([a-zA-Z])(?:-(\\d{1,2}))?$`, 'i'),
   )
   if (alreadyCanonicalLeaf) {
-    return [alreadyCanonicalLeaf[1], alreadyCanonicalLeaf[2].toLowerCase(), alreadyCanonicalLeaf[3]]
+    return [
+      normalizeSectionId(alreadyCanonicalLeaf[1]),
+      alreadyCanonicalLeaf[2].toLowerCase(),
+      alreadyCanonicalLeaf[3],
+    ]
       .filter(Boolean)
       .join('-')
   }
 
-  const leaf = compact.match(/^(\d{1,2}(?:\.\d{1,2}){1,3})([a-zA-Z])\)(?:(\d{1,2})\))?$/)
+  const leaf = compact.match(
+    new RegExp(`^(${STRUCTURED_SECTION_ID_SOURCE})([a-zA-Z])\\)(?:(\\d{1,2})\\))?$`, 'i'),
+  )
   if (leaf) {
-    return [leaf[1], leaf[2].toLowerCase(), leaf[3]].filter(Boolean).join('-')
+    return [normalizeSectionId(leaf[1]), leaf[2].toLowerCase(), leaf[3]].filter(Boolean).join('-')
   }
 
-  return compact
+  return normalizeSectionId(compact)
 }
 
 export function extractClauseIdsFromContent(content: string): string[] {
@@ -71,6 +83,35 @@ export function extractClauseIdsFromContent(content: string): string[] {
   return []
 }
 
+export function extractClauseInventoryFromContent(content: string): ClauseInventoryItem[] {
+  const structuredSections = extractStructuredLeafRequirementsFromContent(content)
+  const leafItems = structuredSections.flatMap((section) =>
+    section.requirements.map((requirement) => ({
+      id: normalizeClauseId(requirement.id),
+      text: formatInventoryText(requirement.text),
+    })),
+  )
+
+  if (leafItems.length > 0) {
+    return uniqueInventoryItems(leafItems)
+  }
+
+  const normalizedContent = normalizeDocumentText(content)
+  const articleItems = extractArticleInventory(normalizedContent)
+  if (articleItems.length > 0) {
+    return uniqueInventoryItems(articleItems)
+  }
+
+  const sectionItems = extractNumberedSectionsWithRawLines(content).map((section) => ({
+    id: normalizeClauseId(section.id),
+    text: formatInventoryText(
+      [`${section.id} ${section.title}`, ...section.lines.map((line) => line.raw)].join('\n'),
+    ),
+  }))
+
+  return uniqueInventoryItems(sectionItems)
+}
+
 export function extractStructuredLeafRequirementsFromContent(
   content: string,
 ): StructuredRequirementSection[] {
@@ -79,7 +120,9 @@ export function extractStructuredLeafRequirementsFromContent(
 
   return sections
     .map((section) => {
-      const requirements = extractLeafRequirementsFromStructuredSection(section)
+      const requirements = mergeDuplicateStructuredRequirements(
+        extractLeafRequirementsFromStructuredSection(section),
+      )
       const parentId = findNearestParentSectionId(section.id, titleBySectionId)
 
       return {
@@ -186,13 +229,14 @@ interface StructuredNumberedSection {
 }
 
 function normalizeDocumentText(content: string): string {
-  return (content || '')
+  const normalized = (content || '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .replace(/[．。]/g, '.')
     .replace(/[（]/g, '(')
     .replace(/[）]/g, ')')
-    .replace(/(\d+)\s*[.]\s*(\d+)/g, '$1.$2')
+
+  return normalizeDottedSectionSpacing(normalized)
 }
 
 function extractNumberedSections(content: string): NumberedSection[] {
@@ -211,6 +255,11 @@ function extractNumberedSections(content: string): NumberedSection[] {
         lines: [],
       }
       sections.push(current)
+      continue
+    }
+
+    if (isTopLevelNumberedHeading(line) || isAppendixBreakLine(line)) {
+      current = null
       continue
     }
 
@@ -242,7 +291,7 @@ function extractNumberedSectionsWithRawLines(content: string): StructuredNumbere
       continue
     }
 
-    if (isTopLevelNumberedHeading(normalized)) {
+    if (isTopLevelNumberedHeading(normalized) || isAppendixBreakLine(normalized)) {
       current = null
       continue
     }
@@ -264,7 +313,7 @@ function parseNumberedHeading(line: string): { id: string; title: string } | nul
     return null
   }
 
-  const match = line.match(/^(\d{1,2}(?:\.\d{1,2}){1,3})(?:\s+|$)(.*)$/)
+  const match = line.match(new RegExp(`^(${STRUCTURED_SECTION_ID_SOURCE})(?:\\s+|$)(.*)$`, 'i'))
   if (!match) {
     return null
   }
@@ -292,6 +341,10 @@ function isTopLevelNumberedHeading(line: string): boolean {
 
   const title = match[2].trim()
   return Boolean(title && !/^\d+$/.test(title))
+}
+
+function isAppendixBreakLine(line: string): boolean {
+  return /^附\s*录\s*[A-Z](?:\s|$)/i.test(line) || /^[A-Z]\s+附录(?:\s|$)/i.test(line)
 }
 
 function isDocumentArtifactLine(line: string): boolean {
@@ -426,6 +479,34 @@ function extractLeafRequirementsFromStructuredSection(
   return requirements
 }
 
+function mergeDuplicateStructuredRequirements(
+  requirements: StructuredLeafRequirement[],
+): StructuredLeafRequirement[] {
+  const merged: StructuredLeafRequirement[] = []
+  const byId = new Map<string, StructuredLeafRequirement>()
+
+  for (const requirement of requirements) {
+    const id = normalizeClauseId(requirement.id)
+    const normalizedRequirement = {
+      ...requirement,
+      id,
+    }
+    const existing = byId.get(id)
+
+    if (!existing) {
+      byId.set(id, normalizedRequirement)
+      merged.push(normalizedRequirement)
+      continue
+    }
+
+    if (normalizedRequirement.text && !existing.text.includes(normalizedRequirement.text)) {
+      existing.text = [existing.text, normalizedRequirement.text].filter(Boolean).join('\n')
+    }
+  }
+
+  return merged
+}
+
 function findNextLineIndex(
   lines: string[],
   startIndex: number,
@@ -494,12 +575,54 @@ function extractArticleIds(content: string): string[] {
   return Array.from(ids)
 }
 
+function extractArticleInventory(content: string): ClauseInventoryItem[] {
+  const matches = Array.from(content.matchAll(/第[零一二三四五六七八九十百千万\d]+[条章节篇]/g))
+
+  return matches.map((match, index) => {
+    const startIndex = match.index ?? 0
+    const nextMatch = matches[index + 1]
+    const endIndex = nextMatch?.index ?? content.length
+
+    return {
+      id: normalizeClauseId(match[0]),
+      text: formatInventoryText(content.substring(startIndex, endIndex)),
+    }
+  })
+}
+
+function formatInventoryText(text: string): string {
+  return (text || '')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function uniqueInventoryItems(items: ClauseInventoryItem[]): ClauseInventoryItem[] {
+  const byId = new Map<string, ClauseInventoryItem>()
+
+  for (const item of items) {
+    const id = normalizeClauseId(item.id)
+    if (id && !byId.has(id)) {
+      byId.set(id, {
+        id,
+        text: item.text,
+      })
+    }
+  }
+
+  return Array.from(byId.values())
+}
+
 function shouldUseGeneratedCoverageFallback(
   documentIds: string[],
   clusteredIds: string[],
 ): boolean {
   if (documentIds.length === 0) {
     return true
+  }
+
+  if (documentIds.some((id) => isLeafRequirementId(id) || isArticleId(id))) {
+    return false
   }
 
   return !clusteredIds.some(isStructuredRequirementId)
@@ -510,11 +633,11 @@ function isStructuredRequirementId(id: string): boolean {
 }
 
 function isLeafRequirementId(id: string): boolean {
-  return NUMERIC_LEAF_PATTERN.test(id)
+  return STRUCTURED_LEAF_PATTERN.test(normalizeClauseId(id))
 }
 
 function isSectionId(id: string): boolean {
-  return NUMERIC_SECTION_PATTERN.test(id)
+  return STRUCTURED_SECTION_PATTERN.test(normalizeClauseId(id))
 }
 
 function isArticleId(id: string): boolean {
@@ -535,6 +658,14 @@ function normalizeLine(line: string): string {
 
 function normalizeRawLine(line: string): string {
   return line.replace(/\t/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function normalizeDottedSectionSpacing(text: string): string {
+  return text.replace(/([A-Za-z0-9])\s*[.]\s*(?=\d)/g, '$1.')
+}
+
+function normalizeSectionId(value: string): string {
+  return value.replace(/^([a-zA-Z])(?=\.)/, (letter) => letter.toUpperCase())
 }
 
 function unique(values: string[]): string[] {

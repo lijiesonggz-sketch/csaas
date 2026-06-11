@@ -5,12 +5,18 @@
  * 要求：100%覆盖所有文档的条款，标注来源文档
  */
 
+import { extractClauseIdsFromContent } from '../utils/clause-id-utils'
+
 const CLUSTERING_PROMPT_TEMPLATE = `你是一名资深IT咨询师，专注于跨标准的条款聚类分析。请对以下多个标准文档进行三层结构的智能聚类分析，将相似的要求合并到同一类别中。
 
 **输入多个标准文档**：
 {{DOCUMENTS}}
 
+**必须覆盖的 canonical 条款ID清单**：
+{{CLAUSE_INVENTORY}}
+
 **重要提示**：请严格按照JSON格式输出，不要添加任何注释或markdown标记。确保JSON完整且格式正确。
+**source_document_id必须使用上方输入文档和canonical清单中的真实ID**，严禁自造或沿用示例占位符，例如doc_pboc、doc_nfra、doc_gbt、doc_iso27001、doc_djbh。
 
 **输出要求**：
 1. **三层结构要求**：必须输出完整的JSON格式（不要截断）：
@@ -118,8 +124,9 @@ const CLUSTERING_PROMPT_TEMPLATE = `你是一名资深IT咨询师，专注于跨
    - **第一层数量**：生成3-6个大归类（Categories），覆盖主要安全领域
    - **第二层数量**：不限制聚类（Clusters）数量，根据条款的实际相似性自然聚合，每个大类下可能有3-20个聚类不等
    - **跨文档合并相似要求**：如果多个文档有相似的条款（如ISO 27001的"建立安全策略"和等保2.0的"制定安全策略"），应该归入同一个聚类
-   - 确保**100%覆盖**所有文档的所有条款
-   - 避免条款交叉重复（每个条款只能出现在一个聚类中）
+   - 确保**100%覆盖**所有文档的所有canonical条款ID
+   - 避免条款交叉重复（每个canonical条款ID只能出现在一个聚类中）
+   - 输出前必须完成一次“canonical条款ID分配表”自检：每个canonical条款ID都已经被放入且只放入一个cluster.clauses[]
    - **聚类描述必须详细**：每个cluster的description字段必须详细描述该聚类合并了哪些要求，为什么合并，具体包含什么控制内容。这个描述后续会用于生成调研问卷、成熟度矩阵和改进建议，因此必须清晰、具体、完整（建议150-300字）
 
 3. **相似度判断标准**：
@@ -142,12 +149,15 @@ const CLUSTERING_PROMPT_TEMPLATE = `你是一名资深IT咨询师，专注于跨
 
 6. **条款ID和文档溯源**：
    - **必须保留原始条款ID**：每个条款的clause_id必须是原文档中的编号
+   - **必须使用上方 canonical 条款ID清单中的ID**：每个source_document_id下的clause_id必须逐字等于该文档清单中的某一个ID
+   - **source_document_id必须逐字等于输入中的真实文档ID**：只能从"文档N - ID: ..."或canonical清单的"source_document_id必须填写"中复制，不得输出doc_pboc、doc_nfra、doc_gbt等别名
+   - 对于GB/T等结构化标准，如果canonical清单给出的是"5.2-a"、"10.3-g-1"等叶子要求ID，不得改写为"A.1.1.1"等附录评估项编号
    - **必须标注来源文档**：source_document_id和source_document_name不能省略
    - clause_text是条款的内容摘要（80-150字），准确反映条款要求
 
 7. **覆盖率验证**：
    - 在生成结果前，**按文档分别检查**覆盖率
-   - 每个文档的所有条款都必须被分配到某个聚类
+   - 每个文档的canonical条款ID清单中的所有条款都必须被分配到某个聚类
    - missing_clause_ids列出该文档遗漏的条款ID
    - 计算overall.coverage_rate = clustered_clauses / total_clauses
 
@@ -156,6 +166,7 @@ const CLUSTERING_PROMPT_TEMPLATE = `你是一名资深IT咨询师，专注于跨
 - 聚类的核心价值是"合并相似要求"，不要简单地按文档分组
 - 每个聚类应该包含来自多个文档的相关条款（如果这些文档确实有相似要求的话）
 - 如果某个条款在所有文档中都是独特的（没有相似条款），它应该单独形成一个聚类或归入最相关的类别
+- 不允许只输出代表性条款；所有canonical条款ID都必须在categories[*].clusters[*].clauses中出现且只出现一次，不得把未列出的条款留给系统自动补齐
 - **不要过度限制聚类数量**：根据条款的实际相似性自然聚合，确保每个聚类的语义一致性
 - **聚类描述是关键**：描述质量直接影响后续问卷设计、成熟度矩阵生成和改进建议的质量`
 
@@ -180,5 +191,22 @@ ${doc.content}
     )
     .join('\n\n')
 
-  return CLUSTERING_PROMPT_TEMPLATE.replace('{{DOCUMENTS}}', documentsText)
+  const clauseInventoryText = documents
+    .map((doc, index) => {
+      const clauseIds = extractClauseIdsFromContent(doc.content)
+
+      return [
+        `文档${index + 1} - ID: ${doc.id}`,
+        `文档名称: ${doc.name}`,
+        `source_document_id必须填写: ${doc.id}`,
+        `canonical_clause_count: ${clauseIds.length}`,
+        `canonical_clause_ids: ${clauseIds.join(', ') || '未识别到结构化条款ID'}`,
+      ].join('\n')
+    })
+    .join('\n\n')
+
+  return CLUSTERING_PROMPT_TEMPLATE.replace('{{DOCUMENTS}}', documentsText).replace(
+    '{{CLAUSE_INVENTORY}}',
+    clauseInventoryText,
+  )
 }

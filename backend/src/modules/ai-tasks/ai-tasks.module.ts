@@ -9,6 +9,7 @@ import { TasksGateway } from './gateways/tasks.gateway'
 import { CostMonitoringService } from './services/cost-monitoring.service'
 import { AITask } from '../../database/entities/ai-task.entity'
 import { AIGenerationEvent } from '../../database/entities/ai-generation-event.entity'
+import { AIGenerationResult } from '../../database/entities/ai-generation-result.entity'
 import { AICostTracking } from '../../database/entities/ai-cost-tracking.entity'
 import { Project } from '../../database/entities/project.entity'
 import { StandardDocument } from '../../database/entities/standard-document.entity'
@@ -23,6 +24,7 @@ import { ResultAggregationModule } from '../result-aggregation/result-aggregatio
     TypeOrmModule.forFeature([
       AITask,
       AIGenerationEvent,
+      AIGenerationResult,
       AICostTracking,
       Project,
       StandardDocument,

@@ -114,12 +114,7 @@ export class PeerContentAnalyzerService {
       this.logger.warn(
         `Low confidence detected for RawContent ${rawContentId}, score: ${validationReport.overallScore}`,
       )
-      return this.handleLowConfidence(
-        rawContentId,
-        rawContent,
-        validationReport,
-        modelResults,
-      )
+      return this.handleLowConfidence(rawContentId, rawContent, validationReport, modelResults)
     }
 
     // 7. 聚合结果
@@ -175,7 +170,9 @@ export class PeerContentAnalyzerService {
       (r) => r !== null,
     ).length
 
-    this.logger.log(`Model results: GPT-4=${gpt4Result ? 'OK' : 'FAIL'}, Claude=${claudeResult ? 'OK' : 'FAIL'}, Tongyi=${tongyiResult ? 'OK' : 'FAIL'} (${successfulCount}/3)`)
+    this.logger.log(
+      `Model results: DeepSeek=${gpt4Result ? 'OK' : 'FAIL'}, Claude=${claudeResult ? 'OK' : 'FAIL'}, Tongyi=${tongyiResult ? 'OK' : 'FAIL'} (${successfulCount}/3)`,
+    )
 
     return {
       gpt4: gpt4Result,
@@ -215,7 +212,8 @@ export class PeerContentAnalyzerService {
     content: string,
   ): Promise<PeerContentAnalysisResult | null> {
     try {
-      const aiModel = model === 'gpt4' ? AIModel.GPT4 : model === 'claude' ? AIModel.CLAUDE : AIModel.DOMESTIC
+      const aiModel =
+        model === 'gpt4' ? AIModel.GPT4 : model === 'claude' ? AIModel.CLAUDE : AIModel.DOMESTIC
 
       const response = await this.aiOrchestrator.generate(
         {
@@ -358,11 +356,17 @@ export class PeerContentAnalyzerService {
       contentId: rawContentId,
       peerName: rawContent.peerName || '未知机构',
       practiceDescription: selectedResult.practiceDescription,
-      estimatedCost: selectedResult.estimatedCost === '未提及' ? null : selectedResult.estimatedCost,
-      implementationPeriod: selectedResult.implementationPeriod === '未提及' ? null : selectedResult.implementationPeriod,
-      technicalEffect: selectedResult.technicalEffect === '未提及' ? null : selectedResult.technicalEffect,
+      estimatedCost:
+        selectedResult.estimatedCost === '未提及' ? null : selectedResult.estimatedCost,
+      implementationPeriod:
+        selectedResult.implementationPeriod === '未提及'
+          ? null
+          : selectedResult.implementationPeriod,
+      technicalEffect:
+        selectedResult.technicalEffect === '未提及' ? null : selectedResult.technicalEffect,
       keyTechnologies: selectedResult.keyTechnologies,
-      applicableScenarios: selectedResult.applicableScenarios === '未提及' ? null : selectedResult.applicableScenarios,
+      applicableScenarios:
+        selectedResult.applicableScenarios === '未提及' ? null : selectedResult.applicableScenarios,
       categories: selectedResult.categories,
       keywords: selectedResult.keywords,
       targetAudience: selectedResult.targetAudience,
@@ -416,11 +420,17 @@ export class PeerContentAnalyzerService {
       contentId: rawContentId,
       peerName: rawContent.peerName || '未知机构',
       practiceDescription: fallbackResult.practiceDescription,
-      estimatedCost: fallbackResult.estimatedCost === '未提及' ? null : fallbackResult.estimatedCost,
-      implementationPeriod: fallbackResult.implementationPeriod === '未提及' ? null : fallbackResult.implementationPeriod,
-      technicalEffect: fallbackResult.technicalEffect === '未提及' ? null : fallbackResult.technicalEffect,
+      estimatedCost:
+        fallbackResult.estimatedCost === '未提及' ? null : fallbackResult.estimatedCost,
+      implementationPeriod:
+        fallbackResult.implementationPeriod === '未提及'
+          ? null
+          : fallbackResult.implementationPeriod,
+      technicalEffect:
+        fallbackResult.technicalEffect === '未提及' ? null : fallbackResult.technicalEffect,
       keyTechnologies: fallbackResult.keyTechnologies,
-      applicableScenarios: fallbackResult.applicableScenarios === '未提及' ? null : fallbackResult.applicableScenarios,
+      applicableScenarios:
+        fallbackResult.applicableScenarios === '未提及' ? null : fallbackResult.applicableScenarios,
       categories: fallbackResult.categories,
       keywords: fallbackResult.keywords,
       targetAudience: fallbackResult.targetAudience,

@@ -26,6 +26,8 @@ import { ClusteringGenerator } from '../../ai-generation/generators/clustering.g
 import { MatrixGenerator } from '../../ai-generation/generators/matrix.generator'
 import { QuestionnaireGenerator } from '../../ai-generation/generators/questionnaire.generator'
 import { StandardInterpretationGenerator } from '../../ai-generation/generators/standard-interpretation.generator'
+import { VersionCompareGenerator } from '../../ai-generation/generators/version-compare.generator'
+import { CrossStandardGenerator } from '../../ai-generation/generators/cross-standard.generator'
 import { QualityValidationService } from '../../quality-validation/quality-validation.service'
 import { ResultAggregatorService } from '../../result-aggregation/result-aggregator.service'
 
@@ -43,6 +45,55 @@ function getModelProgressField(model: string): string {
     default:
       return 'current'
   }
+}
+
+function getDisplayModelName(model: string): string {
+  switch ((model || '').toLowerCase()) {
+    case 'gpt4':
+    case 'gpt-4':
+      return 'DeepSeek'
+    case 'claude':
+      return 'Claude'
+    case 'domestic':
+    case 'tongyi':
+      return 'Tongyi'
+    default:
+      return model
+  }
+}
+
+function buildQuestionnaireMatrixRowKey(cluster: any, index: number): string {
+  const base = String(cluster?.cluster_id || cluster?.id || 'cluster').trim() || 'cluster'
+  return `${base}__row_${index + 1}`
+}
+
+function syncQuestionnaireClusterStatusLists(clusterStatus: {
+  completedClusters: string[]
+  failedClusters: string[]
+  pendingClusters: string[]
+  clusterProgress: Record<string, any>
+}) {
+  const completedClusters: string[] = []
+  const failedClusters: string[] = []
+  const pendingClusters: string[] = []
+
+  for (const progress of Object.values(clusterStatus.clusterProgress)) {
+    if (progress.status === 'completed') {
+      completedClusters.push(progress.clusterId)
+    } else if (progress.status === 'failed') {
+      failedClusters.push(progress.clusterId)
+    } else {
+      pendingClusters.push(progress.clusterId)
+    }
+  }
+
+  clusterStatus.completedClusters = completedClusters
+  clusterStatus.failedClusters = failedClusters
+  clusterStatus.pendingClusters = pendingClusters
+}
+
+function cloneQuestionnaireClusterStatus<T>(clusterStatus: T): T {
+  return JSON.parse(JSON.stringify(clusterStatus))
 }
 
 @Processor(AI_TASK_QUEUE, {
@@ -73,6 +124,8 @@ export class AITaskProcessor extends WorkerHost {
     private readonly matrixGenerator: MatrixGenerator,
     private readonly questionnaireGenerator: QuestionnaireGenerator,
     private readonly standardInterpretationGenerator: StandardInterpretationGenerator,
+    private readonly versionCompareGenerator: VersionCompareGenerator,
+    private readonly crossStandardGenerator: CrossStandardGenerator,
     private readonly qualityValidation: QualityValidationService,
     private readonly resultAggregator: ResultAggregatorService,
     private readonly eventEmitter: EventEmitter2,
@@ -82,7 +135,9 @@ export class AITaskProcessor extends WorkerHost {
 
   async process(job: Job<AITaskJobData>): Promise<AITaskJobResult> {
     const { taskId, type, input, model, projectId } = job.data
-    this.logger.log(`Processing AI task ${taskId}, type: ${type}, model: ${model}`)
+    this.logger.log(
+      `Processing AI task ${taskId}, type: ${type}, model: ${getDisplayModelName(model)}`,
+    )
 
     const startTime = Date.now()
     const modelField = getModelProgressField(model) // 获取对应的进度字段名
@@ -238,7 +293,7 @@ export class AITaskProcessor extends WorkerHost {
         })
 
         this.logger.log(
-          `Aggregation completed: selected=${aggregationOutput.selectedModel}, confidence=${aggregationOutput.confidenceLevel}`,
+          `Aggregation completed: selected=${getDisplayModelName(aggregationOutput.selectedModel)}, confidence=${aggregationOutput.confidenceLevel}`,
         )
 
         executionTimeMs = Date.now() - startTime
@@ -306,7 +361,7 @@ export class AITaskProcessor extends WorkerHost {
         })
 
         this.logger.log(
-          `Clustering workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${aggregationOutput.selectedModel}`,
+          `Clustering workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${getDisplayModelName(aggregationOutput.selectedModel)}`,
         )
       } else if (type === 'matrix') {
         // ✅ 特殊处理：matrix类型使用MatrixGenerator（三模型并行）
@@ -419,7 +474,7 @@ export class AITaskProcessor extends WorkerHost {
         })
 
         this.logger.log(
-          `Aggregation completed: selected=${aggregationOutput.selectedModel}, confidence=${aggregationOutput.confidenceLevel}`,
+          `Aggregation completed: selected=${getDisplayModelName(aggregationOutput.selectedModel)}, confidence=${aggregationOutput.confidenceLevel}`,
         )
 
         executionTimeMs = Date.now() - startTime
@@ -484,7 +539,7 @@ export class AITaskProcessor extends WorkerHost {
         })
 
         this.logger.log(
-          `Matrix workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${aggregationOutput.selectedModel}`,
+          `Matrix workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${getDisplayModelName(aggregationOutput.selectedModel)}`,
         )
       } else if (type === 'questionnaire') {
         // ✅ 特殊处理：questionnaire类型使用QuestionnaireGenerator（三模型并行）
@@ -533,20 +588,43 @@ export class AITaskProcessor extends WorkerHost {
         }
         this.logger.log(`Loaded matrix result with ${matrixResult.matrix?.length || 0} clusters`)
 
-        // ✅ 初始化聚类生成状态
-        const totalClusters = matrixResult.matrix.length
+        const matrixRows = Array.isArray(matrixResult.matrix) ? matrixResult.matrix : []
+        const targetClusterIds = Array.isArray(processedInput.targetClusters)
+          ? new Set(processedInput.targetClusters.map((id: any) => String(id)))
+          : null
+        const keyedMatrixRows = matrixRows.map((cluster: any, index: number) => ({
+          cluster,
+          originalIndex: index,
+          key: buildQuestionnaireMatrixRowKey(cluster, index),
+        }))
+        const rowsToGenerate =
+          targetClusterIds && targetClusterIds.size > 0
+            ? keyedMatrixRows.filter(
+                ({ cluster, key }) =>
+                  targetClusterIds.has(key) ||
+                  (cluster?.cluster_id && targetClusterIds.has(String(cluster.cluster_id))),
+              )
+            : keyedMatrixRows
+
+        if (rowsToGenerate.length === 0) {
+          throw new Error('No matrix rows matched questionnaire targetClusters')
+        }
+
+        // ✅ 初始化聚类生成状态。matrix 行的 cluster_id 可能重复，进度必须用行级唯一 key。
+        const totalClusters = rowsToGenerate.length
         const clusterStatus = {
           totalClusters,
           completedClusters: [] as string[],
           failedClusters: [] as string[],
-          pendingClusters: matrixResult.matrix.map((c: any) => c.cluster_id),
+          pendingClusters: rowsToGenerate.map(({ key }) => key),
           clusterProgress: {} as Record<string, any>,
         }
 
         // 初始化所有聚类的状态
-        matrixResult.matrix.forEach((cluster: any) => {
-          clusterStatus.clusterProgress[cluster.cluster_id] = {
-            clusterId: cluster.cluster_id,
+        rowsToGenerate.forEach(({ cluster, key }) => {
+          clusterStatus.clusterProgress[key] = {
+            clusterId: key,
+            sourceClusterId: cluster.cluster_id,
             clusterName: cluster.cluster_name,
             status: 'pending',
             questionsGenerated: 0,
@@ -555,12 +633,15 @@ export class AITaskProcessor extends WorkerHost {
         })
 
         await this.aiTaskRepo.update(taskId, {
-          clusterGenerationStatus: clusterStatus,
+          clusterGenerationStatus: cloneQuestionnaireClusterStatus(clusterStatus),
         })
 
         // 准备输入
         const questionnaireInput = {
-          matrixResult,
+          matrixResult: {
+            ...matrixResult,
+            matrix: rowsToGenerate.map(({ cluster }) => cluster),
+          },
           temperature: 0.7,
           maxTokens: 8000,
         }
@@ -576,8 +657,9 @@ export class AITaskProcessor extends WorkerHost {
             const percentage = 30 + Math.floor((progress.current / progress.total) * 60)
 
             // ✅ 更新聚类生成状态
-            if (progress.currentClusterId) {
-              const currentCluster = clusterStatus.clusterProgress[progress.currentClusterId]
+            const currentRow = rowsToGenerate[progress.current - 1]
+            if (currentRow) {
+              const currentCluster = clusterStatus.clusterProgress[currentRow.key]
               if (currentCluster) {
                 currentCluster.status = 'generating'
                 currentCluster.startedAt = new Date().toISOString()
@@ -586,20 +668,21 @@ export class AITaskProcessor extends WorkerHost {
               // 更新已完成的聚类
               if (progress.current > 1) {
                 const prevClusterIndex = progress.current - 2
-                if (prevClusterIndex >= 0 && prevClusterIndex < matrixResult.matrix.length) {
-                  const prevCluster = matrixResult.matrix[prevClusterIndex]
-                  const prevClusterStatus = clusterStatus.clusterProgress[prevCluster.cluster_id]
+                if (prevClusterIndex >= 0 && prevClusterIndex < rowsToGenerate.length) {
+                  const prevClusterRow = rowsToGenerate[prevClusterIndex]
+                  const prevClusterStatus = clusterStatus.clusterProgress[prevClusterRow.key]
                   if (prevClusterStatus && prevClusterStatus.status !== 'completed') {
                     prevClusterStatus.status = 'completed'
                     prevClusterStatus.questionsGenerated = 5
                     prevClusterStatus.completedAt = new Date().toISOString()
-                    clusterStatus.completedClusters.push(prevCluster.cluster_id)
                   }
                 }
               }
 
+              syncQuestionnaireClusterStatusLists(clusterStatus)
+
               await this.aiTaskRepo.update(taskId, {
-                clusterGenerationStatus: clusterStatus,
+                clusterGenerationStatus: cloneQuestionnaireClusterStatus(clusterStatus),
               })
             }
 
@@ -618,11 +701,9 @@ export class AITaskProcessor extends WorkerHost {
             cp.status = 'completed'
             cp.questionsGenerated = 5
             cp.completedAt = new Date().toISOString()
-            if (!clusterStatus.completedClusters.includes(cp.clusterId)) {
-              clusterStatus.completedClusters.push(cp.clusterId)
-            }
           }
         })
+        syncQuestionnaireClusterStatusLists(clusterStatus)
 
         // Step 2: 质量验证
         this.logger.log(`Step 2/3: Validating quality of 3 models...`)
@@ -657,10 +738,11 @@ export class AITaskProcessor extends WorkerHost {
           claudeResult: questionnaireResults.claude,
           domesticResult: questionnaireResults.domestic,
           validationReport,
+          matrixResult: questionnaireInput.matrixResult,
         })
 
         this.logger.log(
-          `Aggregation completed: selected=${aggregationOutput.selectedModel}, confidence=${aggregationOutput.confidenceLevel}`,
+          `Aggregation completed: selected=${getDisplayModelName(aggregationOutput.selectedModel)}, confidence=${aggregationOutput.confidenceLevel}`,
         )
 
         executionTimeMs = Date.now() - startTime
@@ -690,7 +772,7 @@ export class AITaskProcessor extends WorkerHost {
         await this.aiTaskRepo.update(taskId, {
           generationStage: GenerationStage.COMPLETED,
           progressDetails: modelProgress,
-          clusterGenerationStatus: clusterStatus, // ✅ 保存最终状态
+          clusterGenerationStatus: cloneQuestionnaireClusterStatus(clusterStatus), // ✅ 保存最终状态
         })
 
         // 构造响应（只返回聚合后的最佳结果）
@@ -726,12 +808,13 @@ export class AITaskProcessor extends WorkerHost {
         })
 
         this.logger.log(
-          `Questionnaire workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${aggregationOutput.selectedModel}`,
+          `Questionnaire workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${getDisplayModelName(aggregationOutput.selectedModel)}`,
         )
       } else if (
         type === 'standard_interpretation' ||
         type === 'standard_related_search' ||
-        type === 'standard_version_compare'
+        type === 'standard_version_compare' ||
+        type === 'standard_cross_compare'
       ) {
         // 标准解读相关任务：使用三模型并行处理
         this.logger.log(
@@ -894,12 +977,80 @@ export class AITaskProcessor extends WorkerHost {
             maxTokens: 10000,
           })
         } else if (type === 'standard_version_compare') {
-          // 版本比对
-          generatorResults = await this.standardInterpretationGenerator.compareVersions({
-            oldVersion: processedInput.oldVersion,
-            newVersion: processedInput.newVersion,
-            temperature: 0.7,
-            maxTokens: 12000,
+          // 版本比对（增强版：程序化条款对齐 + 仅变更部分调 AI，无截断）
+          // 支持 documents（来自 documentIds 自动加载）或显式 oldVersion/newVersion
+          const oldVersion =
+            processedInput.oldVersion ||
+            (Array.isArray(processedInput.documents) ? processedInput.documents[0] : null)
+          const newVersion =
+            processedInput.newVersion ||
+            (Array.isArray(processedInput.documents) ? processedInput.documents[1] : null)
+
+          if (!oldVersion || !newVersion) {
+            throw new Error('版本比对需要提供两个文档（oldVersion/newVersion 或 documentIds）')
+          }
+
+          generatorResults = await this.versionCompareGenerator.compareVersionsEnhanced({
+            oldVersion,
+            newVersion,
+            temperature: 0.3,
+            onProgress: async (progress) => {
+              this.logger.log(
+                `[VersionCompare ${progress.batch}/${progress.totalBatches || '?'}] ${progress.message}`,
+              )
+              const progressDetails: any = {
+                gpt4: { status: 'generating' },
+                percentage: progress.current,
+                stage: 'comparing_versions',
+                stageMessage: progress.message,
+                currentBatch: progress.batch,
+                totalBatches: progress.totalBatches,
+              }
+              await this.aiTaskRepo.update(taskId, {
+                progressDetails,
+                generationStage: GenerationStage.GENERATING_MODELS,
+              })
+              this.tasksGateway.emitTaskProgress({
+                taskId,
+                progress: progress.current,
+                message: progress.message,
+                currentStep: 'comparing_versions',
+              })
+            },
+          })
+        } else if (type === 'standard_cross_compare') {
+          // 多标准交叉分析（冲突检测 + 就高基线）
+          const documents = Array.isArray(processedInput.documents) ? processedInput.documents : []
+          if (documents.length < 2) {
+            throw new Error('多标准交叉分析需要至少2个文档（通过 documentIds 提供）')
+          }
+
+          generatorResults = await this.crossStandardGenerator.generate({
+            documents,
+            temperature: 0.3,
+            onProgress: async (progress) => {
+              this.logger.log(
+                `[CrossCompare ${progress.batch}/${progress.totalBatches || '?'}] ${progress.message}`,
+              )
+              const progressDetails: any = {
+                gpt4: { status: 'generating' },
+                percentage: progress.current,
+                stage: 'cross_comparing',
+                stageMessage: progress.message,
+                currentBatch: progress.batch,
+                totalBatches: progress.totalBatches,
+              }
+              await this.aiTaskRepo.update(taskId, {
+                progressDetails,
+                generationStage: GenerationStage.GENERATING_MODELS,
+              })
+              this.tasksGateway.emitTaskProgress({
+                taskId,
+                progress: progress.current,
+                message: progress.message,
+                currentStep: 'cross_comparing',
+              })
+            },
           })
         }
 
@@ -927,7 +1078,7 @@ export class AITaskProcessor extends WorkerHost {
         })
 
         this.logger.log(
-          `Aggregation completed: selected=${aggregationOutput.selectedModel}, confidence=${aggregationOutput.confidenceLevel}`,
+          `Aggregation completed: selected=${getDisplayModelName(aggregationOutput.selectedModel)}, confidence=${aggregationOutput.confidenceLevel}`,
         )
 
         executionTimeMs = Date.now() - startTime
@@ -992,7 +1143,7 @@ export class AITaskProcessor extends WorkerHost {
         })
 
         this.logger.log(
-          `${type} workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${aggregationOutput.selectedModel}`,
+          `${type} workflow completed in ${executionTimeMs}ms: 3 models generated → validated → aggregated to ${getDisplayModelName(aggregationOutput.selectedModel)}`,
         )
       } else {
         // 其他类型：使用原有的单模型逻辑
@@ -1026,6 +1177,7 @@ export class AITaskProcessor extends WorkerHost {
         'standard_interpretation',
         'standard_related_search',
         'standard_version_compare',
+        'standard_cross_compare',
       ].includes(type)
       if (!isMultiModelTask && event) {
         // 更新生成事件 - 完成
@@ -1094,7 +1246,7 @@ export class AITaskProcessor extends WorkerHost {
       // ✅ 根据任务类型输出不同的日志
       if (isMultiModelTask) {
         this.logger.log(
-          `AI task ${taskId} (${type}) completed in ${executionTimeMs}ms with 3 models (GPT-4, Claude, Domestic)`,
+          `AI task ${taskId} (${type}) completed in ${executionTimeMs}ms with 3 models (DeepSeek, Claude, Domestic)`,
         )
       } else {
         this.logger.log(

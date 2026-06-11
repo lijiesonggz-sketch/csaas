@@ -289,7 +289,7 @@ export class AnalyzedContent {
 
   /**
    * 最终选择的模型（Story 8.3）
-   * 优先级：GPT4 > Claude > Tongyi
+   * 优先级：DeepSeek（兼容历史 gpt4 key） > Claude > Tongyi
    */
   @Column({
     type: 'enum',

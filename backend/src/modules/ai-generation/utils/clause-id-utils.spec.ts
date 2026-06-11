@@ -118,6 +118,71 @@ describe('clause-id-utils requirement inventory extraction', () => {
     )
   })
 
+  it('extracts appendix leaf requirements under their original appendix section ids', () => {
+    const content = [
+      '10.3 残余风险分析',
+      '评估人员根据数据处理者决定的风险处置措施，形成记录。',
+      '附 录 A',
+      '(规范性)',
+      '数据安全风险识别内容',
+      'A. 1 数据安全管理',
+      'A. 1. 1 安全管理制度',
+      'A. 1. 1. 1 数据安全制度体系',
+      '针对数据安全制度体系建设情况，应重点评估如下方面:',
+      'a) 数据安全总体策略、方针、目标和原则制定情况;',
+      'd) 关键岗位的数据安全管理操作规程建设情况;',
+      'A. 1. 1. 2 数据安全制度落实',
+      '针对被评估方数据安全制度落实情况，应重点评估如下方面。',
+      'a) 网络安全责任制、数据安全责任制落实情况。',
+      'g) 针对重要数据处理者，还应评估以下内容。',
+      '1) 对数据处理活动定期开展数据安全风险评估的情况。',
+      '2) 向有关部门报送评估报告情况。',
+    ].join('\n')
+
+    expect(extractClauseIdsFromContent(content)).toEqual([
+      'A.1.1.1-a',
+      'A.1.1.1-d',
+      'A.1.1.2-a',
+      'A.1.1.2-g-1',
+      'A.1.1.2-g-2',
+    ])
+    expect(normalizeClauseId('A.1.1.2 g) 2)')).toBe('A.1.1.2-g-2')
+
+    const sections = extractStructuredLeafRequirementsFromContent(content)
+    expect(sections.map((section) => section.id)).toEqual(['A.1.1.1', 'A.1.1.2'])
+    expect(sections[0]).toMatchObject({
+      id: 'A.1.1.1',
+      parentId: 'A.1.1',
+      parentTitle: '安全管理制度',
+    })
+    expect(
+      sections.flatMap((section) => section.requirements).map((requirement) => requirement.id),
+    ).toEqual(['A.1.1.1-a', 'A.1.1.1-d', 'A.1.1.2-a', 'A.1.1.2-g-1', 'A.1.1.2-g-2'])
+  })
+
+  it('merges duplicate leaf labels in the same section into one canonical requirement', () => {
+    const content = [
+      '5.3 数据安全风险评估原理',
+      '数据安全风险评估主要内容如下。',
+      'a) 风险识别:形成数据安全风险识别工作记录。',
+      '开展数据安全风险分析和评价时，可依据下列情形选择。',
+      'a) 数据处理者为满足自身风险防控需要开展评估时，风险分析和评价等步骤可选。',
+    ].join('\n')
+
+    const sections = extractStructuredLeafRequirementsFromContent(content)
+
+    expect(extractClauseIdsFromContent(content)).toEqual(['5.3-a'])
+    expect(sections).toHaveLength(1)
+    expect(sections[0].requirements).toHaveLength(1)
+    expect(sections[0].requirements[0]).toMatchObject({
+      id: '5.3-a',
+    })
+    expect(sections[0].requirements[0].text).toContain('a) 风险识别:形成数据安全风险识别工作记录。')
+    expect(sections[0].requirements[0].text).toContain(
+      'a) 数据处理者为满足自身风险防控需要开展评估时，风险分析和评价等步骤可选。',
+    )
+  })
+
   it('normalizes clustered child requirement ids before comparing coverage', () => {
     const documentIds = ['5.1.2-a', '5.1.2-b', '5.1.3-c-1', '5.1.3-c-2']
     const coverage = calculateCoverageFromClauseIds(documentIds, ['5.1.2 a)', '5.1.3 c) 2)'])
@@ -126,6 +191,15 @@ describe('clause-id-utils requirement inventory extraction', () => {
       total_clauses: 4,
       clustered_clauses: 2,
       missing_clause_ids: ['5.1.2-b', '5.1.3-c-1'],
+      coverage_granularity: 'leaf_requirement',
+    })
+  })
+
+  it('does not use generated fallback when leaf requirement ids are replaced by appendix ids', () => {
+    expect(calculateCoverageFromClauseIds(['5.2-a', '5.2-b'], ['A.1.1.1'])).toEqual({
+      total_clauses: 2,
+      clustered_clauses: 0,
+      missing_clause_ids: ['5.2-a', '5.2-b'],
       coverage_granularity: 'leaf_requirement',
     })
   })
@@ -140,6 +214,15 @@ describe('clause-id-utils requirement inventory extraction', () => {
       total_clauses: 2,
       clustered_clauses: 1,
       missing_clause_ids: ['第十一条'],
+      coverage_granularity: 'article',
+    })
+  })
+
+  it('does not use generated fallback when article ids are replaced by generated ids', () => {
+    expect(calculateCoverageFromClauseIds(['第一条', '第二条'], ['policy-summary-1'])).toEqual({
+      total_clauses: 2,
+      clustered_clauses: 0,
+      missing_clause_ids: ['第一条', '第二条'],
       coverage_granularity: 'article',
     })
   })

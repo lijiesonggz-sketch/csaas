@@ -63,6 +63,12 @@ describe('AITaskProcessor document loading', () => {
     const standardInterpretationGenerator = {
       generate: jest.fn(),
     }
+    const versionCompareGenerator = {
+      compareVersionsEnhanced: jest.fn(),
+    }
+    const crossStandardGenerator = {
+      generate: jest.fn(),
+    }
     const qualityValidation = {
       validateQuality: jest.fn().mockResolvedValue({
         overallScore: 0.91,
@@ -99,6 +105,8 @@ describe('AITaskProcessor document loading', () => {
       matrixGenerator,
       questionnaireGenerator,
       standardInterpretationGenerator,
+      versionCompareGenerator,
+      crossStandardGenerator,
       qualityValidation,
       resultAggregator,
       eventEmitter,
@@ -118,6 +126,8 @@ describe('AITaskProcessor document loading', () => {
       mocks.matrixGenerator as any,
       mocks.questionnaireGenerator as any,
       mocks.standardInterpretationGenerator as any,
+      mocks.versionCompareGenerator as any,
+      mocks.crossStandardGenerator as any,
       mocks.qualityValidation as any,
       mocks.resultAggregator as any,
       mocks.eventEmitter as any,
@@ -268,5 +278,108 @@ describe('AITaskProcessor document loading', () => {
         currentStep: 'generating_matrix',
       }),
     )
+  })
+
+  it('应该为重复 cluster_id 的问卷矩阵行生成唯一进度键并清理 pending 状态', async () => {
+    const questionnaireGenerator = {
+      generate: jest.fn(async (_input, onProgress) => {
+        await onProgress({
+          current: 1,
+          total: 3,
+          currentClusterId: 'category_5_1',
+          message: '正在生成第 1/3 个聚类的问卷: 5.1 战略规划',
+        })
+        await onProgress({
+          current: 2,
+          total: 3,
+          currentClusterId: 'category_5_1',
+          message: '正在生成第 2/3 个聚类的问卷: 5.1 战略规划',
+        })
+        await onProgress({
+          current: 3,
+          total: 3,
+          currentClusterId: 'category_5_2',
+          message: '正在生成第 3/3 个聚类的问卷: 5.2 战略实施',
+        })
+
+        return {
+          gpt4: {
+            questionnaire: [],
+            questionnaire_metadata: { total_questions: 0, coverage_map: {} },
+          },
+          claude: {
+            questionnaire: [],
+            questionnaire_metadata: { total_questions: 0, coverage_map: {} },
+          },
+          domestic: {
+            questionnaire: [],
+            questionnaire_metadata: { total_questions: 0, coverage_map: {} },
+          },
+        }
+      }),
+    }
+    const resultAggregator = {
+      aggregate: jest.fn().mockResolvedValue({
+        selectedModel: 'gpt4',
+        selectedResult: {
+          questionnaire: [],
+          questionnaire_metadata: { total_questions: 0, coverage_map: {} },
+        },
+        qualityScores: {},
+        confidenceLevel: 'high',
+        consistencyReport: {},
+      }),
+    }
+    const { processor, mocks } = createProcessor({
+      questionnaireGenerator,
+      resultAggregator,
+    })
+
+    mocks.aiTaskRepo.findOne.mockResolvedValue({
+      id: 'matrix-task-1',
+      result: {
+        matrix: [
+          { cluster_id: 'category_5_1', cluster_name: '5.1 战略规划', levels: {} },
+          { cluster_id: 'category_5_1', cluster_name: '5.1 战略规划', levels: {} },
+          { cluster_id: 'category_5_2', cluster_name: '5.2 战略实施', levels: {} },
+        ],
+      },
+    })
+
+    await processor.process({
+      data: {
+        taskId: 'questionnaire-task-1',
+        type: AITaskType.QUESTIONNAIRE,
+        projectId: 'project-1',
+        input: {
+          matrixTaskId: 'matrix-task-1',
+        },
+      },
+      updateProgress: jest.fn().mockResolvedValue(undefined),
+    } as any)
+
+    const clusterStatusUpdates = mocks.aiTaskRepo.update.mock.calls
+      .map((call) => call[1]?.clusterGenerationStatus)
+      .filter(Boolean)
+    const initialStatus = clusterStatusUpdates[0]
+    const finalStatus = clusterStatusUpdates[clusterStatusUpdates.length - 1]
+
+    expect(Object.keys(initialStatus.clusterProgress)).toEqual([
+      'category_5_1__row_1',
+      'category_5_1__row_2',
+      'category_5_2__row_3',
+    ])
+    expect(initialStatus.pendingClusters).toEqual([
+      'category_5_1__row_1',
+      'category_5_1__row_2',
+      'category_5_2__row_3',
+    ])
+    expect(finalStatus.completedClusters).toEqual([
+      'category_5_1__row_1',
+      'category_5_1__row_2',
+      'category_5_2__row_3',
+    ])
+    expect(finalStatus.pendingClusters).toEqual([])
+    expect(finalStatus.failedClusters).toEqual([])
   })
 })

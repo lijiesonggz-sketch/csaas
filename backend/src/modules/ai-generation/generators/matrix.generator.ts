@@ -219,7 +219,7 @@ export class MatrixGenerator {
     }
 
     this.logger.log(
-      `Matrix generation completed: GPT-4(${gpt4Rows.length}), Claude(${claudeRows.length}), Domestic(${domesticRows.length})`,
+      `Matrix generation completed: DeepSeek(${gpt4Rows.length}), Claude(${claudeRows.length}), Domestic(${domesticRows.length})`,
     )
 
     return {
@@ -337,18 +337,14 @@ export class MatrixGenerator {
   }
 
   private tryBuildCapabilityMaturityRow(category: any, cluster: any): MatrixRow | null {
-    const levels = this.createEmptyLevelBuckets()
     const clauses = Array.isArray(cluster.clauses) ? cluster.clauses : []
+    let levels = this.buildCapabilityLevelBucketsFromClauses(clauses)
 
-    for (const clause of clauses) {
-      const text = String(clause.clause_text || '')
-      const levelNumber = this.detectLevelNumberFromClause(clause)
-      if (!levelNumber) {
-        continue
+    if (this.countPopulatedLevels(levels) < 3) {
+      const recoveredLevels = this.tryBuildLevelsFromShiftedHeadings(clauses)
+      if (recoveredLevels && this.countPopulatedLevels(recoveredLevels) >= 3) {
+        levels = recoveredLevels
       }
-
-      levels[levelNumber].name = this.detectLevelName(text, levelNumber)
-      levels[levelNumber].clauses.push(clause)
     }
 
     if (this.countPopulatedLevels(levels) < 3) {
@@ -360,6 +356,59 @@ export class MatrixGenerator {
       cluster_name: category.name || cluster.name,
       levels: this.buildMatrixLevels(levels),
     }
+  }
+
+  private buildCapabilityLevelBucketsFromClauses(
+    clauses: any[],
+  ): Record<number, { name: string; clauses: any[] }> {
+    const levels = this.createEmptyLevelBuckets()
+    for (const clause of clauses) {
+      const text = String(clause.clause_text || '')
+      const levelNumber = this.detectLevelNumberFromClause(clause)
+      if (!levelNumber) {
+        continue
+      }
+
+      levels[levelNumber].name = this.detectLevelName(text, levelNumber)
+      levels[levelNumber].clauses.push(clause)
+    }
+
+    return levels
+  }
+
+  private tryBuildLevelsFromShiftedHeadings(
+    clauses: any[],
+  ): Record<number, { name: string; clauses: any[] }> | null {
+    const trailingHeadings = clauses
+      .map((clause) => this.detectTrailingLevelHeading(String(clause.clause_text || '')))
+      .filter(Boolean)
+
+    if (new Set(trailingHeadings.map((heading) => heading!.levelNumber)).size < 2) {
+      return null
+    }
+
+    const levels = this.createEmptyLevelBuckets()
+    let currentLevel = this.detectLevelNumberFromClause(clauses[0]) || 1
+
+    for (const clause of clauses) {
+      const text = String(clause.clause_text || '')
+      const trailingHeading = this.detectTrailingLevelHeading(text)
+      const clauseText = trailingHeading ? this.stripTrailingLevelHeading(text) : text
+
+      if (currentLevel) {
+        levels[currentLevel].name = ORIGINAL_MATURITY_LEVEL_NAMES[currentLevel]
+        levels[currentLevel].clauses.push({
+          ...clause,
+          clause_text: clauseText,
+        })
+      }
+
+      if (trailingHeading) {
+        currentLevel = trailingHeading.levelNumber
+      }
+    }
+
+    return levels
   }
 
   private createEmptyLevelBuckets(): Record<number, { name: string; clauses: any[] }> {
@@ -408,13 +457,19 @@ export class MatrixGenerator {
   }
 
   private isCapabilityLevelCluster(cluster: any): boolean {
+    if (this.isNonMaturityDefinitionCluster(cluster)) {
+      return false
+    }
+
     if (/能力等级标准|成熟度等级标准|等级标准/.test(cluster.name || '')) {
       return true
     }
 
     const clauses = Array.isArray(cluster.clauses) ? cluster.clauses : []
     const detectedLevels = new Set(
-      clauses.map((clause) => this.detectLevelNumberFromClause(clause)).filter(Boolean),
+      clauses
+        .map((clause) => this.detectLevelNumber(String(clause.clause_text || '')))
+        .filter(Boolean),
     )
 
     return detectedLevels.size >= 3
@@ -422,6 +477,11 @@ export class MatrixGenerator {
 
   private isProcessDescriptionCluster(cluster: any): boolean {
     return /过程描述/.test(cluster.name || '')
+  }
+
+  private isNonMaturityDefinitionCluster(cluster: any): boolean {
+    const title = `${cluster.name || ''} ${cluster.description || ''}`
+    return /(?:^|[.\s])(?:概述|过程描述|范围|术语|定义|参考文献|附录)(?:$|[.\s：:])/.test(title)
   }
 
   private countPopulatedLevels(levels: Record<number, { name: string; clauses: any[] }>): number {
@@ -471,6 +531,26 @@ export class MatrixGenerator {
       /(初始级|受管理级|可重复级|稳健级|已定义级|规范级|量化管理级|可管理级|优化级)/,
     )?.[1]
     return knownName || ORIGINAL_MATURITY_LEVEL_NAMES[levelNumber]
+  }
+
+  private detectTrailingLevelHeading(value: string): { levelNumber: number } | null {
+    const match = value
+      .replace(/\s+$/g, '')
+      .match(/第\s*([1-5一二三四五])\s*级\s*[，,、:：]\s*[^，,、:：；;。\n\s]*级\s*[:：]\s*$/)
+
+    if (!match) {
+      return null
+    }
+
+    const levelNumber = this.parseLevelNumber(match[1])
+    return levelNumber ? { levelNumber } : null
+  }
+
+  private stripTrailingLevelHeading(value: string): string {
+    return value.replace(
+      /\s*第\s*[1-5一二三四五]\s*级\s*[，,、:：]\s*[^，,、:：；;。\n\s]*级\s*[:：]\s*$/,
+      '',
+    )
   }
 
   private parseLevelNumber(value: string): number | null {
@@ -528,7 +608,7 @@ export class MatrixGenerator {
       responseFormat: { type: 'json_object' },
     }
 
-    // ⚠️ 临时禁用Claude模型，只使用GPT-4和Qwen（因为Claude API返回404）
+    // ⚠️ 临时禁用Claude模型，只使用DeepSeek（兼容 gpt4 槽位）和Qwen（因为Claude API返回404）
     // 并行调用两模型生成，添加超时控制
     this.logger.log(`Starting parallel generation with ${this.generationTimeout}ms timeout...`)
 
@@ -536,7 +616,7 @@ export class MatrixGenerator {
       this.addTimeout(
         this.generateWithModel(aiRequest, AIModel.GPT4),
         this.generationTimeout,
-        'GPT-4',
+        'DeepSeek',
       ),
       // ⚠️ Claude已禁用
       // this.addTimeout(
@@ -570,7 +650,7 @@ export class MatrixGenerator {
         const parsed = this.parseSingleClusterResponse(gpt4Response.content)
         gpt4Row = parsed
       } catch (error) {
-        this.logger.error(`Failed to parse GPT-4 single cluster response: ${error.message}`)
+        this.logger.error(`Failed to parse DeepSeek single cluster response: ${error.message}`)
       }
     }
 
@@ -595,14 +675,14 @@ export class MatrixGenerator {
       }
     }
 
-    // 如果所有模型都失败，抛出错误（只检查GPT-4和Qwen）
+    // 如果所有模型都失败，抛出错误（只检查DeepSeek和Qwen）
     if (!gpt4Row && !domesticRow) {
       throw new Error(
         `All available models failed to generate maturity for cluster: ${cluster.name}`,
       )
     }
 
-    // 使用成功的结果填充失败的模型（优先使用GPT-4，然后Qwen）
+    // 使用成功的结果填充失败的模型（优先使用DeepSeek，然后Qwen）
     const fallbackRow = gpt4Row || domesticRow
 
     return {
